@@ -14,7 +14,9 @@
         <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -50,7 +52,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../init.html">Initialize</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../embeddings/index.html">Embeddings</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Optimizers</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#adam-optimizer">Adam optimizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adam-optimizer">Adam optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.tf.keras.optimizers.adam.Adam"><code class="docutils literal notranslate"><span class="pre">Adam</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#local-update-adam-optimizer">Local update Adam optimizer</a></li>
 </ul>
 </li>
@@ -88,10 +93,10 @@
            <div itemprop="articleBody">
              
   <section id="sparseoperationkit-optimizers">
-<h1>SparseOperationKit Optimizers<a class="headerlink" href="#sparseoperationkit-optimizers" title="Permalink to this headline"></a></h1>
+<h1>SparseOperationKit Optimizers<a class="headerlink" href="#sparseoperationkit-optimizers" title="Permalink to this heading"></a></h1>
 <p>There are several optimized optimizers inside SOK.</p>
 <section id="adam-optimizer">
-<h2>Adam optimizer<a class="headerlink" href="#adam-optimizer" title="Permalink to this headline"></a></h2>
+<h2>Adam optimizer<a class="headerlink" href="#adam-optimizer" title="Permalink to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="sparse_operation_kit.tf.keras.optimizers.adam.Adam">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.tf.keras.optimizers.adam.</span></span><span class="sig-name descname"><span class="pre">Adam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/tf/keras/optimizers/adam.html#Adam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.tf.keras.optimizers.adam.Adam" title="Permalink to this definition"></a></dt>
@@ -108,17 +113,7 @@ for documentation.</p>
 
 </section>
 <section id="local-update-adam-optimizer">
-<h2>Local update Adam optimizer<a class="headerlink" href="#local-update-adam-optimizer" title="Permalink to this headline"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="sparse_operation_kit.tf.keras.optimizers.lazy_adam.LazyAdamOptimizer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.tf.keras.optimizers.lazy_adam.</span></span><span class="sig-name descname"><span class="pre">LazyAdamOptimizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/tf/keras/optimizers/lazy_adam.html#LazyAdamOptimizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.tf.keras.optimizers.lazy_adam.LazyAdamOptimizer" title="Permalink to this definition"></a></dt>
-<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.tf.keras.optimizers.LazyAdamOptimizer</span></code>.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">unique</span></code> and <code class="docutils literal notranslate"><span class="pre">unsorted_segment_sum</span></code> are replaced with GPU
-implementations.</p>
-<p>It is only available in TensorFlow 1.15. Although the name is <cite>LazyAdam</cite>,
-it actually updates variables locally.</p>
-</dd></dl>
-
+<h2>Local update Adam optimizer<a class="headerlink" href="#local-update-adam-optimizer" title="Permalink to this heading"></a></h2>
 </section>
 </section>
 
@@ -159,6 +154,8 @@ it actually updates variables locally.</p>
       <dd><a href="../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
       <dd><a href="../../../sok_v1.1.0/api/optimizers/opts.html">sok_v1.1.0</a></dd>
       <dd><a href="opts.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../sok_v1.1.2/api/optimizers/opts.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../sok_v1.1.4/api/optimizers/opts.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

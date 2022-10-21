@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -92,20 +94,20 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="dlrm-using-sparseoperationkit">
-<h1>DLRM using SparseOperationKit<a class="headerlink" href="#dlrm-using-sparseoperationkit" title="Permalink to this headline"></a></h1>
+<h1>DLRM using SparseOperationKit<a class="headerlink" href="#dlrm-using-sparseoperationkit" title="Permalink to this heading"></a></h1>
 <p>Demonstrates how to build DLRM model with SparseOperationKit.</p>
 <p>You can find the source codes in <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/DLRM"><code class="docutils literal notranslate"><span class="pre">sparse_operation_kit/documents/tutorials/DLRM/</span></code></a>.</p>
 <section id="steps">
-<h2>steps<a class="headerlink" href="#steps" title="Permalink to this headline"></a></h2>
+<h2>steps<a class="headerlink" href="#steps" title="Permalink to this heading"></a></h2>
 <section id="generate-datasets">
-<h3>Generate datasets<a class="headerlink" href="#generate-datasets" title="Permalink to this headline"></a></h3>
+<h3>Generate datasets<a class="headerlink" href="#generate-datasets" title="Permalink to this heading"></a></h3>
 <p><a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo Terabytes Dataset</a> will be used. Download these files. And there are several options for you to generate datasets.</p>
 <section id="option1">
-<h4>[Option1]<a class="headerlink" href="#option1" title="Permalink to this headline"></a></h4>
+<h4>[Option1]<a class="headerlink" href="#option1" title="Permalink to this heading"></a></h4>
 <p>Follow <a class="reference external" href="https://github.com/tensorflow/models/tree/master/official/recommendation/ranking/preprocessing">TensorFlow’s instructions</a> to process these files and save as CSV files.</p>
 </section>
 <section id="option2">
-<h4>[Option2]<a class="headerlink" href="#option2" title="Permalink to this headline"></a></h4>
+<h4>[Option2]<a class="headerlink" href="#option2" title="Permalink to this heading"></a></h4>
 <p>Follow <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/samples/dlrm#preprocess-the-terabyte-click-logs">HugeCTR’s instructions</a> to process these files. Then convert the generated binary files to CSV files.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 bin2csv.py <span class="se">\</span>
     --input_file<span class="o">=</span><span class="s2">&quot;YourBinaryFilePath/train.bin&quot;</span> <span class="se">\</span>
@@ -124,13 +126,13 @@
 </section>
 </section>
 <section id="set-common-params">
-<h3>Set common params<a class="headerlink" href="#set-common-params" title="Permalink to this headline"></a></h3>
+<h3>Set common params<a class="headerlink" href="#set-common-params" title="Permalink to this heading"></a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">EMBEDDING_DIM</span><span class="o">=</span><span class="m">32</span>
 </pre></div>
 </div>
 </section>
 <section id="run-dlrm-with-tensorflow">
-<h3>Run DLRM with TensorFlow<a class="headerlink" href="#run-dlrm-with-tensorflow" title="Permalink to this headline"></a></h3>
+<h3>Run DLRM with TensorFlow<a class="headerlink" href="#run-dlrm-with-tensorflow" title="Permalink to this heading"></a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec --allow-run-as-root -np <span class="m">4</span> <span class="se">\</span>
     python3 main.py <span class="se">\</span>
         --global_batch_size<span class="o">=</span><span class="m">16384</span> <span class="se">\</span>
@@ -146,7 +148,7 @@
 </div>
 </section>
 <section id="run-dlrm-with-sok">
-<h3>Run DLRM with SOK<a class="headerlink" href="#run-dlrm-with-sok" title="Permalink to this headline"></a></h3>
+<h3>Run DLRM with SOK<a class="headerlink" href="#run-dlrm-with-sok" title="Permalink to this heading"></a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec --allow-run-as-root -np <span class="m">4</span> <span class="se">\</span>
     python3 main.py <span class="se">\</span>
         --global_batch_size<span class="o">=</span><span class="m">16384</span> <span class="se">\</span>
@@ -162,8 +164,8 @@
 </section>
 </section>
 <section id="reference">
-<h2>reference<a class="headerlink" href="#reference" title="Permalink to this headline"></a></h2>
-<ol class="simple">
+<h2>reference<a class="headerlink" href="#reference" title="Permalink to this heading"></a></h2>
+<ol class="arabic simple">
 <li><p>DLRM (<a class="reference external" href="https://arxiv.org/pdf/1906.00091.pdf">https://arxiv.org/pdf/1906.00091.pdf</a>)</p></li>
 <li><p>Criteo TeraBytes Datasets (<a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">https://labs.criteo.com/2013/12/download-terabyte-click-logs/</a>)</p></li>
 <li><p>TensorFlow DLRM model (<a class="reference external" href="https://github.com/tensorflow/models/tree/master/official/recommendation/ranking">https://github.com/tensorflow/models/tree/master/official/recommendation/ranking</a>)</p></li>
@@ -182,7 +184,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -207,6 +209,9 @@
       <dt>Tags</dt>
       <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
       <dd><a href="dlrm.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../sok_v1.1.1/examples/dlrm.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/examples/dlrm.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/examples/dlrm.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

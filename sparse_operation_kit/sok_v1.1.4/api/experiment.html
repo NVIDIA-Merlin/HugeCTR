@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SparseOperationKit Experiment API &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SparseOperationKit Release Notes" href="../release_notes/release_notes.html" />
+    <link rel="prev" title="SparseOperationKit Optimizer Scope" href="utils/opt_scope.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Docs</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="init.html">Initialize</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embeddings/index.html">Embeddings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimizers/opts.html">Optimizers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils/index.html">Utilities</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Experiment</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-sparse_operation_kit.experiment">Initialize</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.init"><code class="docutils literal notranslate"><span class="pre">init()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-sparse_operation_kit.experiment.distributed_variable">Lookup</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.distributed_variable.Variable"><code class="docutils literal notranslate"><span class="pre">Variable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.lookup.lookup_sparse"><code class="docutils literal notranslate"><span class="pre">lookup_sparse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-sparse_operation_kit.experiment.dynamic_variable">DynamicVariable</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.dynamic_variable.DynamicVariable"><code class="docutils literal notranslate"><span class="pre">DynamicVariable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.dynamic_variable.export"><code class="docutils literal notranslate"><span class="pre">export()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.dynamic_variable.assign"><code class="docutils literal notranslate"><span class="pre">assign()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.experiment.optimizer.OptimizerWrapper"><code class="docutils literal notranslate"><span class="pre">OptimizerWrapper()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../env_vars/env_vars.html">Environment Variables</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">SparseOperationKit API</a> &raquo;</li>
+      <li>SparseOperationKit Experiment API</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/experiment.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sparseoperationkit-experiment-api">
+<h1>SparseOperationKit Experiment API<a class="headerlink" href="#sparseoperationkit-experiment-api" title="Permalink to this heading"></a></h1>
+<section id="module-sparse_operation_kit.experiment">
+<span id="initialize"></span><h2>Initialize<a class="headerlink" href="#module-sparse_operation_kit.experiment" title="Permalink to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.init">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.</span></span><span class="sig-name descname"><span class="pre">init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm_tool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'horovod'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment.html#init"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.init" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.init</span></code>.</p>
+<p>This function is used to do the initialization of SparseOperationKit (SOK).</p>
+<p>SOK will leverage all available GPUs for current CPU process. Please set
+<cite>CUDA_VISIBLE_DEVICES</cite> or <cite>tf.config.set_visible_devices</cite> to specify which
+GPU(s) are used in this process before launching tensorflow runtime
+and calling this function.</p>
+<p>Currently, these experiment API only support <code class="docutils literal notranslate"><span class="pre">horovod</span></code> as the communication
+tool, so <code class="docutils literal notranslate"><span class="pre">horovod.init</span></code> must be called before initializing SOK.</p>
+<p>Example code for doing initialization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">import</span> <span class="nn">sparse_operation_kit.experiment</span> <span class="k">as</span> <span class="nn">sok</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>comm_tool</strong> (<em>string</em>) – a string to specify which communication tool to use. Default value is “horovod”.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-sparse_operation_kit.experiment.distributed_variable">
+<span id="lookup"></span><h2>Lookup<a class="headerlink" href="#module-sparse_operation_kit.experiment.distributed_variable" title="Permalink to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.distributed_variable.Variable">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.distributed_variable.</span></span><span class="sig-name descname"><span class="pre">Variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/distributed_variable.html#Variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.distributed_variable.Variable" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.Variable</span></code>.</p>
+<p>This is a helper function to generate model-parallel variable. There
+are two use cases:</p>
+<p>Distributed Variable:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">experiment</span> <span class="k">as</span> <span class="n">sok</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>  <span class="c1"># nopep8</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="c1"># If there are 2 GPUs in total, the shape on GPU0 will be [2, 3] and the shape</span>
+<span class="c1"># on GPU1 will be [2, 3]</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="c1"># GPU0 output: [[0, 1, 2]</span>
+<span class="c1">#               [6, 7, 8]]</span>
+<span class="c1"># GPU1 output: [[3, 4,  5]</span>
+<span class="c1">#                9, 10, 11]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Localized Variable:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">experiment</span> <span class="k">as</span> <span class="n">sok</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>  <span class="c1"># nopep8</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="c1"># If there are 2 GPUs in total, the shape on GPU0 will be [5, 3] and the shape</span>
+<span class="c1"># on GPU1 will be [0, 3]</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;localized:0&quot;</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As shown in the two examples above, when you need to store different parts of a variable on different
+GPUs (that is, allocating a model-parallel variable), this function can help you allocate the required
+memory on each GPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> – compatible with tf.Variable.</p></li>
+<li><p><strong>kwargs</strong> – compatible with tf.Variable.</p></li>
+<li><p><strong>mode</strong> (<em>string</em>) – a string to specify which model-parallel mode to use. Default value is “distributed”, which stands
+for the Distributed Variable that mentioned above. Another option is “localized:#”, which stands
+for Localized Variable, where # indicates which GPU you want to put this variable on. See the
+explanation above for specific examples.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>variable</strong> – a tf.Variable that represents a part of the model-parallel variable.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Variable</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-sparse_operation_kit.experiment.lookup"></span><dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.lookup.lookup_sparse">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.lookup.</span></span><span class="sig-name descname"><span class="pre">lookup_sparse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sp_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hotness</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combiners</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/lookup.html#lookup_sparse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.lookup.lookup_sparse" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.lookup_sparse</span></code>.</p>
+<p>Peform fused sparse lookup on the given embedding <code class="docutils literal notranslate"><span class="pre">params</span></code>. This function
+is similar to the <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code>, but with two differences:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>It can do distributed lookup.</p></li>
+<li><p>It can accept multiple params and multiple sp_ids to do fused lookup at once,
+which brings performance benifits.</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>params</strong> (<em>list</em><em>, </em><em>tuple</em>) – a list or tuple of trainable <em>sok.Variable</em>.</p></li>
+<li><p><strong>sp_ids</strong> (<em>list</em><em>, </em><em>tuple</em>) – a list or tuple of tf.SparseTensor or tf.RaggedTensor.</p></li>
+<li><p><strong>hotness</strong> (<em>list</em><em>, </em><em>tuple</em>) – a list or tuple of int to specify the max hotness of each lookup.</p></li>
+<li><p><strong>combiners</strong> (<em>list</em><em>, </em><em>tuple</em>) – a list or tuple of string to specify the combiner of each lookup.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>emb_vec</strong> – a list of tf.Tensor(the results of lookup).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">experiment</span> <span class="k">as</span> <span class="n">sok</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">v1</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">17</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">v2</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="n">indices1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span>
+    <span class="n">indices</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span>
+    <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="n">dense_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="p">)</span>
+<span class="n">indices2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span>
+    <span class="n">indices</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span>
+    <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="n">dense_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">lookup_sparse</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">],</span> <span class="p">[</span><span class="n">indices1</span><span class="p">,</span> <span class="n">indices2</span><span class="p">],</span> <span class="n">hotness</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">combiners</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-sparse_operation_kit.experiment.dynamic_variable">
+<span id="dynamicvariable"></span><h2>DynamicVariable<a class="headerlink" href="#module-sparse_operation_kit.experiment.dynamic_variable" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.dynamic_variable.DynamicVariable">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.dynamic_variable.</span></span><span class="sig-name descname"><span class="pre">DynamicVariable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/dynamic_variable.html#DynamicVariable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.dynamic_variable.DynamicVariable" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.DynamicVariable</span></code>.</p>
+<p>A variable that allocates memory dynamically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dimension</strong> (<em>int</em>) – The last dimension of this variable(that is, the embedding vector
+size of embedding table).</p></li>
+<li><p><strong>initializer</strong> (<em>string</em>) – a string to specify how to initialize this variable.
+Currently, only support “random” or string of a float
+value(meaning const initializer). Default value is “random”.</p></li>
+<li><p><strong>key_type</strong> (<em>dtype</em>) – specify the data type of indices. Unlike the static variable of
+tensorflow, this variable is dyanmically allocated and contains
+a hash table inside it. So the data type of indices must be
+specified to construct the hash table. Default value is tf.int64.</p></li>
+<li><p><strong>dtype</strong> (<em>dtype</em>) – specify the data type of values. Default value is tf.float32.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">experiment</span> <span class="k">as</span> <span class="n">sok</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">initializer</span><span class="o">=</span><span class="s2">&quot;13&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v.shape:&quot;</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v.size:&quot;</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+<span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+<span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding:&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v.shape:&quot;</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v.size:&quot;</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.dynamic_variable.export">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.dynamic_variable.</span></span><span class="sig-name descname"><span class="pre">export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/dynamic_variable.html#export"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.dynamic_variable.export" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.export</span></code>.</p>
+<p>Export the indices and value tensor from the given variable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>var</strong> (<em>sok.DynamicVariable</em>) – The variable to extract indices and values.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>indices</strong> (<em>tf.Tensor</em>) – The indices of the given variable.</p></li>
+<li><p><strong>values</strong> (<em>tf.Tensor</em>) – the values of the given variable.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.dynamic_variable.assign">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.dynamic_variable.</span></span><span class="sig-name descname"><span class="pre">assign</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/dynamic_variable.html#assign"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.dynamic_variable.assign" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.assign</span></code>.</p>
+<p>Assign the indices and value tensor to the target variable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>var</strong> (<em>sok.DynamicVariable</em>) – The target variable of assign.</p></li>
+<li><p><strong>indices</strong> (<em>tf.Tensor</em>) – indices to be assigned to the variable.</p></li>
+<li><p><strong>values</strong> (<em>tf.Tensor</em>) – values to be assigned to the variable</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>variable</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sok.DynamicVariable</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-sparse_operation_kit.experiment.optimizer"></span><dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.experiment.optimizer.OptimizerWrapper">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.experiment.optimizer.</span></span><span class="sig-name descname"><span class="pre">OptimizerWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/experiment/optimizer.html#OptimizerWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.experiment.optimizer.OptimizerWrapper" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.experiment.OptimizerWrapper</span></code>.</p>
+<p>This is a wrapper for tensorflow optimizer so that it can update
+sok.DynamicVariable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>optimizer</strong> (<em>tensorflow optimizer</em>) – The original tensorflow optimizer.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">experiment</span> <span class="k">as</span> <span class="n">sok</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">initializer</span><span class="o">=</span><span class="s2">&quot;13&quot;</span><span class="p">)</span>
+
+<span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding:&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">embedding</span><span class="p">)</span>
+
+<span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">])</span>
+
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">OptimizerWrapper</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">]))</span>
+
+<span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding:&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="utils/opt_scope.html" class="btn btn-neutral float-left" title="SparseOperationKit Optimizer Scope" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../release_notes/release_notes.html" class="btn btn-neutral float-right" title="SparseOperationKit Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.4
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="experiment.html">sok_v1.1.4</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

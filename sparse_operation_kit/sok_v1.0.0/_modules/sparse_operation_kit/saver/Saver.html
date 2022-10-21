@@ -1,75 +1,36 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8" />
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>sparse_operation_kit.saver.Saver &mdash; SparseOperationKit  documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
         <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
-
-    
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
-          
-
-          
           </a>
-
-          
-            
-            
               <div class="version">
                 1.0.0
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -77,18 +38,7 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
@@ -99,69 +49,30 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../../index.html">SparseOperationKit</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
-        
           <li><a href="../../index.html">Module code</a> &raquo;</li>
-        
       <li>sparse_operation_kit.saver.Saver</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <h1>Source code for sparse_operation_kit.saver.Saver</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
@@ -178,16 +89,17 @@
 <span class="sd"> See the License for the specific language governing permissions and</span>
 <span class="sd"> limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-
-<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
-<span class="kn">from</span> <span class="nn">sparse_operation_kit.kit_lib</span> <span class="kn">import</span> <span class="n">dump_to_file</span><span class="p">,</span> <span class="n">restore_from_file</span><span class="p">,</span> <span class="n">load_embedding_values</span>
-
+<span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">kit_lib</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.core.embedding_layer_handle</span> <span class="kn">import</span> <span class="n">GraphKeys</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">array_ops</span>
 
 <span class="c1"># TODO: make it inherit from trackable???</span>
 <div class="viewcode-block" id="Saver"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver">[docs]</a><span class="k">class</span> <span class="nc">Saver</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``sok.Saver()``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># TODO: how to get all emb_var from Model???</span>
         <span class="k">pass</span>
@@ -197,10 +109,10 @@
 
 <div class="viewcode-block" id="Saver.dump_to_file"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver.dump_to_file">[docs]</a>    <span class="k">def</span> <span class="nf">dump_to_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_variable</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        This function is used to save the specified embedding variables </span>
+<span class="sd">        This function is used to save the specified embedding variables</span>
 <span class="sd">        to host file.</span>
 
-<span class="sd">        When multiple CPU processes is used, this function must be called </span>
+<span class="sd">        When multiple CPU processes is used, this function must be called</span>
 <span class="sd">        within each CPU processes.</span>
 
 <span class="sd">        Parameters</span>
@@ -210,20 +122,25 @@
 <span class="sd">                to file.</span>
 <span class="sd">        filepath: string</span>
 <span class="sd">                The directory where the parameters will be dumped to.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        status: tf.Tensor</span>
 <span class="sd">                If this op executed successfully, then &#39;OK&#39; will be returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># TODO: check whether embedding_variable is an instance of DistributedVariable</span>
-        <span class="k">return</span> <span class="n">dump_to_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="s2">&quot;emb_handle&quot;</span><span class="p">):</span>
+            <span class="c1"># horovod branch</span>
+            <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">dump_to_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># strategy branch</span>
+            <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">dump_to_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Saver.restore_from_file"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver.restore_from_file">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_variable</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This function is used to restore dumped parameters to the specified embedding variable.</span>
-<span class="sd">        </span>
-<span class="sd">        When multiple CPU processes is used, this function must be called </span>
+
+<span class="sd">        When multiple CPU processes is used, this function must be called</span>
 <span class="sd">        within each CPU processes.</span>
 
 <span class="sd">        Parameters</span>
@@ -238,7 +155,22 @@
 <span class="sd">        status: tf.Tensor</span>
 <span class="sd">                If this op executed successfully, then &#39;OK&#39; will be returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">restore_from_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">in_tensorflow2</span><span class="p">():</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">NullContextmanager</span>
+            <span class="n">initializers</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">control_dependencies</span>
+            <span class="c1"># in case the embedding layer has not been created</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get_collection</span><span class="p">(</span><span class="n">GraphKeys</span><span class="o">.</span><span class="n">SparseOperationKitEmbeddingLayers</span><span class="p">)</span>
+            <span class="n">initializers</span> <span class="o">=</span> <span class="p">[</span><span class="n">collect</span><span class="o">.</span><span class="n">initializer</span> <span class="k">for</span> <span class="n">collect</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">]</span>
+
+        <span class="k">with</span> <span class="n">context</span><span class="p">(</span><span class="n">initializers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="s2">&quot;emb_handle&quot;</span><span class="p">):</span>
+                <span class="c1"># horovod branch</span>
+                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">restore_from_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># strategy branch</span>
+                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">restore_from_file</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Saver.load_embedding_values"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver.load_embedding_values">[docs]</a>    <span class="k">def</span> <span class="nf">load_embedding_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_variable</span><span class="p">,</span> <span class="n">tensors</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -251,7 +183,7 @@
 <span class="sd">        ----------</span>
 <span class="sd">        embedding_variable: sok.EmbeddingVariable, tf.DistributedVariable</span>
 <span class="sd">                    Which embedding_variable&#39;s value will be assigned.</span>
-<span class="sd">        tensors: list of tf.Tensor, tuple of tf.Tensor</span>
+<span class="sd">        tensors: tf.Tensor, list of tf.Tensor, tuple of tf.Tensor</span>
 <span class="sd">                    Each tf.Tensor must be 2-rank and the shape must be `[None, embedding_vec_size]`,</span>
 <span class="sd">                    where the `embedding_vec_size` must be equal to that of embedding_variable&#39;s. </span>
 <span class="sd">                    All tf.Tensors make up to a big tensor, which just like they are stacked. For example:</span>
@@ -264,65 +196,72 @@
 <span class="sd">        status: tf.Tensor</span>
 <span class="sd">                If this op executed successfully, then &#39;OK&#39; will be returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">load_embedding_values</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span><span class="p">)</span></div></div>
+        <span class="k">if</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">in_tensorflow2</span><span class="p">():</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">NullContextmanager</span>
+            <span class="n">initializers</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">control_dependencies</span>
+            <span class="c1"># in case the embedding layer has not been created</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get_collection</span><span class="p">(</span><span class="n">GraphKeys</span><span class="o">.</span><span class="n">SparseOperationKitEmbeddingLayers</span><span class="p">)</span>
+            <span class="n">initializers</span> <span class="o">=</span> <span class="p">[</span><span class="n">collect</span><span class="o">.</span><span class="n">initializer</span> <span class="k">for</span> <span class="n">collect</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">]</span>
 
-    
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># stack those tensors along dim-0</span>
+            <span class="n">tensors</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">context</span><span class="p">(</span><span class="n">initializers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="s2">&quot;emb_handle&quot;</span><span class="p">):</span>
+                <span class="c1"># horovod branch</span>
+                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># strategy branch</span>
+                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span>
+                    <span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span>
+                <span class="p">)</span></div></div>
 </pre></div>
 
            </div>
-           
           </div>
           <footer>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright 2021, NVIDIA.
-
-    </p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
   
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    v: sok_v1.0.0
+    master: sok_v1.0.0
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="Saver.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../sok_v1.1.4/index.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
-</div>
-
-  <script type="text/javascript">
+</div><script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

@@ -14,7 +14,9 @@
         <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -51,7 +53,10 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">Embeddings</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="sparse/index.html">Sparse Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dense/index.html">Dense Embeddings</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Saver</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Saver</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.saver.Saver.Saver"><code class="docutils literal notranslate"><span class="pre">Saver</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="tf_distributed_embedding.html">TF Distributed Embedding</a></li>
 </ul>
 </li>
@@ -91,7 +96,7 @@
            <div itemprop="articleBody">
              
   <section id="sparseoperationkit-embedding-saver">
-<h1>SparseOperationKit Embedding Saver<a class="headerlink" href="#sparseoperationkit-embedding-saver" title="Permalink to this headline"></a></h1>
+<h1>SparseOperationKit Embedding Saver<a class="headerlink" href="#sparseoperationkit-embedding-saver" title="Permalink to this heading"></a></h1>
 <p>Currently, you must explicitly call this saver to dump or load
 trainable parameters for the trainable variables in those
 embedding layers. And other trainable variables are still managed
@@ -156,7 +161,7 @@ within each CPU processes.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>embedding_variable</strong> (<em>sok.EmbeddingVariable</em><em>, </em><em>tf.DistributedVariable</em>) – Which embedding_variable’s value will be assigned.</p></li>
-<li><p><strong>tensors</strong> (<em>tf.Tensor</em><em>, </em><em>list of tf.Tensor</em><em>, </em><em>tuple of tf.Tensor</em>) – Each tf.Tensor must be 2-rank and the shape must be <cite>[None, embedding_vec_size]</cite>,
+<li><p><strong>tensors</strong> (<em>tf.Tensor</em><em>, </em><em>list</em><em> of </em><em>tf.Tensor</em><em>, </em><em>tuple</em><em> of </em><em>tf.Tensor</em>) – Each tf.Tensor must be 2-rank and the shape must be <cite>[None, embedding_vec_size]</cite>,
 where the <cite>embedding_vec_size</cite> must be equal to that of embedding_variable’s.
 All tf.Tensors make up to a big tensor, which just like they are stacked. For example:
 <cite>[tf.Tensor(shape=(bs_0, embedding_vec_size)), tf.Tensor(shape=(bs_1, embedding_vec_size)),                      tf.Tensor(shape=(bs_2, embedding_vec_size))]</cite> will be treated as
@@ -213,6 +218,8 @@ All tf.Tensors make up to a big tensor, which just like they are stacked. For ex
       <dd><a href="../../../sok_v1.0.0/api/embeddings/saver.html">sok_v1.0.0</a></dd>
       <dd><a href="../../../sok_v1.1.0/api/embeddings/saver.html">sok_v1.1.0</a></dd>
       <dd><a href="saver.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../sok_v1.1.2/api/embeddings/saver.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../sok_v1.1.4/api/embeddings/saver.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

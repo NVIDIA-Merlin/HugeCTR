@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sparse_operation_kit.experiment.distributed_variable &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../env_vars/env_vars.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+          <li><a href="../experiment.html">sparse_operation_kit.experiment</a> &raquo;</li>
+      <li>sparse_operation_kit.experiment.distributed_variable</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sparse_operation_kit.experiment.distributed_variable</h1><div class="highlight"><pre>
+<span></span><span class="c1">#</span>
+<span class="c1"># Copyright (c) 2022, NVIDIA CORPORATION.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1">#</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops.resource_variable_ops</span> <span class="kn">import</span> <span class="n">ResourceVariable</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">global_gpu_id</span><span class="p">,</span> <span class="n">num_gpus</span>
+
+
+<div class="viewcode-block" id="Variable"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.distributed_variable.Variable">[docs]</a><span class="k">def</span> <span class="nf">Variable</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.Variable``.</span>
+
+<span class="sd">    This is a helper function to generate model-parallel variable. There</span>
+<span class="sd">    are two use cases:</span>
+
+<span class="sd">    Distributed Variable:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import tensorflow as tf</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+<span class="sd">        from sparse_operation_kit import experiment as sok</span>
+
+<span class="sd">        hvd.init()</span>
+<span class="sd">        gpus = tf.config.experimental.list_physical_devices(&quot;GPU&quot;)</span>
+<span class="sd">        for gpu in gpus:</span>
+<span class="sd">            tf.config.experimental.set_memory_growth(gpu, True)</span>
+<span class="sd">        if gpus:</span>
+<span class="sd">            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], &quot;GPU&quot;)  # nopep8</span>
+
+<span class="sd">        sok.init()</span>
+
+<span class="sd">        # If there are 2 GPUs in total, the shape on GPU0 will be [2, 3] and the shape</span>
+<span class="sd">        # on GPU1 will be [2, 3]</span>
+<span class="sd">        v = sok.Variable(np.arange(4 * 3).reshape(4, 3), dtype=tf.float32)</span>
+
+<span class="sd">        # GPU0 output: [[0, 1, 2]</span>
+<span class="sd">        #               [6, 7, 8]]</span>
+<span class="sd">        # GPU1 output: [[3, 4,  5]</span>
+<span class="sd">        #                9, 10, 11]</span>
+<span class="sd">        print(v)</span>
+
+<span class="sd">    Localized Variable:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import tensorflow as tf</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+<span class="sd">        from sparse_operation_kit import experiment as sok</span>
+
+<span class="sd">        hvd.init()</span>
+<span class="sd">        gpus = tf.config.experimental.list_physical_devices(&quot;GPU&quot;)</span>
+<span class="sd">        for gpu in gpus:</span>
+<span class="sd">            tf.config.experimental.set_memory_growth(gpu, True)</span>
+<span class="sd">        if gpus:</span>
+<span class="sd">            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], &quot;GPU&quot;)  # nopep8</span>
+
+<span class="sd">        sok.init()</span>
+
+<span class="sd">        # If there are 2 GPUs in total, the shape on GPU0 will be [5, 3] and the shape</span>
+<span class="sd">        # on GPU1 will be [0, 3]</span>
+<span class="sd">        v = sok.Variable(</span>
+<span class="sd">            np.arange(5 * 3).reshape(5, 3), dtype=tf.float32, mode=&quot;localized:0&quot;</span>
+<span class="sd">        )</span>
+<span class="sd">        print(v.shape)</span>
+
+<span class="sd">    As shown in the two examples above, when you need to store different parts of a variable on different</span>
+<span class="sd">    GPUs (that is, allocating a model-parallel variable), this function can help you allocate the required</span>
+<span class="sd">    memory on each GPU.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    args:</span>
+<span class="sd">        compatible with tf.Variable.</span>
+
+<span class="sd">    kwargs:</span>
+<span class="sd">        compatible with tf.Variable.</span>
+
+<span class="sd">    mode: string</span>
+<span class="sd">        a string to specify which model-parallel mode to use. Default value is &quot;distributed&quot;, which stands</span>
+<span class="sd">        for the Distributed Variable that mentioned above. Another option is &quot;localized:#&quot;, which stands</span>
+<span class="sd">        for Localized Variable, where # indicates which GPU you want to put this variable on. See the</span>
+<span class="sd">        explanation above for specific examples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    variable: tf.Variable</span>
+<span class="sd">            a tf.Variable that represents a part of the model-parallel variable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;mode&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;distributed&quot;</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_gpu_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_gpu_id</span><span class="p">()</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_gpus</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">DistributedVariable</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">mode</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="s2">&quot;localized&quot;</span><span class="p">)]</span> <span class="o">==</span> <span class="s2">&quot;localized&quot;</span><span class="p">:</span>
+        <span class="n">target_gpu</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mode</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;target_gpu&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_gpu</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_gpu_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_gpu_id</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">LocalizedVariable</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Not supported mode: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mode</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">DistributedVariable</span><span class="p">(</span><span class="n">ResourceVariable</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">initial_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">trainable</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">validate_shape</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">caching_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">variable_def</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">import_scope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">constraint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">distribute_strategy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">synchronization</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">aggregation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">initializer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">global_gpu_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_gpus</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_global_gpu_id</span> <span class="o">=</span> <span class="n">global_gpu_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span> <span class="o">=</span> <span class="n">num_gpus</span>
+
+        <span class="k">if</span> <span class="n">initial_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">initial_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">initial_value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span> <span class="o">=</span> <span class="n">initial_value</span><span class="o">.</span><span class="n">shape</span>
+
+            <span class="n">local_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="n">num_gpus</span>
+            <span class="k">if</span> <span class="n">global_gpu_id</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="n">num_gpus</span><span class="p">:</span>
+                <span class="n">local_size</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;CPU&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="n">initial_value</span><span class="o">.</span><span class="n">device</span>
+
+            <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">):</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">local_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span> <span class="o">*</span> <span class="n">num_gpus</span> <span class="o">+</span> <span class="n">global_gpu_id</span>
+                <span class="n">initial_value</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">initial_value</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">initial_value</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="n">initial_value</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span> <span class="o">=</span> <span class="n">shape</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="n">local_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="n">num_gpus</span>
+            <span class="k">if</span> <span class="n">global_gpu_id</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="n">num_gpus</span><span class="p">:</span>
+                <span class="n">local_size</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">initial_value</span> <span class="o">=</span> <span class="n">initializer</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">local_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">DistributedVariable</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">initial_value</span><span class="o">=</span><span class="n">initial_value</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="n">trainable</span><span class="p">,</span>
+            <span class="n">collections</span><span class="o">=</span><span class="n">collections</span><span class="p">,</span>
+            <span class="n">validate_shape</span><span class="o">=</span><span class="n">validate_shape</span><span class="p">,</span>
+            <span class="n">caching_device</span><span class="o">=</span><span class="n">caching_device</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">variable_def</span><span class="o">=</span><span class="n">variable_def</span><span class="p">,</span>
+            <span class="n">import_scope</span><span class="o">=</span><span class="n">import_scope</span><span class="p">,</span>
+            <span class="n">constraint</span><span class="o">=</span><span class="n">constraint</span><span class="p">,</span>
+            <span class="n">distribute_strategy</span><span class="o">=</span><span class="n">distribute_strategy</span><span class="p">,</span>
+            <span class="n">synchronization</span><span class="o">=</span><span class="n">synchronization</span><span class="p">,</span>
+            <span class="n">aggregation</span><span class="o">=</span><span class="n">aggregation</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">global_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">global_gpu_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_gpu_id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_gpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_gpus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span>
+
+    <span class="k">def</span> <span class="nf">key_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">indices</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span>
+
+
+<span class="k">class</span> <span class="nc">LocalizedVariable</span><span class="p">(</span><span class="n">ResourceVariable</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">initial_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">trainable</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">validate_shape</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">caching_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">variable_def</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">import_scope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">constraint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">distribute_strategy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">synchronization</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">aggregation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">initializer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">global_gpu_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">target_gpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_global_gpu_id</span> <span class="o">=</span> <span class="n">global_gpu_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_gpu</span> <span class="o">=</span> <span class="n">target_gpu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span> <span class="o">=</span> <span class="n">num_gpus</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">target_gpu</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;There are only </span><span class="si">%d</span><span class="s2"> GPU(s), cannot put embedding table on </span><span class="si">%d</span><span class="s2">th(zero-indexed) GPU.&quot;</span>
+                <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span><span class="p">,</span> <span class="n">target_gpu</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">initial_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">initial_value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">initial_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">initial_value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span> <span class="o">=</span> <span class="n">initial_value</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span> <span class="o">=</span> <span class="n">shape</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">target_gpu</span> <span class="o">!=</span> <span class="n">global_gpu_id</span><span class="p">:</span>
+            <span class="n">empty_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">initial_value</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">empty_value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">initial_value</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">empty_value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">initial_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">initial_value</span> <span class="o">=</span> <span class="n">initializer</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">LocalizedVariable</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">initial_value</span><span class="o">=</span><span class="n">initial_value</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="n">trainable</span><span class="p">,</span>
+            <span class="n">collections</span><span class="o">=</span><span class="n">collections</span><span class="p">,</span>
+            <span class="n">validate_shape</span><span class="o">=</span><span class="n">validate_shape</span><span class="p">,</span>
+            <span class="n">caching_device</span><span class="o">=</span><span class="n">caching_device</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">variable_def</span><span class="o">=</span><span class="n">variable_def</span><span class="p">,</span>
+            <span class="n">import_scope</span><span class="o">=</span><span class="n">import_scope</span><span class="p">,</span>
+            <span class="n">constraint</span><span class="o">=</span><span class="n">constraint</span><span class="p">,</span>
+            <span class="n">distribute_strategy</span><span class="o">=</span><span class="n">distribute_strategy</span><span class="p">,</span>
+            <span class="n">synchronization</span><span class="o">=</span><span class="n">synchronization</span><span class="p">,</span>
+            <span class="n">aggregation</span><span class="o">=</span><span class="n">aggregation</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">global_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_shape</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">global_gpu_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_gpu_id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_gpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_gpu</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_gpus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_gpus</span>
+
+    <span class="k">def</span> <span class="nf">key_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">indices</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.4
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="distributed_variable.html">sok_v1.1.4</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

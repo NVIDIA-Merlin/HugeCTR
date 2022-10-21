@@ -13,7 +13,9 @@
         <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
         <script src="../../../../../_static/jquery.js"></script>
         <script src="../../../../../_static/underscore.js"></script>
+        <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../../../_static/doctools.js"></script>
+        <script src="../../../../../_static/sphinx_highlight.js"></script>
     <script src="../../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../search.html" /> 
@@ -93,30 +95,29 @@
 <span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="n">_deduplicate_indexed_slices</span>
 <span class="kn">import</span> <span class="nn">tensorflow.keras.optimizers</span> <span class="k">as</span> <span class="nn">keras_optimizers</span>
 
+
 <div class="viewcode-block" id="Adam"><a class="viewcode-back" href="../../../../../api/optimizers/opts.html#sparse_operation_kit.tf.keras.optimizers.adam.Adam">[docs]</a><span class="k">class</span> <span class="nc">Adam</span><span class="p">(</span><span class="n">keras_optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``sok.tf.keras.optimizers.Adam``.</span>
 
 <span class="sd">    The ``unique`` and ``unsorted_segment_sum`` are replaced with GPU</span>
-<span class="sd">    implementations. </span>
+<span class="sd">    implementations.</span>
 
 <span class="sd">    When TF version &lt;= 2.4, this optimizer can be used to obtain performance</span>
-<span class="sd">    gain, while TF version &gt;= 2.5, its performance should be identical to </span>
+<span class="sd">    gain, while TF version &gt;= 2.5, its performance should be identical to</span>
 <span class="sd">    ``tf.keras.optimizers.Adam``.</span>
 
 <span class="sd">    All the arguments are identical to ``tf.keras.optimizers.Adam``, please</span>
-<span class="sd">    refer to https://tensorflow.google.cn/api_docs/python/tf/keras/optimizers/Adam </span>
+<span class="sd">    refer to https://tensorflow.google.cn/api_docs/python/tf/keras/optimizers/Adam</span>
 <span class="sd">    for documentation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">Adam</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_resource_apply_sparse_duplicate_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span>
-                                               <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">summed_grad</span><span class="p">,</span> <span class="n">unique_indices</span> <span class="o">=</span> <span class="n">_deduplicate_indexed_slices</span><span class="p">(</span>
-            <span class="n">values</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_apply_sparse</span><span class="p">(</span><span class="n">summed_grad</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">unique_indices</span><span class="p">,</span>
-                                           <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">_resource_apply_sparse_duplicate_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">summed_grad</span><span class="p">,</span> <span class="n">unique_indices</span> <span class="o">=</span> <span class="n">_deduplicate_indexed_slices</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_apply_sparse</span><span class="p">(</span><span class="n">summed_grad</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">unique_indices</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -126,7 +127,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -151,6 +152,9 @@
       <dt>Tags</dt>
       <dd><a href="../../../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
       <dd><a href="adam.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../../../sok_v1.1.4/index.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

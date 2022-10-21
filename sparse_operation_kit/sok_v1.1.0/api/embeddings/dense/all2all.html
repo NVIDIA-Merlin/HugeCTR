@@ -14,7 +14,9 @@
         <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -95,11 +97,11 @@
            <div itemprop="articleBody">
              
   <section id="all2all-dense-embedding">
-<h1>All2All Dense Embedding<a class="headerlink" href="#all2all-dense-embedding" title="Permalink to this headline"></a></h1>
+<h1>All2All Dense Embedding<a class="headerlink" href="#all2all-dense-embedding" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="sparse_operation_kit.embeddings.all2all_dense_embedding.All2AllDenseEmbedding">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.all2all_dense_embedding.</span></span><span class="sig-name descname"><span class="pre">All2AllDenseEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_vocabulary_size_per_gpu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_vec_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slot_num</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nnz_per_slot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dynamic_input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_hashtable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/all2all_dense_embedding.html#All2AllDenseEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.all2all_dense_embedding.All2AllDenseEmbedding" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.all2all_dense_embedding.</span></span><span class="sig-name descname"><span class="pre">All2AllDenseEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/all2all_dense_embedding.html#All2AllDenseEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.all2all_dense_embedding.All2AllDenseEmbedding" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Layer</span></code></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.All2AllDenseEmbedding(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for all2all dense embedding layer.
 It can be used to create a dense embedding layer which will distribute
@@ -124,13 +126,19 @@ can be used. By default, it is False, which means the inputs.size must be
 Hashtable will be created for dynamic insertion. Otherwise, the input keys
 will be used as the index for embedding vector looking-up, so that input keys
 must be in the range <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">max_vocabulary_size_per_gpu</span> <span class="pre">*</span> <span class="pre">gpu_num)</span></code>.</p></li>
+<li><p><strong>key_dtype</strong> (<em>tf.dtypes = tf.int64</em>) – the data type of input keys. By default, it is <cite>tf.int64</cite>.</p></li>
+<li><p><strong>embedding_initializer</strong> (string or an instance of <cite>tf.keras.initializers.Initializer</cite>) – the initializer used to generate initial value for embedding variable.
+By default, it will use <cite>random_uniform</cite> where <code class="docutils literal notranslate"><span class="pre">minval=-0.05,</span> <span class="pre">maxval=0.05</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">emb_layer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">All2AllDenseEmbedding</span><span class="p">(</span><span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">initializer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">initializers</span><span class="o">.</span><span class="n">RandomUniform</span><span class="p">()</span> <span class="c1"># or &quot;random_uniform&quot;</span>
+
+<span class="n">emb_layer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">All2AllDenseEmbedding</span><span class="p">(</span><span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
                                       <span class="n">embedding_vec_size</span><span class="p">,</span>
-                                      <span class="n">slot_num</span><span class="p">,</span> <span class="n">nnz_per_slot</span><span class="p">)</span>
+                                      <span class="n">slot_num</span><span class="p">,</span> <span class="n">nnz_per_slot</span><span class="p">,</span>
+                                      <span class="n">embedding_initializer</span><span class="o">=</span><span class="n">initializer</span><span class="p">)</span>
 
 <span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
 <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
@@ -181,7 +189,7 @@ to the size of inputs.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -206,6 +214,9 @@ to the size of inputs.</p>
       <dt>Tags</dt>
       <dd><a href="../../../../sok_v1.0.0/api/embeddings/dense/all2all.html">sok_v1.0.0</a></dd>
       <dd><a href="all2all.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/api/embeddings/dense/all2all.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/api/embeddings/dense/all2all.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../sok_v1.1.4/api/embeddings/dense/all2all.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

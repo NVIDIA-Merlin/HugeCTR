@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sparse_operation_kit.experiment.optimizer &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../env_vars/env_vars.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+          <li><a href="../experiment.html">sparse_operation_kit.experiment</a> &raquo;</li>
+      <li>sparse_operation_kit.experiment.optimizer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sparse_operation_kit.experiment.optimizer</h1><div class="highlight"><pre>
+<span></span><span class="c1">#</span>
+<span class="c1"># Copyright (c) 2022, NVIDIA CORPORATION.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1">#</span>
+
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">ops</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.dynamic_variable</span> <span class="kn">import</span> <span class="n">DynamicVariable</span>
+
+
+<div class="viewcode-block" id="OptimizerWrapper"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.optimizer.OptimizerWrapper">[docs]</a><span class="k">def</span> <span class="nf">OptimizerWrapper</span><span class="p">(</span><span class="n">optimizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.OptimizerWrapper``.</span>
+
+<span class="sd">    This is a wrapper for tensorflow optimizer so that it can update</span>
+<span class="sd">    sok.DynamicVariable.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    optimizer: tensorflow optimizer</span>
+<span class="sd">        The original tensorflow optimizer.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import tensorflow as tf</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+<span class="sd">        from sparse_operation_kit import experiment as sok</span>
+
+<span class="sd">        v = sok.DynamicVariable(dimension=3, initializer=&quot;13&quot;)</span>
+
+<span class="sd">        indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)</span>
+
+<span class="sd">        with tf.GradientTape() as tape:</span>
+<span class="sd">            embedding = tf.nn.embedding_lookup(v, indices)</span>
+<span class="sd">            print(&quot;embedding:&quot;, embedding)</span>
+<span class="sd">            loss = tf.reduce_sum(embedding)</span>
+
+<span class="sd">        grads = tape.gradient(loss, [v])</span>
+
+<span class="sd">        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)</span>
+<span class="sd">        optimizer = sok.OptimizerWrapper(optimizer)</span>
+<span class="sd">        optimizer.apply_gradients(zip(grads, [v]))</span>
+
+<span class="sd">        embedding = tf.nn.embedding_lookup(v, indices)</span>
+<span class="sd">        print(&quot;embedding:&quot;, embedding)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">OptimizerWrapperV2</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">OptimizerWrapperV1</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">OptimizerWrapperV1</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
+        <span class="c1"># slots</span>
+        <span class="n">unused</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">([</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;unused&quot;</span><span class="p">,</span> <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_create_slots</span><span class="p">([</span><span class="n">unused</span><span class="p">])</span>
+        <span class="n">names</span><span class="p">,</span> <span class="n">slots</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">get_slot_names</span><span class="p">():</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">slots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">get_slot</span><span class="p">(</span><span class="n">unused</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+        <span class="n">unused_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">unused</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">unused_key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">unused_key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">slots</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="c1"># non-slots</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_prepare</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_non_slot_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_non_slot_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_non_slot_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_var_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="s2">&quot;op&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">var</span><span class="o">.</span><span class="n">_unique_id</span>
+
+    <span class="k">def</span> <span class="nf">apply_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grads_and_vars</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># 1. Create slots and do sparse_read</span>
+        <span class="n">to_static_ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">grad_list</span><span class="p">,</span> <span class="n">var_list</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grads_and_vars</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">unique</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+                <span class="n">grad_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dense_shape</span><span class="p">))</span>
+                <span class="c1"># TODO: Check multi-thread safety of DET</span>
+                <span class="c1"># with tf.control_dependencies([g.values]):</span>
+                <span class="n">to_static_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">to_static</span><span class="p">(</span><span class="n">unique</span><span class="p">))</span>
+                <span class="n">var_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">slot_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">slot_name</span><span class="p">]:</span>
+                        <span class="n">slot</span> <span class="o">=</span> <span class="n">DynamicVariable</span><span class="p">(</span>
+                            <span class="n">dimension</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span>
+                            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">[</span><span class="n">slot_name</span><span class="p">],</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;DynamicSlot&quot;</span><span class="p">,</span>
+                            <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">slot_name</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">slot</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">slot_name</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">to_static_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">to_static</span><span class="p">(</span><span class="n">unique</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grad_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># 2. Switch non_slot_dict</span>
+        <span class="n">non_slot_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_non_slot_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_non_slot_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_slot_dict</span>
+
+        <span class="c1"># 3. Call tf-optimizer</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">control_dependencies</span><span class="p">(</span><span class="n">to_static_ops</span><span class="p">):</span>
+            <span class="n">train_op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span>
+                <span class="nb">zip</span><span class="p">(</span><span class="n">grad_list</span><span class="p">,</span> <span class="n">var_list</span><span class="p">),</span> <span class="n">global_step</span><span class="o">=</span><span class="n">global_step</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 4. Switch non_slot_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_non_slot_dict</span> <span class="o">=</span> <span class="n">non_slot_dict</span>
+
+        <span class="c1"># 5. Write buffer back to dynamic variables</span>
+        <span class="n">to_dynamic_ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">control_dependencies</span><span class="p">([</span><span class="n">train_op</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">var_list</span><span class="p">:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">to_dynamic_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">to_dynamic</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">:</span>
+                    <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">to_dynamic_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">to_dynamic</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">to_dynamic_ops</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">OptimizerWrapperV2</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
+        <span class="c1"># slots</span>
+        <span class="k">if</span> <span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span><span class="p">:</span>
+            <span class="n">unused</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">([</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;unused&quot;</span><span class="p">,</span> <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_resource</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">unused</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">([</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;unused&quot;</span><span class="p">,</span> <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_create_slots</span><span class="p">([</span><span class="n">unused</span><span class="p">])</span>
+        <span class="n">names</span><span class="p">,</span> <span class="n">slots</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">get_slot_names</span><span class="p">():</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">slots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">get_slot</span><span class="p">(</span><span class="n">unused</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+        <span class="n">unused_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">unused</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unused_key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">unused_key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">slots</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iterations</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">lr</span>
+
+    <span class="k">def</span> <span class="nf">_var_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="s2">&quot;_distributed_container&quot;</span><span class="p">):</span>
+            <span class="n">var</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">_distributed_container</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">var</span><span class="o">.</span><span class="n">_in_graph_mode</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">var</span><span class="o">.</span><span class="n">_shared_name</span>
+        <span class="k">return</span> <span class="n">var</span><span class="o">.</span><span class="n">_unique_id</span>
+
+    <span class="k">def</span> <span class="nf">apply_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grads_and_vars</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># 1. Create slots and do sparse_read</span>
+        <span class="n">to_static_ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">grad_list</span><span class="p">,</span> <span class="n">var_list</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grads_and_vars</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">unique</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+                <span class="n">grad_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dense_shape</span><span class="p">))</span>
+                <span class="c1"># TODO: Check multi-thread safety of DET</span>
+                <span class="c1"># with tf.control_dependencies([g.values]):</span>
+                <span class="n">to_static_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">to_static</span><span class="p">(</span><span class="n">unique</span><span class="p">))</span>
+                <span class="n">var_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">slot_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">slot_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                        <span class="n">slot</span> <span class="o">=</span> <span class="n">DynamicVariable</span><span class="p">(</span>
+                            <span class="n">dimension</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span>
+                            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">[</span><span class="n">slot_name</span><span class="p">],</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;DynamicSlot&quot;</span><span class="p">,</span>
+                            <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">slot_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">slot</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">slot_name</span><span class="p">]</span>
+                    <span class="n">to_static_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">to_static</span><span class="p">(</span><span class="n">unique</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grad_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># 2. Switch iterations</span>
+        <span class="n">iterations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_iterations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_iterations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iterations</span>
+
+        <span class="c1"># 3. Call tf-optimizer</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">control_dependencies</span><span class="p">(</span><span class="n">to_static_ops</span><span class="p">):</span>
+            <span class="n">train_op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grad_list</span><span class="p">,</span> <span class="n">var_list</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># 4. Switch iterations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_iterations</span> <span class="o">=</span> <span class="n">iterations</span>
+
+        <span class="c1"># 5. Write buffer back to dynamic variables</span>
+        <span class="n">to_dynamic_ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">control_dependencies</span><span class="p">([</span><span class="n">train_op</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">var_list</span><span class="p">:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_key</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">to_dynamic_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">to_dynamic</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_vals</span><span class="p">:</span>
+                    <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">_slots</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">name</span><span class="p">]</span>
+                    <span class="n">to_dynamic_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">to_dynamic</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">to_dynamic_ops</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">SGD</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lr</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lr</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lr</span>
+
+    <span class="k">def</span> <span class="nf">apply_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grads_and_vars</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">train_ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grads_and_vars</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">scaled_g</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lr</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">dense_shape</span><span class="p">)</span>
+                <span class="n">train_ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">scatter_sub</span><span class="p">(</span><span class="n">scaled_g</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">train_ops</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.4
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="optimizer.html">sok_v1.1.4</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -97,14 +99,14 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="mixed-precision">
-<h1>Mixed Precision<a class="headerlink" href="#mixed-precision" title="Permalink to this headline"></a></h1>
+<h1>Mixed Precision<a class="headerlink" href="#mixed-precision" title="Permalink to this heading"></a></h1>
 <p>Mixed precision is a way to make an application run faster and use less memory. It use both 16-bit and 32-bit floating-point types during model training.</p>
 <p>SparseOperationKit follows TensorFlow’s pattern to enable mixed precision training, see this <a class="reference external" href="https://tensorflow.google.cn/guide/mixed_precision?hl=en">link</a>.</p>
 <section id="tensorflow-2-x">
-<h2>TensorFlow 2.x<a class="headerlink" href="#tensorflow-2-x" title="Permalink to this headline"></a></h2>
+<h2>TensorFlow 2.x<a class="headerlink" href="#tensorflow-2-x" title="Permalink to this heading"></a></h2>
 <p>This section illustrates how to enable mixed precision training in TF 2.x.</p>
 <section id="enable-mixed-precision">
-<h3>enable mixed precision<a class="headerlink" href="#enable-mixed-precision" title="Permalink to this headline"></a></h3>
+<h3>enable mixed precision<a class="headerlink" href="#enable-mixed-precision" title="Permalink to this heading"></a></h3>
 <p>To use mixed precision in your model training, you just need to add the following two lines of code to your training script and keep other parts untouched.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">mixed_precision</span><span class="o">.</span><span class="n">Policy</span><span class="p">(</span><span class="s2">&quot;mixed_float16&quot;</span><span class="p">)</span>
 <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">mixed_precision</span><span class="o">.</span><span class="n">set_global_policy</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
@@ -112,7 +114,7 @@
 </div>
 </section>
 <section id="loss-scaling">
-<h3>loss scaling<a class="headerlink" href="#loss-scaling" title="Permalink to this headline"></a></h3>
+<h3>loss scaling<a class="headerlink" href="#loss-scaling" title="Permalink to this heading"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">float16</span></code> data type has a narrow dynamic range compared to <code class="docutils literal notranslate"><span class="pre">float32</span></code>, then <code class="docutils literal notranslate"><span class="pre">float16</span></code> might lead model training to underflow or overflow problems. Loss scaling is a technique to avoid numeric underflow.</p>
 <p>TensorFlow provides an optimizer wrapper for loss scaling.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">()</span> <span class="c1"># could be other optimizers as well</span>
@@ -142,7 +144,7 @@
 </div>
 </section>
 <section id="example-codes">
-<h3>example codes<a class="headerlink" href="#example-codes" title="Permalink to this headline"></a></h3>
+<h3>example codes<a class="headerlink" href="#example-codes" title="Permalink to this heading"></a></h3>
 <p>You can find mixed precision example using TensorFlow 2.x in <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/MixedPrecision"><code class="docutils literal notranslate"><span class="pre">sparse_operation_kit/documents/tutorials/MixedPrecision</span></code></a>. And use following command to launch it.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> sparse_operation_kit/documents/tutorials/MixedPrecision/
 $ python amp_tf2.py
@@ -151,10 +153,10 @@ $ python amp_tf2.py
 </section>
 </section>
 <section id="tensorflow-1-15">
-<h2>TensorFlow 1.15<a class="headerlink" href="#tensorflow-1-15" title="Permalink to this headline"></a></h2>
+<h2>TensorFlow 1.15<a class="headerlink" href="#tensorflow-1-15" title="Permalink to this heading"></a></h2>
 <p>This section illustrates how to enable mixed precision training in TF 1.15.</p>
 <section id="id1">
-<h3>enable mixed precision<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<h3>enable mixed precision<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <p>To use mixed precision in your model training, you just need to add the following four lines of code to your training script and keep other parts untouched.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tensorflow.python.keras.engine</span> <span class="kn">import</span> <span class="n">base_layer_utils</span>
 <span class="n">base_layer_utils</span><span class="o">.</span><span class="n">enable_v2_dtype_behavior</span><span class="p">()</span>
@@ -165,7 +167,7 @@ $ python amp_tf2.py
 </div>
 </section>
 <section id="id2">
-<h3>loss scaling<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
+<h3>loss scaling<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <p>Similarily, optimizer wrapper should be used for loss scaling.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">()</span> <span class="c1"># could be other optimizers as well</span>
 <span class="n">optimizer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">mixed_precision</span><span class="o">.</span><span class="n">LossScaleOptimizer</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
@@ -200,7 +202,7 @@ $ python amp_tf2.py
 </div>
 </section>
 <section id="id3">
-<h3>example codes<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h3>
+<h3>example codes<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
 <p>You can find mixed precision example using TensorFlow 1.15 in <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/MixedPrecision"><code class="docutils literal notranslate"><span class="pre">sparse_operation_kit/documents/tutorials/MixedPrecision</span></code></a>. And use following command to launch it.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> sparse_operation_kit/documents/tutorials/MixedPrecision/
 $ mpiexec --allow-run-as-root -np &lt;gpu-number&gt; python amp_tf1.py
@@ -247,6 +249,8 @@ $ mpiexec --allow-run-as-root -np &lt;gpu-number&gt; python amp_tf1.py
       <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
       <dd><a href="../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
       <dd><a href="amp.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/examples/amp.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/examples/amp.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

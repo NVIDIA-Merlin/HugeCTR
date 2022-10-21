@@ -14,7 +14,9 @@
         <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -52,7 +54,10 @@
 <li class="toctree-l3"><a class="reference internal" href="sparse/index.html">Sparse Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dense/index.html">Dense Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="saver.html">Saver</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">TF Distributed Embedding</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">TF Distributed Embedding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparse_operation_kit.embeddings.tf_distributed_embedding.TFDistributedEmbedding"><code class="docutils literal notranslate"><span class="pre">TFDistributedEmbedding</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../optimizers/opts.html">Optimizers</a></li>
@@ -91,13 +96,13 @@
            <div itemprop="articleBody">
              
   <section id="tf-distributed-embedding">
-<h1>TF Distributed Embedding<a class="headerlink" href="#tf-distributed-embedding" title="Permalink to this headline"></a></h1>
+<h1>TF Distributed Embedding<a class="headerlink" href="#tf-distributed-embedding" title="Permalink to this heading"></a></h1>
 <p>Wrapper classes to build model-parallel embedding layer
 totally with TensorFlow’s API. It utilizes <cite>tf.distribute.Strategy</cite>
 to do the communication among different GPUs.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="sparse_operation_kit.embeddings.tf_distributed_embedding.TFDistributedEmbedding">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.tf_distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">TFDistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vocabulary_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_vec_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GlorotNormal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm_options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/embeddings/tf_distributed_embedding.html#TFDistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.tf_distributed_embedding.TFDistributedEmbedding" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.tf_distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">TFDistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/embeddings/tf_distributed_embedding.html#TFDistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.tf_distributed_embedding.TFDistributedEmbedding" title="Permalink to this definition"></a></dt>
 <dd><p>This Embedding layer will distribute embedding parameters
 to multiple GPUs. It leverages tf.distribute.Strategy to
 do the communication, so that tf.distribute.Strategy must be
@@ -193,6 +198,7 @@ and will be used as the initial value.</p></li>
       <dd><a href="../../../sok_v1.1.0/api/embeddings/tf_distributed_embedding.html">sok_v1.1.0</a></dd>
       <dd><a href="../../../sok_v1.1.1/api/embeddings/tf_distributed_embedding.html">sok_v1.1.1</a></dd>
       <dd><a href="tf_distributed_embedding.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../sok_v1.1.4/api/embeddings/tf_distributed_embedding.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

@@ -13,7 +13,9 @@
         <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -98,9 +100,10 @@
 <span class="kn">from</span> <span class="nn">sparse_operation_kit.optimizers.utils</span> <span class="kn">import</span> <span class="n">split_embedding_variable_from_others</span>
 <span class="kn">from</span> <span class="nn">tensorflow.python.distribute.values</span> <span class="kn">import</span> <span class="n">DistributedVariable</span><span class="p">,</span> <span class="n">MirroredVariable</span>
 
+
 <div class="viewcode-block" id="OptimizerScope"><a class="viewcode-back" href="../../../api/utils/opt_scope.html#sparse_operation_kit.core.context_scope.OptimizerScope">[docs]</a><span class="k">class</span> <span class="nc">OptimizerScope</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    The context manager used along with TensorFlow optimizers. </span>
+<span class="sd">    The context manager used along with TensorFlow optimizers.</span>
 <span class="sd">    It is only needed when TensorFlow native optimizers is used.</span>
 
 <span class="sd">    Abbreviated as ``sok.OptimizerScope(variables)``.</span>
@@ -144,16 +147,19 @@
 <span class="sd">    -----</span>
 <span class="sd">    This context manager may not be used in next release.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainable_variables</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">trainable_variables</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trainable_variables</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;trainable_variables must be a list or tuple.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_trainable_variables</span> <span class="o">=</span> <span class="n">trainable_variables</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_variables</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">split_embedding_variable_from_others</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trainable_variables</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_variables</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">split_embedding_variable_from_others</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_trainable_variables</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">touched_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        
+
         <span class="k">for</span> <span class="n">variable</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_variables</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">EmbeddingVariable</span><span class="p">):</span>
                 <span class="c1"># When using horovod, type(variable) is EmbeddingVariable</span>
@@ -183,7 +189,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -208,6 +214,9 @@
       <dt>Tags</dt>
       <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
       <dd><a href="context_scope.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../sok_v1.1.4/index.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sparse_operation_kit.experiment.lookup &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../env_vars/env_vars.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+          <li><a href="../experiment.html">sparse_operation_kit.experiment</a> &raquo;</li>
+      <li>sparse_operation_kit.experiment.lookup</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sparse_operation_kit.experiment.lookup</h1><div class="highlight"><pre>
+<span></span><span class="c1">#</span>
+<span class="c1"># Copyright (c) 2022, NVIDIA CORPORATION.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1">#</span>
+
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">array_ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops.resource_variable_ops</span> <span class="kn">import</span> <span class="n">variable_shape</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops.resource_variable_ops</span> <span class="kn">import</span> <span class="n">variable_accessed</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment</span> <span class="kn">import</span> <span class="n">raw_ops</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">rank</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">num_ranks</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">id_in_rank</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">num_gpus</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">alltoall</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">allreduce</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">allgather</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.distributed_variable</span> <span class="kn">import</span> <span class="n">DistributedVariable</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.distributed_variable</span> <span class="kn">import</span> <span class="n">LocalizedVariable</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.dynamic_variable</span> <span class="kn">import</span> <span class="n">DynamicVariable</span>
+
+
+<span class="k">def</span> <span class="nf">group_lookup</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="c1"># Fused-version of tf.nn.embedding_lookup on single GPU</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">[</span><span class="n">params</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+    <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s2">&quot;GroupLookup&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">name</span><span class="p">)</span> <span class="k">as</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+            <span class="n">variable_accessed</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="n">handles</span> <span class="o">=</span> <span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">handle</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">group_lookup</span><span class="p">(</span><span class="n">handles</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)):</span>
+            <span class="n">outputs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">outputs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">outputs</span>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;GroupLookup&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_GroupLookupGrad</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="o">*</span><span class="n">top_grads</span><span class="p">):</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;N&quot;</span><span class="p">)</span>
+    <span class="n">grads</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">N</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">params_shape</span> <span class="o">=</span> <span class="n">variable_shape</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">array_ops</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values_shape</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">size</span><span class="p">,</span> <span class="n">params_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">top_grads</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">values_shape</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+        <span class="n">grads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">params_shape</span><span class="p">))</span>
+    <span class="n">grads</span> <span class="o">+=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span>
+    <span class="k">return</span> <span class="n">grads</span>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;Reorder&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_ReorderGrad</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">raw_ops</span><span class="o">.</span><span class="n">gather_ex</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">indices</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">all2all_dense_embedding</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+    <span class="c1"># Filter key</span>
+    <span class="n">selected_indices</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">splits</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">dist_select</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">num_splits</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">num_gpus</span><span class="p">)</span>
+
+    <span class="c1"># All-to-all of indices</span>
+    <span class="n">ex_indices</span><span class="p">,</span> <span class="n">rsplits</span> <span class="o">=</span> <span class="n">alltoall</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">,</span> <span class="n">splits</span><span class="p">)</span>
+    <span class="n">ex_indices</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">key_map</span><span class="p">(</span><span class="n">ex_indices</span><span class="p">)</span>
+
+    <span class="c1"># Local lookup</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">ex_indices</span><span class="p">)</span>
+
+    <span class="c1"># All-to-all of embedding vectors</span>
+    <span class="n">ex_embeddings</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">alltoall</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">rsplits</span><span class="p">)</span>
+
+    <span class="c1"># Reorder of embedding vectors</span>
+    <span class="n">ex_embeddings</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">reorder</span><span class="p">(</span><span class="n">ex_embeddings</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ex_embeddings</span>
+
+
+<span class="k">def</span> <span class="nf">_preprocessing_forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function should not be used by user directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="s2">&quot;PreprocessingForward&quot;</span>
+    <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">as</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">preprocessing_forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_lookup_forward</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function should not be used by user directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="s2">&quot;LookupForward&quot;</span>
+    <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">as</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+            <span class="c1"># For tf.GradientTape</span>
+            <span class="n">variable_accessed</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="n">handles</span> <span class="o">=</span> <span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">handle</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">DynamicVariable</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">lookup_forward_dynamic</span><span class="p">(</span><span class="n">handles</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">lookup_forward</span><span class="p">(</span><span class="n">handles</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;LookupForward&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_LookupBackward</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="o">*</span><span class="n">top_grads</span><span class="p">):</span>
+    <span class="n">attr_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;num_lookups&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;combiners&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;hotness&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;shard&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dimensions&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;num_ranks&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;id_in_local_rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Toffsets&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attr_list</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">)</span>
+    <span class="n">top_grads</span> <span class="o">=</span> <span class="n">top_grads</span><span class="p">[:</span><span class="n">num_gpus</span><span class="p">]</span>
+    <span class="n">other_data</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="n">num_gpus</span><span class="p">:]</span>
+    <span class="n">indices</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">lookup_backward</span><span class="p">(</span><span class="n">top_grads</span><span class="p">,</span> <span class="o">*</span><span class="n">other_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">grads</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">params_shape</span> <span class="o">=</span> <span class="n">variable_shape</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">array_ops</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values_shape</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">size</span><span class="p">,</span> <span class="n">params_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">values_shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;shard&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_gpus</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">//</span> <span class="n">num_gpus</span>
+        <span class="n">grads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">params_shape</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">grads</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">grads</span><span class="p">))</span>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;LookupForwardDynamic&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_LookupDynamicBackward</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="o">*</span><span class="n">top_grads</span><span class="p">):</span>
+    <span class="n">attr_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;num_lookups&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;combiners&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;hotness&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;shard&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dimensions&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;num_ranks&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;id_in_local_rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Toffsets&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attr_list</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">)</span>
+    <span class="n">top_grads</span> <span class="o">=</span> <span class="n">top_grads</span><span class="p">[:</span><span class="n">num_gpus</span><span class="p">]</span>
+    <span class="n">other_data</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="n">num_gpus</span><span class="p">:]</span>
+    <span class="n">indices</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">lookup_backward</span><span class="p">(</span><span class="n">top_grads</span><span class="p">,</span> <span class="o">*</span><span class="n">other_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">grads</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">params_shape</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">dummy_var_shape</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">array_ops</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values_shape</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">size</span><span class="p">,</span> <span class="n">params_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">values_shape</span><span class="p">)</span>
+        <span class="c1"># if kwargs[&quot;shard&quot;][i] &lt; 0 and num_gpus &gt; 1:</span>
+        <span class="c1">#     indices[i] = indices[i] // num_gpus</span>
+        <span class="n">grads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">params_shape</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">grads</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">grads</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_postprocessing_forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function should not be used by user directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="s2">&quot;PostprocessingForward&quot;</span>
+    <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">as</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">postprocessing_forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;PostprocessingForward&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_PostprocessingBackward</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="o">*</span><span class="n">top_grads</span><span class="p">):</span>
+    <span class="n">attr_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;combiners&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;hotness&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;shard&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dimensions&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;num_ranks&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;id_in_local_rank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;num_gpus&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Tindices&quot;</span><span class="p">,</span>
+        <span class="c1"># &quot;Toffsets&quot;,</span>
+    <span class="p">]</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attr_list</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="n">num_lookups</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;num_lookups&quot;</span><span class="p">)</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">)</span>
+    <span class="n">top_grads</span> <span class="o">=</span> <span class="n">top_grads</span><span class="p">[:</span><span class="n">num_lookups</span><span class="p">]</span>
+    <span class="n">row_lengths</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">num_gpus</span><span class="p">:]</span>
+    <span class="n">other_data</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="n">num_lookups</span><span class="p">:]</span>
+    <span class="n">grads</span> <span class="o">=</span> <span class="n">raw_ops</span><span class="o">.</span><span class="n">postprocessing_backward</span><span class="p">(</span><span class="n">top_grads</span><span class="p">,</span> <span class="n">other_data</span><span class="p">,</span> <span class="n">row_lengths</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">grads</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">grads</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">to_list</span><span class="p">(</span><span class="n">any_obj</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">any_obj</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">any_obj</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">any_obj</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">any_obj</span>
+
+
+<div class="viewcode-block" id="lookup_sparse"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.lookup.lookup_sparse">[docs]</a><span class="k">def</span> <span class="nf">lookup_sparse</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sp_ids</span><span class="p">,</span> <span class="n">hotness</span><span class="p">,</span> <span class="n">combiners</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.lookup_sparse``.</span>
+
+<span class="sd">    Peform fused sparse lookup on the given embedding ``params``. This function</span>
+<span class="sd">    is similar to the ``tf.nn.embedding_lookup_sparse``, but with two differences:</span>
+
+<span class="sd">        - It can do distributed lookup.</span>
+<span class="sd">        - It can accept multiple params and multiple sp_ids to do fused lookup at once,</span>
+<span class="sd">          which brings performance benifits.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    params: list, tuple</span>
+<span class="sd">            a list or tuple of trainable *sok.Variable*.</span>
+<span class="sd">    sp_ids: list, tuple</span>
+<span class="sd">            a list or tuple of tf.SparseTensor or tf.RaggedTensor.</span>
+<span class="sd">    hotness: list, tuple</span>
+<span class="sd">            a list or tuple of int to specify the max hotness of each lookup.</span>
+<span class="sd">    combiners: list, tuple</span>
+<span class="sd">            a list or tuple of string to specify the combiner of each lookup.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    emb_vec: list</span>
+<span class="sd">            a list of tf.Tensor(the results of lookup).</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import tensorflow as tf</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+<span class="sd">        from sparse_operation_kit import experiment as sok</span>
+
+<span class="sd">        hvd.init()</span>
+<span class="sd">        gpus = tf.config.experimental.list_physical_devices(&quot;GPU&quot;)</span>
+<span class="sd">        for gpu in gpus:</span>
+<span class="sd">            tf.config.experimental.set_memory_growth(gpu, True)</span>
+<span class="sd">        if gpus:</span>
+<span class="sd">            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], &quot;GPU&quot;)</span>
+
+<span class="sd">        sok.init()</span>
+
+<span class="sd">        v1 = sok.Variable(np.arange(17 * 3).reshape(17, 3), dtype=tf.float32)</span>
+<span class="sd">        v2 = sok.Variable(np.arange(7 * 5).reshape(7, 5), dtype=tf.float32)</span>
+
+<span class="sd">        indices1 = tf.SparseTensor(</span>
+<span class="sd">            indices=[[0, 0], [0, 1], [1, 0], [1, 1], [1, 2]],</span>
+<span class="sd">            values=[1, 1, 3, 4, 5],</span>
+<span class="sd">            dense_shape=[2, 3])</span>
+<span class="sd">        )</span>
+<span class="sd">        indices2 = tf.SparseTensor(</span>
+<span class="sd">            indices=[[0, 0], [1, 0], [1, 1]],</span>
+<span class="sd">            values=[1, 2, 3],</span>
+<span class="sd">            dense_shape=[2, 2]</span>
+<span class="sd">        )</span>
+
+<span class="sd">        embeddings = sok.lookup_sparse(</span>
+<span class="sd">            [v1, v2], [indices1, indices2], hotness=[3, 2], combiners=[&quot;sum&quot;, &quot;sum&quot;]</span>
+<span class="sd">        )</span>
+<span class="sd">        print(embeddings[0])</span>
+<span class="sd">        print(embeddings[1])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># `is_list` determines whether to return a list or a tensor in the end</span>
+    <span class="n">is_list</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="n">to_list</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">sp_ids</span> <span class="o">=</span> <span class="n">to_list</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">)</span>
+    <span class="n">hotness</span> <span class="o">=</span> <span class="n">to_list</span><span class="p">(</span><span class="n">hotness</span><span class="p">)</span>
+    <span class="n">combiners</span> <span class="o">=</span> <span class="n">to_list</span><span class="p">(</span><span class="n">combiners</span><span class="p">)</span>
+
+    <span class="n">shard</span><span class="p">,</span> <span class="n">dimensions</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+        <span class="n">shard</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">target_gpu</span><span class="p">)</span>
+        <span class="n">dimensions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">type</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;Distributed/Localized/Dynamic Variable cannot be used in the same lookup currently&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">row_lengths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sp_id</span> <span class="ow">in</span> <span class="n">sp_ids</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_id</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">):</span>
+            <span class="n">sp_id</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">RaggedTensor</span><span class="o">.</span><span class="n">from_sparse</span><span class="p">(</span><span class="n">sp_id</span><span class="p">)</span>
+        <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp_id</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">row_lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp_id</span><span class="o">.</span><span class="n">row_lengths</span><span class="p">())</span>
+
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;combiners&quot;</span><span class="p">:</span> <span class="n">combiners</span><span class="p">,</span>
+        <span class="s2">&quot;hotness&quot;</span><span class="p">:</span> <span class="n">hotness</span><span class="p">,</span>
+        <span class="s2">&quot;shard&quot;</span><span class="p">:</span> <span class="n">shard</span><span class="p">,</span>
+        <span class="s2">&quot;dimensions&quot;</span><span class="p">:</span> <span class="n">dimensions</span><span class="p">,</span>
+        <span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="n">rank</span><span class="p">(),</span>
+        <span class="s2">&quot;num_ranks&quot;</span><span class="p">:</span> <span class="n">num_ranks</span><span class="p">(),</span>
+        <span class="s2">&quot;id_in_local_rank&quot;</span><span class="p">:</span> <span class="n">id_in_rank</span><span class="p">(),</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Step1</span>
+    <span class="n">key_send_buffer</span><span class="p">,</span> <span class="n">row_length_send_buffer</span> <span class="o">=</span> <span class="n">_preprocessing_forward</span><span class="p">(</span>
+        <span class="n">keys</span><span class="p">,</span> <span class="n">row_lengths</span><span class="p">,</span> <span class="n">num_gpus</span><span class="o">=</span><span class="n">num_gpus</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Step2</span>
+    <span class="k">if</span> <span class="n">num_gpus</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">key_recv_buffer</span> <span class="o">=</span> <span class="n">allgather</span><span class="p">(</span><span class="n">key_send_buffer</span><span class="p">)</span>
+        <span class="n">row_length_recv_buffer</span> <span class="o">=</span> <span class="n">allgather</span><span class="p">(</span><span class="n">row_length_send_buffer</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">key_recv_buffer</span> <span class="o">=</span> <span class="n">key_send_buffer</span>
+        <span class="n">row_length_recv_buffer</span> <span class="o">=</span> <span class="n">row_length_send_buffer</span>
+
+    <span class="c1"># Step3</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">DynamicVariable</span><span class="p">)</span> <span class="ow">and</span> <span class="n">key_recv_buffer</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">key_type</span><span class="p">:</span>
+        <span class="n">key_recv_buffer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">key_recv_buffer</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">key_type</span><span class="p">)</span>
+    <span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_lookup_forward</span><span class="p">(</span>
+        <span class="n">params</span><span class="p">,</span> <span class="n">key_recv_buffer</span><span class="p">,</span> <span class="n">row_length_recv_buffer</span><span class="p">,</span> <span class="n">num_gpus</span><span class="o">=</span><span class="n">num_gpus</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Step4</span>
+    <span class="k">if</span> <span class="n">num_gpus</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">emb_vec</span> <span class="ow">in</span> <span class="n">emb_vec_buffer</span><span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">emb_vec</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">splits</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">emb_vec_buffer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="n">rsplits</span> <span class="o">=</span> <span class="n">alltoall</span><span class="p">(</span><span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="n">splits</span><span class="p">)</span>
+        <span class="n">emb_vec_buffer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="n">rsplits</span><span class="p">)</span>
+
+    <span class="c1"># Step5</span>
+    <span class="n">emb_vec</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_postprocessing_forward</span><span class="p">(</span>
+        <span class="n">emb_vec_buffer</span><span class="p">,</span> <span class="n">row_lengths</span><span class="p">,</span> <span class="n">Tindices</span><span class="o">=</span><span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_list</span><span class="p">:</span>
+        <span class="n">emb_vec</span> <span class="o">=</span> <span class="n">emb_vec</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">emb_vec</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.4
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="lookup.html">sok_v1.1.4</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

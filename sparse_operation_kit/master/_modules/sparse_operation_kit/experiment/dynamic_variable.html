@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sparse_operation_kit.experiment.dynamic_variable &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../env_vars/env_vars.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+          <li><a href="../experiment.html">sparse_operation_kit.experiment</a> &raquo;</li>
+      <li>sparse_operation_kit.experiment.dynamic_variable</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sparse_operation_kit.experiment.dynamic_variable</h1><div class="highlight"><pre>
+<span></span><span class="c1">#</span>
+<span class="c1"># Copyright (c) 2022, NVIDIA CORPORATION.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1">#</span>
+
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">array_ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops.resource_variable_ops</span> <span class="kn">import</span> <span class="n">ResourceVariable</span><span class="p">,</span> <span class="n">variable_accessed</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.eager</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">resource_variable_ops</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment</span> <span class="kn">import</span> <span class="n">raw_ops</span> <span class="k">as</span> <span class="n">dynamic_variable_ops</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.experiment.communication</span> <span class="kn">import</span> <span class="n">num_gpus</span>
+
+
+<div class="viewcode-block" id="DynamicVariable"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.dynamic_variable.DynamicVariable">[docs]</a><span class="k">class</span> <span class="nc">DynamicVariable</span><span class="p">(</span><span class="n">ResourceVariable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.DynamicVariable``.</span>
+
+<span class="sd">    A variable that allocates memory dynamically.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dimension: int</span>
+<span class="sd">        The last dimension of this variable(that is, the embedding vector</span>
+<span class="sd">        size of embedding table).</span>
+
+<span class="sd">    initializer: string</span>
+<span class="sd">        a string to specify how to initialize this variable.</span>
+<span class="sd">        Currently, only support &quot;random&quot; or string of a float</span>
+<span class="sd">        value(meaning const initializer). Default value is &quot;random&quot;.</span>
+
+<span class="sd">    key_type: dtype</span>
+<span class="sd">        specify the data type of indices. Unlike the static variable of</span>
+<span class="sd">        tensorflow, this variable is dyanmically allocated and contains</span>
+<span class="sd">        a hash table inside it. So the data type of indices must be</span>
+<span class="sd">        specified to construct the hash table. Default value is tf.int64.</span>
+
+<span class="sd">    dtype: dtype</span>
+<span class="sd">        specify the data type of values. Default value is tf.float32.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import tensorflow as tf</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+<span class="sd">        from sparse_operation_kit import experiment as sok</span>
+
+<span class="sd">        v = sok.DynamicVariable(dimension=3, initializer=&quot;13&quot;)</span>
+<span class="sd">        print(&quot;v.shape:&quot;, v.shape)</span>
+<span class="sd">        print(&quot;v.size:&quot;, v.size)</span>
+
+<span class="sd">        indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)</span>
+
+<span class="sd">        embedding = tf.nn.embedding_lookup(v, indices)</span>
+<span class="sd">        print(&quot;embedding:&quot;, embedding)</span>
+<span class="sd">        print(&quot;v.shape:&quot;, v.shape)</span>
+<span class="sd">        print(&quot;v.size:&quot;, v.size)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dimension</span><span class="p">,</span>
+        <span class="n">initializer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">var_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">constraint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">key_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span> <span class="o">=</span> <span class="n">key_type</span> <span class="k">if</span> <span class="n">key_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span> <span class="o">=</span> <span class="n">dtype</span> <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dimension</span> <span class="o">=</span> <span class="n">dimension</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">mode</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">DynamicVariable</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">initial_value</span><span class="o">=</span><span class="p">[[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">dimension</span><span class="p">],</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="n">trainable</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;DynamicVariableBuffer&quot;</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span><span class="p">,</span>
+            <span class="n">constraint</span><span class="o">=</span><span class="n">constraint</span><span class="p">,</span>
+            <span class="n">distribute_strategy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">synchronization</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">aggregation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">dimension</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">init_scope</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;DynamicVariable&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">name</span>
+            <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">as</span> <span class="n">name_scope</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">name_from_scope_name</span><span class="p">(</span><span class="n">name_scope</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">executing_eagerly</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">uid</span><span class="p">())</span>
+                <span class="k">with</span> <span class="n">ops</span><span class="o">.</span><span class="n">NullContextmanager</span><span class="p">():</span>
+                    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">dimension</span><span class="p">]</span>
+                    <span class="n">initializer</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">initializer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">initializer</span>
+                    <span class="n">var_type</span> <span class="o">=</span> <span class="s2">&quot;dynamic&quot;</span> <span class="k">if</span> <span class="n">var_type</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">var_type</span>
+                    <span class="n">handle</span> <span class="o">=</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_handle</span><span class="p">(</span>
+                        <span class="n">container</span><span class="o">=</span><span class="s2">&quot;DummyVariableContainer&quot;</span><span class="p">,</span>
+                        <span class="n">shared_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span><span class="p">,</span>
+                        <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span><span class="p">,</span>
+                        <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span><span class="p">,</span>
+                        <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">initializer</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+                        <span class="n">init_op</span> <span class="o">=</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_initialize</span><span class="p">(</span>
+                            <span class="n">handle</span><span class="p">,</span>
+                            <span class="n">initializer</span><span class="o">=</span><span class="n">initializer</span><span class="p">,</span>
+                            <span class="n">var_type</span><span class="o">=</span><span class="n">var_type</span><span class="p">,</span>
+                            <span class="n">unique_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span><span class="p">,</span>
+                            <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span><span class="p">,</span>
+                            <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">control_dependencies</span><span class="p">([</span><span class="n">initializer</span><span class="o">.</span><span class="n">_initializer_op</span><span class="p">]):</span>
+                            <span class="n">initial_val</span> <span class="o">=</span> <span class="n">initializer</span><span class="o">.</span><span class="n">read_value</span><span class="p">()</span>
+                        <span class="n">init_op</span> <span class="o">=</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_initialize</span><span class="p">(</span>
+                            <span class="n">handle</span><span class="p">,</span>
+                            <span class="n">initializer</span><span class="o">=</span><span class="n">initial_val</span><span class="p">,</span>
+                            <span class="n">var_type</span><span class="o">=</span><span class="n">var_type</span><span class="p">,</span>
+                            <span class="n">unique_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span><span class="p">,</span>
+                            <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span><span class="p">,</span>
+                            <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="c1"># TODO: Add is_initialized_op</span>
+                    <span class="c1"># is_initialized_op = ops.convert_to_tensor(True)</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_tf_handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span> <span class="o">=</span> <span class="n">handle</span>
+                    <span class="c1"># Note that the default handle will be sok&#39;s handle</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_initializer_op</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">group</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_initializer_op</span><span class="p">,</span> <span class="n">init_op</span><span class="p">])</span>
+                    <span class="c1"># self._is_initialized_op = tf.group([self._is_initialized_op, is_initialized_op])</span>
+
+            <span class="n">handle_data</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">resource_variable_ops</span><span class="o">.</span><span class="n">cpp_shape_inference_pb2</span><span class="o">.</span><span class="n">CppShapeInferenceResult</span><span class="o">.</span><span class="n">HandleData</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">handle_data</span><span class="o">.</span><span class="n">is_set</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">handle_data</span><span class="o">.</span><span class="n">shape_and_type</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">resource_variable_ops</span><span class="o">.</span><span class="n">cpp_shape_inference_pb2</span><span class="o">.</span><span class="n">CppShapeInferenceResult</span><span class="o">.</span><span class="n">HandleShapeAndType</span><span class="p">(</span>
+                    <span class="n">shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">as_proto</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">as_datatype_enum</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">resource_variable_ops</span><span class="o">.</span><span class="n">_set_handle_shapes_and_types</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">,</span> <span class="n">handle_data</span><span class="p">,</span> <span class="n">graph_mode</span><span class="o">=</span><span class="kc">False</span> <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">executing_eagerly</span><span class="p">()</span> <span class="k">else</span> <span class="kc">True</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">is_static</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tf_handle</span>
+
+    <span class="k">def</span> <span class="nf">to_static</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_read</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span> <span class="o">=</span> <span class="n">indices</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tf_handle</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;to_static() must be called in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_dynamic</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_value</span><span class="p">()</span>
+            <span class="n">sparse_delta</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scatter_update</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;to_dynamic() must be called in static mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">()</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;sok.DynamicVariable &#39;</span><span class="si">%s</span><span class="s2">&#39; shape=</span><span class="si">%s</span><span class="s2"> dtype=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_name</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_shape</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dimension</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">handle_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_gpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="s2">&quot;localized&quot;</span><span class="p">)]</span> <span class="o">==</span> <span class="s2">&quot;localized&quot;</span><span class="p">:</span>
+            <span class="n">target_gpu</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">target_gpu</span> <span class="o">&gt;=</span> <span class="n">num_gpus</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;There are only </span><span class="si">%d</span><span class="s2"> GPU(s), cannot put embedding table on </span><span class="si">%d</span><span class="s2">th(zero-indexed) GPU.&quot;</span>
+                    <span class="o">%</span> <span class="p">(</span><span class="n">num_gpus</span><span class="p">(),</span> <span class="n">target_gpu</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">target_gpu</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_gpus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">num_gpus</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">key_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">indices</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># Methods supported both in static mode and dynamic mode</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+
+    <span class="k">def</span> <span class="nf">sparse_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">sparse_read</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="n">variable_accessed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">indices</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">tf</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_sparse_read</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle_dtype</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_sub</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;sparse_delta is not IndexedSlices: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sparse_delta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_scatter_add</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span><span class="p">,</span>
+            <span class="n">sparse_delta</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span>
+            <span class="n">ops</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="o">-</span><span class="n">sparse_delta</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_add</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;sparse_delta is not IndexedSlices: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sparse_delta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_scatter_add</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span><span class="p">,</span>
+            <span class="n">sparse_delta</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span>
+            <span class="n">ops</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">sparse_delta</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_update</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">use_locking</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sparse_delta</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;sparse_delta is not IndexedSlices: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sparse_delta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_scatter_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dummy_handle</span><span class="p">,</span>
+            <span class="n">sparse_delta</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span>
+            <span class="n">ops</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">sparse_delta</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># Methods not supported both in static mode and dynamic mode</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+
+    <span class="k">def</span> <span class="nf">__deepcopy__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;__deepcopy__() is not supported.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;__reduce__() is not supported.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_proto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;to_proto() is not supported.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_proto</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;from_proto() is not supported.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_shape() is not supported.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># Methods only supported in static mode</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+
+    <span class="k">def</span> <span class="nf">is_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;is_initialized() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_read_variable_op</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">_read_variable_op</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;_read_variable_op() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;value() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_dense_var_to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">_dense_var_to_tensor</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;_dense_var_to_tensor() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gather_saveables_for_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">_gather_saveables_for_checkpoint</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;_gather_saveables_for_checkpoint() is not supported in dynamic mode.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">gather_nd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">gather_nd</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;gather_nd() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assign_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">assign_add</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;assign_add() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;assign() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_max</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_max() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_min</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_min() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_mul</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_mul() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_dim</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_dim() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">batch_scatter_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">batch_scatter_update</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;batch_scatter_update() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_nd_sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_nd_sub</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_nd_sub() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scatter_nd_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">scatter_nd_update</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;scatter_nd_update() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_strided_slice_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">_strided_slice_assign</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;_strided_slice_assign() is not supported in dynamic mode.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__int__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_static</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="fm">__int__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;__int__() is not supported in dynamic mode.&quot;</span><span class="p">)</span></div>
+
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">RegisterGradient</span><span class="p">(</span><span class="s2">&quot;DummyVarSparseRead&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_SparseReadGrad</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Gradient for sparse_read.&quot;&quot;&quot;</span>
+    <span class="n">handle</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">key_type</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;key_type&quot;</span><span class="p">)</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span><span class="s2">&quot;dtype&quot;</span><span class="p">)</span>
+    <span class="n">variable_shape</span> <span class="o">=</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_shape</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">array_ops</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">values_shape</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">size</span><span class="p">,</span> <span class="n">variable_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]],</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">values_shape</span><span class="p">)</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">ops</span><span class="o">.</span><span class="n">IndexedSlices</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">variable_shape</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="export"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.dynamic_variable.export">[docs]</a><span class="k">def</span> <span class="nf">export</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.export``.</span>
+
+<span class="sd">    Export the indices and value tensor from the given variable.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    var: sok.DynamicVariable</span>
+<span class="sd">        The variable to extract indices and values.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    indices: tf.Tensor</span>
+<span class="sd">        The indices of the given variable.</span>
+
+<span class="sd">    values: tf.Tensor</span>
+<span class="sd">        the values of the given variable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">DynamicVariable</span><span class="p">):</span>
+        <span class="n">indices</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_export</span><span class="p">(</span>
+            <span class="n">var</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">handle_dtype</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">):</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">indices</span><span class="p">,</span> <span class="n">values</span></div>
+
+
+<div class="viewcode-block" id="assign"><a class="viewcode-back" href="../../../api/experiment.html#sparse_operation_kit.experiment.dynamic_variable.assign">[docs]</a><span class="k">def</span> <span class="nf">assign</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``sok.experiment.assign``.</span>
+
+<span class="sd">    Assign the indices and value tensor to the target variable.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    var: sok.DynamicVariable</span>
+<span class="sd">        The target variable of assign.</span>
+
+<span class="sd">    indices: tf.Tensor</span>
+<span class="sd">        indices to be assigned to the variable.</span>
+
+<span class="sd">    values: tf.Tensor</span>
+<span class="sd">        values to be assigned to the variable</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    variable: sok.DynamicVariable</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">DynamicVariable</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dynamic_variable_ops</span><span class="o">.</span><span class="n">dummy_var_assign</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.4
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="dynamic_variable.html">sok_v1.1.4</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

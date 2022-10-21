@@ -14,7 +14,9 @@
         <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
         <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
         <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -97,11 +99,11 @@
            <div itemprop="articleBody">
              
   <section id="distributed-sparse-embedding">
-<h1>Distributed Sparse Embedding<a class="headerlink" href="#distributed-sparse-embedding" title="Permalink to this headline"></a></h1>
+<h1>Distributed Sparse Embedding<a class="headerlink" href="#distributed-sparse-embedding" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">DistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">combiner</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_vocabulary_size_per_gpu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_vec_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slot_num</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_nnz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_feature_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_hashtable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/distributed_embedding.html#DistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">DistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/distributed_embedding.html#DistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Layer</span></code></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.DistributedEmbedding(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for distributed sparse embedding layer.
 It can be used to create a sparse embedding layer which will distribute
@@ -213,6 +215,8 @@ in the corresponding dense tensor.</p></li>
       <dd><a href="../../../../sok_v1.0.0/api/embeddings/sparse/distributed.html">sok_v1.0.0</a></dd>
       <dd><a href="../../../../sok_v1.1.0/api/embeddings/sparse/distributed.html">sok_v1.1.0</a></dd>
       <dd><a href="distributed.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../../../sok_v1.1.2/api/embeddings/sparse/distributed.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../sok_v1.1.4/api/embeddings/sparse/distributed.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

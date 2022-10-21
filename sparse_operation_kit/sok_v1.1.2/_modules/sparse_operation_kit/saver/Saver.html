@@ -13,7 +13,9 @@
         <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -99,6 +101,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``sok.Saver()``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># TODO: how to get all emb_var from Model???</span>
         <span class="k">pass</span>
@@ -108,10 +111,10 @@
 
 <div class="viewcode-block" id="Saver.dump_to_file"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver.dump_to_file">[docs]</a>    <span class="k">def</span> <span class="nf">dump_to_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_variable</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        This function is used to save the specified embedding variables </span>
+<span class="sd">        This function is used to save the specified embedding variables</span>
 <span class="sd">        to host file.</span>
 
-<span class="sd">        When multiple CPU processes is used, this function must be called </span>
+<span class="sd">        When multiple CPU processes is used, this function must be called</span>
 <span class="sd">        within each CPU processes.</span>
 
 <span class="sd">        Parameters</span>
@@ -121,7 +124,7 @@
 <span class="sd">                to file.</span>
 <span class="sd">        filepath: string</span>
 <span class="sd">                The directory where the parameters will be dumped to.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        status: tf.Tensor</span>
@@ -138,8 +141,8 @@
 <div class="viewcode-block" id="Saver.restore_from_file"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver.restore_from_file">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embedding_variable</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This function is used to restore dumped parameters to the specified embedding variable.</span>
-<span class="sd">        </span>
-<span class="sd">        When multiple CPU processes is used, this function must be called </span>
+
+<span class="sd">        When multiple CPU processes is used, this function must be called</span>
 <span class="sd">        within each CPU processes.</span>
 
 <span class="sd">        Parameters</span>
@@ -214,7 +217,9 @@
                 <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># strategy branch</span>
-                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span><span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span><span class="p">)</span></div></div>
+                <span class="k">return</span> <span class="n">kit_lib</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span>
+                    <span class="n">embedding_variable</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">emb_handle</span><span class="p">,</span> <span class="n">tensors</span>
+                <span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -251,6 +256,7 @@
       <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
       <dd><a href="../../../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
       <dd><a href="Saver.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../../../sok_v1.1.4/index.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -102,23 +104,23 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="environment-variables">
-<h1>Environment Variables<a class="headerlink" href="#environment-variables" title="Permalink to this headline"></a></h1>
+<h1>Environment Variables<a class="headerlink" href="#environment-variables" title="Permalink to this heading"></a></h1>
 <p>There are two kinds of environment variables in SparseOperationKit (SOK), which are compile variable and runtime variable, respectively.</p>
 <section id="compile-variables">
-<h2>Compile Variables<a class="headerlink" href="#compile-variables" title="Permalink to this headline"></a></h2>
+<h2>Compile Variables<a class="headerlink" href="#compile-variables" title="Permalink to this heading"></a></h2>
 <p>These variables are available during building SOK.</p>
 <section id="sok-compile-gpu-sm">
-<h3>SOK_COMPILE_GPU_SM<a class="headerlink" href="#sok-compile-gpu-sm" title="Permalink to this headline"></a></h3>
+<h3>SOK_COMPILE_GPU_SM<a class="headerlink" href="#sok-compile-gpu-sm" title="Permalink to this heading"></a></h3>
 <p>This variable is used to configure the compute capability of the target GPU devices. By default, it equals to <code class="docutils literal notranslate"><span class="pre">70;75;80</span></code>. If you want to specify other values for this env var, please use semicolon to separate multiple SM values. For example,</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">SOK_COMPILE_GPU_SM</span><span class="o">=</span><span class="s2">&quot;60;65;70;75;80&quot;</span>
 </pre></div>
 </div>
 </section>
 <section id="sok-compile-async">
-<h3>SOK_COMPILE_ASYNC<a class="headerlink" href="#sok-compile-async" title="Permalink to this headline"></a></h3>
+<h3>SOK_COMPILE_ASYNC<a class="headerlink" href="#sok-compile-async" title="Permalink to this heading"></a></h3>
 <p>This variable is used to configure whether to enable dedicated CUDA stream for SOK’s Ops. By default, it is enabled.</p>
 <section id="values-accepted">
-<h4>values accepted<a class="headerlink" href="#values-accepted" title="Permalink to this headline"></a></h4>
+<h4>values accepted<a class="headerlink" href="#values-accepted" title="Permalink to this heading"></a></h4>
 <p>“0”, “OFF”, “Off”, “off”: these values indicates SOK will use the same CUDA stream as that of TF used. For example,</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">SOK_COMPILE_ASYNC</span><span class="o">=</span><span class="s2">&quot;OFF&quot;</span>
 </pre></div>
@@ -126,10 +128,10 @@
 </section>
 </section>
 <section id="sok-compile-use-nvtx">
-<h3>SOK_COMPILE_USE_NVTX<a class="headerlink" href="#sok-compile-use-nvtx" title="Permalink to this headline"></a></h3>
+<h3>SOK_COMPILE_USE_NVTX<a class="headerlink" href="#sok-compile-use-nvtx" title="Permalink to this heading"></a></h3>
 <p>This variable is used to indicate whether NVTX marks are enabled in SOK’s Ops. By default, it is disabled.</p>
 <section id="id1">
-<h4>values accepted<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h4>
+<h4>values accepted<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
 <p>“1”, “ON”, “On”, “on”: these values indicates SOK will enable nvtx marks in its Ops. For example,</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">SOK_COMPILE_USE_NVTX</span><span class="o">=</span><span class="m">1</span>
 </pre></div>
@@ -137,10 +139,10 @@
 </section>
 </section>
 <section id="sok-compile-build-type">
-<h3>SOK_COMPILE_BUILD_TYPE<a class="headerlink" href="#sok-compile-build-type" title="Permalink to this headline"></a></h3>
+<h3>SOK_COMPILE_BUILD_TYPE<a class="headerlink" href="#sok-compile-build-type" title="Permalink to this heading"></a></h3>
 <p>This variable is used to indicate whether the building is in <code class="docutils literal notranslate"><span class="pre">Release</span></code> or <code class="docutils literal notranslate"><span class="pre">Debug</span></code> mode. By default, it will be built at <code class="docutils literal notranslate"><span class="pre">Release</span></code> mode. If switched to <code class="docutils literal notranslate"><span class="pre">Debug</span></code> mode, there will be some debugging functionalities enabled, for example, assertion.</p>
 <section id="id2">
-<h4>values accepted<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h4>
+<h4>values accepted<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h4>
 <p>“DEBUG”, “Debug”, “debug”: these values indicates SOK will be built in <code class="docutils literal notranslate"><span class="pre">Debug</span></code> mode. For example,</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">SOK_COMPILE_BUILD_TYPE</span><span class="o">=</span><span class="s2">&quot;DEBUG&quot;</span>
 </pre></div>
@@ -149,14 +151,14 @@
 </section>
 </section>
 <section id="runtime-variables">
-<h2>Runtime Variables<a class="headerlink" href="#runtime-variables" title="Permalink to this headline"></a></h2>
+<h2>Runtime Variables<a class="headerlink" href="#runtime-variables" title="Permalink to this heading"></a></h2>
 <p>These variable are available at runtime.</p>
 <section id="sok-event-sync">
-<h3>SOK_EVENT_SYNC<a class="headerlink" href="#sok-event-sync" title="Permalink to this headline"></a></h3>
+<h3>SOK_EVENT_SYNC<a class="headerlink" href="#sok-event-sync" title="Permalink to this heading"></a></h3>
 <p>This variable is available only if SOK used dedicated CUDA stream, which means <code class="docutils literal notranslate"><span class="pre">SOK_COMPILE_ASYNC=ON</span></code> at compiling. It can be used to specify how SOK synchronizs with TensorFlow.</p>
 <p>By default, <code class="docutils literal notranslate"><span class="pre">SOK_EVENT_SYNC=1</span></code>, it means SOK will use <code class="docutils literal notranslate"><span class="pre">cudaEventSynchronize</span></code> to wait for the completion of TensorFLow’s comput stream, otherwise, SOK will use <code class="docutils literal notranslate"><span class="pre">cudaStreamWaitEvent</span></code> to create dependencies between SOK’s CUDA stream and TF’s.</p>
 <section id="id3">
-<h4>values accepted<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<h4>values accepted<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
 <p>Any value except “1” can be used to make SOK use <code class="docutils literal notranslate"><span class="pre">cudaStreamWaitEvent</span></code> to synchronize with TensorFlow. For example,</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">SOK_EVENT_SYNC</span><span class="o">=</span><span class="m">0</span>
 </pre></div>
@@ -204,6 +206,7 @@
       <dd><a href="../../sok_v1.1.0/env_vars/env_vars.html">sok_v1.1.0</a></dd>
       <dd><a href="../../sok_v1.1.1/env_vars/env_vars.html">sok_v1.1.1</a></dd>
       <dd><a href="env_vars.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/env_vars/env_vars.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

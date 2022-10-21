@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -89,10 +91,10 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="sok-dlrm-benchmark">
-<h1>SOK DLRM Benchmark<a class="headerlink" href="#sok-dlrm-benchmark" title="Permalink to this headline"></a></h1>
+<h1>SOK DLRM Benchmark<a class="headerlink" href="#sok-dlrm-benchmark" title="Permalink to this heading"></a></h1>
 <p>This is the SOK DLRM benchmark on Criteo Terabyte dataset.</p>
 <section id="prepare-dataset">
-<h2>Prepare Dataset<a class="headerlink" href="#prepare-dataset" title="Permalink to this headline"></a></h2>
+<h2>Prepare Dataset<a class="headerlink" href="#prepare-dataset" title="Permalink to this heading"></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone https://gitlab-master.nvidia.com/dl/hugectr/hugectr.git
 <span class="nb">cd</span> hugectr/
 <span class="nb">cd</span> sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
@@ -104,7 +106,7 @@ python3 split_bin.py test_data.bin <span class="nv">$DATA</span>/test
 </div>
 </section>
 <section id="environment">
-<h2>Environment<a class="headerlink" href="#environment" title="Permalink to this headline"></a></h2>
+<h2>Environment<a class="headerlink" href="#environment" title="Permalink to this heading"></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --privileged<span class="o">=</span><span class="nb">true</span> --gpus<span class="o">=</span>all -it --rm nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.11
 git clone https://gitlab-master.nvidia.com/dl/hugectr/hugectr.git
 <span class="nb">cd</span> hugectr/
@@ -121,7 +123,7 @@ cp -r sparse_operation_kit /usr/local/lib/
 </div>
 </section>
 <section id="run-benchmark">
-<h2>Run Benchmark<a class="headerlink" href="#run-benchmark" title="Permalink to this headline"></a></h2>
+<h2>Run Benchmark<a class="headerlink" href="#run-benchmark" title="Permalink to this heading"></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> hugectr/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
 <span class="c1"># FP32 Result</span>
 horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_dir<span class="o">=(</span><span class="nv">$DATA</span><span class="o">)</span> --global_batch_size<span class="o">=</span><span class="m">65536</span> --xla --compress --custom_interact --eval_in_last
@@ -132,7 +134,7 @@ horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_
 </div>
 </section>
 <section id="performance">
-<h2>Performance<a class="headerlink" href="#performance" title="Permalink to this headline"></a></h2>
+<h2>Performance<a class="headerlink" href="#performance" title="Permalink to this heading"></a></h2>
 <p>8 x A100 (82GB embedding table):</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
@@ -280,7 +282,7 @@ horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_
 <p>Note: The custom interact op can be seen in <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact">here</a>, be careful to clone the repo from <code class="docutils literal notranslate"><span class="pre">https://github.com/NVIDIA/DeepLearningExamples/</span></code>, instead of cloning it from <code class="docutils literal notranslate"><span class="pre">https://gitlab-master.nvidia.com/wraveane/tensorflow-dot-based-interact</span></code> as written in the README.</p>
 </section>
 <section id="profile">
-<h2>Profile<a class="headerlink" href="#profile" title="Permalink to this headline"></a></h2>
+<h2>Profile<a class="headerlink" href="#profile" title="Permalink to this heading"></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> hugectr/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
 nsys profile --sample<span class="o">=</span>none --backtrace<span class="o">=</span>none --cudabacktrace<span class="o">=</span>none --cpuctxsw<span class="o">=</span>none --trace-fork-before-exec<span class="o">=</span><span class="nb">true</span> horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_dir<span class="o">=(</span><span class="nv">$DATA</span><span class="o">)</span> --global_batch_size<span class="o">=</span><span class="m">65536</span> --xla --compress --custom_interact --early_stop<span class="o">=</span><span class="m">30</span>
 </pre></div>
@@ -326,6 +328,7 @@ nsys profile --sample<span class="o">=</span>none --backtrace<span class="o">=</
       <dd><a href="../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
       <dd><a href="../../sok_v1.1.1/performance/dlrm.html">sok_v1.1.1</a></dd>
       <dd><a href="dlrm.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/performance/dlrm.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>

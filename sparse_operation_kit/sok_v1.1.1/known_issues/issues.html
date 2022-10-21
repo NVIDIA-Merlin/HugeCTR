@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -79,10 +81,10 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="known-issues">
-<h1>Known Issues<a class="headerlink" href="#known-issues" title="Permalink to this headline"></a></h1>
+<h1>Known Issues<a class="headerlink" href="#known-issues" title="Permalink to this heading"></a></h1>
 <p>There are several issues in SparseOperationKit, and we are trying to fix shose issues in the near future.</p>
 <section id="nccl-conflicts">
-<h2>NCCL conflicts<a class="headerlink" href="#nccl-conflicts" title="Permalink to this headline"></a></h2>
+<h2>NCCL conflicts<a class="headerlink" href="#nccl-conflicts" title="Permalink to this heading"></a></h2>
 <p>In SparseOperationKit’s embedding layers, NCCL is used to transfer data among GPUs. When there exists multiple embedding layers and there is not data dependencies among those layers, the execution order must be deterministic otherwise program might be hanging.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>device-0: embedding-0 -&gt; embedding-1
 device-1: embedding-1 -&gt; embedding-0
@@ -128,6 +130,8 @@ device-1: embedding-1 -&gt; embedding-0
       <dd><a href="../../sok_v1.0.0/known_issues/issues.html">sok_v1.0.0</a></dd>
       <dd><a href="../../sok_v1.1.0/known_issues/issues.html">sok_v1.1.0</a></dd>
       <dd><a href="issues.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/known_issues/issues.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/known_issues/issues.html">sok_v1.1.4</a></dd>
     </dl>
   </div>
 </div><script>
