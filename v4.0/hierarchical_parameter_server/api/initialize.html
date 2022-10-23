@@ -101,29 +101,31 @@
 <dt id="hierarchical_parameter_server.Init">
 <code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">Init</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/initialize.html#Init"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.Init" title="Permalink to this definition"></a></dt>
 <dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.Init(**kwargs)</span></code>.</p>
-<p>This function will initialize the HPS for all the deployed models. It can be used
-explicitly or implicitly. When used explicitly, it needs to be called only once and
-must be called before any other HPS APIs. When used implicitly, <cite>ps_config_file</cite> and
-<cite>global_batch_size</cite> should be specified in the constructor of <cite>hps.SparseLookupLayer</cite>
-and <cite>hps.LookupLayer</cite>. When the layer is executed for the first time, it will trigger
-the internal HPS initialization implicitly, in a thread-safe call-once manner. The
+<p>This function initializes the HPS for all the deployed models. It can be used
+explicitly or implicitly. When used explicitly, you must call the function
+only once and you must call it before any other HPS APIs.
+When used implicitly, <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code> and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code>
+should be specified in the constructor of <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer</span></code>
+and <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code>. When the layer is executed for the first time, it triggers
+the internal HPS initialization implicitly in a thread-safe call-once manner. The
 implicit initialization is especially useful for deploying the SavedModels that
 leverage the HPS layers for online inference.</p>
-<p>HPS will leverage all available GPUs for current CPU process. Please set
-<cite>CUDA_VISIBLE_DEVICES</cite> or <cite>tf.config.set_visible_devices</cite> to specify which
-GPU(s) are used in this process before launching tensorflow runtime
-and calling this function. Besides, please ensure that deployed_device_list
-in the HPS configuration json file matches the visible devices.</p>
-<p>In <strong>TensorFlow 2.x</strong>, HPS can be used with <strong>tf.distribute.Strategy</strong> or <strong>Horovod</strong>.
-When it’s used with tf.distribute.Strategy, it must be called under <cite>strategy.scope()</cite>.
-For example,</p>
+<p>HPS leverages all available GPUs for the current CPU process. Set
+<code class="docutils literal notranslate"><span class="pre">CUDA_VISIBLE_DEVICES</span></code> or <code class="docutils literal notranslate"><span class="pre">tf.config.set_visible_devices</span></code> to specify which
+GPUs to use in this process before you launch the TensorFlow runtime
+and calling this function. Additionally, ensure that the <code class="docutils literal notranslate"><span class="pre">deployed_device_list</span></code>
+parameter in the HPS configuration JSON file matches the visible devices.</p>
+<p>In <strong>TensorFlow 2.x</strong>, HPS can be used with <code class="docutils literal notranslate"><span class="pre">tf.distribute.Strategy</span></code> or Horovod.
+When it is used with <code class="docutils literal notranslate"><span class="pre">tf.distribute.Strategy</span></code>, you must call it under <code class="docutils literal notranslate"><span class="pre">strategy.scope()</span></code>
+as shown in the following code block.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
 
 <span class="k">with</span> <span class="n">strategy</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
     <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>When it’s used with Horovod, it must be called at each process. For example,</p>
+<p>To use the function with Horovod, call it one for each time you initialize a
+Horovod process such as the following code block shows.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
 <span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
 
@@ -132,8 +134,8 @@ For example,</p>
 <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>In <strong>TensorFlow 1.15</strong>, HPS can only work with <strong>Horovod</strong>. The retured status
-must be evaluated with <cite>sess.run</cite>, and it must be the first step before evaluate
+<p>In <strong>TensorFlow 1.15</strong>, HPS can only work with Horovod. The returned status
+must be evaluated with <code class="docutils literal notranslate"><span class="pre">sess.run</span></code> and it must be the first step before evaluating
 any other HPS APIs.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
 
@@ -145,20 +147,20 @@ any other HPS APIs.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.10)"><em>dict</em></a>) – <p>keyword arguments for this function.
-Currently, it must contains <cite>global_batch_size</cite> and <cite>ps_config_file</cite>.</p>
+<dd class="field-odd"><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.10)"><em>dict</em></a>) – <p>Keyword arguments for this function.
+The dictionary must contain <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code>.</p>
 <ul class="simple">
-<li><p><cite>global_batch_size</cite>: int, the global batch size for HPS that is deployed on multiple GPUs</p></li>
-<li><p><cite>ps_config_file</cite>: str, the JSON configuration file for HPS initialization</p></li>
+<li><p><cite>global_batch_size</cite>: int, the global batch size for HPS that is deployed on multiple GPUs.</p></li>
+<li><p><cite>ps_config_file</cite>: str, the JSON configuration file for HPS initialization.</p></li>
 </ul>
-<p>An example <cite>ps_config_file</cite> is as follows and <cite>global_batch_size</cite> can be
+<p>An example <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code> is as follows and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> can be
 configured as 16384 correspondingly:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ps_config_file</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;supportlonglong&quot;</span> <span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
     <span class="s2">&quot;models&quot;</span> <span class="p">:</span>
     <span class="p">[{</span>
-        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;foo&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;foo_sparse.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;demo_model&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;demo_model_sparse.model&quot;</span><span class="p">],</span>
         <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
         <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">],</span>
         <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span>
@@ -172,8 +174,8 @@ configured as 16384 correspondingly:</p>
         <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="kc">True</span>
     <span class="p">},</span>
     <span class="p">{</span>
-        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;bar&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;bar_sparse_0.model&quot;</span><span class="p">,</span> <span class="s2">&quot;bar_sparse_1.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;demo_model2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;demo_model2_sparse_0.model&quot;</span><span class="p">,</span> <span class="s2">&quot;demo_model2_sparse_1.model&quot;</span><span class="p">],</span>
         <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
         <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">,</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
         <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
@@ -192,8 +194,7 @@ configured as 16384 correspondingly:</p>
 </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>status</strong> – a string will be returned if this function executed successfully.
-And its contents will be ‘OK’.</p>
+<dd class="field-even"><p><strong>status</strong> – On success, the function returns string with the value <code class="docutils literal notranslate"><span class="pre">OK</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)">str</a></p>

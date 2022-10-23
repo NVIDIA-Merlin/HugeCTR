@@ -105,20 +105,20 @@
 <dd><p>Bases: <a class="reference external" href="https://keras.io/api/layers/base_layer/index.html#layer-class" title="(in Keras v2.9.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></a></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for HPS sparse lookup layer, which basically performs
-the same function as tf.nn.embedding_lookup_sparse. Note that <cite>ps_config_file</cite>
-and <cite>global_batch_size</cite> should be specified in the constructor if implicit HPS
-initialization is desired.</p>
+the same function as <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code>. Note that <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code>
+and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> should be specified in the constructor if you want
+to use implicit HPS initialization.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the name of the model that has embedding table(s)</p></li>
-<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the index of the embedding table for the model specified by
-model_name</p></li>
-<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the embedding vector size for the embedding table specified
-by model_name and table_id</p></li>
-<li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
-<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the JSON configuration file for HPS initialization</p></li>
-<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The index of the embedding table for the model specified by
+model_name.</p></li>
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The embedding vector size for the embedding table specified
+by model_name and table_id.</p></li>
+<li><p><strong>emb_vec_dtype</strong> – The data type of embedding vectors which must be <code class="docutils literal notranslate"><span class="pre">tf.float32</span></code>.</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
 </ul>
 </dd>
 </dl>
@@ -147,33 +147,41 @@ by model_name and table_id</p></li>
 <dt id="hierarchical_parameter_server.SparseLookupLayer.call">
 <code class="sig-name descname"><span class="pre">call</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sp_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sp_weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combiner</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/sparse_lookup_layer.html#SparseLookupLayer.call"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.SparseLookupLayer.call" title="Permalink to this definition"></a></dt>
 <dd><p>Looks up embeddings for the given ids and weights from a list of tensors.
-This op assumes that there is at least one id for each row in the dense tensor
-represented by sp_ids (i.e. there are no rows with empty features), and that
-all the indices of sp_ids are in canonical row-major order. <cite>sp_ids</cite> and <cite>sp_weights</cite>
-(if not None) are <cite>SparseTensor</cite> with rank of 2. Embeddings are always aggregated
-along the last dimension. If an id value cannot be find in the HPS, the default
-embeddings will be retrieved, which can be specified in the HPS configuration JSON file.</p>
+This op assumes that there is at least one ID for each row in the dense tensor
+represented by <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code> (i.e. there are no rows with empty features), and that
+all the indices of <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code> are in canonical row-major order. The <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code>
+and <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code> (if not None) are <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> with rank of 2.
+Embeddings are always aggregated along the last dimension.
+If an ID value cannot be found in the HPS, the default embeddings are retrieved,
+which can be specified in the HPS configuration JSON file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sp_ids</strong> – N x M <cite>SparseTensor</cite> of int64 ids where N is typically batch size
+<li><p><strong>sp_ids</strong> – N x M <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> of <code class="docutils literal notranslate"><span class="pre">int64</span></code> IDs where N is typically batch size
 and M is arbitrary.</p></li>
-<li><p><strong>sp_weights</strong> – either a <cite>SparseTensor</cite> of float / double weights, or <cite>None</cite> to
-indicate all weights should be taken to be 1. If specified, <cite>sp_weights</cite>
-must have exactly the same shape and indices as <cite>sp_ids</cite>.</p></li>
-<li><p><strong>combiner</strong> – a string specifying the reduction op. Currently <cite>“mean”</cite>, <cite>“sqrtn”</cite>
-and <cite>“sum”</cite> are supported. <cite>“sum”</cite> computes the weighted sum of the embedding
-results for each row. <cite>“mean”</cite> is the weighted sum divided by the total
-weight. <cite>“sqrtn”</cite> is the weighted sum divided by the square root of the sum
-of the squares of the weights. Defaults to <cite>“mean”</cite>.</p></li>
-<li><p><strong>max_norm</strong> – if not <cite>None</cite>, each embedding is clipped if its l2-norm is larger
+<li><p><strong>sp_weights</strong> – Either a <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> of float or double weights, or <code class="docutils literal notranslate"><span class="pre">None</span></code> to
+indicate all weights should be taken to be <cite>1</cite>. If specified, <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code>
+must have exactly the same shape and indices as <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code>.</p></li>
+<li><p><strong>combiner</strong> – <p>A string that specifies the reduction op:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code></dt><dd><p>Computes the weighted sum of the embedding results for each row.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code></dt><dd><p>Computes the weighted sum divided by the total weight.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;sqrtn&quot;</span></code></dt><dd><p>Computes the weighted sum divided by the square root of the sum of the
+squares of the weights.</p>
+</dd>
+</dl>
+<p>The default value is <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>.</p>
+</p></li>
+<li><p><strong>max_norm</strong> – if not <code class="docutils literal notranslate"><span class="pre">None</span></code>, each embedding is clipped if its l2-norm is larger
 than this value, before combining.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p><strong>emb_vector</strong> – A dense tensor representing the combined embeddings for the
-sparse ids. For each row in the dense tensor represented by <cite>sp_ids</cite>, the op
-looks up the embeddings for all ids in that row, multiplies them by the
+sparse IDs. For each row in the dense tensor represented by <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code>, the op
+looks up the embeddings for all IDs in that row, multiplies them by the
 corresponding weight, and combines these embeddings as specified.
 In other words, if</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">)</span> <span class="o">=</span> <span class="n">shape</span><span class="p">(</span><span class="n">sp_weights</span><span class="p">)</span> <span class="o">=</span> <span class="p">[</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">]</span>
@@ -190,7 +198,7 @@ In other words, if</p>
 <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]:</span> <span class="nb">id</span> <span class="mi">1</span><span class="p">,</span> <span class="n">weight</span> <span class="mf">3.0</span>
 </pre></div>
 </div>
-<p>with <cite>combiner</cite> = <cite>“mean”</cite>, then the output will be a 3x16 matrix where</p>
+<p>with <code class="docutils literal notranslate"><span class="pre">combiner</span> <span class="pre">=</span> <span class="pre">&quot;mean&quot;</span></code>, then the output is a 3x16 matrix where</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_1</span> <span class="o">*</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="n">vector_for_id_3</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span>
 <span class="n">output</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_0</span> <span class="o">*</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1.0</span>
 <span class="n">output</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_1</span> <span class="o">*</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span>
@@ -199,12 +207,12 @@ In other words, if</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>tf.Tensor of int32</p>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of int32</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.10)"><strong>TypeError</strong></a> – If <cite>sp_ids</cite> is not a <cite>SparseTensor</cite>, or if <cite>sp_weights</cite> is: neither <cite>None</cite> nor <cite>SparseTensor</cite>.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.10)"><strong>ValueError</strong></a> – If <cite>combiner</cite> is not one of {<cite>“mean”</cite>, <cite>“sqrtn”</cite>, <cite>“sum”</cite>}.:</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.10)"><strong>TypeError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code> is not a <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>, or if <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code> is: neither <code class="docutils literal notranslate"><span class="pre">None</span></code> nor <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.10)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">combiner</span></code> is not one of {<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sqrtn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code>}.:</p></li>
 </ul>
 </dd>
 </dl>
@@ -221,20 +229,20 @@ In other words, if</p>
 <dd><p>Bases: <a class="reference external" href="https://keras.io/api/layers/base_layer/index.html#layer-class" title="(in Keras v2.9.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></a></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for HPS lookup layer, which basically performs
-the same function as tf.nn.embedding_lookup. Note that <cite>ps_config_file</cite>
-and <cite>global_batch_size</cite> should be specified in the constructor if implicit HPS
-initialization is desired.</p>
+the same function as <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code>. Note that <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code>
+and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> should be specified in the constructor if you want
+to use implicit HPS initialization.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the name of the model that has embedding table(s)</p></li>
-<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the index of the embedding table for the model specified by
-model_name</p></li>
-<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the embedding vector size for the embedding table specified
-by model_name and table_id</p></li>
-<li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
-<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the JSON configuration file for HPS initialization</p></li>
-<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The index of the embedding table for the model specified by
+model_name.</p></li>
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The embedding vector size for the embedding table specified
+by model_name and table_id.</p></li>
+<li><p><strong>emb_vec_dtype</strong> – The data type of embedding vectors which must be <code class="docutils literal notranslate"><span class="pre">tf.float32</span></code>.</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
 </ul>
 </dd>
 </dl>
@@ -263,14 +271,14 @@ by model_name and table_id</p></li>
 <dd><p>The forward logic of this wrapper class.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>inputs</strong> – keys are stored in Tensor. The data type must be tf.int64.</p>
+<dd class="field-odd"><p><strong>inputs</strong> – Keys are stored in Tensor. The data type must be <code class="docutils literal notranslate"><span class="pre">tf.int64</span></code>.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><strong>emb_vector</strong> – the embedding vectors for the input keys. Its shape is
 <em>inputs.get_shape() + emb_vec_size</em>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>tf.Tensor of int32</p>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of int32</p>
 </dd>
 </dl>
 </dd></dl>

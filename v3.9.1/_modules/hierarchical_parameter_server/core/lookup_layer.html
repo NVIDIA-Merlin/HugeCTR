@@ -81,7 +81,7 @@
   <h1>Source code for hierarchical_parameter_server.core.lookup_layer</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
-<span class="sd"> </span>
+
 <span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="sd"> you may not use this file except in compliance with the License.</span>
 <span class="sd"> You may obtain a copy of the License at</span>
@@ -104,26 +104,26 @@
 <span class="sd">    Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.</span>
 
 <span class="sd">    This is a wrapper class for HPS lookup layer, which basically performs</span>
-<span class="sd">    the same function as tf.nn.embedding_lookup. Note that `ps_config_file`</span>
-<span class="sd">    and `global_batch_size` should be specified in the constructor if implicit HPS</span>
-<span class="sd">    initialization is desired.</span>
+<span class="sd">    the same function as ``tf.nn.embedding_lookup``. Note that ``ps_config_file``</span>
+<span class="sd">    and ``global_batch_size`` should be specified in the constructor if you want</span>
+<span class="sd">    to use implicit HPS initialization.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    model_name: str</span>
-<span class="sd">            the name of the model that has embedding table(s)</span>
+<span class="sd">            The name of the model that has embedding tables.</span>
 <span class="sd">    table_id: int</span>
-<span class="sd">            the index of the embedding table for the model specified by</span>
-<span class="sd">            model_name</span>
+<span class="sd">            The index of the embedding table for the model specified by</span>
+<span class="sd">            model_name.</span>
 <span class="sd">    emb_vec_size: int</span>
-<span class="sd">            the embedding vector size for the embedding table specified</span>
-<span class="sd">            by model_name and table_id</span>
+<span class="sd">            The embedding vector size for the embedding table specified</span>
+<span class="sd">            by model_name and table_id.</span>
 <span class="sd">    emb_vec_dtype:</span>
-<span class="sd">            the data type of embedding vectors which must be tf.float32</span>
+<span class="sd">            The data type of embedding vectors which must be ``tf.float32``.</span>
 <span class="sd">    ps_config_file: str</span>
-<span class="sd">            the JSON configuration file for HPS initialization</span>
+<span class="sd">            The JSON configuration file for HPS initialization.</span>
 <span class="sd">    global_batch_size: int</span>
-<span class="sd">            the global batch size for HPS that is deployed on multiple GPUs</span>
+<span class="sd">            The global batch size for HPS that is deployed on multiple GPUs.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -172,11 +172,11 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        inputs:</span>
-<span class="sd">                keys are stored in Tensor. The data type must be tf.int64.</span>
+<span class="sd">                Keys are stored in Tensor. The data type must be ``tf.int64``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        emb_vector: tf.Tensor of int32</span>
+<span class="sd">        emb_vector: ``tf.Tensor`` of int32</span>
 <span class="sd">                the embedding vectors for the input keys. Its shape is</span>
 <span class="sd">                *inputs.get_shape() + emb_vec_size*.</span>
 <span class="sd">        &quot;&quot;&quot;</span>

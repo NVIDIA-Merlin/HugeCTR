@@ -81,7 +81,7 @@
   <h1>Source code for hierarchical_parameter_server.core.initialize</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
-<span class="sd"> </span>
+
 <span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="sd"> you may not use this file except in compliance with the License.</span>
 <span class="sd"> You may obtain a copy of the License at</span>
@@ -115,24 +115,25 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``hps.Init(**kwargs)``.</span>
 
-<span class="sd">    This function will initialize the HPS for all the deployed models. It can be used</span>
-<span class="sd">    explicitly or implicitly. When used explicitly, it needs to be called only once and</span>
-<span class="sd">    must be called before any other HPS APIs. When used implicitly, `ps_config_file` and</span>
-<span class="sd">    `global_batch_size` should be specified in the constructor of `hps.SparseLookupLayer`</span>
-<span class="sd">    and `hps.LookupLayer`. When the layer is executed for the first time, it will trigger</span>
-<span class="sd">    the internal HPS initialization implicitly, in a thread-safe call-once manner. The</span>
+<span class="sd">    This function initializes the HPS for all the deployed models. It can be used</span>
+<span class="sd">    explicitly or implicitly. When used explicitly, you must call the function</span>
+<span class="sd">    only once and you must call it before any other HPS APIs.</span>
+<span class="sd">    When used implicitly, ``ps_config_file`` and ``global_batch_size``</span>
+<span class="sd">    should be specified in the constructor of ``hps.SparseLookupLayer``</span>
+<span class="sd">    and ``hps.LookupLayer``. When the layer is executed for the first time, it triggers</span>
+<span class="sd">    the internal HPS initialization implicitly in a thread-safe call-once manner. The</span>
 <span class="sd">    implicit initialization is especially useful for deploying the SavedModels that</span>
 <span class="sd">    leverage the HPS layers for online inference.</span>
 
-<span class="sd">    HPS will leverage all available GPUs for current CPU process. Please set</span>
-<span class="sd">    `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which</span>
-<span class="sd">    GPU(s) are used in this process before launching tensorflow runtime</span>
-<span class="sd">    and calling this function. Besides, please ensure that deployed_device_list</span>
-<span class="sd">    in the HPS configuration json file matches the visible devices.</span>
+<span class="sd">    HPS leverages all available GPUs for the current CPU process. Set</span>
+<span class="sd">    ``CUDA_VISIBLE_DEVICES`` or ``tf.config.set_visible_devices`` to specify which</span>
+<span class="sd">    GPUs to use in this process before you launch the TensorFlow runtime</span>
+<span class="sd">    and calling this function. Additionally, ensure that the ``deployed_device_list``</span>
+<span class="sd">    parameter in the HPS configuration JSON file matches the visible devices.</span>
 
-<span class="sd">    In **TensorFlow 2.x**, HPS can be used with **tf.distribute.Strategy** or **Horovod**.</span>
-<span class="sd">    When it&#39;s used with tf.distribute.Strategy, it must be called under `strategy.scope()`.</span>
-<span class="sd">    For example,</span>
+<span class="sd">    In **TensorFlow 2.x**, HPS can be used with ``tf.distribute.Strategy`` or Horovod.</span>
+<span class="sd">    When it is used with ``tf.distribute.Strategy``, you must call it under ``strategy.scope()``</span>
+<span class="sd">    as shown in the following code block.</span>
 
 <span class="sd">    .. code-block:: python</span>
 
@@ -141,7 +142,8 @@
 <span class="sd">        with strategy.scope():</span>
 <span class="sd">            hps.Init(**kwargs)</span>
 
-<span class="sd">    When it&#39;s used with Horovod, it must be called at each process. For example,</span>
+<span class="sd">    To use the function with Horovod, call it one for each time you initialize a</span>
+<span class="sd">    Horovod process such as the following code block shows.</span>
 
 <span class="sd">    .. code-block:: python</span>
 
@@ -152,8 +154,8 @@
 
 <span class="sd">        hps.Init(**kwargs)</span>
 
-<span class="sd">    In **TensorFlow 1.15**, HPS can only work with **Horovod**. The retured status</span>
-<span class="sd">    must be evaluated with `sess.run`, and it must be the first step before evaluate</span>
+<span class="sd">    In **TensorFlow 1.15**, HPS can only work with Horovod. The returned status</span>
+<span class="sd">    must be evaluated with ``sess.run`` and it must be the first step before evaluating</span>
 <span class="sd">    any other HPS APIs.</span>
 
 <span class="sd">    .. code-block:: python</span>
@@ -168,14 +170,14 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    kwargs: dict</span>
-<span class="sd">            keyword arguments for this function.</span>
-<span class="sd">            Currently, it must contains `global_batch_size` and `ps_config_file`.</span>
+<span class="sd">            Keyword arguments for this function.</span>
+<span class="sd">            The dictionary must contain ``global_batch_size`` and ``ps_config_file``.</span>
 
-<span class="sd">            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs</span>
+<span class="sd">            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs.</span>
 
-<span class="sd">            * `ps_config_file`: str, the JSON configuration file for HPS initialization</span>
+<span class="sd">            * `ps_config_file`: str, the JSON configuration file for HPS initialization.</span>
 
-<span class="sd">            An example `ps_config_file` is as follows and `global_batch_size` can be</span>
+<span class="sd">            An example ``ps_config_file`` is as follows and ``global_batch_size`` can be</span>
 <span class="sd">            configured as 16384 correspondingly:</span>
 
 <span class="sd">            .. code-block:: python</span>
@@ -184,8 +186,8 @@
 <span class="sd">                    &quot;supportlonglong&quot; : True,</span>
 <span class="sd">                    &quot;models&quot; :</span>
 <span class="sd">                    [{</span>
-<span class="sd">                        &quot;model&quot;: &quot;foo&quot;,</span>
-<span class="sd">                        &quot;sparse_files&quot;: [&quot;foo_sparse.model&quot;],</span>
+<span class="sd">                        &quot;model&quot;: &quot;demo_model&quot;,</span>
+<span class="sd">                        &quot;sparse_files&quot;: [&quot;demo_model_sparse.model&quot;],</span>
 <span class="sd">                        &quot;num_of_worker_buffer_in_pool&quot;: 3,</span>
 <span class="sd">                        &quot;embedding_table_names&quot;:[&quot;sparse_embedding0&quot;],</span>
 <span class="sd">                        &quot;embedding_vecsize_per_table&quot;: [16],</span>
@@ -199,8 +201,8 @@
 <span class="sd">                        &quot;gpucache&quot;: True</span>
 <span class="sd">                    },</span>
 <span class="sd">                    {</span>
-<span class="sd">                        &quot;model&quot;: &quot;bar&quot;,</span>
-<span class="sd">                        &quot;sparse_files&quot;: [&quot;bar_sparse_0.model&quot;, &quot;bar_sparse_1.model&quot;],</span>
+<span class="sd">                        &quot;model&quot;: &quot;demo_model2&quot;,</span>
+<span class="sd">                        &quot;sparse_files&quot;: [&quot;demo_model2_sparse_0.model&quot;, &quot;demo_model2_sparse_1.model&quot;],</span>
 <span class="sd">                        &quot;num_of_worker_buffer_in_pool&quot;: 3,</span>
 <span class="sd">                        &quot;embedding_table_names&quot;:[&quot;sparse_embedding0&quot;, &quot;sparse_embedding1&quot;],</span>
 <span class="sd">                        &quot;embedding_vecsize_per_table&quot;: [64, 32],</span>
@@ -219,8 +221,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    status: str</span>
-<span class="sd">            a string will be returned if this function executed successfully.</span>
-<span class="sd">            And its contents will be &#39;OK&#39;.</span>
+<span class="sd">            On success, the function returns string with the value ``OK``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">_get_visible_devices</span><span class="p">():</span>
