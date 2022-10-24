@@ -70,6 +70,7 @@ By using the interface, the input DLPack capsule of embedding key can be a GPU t
     Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
   + Joint loss training with a regularizer is not supported.
   + Dumping Adam optimizer states to AWS S3 is not supported.
+  + Dumping to remote file systems when enabled MPI is not supported.
 
 ## What's New in Version 4.0
 

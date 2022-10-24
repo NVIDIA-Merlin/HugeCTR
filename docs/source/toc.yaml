@@ -28,6 +28,8 @@ subtrees:
                   - file: hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
               - file: hierarchical_parameter_server/api/index.rst
                 title: API Documentation
+      - file: sparse_operation_kit.md
+        title: Sparse Operation Kit
       - file: performance.md
         title: Performance
       - file: notebooks/index.md
