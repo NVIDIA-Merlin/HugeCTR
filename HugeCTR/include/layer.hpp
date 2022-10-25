@@ -69,7 +69,7 @@ class Layer {
     return std::vector<TensorBag2>();
   }
 
-  void init_params(const curandGenerator_t& generator);
+  virtual void init_params(const curandGenerator_t& generator);
 
   Layer(const std::shared_ptr<GPUResource>& gpu_resource,
         std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())

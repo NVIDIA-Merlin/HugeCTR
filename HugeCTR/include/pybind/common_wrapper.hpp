@@ -113,6 +113,7 @@ void CommonPybind(pybind11::module& m) {
       .value("ELU", HugeCTR::Layer_t::ELU)
       .value("InnerProduct", HugeCTR::Layer_t::InnerProduct)
       .value("FusedInnerProduct", HugeCTR::Layer_t::FusedInnerProduct)
+      .value("MLP", HugeCTR::Layer_t::MLP)
       .value("Interaction", HugeCTR::Layer_t::Interaction)
       .value("MultiCrossEntropyLoss", HugeCTR::Layer_t::MultiCrossEntropyLoss)
       .value("ReLU", HugeCTR::Layer_t::ReLU)

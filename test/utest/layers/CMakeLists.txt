@@ -46,6 +46,7 @@ file(GLOB layers_test_src
   reduce_mean_layer_test.cpp
   sigmoid_layer_test.cpp
   elementwise_multiply_layer_test.cpp
+  group_dense_layer_test.cpp
   mlp_test.cpp
   concat_3d_layer_test.cpp
   multi_head_attention_layer_test.cpp

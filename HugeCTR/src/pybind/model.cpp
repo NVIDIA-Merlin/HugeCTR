@@ -279,19 +279,18 @@ void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
                                 ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
-DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
-                       std::vector<std::string>& top_names, float factor, float eps,
-                       Initializer_t gamma_init_type, Initializer_t beta_init_type,
-                       float dropout_rate, float elu_alpha, size_t num_output,
-                       Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
-                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
-                       size_t vector_size, bool selected, std::vector<int> selected_slots,
-                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
-                       std::vector<size_t> weight_dims, size_t out_dim, int axis,
-                       int max_sequence_len, int num_attention_heads,
-                       std::vector<float> target_weight_vec, bool use_regularizer,
-                       Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-                       Activation_t act_type, DenseLayerSwitchs dense_layer_switches)
+DenseLayer::DenseLayer(
+    Layer_t layer_type, std::vector<std::string>& bottom_names, std::vector<std::string>& top_names,
+    float factor, float eps, Initializer_t gamma_init_type, Initializer_t beta_init_type,
+    float dropout_rate, float elu_alpha, size_t num_output, Initializer_t weight_init_type,
+    Initializer_t bias_init_type, int num_layers, size_t leading_dim, size_t time_step,
+    size_t batchsize, size_t SeqLength, size_t vector_size, bool selected,
+    std::vector<int> selected_slots, std::vector<std::pair<int, int>> ranges,
+    std::vector<int> indices, std::vector<size_t> weight_dims, size_t out_dim, int axis,
+    int max_sequence_len, int num_attention_heads, std::vector<float> target_weight_vec,
+    bool use_regularizer, Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
+    Activation_t act_type, DenseLayerSwitchs dense_layer_switches, std::vector<size_t> num_outputs,
+    bool use_bias, std::vector<Activation_t> acts, std::vector<bool> biases)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -324,7 +323,11 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       lambda(lambda),
       pos_type(pos_type),
       act_type(act_type),
-      dense_layer_switches(dense_layer_switches) {}
+      dense_layer_switches(dense_layer_switches),
+      num_outputs(num_outputs),
+      use_bias(use_bias),
+      acts(acts),
+      biases(biases) {}
 
 GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
                                  std::vector<std::string>& bottom_name_list,
