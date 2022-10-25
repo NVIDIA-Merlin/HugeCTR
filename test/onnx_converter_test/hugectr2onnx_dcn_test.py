@@ -101,3 +101,15 @@ if __name__ == "__main__":
         "dlrm",
         "/onnx_converter/hugectr_models/dlrm_dense_2000.model.ntp.json",
     )
+    hugectr2onnx_dcn_test(
+        64,
+        100,
+        "./dcn_data/file_list_test.txt",
+        "./dcn_data/val/sparse_embedding0.data",
+        "/onnx_converter/graph_files/dlrm_mlp.json",
+        "/onnx_converter/hugectr_models/dlrm_mlp_dense_2000.model",
+        ["/onnx_converter/hugectr_models/dlrm_mlp0_sparse_2000.model"],
+        "/onnx_converter/onnx_models/dlrm_mlp.onnx",
+        "dlrm_mlp",
+        "/onnx_converter/hugectr_models/dlrm_mlp_dense_2000.model.ntp.json",
+    )

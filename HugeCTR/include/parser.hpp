@@ -183,6 +183,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"InnerProduct", Layer_t::InnerProduct},
+    {"MLP", Layer_t::MLP},
     {"Interaction", Layer_t::Interaction},
     {"MultiCross", Layer_t::MultiCross},
     {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
@@ -216,6 +217,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
+    {"MLP", Layer_t::MLP},
     {"InnerProduct", Layer_t::InnerProduct},
     {"Interaction", Layer_t::Interaction},
     {"MultiCross", Layer_t::MultiCross},
@@ -266,7 +268,7 @@ static const std::map<std::string, FcPosition_t> FCPOSITION_TYPE_MAP = {
 static const std::map<std::string, Activation_t> ACTIVATION_TYPE_MAP = {
     {"Relu", Activation_t::Relu},
     {"None", Activation_t::None},
-};
+    {"Unspecified", Activation_t::Unspecified}};
 
 static const std::map<std::string, Alignment_t> ALIGNED_TYPE_MAP = {
     {"Auto", Alignment_t::Auto},

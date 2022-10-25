@@ -30,6 +30,7 @@ ONNX_LAYER_TYPES = {
     "FmOrder2",
     "InnerProduct",
     "FusedInnerProduct",
+    "MLP",
     "FusedReshapeConcat",
     "Interaction",
     "MatrixMultiply",
@@ -100,6 +101,12 @@ class LayerParams(object):
         self.axis = 1
         self.max_sequence_len = 1
         self.num_attention_heads = 1
+        # MLP Layer
+        self.activation = "Relu"
+        self.activations = []
+        self.num_outputs = []
+        self.use_bias = True
+        self.biases = []
 
 
 class HugeCTRLoader(object):
@@ -334,6 +341,37 @@ class HugeCTRLoader(object):
             self.__offset += layer_bytes
             layer_weights_dict[layer_config["top"] + "_weight"] = weight
             layer_weights_dict[layer_config["top"] + "_bias"] = bias
+        elif layer_type == "MLP":
+            if "num_outputs" in layer_config["mlp_param"]:
+                layer_params.num_outputs = layer_config["mlp_param"]["num_outputs"]
+            if "activation" in layer_config["mlp_param"]:
+                layer_params.activation = layer_config["mlp_param"]["activation"]
+            if "activations" in layer_config["mlp_param"]:
+                layer_params.activations = layer_config["mlp_param"]["activations"]
+            if "use_bias" in layer_config["mlp_param"]:
+                layer_params.use_bias = layer_config["mlp_param"]["use_bias"]
+            if "biases" in layer_config["mlp_param"]:
+                layer_params.biases = layer_config["mlp_param"]["biases"]
+            for i in range(len(layer_params.num_outputs)):
+                in_feature = self.__dimensions[layer_config["bottom"]]
+                if i != 0:
+                    in_feature = layer_params.num_outputs[i - 1]
+                out_feature = layer_params.num_outputs[i]
+                layer_bytes = (in_feature * out_feature + 1 * out_feature) * 4
+                with open(self.__dense_model, "rb") as file:
+                    file.seek(self.__offset, 0)
+                    buffer = file.read(layer_bytes)
+                    weight = struct.unpack(
+                        str(in_feature * out_feature) + "f", buffer[: in_feature * out_feature * 4]
+                    )
+                    bias = struct.unpack(
+                        str(out_feature) + "f", buffer[in_feature * out_feature * 4 :]
+                    )
+                    weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
+                    bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
+                self.__offset += layer_bytes
+                layer_weights_dict[layer_config["top"] + str(i) + "_weight"] = weight
+                layer_weights_dict[layer_config["top"] + str(i) + "_bias"] = bias
         elif layer_type == "FusedReshapeConcat":
             num_output = 0
             for tensor_name in layer_params.bottom_names:

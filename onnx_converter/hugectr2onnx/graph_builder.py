@@ -485,6 +485,71 @@ class GraphBuilder(object):
             self.__nodes.append(
                 helper.make_node(op_type="Relu", inputs=[gemm_name], outputs=layer_params.top_names)
             )
+        elif layer_type == "MLP":
+            num_layers = len(layer_params.num_outputs)
+            acts = [layer_params.activation] * num_layers
+            if layer_params.activations:
+                acts = layer_params.activations
+
+            biases = [layer_params.use_bias] * num_layers
+            if layer_params.biases:
+                biases = layer_params.biases
+            for i in range(num_layers):
+                weight_name = layer_params.top_names[0] + str(i) + "_weight"
+                bias_name = layer_params.top_names[0] + str(i) + "_bias"
+                weight = weights_dict[weight_name]
+                bias = weights_dict[bias_name]
+
+                bottom_name = (
+                    layer_params.top_names[0] + str(i - 1) + "_out"
+                    if i != 0
+                    else layer_params.bottom_names[0]
+                )
+                gemm_name = layer_params.top_names[0] + str(i) + "_gemm"
+                top_name = (
+                    layer_params.top_names[0] + str(i) + "_out"
+                    if i != num_layers - 1
+                    else layer_params.top_names[0]
+                )
+
+                self.__initializers.append(
+                    helper.make_tensor(
+                        name=weight_name,
+                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[weight.dtype],
+                        dims=weight.shape,
+                        vals=weight.flatten(),
+                    )
+                )
+                output_name = gemm_name if acts[i] == "Relu" else top_name
+                if biases[i]:
+                    self.__initializers.append(
+                        helper.make_tensor(
+                            name=bias_name,
+                            data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[bias.dtype],
+                            dims=bias.shape,
+                            vals=bias.flatten(),
+                        )
+                    )
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="Gemm",
+                            inputs=[bottom_name, weight_name, bias_name],
+                            outputs=[output_name],
+                        )
+                    )
+                else:
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="Gemm",
+                            inputs=[bottom_name, weight_name],
+                            outputs=[output_name],
+                        )
+                    )
+
+                if acts[i] == "Relu":
+                    self.__nodes.append(
+                        helper.make_node(op_type="Relu", inputs=[gemm_name], outputs=[top_name])
+                    )
         elif layer_type == "FusedReshapeConcat":
             slot_num = dimensions[layer_params.bottom_names[0]][0]
             output_fea_num = 0
