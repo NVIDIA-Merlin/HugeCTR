@@ -110,14 +110,14 @@ to use implicit HPS initialization.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
-<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The index of the embedding table for the model specified by
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The index of the embedding table for the model specified by
 model_name.</p></li>
-<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The embedding vector size for the embedding table specified
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The embedding vector size for the embedding table specified
 by model_name and table_id.</p></li>
 <li><p><strong>emb_vec_dtype</strong> – The data type of embedding vectors which must be <code class="docutils literal notranslate"><span class="pre">tf.float32</span></code>.</p></li>
-<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
-<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
 </ul>
 </dd>
 </dl>
@@ -210,8 +210,8 @@ In other words, if</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.10)"><strong>TypeError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code> is not a <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>, or if <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code> is: neither <code class="docutils literal notranslate"><span class="pre">None</span></code> nor <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.10)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">combiner</span></code> is not one of {<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sqrtn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code>}.:</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.11)"><strong>TypeError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">sp_ids</span></code> is not a <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>, or if <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code> is: neither <code class="docutils literal notranslate"><span class="pre">None</span></code> nor <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code>.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">combiner</span></code> is not one of {<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sqrtn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code>}.:</p></li>
 </ul>
 </dd>
 </dl>
@@ -234,14 +234,14 @@ to use implicit HPS initialization.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
-<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The index of the embedding table for the model specified by
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The name of the model that has embedding tables.</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The index of the embedding table for the model specified by
 model_name.</p></li>
-<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The embedding vector size for the embedding table specified
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The embedding vector size for the embedding table specified
 by model_name and table_id.</p></li>
 <li><p><strong>emb_vec_dtype</strong> – The data type of embedding vectors which must be <code class="docutils literal notranslate"><span class="pre">tf.float32</span></code>.</p></li>
-<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
-<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The JSON configuration file for HPS initialization.</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The global batch size for HPS that is deployed on multiple GPUs.</p></li>
 </ul>
 </dd>
 </dl>
