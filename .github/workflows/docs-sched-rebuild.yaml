@@ -29,11 +29,6 @@ jobs:
           python -m pip install --upgrade pip setuptools==59.4.0 wheel
           python -m pip install -r docs/requirements-doc.txt
           python -m pip install scikit-build ninja
-#      - name: Build HPS plugin for TF
-#        run: |
-#          pushd hierarchical_parameter_server
-#          python3 setup.py install
-#          popd
       - name: Report the versions to build
         run: |
           sphinx-multiversion --dump-metadata docs/source docs/build/html | jq "keys"

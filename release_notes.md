@@ -34,7 +34,7 @@ To use the new feature, specify an HDFS for S3 path URI in `InferenceParams`.
 This release adds function `check_out_tensor` to `Model` and `InferenceModel`.
 You can use this function to check out the intermediate tensor values using the Python interface.
 This function is especially helpful for debugging.
-For more information, refer to [`Model.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#check-out-tensor-method) and [`InferenceModel.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#id3).
+For more information, refer to [`Model.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#check-out-tensor-method) and [`InferenceModel.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#id3).
 
 + **On-Device Input Keys for HPS Lookup**:
 The HPS lookup supports input embedding keys that are on GPU memory during inference.
@@ -107,7 +107,7 @@ Hadoop and Protobuf are true `third_party` modules now.
 Developers can now avoid unnecessary and frequent cloning and deletion.
 
 + **Finer granularity control for overlap behavior**:
-We deperacated the old `overlapped_pipeline` knob and introduces four new knobs `train_intra_iteration_overlap`/`train_inter_iteration_overlap`/`eval_intra_iteration_overlap`/`eval_inter_iteration_overlap` to help user better control the overlap behavior. For more information, see the API documentation for [`Solver.CreateSolver`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#createsolver-method)
+We deperacated the old `overlapped_pipeline` knob and introduces four new knobs `train_intra_iteration_overlap`/`train_inter_iteration_overlap`/`eval_intra_iteration_overlap`/`eval_inter_iteration_overlap` to help user better control the overlap behavior. For more information, see the API documentation for [`Solver.CreateSolver`](https://nvidia-merlin.github.io/HugeCTR/v4.0/api/python_interface.html#createsolver-method)
 
 + **Documentation Improvements**:
   + Removed two deprecated tutorials `triton_tf_deploy` and `dump_to_tf`.
@@ -192,7 +192,7 @@ The enhancements are as follows:
     A new overloaded method for `evict` is added that can process the results from `find_tables` to quickly and simply drop all the stored information that is related to a model.
 
 + **Documentation Enhancements**
-  + The documentation for the `max_all_to_all_bandwidth` parameter of the [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#hybridembeddingparam-class) class is clarified to indicate that the bandwidth unit is per-GPU.
+  + The documentation for the `max_all_to_all_bandwidth` parameter of the [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class) class is clarified to indicate that the bandwidth unit is per-GPU.
     Previously, the unit was not specified.
 
 
@@ -308,7 +308,7 @@ Compared with the previous embedding, there are three main changes in the embedd
   + **Suppressed and simplified log**: Most log messages related to HPS have the log level changed to `TRACE` rather than `INFO` or `DEBUG` to reduce logging verbosity.
 
 + **Offline Inference Usability Enhancements**:
-  + The thread pool size is configurable in the Python interface, which is useful for studying the embedding cache performance in scenarios of asynchronous update. Previously it was set as the minimum value of 16 and `std::thread::hardware_concurrency()`. For more information, please refer to [Hierarchical Parameter Server Configuration](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration).
+  + The thread pool size is configurable in the Python interface, which is useful for studying the embedding cache performance in scenarios of asynchronous update. Previously it was set as the minimum value of 16 and `std::thread::hardware_concurrency()`. For more information, please refer to [Hierarchical Parameter Server Configuration](https://nvidia-merlin.github.io/HugeCTR/v3.7/hugectr_parameter_server.html#configuration).
 
 
 + **DataGenerator Performance Improvements**:
@@ -380,14 +380,14 @@ The default log format now includes milliseconds.
 
 + **Documentation Enhancements**:
   + These release notes are included in the documentation and are available at <https://nvidia-merlin.github.io/HugeCTR/v3.6/release_notes.html>.
-  + The [Configuration](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration) section of the Hierarchical Parameter Server information is updated with more information about the parameters in the configuration file.
+  + The [Configuration](https://nvidia-merlin.github.io/HugeCTR/v3.6/hugectr_parameter_server.html#configuration) section of the Hierarchical Parameter Server information is updated with more information about the parameters in the configuration file.
   + The example notebooks that demonstrate how to work with multi-modal data are reorganized in the navigation.
     The notebooks are now available under the heading [Multi-Modal Example Notebooks](https://nvidia-merlin.github.io/HugeCTR/v3.6/notebooks/multi-modal-data/index.html).
     This change is intended to make it easier to find the notebooks.
-  + The documentation in the [sparse_operation_kit](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit) directory of the repository on GitHub is updated with several clarifications about SOK.
+  + The documentation in the [sparse_operation_kit](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.6/sparse_operation_kit) directory of the repository on GitHub is updated with several clarifications about SOK.
 
 + **Issues Fixed**:
-  + The `dlrm_kaggle_fp32.py` file in the [`samples/dlrm/`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dlrm) directory of the repository is updated to show the correct number of samples.
+  + The `dlrm_kaggle_fp32.py` file in the [`samples/dlrm/`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.6/samples/dlrm) directory of the repository is updated to show the correct number of samples.
     The `num_samples` value is now set to `36672493`.
     This fixes GitHub issue [301](https://github.com/NVIDIA-Merlin/HugeCTR/issues/301).
   + Hierarchical Parameter Server (HPS) would produce a runtime error when the GPU cache was turned off.
@@ -413,7 +413,7 @@ The default log format now includes milliseconds.
 
 
 ## What's New in Version 3.5
-+ **HPS interface encapsulation and exporting as library**: We encapsulate the Hierarchical Parameter Server(HPS) interfaces and deliver it as a standalone library. Besides, we prodvide HPS Python APIs and demonstrate the usage with a notebook. For more information, please refer to [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html) and [HPS Demo](notebooks/hps_demo.ipynb).
++ **HPS interface encapsulation and exporting as library**: We encapsulate the Hierarchical Parameter Server(HPS) interfaces and deliver it as a standalone library. Besides, we prodvide HPS Python APIs and demonstrate the usage with a notebook. For more information, please refer to [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/v3.5/hugectr_parameter_server.html) and [HPS Demo](notebooks/hps_demo.ipynb).
 
 + **Hierarchical Parameter Server Triton Backend**: The HPS Backend is a framework for embedding vectors looking up on large-scale embedding tables that was designed to effectively use GPU memory to accelerate the looking up by decoupling the embedding tables and embedding cache from the end-to-end inference pipeline of the deep recommendation model. For more information, please refer to the [samples](https://github.com/triton-inference-server/hugectr_backend/tree/v3.5/samples) directory of the HugeCTR backend for Triton Inference Server repository.
 
@@ -421,7 +421,7 @@ The default log format now includes milliseconds.
 
 + **Joint loss and multi-tasks training support:**: We support joint loss in training so that users can train with multiple labels and tasks with different weights. See the MMoE sample in the [samples/mmoe](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.5/samples/mmoe) directory of the repository to learn the usage.
 
-+ **HugeCTR documentation on web page**: Now users can visit our [web documentation](https://nvidia-merlin.github.io/HugeCTR/master/).
++ **HugeCTR documentation on web page**: Now users can visit our [web documentation](https://nvidia-merlin.github.io/HugeCTR/main/).
 
 + **ONNX converter enhancement:**: We enable converting `MultiCrossEntropyLoss` and `CrossEntropyLoss` layers to ONNX to support multi-label inference. For more information, please refer to the HugeCTR to ONNX Converter information in the [onnx_converter](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.5/onnx_converter) directory of the repository.
 
@@ -434,13 +434,13 @@ The default log format now includes milliseconds.
 + **Issues Fixed**: HugeCTR input layer now can take dense_dim greater than 1000.
 
 ## What's New in Version 3.4.1
-+ **Support mixed precision inference for dataset with multiple labels**: We enable FP16 for the `Softmax` layer and support mixed precision for multi-label inference. For more information, please refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api).
++ **Support mixed precision inference for dataset with multiple labels**: We enable FP16 for the `Softmax` layer and support mixed precision for multi-label inference. For more information, please refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inference-api).
 
-+ **Support multi-GPU offline inference with Python API**: We support multi-GPU offline inference with the Python interface, which can leverage [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html) and enable concurrent execution on multiple devices. For more information, please refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api) and [Multi-GPU Offline Inference Notebook](notebooks/multi_gpu_offline_inference.ipynb).
++ **Support multi-GPU offline inference with Python API**: We support multi-GPU offline inference with the Python interface, which can leverage [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_parameter_server.html) and enable concurrent execution on multiple devices. For more information, please refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inference-api) and [Multi-GPU Offline Inference Notebook](notebooks/multi_gpu_offline_inference.ipynb).
 
-+ **Introduction to metadata.json**: We add the introduction to `_metadata.json` for Parquet datasets. For more information, please refer to [Parquet](https://nvidia-merlin.github.io/HugeCTR/master/api/index.html).
++ **Introduction to metadata.json**: We add the introduction to `_metadata.json` for Parquet datasets. For more information, please refer to [Parquet](https://nvidia-merlin.github.io/HugeCTR/main/api/index.html).
 
-+ **Documents and tool for workspace size per GPU estimation**: we add a tool that is named the `embedding_workspace_calculator` to help calculate the value for `workspace_size_per_gpu_in_mb` that is required by hugectr.SparseEmbedding. For more information, please refer to the README.md file in the [tools/embedding_workspace_calculator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/tools/embedding_workspace_calculator) directory of the repository and [QA 24](https://nvidia-merlin.github.io/HugeCTR/master/QAList.html) in the documentation.
++ **Documents and tool for workspace size per GPU estimation**: we add a tool that is named the `embedding_workspace_calculator` to help calculate the value for `workspace_size_per_gpu_in_mb` that is required by hugectr.SparseEmbedding. For more information, please refer to the README.md file in the [tools/embedding_workspace_calculator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/tools/embedding_workspace_calculator) directory of the repository and [QA 24](https://nvidia-merlin.github.io/HugeCTR/main/QAList.html) in the documentation.
 
 + **Improved Debugging Capability**: The old logging system, which was flagged as deprecated for some time has been removed. All remaining log messages and outputs have been revised and migrated to the new logging system (base/debug/logging.hpp/cpp). During this revision, we also adjusted log levels for log messages throughout the entire codebase to improve visibility of relevant information.
 
@@ -464,7 +464,7 @@ The default log format now includes milliseconds.
 
 ## What's New in Version 3.4
 
-+ **Support for Building HugeCTR with the Unified Merlin Container**: HugeCTR can now be built using our unified Merlin container. For more information, refer to our [Contributor Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html).
++ **Support for Building HugeCTR with the Unified Merlin Container**: HugeCTR can now be built using our unified Merlin container. For more information, refer to our [Contributor Guide](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_contributor_guide.html).
 
 + **Hierarchical Parameter Server (HPS) Enhancements**:
     + **New Missing Key (Embedding Table Entries) Insertion Feature**: Using a simple flag, it is now possible to configure HugeCTR with missing keys (embedding table entries). During lookup, these missing keys will automatically be inserted into volatile database layers such as the Redis and Hashmap backends.
@@ -484,9 +484,9 @@ The default log format now includes milliseconds.
 + **Documentation Enhancements**
     + We've revised several of our notebooks and readme files to improve readability and accessibility.
     + We've revised the SOK docker setup instructions to indicate that HugeCTR setup issues can be resolved using the `--shm-size` setting within docker.
-    + Although HugeCTR is designed for scalability, having a robust machine is not necessary for smaller workloads and testing. We've documented the required specifications for notebook testing environments. For more information, refer to our [README for HugeCTR Jupyter Demo Notebooks](https://nvidia-merlin.github.io/HugeCTR/master/notebooks/index.html#system-specifications).
+    + Although HugeCTR is designed for scalability, having a robust machine is not necessary for smaller workloads and testing. We've documented the required specifications for notebook testing environments. For more information, refer to our [README for HugeCTR Jupyter Demo Notebooks](https://nvidia-merlin.github.io/HugeCTR/main/notebooks/index.html#system-specifications).
 
-+ **Inference Enhancements**：We now support HugeCTR inference for managing multiple tasks. When the label dimension is the number of binary classification tasks and `MultiCrossEntropyLoss` is employed during training, the shape of inference results will be `(batch_size*num_batches, label_dim)`. For more information, refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api).
++ **Inference Enhancements**：We now support HugeCTR inference for managing multiple tasks. When the label dimension is the number of binary classification tasks and `MultiCrossEntropyLoss` is employed during training, the shape of inference results will be `(batch_size*num_batches, label_dim)`. For more information, refer to [Inference API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inference-api).
 
 + **Embedding Cache Issue Resolution**: The embedding cache issue for very small embedding tables has been resolved.
 
@@ -502,7 +502,7 @@ The default log format now includes milliseconds.
     	+ The parquet data reader no longer incorrectly parses the index of categorical features when multiple embedded tables are being used.
     	+ The HPS Redis Backend overflow is now invoked during single insertions.
 
-+ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#groupdenselayer).
++ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#groupdenselayer).
 
 + **Global Fixes**:
    + A warning message now appears when attempting to launch a multi-process job before importing the mpi.
@@ -520,7 +520,7 @@ The default log format now includes milliseconds.
     + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues.
 
 + **Sparse Operation Kit (SOK) Enhancements**:
-    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15).
+    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/main/get_started/get_started.html#tensorflow-1-15).
     + **Dedicated CUDA Stream**: A dedicated CUDA stream is now used for SOK’s Ops, so this may help to eliminate kernel interleaving.
     + **New pip Installation Option**: SOK can now be installed using the `pip install SparseOperationKit` command. See more in our [instructions](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation)). With this install option, root access to compile SOK is no longer required and python scripts don't need to be copied.
     + **Visible Device Configuration Support**：`tf.config.set_visible_device` can now be used to set visible GPUs for each process. `CUDA_VISIBLE_DEVICES` can also be used. When `tf.distribute.Strategy` is used, the `tf.config.set_visible_device` argument shouldn't be set.
@@ -536,17 +536,17 @@ The default log format now includes milliseconds.
 
 + **GraphScheduler:**：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.
 
-+ **Multi-Node Training Support Enhancements**：You can now perform multi-node training on the cluster with non-RDMA hardware by setting the `AllReduceAlgo.NCCL` value for the `all_reduce_algo` argument. For more information, refer to the details for the `all_reduce_algo` argument in the [CreateSolver API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#solver).
++ **Multi-Node Training Support Enhancements**：You can now perform multi-node training on the cluster with non-RDMA hardware by setting the `AllReduceAlgo.NCCL` value for the `all_reduce_algo` argument. For more information, refer to the details for the `all_reduce_algo` argument in the [CreateSolver API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#solver).
 
 + **Support for Model Naming During Model Dumping**: You can now specify names for models with the `CreateSolver`training API, which will be dumped to the JSON configuration file with the `Model.graph_to_json` API. This will facilitate the Triton deployment of saved HugeCTR models, as well as help to distinguish between models when Apache Kafka sends parameters from training to inference.
 
-+ **Fine-Grained Control Accessibility Enhancements for Embedding Layers**: We've added fine-grained control accessibility to embedding layers. Using the `Model.freeze_embedding` and `Model.unfreeze_embedding` APIs, embedding layer weights can be frozen and unfrozen. Additionally, weights for multiple embedding layers can be loaded independently, making it possible to load pre-trained embeddings for a particular layer. For more information, refer to [Model API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#model) and [Section 3.4 of the HugeCTR Criteo Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v3.3/notebooks/hugectr_criteo.ipynb).
++ **Fine-Grained Control Accessibility Enhancements for Embedding Layers**: We've added fine-grained control accessibility to embedding layers. Using the `Model.freeze_embedding` and `Model.unfreeze_embedding` APIs, embedding layer weights can be frozen and unfrozen. Additionally, weights for multiple embedding layers can be loaded independently, making it possible to load pre-trained embeddings for a particular layer. For more information, refer to [Model API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#model) and [Section 3.4 of the HugeCTR Criteo Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v3.3/notebooks/hugectr_criteo.ipynb).
 
 ## What's New in Version 3.2.1
 
 + **GPU Embedding Cache Optimization**: The performance of the GPU embedding cache for the standalone module has been optimized. With this enhancement, the performance of small to medium batch sizes has improved significantly. We're not introducing any changes to the interface for the GPU embedding cache, so don't worry about making changes to any existing code that uses this standalone module. For more information, refer to the `ReadMe.md` file in the [gpu_cache](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.2.1/gpu_cache) directory of the repository.
 
-+ **Model Oversubscription Enhancements**: We're introducing a new host memory cache (HMEM-Cache) component for the model oversubscription feature. When configured properly, incremental training can be efficiently performed on models with large embedding tables that exceed the host memory. For more information, refer to [Host Memory Cache in MOS](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#embedding-training-cache). Additionally, we've enhanced the Python interface for model oversubscription by replacing the `use_host_memory_ps` parameter with a `ps_types` parameter and adding a `sparse_models` parameter. For more information about these changes, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#solver).
++ **Model Oversubscription Enhancements**: We're introducing a new host memory cache (HMEM-Cache) component for the model oversubscription feature. When configured properly, incremental training can be efficiently performed on models with large embedding tables that exceed the host memory. For more information, refer to [Host Memory Cache in MOS](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#embedding-training-cache). Additionally, we've enhanced the Python interface for model oversubscription by replacing the `use_host_memory_ps` parameter with a `ps_types` parameter and adding a `sparse_models` parameter. For more information about these changes, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#solver).
 
 + **Debugging Enhancements**: We're introducing new debugging features such as multi-level logging, as well as kernel debugging functions. We're also making our error messages more informative so that users know exactly how to resolve issues related to their training and inference code. For more information, refer to the comments in the header files, which are available at HugeCTR/include/base/debug.
 
@@ -554,7 +554,7 @@ The default log format now includes milliseconds.
 
 + **Parameter Server Enhancements**: We're introducing a new "in memory" database that utilizes the local CPU memory for storing and recalling embeddings and uses multi-threading to accelerate lookup and storage. You can now also use the combined CPU-accessible memory of your Redis cluster to store embeddings. We improved the performance for the "persistent" storage and retrieving embeddings from RocksDB using structured column families, as well as added support for creating hierarchical storage such as Redis as distributed cache. You don't have to worry about updating your Parameter Server configurations to take advantage of these enhancements.
 
-+ **Slice Layer Internalization Enhancements**: The Slice layer for the branch toplogy can now be abstracted away in the Python interface. A model graph analysis will be conducted to resolve the tensor dependency and the Slice layer will be internally inserted if the same tensor is consumed more than once to form the branch topology. For more information about how to construct a model graph using branches without the Slice layer, refer to the Getting Started section of the repository README and the [Slice Layer](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#layers) information.
++ **Slice Layer Internalization Enhancements**: The Slice layer for the branch toplogy can now be abstracted away in the Python interface. A model graph analysis will be conducted to resolve the tensor dependency and the Slice layer will be internally inserted if the same tensor is consumed more than once to form the branch topology. For more information about how to construct a model graph using branches without the Slice layer, refer to the Getting Started section of the repository README and the [Slice Layer](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#layers) information.
 
 ## What's New in Version 3.2
 
@@ -562,17 +562,17 @@ The default log format now includes milliseconds.
 
 + **New Hierarchical Storage Mechanism on the Parameter Server (POC)**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory. As a result, embedding tables no longer have to be stored in the local CPU memory. The distributed Redis cluster is being implemented as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs and assist the Redis cluster with looking up missing embedding keys. For more information about how this works, refer to our [HugeCTR Backend documentation](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server)
 
-+ **Parquet Format Support within the Data Generator**: The HugeCTR data generator now supports the parquet format, which can be configured easily using the Python API. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api).
++ **Parquet Format Support within the Data Generator**: The HugeCTR data generator now supports the parquet format, which can be configured easily using the Python API. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#data-generator-api).
 
-+ **Python Interface Support for the Data Generator**: The data generator has been enabled within the HugeCTR Python interface. The parameters associated with the data generator have been encapsulated into the `DataGeneratorParams` struct, which is required to initialize the `DataGenerator` instance. You can use the data generator's Python APIs to easily generate the Norm, Parquet, or Raw dataset formats with the desired distribution of sparse keys. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api) and the data generator samples in the [tools/data_generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.2/tools/data_generator) directory of the repository.
++ **Python Interface Support for the Data Generator**: The data generator has been enabled within the HugeCTR Python interface. The parameters associated with the data generator have been encapsulated into the `DataGeneratorParams` struct, which is required to initialize the `DataGenerator` instance. You can use the data generator's Python APIs to easily generate the Norm, Parquet, or Raw dataset formats with the desired distribution of sparse keys. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#data-generator-api) and the data generator samples in the [tools/data_generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.2/tools/data_generator) directory of the repository.
 
-+ **Improvements to the Formula of the Power Law Simulator within the Data Generator**: We've modified the formula of the power law simulator within the data generator so that a positive alpha value is always produced, which will be needed for most use cases. The alpha values for `Long`, `Medium`, and `Short` within the power law distribution are 0.9, 1.1, and 1.3 respectively. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api).
++ **Improvements to the Formula of the Power Law Simulator within the Data Generator**: We've modified the formula of the power law simulator within the data generator so that a positive alpha value is always produced, which will be needed for most use cases. The alpha values for `Long`, `Medium`, and `Short` within the power law distribution are 0.9, 1.1, and 1.3 respectively. For more information, refer to [Data Generator API](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#data-generator-api).
 
 + **Support for Arbitrary Input and Output Tensors in the Concat and Slice Layers**: The Concat and Slice layers now support any number of input and output tensors. Previously, these layers were limited to a maximum of four tensors.
 
 + **New Continuous Training Notebook**: We’ve added a new notebook to demonstrate how to perform continuous training using the embedding training cache (also referred to as Embedding Training Cache) feature. For more information, refer to [HugeCTR Continuous Training](notebooks/continuous_training.ipynb).
 
-+ **New HugeCTR Contributor Guide**: We've added a new [HugeCTR Contributor Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html) that explains how to contribute to HugeCTR, which may involve reporting and fixing a bug, introducing a new feature, or implementing a new or pending feature.
++ **New HugeCTR Contributor Guide**: We've added a new [HugeCTR Contributor Guide](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_contributor_guide.html) that explains how to contribute to HugeCTR, which may involve reporting and fixing a bug, introducing a new feature, or implementing a new or pending feature.
 
 + **Sparse Operation Kit (SOK) Enhancements**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) to help you get started with SOK.
 
@@ -586,11 +586,11 @@ The default log format now includes milliseconds.
 
 + **Holistic CUDA Graph**: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on.
 
-+ **Python Interface Enhancements**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
++ **Python Interface Enhancements**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
 
-+ **New Interface for Unified Embedding**: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added `nnz_per_slot` and `is_fixed_length`. You can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of `max_vocabulary_size_per_gpu`. For convenience, `mean/sum` is used in combinators instead of 0 and 1. In cases where you don't know which embedding type you should use, you can specify `use_hash_table` and let HugeCTR automatically select the embedding type based on your configuration. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html).
++ **New Interface for Unified Embedding**: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added `nnz_per_slot` and `is_fixed_length`. You can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of `max_vocabulary_size_per_gpu`. For convenience, `mean/sum` is used in combinators instead of 0 and 1. In cases where you don't know which embedding type you should use, you can specify `use_hash_table` and let HugeCTR automatically select the embedding type based on your configuration. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html).
 
-+ **Multi-Node Support for Embedding Training Cache (ETC)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html).
++ **Multi-Node Support for Embedding Training Cache (ETC)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html).
 
 + **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms. For more information, see the `sparse_operation_kit_demo.ipynb` notebook in the [sparse_operation_kit/notebooks](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.2/sparse_operation_kit/notebooks) directory of the repository.
 
@@ -604,7 +604,7 @@ The default log format now includes milliseconds.
 
 + **Mixed Precision (FP16) Support in Inference**: We've added FP16 support for the inference pipeline. Therefore, dense layers can now adopt FP16 during inference.
 
-+ **Optimizer State Enhancements for Continuous Training**: You can now store optimizer states that are updated during continuous training as files, such as the Adam optimizer's first moment (m) and second moment (v). By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information about `dense_opt_states_file` and `sparse_opt_states_file`, refer to [Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#).
++ **Optimizer State Enhancements for Continuous Training**: You can now store optimizer states that are updated during continuous training as files, such as the Adam optimizer's first moment (m) and second moment (v). By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information about `dense_opt_states_file` and `sparse_opt_states_file`, refer to [Python Interface](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#).
 
 + **New Library File for GPU Embedding Cache Data**: We’ve moved the header/source code of the GPU embedding cache data structure into a stand-alone folder. It has been compiled into a stand-alone library file. Similar to HugeCTR, your application programs can now be directly linked from this new library file for future use. For more information, refer to the `ReadMe.md` file in the [gpu_cache](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.1/gpu_cache) directory of the repository.
 
@@ -618,7 +618,7 @@ The default log format now includes milliseconds.
 
 + **FP16 Optimization**: We've optimized the DotProduct, ELU, and Sigmoid layers based on `__half2` vectorized loads and stores, improving their device memory bandwidth utilization. MultiCross, FmOrder2, ReduceSum, and Multiply are the only layers that still need to be optimized for FP16.
 
-+ **Synthetic Data Generator Enhancements**: We've enhanced our synthetic data generator so that it can generate uniformly distributed datasets, as well as power-law based datasets. You can now specify the `vocabulary_size` and `max_nnz` per categorical feature instead of across all categorial features. For more information, refer to our [user guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#generating-synthetic-data-and-benchmarks).
++ **Synthetic Data Generator Enhancements**: We've enhanced our synthetic data generator so that it can generate uniformly distributed datasets, as well as power-law based datasets. You can now specify the `vocabulary_size` and `max_nnz` per categorical feature instead of across all categorial features. For more information, refer to our [user guide](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html#generating-synthetic-data-and-benchmarks).
 
 + **Reduced Memory Allocation for Trained Model Exportation**: To prevent the "Out of Memory" error message from displaying when exporting a trained model, which may include a very large embedding table, the amount of memory allocated by the related functions has been significantly reduced.
 
@@ -630,7 +630,7 @@ The default log format now includes milliseconds.
 
 + **New High-Level API**: You can now also construct and train your models using the Python interface with our new high-level API. For more information, refer to our preview example code in the `samples/preview` directory to grasp how this new API works.
 
-+ **[FP16 Support](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#mixed-precision-training) in More Layers**: All the layers except `MultiCross` support mixed precision mode. We’ve also optimized some of the FP16 layer implementations based on vectorized loads and stores.
++ **[FP16 Support](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#mixed-precision-training) in More Layers**: All the layers except `MultiCross` support mixed precision mode. We’ve also optimized some of the FP16 layer implementations based on vectorized loads and stores.
 
 + **Enhanced TensorFlow Embedding Plugin**: Our embedding plugin now supports `LocalizedSlotSparseEmbeddingHash` mode. With this enhancement, the DNN model no longer needs to be split into two parts since it now connects with the embedding op through `MirroredStrategy` within the embedding layer. For more information, see the `notebooks/embedding_plugin.ipynb` notebook.
 
@@ -656,13 +656,13 @@ The default log format now includes milliseconds.
 
 + **Embedding Training Cache**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we've added a new embedding training cache feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage.
 
-+ **TF32 Support**: We've added TensorFloat-32 (TF32), a new math mode and third-generation of Tensor Cores, support on Ampere. TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while providing the same range as FP32 by using an 8-bit exponent. Since TF32 is an internal data type that accelerates FP32 GEMM computations with tensor cores, you can simply turn it on with a newly added configuration option. For more information, refer to [Solver](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#solver).
++ **TF32 Support**: We've added TensorFloat-32 (TF32), a new math mode and third-generation of Tensor Cores, support on Ampere. TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while providing the same range as FP32 by using an 8-bit exponent. Since TF32 is an internal data type that accelerates FP32 GEMM computations with tensor cores, you can simply turn it on with a newly added configuration option. For more information, refer to [Solver](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#solver).
 
 + **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we've redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
 
 + **Epoch-Based Training**: In addition to the `max_iter` parameter, you can now set the `num_epochs` parameter in the **Solver** clause within the configuration file. This mode can only currently be used with `Norm` dataset formats and their corresponding file lists. All dataset formats will be supported in the future.
 
-+ **New Multi-Node Training Tutorial**: To better support multi-node training use cases, we've added a new step-by-step tutorial to the [tutorial/multinode-training](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tutorial/multinode-training) directory of our GitHub repository.
++ **New Multi-Node Training Tutorial**: To better support multi-node training use cases, we've added a new step-by-step tutorial to the [tutorial/multinode-training](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tutorial/multinode-training) directory of our GitHub repository.
 
 + **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we've revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description in the Generating Synthetic Data and Benchmarks section of the [docs/hugectr_user_guide.md](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v2.3/docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks) file in the repository.
 
