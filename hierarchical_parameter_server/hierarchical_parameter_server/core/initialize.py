@@ -21,6 +21,7 @@ from tensorflow import function
 from tensorflow.python.framework import config
 from tensorflow.dtypes import int32, int64
 from tensorflow.python.ops import array_ops
+import tensorflow as tf
 
 MirroredStrategy = tf_dist.MirroredStrategy
 try:
@@ -223,7 +224,10 @@ def Init(**kwargs):
         else:
             _run_fn = strategy.run
 
-        _init_results = _init_wrapper(_run_fn, _init_fn, **kwargs)
+        if tf.distribute.get_replica_context() is None:
+            _init_results = _init_wrapper(_run_fn, _init_fn, **kwargs)
+        else:
+            _init_results = _init_fn(**kwargs)
         if hasattr(_init_results, "values"):
             _init_results = _init_results.values
         return _init_results
