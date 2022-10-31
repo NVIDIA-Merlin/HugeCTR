@@ -443,11 +443,11 @@ void InferencePybind(pybind11::module& m) {
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
                           const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, size_t,
+                          size_t, size_t, const std::string&, size_t, size_t,
                           // Overflow handling related.
                           bool, size_t, DatabaseOverflowPolicy_t, double,
                           // Caching behavior related.
-                          double, bool,
+                          bool, double, bool,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
@@ -456,6 +456,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("password") = "",
            pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
            pybind11::arg("allocation_rate") = 256 * 1024 * 1024,
+           pybind11::arg("shared_memory_size") = 16L * 1024L * 1024L * 1024L,
+           pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Overflow handling related.
@@ -464,6 +466,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
            pybind11::arg("overflow_resolution_target") = 0.8,
            // Caching behavior related.
+           pybind11::arg("initialize_after_startup") = true,
            pybind11::arg("initial_cache_rate") = 1.0,
            pybind11::arg("cache_missed_embeddings") = false,
            // Real-time update mechanism related.
@@ -475,6 +478,8 @@ void InferencePybind(pybind11::module& m) {
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
                           const std::string&, size_t, bool, size_t, size_t,
+                          // Caching behavior related.
+                          bool,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("backend") = DatabaseType_t::Disabled,
@@ -483,6 +488,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("num_threads") = 16, pybind11::arg("read_only") = false,
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
+           // Caching behavior related.
+           pybind11::arg("initialize_after_startup") = true,
            // Real-time update mechanism related.
            pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 

@@ -24,6 +24,7 @@
 #include <hps/database_backend.hpp>
 #include <hps/hash_map_backend.hpp>
 #include <hps/hier_parameter_server_base.hpp>
+#include <hps/mp_hash_map_backend.hpp>
 #include <hps/redis_backend.hpp>
 #include <hps/rocksdb_backend.hpp>
 #include <memory>
@@ -32,19 +33,22 @@
 using namespace HugeCTR;
 namespace {
 
-template <typename TKey>
+template <typename Key>
 void db_backend_multi_evict_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackend<TKey>> db;
+  std::unique_ptr<DatabaseBackend<Key>> db;
   switch (database_type) {
     case DatabaseType_t::ParallelHashMap:
-      db = std::make_unique<HashMapBackend<TKey>>();
+      db = std::make_unique<HashMapBackend<Key>>(16);
+      break;
+    case DatabaseType_t::MultiProcessHashMap:
+      db = std::make_unique<MultiProcessHashMapBackend<Key>>(16);
       break;
     case DatabaseType_t::RedisCluster:
-      db = std::make_unique<RedisClusterBackend<TKey>>(
+      db = std::make_unique<RedisClusterBackend<Key>>(
           "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002");
       break;
     case DatabaseType_t::RocksDB:
-      db = std::make_unique<RocksDBBackend<TKey>>("/hugectr/Test_Data/rockdb");
+      db = std::make_unique<RocksDBBackend<Key>>("/hugectr/Test_Data/rockdb");
       break;
     default:
       break;
@@ -62,7 +66,7 @@ void db_backend_multi_evict_test(DatabaseType_t database_type) {
       tbl << "tbl" << j;
 
       const std::string& tag = HierParameterServerBase::make_tag_name(mdl.str(), tbl.str());
-      for (TKey k = 0; k < 50; k++) {
+      for (Key k = 0; k < 50; k++) {
         const double kk = k * k;
         db->insert(tag, 1, &k, reinterpret_cast<const char*>(&kk), sizeof(double));
       }
@@ -114,19 +118,19 @@ TEST(db_backend_multi_evict, Rocksdb) {
 
 namespace {
 
-template <typename TKey>
+template <typename Key>
 void db_backend_dump_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackend<TKey>> db;
+  std::unique_ptr<DatabaseBackend<Key>> db;
   switch (database_type) {
     case DatabaseType_t::ParallelHashMap:
-      db = std::make_unique<HashMapBackend<TKey>>();
+      db = std::make_unique<HashMapBackend<Key>>(16);
       break;
     case DatabaseType_t::RedisCluster:
-      db = std::make_unique<RedisClusterBackend<TKey>>(
+      db = std::make_unique<RedisClusterBackend<Key>>(
           "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002");
       break;
     case DatabaseType_t::RocksDB:
-      db = std::make_unique<RocksDBBackend<TKey>>("/hugectr/Test_Data/rockdb");
+      db = std::make_unique<RocksDBBackend<Key>>("/hugectr/Test_Data/rockdb");
       break;
     default:
       break;
@@ -135,9 +139,9 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   // Populate a dummy table.
   const std::string tag0 = HierParameterServerBase::make_tag_name("mdl", "tbl0");
   {
-    std::vector<TKey> keys;
+    std::vector<Key> keys;
     std::vector<double> values;
-    for (TKey k = 0; k < 10; k++) {
+    for (Key k = 0; k < 10; k++) {
       keys.push_back(k);
       values.push_back(std::cos(static_cast<double>(k)));
     }
@@ -155,7 +159,7 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   db->load_dump(tag1, "tbl0.bin");
   std::cout << "tbl1 size " << db->size(tag1) << std::endl;
 
-  for (TKey k = 0; k < 10; k++) {
+  for (Key k = 0; k < 10; k++) {
     // std::cout << "key " << k << std::endl;
     double v;
     db->fetch(
@@ -176,7 +180,7 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   db->load_dump(tag2, "tbl0.sst");
   std::cout << "tbl2 size " << db->size(tag2) << std::endl;
 
-  for (TKey k = 0; k < 10; k++) {
+  for (Key k = 0; k < 10; k++) {
     // std::cout << "key " << k << std::endl;
     double v;
     db->fetch(
@@ -195,7 +199,7 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   // Special check. See if we can load a hashmap dump into RocksDB.
   if (database_type == DatabaseType_t::RocksDB) {
     {
-      auto db2 = std::make_unique<HashMapBackend<TKey>>();
+      auto db2 = std::make_unique<HashMapBackend<Key>>(16);
       db2->load_dump(tag1, "tbl0.bin");
       db2->dump(tag1, "tbl2.sst");
     }
@@ -204,7 +208,7 @@ void db_backend_dump_test(DatabaseType_t database_type) {
     db->load_dump(tag3, "tbl2.sst");
     std::cout << "tag3 size " << db->size(tag3) << std::endl;
 
-    for (TKey k = 0; k < 10; k++) {
+    for (Key k = 0; k < 10; k++) {
       // std::cout << "key " << k << std::endl;
       double v;
       db->fetch(

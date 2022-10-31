@@ -23,9 +23,9 @@ namespace HugeCTR {
 /**
  * Each instance represents an emitter link to a theoretically infinitely sized message queue..
  *
- * @tparam TKey Data-type to be used for keys in this message queue.
+ * @tparam Key Data-type to be used for keys in this message queue.
  */
-template <typename TKey>
+template <typename Key>
 class MessageSink {
  public:
   DISALLOW_COPY_AND_MOVE(MessageSink);
@@ -47,7 +47,7 @@ class MessageSink {
    * @param values Pointer to the values.
    * @param value_size The size of each value in bytes.
    */
-  virtual void post(const std::string& tag, size_t num_pairs, const TKey* keys, const char* values,
+  virtual void post(const std::string& tag, size_t num_pairs, const Key* keys, const char* values,
                     uint32_t value_size);
 
   /**
@@ -62,14 +62,14 @@ class MessageSink {
 };
 
 #define HCTR_MESSAGE_SOURCE_CALLBACK \
-  bool(const std::string&, const size_t, const TKey*, const char*, const size_t)
+  bool(const std::string&, const size_t, const Key*, const char*, const size_t)
 
 /**
  * Each instance represents an consumer link to a theoretically infinitely sized message queue..
  *
- * @tparam TKey Data-type to be used for keys in this message queue.
+ * @tparam Key Data-type to be used for keys in this message queue.
  */
-template <typename TKey>
+template <typename Key>
 class MessageSource {
  public:
   DISALLOW_COPY_AND_MOVE(MessageSource);

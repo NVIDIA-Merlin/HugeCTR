@@ -20,6 +20,7 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/modelloader.hpp>
+#include <hps/mp_hash_map_backend.hpp>
 #include <hps/redis_backend.hpp>
 #include <hps/rocksdb_backend.hpp>
 #include <regex>
@@ -106,6 +107,17 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
             conf.overflow_resolution_target);
         break;
 
+      case DatabaseType_t::MultiProcessHashMap:
+        HCTR_LOG_S(INFO, WORLD) << "Creating Multi-Process HashMap CPU database backend..."
+                                << std::endl;
+        volatile_db_ = std::make_unique<MultiProcessHashMapBackend<TypeHashKey>>(
+            conf.num_partitions, conf.allocation_rate, conf.shared_memory_size,
+            conf.shared_memory_name, std::chrono::milliseconds{100},  // heart_beat_frequency
+            true,                                                     // auto_remove
+            conf.max_get_batch_size, conf.max_set_batch_size, conf.overflow_margin,
+            conf.overflow_policy, conf.overflow_resolution_target);
+        break;
+
       case DatabaseType_t::RedisCluster:
         HCTR_LOG_S(INFO, WORLD) << "Creating RedisCluster backend..." << std::endl;
         volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(
@@ -118,6 +130,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
         HCTR_DIE("Selected backend (volatile_db.type = %d) is not supported!", conf.type);
         break;
     }
+    volatile_db_initialize_after_startup_ = conf.initialize_after_startup;
     volatile_db_cache_rate_ = conf.initial_cache_rate;
     volatile_db_cache_missed_embeddings_ = conf.cache_missed_embeddings;
     HCTR_LOG_S(INFO, WORLD) << "Volatile DB: initial cache rate = " << volatile_db_cache_rate_
@@ -142,6 +155,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
         HCTR_DIE("Selected backend (persistent_db.type = %d) is not supported!", conf.type);
         break;
     }
+    persistent_db_initialize_after_startup_ = conf.initialize_after_startup;
   }
 
   // Load embeddings for each embedding table from each model
@@ -199,7 +213,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
     size_t num_key = rawreader->getkeycount();
     const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];
     // Populate volatile database(s).
-    if (volatile_db_) {
+    if (volatile_db_ && volatile_db_initialize_after_startup_) {
       const size_t volatile_capacity = volatile_db_->capacity(tag_name);
       const size_t volatile_cache_amount =
           (num_key <= volatile_capacity)
@@ -223,7 +237,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
     }
 
     // Persistent database - by definition - always gets all keys.
-    if (persistent_db_) {
+    if (persistent_db_ && persistent_db_initialize_after_startup_) {
       HCTR_CHECK(persistent_db_->insert(
           tag_name, num_key, reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()),
           reinterpret_cast<const char*>(rawreader->getvectors()), embedding_size * sizeof(float)));
@@ -517,7 +531,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   size_t hit_count = 0;
 
   DatabaseHitCallback check_and_copy = [&](const size_t index, const char* const value,
-                                           const size_t value_size) {
+                                           const uint32_t value_size) {
     HCTR_CHECK_HINT(value_size == expected_value_size,
                     "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
                     index, value_size, expected_value_size);
