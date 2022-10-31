@@ -36,6 +36,7 @@ enum class DatabaseType_t {
   Disabled,
   HashMap,
   ParallelHashMap,
+  MultiProcessHashMap,
   RedisCluster,
   RocksDB,
 };
@@ -57,6 +58,8 @@ constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
       return "hash_map";
     case DatabaseType_t::ParallelHashMap:
       return "parallel_hash_map";
+    case DatabaseType_t::MultiProcessHashMap:
+      return "multi_process_hash_map";
     case DatabaseType_t::RedisCluster:
       return "redis_cluster";
     case DatabaseType_t::RocksDB:
@@ -88,9 +91,16 @@ constexpr const char* hctr_enum_to_c_str(const UpdateSourceType_t value) {
   }
 }
 
-std::ostream& operator<<(std::ostream& os, DatabaseType_t value);
-std::ostream& operator<<(std::ostream& os, DatabaseOverflowPolicy_t value);
-std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value);
+inline std::ostream& operator<<(std::ostream& os, DatabaseType_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+inline std::ostream& operator<<(std::ostream& os, DatabaseOverflowPolicy_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+inline std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+
 DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key);
 UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key);
 DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string key);
@@ -103,7 +113,9 @@ struct VolatileDatabaseParams {
   std::string user_name;  // "default" = Standard user for Redis!
   std::string password;
   size_t num_partitions;
-  size_t allocation_rate;  // Only used with HashMap type backends.
+  size_t allocation_rate;     // Only used with HashMap type backends.
+  size_t shared_memory_size;  // Size-limit of the shared memory (only for Multi-Process hashmap).
+  std::string shared_memory_name;  // Name of the shared memory (only for Multi-Process hashmap).
   size_t max_get_batch_size;
   size_t max_set_batch_size;
 
@@ -113,7 +125,8 @@ struct VolatileDatabaseParams {
   DatabaseOverflowPolicy_t overflow_policy;
   double overflow_resolution_target;
 
-  // Chaching behavior related.
+  // Caching behavior related.
+  bool initialize_after_startup;
   double initial_cache_rate;
   bool cache_missed_embeddings;
 
@@ -126,15 +139,18 @@ struct VolatileDatabaseParams {
       const std::string& address = "127.0.0.1:7000", const std::string& user_name = "default",
       const std::string& password = "",
       size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
-      size_t allocation_rate = 256 * 1024 * 1024, size_t max_get_batch_size = 10'000,
-      size_t max_set_batch_size = 10'000,
+      size_t allocation_rate = 256 * 1024 * 1024,
+      size_t shared_memory_size = 16L * 1024L * 1024L * 1024L,
+      const std::string& shared_memory_name = "hctr_mp_hash_map_database",
+      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
       // Overflow handling related.
       bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8,
       // Caching behavior related.
-      double initial_cache_rate = 1.0, bool cache_missed_embeddings = false,
+      bool initialize_after_startup = true, double initial_cache_rate = 1.0,
+      bool cache_missed_embeddings = false,
       // Real-time update mechanism related.
       const std::vector<std::string>& update_filters = {"^hps_.+$"});
 
@@ -152,6 +168,9 @@ struct PersistentDatabaseParams {
   size_t max_get_batch_size;
   size_t max_set_batch_size;
 
+  // Caching behavior related.
+  bool initialize_after_startup;
+
   // Real-time update mechanism related.
   std::vector<std::string> update_filters;  // Should be a regex for Kafka.
 
@@ -161,6 +180,8 @@ struct PersistentDatabaseParams {
                                                      "rocksdb",
                            size_t num_threads = 16, bool read_only = false,
                            size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+                           // Caching behavior related.
+                           bool initialize_after_startup = true,
                            // Real-time update mechanism related.
                            const std::vector<std::string>& update_filters = {"^hps_.+$"});
 

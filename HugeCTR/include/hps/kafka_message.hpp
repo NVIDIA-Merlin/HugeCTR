@@ -26,13 +26,13 @@ namespace HugeCTR {
 /**
  * \p MessageSink implementation for Kafka message queues.
  *
- * @tparam TKey Data-type to be used for keys in this message queue.
+ * @tparam Key Data-type to be used for keys in this message queue.
  */
-template <typename TKey>
-class KafkaMessageSink final : public MessageSink<TKey> {
+template <typename Key>
+class KafkaMessageSink final : public MessageSink<Key> {
  public:
   DISALLOW_COPY_AND_MOVE(KafkaMessageSink);
-  using TBase = MessageSink<TKey>;
+  using Base = MessageSink<Key>;
 
   KafkaMessageSink() = delete;
 
@@ -53,7 +53,7 @@ class KafkaMessageSink final : public MessageSink<TKey> {
 
   virtual ~KafkaMessageSink();
 
-  virtual void post(const std::string& tag, size_t num_pairs, const TKey* keys, const char* values,
+  virtual void post(const std::string& tag, size_t num_pairs, const Key* keys, const char* values,
                     uint32_t value_size) override;
 
   virtual void flush() override;
@@ -135,13 +135,13 @@ class KafkaMessageSink final : public MessageSink<TKey> {
 /**
  * \p MessageSource implementation for Kafka message queues.
  *
- * @tparam TKey Data-type to be used for keys in this message queue.
+ * @tparam Key Data-type to be used for keys in this message queue.
  */
-template <typename TKey>
-class KafkaMessageSource final : public MessageSource<TKey> {
+template <typename Key>
+class KafkaMessageSource final : public MessageSource<Key> {
  public:
   DISALLOW_COPY_AND_MOVE(KafkaMessageSource);
-  using TBase = MessageSource<TKey>;
+  using Base = MessageSource<Key>;
 
   /**
    * Construct a new KafkaMessageSource object.

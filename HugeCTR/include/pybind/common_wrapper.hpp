@@ -247,6 +247,8 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::DatabaseType_t::HashMap)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::ParallelHashMap),
              HugeCTR::DatabaseType_t::ParallelHashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::MultiProcessHashMap),
+             HugeCTR::DatabaseType_t::MultiProcessHashMap)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RedisCluster),
              HugeCTR::DatabaseType_t::RedisCluster)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),

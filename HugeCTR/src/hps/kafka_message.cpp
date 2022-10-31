@@ -23,7 +23,7 @@
 #define HCTR_USE_XXHASH
 #ifdef HCTR_USE_XXHASH
 #include <xxh3.h>
-#define HCTR_KEY_GROUP_OF_KEY(KEY) (XXH3_64bits((KEY), sizeof(TKey)) % num_key_groups_)
+#define HCTR_KEY_GROUP_OF_KEY(KEY) (XXH3_64bits((KEY), sizeof(Key)) % num_key_groups_)
 #else
 #define HCTR_KEY_GROUP_OF_KEY(KEY) (static_cast<size_t>(*KEY) % num_key_groups_)
 #endif
@@ -118,11 +118,11 @@ struct KafkaMessageDeleter {
   void operator()(rd_kafka_message_t* p) { rd_kafka_message_destroy(p); }
 };
 
-template <typename TKey>
-KafkaMessageSink<TKey>::KafkaMessageSink(const std::string& brokers, const size_t num_key_groups,
-                                         const size_t send_buffer_size,
-                                         const size_t num_send_buffers, const bool await_connection)
-    : TBase(),
+template <typename Key>
+KafkaMessageSink<Key>::KafkaMessageSink(const std::string& brokers, const size_t num_key_groups,
+                                        const size_t send_buffer_size,
+                                        const size_t num_send_buffers, const bool await_connection)
+    : Base(),
       num_key_groups_(num_key_groups),
       send_buffer_size_(send_buffer_size),
       num_send_buffers_(num_send_buffers),
@@ -155,7 +155,7 @@ KafkaMessageSink<TKey>::KafkaMessageSink(const std::string& brokers, const size_
   rd_kafka_conf_set_events(conf, RD_KAFKA_EVENT_NONE);
   rd_kafka_conf_set_error_cb(
       conf, [](rd_kafka_t* const rk, int err, const char* const reason, void* const opaque) {
-        const auto ctx = static_cast<KafkaMessageSink<TKey>*>(opaque);
+        const auto ctx = static_cast<KafkaMessageSink<Key>*>(opaque);
         ctx->on_error(static_cast<rd_kafka_resp_err_t>(err), reason);
       });
   kafka_conf_set_and_check(conf, "enable.random.seed", true);  // Default: true
@@ -172,7 +172,7 @@ KafkaMessageSink<TKey>::KafkaMessageSink(const std::string& brokers, const size_
   kafka_conf_set_and_check(conf, "batch.size", 64 * 1024 * 1024);  // Default: 1'000'000
   rd_kafka_conf_set_dr_msg_cb(
       conf, [](rd_kafka_t* const rk, const rd_kafka_message_t* const msg, void* opaque) {
-        const auto ctx = static_cast<KafkaMessageSink<TKey>*>(opaque);
+        const auto ctx = static_cast<KafkaMessageSink<Key>*>(opaque);
         ctx->on_delivered(*msg);
       });
 
@@ -192,7 +192,7 @@ KafkaMessageSink<TKey>::KafkaMessageSink(const std::string& brokers, const size_
   HCTR_LOG_S(DEBUG, WORLD) << "Kafka sink initialization complete!" << std::endl;
 
   // Startup background event processing thread.
-  event_handler_ = std::thread(&KafkaMessageSink<TKey>::run, this);
+  event_handler_ = std::thread(&KafkaMessageSink<Key>::run, this);
 
   // Send a beacon.
   if (await_connection) {
@@ -203,8 +203,8 @@ KafkaMessageSink<TKey>::KafkaMessageSink(const std::string& brokers, const size_
   }
 }
 
-template <typename TKey>
-KafkaMessageSink<TKey>::~KafkaMessageSink() {
+template <typename Key>
+KafkaMessageSink<Key>::~KafkaMessageSink() {
   // Stop background event processing.
   terminate_ = true;
   event_handler_.join();
@@ -221,11 +221,11 @@ KafkaMessageSink<TKey>::~KafkaMessageSink() {
   rk_ = nullptr;
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::post(const std::string& tag, size_t num_pairs, const TKey* const keys,
-                                  const char* values, const uint32_t value_size) {
+template <typename Key>
+void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const Key* const keys,
+                                 const char* values, const uint32_t value_size) {
   // Make sure there enough space to store at least one key-value pair.
-  const size_t key_value_size = sizeof(TKey) + value_size;
+  const size_t key_value_size = sizeof(Key) + value_size;
   HCTR_CHECK(sizeof(uint32_t) * 2 + key_value_size <= send_buffer_size_);
 
   // Get topic, or create if it doesn't exist yet.
@@ -249,20 +249,20 @@ void KafkaMessageSink<TKey>::post(const std::string& tag, size_t num_pairs, cons
     size_t p_length = sizeof(uint32_t) * 2;
 
     // Append key & value.
-    *reinterpret_cast<TKey*>(&payload[p_length]) = *keys;
-    p_length += sizeof(TKey);
+    *reinterpret_cast<Key*>(&payload[p_length]) = *keys;
+    p_length += sizeof(Key);
     memcpy(&payload[p_length], values, value_size);
     p_length += value_size;
 
     // Produce Kafka message.
     blocking_produce(topic, payload, p_length, key_group);
   } else {
-    const TKey* const keys_end = &keys[num_pairs];
+    const Key* const keys_end = &keys[num_pairs];
     for (size_t key_group = 0; key_group < num_key_groups_; key_group++) {
       char* payload = nullptr;
       size_t p_length = 0;
 
-      for (const TKey* k = keys; k != keys_end; k++) {
+      for (const Key* k = keys; k != keys_end; k++) {
         // Only consider keys that belong to current group.
         if (HCTR_KEY_GROUP_OF_KEY(&k) != key_group) {
           continue;
@@ -286,8 +286,8 @@ void KafkaMessageSink<TKey>::post(const std::string& tag, size_t num_pairs, cons
         }
 
         // Append key & value.
-        *reinterpret_cast<TKey*>(&payload[p_length]) = *k;
-        p_length += sizeof(TKey);
+        *reinterpret_cast<Key*>(&payload[p_length]) = *k;
+        p_length += sizeof(Key);
         memcpy(&payload[p_length], &values[(k - keys) * value_size], value_size);
         p_length += value_size;
       }
@@ -300,11 +300,11 @@ void KafkaMessageSink<TKey>::post(const std::string& tag, size_t num_pairs, cons
   }
 
   // Update metrics.
-  TBase::post(tag, num_pairs, keys, values, value_size);
+  Base::post(tag, num_pairs, keys, values, value_size);
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::flush() {
+template <typename Key>
+void KafkaMessageSink<Key>::flush() {
   while (true) {
     HCTR_LOG(DEBUG, WORLD, "Awaiting delivery of pending Kafka messages...\n");
 
@@ -316,11 +316,11 @@ void KafkaMessageSink<TKey>::flush() {
   }
 
   // Update metrics.
-  TBase::flush();
+  Base::flush();
 }
 
-template <typename TKey>
-rd_kafka_topic_t* KafkaMessageSink<TKey>::resolve_topic(const std::string& tag) {
+template <typename Key>
+rd_kafka_topic_t* KafkaMessageSink<Key>::resolve_topic(const std::string& tag) {
   const auto topics_it = topics_.find(tag);
   if (topics_it != topics_.end()) {
     return topics_it->second;
@@ -346,8 +346,8 @@ rd_kafka_topic_t* KafkaMessageSink<TKey>::resolve_topic(const std::string& tag) 
   return topic;
 }
 
-template <typename TKey>
-char* KafkaMessageSink<TKey>::acquire_send_buffer(uint32_t value_size) {
+template <typename Key>
+char* KafkaMessageSink<Key>::acquire_send_buffer(uint32_t value_size) {
   // Wait until buffer becomes available.
   char* send_buffer;
   {
@@ -367,9 +367,9 @@ char* KafkaMessageSink<TKey>::acquire_send_buffer(uint32_t value_size) {
   return send_buffer;
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::blocking_produce(rd_kafka_topic_t* const topic, char* const payload,
-                                              const size_t payload_length, const size_t key_group) {
+template <typename Key>
+void KafkaMessageSink<Key>::blocking_produce(rd_kafka_topic_t* const topic, char* const payload,
+                                             const size_t payload_length, const size_t key_group) {
   while (rd_kafka_produce(topic, RD_KAFKA_PARTITION_UA,
                           RD_KAFKA_MSG_F_BLOCK | RD_KAFKA_MSG_F_PARTITION, payload, payload_length,
                           nullptr, 0, reinterpret_cast<void*>(key_group))) {
@@ -384,8 +384,8 @@ void KafkaMessageSink<TKey>::blocking_produce(rd_kafka_topic_t* const topic, cha
   }
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::run() {
+template <typename Key>
+void KafkaMessageSink<Key>::run() {
   hctr_set_thread_name("kafka sink");
 
   // Keep polling until exit.
@@ -394,8 +394,8 @@ void KafkaMessageSink<TKey>::run() {
   }
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
+template <typename Key>
+void KafkaMessageSink<Key>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
   HCTR_LOG_S(ERROR, WORLD) << "Kafka error " << rd_kafka_err2name(err) << ". Reason: " << reason
                            << std::endl;
 
@@ -411,8 +411,8 @@ void KafkaMessageSink<TKey>::on_error(rd_kafka_resp_err_t err, const char* const
            error);
 }
 
-template <typename TKey>
-void KafkaMessageSink<TKey>::on_delivered(const rd_kafka_message_t& msg) {
+template <typename Key>
+void KafkaMessageSink<Key>::on_delivered(const rd_kafka_message_t& msg) {
   if (msg.err) {
     HCTR_LOG_S(ERROR, WORLD) << "Kafka message delivery failed; Topic: "
                              << rd_kafka_topic_name(msg.rkt) << ", payload: " << msg.len
@@ -435,13 +435,13 @@ void KafkaMessageSink<TKey>::on_delivered(const rd_kafka_message_t& msg) {
 template class KafkaMessageSink<unsigned int>;
 template class KafkaMessageSink<long long>;
 
-template <typename TKey>
-KafkaMessageSource<TKey>::KafkaMessageSource(
+template <typename Key>
+KafkaMessageSource<Key>::KafkaMessageSource(
     const std::string& brokers, const std::string& consumer_group_id,
     const std::vector<std::string>& tag_filters, const size_t metadata_refresh_interval_ms,
     const size_t receive_buffer_size, const size_t poll_timeout_ms, const size_t max_batch_size,
     const size_t failure_backoff_ms, const size_t max_commit_interval)
-    : TBase(),
+    : Base(),
       tag_filters_(tag_filters),
       poll_timeout_ms_(poll_timeout_ms),
       max_batch_size_(max_batch_size),
@@ -473,7 +473,7 @@ KafkaMessageSource<TKey>::KafkaMessageSource(
   rd_kafka_conf_set_events(conf, RD_KAFKA_EVENT_NONE);
   rd_kafka_conf_set_error_cb(
       conf, [](rd_kafka_t* const rk, int err, const char* const reason, void* const opaque) {
-        const auto ctx = static_cast<KafkaMessageSource<TKey>*>(opaque);
+        const auto ctx = static_cast<KafkaMessageSource<Key>*>(opaque);
         ctx->on_error(static_cast<rd_kafka_resp_err_t>(err), reason);
       });
   kafka_conf_set_and_check(conf, "enable.random.seed", true);  // Default: true
@@ -508,8 +508,8 @@ KafkaMessageSource<TKey>::KafkaMessageSource(
   HCTR_KAFKA_CHECK(rd_kafka_poll_set_consumer(rk_));
 }
 
-template <typename TKey>
-KafkaMessageSource<TKey>::~KafkaMessageSource() {
+template <typename Key>
+KafkaMessageSource<Key>::~KafkaMessageSource() {
   // Stop processing events.
   terminate_ = true;
   if (event_handler_.joinable()) {
@@ -523,8 +523,8 @@ KafkaMessageSource<TKey>::~KafkaMessageSource() {
   rk_ = nullptr;
 }
 
-template <typename TKey>
-void KafkaMessageSource<TKey>::engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
+template <typename Key>
+void KafkaMessageSource<Key>::engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
   // Stop processing events (if already doing so).
   terminate_ = true;
   if (event_handler_.joinable()) {
@@ -533,11 +533,11 @@ void KafkaMessageSource<TKey>::engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK
 
   // Start new thread with updated function pointer.
   terminate_ = false;
-  event_handler_ = std::thread(&KafkaMessageSource<TKey>::run, this, std::move(callback));
+  event_handler_ = std::thread(&KafkaMessageSource<Key>::run, this, std::move(callback));
 }
 
-template <typename TKey>
-void KafkaMessageSource<TKey>::resubscribe() {
+template <typename Key>
+void KafkaMessageSource<Key>::resubscribe() {
   // Get rid of previous subscription (if exits).
   HCTR_KAFKA_CHECK(rd_kafka_unsubscribe(rk_));
 
@@ -563,10 +563,10 @@ void KafkaMessageSource<TKey>::resubscribe() {
   HCTR_KAFKA_CHECK(rd_kafka_subscribe(rk_, part_list.get()));
 }
 
-template <typename TKey>
+template <typename Key>
 struct KafkaReceiveBuffer final {
   uint32_t value_size;
-  std::vector<TKey> keys;
+  std::vector<Key> keys;
   std::vector<char> values;
   size_t msg_count = 0;  // messages processed since last commit.
   std::unique_ptr<rd_kafka_topic_partition_list_t, KafkaTopicPartitionListDeleter> next_offsets{
@@ -580,16 +580,16 @@ struct KafkaReceiveBuffer final {
   }
 };
 
-template <typename TKey>
-void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
+template <typename Key>
+void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
   hctr_set_thread_name("kafka source");
 
   // Attempt to subscribe to topics.
   resubscribe();
 
   // Buffer for the messages and partition updates.
-  phmap::flat_hash_map<std::string, KafkaReceiveBuffer<TKey>> recv_buffers;
-  auto deliver = [&](const char* const topic, KafkaReceiveBuffer<TKey>& buf) -> bool {
+  phmap::flat_hash_map<std::string, KafkaReceiveBuffer<Key>> recv_buffers;
+  auto deliver = [&](const char* const topic, KafkaReceiveBuffer<Key>& buf) -> bool {
     if (buf.keys.empty()) {
       return true;
     }
@@ -614,7 +614,7 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
     return true;
   };
 
-  auto commit = [&](const char* const topic, KafkaReceiveBuffer<TKey>& buf) -> void {
+  auto commit = [&](const char* const topic, KafkaReceiveBuffer<Key>& buf) -> void {
     if (!buf.next_offsets->cnt) {
       return;
     }
@@ -654,7 +654,7 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
         msg->err == RD_KAFKA_RESP_ERR__PARTITION_EOF) {
       for (auto& recv_buffer_entry : recv_buffers) {
         const char* const topic = recv_buffer_entry.first.c_str();
-        KafkaReceiveBuffer<TKey>& buf = recv_buffer_entry.second;
+        KafkaReceiveBuffer<Key>& buf = recv_buffer_entry.second;
 
         // Hand over remaining data and commit.
         if (!deliver(topic, buf)) {
@@ -737,7 +737,7 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
 
     // Select receive buffer.
     const char* const topic = rd_kafka_topic_name(msg->rkt);
-    KafkaReceiveBuffer<TKey>& buf =
+    KafkaReceiveBuffer<Key>& buf =
         recv_buffers.try_emplace(topic, value_size, max_batch_size_).first->second;
 
     // Value size change detected. Hand over remaining data, commit and then change value_size.
@@ -757,8 +757,8 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
 
     // Copy data to receive buffer.
     while (p != p_end) {
-      buf.keys.push_back(*reinterpret_cast<const TKey*>(p));
-      p += sizeof(TKey);
+      buf.keys.push_back(*reinterpret_cast<const Key*>(p));
+      p += sizeof(Key);
 
       const char* const p_next = &p[value_size];
       buf.values.insert(buf.values.end(), p, p_next);
@@ -800,8 +800,8 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
   }
 }
 
-template <typename TKey>
-void KafkaMessageSource<TKey>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
+template <typename Key>
+void KafkaMessageSource<Key>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
   HCTR_LOG_S(ERROR, WORLD) << "Kafka error " << rd_kafka_err2name(err) << ". Reason: " << reason
                            << std::endl;
 

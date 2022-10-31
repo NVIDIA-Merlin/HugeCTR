@@ -34,7 +34,7 @@
 #define HCTR_USE_XXHASH
 #ifdef HCTR_USE_XXHASH
 #include <xxh3.h>
-#define HCTR_KEY_TO_PART_INDEX(KEY) (XXH3_64bits(&(KEY), sizeof(TKey)) % num_partitions_)
+#define HCTR_KEY_TO_PART_INDEX(KEY) (XXH3_64bits(&(KEY), sizeof(Key)) % num_partitions_)
 #else
 #define HCTR_KEY_TO_PART_INDEX(KEY) (KEY % num_partitions_)
 #endif
@@ -62,14 +62,14 @@ inline std::string make_hkey(const std::string& table_name, const size_t partiti
 #define HCTR_REDIS_TIME_HKEY() (make_hkey(table_name, part, 't'))
 #endif
 
-template <typename TKey>
-RedisClusterBackend<TKey>::RedisClusterBackend(
+template <typename Key>
+RedisClusterBackend<Key>::RedisClusterBackend(
     const std::string& address, const std::string& user_name, const std::string& password,
     const size_t num_partitions, const size_t max_get_batch_size, const size_t max_set_batch_size,
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target)
-    : TBase(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
-            overflow_resolution_target),
+    : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
+           overflow_resolution_target),
       refresh_time_after_fetch_{refresh_time_after_fetch},
       // Can switch to std::range in C++20.
       num_partitions_{num_partitions} {
@@ -99,8 +99,8 @@ RedisClusterBackend<TKey>::RedisClusterBackend(
   redis_ = std::make_unique<sw::redis::RedisCluster>(options, pool_options);
 }
 
-template <typename TKey>
-RedisClusterBackend<TKey>::~RedisClusterBackend() {
+template <typename Key>
+RedisClusterBackend<Key>::~RedisClusterBackend() {
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Awaiting background worker to conclude..."
                           << std::endl;
   this->background_worker_.await_idle();
@@ -109,8 +109,8 @@ RedisClusterBackend<TKey>::~RedisClusterBackend() {
   redis_.reset();
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::size(const std::string& table_name) const {
+template <typename Key>
+size_t RedisClusterBackend<Key>::size(const std::string& table_name) const {
   std::atomic<size_t> joint_num_pairs{0};
 
   std::exception_ptr error;
@@ -150,10 +150,10 @@ size_t RedisClusterBackend<TKey>::size(const std::string& table_name) const {
   return num_pairs;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
-                                           const TKey* const keys,
-                                           const std::chrono::nanoseconds& time_budget) const {
+template <typename Key>
+size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const size_t num_keys,
+                                          const Key* const keys,
+                                          const std::chrono::nanoseconds& time_budget) const {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -179,7 +179,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
 
       // Launch query.
       try {
-        if (redis_->hexists(hkey, {reinterpret_cast<const char*>(keys), sizeof(TKey)})) {
+        if (redis_->hexists(hkey, {reinterpret_cast<const char*>(keys), sizeof(Key)})) {
           hit_count++;
         }
       } catch (sw::redis::Error& e) {
@@ -195,7 +195,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
       std::mutex error_guard;
 
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
       // Process partitions.
       std::vector<std::future<void>> tasks;
@@ -210,7 +210,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
 
           try {
             size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
+            for (const Key* k = keys; k != keys_end; num_batches++) {
               // Check time budget.
               const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
               if (elapsed >= time_budget) {
@@ -233,7 +233,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
               size_t batch_size = 0;
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  pipeline.hexists(hkey, {reinterpret_cast<const char*>(k), sizeof(TKey)});
+                  pipeline.hexists(hkey, {reinterpret_cast<const char*>(k), sizeof(Key)});
                   if (++batch_size >= this->max_get_batch_size_) {
                     break;
                   }
@@ -285,10 +285,10 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
   return hit_count;
 }
 
-template <typename TKey>
-bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size_t num_pairs,
-                                       const TKey* const keys, const char* const values,
-                                       const size_t value_size) {
+template <typename Key>
+bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_t num_pairs,
+                                      const Key* const keys, const char* const values,
+                                      const size_t value_size) {
   size_t num_inserts = 0;
 
   switch (num_pairs) {
@@ -303,7 +303,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
 
       // Insert.
       try {
-        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(TKey)};
+        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(Key)};
         const time_t now = std::time(nullptr);
 
         redis_->hset(hkey_v, k_view, {values, value_size});
@@ -325,7 +325,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
       std::mutex error_guard;
 
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_pairs];
+      const Key* const keys_end = &keys[num_pairs];
 
       // Process partitions.
       std::vector<std::future<void>> tasks;
@@ -344,7 +344,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
             std::vector<std::pair<std::string_view, std::string_view>> t_views;
 
             size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
+            for (const Key* k = keys; k != keys_end; num_batches++) {
               const time_t now = std::time(nullptr);
 
               // Prepare and launch query.
@@ -354,11 +354,11 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
                 if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
                   v_views.emplace_back(
                       std::piecewise_construct,
-                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(TKey)),
+                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
                       std::forward_as_tuple(&values[(k - keys) * value_size], value_size));
                   t_views.emplace_back(
                       std::piecewise_construct,
-                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(TKey)),
+                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
                       std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
                   if (t_views.size() >= this->max_set_batch_size_) {
                     break;
@@ -409,11 +409,11 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
   return true;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
-                                        const TKey* const keys, const DatabaseHitCallback& on_hit,
-                                        const DatabaseMissCallback& on_miss,
-                                        const std::chrono::nanoseconds& time_budget) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
+                                       const Key* const keys, const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -441,16 +441,16 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       try {
         // Query.
         const std::optional<std::string>& v_opt =
-            redis_->hget(hkey_v, {reinterpret_cast<const char*>(keys), sizeof(TKey)});
+            redis_->hget(hkey_v, {reinterpret_cast<const char*>(keys), sizeof(Key)});
 
         // Process result.
         if (v_opt) {
-          on_hit(0, v_opt->data(), v_opt->size());
+          on_hit(0, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
           hit_count++;
 
           // Queue timestamp refresh.
           if (this->refresh_time_after_fetch_) {
-            const TKey k = *keys;
+            const Key k = *keys;
             const time_t now = std::time(nullptr);
 
             this->background_worker_.submit([this, table_name, part, k, now]() {
@@ -474,7 +474,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       std::mutex error_guard;
 
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
       // Process partitions.
       std::vector<std::future<void>> tasks;
@@ -491,10 +491,10 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
             std::vector<size_t> i_vals;
             std::vector<std::string_view> k_views;
             std::vector<std::optional<std::string>> v_opts;
-            std::shared_ptr<std::vector<TKey>> touched_keys;
+            std::shared_ptr<std::vector<Key>> touched_keys;
 
             size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
+            for (const Key* k = keys; k != keys_end; num_batches++) {
               // Check time budget.
               const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
               if (elapsed >= time_budget) {
@@ -518,7 +518,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
                   i_vals.emplace_back(k - keys);
-                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
+                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
                   if (k_views.size() >= this->max_get_batch_size_) {
                     break;
                   }
@@ -537,12 +537,12 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
               auto i_vals_it = i_vals.begin();
               for (const auto& v_opt : v_opts) {
                 if (v_opt) {
-                  on_hit(*i_vals_it, v_opt->data(), v_opt->size());
+                  on_hit(*i_vals_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                   hit_count++;
 
                   if (this->refresh_time_after_fetch_) {
                     if (!touched_keys) {
-                      touched_keys = std::make_shared<std::vector<TKey>>();
+                      touched_keys = std::make_shared<std::vector<Key>>();
                     }
                     touched_keys->emplace_back(keys[*i_vals_it]);
                   }
@@ -598,12 +598,12 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const size_t num_indices,
-                                        const size_t* indices, const TKey* const keys,
-                                        const DatabaseHitCallback& on_hit,
-                                        const DatabaseMissCallback& on_miss,
-                                        const std::chrono::nanoseconds& time_budget) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size_t num_indices,
+                                       const size_t* indices, const Key* const keys,
+                                       const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -615,7 +615,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     } break;
     case 1: {
       // Precalc constants.
-      const TKey k = keys[*indices];
+      const Key k = keys[*indices];
       const size_t part = HCTR_KEY_TO_PART_INDEX(k);
       const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
 
@@ -632,11 +632,11 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       try {
         // Query.
         const std::optional<std::string>& v_opt =
-            redis_->hget(hkey_v, {reinterpret_cast<const char*>(&k), sizeof(TKey)});
+            redis_->hget(hkey_v, {reinterpret_cast<const char*>(&k), sizeof(Key)});
 
         // Process result.
         if (v_opt) {
-          on_hit(*indices, v_opt->data(), v_opt->size());
+          on_hit(*indices, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
           hit_count++;
 
           // Queue timestamp refresh.
@@ -680,7 +680,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
           std::vector<size_t> i_vals;
           std::vector<std::string_view> k_views;
           std::vector<std::optional<std::string>> v_opts;
-          std::shared_ptr<std::vector<TKey>> touched_keys;
+          std::shared_ptr<std::vector<Key>> touched_keys;
 
           try {
             size_t num_batches = 0;
@@ -693,7 +693,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
 
                 size_t ign_count = 0;
                 for (; i != indices_end; i++) {
-                  const TKey& k = keys[*i];
+                  const Key& k = keys[*i];
                   if (HCTR_KEY_TO_PART_INDEX(k) == part) {
                     on_miss(*i);
                     ign_count++;
@@ -707,10 +707,10 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
               k_views.clear();
               i_vals.clear();
               for (; i != indices_end; i++) {
-                const TKey& k = keys[*i];
+                const Key& k = keys[*i];
                 if (HCTR_KEY_TO_PART_INDEX(k) == part) {
                   i_vals.emplace_back(*i);
-                  k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(TKey));
+                  k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(Key));
                   if (k_views.size() >= this->max_get_batch_size_) {
                     break;
                   }
@@ -729,12 +729,12 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
               auto i_vals_it = i_vals.begin();
               for (const auto& v_opt : v_opts) {
                 if (v_opt) {
-                  on_hit(*i_vals_it, v_opt->data(), v_opt->size());
+                  on_hit(*i_vals_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                   hit_count++;
 
                   if (this->refresh_time_after_fetch_) {
                     if (!touched_keys) {
-                      touched_keys = std::make_shared<std::vector<TKey>>();
+                      touched_keys = std::make_shared<std::vector<Key>>();
                     }
                     touched_keys->emplace_back(keys[*i_vals_it]);
                   }
@@ -790,8 +790,8 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::evict(const std::string& table_name) {
   std::atomic<size_t> joint_approx_num_keys{0};
 
   std::exception_ptr error;
@@ -847,9 +847,9 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
   return approx_num_keys;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const size_t num_keys,
-                                        const TKey* const keys) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size_t num_keys,
+                                       const Key* const keys) {
   size_t hit_count = 0;
 
   switch (num_keys) {
@@ -864,7 +864,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
 
       try {
         // Erase.
-        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(TKey)};
+        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(Key)};
         hit_count += std::max(redis_->hdel(hkey_v, k_view), redis_->hdel(hkey_t, k_view));
       } catch (sw::redis::Error& e) {
         throw DatabaseBackendError(get_name(), part, e.what());
@@ -878,7 +878,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
       std::mutex error_guard;
 
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
       // Process partitions.
       std::vector<std::future<void>> tasks;
@@ -896,12 +896,12 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
             std::vector<std::string_view> k_views;
 
             size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
+            for (const Key* k = keys; k != keys_end; num_batches++) {
               // Prepare and launch query.
               k_views.clear();
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
+                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
                   if (k_views.size() >= this->max_set_batch_size_) {
                     break;
                   }
@@ -948,8 +948,8 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::string& model_name) {
+template <typename Key>
+std::vector<std::string> RedisClusterBackend<Key>::find_tables(const std::string& model_name) {
   // Determine partition 0 key pattern.
   std::string table_name_pattern = HierParameterServerBase::make_tag_name(model_name, "", false);
   boost::replace_all(table_name_pattern, ".", "\\.");
@@ -979,10 +979,10 @@ std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::strin
   return table_names;
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::dump_bin(const std::string& table_name, std::ofstream& file) {
+template <typename Key>
+void RedisClusterBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
   // Collect sorted set of all keys.
-  std::vector<TKey> keys;
+  std::vector<Key> keys;
   {
     std::vector<std::string> k_views;
     for (size_t part = 0; part < num_partitions_; part++) {
@@ -990,7 +990,7 @@ void RedisClusterBackend<TKey>::dump_bin(const std::string& table_name, std::ofs
       redis_->hkeys(hkey_t, std::back_inserter(k_views));
     }
     for (const std::string& k_view : k_views) {
-      keys.emplace_back(*reinterpret_cast<const TKey*>(k_view.data()));
+      keys.emplace_back(*reinterpret_cast<const Key*>(k_view.data()));
     }
 
     // TODO: Maybe not ideal to shuffle to undo partition sorting. Use a different data structure?
@@ -1027,7 +1027,7 @@ void RedisClusterBackend<TKey>::dump_bin(const std::string& table_name, std::ofs
       for (size_t j = 0; j < batch_size; j++) {
         const std::string& value = batch_values[j];
         if (value.size() == first_value_size) {
-          file.write(reinterpret_cast<const char*>(&keys[i + j]), sizeof(TKey));
+          file.write(reinterpret_cast<const char*>(&keys[i + j]), sizeof(Key));
           file.write(value.data(), value.size());
         }
       }
@@ -1035,11 +1035,11 @@ void RedisClusterBackend<TKey>::dump_bin(const std::string& table_name, std::ofs
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::dump_sst(const std::string& table_name,
-                                         rocksdb::SstFileWriter& file) {
+template <typename Key>
+void RedisClusterBackend<Key>::dump_sst(const std::string& table_name,
+                                        rocksdb::SstFileWriter& file) {
   // Collect sorted set of all keys.
-  std::vector<TKey> keys;
+  std::vector<Key> keys;
   {
     std::vector<std::string> k_views;
     for (size_t part = 0; part < num_partitions_; part++) {
@@ -1047,7 +1047,7 @@ void RedisClusterBackend<TKey>::dump_sst(const std::string& table_name,
       redis_->hkeys(hkey_t, std::back_inserter(k_views));
     }
     for (const std::string& k_view : k_views) {
-      keys.emplace_back(*reinterpret_cast<const TKey*>(k_view.data()));
+      keys.emplace_back(*reinterpret_cast<const Key*>(k_view.data()));
     }
   }
   std::sort(keys.begin(), keys.end());
@@ -1065,7 +1065,7 @@ void RedisClusterBackend<TKey>::dump_sst(const std::string& table_name,
         },
         [&](const size_t j) { batch_values[j].clear(); }, std::chrono::nanoseconds::max());
 
-    rocksdb::Slice k_view{nullptr, sizeof(TKey)};
+    rocksdb::Slice k_view{nullptr, sizeof(Key)};
     rocksdb::Slice v_view{nullptr, 0};
     for (size_t j = 0; j < batch_size; j++) {
       k_view.data_ = reinterpret_cast<const char*>(&keys[i + j]);
@@ -1076,9 +1076,9 @@ void RedisClusterBackend<TKey>::dump_sst(const std::string& table_name,
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& hkey_v,
-                                                            const std::string& hkey_t) {
+template <typename Key>
+void RedisClusterBackend<Key>::check_and_resolve_overflow_(const std::string& hkey_v,
+                                                           const std::string& hkey_t) {
   // Check overflow condition.
   size_t part_size = redis_->hlen(hkey_t);
   if (part_size <= this->overflow_margin_) {
@@ -1197,15 +1197,15 @@ void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& h
                            << " overflow resolution concluded!" << std::endl;
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t, const TKey& key,
-                                       const time_t time) {
+template <typename Key>
+void RedisClusterBackend<Key>::touch_(const std::string& hkey_t, const Key& key,
+                                      const time_t time) {
   HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching key " << key << " of " << hkey_t << '.'
                            << std::endl;
 
   // Launch query.
   try {
-    redis_->hset(hkey_t, {reinterpret_cast<const char*>(&key), sizeof(TKey)},
+    redis_->hset(hkey_t, {reinterpret_cast<const char*>(&key), sizeof(Key)},
                  {reinterpret_cast<const char*>(&time), sizeof(time_t)});
   } catch (sw::redis::Error& e) {
     HCTR_LOG_S(ERROR, WORLD) << get_name() << " partition " << hkey_t
@@ -1213,20 +1213,20 @@ void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t, const TKey& ke
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t,
-                                       const std::shared_ptr<std::vector<TKey>>& keys,
-                                       const time_t time) {
+template <typename Key>
+void RedisClusterBackend<Key>::touch_(const std::string& hkey_t,
+                                      const std::shared_ptr<std::vector<Key>>& keys,
+                                      const time_t time) {
   HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching " << keys->size() << " keys of " << hkey_t
                            << '.' << std::endl;
 
   // Prepare query.
   std::vector<std::pair<std::string_view, std::string_view>> kt_views;
   kt_views.reserve(keys->size());
-  for (const TKey& k : *keys) {
+  for (const Key& k : *keys) {
     kt_views.emplace_back(
         std::piecewise_construct,
-        std::forward_as_tuple(reinterpret_cast<const char*>(&k), sizeof(TKey)),
+        std::forward_as_tuple(reinterpret_cast<const char*>(&k), sizeof(Key)),
         std::forward_as_tuple(reinterpret_cast<const char*>(&time), sizeof(time_t)));
   }
 

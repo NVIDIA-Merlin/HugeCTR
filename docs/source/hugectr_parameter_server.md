@@ -346,12 +346,15 @@ params = hugectr.inference.VolatileDatabaseParams(
   user_name = "default",
   password = "",
   num_partitions = int,
-  allocation_rate = 268435456,
+  allocation_rate = 268435456,  # 256 MiB
+  shared_memory_size = 17179869184,  # 16 GiB
+  shared_memory_name = "hctr_mp_hash_map_database",
   max_get_batch_size = 10000,
   max_set_batch_size = 10000,
   overflow_margin = int,
   overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>,
   overflow_resolution_target = 0.8,
+  initialize_after_startup = True,
   initial_cache_rate = 1.0,
   refresh_time_after_fetch = False,
   cache_missed_embeddings = False,
@@ -370,12 +373,15 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
   "user_name":  "default",
   "password": "",
   "num_partitions": 8,
-  "allocation_rate": 268435456,
+  "allocation_rate": 268435456,  // 256 MiB
+  "shared_memory_size": 17179869184,  // 16 GiB
+  "shared_memory_name": "hctr_mp_hash_map_database",
   "max_get_batch_size": 10000,
   "max_set_batch_size": 10000,
   "overflow_margin": 10000000,
   "overflow_policy": "evict_oldest",
   "overflow_resolution_target": 0.8,
+  "initialize_after_startup": true,
   "initial_cache_rate": 1.0,
   "cache_missed_embeddings": false,
   "update_filters": [".+"]
@@ -388,6 +394,7 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
 Specify one of the following:
 
   * `hash_map`: Hash-map based CPU memory database implementation.
+  * `multi_process_hash_map`: A hash-map that can be shared by multiple processes. This hash map lives in your operating system's shared memory (i.e., `/dev/shm`).
   * `parallel_hash_map`: Hash-map based CPU memory database implementation with multi threading support. This is the default value.
   * `redis_cluster`: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).
 
@@ -399,6 +406,12 @@ The default value is calculated as `min(number_of_cpu_cores, 16)` of the system 
 
 * `allocation_rate`: Integer, specifies the maximum number of bytes to allocate for each memory allocation request.
 The default value is `268435456` bytes, 256 MiB.
+
+The following parameters apply when you set `type="multi_process_hash_map"`:
+
+* `shared_memory_size`: Integer, denotes the amount of shared memory that should be reserved in the operating system. In other words, this value determines the size of the memory mapped file that will be created in `/dev/shm`. The upper bound size of `/dev/shm` is determined by your hardware and operating system  configuration. The latter of which may need to be adjusted to share large embedding tables between processes. This is particularly true when running HugeCTR in a Docker image. By default, Docker will only allocate 64 MiB for `/dev/shm`, which is insufficient for most recommendation models. You can try starting your docker deployment with `--shm-size=...` to reserve more shared memory of the native OS for the respective docker container (see also [docs.docker.com/engine/reference/run](https://docs.docker.com/engine/reference/run)).
+
+* `shared_memory_name`: String, the symbolic name of the shared memory. System-unique, and must be the same for all processes that attach to the smae shared memory.
 
 The following parameters apply when you set `type="redis_cluster"`:
 
@@ -459,13 +472,15 @@ Specify a value between `0` and `1`, but not exactly `0` or `1`.
 The default value is `0.8` and indicates to evict embeddings from a partition until it is shrunk to 80% of its maximum size.
 In other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the specified `overflow_policy`.
 
+* `initialize_after_startup`: Boolean,when set to `True` *(default)*, the contents of the sparse model files are used to initialize this database. This is useful if multiple processes should connect to the same databse, or if restarting processes connect to a previously-initialized database that retains its state between inference process restarts. For example, if you reconnect to an existing RocksDB or Redis deployment, or an already materialized multi-process hashmap.
+
 * `initial_cache_rate`: Double, specifies the fraction of the embeddings to initially attempt to cache.
 Specify a value in the range `[0.0, 1.0]`.
 HugeCTR attempts to cache the specified fraction of the dataset immediately upon startup of the HPS database backend.
 For example, a value of `0.5` causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
 The default value is `1.0`.
 
-* `refresh_time_after_fetch`: Bool, when set to `True`, the timestamp for an embedding is updated after the embedding is accessed.
+* `refresh_time_after_fetch`: Boolean, when set to `True`, the timestamp for an embedding is updated after the embedding is accessed.
 The timestamp update can be performed asynchronously and experience some delay.
 Some algorithms for overflow and eviction take time into account.
 To evaluate the affected embeddings, HugeCTR records the time when an embedding is overwritten.

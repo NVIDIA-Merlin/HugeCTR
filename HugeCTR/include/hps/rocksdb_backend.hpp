@@ -31,12 +31,15 @@ namespace HugeCTR {
  * \p DatabaseBackend implementation that connects to a RocksDB to store/retrieve information (i.e.
  * harddisk storage).
  *
- * @tparam TKey The data-type that is used for keys in this database.
+ * @tparam Key The data-type that is used for keys in this database.
  */
-template <typename TKey>
-class RocksDBBackend final : public PersistentBackend<TKey> {
+template <typename Key>
+class RocksDBBackend final : public PersistentBackend<Key> {
  public:
-  using TBase = PersistentBackend<TKey>;
+  using Base = PersistentBackend<Key>;
+
+  RocksDBBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(RocksDBBackend);
 
   /**
    * @brief Construct a new RocksDBBackend object.
@@ -61,24 +64,24 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
 
   size_t size(const std::string& table_name) const override;
 
-  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+  size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
+  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
                const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, const DatabaseHitCallback& on_hit,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
-  size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
+  size_t evict(const std::string& table_name, size_t num_keys, const Key* keys) override;
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
