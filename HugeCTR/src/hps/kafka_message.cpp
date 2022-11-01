@@ -17,16 +17,9 @@
 #include <parallel_hashmap/phmap.h>
 
 #include <cstring>
+#include <hps/database_backend_detail.hpp>
 #include <hps/kafka_message.hpp>
 #include <vector>
-
-#define HCTR_USE_XXHASH
-#ifdef HCTR_USE_XXHASH
-#include <xxh3.h>
-#define HCTR_KEY_GROUP_OF_KEY(KEY) (XXH3_64bits((KEY), sizeof(Key)) % num_key_groups_)
-#else
-#define HCTR_KEY_GROUP_OF_KEY(KEY) (static_cast<size_t>(*KEY) % num_key_groups_)
-#endif
 
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"
@@ -123,7 +116,7 @@ KafkaMessageSink<Key>::KafkaMessageSink(const std::string& brokers, const size_t
                                         const size_t send_buffer_size,
                                         const size_t num_send_buffers, const bool await_connection)
     : Base(),
-      num_key_groups_(num_key_groups),
+      num_partitions_(num_key_groups),
       send_buffer_size_(send_buffer_size),
       num_send_buffers_(num_send_buffers),
       send_buffer_memory_(num_send_buffers * send_buffer_size) {
@@ -242,7 +235,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     blocking_produce(topic, payload, p_length, 0);
   } else if (num_pairs == 1) {
     // Determine the key group.
-    const size_t key_group = HCTR_KEY_GROUP_OF_KEY(keys);
+    const size_t key_group = HCTR_KEY_TO_DB_PART_INDEX(*keys);
 
     // Request send buffer to hold the payload.
     char* const payload = acquire_send_buffer(value_size);
@@ -251,20 +244,20 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     // Append key & value.
     *reinterpret_cast<Key*>(&payload[p_length]) = *keys;
     p_length += sizeof(Key);
-    memcpy(&payload[p_length], values, value_size);
+    std::copy_n(values, value_size, &payload[p_length]);
     p_length += value_size;
 
     // Produce Kafka message.
     blocking_produce(topic, payload, p_length, key_group);
   } else {
     const Key* const keys_end = &keys[num_pairs];
-    for (size_t key_group = 0; key_group < num_key_groups_; key_group++) {
+    for (size_t key_group = 0; key_group < num_partitions_; key_group++) {
       char* payload = nullptr;
       size_t p_length = 0;
 
       for (const Key* k = keys; k != keys_end; k++) {
         // Only consider keys that belong to current group.
-        if (HCTR_KEY_GROUP_OF_KEY(&k) != key_group) {
+        if (HCTR_KEY_TO_DB_PART_INDEX(*k) != key_group) {
           continue;
         }
 
@@ -288,7 +281,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
         // Append key & value.
         *reinterpret_cast<Key*>(&payload[p_length]) = *k;
         p_length += sizeof(Key);
-        memcpy(&payload[p_length], &values[(k - keys) * value_size], value_size);
+        std::copy_n(&values[(k - keys) * value_size], value_size, &payload[p_length]);
         p_length += value_size;
       }
 

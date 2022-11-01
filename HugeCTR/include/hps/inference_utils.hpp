@@ -116,6 +116,7 @@ struct VolatileDatabaseParams {
   size_t allocation_rate;     // Only used with HashMap type backends.
   size_t shared_memory_size;  // Size-limit of the shared memory (only for Multi-Process hashmap).
   std::string shared_memory_name;  // Name of the shared memory (only for Multi-Process hashmap).
+  size_t num_node_connections;     // Only used with Redis beckend.
   size_t max_get_batch_size;
   size_t max_set_batch_size;
 
@@ -139,10 +140,11 @@ struct VolatileDatabaseParams {
       const std::string& address = "127.0.0.1:7000", const std::string& user_name = "default",
       const std::string& password = "",
       size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
-      size_t allocation_rate = 256 * 1024 * 1024,
+      size_t allocation_rate = 256L * 1024L * 1024L,
       size_t shared_memory_size = 16L * 1024L * 1024L * 1024L,
       const std::string& shared_memory_name = "hctr_mp_hash_map_database",
-      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      size_t num_node_connections = 5, size_t max_get_batch_size = 64L * 1024L,
+      size_t max_set_batch_size = 64L * 1024L,
       // Overflow handling related.
       bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
@@ -179,7 +181,8 @@ struct PersistentDatabaseParams {
                            const std::string& path = std::filesystem::temp_directory_path() /
                                                      "rocksdb",
                            size_t num_threads = 16, bool read_only = false,
-                           size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+                           size_t max_get_batch_size = 64L * 1024L,
+                           size_t max_set_batch_size = 64L * 1024L,
                            // Caching behavior related.
                            bool initialize_after_startup = true,
                            // Real-time update mechanism related.

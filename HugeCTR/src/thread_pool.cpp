@@ -87,7 +87,7 @@ std::future<void> ThreadPool::submit(std::function<void()> task) {
       HCTR_OWN_THROW(Error_t::IllegalCall,
                      "Attempted to submit work to an already terminated ThreadPool!");
     }
-    packages_.push_back(std::move(package));
+    packages_.emplace_back(std::move(package));
   }
 
   // Wake up a worker.
@@ -111,7 +111,7 @@ void ThreadPool::run_(const size_t thread_index) {
 
     // Acquire exclusive access.
     {
-      std::unique_lock<std::mutex> lock(barrier_);
+      std::unique_lock barrier_lock(barrier_);
 
       // If termination request occured.
       if (terminate_) {
@@ -125,7 +125,7 @@ void ThreadPool::run_(const size_t thread_index) {
         idle_semaphore_.notify_all();
 
         // Wait for a task.
-        submit_sempahore_.wait(lock);
+        submit_sempahore_.wait(barrier_lock);
         num_idle_workers_ -= 1;
 
         // If woken up by terminate request.
@@ -133,6 +133,7 @@ void ThreadPool::run_(const size_t thread_index) {
           return;
         }
       }
+
       package = std::move(packages_.front());
       packages_.pop_front();
     }

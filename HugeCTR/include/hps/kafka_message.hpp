@@ -95,7 +95,7 @@ class KafkaMessageSink final : public MessageSink<Key> {
 
   std::unordered_map<std::string, rd_kafka_topic_t*> topics_;
 
-  const size_t num_key_groups_;
+  const size_t num_partitions_;
 
   // Preallocated buffers to speed up sending.
   const size_t send_buffer_size_;

@@ -443,7 +443,7 @@ void InferencePybind(pybind11::module& m) {
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
                           const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, const std::string&, size_t, size_t,
+                          size_t, size_t, const std::string&, size_t, size_t, size_t,
                           // Overflow handling related.
                           bool, size_t, DatabaseOverflowPolicy_t, double,
                           // Caching behavior related.
@@ -455,11 +455,12 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
            pybind11::arg("password") = "",
            pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
-           pybind11::arg("allocation_rate") = 256 * 1024 * 1024,
+           pybind11::arg("allocation_rate") = 256L * 1024L * 1024L,
            pybind11::arg("shared_memory_size") = 16L * 1024L * 1024L * 1024L,
            pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
-           pybind11::arg("max_get_batch_size") = 10'000,
-           pybind11::arg("max_set_batch_size") = 10'000,
+           pybind11::arg("num_node_connections") = 5,
+           pybind11::arg("max_get_batch_size") = 64L * 1024L,
+           pybind11::arg("max_set_batch_size") = 64L * 1024L,
            // Overflow handling related.
            pybind11::arg("refresh_time_after_fetch") = false,
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
@@ -486,8 +487,8 @@ void InferencePybind(pybind11::module& m) {
            // Backend specific.
            pybind11::arg("path") = (std::filesystem::temp_directory_path() / "rocksdb").string(),
            pybind11::arg("num_threads") = 16, pybind11::arg("read_only") = false,
-           pybind11::arg("max_get_batch_size") = 10'000,
-           pybind11::arg("max_set_batch_size") = 10'000,
+           pybind11::arg("max_get_batch_size") = 64L * 1024L,
+           pybind11::arg("max_set_batch_size") = 64L * 1024L,
            // Caching behavior related.
            pybind11::arg("initialize_after_startup") = true,
            // Real-time update mechanism related.

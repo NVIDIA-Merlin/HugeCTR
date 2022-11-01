@@ -37,6 +37,7 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          address == p.address && user_name == p.user_name && password == p.password &&
          num_partitions == p.num_partitions && allocation_rate == p.allocation_rate &&
          shared_memory_size == p.shared_memory_size && shared_memory_name == p.shared_memory_name &&
+         num_node_connections == p.num_node_connections &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
          // Overflow handling related.
          refresh_time_after_fetch == p.refresh_time_after_fetch &&
@@ -82,8 +83,8 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
     const size_t num_partitions, const size_t allocation_rate, const size_t shared_memory_size,
-    const std::string& shared_memory_name, const size_t max_get_batch_size,
-    const size_t max_set_batch_size,
+    const std::string& shared_memory_name, const size_t num_node_connections,
+    const size_t max_get_batch_size, const size_t max_set_batch_size,
     // Overflow handling related.
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
@@ -101,6 +102,7 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       allocation_rate(allocation_rate),
       shared_memory_size{shared_memory_size},
       shared_memory_name{shared_memory_name},
+      num_node_connections(num_node_connections),
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
       // Overflow handling related.
@@ -285,10 +287,10 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.read_only = get_value_from_json_soft<bool>(persistent_db, "read_only", false);
 
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 64L * 1024L);
 
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 64L * 1024L);
 
     if (persistent_db.find("update_filters") != persistent_db.end()) {
       params.update_filters.clear();
@@ -317,7 +319,7 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
         volatile_db, "num_partitions", std::min(16u, std::thread::hardware_concurrency()));
 
     params.allocation_rate =
-        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256 * 1024 * 1024);
+        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256L * 1024L * 1024L);
 
     params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
                                                                  16L * 1024L * 1024L * 1024L);
@@ -325,11 +327,20 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
                                                              "hctr_mp_hash_map_database");
 
+    params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
+                                                                 16L * 1024L * 1024L * 1024L);
+
+    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
+                                                             "hctr_mp_hash_map_database");
+
+    params.num_node_connections =
+        get_value_from_json_soft<size_t>(volatile_db, "num_node_connections", 5);
+
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 64L * 1024L);
 
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 64L * 1024L);
 
     // Overflow handling related.
     params.refresh_time_after_fetch =
