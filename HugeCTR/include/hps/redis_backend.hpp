@@ -61,8 +61,8 @@ class RedisClusterBackend final : public VolatileBackend<Key> {
    */
   RedisClusterBackend(
       const std::string& address, const std::string& user_name = "default",
-      const std::string& password = "", size_t num_partitions = 8,
-      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      const std::string& password = "", size_t num_partitions = 8, size_t num_node_connections = 5,
+      size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L,
       bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
@@ -103,6 +103,8 @@ class RedisClusterBackend final : public VolatileBackend<Key> {
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
+  std::vector<Key> keys(const std::string& table_name);
+
   void dump_bin(const std::string& table_name, std::ofstream& file) override;
 
   void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
@@ -112,7 +114,8 @@ class RedisClusterBackend final : public VolatileBackend<Key> {
    * Called internally. Checks for overflow and initiate overflow handling in case a partition
    * overflow is detected.
    */
-  void check_and_resolve_overflow_(const std::string& hkey_v, const std::string& hkey_t);
+  void check_and_resolve_overflow_(size_t part, const std::string& hkey_v,
+                                   const std::string& hkey_t);
 
   /**
    * Called internally to reset a single timestamp.

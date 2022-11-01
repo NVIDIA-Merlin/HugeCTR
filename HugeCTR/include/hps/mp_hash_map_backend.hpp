@@ -44,8 +44,8 @@ class MultiProcessHashMapBackend final : public VolatileBackend<Key> {
       size_t sm_size = 16L * 1024L * 1024L * 1024L,
       const std::string& sm_name = "hctr_mp_hash_map_database",
       const std::chrono::nanoseconds& heart_beat_frequency = std::chrono::milliseconds{100},
-      bool auto_remove = true, size_t max_get_batch_size = 10'000,
-      size_t max_set_batch_size = 10'000,
+      bool auto_remove = true, size_t max_get_batch_size = 64L * 1024L,
+      size_t max_set_batch_size = 64L * 1024L,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8);

@@ -55,8 +55,8 @@ class HashMapBackend final : public VolatileBackend<Key> {
    * @param overflow_policy Policy to use in case an overflow has been detected.
    * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  HashMapBackend(size_t num_partitions = 16, size_t allocation_rate = 256 * 1024 * 1024,
-                 size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+  HashMapBackend(size_t num_partitions = 16, size_t allocation_rate = 256L * 1024L * 1024L,
+                 size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L,
                  size_t overflow_margin = std::numeric_limits<size_t>::max(),
                  DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
                  double overflow_resolution_target = 0.8);

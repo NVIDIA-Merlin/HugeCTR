@@ -69,7 +69,7 @@ namespace HugeCTR {
     }                                                                                    \
                                                                                          \
     entry.second->last_access = now;                                                     \
-    std::memcpy(entry.second->value, (VALUES_PTR), value_size);                          \
+    std::copy_n((VALUES_PTR), value_size, entry.second->value);                          \
     num_inserts++;                                                                       \
   } while (0)
 #endif
@@ -327,6 +327,7 @@ size_t MultiProcessHashMapBackend<Key>::contains(
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
                   if (++batch_size >= this->max_get_batch_size_) {
+                    ++k;
                     break;
                   }
                 }
@@ -449,6 +450,7 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
                   if (++batch_size >= this->max_set_batch_size_) {
+                    ++k;
                     break;
                   }
                 }
@@ -595,6 +597,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
                   if (++batch_size >= this->max_get_batch_size_) {
+                    ++k;
                     break;
                   }
                 }
@@ -747,6 +750,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
                 if (HCTR_KEY_TO_DB_PART_INDEX(k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
                   if (++batch_size >= this->max_get_batch_size_) {
+                    ++i;
                     break;
                   }
                 }
@@ -864,6 +868,7 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_EVICT_(*k);
                   if (++batch_size >= this->max_set_batch_size_) {
+                    ++k;
                     break;
                   }
                 }

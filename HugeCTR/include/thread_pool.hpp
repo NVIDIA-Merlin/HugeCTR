@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <core/macro.hpp>
 #include <deque>
 #include <functional>
 #include <future>
@@ -28,20 +29,16 @@
 
 namespace HugeCTR {
 
-class ThreadPool {
+class ThreadPool final {
  public:
   ThreadPool(const std::string& name);
   ThreadPool(const std::string& name, size_t num_workers);
-
-  ThreadPool(const ThreadPool&) = delete;
-
+  DISALLOW_COPY(ThreadPool);
   virtual ~ThreadPool();
 
-  ThreadPool& operator=(const ThreadPool&) = delete;
+  inline const std::string& name() const { return name_; }
 
-  const std::string& name() const { return name_; }
-
-  size_t size() const { return workers_.size(); }
+  inline size_t size() const { return workers_.size(); }
 
   bool idle() const;
 
@@ -51,8 +48,12 @@ class ThreadPool {
 
   static ThreadPool& get();
 
-  template <typename TInputIterator>
-  static void await(TInputIterator first, const TInputIterator& last);
+  template <typename Iterator>
+  inline static void await(Iterator first, const Iterator& last) {
+    for (; first != last; first++) {
+      first->get();
+    }
+  }
 
  private:
   const std::string name_;
@@ -70,12 +71,5 @@ class ThreadPool {
 
   void run_(const size_t thread_index);
 };
-
-template <typename TInputIterator>
-void ThreadPool::await(TInputIterator first, const TInputIterator& last) {
-  for (; first != last; first++) {
-    first->wait();
-  }
-}
 
 }  // namespace HugeCTR

@@ -54,7 +54,7 @@ class RocksDBBackend final : public PersistentBackend<Key> {
    * databse transaction.
    */
   RocksDBBackend(const std::string& path, size_t num_threads = 16, bool read_only = false,
-                 size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000);
+                 size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L);
 
   virtual ~RocksDBBackend();
 

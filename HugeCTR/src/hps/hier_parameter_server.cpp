@@ -122,8 +122,9 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
         HCTR_LOG_S(INFO, WORLD) << "Creating RedisCluster backend..." << std::endl;
         volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(
             conf.address, conf.user_name, conf.password, conf.num_partitions,
-            conf.max_get_batch_size, conf.max_set_batch_size, conf.refresh_time_after_fetch,
-            conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
+            conf.num_node_connections, conf.max_get_batch_size, conf.max_set_batch_size,
+            conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
+            conf.overflow_resolution_target);
         break;
 
       default:
