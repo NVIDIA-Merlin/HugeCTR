@@ -104,8 +104,7 @@ To build HugeCTR Training Container from source, do the following:
    - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
      will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
      OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-container-from-source)
-   - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Make sure you are using the `hugectr:devel_train.with_hdfs`
-     container or make sure you have correctly built Hadoop in your system before setting this    option to ON. This option is set to OFF by default
+   - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissable values are `ON`, `MINIMAL` and `OFF` *(default)*. Setting this option to `ON` leads to building all necessary Hadoop modules that are required for building AND running both HugeCTR and HDFS. In contrast, `MINIMAL` restricts building only the minimum necessary set of components for building HugeCTR. Make sure you are using the `hugectr:devel_train.with_hdfs` container or make sure you have correctly built Hadoop in your system before setting this option to either `ON` or `MINIMAL`.
 
    Here are some examples of how you can build HugeCTR using these build options:
    ```shell
