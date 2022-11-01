@@ -8,6 +8,7 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/dcn.py     &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/deepfm.py  &&  
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/dlrm.py    &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/dlrm_mlp.py &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/wdl.py     &&
     python3 /workdir/test/onnx_converter_test/hugectr2onnx_dcn_test.py &&
     python3 /workdir/test/onnx_converter_test/hugectr2onnx_wdl_test.py &&

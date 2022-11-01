@@ -111,5 +111,4 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/dlrm_mlp0_sparse_2000.model"],
         "/onnx_converter/onnx_models/dlrm_mlp.onnx",
         "dlrm_mlp",
-        "/onnx_converter/hugectr_models/dlrm_mlp_dense_2000.model.ntp.json",
     )

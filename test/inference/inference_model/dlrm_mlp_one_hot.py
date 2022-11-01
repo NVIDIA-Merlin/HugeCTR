@@ -62,13 +62,13 @@ model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.Interaction,
         bottom_names=["mlp1", "sparse_embedding1"],
-        top_names=["interaction1", "interaction_grad"],
+        top_names=["interaction1"],
     )
 )
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MLP,
-        bottom_names=["interaction1", "interaction_grad"],
+        bottom_names=["interaction1"],
         top_names=["mlp2"],
         num_outputs=[1024, 1024, 512, 256, 1],
         activations=[
