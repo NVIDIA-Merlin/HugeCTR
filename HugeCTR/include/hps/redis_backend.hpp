@@ -31,12 +31,15 @@ namespace HugeCTR {
  * \p DatabaseBackend implementation that connects to a Redis to store/retrieve information (i.e.
  * distributed storage).
  *
- * @tparam TKey The data-type that is used for keys in this database.
+ * @tparam Key The data-type that is used for keys in this database.
  */
-template <typename TKey>
-class RedisClusterBackend final : public VolatileBackend<TKey> {
+template <typename Key>
+class RedisClusterBackend final : public VolatileBackend<Key> {
  public:
-  using TBase = VolatileBackend<TKey>;
+  using Base = VolatileBackend<Key>;
+
+  RedisClusterBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(RedisClusterBackend);
 
   /**
    * @brief Construct a new RedisClusterBackend object.
@@ -58,8 +61,8 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
    */
   RedisClusterBackend(
       const std::string& address, const std::string& user_name = "default",
-      const std::string& password = "", size_t num_partitions = 8,
-      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      const std::string& password = "", size_t num_partitions = 8, size_t num_node_connections = 5,
+      size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L,
       bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
@@ -71,7 +74,7 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
 
   bool is_shared() const override { return true; }
 
-  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+  size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
 
   size_t capacity(const std::string& table_name) const override {
@@ -82,23 +85,25 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
 
   size_t size(const std::string& table_name) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
+  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
                const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, const DatabaseHitCallback& on_hit,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
-  size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
+  size_t evict(const std::string& table_name, size_t num_keys, const Key* keys) override;
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
+
+  std::vector<Key> keys(const std::string& table_name);
 
   void dump_bin(const std::string& table_name, std::ofstream& file) override;
 
@@ -109,7 +114,8 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
    * Called internally. Checks for overflow and initiate overflow handling in case a partition
    * overflow is detected.
    */
-  void check_and_resolve_overflow_(const std::string& hkey_v, const std::string& hkey_t);
+  void check_and_resolve_overflow_(size_t part, const std::string& hkey_v,
+                                   const std::string& hkey_t);
 
   /**
    * Called internally to reset a single timestamp.
@@ -118,7 +124,7 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
    * @param key The key for which to refresh the timestamp.
    * @param time The time to fill in.
    */
-  void touch_(const std::string& hkey_t, const TKey& key, time_t time);
+  void touch_(const std::string& hkey_t, const Key& key, time_t time);
 
   /**
    * Called internally to reset many timestamps.
@@ -127,7 +133,7 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
    * @param keys The keys for which to refresh the timestamp.
    * @param time The time to fill in.
    */
-  void touch_(const std::string& hkey_t, const std::shared_ptr<std::vector<TKey>>& keys,
+  void touch_(const std::string& hkey_t, const std::shared_ptr<std::vector<Key>>& keys,
               time_t time);
 
  protected:

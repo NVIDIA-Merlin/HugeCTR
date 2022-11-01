@@ -36,6 +36,7 @@
 #include <layers/layer_norm_layer.hpp>
 #include <layers/masked_softmax_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
+#include <layers/mlp_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/multi_head_attention_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
@@ -654,6 +655,126 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
         } else {
           HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
+        }
+        break;
+      }
+
+      case Layer_t::MLP: {
+        auto j_mlp_param = get_json(j, "mlp_param");
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_mlp_param, "weight_init")) {
+          const auto weight_init_name =
+              get_value_from_json<std::string>(j_mlp_param, "weight_init");
+          Initializer_t weight_init_type;
+          if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+            initializer_types[0] = weight_init_type;
+          } else {
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          }
+        }
+        if (has_key_(j_mlp_param, "bias_init")) {
+          const auto bias_init_name = get_value_from_json<std::string>(j_mlp_param, "bias_init");
+          Initializer_t bias_init_type;
+          if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+            initializer_types[1] = bias_init_type;
+          } else {
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          }
+        }
+        std::vector<size_t> num_outputs;
+        if (has_key_(j_mlp_param, "num_outputs")) {
+          auto nums = get_json(j_mlp_param, "num_outputs");
+          assert(nums.is_array());
+          for (auto num : nums) {
+            num_outputs.emplace_back(num.get<size_t>());
+          }
+        }
+        bool use_bias = true;
+        if (has_key_(j_mlp_param, "use_bias")) {
+          use_bias = get_value_from_json<bool>(j_mlp_param, "use_bias");
+        }
+        std::vector<bool> biases;
+        if (has_key_(j_mlp_param, "biases")) {
+          auto j_biases = get_json(j_mlp_param, "biases");
+          assert(j_biases.is_array());
+          for (auto bias : j_biases) {
+            biases.emplace_back(bias.get<bool>());
+          }
+        }
+        if (biases.empty()) {
+          biases.resize(num_outputs.size(), use_bias);
+        }
+        Activation_t act_type = Activation_t::Relu;
+        if (has_key_(j_mlp_param, "activation")) {
+          const auto act_name = get_value_from_json<std::string>(j_mlp_param, "activation");
+          if (find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
+          } else {
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such activation: " + act_name);
+          }
+        }
+        std::vector<Activation_t> acts;
+        if (has_key_(j_mlp_param, "activations")) {
+          auto j_acts = get_json(j_mlp_param, "activations");
+          assert(j_acts.is_array());
+          for (const auto j_act : j_acts) {
+            auto act_name = j_act.get<std::string>();
+            Activation_t act_type;
+            if (find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
+              acts.emplace_back(act_type);
+            } else {
+              HCTR_OWN_THROW(Error_t::WrongInput, "No such activation: " + act_name);
+            }
+          }
+        }
+        if (acts.empty()) {
+          acts.resize(num_outputs.size(), act_type);
+        }
+
+        auto add_mlp = [&](auto type) {
+          using T = decltype(type);
+          int input_size = input_output_info.inputs.size();
+          int output_size = input_output_info.output_names.size();
+          std::vector<Tensor2<T>> in_tensors;
+          Tensor2<T> train_in_tensor = Tensor2<T>::stretch_from(input_output_info.inputs[0]);
+          in_tensors.push_back(train_in_tensor);
+          if (input_size == 2) {
+            Tensor2<T> mask_in_tensor;
+            mask_in_tensor = Tensor2<T>::stretch_from(input_output_info.inputs[1]);
+            in_tensors.push_back(mask_in_tensor);
+          }
+          Tensors2<T> train_out_tensors;
+          size_t batch_size = train_in_tensor.get_dimensions()[0];
+          size_t output_dim = *num_outputs.rbegin();
+          if (output_size == 1) {
+            Tensor2<T> tensor;
+            blobs_buff->reserve({batch_size, output_dim}, &tensor);
+            train_out_tensors.push_back(tensor);
+          } else {
+            HCTR_OWN_THROW(Error_t::WrongInput, "MLP layer can only have one output.");
+          }
+          if constexpr (std::is_same<T, __half>::value) {
+            emplaceback_layer(new MLPLayer(weight_buff, weight_buff_half, wgrad_buff_half,
+                                           blobs_buff, in_tensors, train_out_tensors, num_outputs,
+                                           gpu_resource, acts, biases, initializer_types,
+                                           skip_dgrad, false, false, enable_tf32_compute));
+          } else if constexpr (std::is_same<T, float>::value) {
+            emplaceback_layer(new MLPLayer(weight_buff, weight_buff, wgrad_buff, blobs_buff,
+                                           in_tensors, train_out_tensors, num_outputs, gpu_resource,
+                                           acts, biases, initializer_types, skip_dgrad, false,
+                                           false, enable_tf32_compute));
+          }
+          if (output_size == 1) {
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], train_out_tensors[0].shrink()});
+          }
+        };
+
+        if (use_mixed_precision) {
+          __half type;
+          add_mlp(type);
+        } else {
+          float type;
+          add_mlp(type);
         }
         break;
       }

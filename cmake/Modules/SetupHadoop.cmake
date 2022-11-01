@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-function(hadoop_setup)
+function(hadoop_setup HDFS_BUILD_MODE)
   set(HDFS_LIB_VAR /usr/local/lib/libhdfs.so)
   get_filename_component(HDFS_LIB_VAR ${HDFS_LIB_VAR} ABSOLUTE)
   if(EXISTS "${HDFS_LIB_VAR}")
@@ -21,7 +21,7 @@ function(hadoop_setup)
   else()
     message(STATUS "HDFS was not installed, will install it first!")
     execute_process(
-      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/build-hadoop.sh
+      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/build-hadoop.sh "${HDFS_BUILD_MODE}"
       COMMAND_ECHO STDOUT
     )
 

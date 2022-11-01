@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <atomic>
 #include <base/debug/logger.hpp>
-#include <cstring>
-#include <execution>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+#include <boost/interprocess/sync/sharable_lock.hpp>
+#include <boost/utility/string_view.hpp>
 #include <hps/database_backend_detail.hpp>
-#include <hps/hash_map_backend.hpp>
 #include <hps/hier_parameter_server_base.hpp>
+#include <hps/mp_hash_map_backend.hpp>
 #include <random>
 
 // TODO: Remove me!
@@ -39,39 +38,39 @@ namespace HugeCTR {
 #ifdef HCTR_HASH_MAP_BACKEND_INSERT_
 #error HCTR_HASH_MAP_BACKEND_INSERT_ already defined. Potential naming conflict!
 #else
-#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                         \
-  do {                                                                         \
-    const auto& res = part.entries.try_emplace((KEY));                         \
-    Entry& entry = *res.first;                                                 \
-                                                                               \
-    /* If new insertion. */                                                    \
-    if (res.second) {                                                          \
-      /* If no free space, allocate another buffer, and fill pointer queue. */ \
-      if (part.payload_slots.empty()) {                                        \
-        const size_t payload_size = meta_size + value_size;                    \
-        const size_t num_payloads = allocation_rate_ / payload_size;           \
-        HCTR_CHECK(num_payloads > 0);                                          \
-                                                                               \
-        /* Get more memory. */                                                 \
-        part.payload_pages.emplace_back(num_payloads* payload_size);           \
-        Page& page = part.payload_pages.back();                                \
-                                                                               \
-        /* Stock up slot references. */                                        \
-        part.payload_slots.reserve(num_payloads);                              \
-        for (auto nxt = page.end(); nxt != page.begin();) {                    \
-          nxt -= payload_size;                                                 \
-          part.payload_slots.emplace_back(reinterpret_cast<Payload*>(&*nxt));  \
-        }                                                                      \
-      }                                                                        \
-                                                                               \
-      /* Fetch pointer. */                                                     \
-      entry.second = part.payload_slots.back();                                \
-      part.payload_slots.pop_back();                                           \
-    }                                                                          \
-                                                                               \
-    entry.second->last_access = now;                                           \
-    std::copy_n((VALUES_PTR), value_size, entry.second->value);                \
-    num_inserts++;                                                             \
+#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                                   \
+  do {                                                                                   \
+    const auto& res = part.entries.try_emplace((KEY));                                   \
+    Entry& entry = *res.first;                                                           \
+                                                                                         \
+    /* If new insertion. */                                                              \
+    if (res.second) {                                                                    \
+      /* If no free space, allocate another buffer, and fill pointer queue. */           \
+      if (part.payload_slots.empty()) {                                                  \
+        const size_t payload_size = meta_size + value_size;                              \
+        const size_t num_payloads = part.allocation_rate / payload_size;                 \
+        HCTR_CHECK(num_payloads > 0);                                                    \
+                                                                                         \
+        /* Get more memory. */                                                           \
+        part.payload_pages.emplace_back(num_payloads* payload_size, sm_char_allocator_); \
+        Page& page = part.payload_pages.back();                                          \
+                                                                                         \
+        /* Stock up slot references. */                                                  \
+        part.payload_slots.reserve(num_payloads);                                        \
+        for (auto nxt = page.end(); nxt != page.begin();) {                              \
+          nxt -= payload_size;                                                           \
+          part.payload_slots.emplace_back(reinterpret_cast<Payload*>(&*nxt));            \
+        }                                                                                \
+      }                                                                                  \
+                                                                                         \
+      /* Fetch pointer. */                                                               \
+      entry.second = part.payload_slots.back();                                          \
+      part.payload_slots.pop_back();                                                     \
+    }                                                                                    \
+                                                                                         \
+    entry.second->last_access = now;                                                     \
+    std::copy_n((VALUES_PTR), value_size, entry.second->value);                          \
+    num_inserts++;                                                                       \
   } while (0)
 #endif
 
@@ -112,25 +111,109 @@ namespace HugeCTR {
 #endif
 
 template <typename Key>
-HashMapBackend<Key>::HashMapBackend(const size_t num_partitions, const size_t allocation_rate,
-                                    const size_t max_get_batch_size,
-                                    const size_t max_set_batch_size, const size_t overflow_margin,
-                                    const DatabaseOverflowPolicy_t overflow_policy,
-                                    const double overflow_resolution_target)
+MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
+    const size_t num_partitions, const size_t allocation_rate, const size_t sm_size,
+    const std::string& sm_name, const std::chrono::nanoseconds& heart_beat_frequency,
+    const bool auto_remove, const size_t max_get_batch_size, const size_t max_set_batch_size,
+    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
+    const double overflow_resolution_target)
     : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
            overflow_resolution_target),
       num_partitions_{num_partitions},
-      allocation_rate_{allocation_rate} {
-  HCTR_LOG_S(DEBUG, WORLD) << "Created blank database backend in local memory!" << std::endl;
+      allocation_rate_{allocation_rate},
+      sm_name_{sm_name},
+      sm_segment_(boost::interprocess::open_or_create, sm_name.c_str(), sm_size),
+      sm_char_allocator_{sm_segment_.get_allocator<char>()},
+      sm_page_allocator_{sm_segment_.get_allocator<Page>()},
+      sm_partition_allocator_{sm_segment_.get_allocator<Partition>()} {
+  sm_ = sm_segment_.find_or_construct<SharedMemory>("sm")(
+      overflow_margin, overflow_policy, overflow_resolution_target, heart_beat_frequency,
+      auto_remove, sm_segment_);
+  HCTR_CHECK(sm_);
+  HCTR_CHECK(sm_->overflow_margin == overflow_margin);
+  HCTR_CHECK(sm_->overflow_policy == overflow_policy);
+  HCTR_CHECK(sm_->overflow_resolution_target == overflow_resolution_target);
+  HCTR_CHECK(sm_->heart_beat_frequency == heart_beat_frequency);
+  HCTR_CHECK(sm_->auto_remove == auto_remove);
+
+  HCTR_LOG_S(INFO, WORLD) << "Connecting to shared memory '" << sm_name_ << "'..." << std::endl;
+
+  // Ensure exclusive access.
+  const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
+
+  // Sanity checks.
+  const std::filesystem::space_info& si = std::filesystem::space("/dev/shm");
+  HCTR_LOG_S(INFO, WORLD) << "Connected to shared memory '" << sm_name_
+                          << "'; OS total = " << si.capacity << " bytes, OS available = " << si.free
+                          << " bytes, HCTR allocated = " << sm_segment_.get_size()
+                          << " bytes, HCTR free = " << sm_segment_.get_free_memory() << " bytes"
+                          << "; other processes connected = " << is_process_connected_()
+                          << std::endl;
+
+  if (si.capacity < sm_segment_.get_size()) {
+    HCTR_LOG_S(WARNING, WORLD) << "Shared memory (" << sm_segment_.get_size()
+                               << " bytes) is larger than total shared memory capacity ("
+                               << si.capacity
+                               << " bytes). This might lead to esotheric runtime errors. Consider "
+                                  "increasing OS shared memory size."
+                               << std::endl;
+  }
+
+  if (si.free < allocation_rate_) {
+    HCTR_LOG_S(WARNING, WORLD)
+        << "Shared memory is (almost) full. Any further SHM allocation will definitely fail!"
+        << std::endl;
+  }
+
+  // Start heart.
+  heart_ = std::thread([&] {
+    while (!heart_stop_signal_) {
+      ++sm_->heart_beat;
+      std::this_thread::sleep_for(sm_->heart_beat_frequency);
+    }
+  });
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::size(const std::string& table_name) const {
-  const std::shared_lock lock(read_write_guard_);
+bool MultiProcessHashMapBackend<Key>::is_process_connected_() const {
+  const uint64_t old_heart_beat = sm_->heart_beat;
+  std::this_thread::sleep_for(sm_->heart_beat_frequency * 5);
+  return sm_->heart_beat != old_heart_beat;
+}
+
+template <typename Key>
+MultiProcessHashMapBackend<Key>::~MultiProcessHashMapBackend() {
+  HCTR_LOG_S(INFO, WORLD) << "Disconnecting from shared memory '" << sm_name_ << "'." << std::endl;
+
+  // Ensure exclusive access.
+  const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
+
+  // Stop heart.
+  heart_stop_signal_ = true;
+  heart_.join();
+
+  // Destroy SHM, if this was the last process and auto_remove is enabled.
+  if (sm_->auto_remove && !is_process_connected_()) {
+    HCTR_LOG_S(INFO, WORLD) << "Detached last process from shared memory '" << sm_name_
+                            << "'. Auto remove in progress..." << std::endl;
+    boost::interprocess::shared_memory_object::remove(sm_name_.c_str());
+  }
+}
+
+template <typename Key>
+size_t MultiProcessHashMapBackend<Key>::capacity(const std::string& table_name) const {
+  const size_t part_cap = this->overflow_margin_;
+  const size_t total_cap = part_cap * num_partitions_;
+  return (total_cap > part_cap) ? total_cap : part_cap;
+}
+
+template <typename Key>
+size_t MultiProcessHashMapBackend<Key>::size(const std::string& table_name) const {
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return 0;
   }
 
@@ -142,18 +225,18 @@ size_t HashMapBackend<Key>::size(const std::string& table_name) const {
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::contains(const std::string& table_name, const size_t num_keys,
-                                     const Key* const keys,
-                                     const std::chrono::nanoseconds& time_budget) const {
+size_t MultiProcessHashMapBackend<Key>::contains(
+    const std::string& table_name, size_t num_keys, const Key* keys,
+    const std::chrono::nanoseconds& time_budget) const {
   const auto begin = std::chrono::high_resolution_clock::now();
-  const std::shared_lock lock(read_write_guard_);
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
-  // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  // Locate partitions.
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return Base::contains(table_name, num_keys, keys, time_budget);
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   size_t hit_count = 0;
   size_t ign_count = 0;
@@ -274,20 +357,22 @@ size_t HashMapBackend<Key>::contains(const std::string& table_name, const size_t
 }
 
 template <typename Key>
-bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num_pairs,
-                                 const Key* const keys, const char* const values,
-                                 const size_t value_size) {
-  const std::unique_lock lock(read_write_guard_);
+bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size_t num_pairs,
+                                             const Key* keys, const char* values,
+                                             size_t value_size) {
+  const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions, or create them, if they do not exist yet.
-  const auto& tables_it = tables_.try_emplace(table_name).first;
-  std::vector<Partition>& parts = tables_it->second;
+  const auto& tables_it =
+      sm_->tables.try_emplace({table_name.c_str(), sm_char_allocator_}, sm_partition_allocator_)
+          .first;
+  SharedVector<Partition>& parts = tables_it->second;
   if (parts.empty()) {
     HCTR_CHECK(value_size > 0 && value_size <= allocation_rate_);
 
     parts.reserve(num_partitions_);
     for (size_t i = 0; i < num_partitions_; i++) {
-      parts.emplace_back(i, value_size);
+      parts.emplace_back(i, value_size, allocation_rate_, sm_segment_);
     }
   } else {
     HCTR_CHECK(parts.size() == num_partitions_);
@@ -386,24 +471,27 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
   }
 
   HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": Inserted "
-                           << num_inserts << " / " << num_pairs << " entries." << std::endl;
+                           << num_inserts << " / " << num_pairs
+                           << " entries; free SM = " << sm_segment_.get_free_memory() << " bytes"
+                           << std::endl;
   return true;
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
-                                  const Key* const keys, const DatabaseHitCallback& on_hit,
-                                  const DatabaseMissCallback& on_miss,
-                                  const std::chrono::nanoseconds& time_budget) {
+size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
+                                              const Key* const keys,
+                                              const DatabaseHitCallback& on_hit,
+                                              const DatabaseMissCallback& on_miss,
+                                              const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
-  const std::shared_lock lock(read_write_guard_);
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return Base::fetch(table_name, num_keys, keys, on_hit, on_miss, time_budget);
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   size_t hit_count = 0;
   size_t ign_count = 0;
@@ -539,20 +627,21 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t num_indices,
-                                  const size_t* const indices, const Key* const keys,
-                                  const DatabaseHitCallback& on_hit,
-                                  const DatabaseMissCallback& on_miss,
-                                  const std::chrono::nanoseconds& time_budget) {
+size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
+                                              const size_t num_indices, const size_t* const indices,
+                                              const Key* const keys,
+                                              const DatabaseHitCallback& on_hit,
+                                              const DatabaseMissCallback& on_miss,
+                                              const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
-  const std::shared_lock lock(read_write_guard_);
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return Base::fetch(table_name, num_indices, indices, keys, on_hit, on_miss, time_budget);
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   size_t hit_count = 0;
   size_t ign_count = 0;
@@ -691,22 +780,22 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::evict(const std::string& table_name) {
-  const std::unique_lock lock(read_write_guard_);
+size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name) {
+  const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return 0;
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   // Count items and erase.
   size_t hit_count = 0;
   for (const Partition& part : parts) {
     hit_count += part.entries.size();
   }
-  tables_.erase(tables_it);
+  sm_->tables.erase(tables_it);
 
   HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << " erased ("
                            << hit_count << " pairs)." << std::endl;
@@ -714,16 +803,16 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name) {
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t num_keys,
-                                  const Key* const keys) {
-  const std::unique_lock lock(read_write_guard_);
+size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, const size_t num_keys,
+                                              const Key* const keys) {
+  const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return 0;
   }
-  std::vector<Partition>& parts = tables_it->second;
+  SharedVector<Partition>& parts = tables_it->second;
 
   size_t hit_count = 0;
 
@@ -806,13 +895,14 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
 }
 
 template <typename Key>
-std::vector<std::string> HashMapBackend<Key>::find_tables(const std::string& model_name) {
+std::vector<std::string> MultiProcessHashMapBackend<Key>::find_tables(
+    const std::string& model_name) {
   const std::string& tag_prefix = HierParameterServerBase::make_tag_name(model_name, "", false);
 
-  const std::shared_lock lock(read_write_guard_);
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   std::vector<std::string> matches;
-  for (const auto& pair : tables_) {
+  for (const auto& pair : sm_->tables) {
     if (pair.first.find(tag_prefix) == 0) {
       matches.push_back(pair.first);
     }
@@ -821,15 +911,15 @@ std::vector<std::string> HashMapBackend<Key>::find_tables(const std::string& mod
 }
 
 template <typename Key>
-void HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
-  const std::shared_lock lock(read_write_guard_);
+void MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return;
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   // Store value size.
   const uint32_t value_size = parts.empty() ? 0 : parts[0].value_size;
@@ -845,15 +935,16 @@ void HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstream&
 }
 
 template <typename Key>
-void HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) {
-  const std::shared_lock lock(read_write_guard_);
+void MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
+                                               rocksdb::SstFileWriter& file) {
+  const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = tables_.find(table_name);
-  if (tables_it == tables_.end()) {
+  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  if (tables_it == sm_->tables.end()) {
     return;
   }
-  const std::vector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts = tables_it->second;
 
   // Sort keys by value.
   std::vector<const Entry*> entries;
@@ -880,7 +971,8 @@ void HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::SstFi
 }
 
 template <typename Key>
-size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Partition& part) {
+size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& table_name,
+                                                          Partition& part) {
   // Return if no overflow.
   if (part.entries.size() > this->overflow_margin_) {
     return 0;
@@ -962,8 +1054,8 @@ size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Par
   return hit_count;
 }
 
-template class HashMapBackend<unsigned int>;
-template class HashMapBackend<long long>;
+template class MultiProcessHashMapBackend<unsigned int>;
+template class MultiProcessHashMapBackend<long long>;
 
 #ifdef HCTR_HASH_MAP_BACKEND_CONTAINS_
 #undef HCTR_HASH_MAP_BACKEND_CONTAINS_

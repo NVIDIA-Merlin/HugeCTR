@@ -234,12 +234,18 @@ add_subdirectory(gpu_cache/test)
 
 option(ENABLE_HDFS "Enable HDFS" OFF)
 if(ENABLE_HDFS)
+  if(ENABLE_HDFS STREQUAL "MINIMAL")
+    message("HDFS build mode: Client only")
+  else()
+    message("HDFS build mode: Full")
+  endif()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_HDFS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_HDFS")
 
   # Build and Install Hadoop
   include(SetupHadoop)
-  hadoop_setup()
+  hadoop_setup(${ENABLE_HDFS})
+  set(ENABLE_HDFS ON)
 endif()
 
 option(ENABLE_S3 "Enable S3" OFF)

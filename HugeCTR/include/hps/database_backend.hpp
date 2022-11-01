@@ -18,6 +18,7 @@
 #include <rocksdb/sst_file_writer.h>
 
 #include <chrono>
+#include <common.hpp>
 #include <fstream>
 #include <functional>
 #include <hps/inference_utils.hpp>
@@ -35,7 +36,7 @@ namespace HugeCTR {
  * not exist.
  */
 using DatabaseMissCallback = std::function<void(size_t)>;
-using DatabaseHitCallback = std::function<void(size_t, const char*, size_t)>;
+using DatabaseHitCallback = std::function<void(size_t, const char*, uint32_t)>;
 
 enum class DBTableDumpFormat_t {
   Automatic = 0,  // Try to deduce the storage format from the provided path.
@@ -47,18 +48,16 @@ enum class DBTableDumpFormat_t {
  * Base class for database backends. Implementations that inherit from this should override all
  * public members.
  *
- * @tparam TKey The data-type that is used for keys in this database.
+ * @tparam Key The data-type that is used for keys in this database.
  */
-template <typename TKey>
+template <typename Key>
 class DatabaseBackend {
  public:
+  DatabaseBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(DatabaseBackend);
   DatabaseBackend(size_t max_get_batch_size, size_t max_set_batch_size);
 
-  DatabaseBackend(const DatabaseBackend&) = delete;
-
   virtual ~DatabaseBackend() = default;
-
-  DatabaseBackend& operator=(const DatabaseBackend&) = delete;
 
   /**
    * Returns that allows identifying the backend implementation.
@@ -99,7 +98,7 @@ class DatabaseBackend {
    * @return The number of keys that are actually present in the database. Will throw if an
    * recoverable error is encountered.
    */
-  virtual size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+  virtual size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                           const std::chrono::nanoseconds& time_budget) const;
 
   /**
@@ -115,7 +114,7 @@ class DatabaseBackend {
    *
    * @return True if operation was successful.
    */
-  virtual bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys,
+  virtual bool insert(const std::string& table_name, size_t num_pairs, const Key* keys,
                       const char* values, size_t value_size) = 0;
 
   /**
@@ -136,7 +135,7 @@ class DatabaseBackend {
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
-  virtual size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+  virtual size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
                        const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
                        const std::chrono::nanoseconds& time_budget);
 
@@ -162,7 +161,7 @@ class DatabaseBackend {
    * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-                       const TKey* keys, const DatabaseHitCallback& on_hit,
+                       const Key* keys, const DatabaseHitCallback& on_hit,
                        const DatabaseMissCallback& on_miss,
                        const std::chrono::nanoseconds& time_budget);
 
@@ -195,7 +194,7 @@ class DatabaseBackend {
    *
    * @return The number of keys/value pairs removed (not reliable in all implementations).
    */
-  virtual size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) = 0;
+  virtual size_t evict(const std::string& table_name, size_t num_keys, const Key* keys) = 0;
 
   /**
    * Find all tables belonging to a specific model.
@@ -262,19 +261,17 @@ class DatabaseBackendError : std::exception {
   std::string what_;
 };
 
-template <typename TKey>
-class VolatileBackend : public DatabaseBackend<TKey> {
+template <typename Key>
+class VolatileBackend : public DatabaseBackend<Key> {
  public:
-  using TBase = DatabaseBackend<TKey>;
+  using Base = DatabaseBackend<Key>;
 
+  VolatileBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(VolatileBackend);
   VolatileBackend(size_t max_get_batch_size, size_t max_set_batch_size, size_t overflow_margin,
                   DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
 
-  VolatileBackend(const VolatileBackend&) = delete;
-
   virtual ~VolatileBackend() = default;
-
-  VolatileBackend& operator=(const VolatileBackend&) = delete;
 
   /**
    * Asynchronously inserts the provided keys/values into the database.
@@ -285,7 +282,7 @@ class VolatileBackend : public DatabaseBackend<TKey> {
    * @param value_size
    */
   std::future<void> insert_async(const std::string& table_name,
-                                 const std::shared_ptr<std::vector<TKey>>& keys,
+                                 const std::shared_ptr<std::vector<Key>>& keys,
                                  const std::shared_ptr<std::vector<char>>& values,
                                  size_t value_size);
 
@@ -305,18 +302,16 @@ class VolatileBackend : public DatabaseBackend<TKey> {
   mutable ThreadPool background_worker_{"vol. db bg", 1};
 };
 
-template <typename TKey>
-class PersistentBackend : public DatabaseBackend<TKey> {
+template <typename Key>
+class PersistentBackend : public DatabaseBackend<Key> {
  public:
-  using TBase = DatabaseBackend<TKey>;
+  using Base = DatabaseBackend<Key>;
 
+  PersistentBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(PersistentBackend);
   PersistentBackend(size_t max_get_batch_size, size_t max_set_batch_size);
 
-  PersistentBackend(const PersistentBackend&) = delete;
-
   virtual ~PersistentBackend() = default;
-
-  PersistentBackend& operator=(const PersistentBackend&) = delete;
 
   size_t capacity(const std::string& table_name) const override final {
     return std::numeric_limits<size_t>::max();

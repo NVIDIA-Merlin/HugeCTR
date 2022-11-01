@@ -112,7 +112,7 @@ void masked_softmax_fprop_cpu(T* top, T* bottom, const T* mask, int batch_size, 
       top[index] = top[index] / workspace[i];
     }
   }
-  delete workspace;
+  delete[] workspace;
 }
 
 template <typename T>
@@ -132,7 +132,7 @@ void masked_softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out,
       }*/
     }
   }
-  delete workspace;
+  delete[] workspace;
 }
 
 template <typename T>

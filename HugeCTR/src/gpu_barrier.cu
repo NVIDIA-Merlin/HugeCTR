@@ -147,8 +147,8 @@ GPUBarrier::~GPUBarrier() {
     HCTR_LIB_THROW(cudaFree(d_barrier_flags_[g]));
     HCTR_LIB_THROW(cudaFree(d_global_barrier_store_[g]));
   }
-  delete d_rem_barrier_flags_;
-  delete d_barrier_flags_;
-  delete d_global_barrier_store_;
+  delete[] d_rem_barrier_flags_;
+  delete[] d_barrier_flags_;
+  delete[] d_global_barrier_store_;
 }
 }  // namespace HugeCTR

@@ -105,6 +105,9 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
     case DatabaseType_t::ParallelHashMap:
       dis_database.type = DatabaseType_t::ParallelHashMap;
       break;
+    case DatabaseType_t::MultiProcessHashMap:
+      dis_database.type = DatabaseType_t::MultiProcessHashMap;
+      break;
     case DatabaseType_t::RedisCluster:
       dis_database.type = DatabaseType_t::RedisCluster;
       dis_database.address = "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002";

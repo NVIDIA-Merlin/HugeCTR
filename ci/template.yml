@@ -181,6 +181,11 @@ stages:
     - .build
     - .hugectr:rules:build
 
+.build_hugectr_daily:
+  extends:
+    - .build
+    - .default:rules:daily-test
+
 .build_sok:
   extends:
     - .build

@@ -113,7 +113,7 @@ enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD, DEFAULT, NOT
 enum class Update_t { Local, Global, LazyGlobal };
 
 // TODO: Consider to move them into a separate file
-enum class Activation_t { Relu, None };
+enum class Activation_t { Relu, None, Unspecified };
 
 enum class FcPosition_t { None, Head, Body, Tail, Isolated };
 
@@ -134,6 +134,7 @@ enum class Layer_t {
   ELU,
   InnerProduct,
   FusedInnerProduct,
+  MLP,
   Interaction,
   MultiCrossEntropyLoss,
   ReLU,

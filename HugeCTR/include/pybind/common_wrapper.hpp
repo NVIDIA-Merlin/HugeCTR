@@ -113,6 +113,7 @@ void CommonPybind(pybind11::module& m) {
       .value("ELU", HugeCTR::Layer_t::ELU)
       .value("InnerProduct", HugeCTR::Layer_t::InnerProduct)
       .value("FusedInnerProduct", HugeCTR::Layer_t::FusedInnerProduct)
+      .value("MLP", HugeCTR::Layer_t::MLP)
       .value("Interaction", HugeCTR::Layer_t::Interaction)
       .value("MultiCrossEntropyLoss", HugeCTR::Layer_t::MultiCrossEntropyLoss)
       .value("ReLU", HugeCTR::Layer_t::ReLU)
@@ -246,6 +247,8 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::DatabaseType_t::HashMap)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::ParallelHashMap),
              HugeCTR::DatabaseType_t::ParallelHashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::MultiProcessHashMap),
+             HugeCTR::DatabaseType_t::MultiProcessHashMap)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RedisCluster),
              HugeCTR::DatabaseType_t::RedisCluster)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),

@@ -10,10 +10,19 @@ fi
 # Find hadoop full version.
 cd hadoop
 HADOOP_TAR=$(ls hadoop-dist/target/hadoop-*.tar.gz | head -n 1)
+if [[ "$HADOOP_TAR" -eq 0 ]]; then
+  HADOOP_TAR=$(ls hadoop-hdfs-project/hadoop-hdfs-native-client/target/hadoop-hdfs-native-client-*.tar.gz | head -n 1)
+fi
 
 # Extract files and delete archive.
 mkdir -p ${HADOOP_HOME}/logs
 tar xf ${HADOOP_TAR} --strip-components 1 --directory ${HADOOP_HOME}
+
+# Install header files if not yet installed.
+mkdir -p ${HADOOP_HOME}/include
+if [[ ! -f "${HADOOP_HOME}/include/hdfs.h" ]]; then
+  cp hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/libhdfs/include/hdfs/hdfs.h ${HADOOP_HOME}/include
+fi
 
 # Cleanup reundant files.
 for f in $(find ${HADOOP_HOME} -name *.cmd); do

@@ -22,16 +22,6 @@
 
 namespace HugeCTR {
 
-std::ostream& operator<<(std::ostream& os, const DatabaseType_t value) {
-  return os << hctr_enum_to_c_str(value);
-}
-std::ostream& operator<<(std::ostream& os, const DatabaseOverflowPolicy_t value) {
-  return os << hctr_enum_to_c_str(value);
-}
-std::ostream& operator<<(std::ostream& os, const UpdateSourceType_t value) {
-  return os << hctr_enum_to_c_str(value);
-}
-
 std::optional<size_t> parameter_server_config::find_model_id(const std::string& model_name) const {
   const auto it = model_name_id_map_.find(model_name);
   if (it != model_name_id_map_.end()) {
@@ -46,12 +36,15 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          // Backend specific.
          address == p.address && user_name == p.user_name && password == p.password &&
          num_partitions == p.num_partitions && allocation_rate == p.allocation_rate &&
+         shared_memory_size == p.shared_memory_size && shared_memory_name == p.shared_memory_name &&
+         num_node_connections == p.num_node_connections &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
          // Overflow handling related.
          refresh_time_after_fetch == p.refresh_time_after_fetch &&
          overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
          overflow_resolution_target == p.overflow_resolution_target &&
          // Caching behavior related.
+         initialize_after_startup == p.initialize_after_startup &&
          initial_cache_rate == p.initial_cache_rate &&
          cache_missed_embeddings == p.cache_missed_embeddings &&
          // Real-time update mechanism related.
@@ -66,6 +59,8 @@ bool PersistentDatabaseParams::operator==(const PersistentDatabaseParams& p) con
          // Backend specific.
          path == p.path && num_threads == p.num_threads && read_only == p.read_only &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         // Caching behavior related.
+         initialize_after_startup == p.initialize_after_startup &&
          // Real-time update mechanism related.
          update_filters == p.update_filters;
 }
@@ -87,13 +82,15 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     const DatabaseType_t type,
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
-    const size_t num_partitions, const size_t allocation_rate, const size_t max_get_batch_size,
-    const size_t max_set_batch_size,
+    const size_t num_partitions, const size_t allocation_rate, const size_t shared_memory_size,
+    const std::string& shared_memory_name, const size_t num_node_connections,
+    const size_t max_get_batch_size, const size_t max_set_batch_size,
     // Overflow handling related.
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
     // Caching behavior related.
-    const double initial_cache_rate, const bool cache_missed_embeddings,
+    const bool initialize_after_startup, const double initial_cache_rate,
+    const bool cache_missed_embeddings,
     // Real-time update mechanism related.
     const std::vector<std::string>& update_filters)
     : type(type),
@@ -103,6 +100,9 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       password(password),
       num_partitions(num_partitions),
       allocation_rate(allocation_rate),
+      shared_memory_size{shared_memory_size},
+      shared_memory_name{shared_memory_name},
+      num_node_connections(num_node_connections),
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
       // Overflow handling related.
@@ -111,6 +111,7 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       overflow_policy(overflow_policy),
       overflow_resolution_target(overflow_resolution_target),
       // Caching behavior related.
+      initialize_after_startup{initialize_after_startup},
       initial_cache_rate(initial_cache_rate),
       cache_missed_embeddings(cache_missed_embeddings),
       // Real-time update mechanism related.
@@ -122,6 +123,8 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
                                                    const size_t num_threads, const bool read_only,
                                                    const size_t max_get_batch_size,
                                                    const size_t max_set_batch_size,
+                                                   // Caching behavior related.
+                                                   const bool initialize_after_startup,
                                                    // Real-time update mechanism related.
                                                    const std::vector<std::string>& update_filters)
     : type(type),
@@ -131,6 +134,8 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
       read_only(read_only),
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
+      // Caching behavior related.
+      initialize_after_startup{initialize_after_startup},
       // Real-time update mechanism related.
       update_filters(update_filters) {}
 
@@ -282,10 +287,10 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.read_only = get_value_from_json_soft<bool>(persistent_db, "read_only", false);
 
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 64L * 1024L);
 
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 64L * 1024L);
 
     if (persistent_db.find("update_filters") != persistent_db.end()) {
       params.update_filters.clear();
@@ -314,13 +319,28 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
         volatile_db, "num_partitions", std::min(16u, std::thread::hardware_concurrency()));
 
     params.allocation_rate =
-        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256 * 1024 * 1024);
+        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256L * 1024L * 1024L);
+
+    params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
+                                                                 16L * 1024L * 1024L * 1024L);
+
+    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
+                                                             "hctr_mp_hash_map_database");
+
+    params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
+                                                                 16L * 1024L * 1024L * 1024L);
+
+    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
+                                                             "hctr_mp_hash_map_database");
+
+    params.num_node_connections =
+        get_value_from_json_soft<size_t>(volatile_db, "num_node_connections", 5);
 
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 64L * 1024L);
 
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 10'000);
+        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 64L * 1024L);
 
     // Overflow handling related.
     params.refresh_time_after_fetch =
@@ -660,6 +680,14 @@ HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const 
       return enum_value;
     }
 
+  enum_value = HugeCTR::DatabaseType_t::MultiProcessHashMap;
+  names = {hctr_enum_to_c_str(enum_value), "multi_process_hashmap", "multi_process_hash",
+           "multi_process_map"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
   enum_value = HugeCTR::DatabaseType_t::RedisCluster;
   names = {hctr_enum_to_c_str(enum_value), "redis"};
   for (const char* name : names)
@@ -673,6 +701,7 @@ HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const 
     if (tmp == name) {
       return enum_value;
     }
+
   return HugeCTR::DatabaseType_t::Disabled;
 }
 

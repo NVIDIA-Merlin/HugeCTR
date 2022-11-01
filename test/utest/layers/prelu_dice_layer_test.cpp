@@ -54,7 +54,7 @@ void get_variance(T* Var_x, T* E_x, T* in, const int len, int batchsize, int hid
     }
   }
   get_mean(Var_x, x2, len, batchsize, hiddensize);
-  delete x2;
+  delete[] x2;
 }
 
 template <typename T>
@@ -98,8 +98,8 @@ void prelu_dice_fprop_cpu(T* out, T* in, int len, int batchsize, T alpha, T epsi
   get_mean(E_x, in, len, batchsize, hiddensize);
   get_variance(Var_x, E_x, in, len, batchsize, hiddensize);
   dice_fprop(out, in, E_x, Var_x, len, batchsize, hiddensize, alpha, epsilon);
-  delete E_x;
-  delete Var_x;
+  delete[] E_x;
+  delete[] Var_x;
 }
 
 template <typename T>
@@ -111,8 +111,8 @@ void prelu_dice_bprop_cpu(T* d_bottom, T* d_top, T* bottom, int len, int batchsi
   get_mean(E_x, bottom, len, batchsize, hiddensize);
   get_variance(Var_x, E_x, bottom, len, batchsize, hiddensize);
   dice_bprop(d_bottom, d_top, bottom, E_x, Var_x, len, batchsize, hiddensize, alpha, epsilon);
-  delete E_x;
-  delete Var_x;
+  delete[] E_x;
+  delete[] Var_x;
 }
 
 template <typename T>

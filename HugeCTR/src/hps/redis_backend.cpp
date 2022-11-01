@@ -16,6 +16,7 @@
 
 #include <base/debug/logger.hpp>
 #include <boost/algorithm/string.hpp>
+#include <hps/database_backend_detail.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/redis_backend.hpp>
 #include <iostream>
@@ -28,51 +29,41 @@
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"
 
-#ifdef HCTR_KEY_TO_PART_INDEX
-#error "HCTR_KEY_TO_PART_INDEX is not supposed to be defined at this point!"
-#else
-#define HCTR_USE_XXHASH
-#ifdef HCTR_USE_XXHASH
-#include <xxh3.h>
-#define HCTR_KEY_TO_PART_INDEX(KEY) (XXH3_64bits(&(KEY), sizeof(TKey)) % num_partitions_)
-#else
-#define HCTR_KEY_TO_PART_INDEX(KEY) (KEY % num_partitions_)
-#endif
-#endif
-
 namespace HugeCTR {
 
 inline std::string make_hkey(const std::string& table_name, const size_t partition,
                              const char suffix) {
-  static const char separator = '/';
-
   std::ostringstream os;
-  os << table_name << separator << 'p' << partition << separator << suffix;
+  os << "hps_et{" << table_name << "/p" << partition << '}' << suffix;
   return os.str();
 }
 
 #ifdef HCTR_REDIS_VALUE_HKEY
 #error HCTR_REDIS_VALUE_HKEY should not be defined!
 #else
-#define HCTR_REDIS_VALUE_HKEY() (make_hkey(table_name, part, 'v'))
+#define HCTR_REDIS_VALUE_HKEY() const std::string& hkey_v = make_hkey(table_name, part, 'v')
 #endif
 #ifdef HCTR_REDIS_TIME_HKEY
 #error HCTR_REDIS_TIME_HKEY should not be defined!
 #else
-#define HCTR_REDIS_TIME_HKEY() (make_hkey(table_name, part, 't'))
+#define HCTR_REDIS_TIME_HKEY() const std::string& hkey_t = make_hkey(table_name, part, 't')
 #endif
 
-template <typename TKey>
-RedisClusterBackend<TKey>::RedisClusterBackend(
+template <typename Key>
+RedisClusterBackend<Key>::RedisClusterBackend(
     const std::string& address, const std::string& user_name, const std::string& password,
-    const size_t num_partitions, const size_t max_get_batch_size, const size_t max_set_batch_size,
-    const bool refresh_time_after_fetch, const size_t overflow_margin,
-    const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target)
-    : TBase(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
-            overflow_resolution_target),
+    const size_t num_partitions, const size_t num_node_connections, const size_t max_get_batch_size,
+    const size_t max_set_batch_size, const bool refresh_time_after_fetch,
+    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
+    const double overflow_resolution_target)
+    : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
+           overflow_resolution_target),
       refresh_time_after_fetch_{refresh_time_after_fetch},
       // Can switch to std::range in C++20.
       num_partitions_{num_partitions} {
+  HCTR_CHECK(num_node_connections > 0);
+  HCTR_CHECK(num_partitions_ >= num_node_connections);
+
   // Put together cluster configuration.
   sw::redis::ConnectionOptions options;
 
@@ -91,7 +82,7 @@ RedisClusterBackend<TKey>::RedisClusterBackend(
   options.keep_alive = true;
 
   sw::redis::ConnectionPoolOptions pool_options;
-  pool_options.size = 1;
+  pool_options.size = num_node_connections;
 
   // Connect to cluster.
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Connecting via " << options.host << ':'
@@ -99,8 +90,8 @@ RedisClusterBackend<TKey>::RedisClusterBackend(
   redis_ = std::make_unique<sw::redis::RedisCluster>(options, pool_options);
 }
 
-template <typename TKey>
-RedisClusterBackend<TKey>::~RedisClusterBackend() {
+template <typename Key>
+RedisClusterBackend<Key>::~RedisClusterBackend() {
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Awaiting background worker to conclude..."
                           << std::endl;
   this->background_worker_.await_idle();
@@ -109,51 +100,49 @@ RedisClusterBackend<TKey>::~RedisClusterBackend() {
   redis_.reset();
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::size(const std::string& table_name) const {
-  std::atomic<size_t> joint_num_pairs{0};
+template <typename Key>
+size_t RedisClusterBackend<Key>::size(const std::string& table_name) const {
+  size_t num_pairs;
 
-  std::exception_ptr error;
-  size_t error_part = -1;
-  std::mutex error_guard;
+  if (num_partitions_ == 1) {
+    // Precalc constants.
+    static constexpr size_t part = 0;
+    HCTR_REDIS_VALUE_HKEY();
 
-  // Process partitions.
-  std::vector<std::future<void>> tasks;
-  tasks.reserve(num_partitions_);
-
-  for (size_t part = 0; part < num_partitions_; part++) {
-    tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-      // Precalc constants.
-      const std::string& hkey = HCTR_REDIS_VALUE_HKEY();
-
-      try {
-        joint_num_pairs += redis_->hlen(hkey);
-      } catch (...) {
-        std::unique_lock lock(error_guard);
-        error = std::current_exception();
-        error_part = part;
-      }
-    }));
-  }
-  ThreadPool::await(tasks.begin(), tasks.end());
-  const size_t num_pairs = static_cast<size_t>(joint_num_pairs);
-
-  // Handle errors.
-  try {
-    if (error) {
-      std::rethrow_exception(error);
+    try {
+      num_pairs = redis_->hlen(hkey_v);
+    } catch (sw::redis::Error& e) {
+      throw DatabaseBackendError(get_name(), part, e.what());
     }
-  } catch (sw::redis::Error& e) {
-    throw DatabaseBackendError(get_name(), error_part, e.what());
+  } else {
+    std::atomic<size_t> joint_num_pairs{0};
+
+    // Process partitions.
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(num_partitions_);
+
+    for (size_t part = 0; part < num_partitions_; part++) {
+      tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+        try {
+          HCTR_REDIS_VALUE_HKEY();
+          joint_num_pairs += redis_->hlen(hkey_v);
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+      }));
+    }
+    ThreadPool::await(tasks.begin(), tasks.end());
+
+    num_pairs = joint_num_pairs;
   }
 
   return num_pairs;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
-                                           const TKey* const keys,
-                                           const std::chrono::nanoseconds& time_budget) const {
+template <typename Key>
+size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const size_t num_keys,
+                                          const Key* const keys,
+                                          const std::chrono::nanoseconds& time_budget) const {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -165,21 +154,21 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
     } break;
     case 1: {
       // Precalc constants.
-      const size_t part = HCTR_KEY_TO_PART_INDEX(*keys);
-      const std::string& hkey = HCTR_REDIS_VALUE_HKEY();
+      const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+      HCTR_REDIS_VALUE_HKEY();
 
       // Check time-budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
       if (elapsed >= time_budget) {
         HCTR_LOG_S(WARNING, WORLD)
-            << get_name() << " backend; Partition " << hkey << ": Timeout!" << std::endl;
+            << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
         ign_count++;
         break;
       }
 
       // Launch query.
       try {
-        if (redis_->hexists(hkey, {reinterpret_cast<const char*>(keys), sizeof(TKey)})) {
+        if (redis_->hexists(hkey_v, {reinterpret_cast<const char*>(keys), sizeof(Key)})) {
           hit_count++;
         }
       } catch (sw::redis::Error& e) {
@@ -187,94 +176,131 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
       }
     } break;
     default: {
-      std::atomic<size_t> joint_hit_count{0};
-      std::atomic<size_t> joint_ign_count{0};
-
-      std::exception_ptr error;
-      size_t error_part = -1;
-      std::mutex error_guard;
-
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
-      // Process partitions.
-      std::vector<std::future<void>> tasks;
-      tasks.reserve(num_partitions_);
+      if (num_partitions_ == 1) {
+        // Precalc constants.
+        static constexpr size_t part = 0;
+        HCTR_REDIS_VALUE_HKEY();
 
-      for (size_t part = 0; part < num_partitions_; part++) {
-        tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-          size_t hit_count = 0;
+        try {
+          size_t num_batches = 0;
+          for (const Key* k = keys; k != keys_end; num_batches++) {
+            // Check time budget.
+            const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+            if (elapsed >= time_budget) {
+              HCTR_LOG_S(WARNING, WORLD)
+                  << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
 
-          // Precalc constants.
-          const std::string& hkey = HCTR_REDIS_VALUE_HKEY();
+              ign_count += keys_end - k;
+              break;
+            }
 
-          try {
-            size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Partition " << hkey << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; k != keys_end; k++) {
-                  if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
+            // Prepare next batch and launch query.
+            sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+            size_t batch_size = 0;
+            for (; k != keys_end; k++) {
+              pipe.hexists(hkey_v, {reinterpret_cast<const char*>(k), sizeof(Key)});
+              if (++batch_size >= this->max_get_batch_size_) {
+                ++k;
                 break;
               }
+            }
+            sw::redis::QueuedReplies replies = pipe.exec();
 
-              // Prepare and launch query.
-              sw::redis::Pipeline pipeline = redis_->pipeline(hkey, false);
+            // Process results.
+            size_t batch_hits = 0;
+            for (size_t i = 0; i < replies.size(); i++) {
+              if (replies.get<bool>(i)) {
+                batch_hits++;
+              }
+            }
 
-              size_t batch_size = 0;
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  pipeline.hexists(hkey, {reinterpret_cast<const char*>(k), sizeof(TKey)});
-                  if (++batch_size >= this->max_get_batch_size_) {
-                    break;
+            HCTR_LOG_S(TRACE, WORLD)
+                << get_name() << " backend; partition " << hkey_v << ", batch " << num_batches
+                << ": " << batch_hits << " / " << batch_size << " hits. Time: " << elapsed.count()
+                << " / " << time_budget.count() << " us." << std::endl;
+
+            hit_count += batch_hits;
+          }
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+      } else {
+        std::atomic<size_t> joint_hit_count{0};
+        std::atomic<size_t> joint_ign_count{0};
+
+        // Process partitions.
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(num_partitions_);
+
+        for (size_t part = 0; part < num_partitions_; part++) {
+          tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+            size_t hit_count = 0;
+
+            // Precalc constants.
+            HCTR_REDIS_VALUE_HKEY();
+
+            try {
+              size_t num_batches = 0;
+              for (const Key* k = keys; k != keys_end; num_batches++) {
+                // Check time budget.
+                const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+                if (elapsed >= time_budget) {
+                  HCTR_LOG_S(WARNING, WORLD) << get_name() << " backend; Partition " << hkey_v
+                                             << ": Timeout!" << std::endl;
+
+                  size_t ign_count = 0;
+                  for (; k != keys_end; k++) {
+                    if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                      ign_count++;
+                    }
+                  }
+                  joint_ign_count += ign_count;
+                  break;
+                }
+
+                // Prepare and launch query.
+                sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+                size_t batch_size = 0;
+                for (; k != keys_end; k++) {
+                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                    pipe.hexists(hkey_v, {reinterpret_cast<const char*>(k), sizeof(Key)});
+                    if (++batch_size >= this->max_get_batch_size_) {
+                      ++k;
+                      break;
+                    }
                   }
                 }
-              }
-              sw::redis::QueuedReplies replies = pipeline.exec();
+                sw::redis::QueuedReplies replies = pipe.exec();
 
-              // Process results.
-              size_t batch_hits = 0;
-              for (size_t i = 0; i < replies.size(); i++) {
-                if (replies.get<bool>(i)) {
-                  batch_hits++;
+                // Process results.
+                size_t batch_hits = 0;
+                for (size_t i = 0; i < replies.size(); i++) {
+                  if (replies.get<bool>(i)) {
+                    batch_hits++;
+                  }
                 }
+
+                HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; partition " << hkey_v
+                                         << ", batch " << num_batches << ": " << batch_hits << " / "
+                                         << batch_size << " hits. Time: " << elapsed.count()
+                                         << " / " << time_budget.count() << " us." << std::endl;
+
+                hit_count += batch_hits;
               }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; partition " << hkey << ", batch " << num_batches
-                  << ": " << batch_hits << " / " << batch_size << " hits. Time: " << elapsed.count()
-                  << " / " << time_budget.count() << " us." << std::endl;
-              hit_count += batch_hits;
+            } catch (sw::redis::Error& e) {
+              throw DatabaseBackendError(get_name(), part, e.what());
             }
-          } catch (...) {
-            std::unique_lock lock(error_guard);
-            error = std::current_exception();
-            error_part = part;
-          }
 
-          joint_hit_count += hit_count;
-        }));
-      }
-      ThreadPool::await(tasks.begin(), tasks.end());
-      hit_count += static_cast<size_t>(joint_hit_count);
-      ign_count += static_cast<size_t>(joint_ign_count);
-
-      // Handle errors.
-      try {
-        if (error) {
-          std::rethrow_exception(error);
+            joint_hit_count += hit_count;
+          }));
         }
-      } catch (sw::redis::Error& e) {
-        throw DatabaseBackendError(get_name(), error_part, e.what());
+        ThreadPool::await(tasks.begin(), tasks.end());
+
+        hit_count += joint_hit_count;
+        ign_count += joint_ign_count;
       }
     } break;
   }
@@ -285,10 +311,10 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
   return hit_count;
 }
 
-template <typename TKey>
-bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size_t num_pairs,
-                                       const TKey* const keys, const char* const values,
-                                       const size_t value_size) {
+template <typename Key>
+bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_t num_pairs,
+                                      const Key* const keys, const char* const values,
+                                      const size_t value_size) {
   size_t num_inserts = 0;
 
   switch (num_pairs) {
@@ -297,109 +323,154 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
     } break;
     case 1: {
       // Precalc constants.
-      const size_t part = HCTR_KEY_TO_PART_INDEX(*keys);
-      const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
-      const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+      const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+      HCTR_REDIS_VALUE_HKEY();
+      HCTR_REDIS_TIME_HKEY();
 
       // Insert.
       try {
-        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(TKey)};
+        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(Key)};
         const time_t now = std::time(nullptr);
 
-        redis_->hset(hkey_v, k_view, {values, value_size});
-        redis_->hset(hkey_t, k_view, {reinterpret_cast<const char*>(&now), sizeof(time_t)});
+        sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+        pipe.hset(hkey_v, k_view, {values, value_size});
+        pipe.hset(hkey_t, k_view, {reinterpret_cast<const char*>(&now), sizeof(time_t)});
+        pipe.exec();
+
         num_inserts++;
+
+        // Overflow resolution.
+        check_and_resolve_overflow_(part, hkey_v, hkey_t);
       } catch (sw::redis::Error& e) {
         throw DatabaseBackendError(get_name(), part, e.what());
       }
-
-      // Queue overflow resolution.
-      this->background_worker_.submit(
-          [this, hkey_v, hkey_t]() { check_and_resolve_overflow_(hkey_v, hkey_t); });
     } break;
     default: {
-      std::atomic<size_t> joint_num_inserts{0};
-
-      std::exception_ptr error;
-      size_t error_part = -1;
-      std::mutex error_guard;
-
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_pairs];
+      const Key* const keys_end = &keys[num_pairs];
 
-      // Process partitions.
-      std::vector<std::future<void>> tasks;
-      tasks.reserve(num_partitions_);
+      if (num_partitions_ == 1) {
+        // Precalc constants.
+        static constexpr size_t part = 0;
+        HCTR_REDIS_VALUE_HKEY();
+        HCTR_REDIS_TIME_HKEY();
 
-      for (size_t part = 0; part < num_partitions_; part++) {
-        tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-          size_t num_inserts = 0;
+        try {
+          std::vector<std::pair<std::string_view, std::string_view>> v_views;
+          std::vector<std::pair<std::string_view, std::string_view>> t_views;
 
-          // Precalc constants.
-          const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
-          const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+          size_t num_batches = 0;
+          for (const Key* k = keys; k != keys_end; num_batches++) {
+            const time_t now = std::time(nullptr);
 
-          try {
-            std::vector<std::pair<std::string_view, std::string_view>> v_views;
-            std::vector<std::pair<std::string_view, std::string_view>> t_views;
+            // Prepare and launch query.
+            t_views.clear();
+            v_views.clear();
+            for (; k != keys_end; k++) {
+              v_views.emplace_back(
+                  std::piecewise_construct,
+                  std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
+                  std::forward_as_tuple(&values[(k - keys) * value_size], value_size));
+              t_views.emplace_back(
+                  std::piecewise_construct,
+                  std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
+                  std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
+              if (t_views.size() >= this->max_set_batch_size_) {
+                ++k;
+                break;
+              }
+            }
+            if (t_views.empty()) {
+              continue;
+            }
 
-            size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
-              const time_t now = std::time(nullptr);
+            sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+            pipe.hmset(hkey_v, v_views.begin(), v_views.end());
+            pipe.hmset(hkey_t, t_views.begin(), t_views.end());
+            pipe.exec();
 
-              // Prepare and launch query.
-              t_views.clear();
-              v_views.clear();
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  v_views.emplace_back(
-                      std::piecewise_construct,
-                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(TKey)),
-                      std::forward_as_tuple(&values[(k - keys) * value_size], value_size));
-                  t_views.emplace_back(
-                      std::piecewise_construct,
-                      std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(TKey)),
-                      std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
-                  if (t_views.size() >= this->max_set_batch_size_) {
-                    break;
+            HCTR_LOG_S(TRACE, WORLD)
+                << get_name() << " backend; Partition " << hkey_v << ", batch " << num_batches
+                << ": Inserted " << t_views.size() << " pairs." << std::endl;
+
+            num_inserts += t_views.size();
+
+            // Overflow resolution.
+            check_and_resolve_overflow_(part, hkey_v, hkey_t);
+          }
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+      } else {
+        std::atomic<size_t> joint_num_inserts{0};
+
+        // Process partitions.
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(num_partitions_);
+
+        for (size_t part = 0; part < num_partitions_; part++) {
+          tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+            size_t num_inserts = 0;
+
+            // Precalc constants.
+            HCTR_REDIS_VALUE_HKEY();
+            HCTR_REDIS_TIME_HKEY();
+
+            try {
+              std::vector<std::pair<std::string_view, std::string_view>> v_views;
+              std::vector<std::pair<std::string_view, std::string_view>> t_views;
+
+              size_t num_batches = 0;
+              for (const Key* k = keys; k != keys_end; num_batches++) {
+                const time_t now = std::time(nullptr);
+
+                // Prepare and launch query.
+                t_views.clear();
+                v_views.clear();
+                for (; k != keys_end; k++) {
+                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                    v_views.emplace_back(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
+                        std::forward_as_tuple(&values[(k - keys) * value_size], value_size));
+                    t_views.emplace_back(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
+                        std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
+                    if (t_views.size() >= this->max_set_batch_size_) {
+                      ++k;
+                      break;
+                    }
                   }
                 }
+                if (t_views.empty()) {
+                  continue;
+                }
+
+                sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+                pipe.hmset(hkey_v, v_views.begin(), v_views.end());
+                pipe.hmset(hkey_t, t_views.begin(), t_views.end());
+                pipe.exec();
+
+                HCTR_LOG_S(TRACE, WORLD)
+                    << get_name() << " backend; Partition " << hkey_v << ", batch " << num_batches
+                    << ": Inserted " << t_views.size() << " pairs." << std::endl;
+
+                num_inserts += t_views.size();
+
+                // Overflow resolution.
+                check_and_resolve_overflow_(part, hkey_v, hkey_t);
               }
-              if (v_views.empty()) {
-                continue;
-              }
-
-              redis_->hmset(hkey_v, v_views.begin(), v_views.end());
-              redis_->hmset(hkey_t, t_views.begin(), t_views.end());
-              num_inserts += t_views.size();
-
-              // Queue overflow resolution.
-              this->background_worker_.submit(
-                  [this, hkey_v, hkey_t]() { check_and_resolve_overflow_(hkey_v, hkey_t); });
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Partition " << hkey_v << ", batch " << num_batches
-                  << ": Inserted " << v_views.size() << " pairs." << std::endl;
+            } catch (sw::redis::Error& e) {
+              throw DatabaseBackendError(get_name(), part, e.what());
             }
-          } catch (...) {
-            std::unique_lock lock(error_guard);
-            error = std::current_exception();
-            error_part = part;
-          }
 
-          joint_num_inserts += num_inserts;
-        }));
-      }
-      ThreadPool::await(tasks.begin(), tasks.end());
-      num_inserts += static_cast<size_t>(joint_num_inserts);
-
-      // Handle errors.
-      try {
-        if (error) {
-          std::rethrow_exception(error);
+            joint_num_inserts += num_inserts;
+          }));
         }
-      } catch (sw::redis::Error& e) {
-        throw DatabaseBackendError(get_name(), error_part, e.what());
+        ThreadPool::await(tasks.begin(), tasks.end());
+
+        num_inserts += joint_num_inserts;
       }
     } break;
   }
@@ -409,11 +480,11 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
   return true;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
-                                        const TKey* const keys, const DatabaseHitCallback& on_hit,
-                                        const DatabaseMissCallback& on_miss,
-                                        const std::chrono::nanoseconds& time_budget) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
+                                       const Key* const keys, const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -425,8 +496,8 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     } break;
     case 1: {
       // Precalc constants.
-      const size_t part = HCTR_KEY_TO_PART_INDEX(*keys);
-      const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
+      const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+      HCTR_REDIS_VALUE_HKEY();
 
       // Check time budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
@@ -441,20 +512,20 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       try {
         // Query.
         const std::optional<std::string>& v_opt =
-            redis_->hget(hkey_v, {reinterpret_cast<const char*>(keys), sizeof(TKey)});
+            redis_->hget(hkey_v, {reinterpret_cast<const char*>(keys), sizeof(Key)});
 
         // Process result.
         if (v_opt) {
-          on_hit(0, v_opt->data(), v_opt->size());
+          on_hit(0, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
           hit_count++;
 
           // Queue timestamp refresh.
           if (this->refresh_time_after_fetch_) {
-            const TKey k = *keys;
+            const Key k = *keys;
             const time_t now = std::time(nullptr);
 
             this->background_worker_.submit([this, table_name, part, k, now]() {
-              const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+              HCTR_REDIS_TIME_HKEY();
               touch_(hkey_t, k, now);
             });
           }
@@ -466,128 +537,193 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       }
     } break;
     default: {
-      std::atomic<size_t> joint_hit_count{0};
-      std::atomic<size_t> joint_ign_count{0};
-
-      std::exception_ptr error;
-      size_t error_part = -1;
-      std::mutex error_guard;
-
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
-      // Process partitions.
-      std::vector<std::future<void>> tasks;
-      tasks.reserve(num_partitions_);
+      if (num_partitions_ == 1) {
+        // Precalc constants.
+        constexpr size_t part = 0;
+        HCTR_REDIS_VALUE_HKEY();
 
-      for (size_t part = 0; part < num_partitions_; part++) {
-        tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-          size_t hit_count = 0;
+        try {
+          std::vector<std::string_view> k_views;
+          std::vector<std::optional<std::string>> v_opts;
+          std::shared_ptr<std::vector<Key>> touched_keys;
 
-          // Precalc constants.
-          const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
+          size_t num_batches = 0;
+          for (const Key* k = keys; k != keys_end; num_batches++) {
+            // Check time budget.
+            const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+            if (elapsed >= time_budget) {
+              HCTR_LOG_S(WARNING, WORLD)
+                  << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
 
-          try {
-            std::vector<size_t> i_vals;
-            std::vector<std::string_view> k_views;
-            std::vector<std::optional<std::string>> v_opts;
-            std::shared_ptr<std::vector<TKey>> touched_keys;
-
-            size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; k != keys_end; k++) {
-                  if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                    on_miss(0);
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
-                break;
-              }
-
-              // Prepare query.
-              k_views.clear();
-              i_vals.clear();
+              ign_count += keys_end - k;
               for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  i_vals.emplace_back(k - keys);
-                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
-                  if (k_views.size() >= this->max_get_batch_size_) {
-                    break;
-                  }
-                }
+                on_miss(k - keys);
               }
-              if (k_views.empty()) {
-                continue;
-              }
-
-              // Launch query.
-              v_opts.clear();
-              v_opts.reserve(k_views.size());
-              redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
-
-              // Process results.
-              auto i_vals_it = i_vals.begin();
-              for (const auto& v_opt : v_opts) {
-                if (v_opt) {
-                  on_hit(*i_vals_it, v_opt->data(), v_opt->size());
-                  hit_count++;
-
-                  if (this->refresh_time_after_fetch_) {
-                    if (!touched_keys) {
-                      touched_keys = std::make_shared<std::vector<TKey>>();
-                    }
-                    touched_keys->emplace_back(keys[*i_vals_it]);
-                  }
-                } else {
-                  on_miss(*i_vals_it);
-                }
-                i_vals_it++;
-              }
-              HCTR_CHECK(i_vals_it == i_vals.end());
-
-              // Refresh timestamps if desired.
-              if (touched_keys && !touched_keys->empty()) {
-                const time_t now = std::time(nullptr);
-
-                this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
-                  const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
-                  touch_(hkey_t, touched_keys, now);
-                });
-                touched_keys.reset();
-              }
-
-              HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend. Partition " << hkey_v
-                                       << ", batch " << num_batches << ": Fetched " << v_opts.size()
-                                       << " keys. Hits " << hit_count << '.' << std::endl;
+              break;
             }
-          } catch (...) {
-            std::unique_lock lock(error_guard);
-            error = std::current_exception();
-            error_part = part;
+
+            // Prepare query.
+            size_t idx = k - keys;
+            const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+            k_views.clear();
+            k_views.reserve(batch_end - k);
+            for (; k != batch_end; k++) {
+              k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
+            }
+
+            // Launch query.
+            v_opts.clear();
+            v_opts.reserve(k_views.size());
+            redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
+
+            // Process results.
+            for (const auto& v_opt : v_opts) {
+              if (v_opt) {
+                on_hit(idx, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
+                hit_count++;
+
+                if (this->refresh_time_after_fetch_) {
+                  if (!touched_keys) {
+                    touched_keys = std::make_shared<std::vector<Key>>();
+                  }
+                  touched_keys->emplace_back(keys[idx]);
+                }
+              } else {
+                on_miss(idx);
+              }
+              idx++;
+            }
+
+            // Refresh timestamps if desired.
+            if (touched_keys && !touched_keys->empty()) {
+              const time_t now = std::time(nullptr);
+
+              this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                HCTR_REDIS_TIME_HKEY();
+                touch_(hkey_t, touched_keys, now);
+              });
+              touched_keys.reset();
+            }
+
+            HCTR_LOG_S(TRACE, WORLD)
+                << get_name() << " backend. Partition " << hkey_v << ", batch " << num_batches
+                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.' << std::endl;
           }
-
-          joint_hit_count += hit_count;
-        }));
-      }
-      ThreadPool::await(tasks.begin(), tasks.end());
-      hit_count += static_cast<size_t>(joint_hit_count);
-      ign_count += static_cast<size_t>(joint_ign_count);
-
-      // Handle errors.
-      try {
-        if (error) {
-          std::rethrow_exception(error);
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
         }
-      } catch (sw::redis::Error& e) {
-        throw DatabaseBackendError(get_name(), error_part, e.what());
+      } else {
+        std::atomic<size_t> joint_hit_count{0};
+        std::atomic<size_t> joint_ign_count{0};
+
+        // Process partitions.
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(num_partitions_);
+
+        for (size_t part = 0; part < num_partitions_; part++) {
+          tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+            size_t hit_count = 0;
+
+            // Precalc constants.
+            HCTR_REDIS_VALUE_HKEY();
+
+            try {
+              std::vector<size_t> idx;
+              std::vector<std::string_view> k_views;
+              std::vector<std::optional<std::string>> v_opts;
+              std::shared_ptr<std::vector<Key>> touched_keys;
+
+              size_t num_batches = 0;
+              for (const Key* k = keys; k != keys_end; num_batches++) {
+                // Check time budget.
+                const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+                if (elapsed >= time_budget) {
+                  HCTR_LOG_S(WARNING, WORLD) << get_name() << " backend; Partition " << hkey_v
+                                             << ": Timeout!" << std::endl;
+
+                  size_t ign_count = 0;
+                  for (; k != keys_end; k++) {
+                    if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                      on_miss(keys_end - k);
+                      ign_count++;
+                    }
+                  }
+                  joint_ign_count += ign_count;
+                  break;
+                }
+
+                // Prepare query.
+                k_views.clear();
+                idx.clear();
+                for (; k != keys_end; k++) {
+                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                    idx.emplace_back(k - keys);
+                    k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
+                    if (k_views.size() >= this->max_get_batch_size_) {
+                      ++k;
+                      break;
+                    }
+                  }
+                }
+                if (k_views.empty()) {
+                  continue;
+                }
+
+                // Launch query.
+                v_opts.clear();
+                v_opts.reserve(k_views.size());
+                redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
+
+                // Process results.
+                auto idx_it = idx.begin();
+                for (const auto& v_opt : v_opts) {
+                  if (v_opt) {
+                    on_hit(*idx_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
+                    hit_count++;
+
+                    if (this->refresh_time_after_fetch_) {
+                      if (!touched_keys) {
+                        touched_keys = std::make_shared<std::vector<Key>>();
+                      }
+                      touched_keys->emplace_back(keys[*idx_it]);
+                    }
+                  } else {
+                    on_miss(*idx_it);
+                  }
+                  idx_it++;
+                }
+                HCTR_CHECK(idx_it == idx.end());
+
+                // Refresh timestamps if desired.
+                if (touched_keys && !touched_keys->empty()) {
+                  const time_t now = std::time(nullptr);
+
+                  this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                    HCTR_REDIS_TIME_HKEY();
+                    touch_(hkey_t, touched_keys, now);
+                  });
+                  touched_keys.reset();
+                }
+
+                HCTR_LOG_S(TRACE, WORLD)
+                    << get_name() << " backend. Partition " << hkey_v << ", batch " << num_batches
+                    << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.'
+                    << std::endl;
+              }
+            } catch (sw::redis::Error& e) {
+              throw DatabaseBackendError(get_name(), part, e.what());
+            }
+
+            joint_hit_count += hit_count;
+          }));
+        }
+        ThreadPool::await(tasks.begin(), tasks.end());
+
+        hit_count += joint_hit_count;
+        ign_count += joint_ign_count;
       }
     } break;
   }
@@ -598,12 +734,12 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const size_t num_indices,
-                                        const size_t* indices, const TKey* const keys,
-                                        const DatabaseHitCallback& on_hit,
-                                        const DatabaseMissCallback& on_miss,
-                                        const std::chrono::nanoseconds& time_budget) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size_t num_indices,
+                                       const size_t* indices, const Key* const keys,
+                                       const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   size_t hit_count = 0;
@@ -615,9 +751,9 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     } break;
     case 1: {
       // Precalc constants.
-      const TKey k = keys[*indices];
-      const size_t part = HCTR_KEY_TO_PART_INDEX(k);
-      const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
+      const Key k = keys[*indices];
+      const size_t part = HCTR_KEY_TO_DB_PART_INDEX(k);
+      HCTR_REDIS_VALUE_HKEY();
 
       // Check time budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
@@ -632,11 +768,11 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       try {
         // Query.
         const std::optional<std::string>& v_opt =
-            redis_->hget(hkey_v, {reinterpret_cast<const char*>(&k), sizeof(TKey)});
+            redis_->hget(hkey_v, {reinterpret_cast<const char*>(&k), sizeof(Key)});
 
         // Process result.
         if (v_opt) {
-          on_hit(*indices, v_opt->data(), v_opt->size());
+          on_hit(*indices, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
           hit_count++;
 
           // Queue timestamp refresh.
@@ -644,7 +780,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
             const time_t now = std::time(nullptr);
 
             this->background_worker_.submit([this, table_name, part, k, now]() {
-              const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+              HCTR_REDIS_TIME_HKEY();
               touch_(hkey_t, k, now);
             });
           }
@@ -656,130 +792,203 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       }
     } break;
     default: {
-      std::atomic<size_t> joint_hit_count{0};
-      std::atomic<size_t> joint_ign_count{0};
-
-      std::exception_ptr error;
-      size_t error_part = -1;
-      std::mutex error_guard;
-
       // Precalc constants.
       const size_t* const indices_end = &indices[num_indices];
 
-      // Process partitions.
-      std::vector<std::future<void>> tasks;
-      tasks.reserve(num_partitions_);
+      if (num_partitions_ == 1) {
+        // Precalc constants.
+        constexpr size_t part = 0;
+        HCTR_REDIS_VALUE_HKEY();
 
-      for (size_t part = 0; part < num_partitions_; part++) {
-        tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-          size_t hit_count = 0;
+        std::vector<std::string_view> k_views;
+        std::vector<std::optional<std::string>> v_opts;
+        std::shared_ptr<std::vector<Key>> touched_keys;
 
-          // Precalc constants.
-          const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
+        try {
+          size_t num_batches = 0;
+          for (const size_t* i = indices; i != indices_end; num_batches++) {
+            // Check time budget.
+            const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+            if (elapsed >= time_budget) {
+              HCTR_LOG_S(WARNING, WORLD)
+                  << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
 
-          std::vector<size_t> i_vals;
-          std::vector<std::string_view> k_views;
-          std::vector<std::optional<std::string>> v_opts;
-          std::shared_ptr<std::vector<TKey>> touched_keys;
+              ign_count += indices_end - i;
+              for (; i != indices_end; i++) {
+                on_miss(*i);
+              }
+              break;
+            }
 
-          try {
-            size_t num_batches = 0;
-            for (const size_t* i = indices; i != indices_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Partition " << hkey_v << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; i != indices_end; i++) {
-                  const TKey& k = keys[*i];
-                  if (HCTR_KEY_TO_PART_INDEX(k) == part) {
-                    on_miss(*i);
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
+            // Prepare query.
+            k_views.clear();
+            const size_t* const batch_beg = i;
+            const size_t* const batch_end = std::min(&i[this->max_get_batch_size_], indices_end);
+            for (; i != batch_end; i++) {
+              k_views.emplace_back(reinterpret_cast<const char*>(&keys[*i]), sizeof(Key));
+              if (k_views.size() >= this->max_get_batch_size_) {
+                ++i;
                 break;
               }
-
-              // Prepare query.
-              k_views.clear();
-              i_vals.clear();
-              for (; i != indices_end; i++) {
-                const TKey& k = keys[*i];
-                if (HCTR_KEY_TO_PART_INDEX(k) == part) {
-                  i_vals.emplace_back(*i);
-                  k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(TKey));
-                  if (k_views.size() >= this->max_get_batch_size_) {
-                    break;
-                  }
-                }
-              }
-              if (k_views.empty()) {
-                continue;
-              }
-
-              // Launch query.
-              v_opts.clear();
-              v_opts.reserve(k_views.size());
-              redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
-
-              // Process results.
-              auto i_vals_it = i_vals.begin();
-              for (const auto& v_opt : v_opts) {
-                if (v_opt) {
-                  on_hit(*i_vals_it, v_opt->data(), v_opt->size());
-                  hit_count++;
-
-                  if (this->refresh_time_after_fetch_) {
-                    if (!touched_keys) {
-                      touched_keys = std::make_shared<std::vector<TKey>>();
-                    }
-                    touched_keys->emplace_back(keys[*i_vals_it]);
-                  }
-                } else {
-                  on_miss(*i_vals_it);
-                }
-                i_vals_it++;
-              }
-              HCTR_CHECK(i_vals_it == i_vals.end());
-
-              // Refresh timestamps if desired.
-              if (touched_keys && !touched_keys->empty()) {
-                const time_t now = std::time(nullptr);
-
-                this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
-                  const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
-                  touch_(hkey_t, touched_keys, now);
-                });
-                touched_keys.reset();
-              }
-
-              HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend. Partition " << hkey_v
-                                       << ", batch " << num_batches << ": Fetched " << v_opts.size()
-                                       << " keys. Hits " << hit_count << '.' << std::endl;
             }
-          } catch (...) {
-            std::unique_lock lock(error_guard);
-            error = std::current_exception();
-            error_part = part;
+            if (k_views.empty()) {
+              continue;
+            }
+
+            // Launch query.
+            v_opts.clear();
+            v_opts.reserve(k_views.size());
+            redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
+
+            // Process results.
+            i = batch_beg;
+            for (const auto& v_opt : v_opts) {
+              if (v_opt) {
+                on_hit(*i, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
+                hit_count++;
+
+                if (this->refresh_time_after_fetch_) {
+                  if (!touched_keys) {
+                    touched_keys = std::make_shared<std::vector<Key>>();
+                  }
+                  touched_keys->emplace_back(keys[*i]);
+                }
+              } else {
+                on_miss(*i);
+              }
+              i++;
+            }
+            HCTR_CHECK(i == batch_end);
+
+            // Refresh timestamps if desired.
+            if (touched_keys && !touched_keys->empty()) {
+              const time_t now = std::time(nullptr);
+
+              this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                HCTR_REDIS_TIME_HKEY();
+                touch_(hkey_t, touched_keys, now);
+              });
+              touched_keys.reset();
+            }
+
+            HCTR_LOG_S(TRACE, WORLD)
+                << get_name() << " backend. Partition " << hkey_v << ", batch " << num_batches
+                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.' << std::endl;
           }
-
-          joint_hit_count += hit_count;
-        }));
-      }
-      ThreadPool::await(tasks.begin(), tasks.end());
-      hit_count += static_cast<size_t>(joint_hit_count);
-      ign_count += static_cast<size_t>(joint_ign_count);
-
-      // Handle errors.
-      try {
-        if (error) {
-          std::rethrow_exception(error);
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
         }
-      } catch (sw::redis::Error& e) {
-        throw DatabaseBackendError(get_name(), error_part, e.what());
+      } else {
+        std::atomic<size_t> joint_hit_count{0};
+        std::atomic<size_t> joint_ign_count{0};
+
+        // Process partitions.
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(num_partitions_);
+
+        for (size_t part = 0; part < num_partitions_; part++) {
+          tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+            size_t hit_count = 0;
+
+            // Precalc constants.
+            HCTR_REDIS_VALUE_HKEY();
+
+            std::vector<size_t> idx;
+            std::vector<std::string_view> k_views;
+            std::vector<std::optional<std::string>> v_opts;
+            std::shared_ptr<std::vector<Key>> touched_keys;
+
+            try {
+              size_t num_batches = 0;
+              for (const size_t* i = indices; i != indices_end; num_batches++) {
+                // Check time budget.
+                const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
+                if (elapsed >= time_budget) {
+                  HCTR_LOG_S(WARNING, WORLD) << get_name() << " backend; Partition " << hkey_v
+                                             << ": Timeout!" << std::endl;
+
+                  size_t ign_count = 0;
+                  for (; i != indices_end; i++) {
+                    const Key& k = keys[*i];
+                    if (HCTR_KEY_TO_DB_PART_INDEX(k) == part) {
+                      on_miss(*i);
+                      ign_count++;
+                    }
+                  }
+                  joint_ign_count += ign_count;
+                  break;
+                }
+
+                // Prepare query.
+                k_views.clear();
+                idx.clear();
+                for (; i != indices_end; i++) {
+                  const Key& k = keys[*i];
+                  if (HCTR_KEY_TO_DB_PART_INDEX(k) == part) {
+                    idx.emplace_back(*i);
+                    k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(Key));
+                    if (k_views.size() >= this->max_get_batch_size_) {
+                      ++i;
+                      break;
+                    }
+                  }
+                }
+                if (k_views.empty()) {
+                  continue;
+                }
+
+                // Launch query.
+                v_opts.clear();
+                v_opts.reserve(k_views.size());
+                redis_->hmget(hkey_v, k_views.begin(), k_views.end(), std::back_inserter(v_opts));
+
+                // Process results.
+                auto idx_it = idx.begin();
+                for (const auto& v_opt : v_opts) {
+                  if (v_opt) {
+                    on_hit(*idx_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
+                    hit_count++;
+
+                    if (this->refresh_time_after_fetch_) {
+                      if (!touched_keys) {
+                        touched_keys = std::make_shared<std::vector<Key>>();
+                      }
+                      touched_keys->emplace_back(keys[*idx_it]);
+                    }
+                  } else {
+                    on_miss(*idx_it);
+                  }
+                  idx_it++;
+                }
+                HCTR_CHECK(idx_it == idx.end());
+
+                // Refresh timestamps if desired.
+                if (touched_keys && !touched_keys->empty()) {
+                  const time_t now = std::time(nullptr);
+
+                  this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                    HCTR_REDIS_TIME_HKEY();
+                    touch_(hkey_t, touched_keys, now);
+                  });
+                  touched_keys.reset();
+                }
+
+                HCTR_LOG_S(TRACE, WORLD)
+                    << get_name() << " backend. Partition " << hkey_v << ", batch " << num_batches
+                    << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.'
+                    << std::endl;
+              }
+            } catch (sw::redis::Error& e) {
+              throw DatabaseBackendError(get_name(), part, e.what());
+            }
+
+            joint_hit_count += hit_count;
+          }));
+        }
+        ThreadPool::await(tasks.begin(), tasks.end());
+
+        hit_count += joint_hit_count;
+        ign_count += joint_ign_count;
       }
     } break;
   }
@@ -790,55 +999,63 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
-  std::atomic<size_t> joint_approx_num_keys{0};
+template <typename Key>
+size_t RedisClusterBackend<Key>::evict(const std::string& table_name) {
+  size_t approx_num_keys;
 
-  std::exception_ptr error;
-  size_t error_part = -1;
-  std::mutex error_guard;
+  if (num_partitions_ == 1) {
+    static constexpr size_t part = 0;
 
-  // Process partitions.
-  std::vector<std::future<void>> tasks;
-  tasks.reserve(num_partitions_);
+    // Precalc constants.
+    HCTR_REDIS_VALUE_HKEY();
+    HCTR_REDIS_TIME_HKEY();
 
-  for (size_t part = 0; part < num_partitions_; part++) {
-    tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-      size_t approx_num_keys = 0;
+    try {
+      approx_num_keys = redis_->hlen(hkey_v);
 
-      // Precalc constants.
-      const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
-      const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
-
-      try {
-        approx_num_keys += redis_->hlen(hkey_v);
-
-        // Delete the keys.
-        redis_->del(hkey_v);
-        redis_->del(hkey_t);
-
-        HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend. Partition " << hkey_v
-                                 << ": Erased approximately " << approx_num_keys << " pairs."
-                                 << std::endl;
-      } catch (...) {
-        std::unique_lock lock(error_guard);
-        error = std::current_exception();
-        error_part = part;
-      }
-
-      joint_approx_num_keys += approx_num_keys;
-    }));
-  }
-  ThreadPool::await(tasks.begin(), tasks.end());
-  const size_t approx_num_keys = static_cast<size_t>(joint_approx_num_keys);
-
-  // Handle errors.
-  try {
-    if (error) {
-      std::rethrow_exception(error);
+      // Delete the keys.
+      sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+      pipe.del(hkey_v);
+      pipe.del(hkey_t);
+      pipe.exec();
+    } catch (sw::redis::Error& e) {
+      throw DatabaseBackendError(get_name(), part, e.what());
     }
-  } catch (sw::redis::Error& e) {
-    throw DatabaseBackendError(get_name(), error_part, e.what());
+  } else {
+    std::atomic<size_t> joint_approx_num_keys{0};
+
+    // Process partitions.
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(num_partitions_);
+
+    for (size_t part = 0; part < num_partitions_; part++) {
+      tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+        // Precalc constants.
+        HCTR_REDIS_VALUE_HKEY();
+        HCTR_REDIS_TIME_HKEY();
+
+        try {
+          const size_t approx_num_keys = redis_->hlen(hkey_v);
+
+          // Delete the keys.
+          sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+          pipe.del(hkey_v);
+          pipe.del(hkey_t);
+          pipe.exec();
+
+          HCTR_LOG_S(TRACE, WORLD)
+              << get_name() << " backend. Partition " << hkey_v << ": Erased approximately "
+              << approx_num_keys << " pairs." << std::endl;
+
+          joint_approx_num_keys += approx_num_keys;
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+      }));
+    }
+    ThreadPool::await(tasks.begin(), tasks.end());
+
+    approx_num_keys = joint_approx_num_keys;
   }
 
   HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name
@@ -847,9 +1064,9 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
   return approx_num_keys;
 }
 
-template <typename TKey>
-size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const size_t num_keys,
-                                        const TKey* const keys) {
+template <typename Key>
+size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size_t num_keys,
+                                       const Key* const keys) {
   size_t hit_count = 0;
 
   switch (num_keys) {
@@ -858,87 +1075,128 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
     } break;
     case 1: {
       // Precalc constants.
-      const size_t part = HCTR_KEY_TO_PART_INDEX(*keys);
-      const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
-      const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+      const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+      HCTR_REDIS_VALUE_HKEY();
+      HCTR_REDIS_TIME_HKEY();
 
       try {
+        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(Key)};
+
         // Erase.
-        const std::string_view k_view{reinterpret_cast<const char*>(keys), sizeof(TKey)};
-        hit_count += std::max(redis_->hdel(hkey_v, k_view), redis_->hdel(hkey_t, k_view));
+        sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+        pipe.hdel(hkey_v, k_view);
+        pipe.hdel(hkey_t, k_view);
+        sw::redis::QueuedReplies replies = pipe.exec();
+        HCTR_CHECK(replies.size() == 2);
+
+        hit_count += std::max(replies.get<long long>(0), replies.get<long long>(1));
       } catch (sw::redis::Error& e) {
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
     default: {
-      std::atomic<size_t> joint_hit_count{0};
-
-      std::exception_ptr error;
-      size_t error_part = -1;
-      std::mutex error_guard;
-
       // Precalc constants.
-      const TKey* const keys_end = &keys[num_keys];
+      const Key* const keys_end = &keys[num_keys];
 
-      // Process partitions.
-      std::vector<std::future<void>> tasks;
-      tasks.reserve(num_partitions_);
+      if (num_partitions_ == 1) {
+        // Precalc constants.
+        static constexpr size_t part = 0;
+        HCTR_REDIS_VALUE_HKEY();
+        HCTR_REDIS_TIME_HKEY();
 
-      for (size_t part = 0; part < num_partitions_; part++) {
-        tasks.emplace_back(ThreadPool::get().submit([&, part]() {
-          size_t hit_count = 0;
+        try {
+          std::vector<std::string_view> k_views;
 
-          // Precalc constants.
-          const std::string& hkey_v = HCTR_REDIS_VALUE_HKEY();
-          const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+          size_t num_batches = 0;
+          for (const Key* k = keys; k != keys_end; num_batches++) {
+            // Gather batch.
+            const Key* const batch_end = std::min(&k[this->max_set_batch_size_], keys_end);
+            k_views.reserve(batch_end - k);
+            k_views.clear();
+            for (; k != batch_end; k++) {
+              k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
+            }
 
-          try {
-            std::vector<std::string_view> k_views;
+            // Erase.
+            sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+            pipe.hdel(hkey_v, k_views.begin(), k_views.end());
+            pipe.hdel(hkey_t, k_views.begin(), k_views.end());
+            sw::redis::QueuedReplies replies = pipe.exec();
+            HCTR_CHECK(replies.size() == 2);
 
-            size_t num_batches = 0;
-            for (const TKey* k = keys; k != keys_end; num_batches++) {
-              // Prepare and launch query.
-              k_views.clear();
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_PART_INDEX(*k) == part) {
-                  k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
-                  if (k_views.size() >= this->max_set_batch_size_) {
-                    break;
+            const size_t batch_hits =
+                std::max(replies.get<long long>(0), replies.get<long long>(1));
+
+            HCTR_LOG_S(TRACE, WORLD)
+                << get_name() << " backend; Partition " << hkey_v << ", batch " << num_batches
+                << ": Erased " << batch_hits << " / " << k_views.size() << " pairs." << std::endl;
+
+            hit_count += batch_hits;
+          }
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+      } else {
+        std::atomic<size_t> joint_hit_count{0};
+
+        // Process partitions.
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(num_partitions_);
+
+        for (size_t part = 0; part < num_partitions_; part++) {
+          tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+            size_t hit_count = 0;
+
+            // Precalc constants.
+            HCTR_REDIS_VALUE_HKEY();
+            HCTR_REDIS_TIME_HKEY();
+
+            try {
+              std::vector<std::string_view> k_views;
+
+              size_t num_batches = 0;
+              for (const Key* k = keys; k != keys_end; num_batches++) {
+                // Gather batch.
+                k_views.clear();
+                for (; k != keys_end; k++) {
+                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
+                    k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
+                    if (k_views.size() >= this->max_set_batch_size_) {
+                      ++k;
+                      break;
+                    }
                   }
                 }
-              }
-              if (k_views.empty()) {
-                continue;
-              }
+                if (k_views.empty()) {
+                  continue;
+                }
 
-              const size_t batch_hits =
-                  std::max(redis_->hdel(hkey_v, k_views.begin(), k_views.end()),
-                           redis_->hdel(hkey_t, k_views.begin(), k_views.end()));
+                // Erase.
+                sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+                pipe.hdel(hkey_v, k_views.begin(), k_views.end());
+                pipe.hdel(hkey_t, k_views.begin(), k_views.end());
+                sw::redis::QueuedReplies replies = pipe.exec();
+                HCTR_CHECK(replies.size() == 2);
 
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Partition " << hkey_v << ", batch " << num_batches
-                  << ": Erased " << batch_hits << " / " << k_views.size() << " pairs." << std::endl;
-              hit_count += batch_hits;
+                const size_t batch_hits =
+                    std::max(replies.get<long long>(0), replies.get<long long>(1));
+
+                HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << hkey_v
+                                         << ", batch " << num_batches << ": Erased " << batch_hits
+                                         << " / " << k_views.size() << " pairs." << std::endl;
+
+                hit_count += batch_hits;
+              }
+            } catch (sw::redis::Error& e) {
+              throw DatabaseBackendError(get_name(), part, e.what());
             }
-          } catch (...) {
-            std::unique_lock lock(error_guard);
-            error = std::current_exception();
-            error_part = part;
-          }
 
-          joint_hit_count += hit_count;
-        }));
-      }
-      ThreadPool::await(tasks.begin(), tasks.end());
-      hit_count += static_cast<size_t>(joint_hit_count);
-
-      // Handle errors.
-      try {
-        if (error) {
-          std::rethrow_exception(error);
+            joint_hit_count += hit_count;
+          }));
         }
-      } catch (sw::redis::Error& e) {
-        throw DatabaseBackendError(get_name(), error_part, e.what());
+        ThreadPool::await(tasks.begin(), tasks.end());
+
+        hit_count += joint_hit_count;
       }
     } break;
   }
@@ -948,8 +1206,8 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
   return hit_count;
 }
 
-template <typename TKey>
-std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::string& model_name) {
+template <typename Key>
+std::vector<std::string> RedisClusterBackend<Key>::find_tables(const std::string& model_name) {
   // Determine partition 0 key pattern.
   std::string table_name_pattern = HierParameterServerBase::make_tag_name(model_name, "", false);
   boost::replace_all(table_name_pattern, ".", "\\.");
@@ -964,14 +1222,17 @@ std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::strin
   // Turn partition numes into table names.
   std::unordered_set<std::string> unique_table_names;
   for (const std::string& part_name : part_names) {
-    // Pattern: table_name << '/' << 'p' << 123 << '/' << 'v';
-    size_t end = part_name.find_last_of('/');
-    if (end == std::string::npos) {
+    // Pattern: '{' << table_name << "/p" << partition << '}' << suffix;
+    if (part_name.find("hps_et{") != 0) {
       continue;
     }
-    end = part_name.find_last_of('/', end - 1);
 
-    unique_table_names.emplace(part_name.substr(0, end));
+    size_t end = part_name.find_last_of('/');
+    if (end == 0 || end == std::string::npos) {
+      continue;
+    }
+
+    unique_table_names.emplace(part_name.substr(1, end - 1));
   }
 
   std::vector<std::string> table_names;
@@ -979,106 +1240,144 @@ std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::strin
   return table_names;
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::dump_bin(const std::string& table_name, std::ofstream& file) {
-  // Collect sorted set of all keys.
-  std::vector<TKey> keys;
-  {
+template <typename Key>
+std::vector<Key> RedisClusterBackend<Key>::keys(const std::string& table_name) {
+  std::vector<Key> k;
+
+  if (num_partitions_ == 1) {
+    static constexpr size_t part = 0;
+    HCTR_REDIS_TIME_HKEY();
+
+    // Fetch keys.
     std::vector<std::string> k_views;
-    for (size_t part = 0; part < num_partitions_; part++) {
-      const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
+    try {
       redis_->hkeys(hkey_t, std::back_inserter(k_views));
-    }
-    for (const std::string& k_view : k_views) {
-      keys.emplace_back(*reinterpret_cast<const TKey*>(k_view.data()));
+    } catch (sw::redis::Error& e) {
+      throw DatabaseBackendError(get_name(), part, e.what());
     }
 
-    // TODO: Maybe not ideal to shuffle to undo partition sorting. Use a different data structure?
+    // Append to list.
+    k.reserve(k_views.size());
+    for (const std::string& k_view : k_views) {
+      k.emplace_back(*reinterpret_cast<const Key*>(k_view.data()));
+    }
+  } else {
+    std::mutex k_guard;
+
+    // Process partitions.
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(num_partitions_);
+
+    for (size_t part = 0; part < num_partitions_; ++part) {
+      tasks.emplace_back(ThreadPool::get().submit([&, part]() {
+        HCTR_REDIS_TIME_HKEY();
+
+        // Fetch keys.
+        std::vector<std::string> k_views;
+        try {
+          redis_->hkeys(hkey_t, std::back_inserter(k_views));
+        } catch (sw::redis::Error& e) {
+          throw DatabaseBackendError(get_name(), part, e.what());
+        }
+
+        // Append to keys vector.
+        const std::unique_lock lock(k_guard);
+
+        k.reserve(k.size() + k_views.size());
+        for (const std::string& k_view : k_views) {
+          k.emplace_back(*reinterpret_cast<const Key*>(k_view.data()));
+        }
+      }));
+      ThreadPool::await(tasks.begin(), tasks.end());
+    }
+  }
+
+  return k;
+}
+
+template <typename Key>
+void RedisClusterBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
+  std::vector<Key> k = keys(table_name);
+
+  // TODO: Maybe not ideal to shuffle to undo partition sorting. Use a different data structure?
+  {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::shuffle(keys.begin(), keys.end(), gen);
+    std::shuffle(k.begin(), k.end(), gen);
   }
 
   // We just implement this as repeating queries.
-  std::vector<std::string> batch_values(this->max_get_batch_size_);
-  uint32_t first_value_size = 0;
-  bool first_value_size_written = false;
+  std::vector<std::string> v_views(this->max_get_batch_size_);
+  std::atomic<uint32_t> first_value_size{0};
 
-  for (size_t i = 0; i < keys.size(); i += this->max_get_batch_size_) {
-    // Fetch a batch.
-    const size_t batch_size = std::min(keys.size() - i, this->max_get_batch_size_);
+  for (auto k_it = k.begin(); k_it != k.end();) {
+    // Read batch values.
+    const auto batch_end = std::min(k_it + this->max_get_batch_size_, k.end());
     fetch(
-        table_name, batch_size, &keys[i],
-        [&](const size_t j, const char* const value, const size_t value_size) {
+        table_name, batch_end - k_it, &*k_it,
+        [&](const size_t index, const char* const value, const size_t value_size) {
           if (!first_value_size) {
+            HCTR_CHECK(k_it == k.begin());
             first_value_size = static_cast<uint32_t>(value_size);
           } else {
             HCTR_CHECK(value_size == first_value_size);
           }
-          batch_values[j].assign(value, value_size);
+          v_views[index].assign(value, value_size);
         },
-        [&](const size_t j) { batch_values[j].clear(); }, std::chrono::nanoseconds::max());
+        [&](const size_t index) { v_views[index].clear(); }, std::chrono::nanoseconds::max());
 
-    if (first_value_size) {
-      if (!first_value_size_written) {
-        file.write(reinterpret_cast<char*>(&first_value_size), sizeof(uint32_t));
-        first_value_size_written = true;
-      }
-      for (size_t j = 0; j < batch_size; j++) {
-        const std::string& value = batch_values[j];
-        if (value.size() == first_value_size) {
-          file.write(reinterpret_cast<const char*>(&keys[i + j]), sizeof(TKey));
-          file.write(value.data(), value.size());
-        }
+    // Write the value size if this is the first batch.
+    if (k_it == k.begin() && first_value_size) {
+      file.write(reinterpret_cast<const char*>(&first_value_size), sizeof(uint32_t));
+    }
+
+    // Write the batch.
+    for (auto v_views_it = v_views.begin(); k_it != batch_end; ++k_it, ++v_views_it) {
+      const std::string& value = *v_views_it;
+      if (!value.empty()) {
+        file.write(reinterpret_cast<const char*>(&*k_it), sizeof(Key));
+        file.write(value.data(), value.size());
       }
     }
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::dump_sst(const std::string& table_name,
-                                         rocksdb::SstFileWriter& file) {
+template <typename Key>
+void RedisClusterBackend<Key>::dump_sst(const std::string& table_name,
+                                        rocksdb::SstFileWriter& file) {
   // Collect sorted set of all keys.
-  std::vector<TKey> keys;
-  {
-    std::vector<std::string> k_views;
-    for (size_t part = 0; part < num_partitions_; part++) {
-      const std::string& hkey_t = HCTR_REDIS_TIME_HKEY();
-      redis_->hkeys(hkey_t, std::back_inserter(k_views));
-    }
-    for (const std::string& k_view : k_views) {
-      keys.emplace_back(*reinterpret_cast<const TKey*>(k_view.data()));
-    }
-  }
-  std::sort(keys.begin(), keys.end());
+  std::vector<Key> k = keys(table_name);
+  std::sort(k.begin(), k.end());
 
   // We just implement this as repeating queries.
-  std::vector<std::string> batch_values(this->max_get_batch_size_);
+  std::vector<std::string> v_views(this->max_get_batch_size_);
 
-  for (size_t i = 0; i < keys.size(); i += this->max_get_batch_size_) {
-    // Fetch a batch.
-    const size_t batch_size = std::min(keys.size() - i, this->max_get_batch_size_);
+  for (auto k_it = k.begin(); k_it != k.end();) {
+    // Read batch values.
+    const auto batch_end = std::min(k_it + this->max_get_batch_size_, k.end());
     fetch(
-        table_name, batch_size, &keys[i],
-        [&](const size_t j, const char* const value, const size_t value_size) {
-          batch_values[j].assign(value, value_size);
+        table_name, batch_end - k_it, &*k_it,
+        [&](const size_t index, const char* const value, const size_t value_size) {
+          v_views[index].assign(value, value_size);
         },
-        [&](const size_t j) { batch_values[j].clear(); }, std::chrono::nanoseconds::max());
+        [&](const size_t index) { v_views[index].clear(); }, std::chrono::nanoseconds::max());
 
-    rocksdb::Slice k_view{nullptr, sizeof(TKey)};
-    rocksdb::Slice v_view{nullptr, 0};
-    for (size_t j = 0; j < batch_size; j++) {
-      k_view.data_ = reinterpret_cast<const char*>(&keys[i + j]);
-      v_view.data_ = batch_values[j].data();
-      v_view.size_ = batch_values[j].size();
+    // Write the batch.
+    rocksdb::Slice k_view{nullptr, sizeof(Key)};
+    rocksdb::Slice v_view;
+    for (auto v_views_it = v_views.begin(); k_it != batch_end; ++k_it, ++v_views_it) {
+      k_view.data_ = reinterpret_cast<const char*>(&*k_it);
+      v_view.data_ = v_views_it->data();
+      v_view.size_ = v_views_it->size();
       HCTR_ROCKSDB_CHECK(file.Put(k_view, v_view));
     }
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& hkey_v,
-                                                            const std::string& hkey_t) {
+template <typename Key>
+void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
+                                                           const std::string& hkey_v,
+                                                           const std::string& hkey_t) {
   // Check overflow condition.
   size_t part_size = redis_->hlen(hkey_t);
   if (part_size <= this->overflow_margin_) {
@@ -1092,48 +1391,52 @@ void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& h
   switch (this->overflow_policy_) {
     case DatabaseOverflowPolicy_t::EvictOldest: {
       // Fetch keys and insert times.
-      std::vector<std::pair<std::string, std::string>> kt_views;
-      kt_views.reserve(part_size);
-      redis_->hgetall(hkey_t, std::back_inserter(kt_views));
+      std::vector<std::pair<Key, time_t>> kt;
+      {
+        // Fetch from Redis.
+        std::vector<std::pair<std::string, std::string>> kt_views;
+        kt_views.reserve(part_size);
+        redis_->hgetall(hkey_t, std::back_inserter(kt_views));
 
-      // Sanity check.
-      part_size = kt_views.size();
-      if (part_size <= this->overflow_resolution_target_) {
-        return;
+        // Sanity check.
+        part_size = kt_views.size();
+        if (part_size <= this->overflow_resolution_target_) {
+          return;
+        }
+
+        // Convert to native format.
+        kt.reserve(part_size);
+        for (const std::pair<std::string, std::string>& kt_view : kt_views) {
+          kt.emplace_back(*reinterpret_cast<const Key*>(kt_view.first.data()),
+                          *reinterpret_cast<const time_t*>(kt_view.second.data()));
+        }
       }
 
       // Sort by ascending by time.
-      for (const auto& kt : kt_views) {
-        HCTR_CHECK_HINT(kt.second.size() == sizeof(time_t), "Value size mismatch!(%d <> %d)!",
-                        kt.second.size(), sizeof(time_t));
-      }
-      std::sort(kt_views.begin(), kt_views.end(), [](const auto& kt0, const auto& kt1) {
-        const time_t t0 = *reinterpret_cast<const time_t*>(kt0.second.data());
-        const time_t t1 = *reinterpret_cast<const time_t*>(kt1.second.data());
-        return t0 < t1;
-      });
+      std::sort(kt.begin(), kt.end(),
+                [](const auto& a, const auto& b) { return a.second < b.second; });
 
+      // Delete pairs in batches until overflow condition is no longer fulfilled.
       std::vector<std::string_view> k_views;
       k_views.reserve(this->max_set_batch_size_);
 
-      // Delete items.
-      const auto kt_end = kt_views.end();
-      for (auto kt_it = kt_views.begin(); kt_it != kt_end;) {
+      for (auto kt_it = kt.begin(); kt_it != kt.end();) {
         // Collect a batch.
+        const auto batch_end = std::min(kt_it + this->max_set_batch_size_, kt.end());
         k_views.clear();
-        for (; kt_it != kt_end; kt_it++) {
-          k_views.emplace_back(kt_it->first);
-          if (k_views.size() >= this->max_set_batch_size_) {
-            break;
-          }
+        for (; kt_it != batch_end; ++kt_it) {
+          k_views.emplace_back(reinterpret_cast<const char*>(&kt_it->first), sizeof(Key));
         }
 
         // Perform deletion.
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " partition " << hkey_v
                                  << " (size = " << part_size << "). Attempting to evict "
                                  << k_views.size() << " OLD key/value pairs." << std::endl;
-        redis_->hdel(hkey_v, k_views.begin(), k_views.end());
-        redis_->hdel(hkey_t, k_views.begin(), k_views.end());
+
+        sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+        pipe.hdel(hkey_v, k_views.begin(), k_views.end());
+        pipe.hdel(hkey_t, k_views.begin(), k_views.end());
+        pipe.exec();
 
         // Overflow resolved?
         part_size = redis_->hlen(hkey_t);
@@ -1155,14 +1458,13 @@ void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& h
       }
 
       // Shuffle the keys.
-      for (const auto& k_view : k_views) {
-        HCTR_CHECK_HINT(k_view.size() == sizeof(time_t), "Value size mismatch!(%d <> %d)!",
-                        k_view.size(), sizeof(time_t));
+      {
+        std::random_device rd;
+        std::default_random_engine gen(rd());
+        std::shuffle(k_views.begin(), k_views.end(), gen);
       }
-      std::random_device rd;
-      std::default_random_engine gen(rd());
-      std::shuffle(k_views.begin(), k_views.end(), gen);
 
+      // Delete pairs in batches until overflow condition is no longer fulfilled.
       // Delete keys.
       const auto k_end = k_views.end();
       for (auto k_it = k_views.begin(); k_it != k_end;) {
@@ -1172,14 +1474,18 @@ void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& h
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " partition " << hkey_v
                                  << " (size = " << part_size << "). Attempting to evict "
                                  << k_views.size() << " RANDOM key/value pairs." << std::endl;
-        redis_->hdel(hkey_v, k_it, batch_end);
-        redis_->hdel(hkey_t, k_it, batch_end);
+
+        sw::redis::Pipeline pipe = redis_->pipeline(hkey_v, false);
+        pipe.hdel(hkey_v, k_it, batch_end);
+        pipe.hdel(hkey_t, k_it, batch_end);
+        pipe.exec();
 
         // Overflow resolved?
         part_size = redis_->hlen(hkey_t);
         if (part_size <= this->overflow_resolution_target_) {
           break;
         }
+
         k_it = batch_end;
       }
     } break;
@@ -1197,15 +1503,15 @@ void RedisClusterBackend<TKey>::check_and_resolve_overflow_(const std::string& h
                            << " overflow resolution concluded!" << std::endl;
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t, const TKey& key,
-                                       const time_t time) {
+template <typename Key>
+void RedisClusterBackend<Key>::touch_(const std::string& hkey_t, const Key& key,
+                                      const time_t time) {
   HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching key " << key << " of " << hkey_t << '.'
                            << std::endl;
 
   // Launch query.
   try {
-    redis_->hset(hkey_t, {reinterpret_cast<const char*>(&key), sizeof(TKey)},
+    redis_->hset(hkey_t, {reinterpret_cast<const char*>(&key), sizeof(Key)},
                  {reinterpret_cast<const char*>(&time), sizeof(time_t)});
   } catch (sw::redis::Error& e) {
     HCTR_LOG_S(ERROR, WORLD) << get_name() << " partition " << hkey_t
@@ -1213,20 +1519,20 @@ void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t, const TKey& ke
   }
 }
 
-template <typename TKey>
-void RedisClusterBackend<TKey>::touch_(const std::string& hkey_t,
-                                       const std::shared_ptr<std::vector<TKey>>& keys,
-                                       const time_t time) {
+template <typename Key>
+void RedisClusterBackend<Key>::touch_(const std::string& hkey_t,
+                                      const std::shared_ptr<std::vector<Key>>& keys,
+                                      const time_t time) {
   HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching " << keys->size() << " keys of " << hkey_t
                            << '.' << std::endl;
 
   // Prepare query.
   std::vector<std::pair<std::string_view, std::string_view>> kt_views;
   kt_views.reserve(keys->size());
-  for (const TKey& k : *keys) {
+  for (const Key& k : *keys) {
     kt_views.emplace_back(
         std::piecewise_construct,
-        std::forward_as_tuple(reinterpret_cast<const char*>(&k), sizeof(TKey)),
+        std::forward_as_tuple(reinterpret_cast<const char*>(&k), sizeof(Key)),
         std::forward_as_tuple(reinterpret_cast<const char*>(&time), sizeof(time_t)));
   }
 

@@ -73,6 +73,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::MultiCrossEntropyLoss, "MultiCrossEntropyLoss"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::MultiCross, "MultiCross"},
+    {Layer_t::MLP, "MLP"},
     {Layer_t::SequenceMask, "SequenceMask"}};
 
 std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
@@ -98,12 +99,14 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
     {Layer_t::MultiCross, "MultiCross"},
+    {Layer_t::MLP, "MLP"},
     {Layer_t::SequenceMask, "SequenceMask"}};
 
 std::set<Layer_t> TRAINABLE_LAYERS = {Layer_t::InnerProduct, Layer_t::FusedInnerProduct,
                                       Layer_t::MultiCross,   Layer_t::WeightMultiply,
                                       Layer_t::BatchNorm,    Layer_t::LayerNorm,
-                                      Layer_t::GRU,          Layer_t::MultiHeadAttention};
+                                      Layer_t::GRU,          Layer_t::MultiHeadAttention,
+                                      Layer_t::MLP};
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
@@ -258,6 +261,11 @@ struct DenseLayer {
   FcPosition_t pos_type;
   Activation_t act_type;
   DenseLayerSwitchs dense_layer_switches;
+  std::vector<size_t> num_outputs;
+  bool use_bias;
+  std::vector<Activation_t> acts;
+  std::vector<bool> biases;
+
   DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
              std::vector<std::string>& top_names, float factor = 1.0, float eps = 0.00001,
              Initializer_t gamma_init_type = Initializer_t::Default,
@@ -276,7 +284,10 @@ struct DenseLayer {
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
              Activation_t act_type = Activation_t::Relu,
-             DenseLayerSwitchs dense_layer_switches = {false});
+             DenseLayerSwitchs dense_layer_switches = {false},
+             std::vector<size_t> num_outputs = std::vector<size_t>(), bool use_bias = true,
+             std::vector<Activation_t> acts = std::vector<Activation_t>(),
+             std::vector<bool> biases = std::vector<bool>());
 };
 
 struct GroupDenseLayer {

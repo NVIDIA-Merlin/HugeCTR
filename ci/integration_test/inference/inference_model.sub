@@ -7,7 +7,8 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/cross_entropy_loss.py &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/multi_cross_entropy_loss.py &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/dcn_one_hot.py &&
-    mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/wdl_one_hot.py"
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/wdl_one_hot.py &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference/inference_model/dlrm_mlp_one_hot.py"
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     mkdir -p /dump_infer &&
     cd ${NEW_CRITEO_MOUNT} &&

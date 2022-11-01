@@ -34,6 +34,9 @@ file(GLOB huge_ctr_inference_src
   ../layers/fully_connected_layer_half.cu
   ../layers/fused_fully_connected_layer.cu
   ../layers/fused_relu_bias_fully_connected_layer.cu
+  ../layers/functors/fused_fc_layer_functors.cu
+  ../layers/functors/fused_gemm_functors.cu
+  ../layers/mlp_layer.cu
   ../layers/interaction_layer.cu
   ../layers/relu_layer.cu
   ../layers/reshape_layer.cu
