@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR API Documentation &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR Python Interface" href="python_interface.html" />
+    <link rel="prev" title="Training HugeCTR Model with Pre-trained Embeddings" href="../notebooks/multi-modal-data/07-Training-with-HugeCTR.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html">Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html">Layer Classes and Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">HugeCTR API Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="hugectr-api-documentation">
+<h1>HugeCTR API Documentation<a class="headerlink" href="#hugectr-api-documentation" title="Permalink to this headline"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python_interface.html">Python Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#about-the-hugectr-python-interface">About the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#high-level-training-api">High-level Training API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#solver">Solver</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#createsolver-method">CreateSolver method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#createetc-method">CreateETC method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#asyncparam">AsyncParam</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#asyncparam-class">AsyncParam class</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#hybridembeddingparam">HybridEmbeddingParam</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#hybridembeddingparam-class">HybridEmbeddingParam class</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#datareaderparams">DataReaderParams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#datareaderparams-class">DataReaderParams class</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#dataset-formats">Dataset formats</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#norm">Norm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#raw">Raw</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#parquet">Parquet</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#optparamspy">OptParamsPy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#createoptimizer-method">CreateOptimizer method</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#layers">Layers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#model">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#model-class">Model class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#add-method">add method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#compile-method">compile method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#fit-method">fit method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#summary-method">summary method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#graph-to-json-method">graph_to_json method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#construct-from-json-method">construct_from_json method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#load-dense-weights-method">load_dense_weights method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#load-dense-optimizer-states-method">load_dense_optimizer_states method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#load-sparse-weights-method">load_sparse_weights method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#load-sparse-optimizer-states-method">load_sparse_optimizer_states method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#freeze-dense-method">freeze_dense method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#freeze-embedding-method">freeze_embedding method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#unfreeze-dense-method">unfreeze_dense method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#unfreeze-embedding-method">unfreeze_embedding method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#reset-learning-rate-scheduler-method">reset_learning_rate_scheduler method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#set-source-method">set_source method</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#low-level-training-api">Low-level Training API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#learningratescheduler">LearningRateScheduler</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-next-method">get_next method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#datareader">DataReader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#id1">set_source method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#is-eof-method">is_eof method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#embeddingtraingcache">EmbeddingTraingCache</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#update-method">update method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#id2">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-learning-rate-scheduler-method">get_learning_rate_scheduler method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-embedding-training-cache-method">get_embedding_training_cache method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-data-reader-train-method">get_data_reader_train method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-data-reader-eval-method">get_data_reader_eval method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#start-data-reading-method">start_data_reading method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#set-learning-rate-method">set_learning_rate method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#train-method">train method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-current-loss-method">get_current_loss method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#eval-method">eval method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-eval-metrics-method">get_eval_metrics method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-incremental-model-method">get_incremental_model method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#dump-incremental-model-2kafka-method">dump_incremental_model_2kafka method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#save-params-to-files-method">save_params_to_files method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#check-out-tensor-method">check_out_tensor method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#export-predictions-method">export_predictions method</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#inference-api">Inference API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#inferenceparams">InferenceParams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#inferenceparams-class">InferenceParams class</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#inferencemodel">InferenceModel</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#inferencemodel-class">InferenceModel class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#predict-method">predict method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#evaluate-method">evaluate method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#id3">check_out_tensor method</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#data-generator-api">Data Generator API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#datageneratorparams-class">DataGeneratorParams class</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#datagenerator">DataGenerator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#datagenerator-class">DataGenerator class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#generate-method">generate method</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_interface.html#data-source-api">Data Source API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_interface.html#datasourceparams-class">DataSourceParams class</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_layer_book.html">Layer Classes and Methods</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#input-layer">Input Layer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#sparse-embedding">Sparse Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#embedding-types-detail">Embedding Types Detail</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#distributedslotsparseembeddinghash-layer">DistributedSlotSparseEmbeddingHash Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#localizedslotsparseembeddinghash-layer">LocalizedSlotSparseEmbeddingHash Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#localizedslotsparseembeddingonehot-layer">LocalizedSlotSparseEmbeddingOneHot Layer</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#dense-layers">Dense Layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#dense-layers-usage">Dense Layers Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#fullyconnected-layer">FullyConnected Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#fusedfullyconnected-layer">FusedFullyConnected Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#multicross-layer">MultiCross Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#fmorder2-layer">FmOrder2 Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#weightmultiply-layer">WeightMultiply Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#elementwisemultiply-layer">ElementwiseMultiply Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#batchnorm-layer">BatchNorm Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#layernorm-layer">LayerNorm Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#concat-layer">Concat Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#reshape-layer">Reshape Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#slice-layer">Slice Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#dropout-layer">Dropout Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#elu-layer">ELU Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#relu-layer">ReLU Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#sigmoid-layer">Sigmoid Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#interaction-layer">Interaction Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#add-layer">Add Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#reducesum-layer">ReduceSum Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#gru-layer">GRU Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#preludice-layer">PReLUDice Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#scale-layer">Scale Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#fusedreshapeconcat-layer">FusedReshapeConcat Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#fusedreshapeconcatgeneral-layer">FusedReshapeConcatGeneral Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#softmax-layer">Softmax Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#sub-layer">Sub Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#reducemean-layer">ReduceMean Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#matrixmutiply-layer">MatrixMutiply Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#multiheadattention-layer">MultiHeadAttention Layer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#gather-layer">Gather Layer</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#binarycrossentropyloss">BinaryCrossEntropyLoss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#crossentropyloss">CrossEntropyLoss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#multicrossentropyloss">MultiCrossEntropyLoss</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#embedding-collection">Embedding Collection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#about-the-hugectr-embedding-collection">About the HugeCTR embedding collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#sample-notebook">Sample Notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#overview-of-using-the-hugectr-embedding-collection">Overview of using the HugeCTR embedding collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#embeddingtableconfig">EmbeddingTableConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#embeddingplanner">EmbeddingPlanner</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#embedding-lookup-method">embedding_lookup method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#create-embedding-collection-method">create_embedding_collection method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#plan-file-and-embedding-table-placement-strategy-etps">Plan File and Embedding Table Placement Strategy (ETPS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#about-etps-and-benefits">About ETPS and Benefits</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#configuring-etps-and-the-embedding-collection">Configuring ETPS and the Embedding Collection</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#sample-etps-plan-file-data-parallel">Sample ETPS Plan File: Data Parallel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#sample-etps-plan-file-model-parallel-and-data-parallel-combined">Sample ETPS Plan File: Model Parallel and Data Parallel Combined</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#groupdenselayer">GroupDenseLayer</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../notebooks/multi-modal-data/07-Training-with-HugeCTR.html" class="btn btn-neutral float-left" title="Training HugeCTR Model with Pre-trained Embeddings" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="python_interface.html" class="btn btn-neutral float-right" title="HugeCTR Python Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.8/api/index.html">v3.8</a></dd>
+      <dd><a href="../../v3.9/api/index.html">v3.9</a></dd>
+      <dd><a href="../../v3.9.1/api/index.html">v3.9.1</a></dd>
+      <dd><a href="../../v4.0/api/index.html">v4.0</a></dd>
+      <dd><a href="../../v4.1/api/index.html">v4.1</a></dd>
+      <dd><a href="../../v4.1.1/api/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="index.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

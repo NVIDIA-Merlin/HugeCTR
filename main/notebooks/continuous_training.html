@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Continuous Training &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR Wide and Deep Model with Criteo" href="hugectr_wdl_prediction.html" />
+    <link rel="prev" title="HugeCTR to ONNX Converter" href="hugectr2onnx_demo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">HugeCTR Example Notebooks</a></li>
+      <li class="breadcrumb-item active">HugeCTR Continuous Training</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_continuous-training/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_continuous-training/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-continuous-training">
+<h1>HugeCTR Continuous Training<a class="headerlink" href="#hugectr-continuous-training" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>The notebook introduces how to use the Embedding Training Cache (ETC) feature in HugeCTR for the continuous training. The ETC feature is designed to handle recommendation models with huge embedding table by the incremental training method, which allows you to train such a model that the model size is much larger than the available GPU memory size.</p>
+<p>To learn more about the ETC, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#embedding-training-cache">Embedding Training Cache</a> documentation.</p>
+<p>To learn how to use the APIs of ETC, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a> documentation.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="get-hugectr-from-ngc">
+<h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
+<p>The continuous training module is preinstalled in the 22.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.09</span></code>.</p>
+<p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, refer to the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>
+documentation.</p>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="continuous-training">
+<h2>Continuous Training<a class="headerlink" href="#continuous-training" title="Permalink to this headline"></a></h2>
+<div class="section" id="data-preparation">
+<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
+<ol class="arabic">
+<li><p>Download the Criteo dataset using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+</pre></div>
+</div>
+<p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations:</p>
+<ul class="simple">
+<li><p>Reduce the amounts of data to speed up the preprocessing</p></li>
+<li><p>Fill missing values</p></li>
+<li><p>Remove the feature values whose occurrences are very rare, etc.</p></li>
+</ul>
+</li>
+<li><p>Preprocessing by Pandas using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+</pre></div>
+</div>
+<p>Meanings of the command line arguments:</p>
+<ul class="simple">
+<li><p>The 1st argument represents the dataset postfix. It is <code class="docutils literal notranslate"><span class="pre">1</span></code> here since <code class="docutils literal notranslate"><span class="pre">day_1</span></code> is used.</p></li>
+<li><p>The 2nd argument <code class="docutils literal notranslate"><span class="pre">wdl_data</span></code> is where the preprocessed data is stored.</p></li>
+<li><p>The 3rd argument <code class="docutils literal notranslate"><span class="pre">pandas</span></code> is the processing script going to use, here we choose <code class="docutils literal notranslate"><span class="pre">pandas</span></code>.</p></li>
+<li><p>The 4th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> embodies that the normalization is applied to dense features.</p></li>
+<li><p>The 5th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> means that the feature crossing is applied.</p></li>
+<li><p>The 6th argument <code class="docutils literal notranslate"><span class="pre">100</span></code> means the number of data files in each file list.</p></li>
+</ul>
+<p>For more details about the data preprocessing, please refer to the “Preprocess the Criteo Dataset” section of the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/criteo">samples/criteo</a> directory of the repository on GitHub.</p>
+</li>
+<li><p>Create a soft link of the dataset folder to the path of this notebook using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="continuous-training-with-high-level-api">
+<h3>Continuous Training with High-level API<a class="headerlink" href="#continuous-training-with-high-level-api" title="Permalink to this headline"></a></h3>
+<p>This section gives the code sample of continuous training using a Keras-like high-level API. The high-level API encapsulates much of the complexity for users, making it easy to use and able to handle many of the scenarios in a production environment.</p>
+<p>Meanwhile, in addition to a high-level API, HugeCTR also provides low-level APIs that enable you customize the training logic. A code sample using the low-level APIs is provided in the next section.</p>
+<p>The code sample in this section trains a model from scratch using the embedding training cache, gets the incremental model, and saves the trained dense weights and sparse embedding weights. The following steps are required to achieve those logics:</p>
+<ol class="arabic simple">
+<li><p>Create the <code class="docutils literal notranslate"><span class="pre">solver</span></code>, <code class="docutils literal notranslate"><span class="pre">reader</span></code>, <code class="docutils literal notranslate"><span class="pre">optimizer</span></code> and <code class="docutils literal notranslate"><span class="pre">etc</span></code>, then initialize the model.</p></li>
+<li><p>Construct the model graph by adding input, sparse embedding, and dense layers in order.</p></li>
+<li><p>Compile the model and overview the model graph.</p></li>
+<li><p>Dump the model graph to the JSON file.</p></li>
+<li><p>Train the sparse and dense model.</p></li>
+<li><p>Set the new training datasets and their corresponding keysets.</p></li>
+<li><p>Train the sparse and dense model incrementally.</p></li>
+<li><p>Get the incrementally trained embedding table.</p></li>
+<li><p>Save the model weights and optimizer states explicitly.</p></li>
+</ol>
+<p>Note: <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> should be <code class="docutils literal notranslate"><span class="pre">False</span></code> when using the embedding training cache, while the argument <code class="docutils literal notranslate"><span class="pre">num_epochs</span></code> in <code class="docutils literal notranslate"><span class="pre">Model::fit</span></code> specifies the number of training epochs in this mode.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> wdl_train.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
+                          <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.txt&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)],</span>
+                          <span class="n">keyset</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.keyset&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)],</span>
+                          <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;wdl_data/file_list.2.txt&quot;</span><span class="p">,</span>
+                          <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">)</span>
+<span class="n">hc_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">target_hit_rate</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">max_num_evict</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span><span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Staged</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">],</span>
+                        <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="s2">&quot;./wdl_1_sparse_model&quot;</span><span class="p">],</span>
+                        <span class="n">local_paths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./&quot;</span><span class="p">],</span> <span class="n">hmem_cache_configs</span> <span class="o">=</span> <span class="p">[</span><span class="n">hc_cnfg</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">etc</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;wide_data&quot;</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">69</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;wide_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">1074</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;deep_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span> <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Add</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span> <span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">num_epochs</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="c1"># Get the updated embedding features in model.fit()</span>
+<span class="c1"># updated_model = model.get_incremental_model()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">set_source</span><span class="p">(</span><span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.3.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl_data/file_list.4.txt&quot;</span><span class="p">],</span> <span class="n">keyset</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.3.keyset&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl_data/file_list.4.keyset&quot;</span><span class="p">],</span> <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;wdl_data/file_list.5.txt&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">num_epochs</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="c1"># Get the updated embedding features in model.fit()</span>
+<span class="n">updated_model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_incremental_model</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save_params_to_files</span><span class="p">(</span><span class="s2">&quot;wdl_etc&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing wdl_train.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HUGECTR][12:36:58][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_0_sparse_model
+[HUGECTR][12:36:58][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_1_sparse_model
+HugeCTR Version: 3.2
+====================================================Model Init=====================================================
+[HUGECTR][12:36:58][INFO][RANK0]: Global seed is 3664540043
+[HUGECTR][12:36:58][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[HUGECTR][12:36:59][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][12:36:59][INFO][RANK0]: Start all2all warmup
+[HUGECTR][12:36:59][INFO][RANK0]: End all2all warmup
+[HUGECTR][12:36:59][INFO][RANK0]: Using All-reduce algorithm: NCCL
+[HUGECTR][12:36:59][INFO][RANK0]: Device 0: Tesla V100-SXM2-32GB
+[HUGECTR][12:36:59][INFO][RANK0]: num of DataReader workers: 12
+[HUGECTR][12:36:59][INFO][RANK0]: max_vocabulary_size_per_gpu_=6029312
+[HUGECTR][12:36:59][INFO][RANK0]: max_vocabulary_size_per_gpu_=5865472
+[HUGECTR][12:36:59][INFO][RANK0]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:37:03][INFO][RANK0]: Enable HMEM-Based Parameter Server
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_0_sparse_model not exist, create and train from scratch
+[HUGECTR][12:37:03][INFO][RANK0]: Enable HMemCache-Based Parameter Server
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/key doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/emb_vector doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/Adam.m doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/Adam.v doesn&#39;t exist, created
+[HUGECTR][12:37:04][INFO][RANK0]: Starting AUC NCCL warm-up
+[HUGECTR][12:37:04][INFO][RANK0]: Warm-up done
+===================================================Model Summary===================================================
+label                                   Dense                         Sparse                        
+label                                   dense                          wide_data,deep_data           
+(None, 1)                               (None, 13)                              
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 1, 1)                  
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)                
+Reshape                                 sparse_embedding1             reshape1                      (None, 416)                   
+Reshape                                 sparse_embedding2             reshape2                      (None, 1)                     
+Concat                                  reshape1,dense                concat1                       (None, 429)                   
+InnerProduct                            concat1                       fc1                           (None, 1024)                  
+ReLU                                    fc1                           relu1                         (None, 1024)                  
+Dropout                                 relu1                         dropout1                      (None, 1024)                  
+InnerProduct                            dropout1                      fc2                           (None, 1024)                  
+ReLU                                    fc2                           relu2                         (None, 1024)                  
+Dropout                                 relu2                         dropout2                      (None, 1024)                  
+InnerProduct                            dropout2                      fc3                           (None, 1)                     
+Add                                     fc3,reshape2                  add1                          (None, 1)                     
+BinaryCrossEntropyLoss                  add1,label                    loss                                                        
+------------------------------------------------------------------------------------------------------------------
+[HUGECTR][12:37:04][INFO][RANK0]: Save the model graph to wdl.json successfully
+=====================================================Model Fit=====================================================
+[HUGECTR][12:37:04][INFO][RANK0]: Use embedding training cache mode with number of training sources: 2, number of epochs: 1
+[HUGECTR][12:37:04][INFO][RANK0]: Training batchsize: 1024, evaluation batchsize: 1024
+[HUGECTR][12:37:04][INFO][RANK0]: Evaluation interval: 1000, snapshot interval: 10000
+[HUGECTR][12:37:04][INFO][RANK0]: Sparse embedding trainable: True, dense network trainable: True
+[HUGECTR][12:37:04][INFO][RANK0]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HUGECTR][12:37:04][INFO][RANK0]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[HUGECTR][12:37:04][INFO][RANK0]: Evaluation source file: wdl_data/file_list.2.txt
+[HUGECTR][12:37:04][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.0.txt--------------------
+[HUGECTR][12:37:04][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:37:05][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][12:37:07][INFO][RANK0]: Iter: 500 Time(500 iters): 2.959942s Loss: 0.140601 lr:0.001000
+[HUGECTR][12:37:10][INFO][RANK0]: Iter: 1000 Time(500 iters): 2.687422s Loss: 0.127723 lr:0.001000
+[HUGECTR][12:37:15][INFO][RANK0]: Evaluation, AUC: 0.738460
+[HUGECTR][12:37:15][INFO][RANK0]: Eval Time for 5000 iters: 4.757926s
+[HUGECTR][12:37:17][INFO][RANK0]: Iter: 1500 Time(500 iters): 7.310160s Loss: 0.152160 lr:0.001000
+[HUGECTR][12:37:20][INFO][RANK0]: Iter: 2000 Time(500 iters): 2.613197s Loss: 0.124371 lr:0.001000
+[HUGECTR][12:37:22][INFO][RANK0]: Evaluation, AUC: 0.745345
+[HUGECTR][12:37:22][INFO][RANK0]: Eval Time for 5000 iters: 1.907179s
+[HUGECTR][12:37:24][INFO][RANK0]: Iter: 2500 Time(500 iters): 4.343850s Loss: 0.134511 lr:0.001000
+[HUGECTR][12:37:27][INFO][RANK0]: Iter: 3000 Time(500 iters): 2.505121s Loss: 0.119222 lr:0.001000
+[HUGECTR][12:37:28][INFO][RANK0]: Evaluation, AUC: 0.751256
+[HUGECTR][12:37:28][INFO][RANK0]: Eval Time for 5000 iters: 1.900262s
+[HUGECTR][12:37:31][INFO][RANK0]: Iter: 3500 Time(500 iters): 4.459760s Loss: 0.145278 lr:0.001000
+[HUGECTR][12:37:34][INFO][RANK0]: Iter: 4000 Time(500 iters): 2.544999s Loss: 0.134373 lr:0.001000
+[HUGECTR][12:37:35][INFO][RANK0]: Evaluation, AUC: 0.753270
+[HUGECTR][12:37:35][INFO][RANK0]: Eval Time for 5000 iters: 1.901368s
+[HUGECTR][12:37:35][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.1.txt--------------------
+[HUGECTR][12:37:35][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:37:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 0 %
+[HUGECTR][12:37:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][12:37:40][INFO][RANK0]: Iter: 4500 Time(500 iters): 6.212693s Loss: 0.131819 lr:0.001000
+[HUGECTR][12:37:42][INFO][RANK0]: Iter: 5000 Time(500 iters): 2.660587s Loss: 0.117531 lr:0.001000
+[HUGECTR][12:37:44][INFO][RANK0]: Evaluation, AUC: 0.754530
+[HUGECTR][12:37:44][INFO][RANK0]: Eval Time for 5000 iters: 1.897969s
+[HUGECTR][12:37:47][INFO][RANK0]: Iter: 5500 Time(500 iters): 4.340803s Loss: 0.118400 lr:0.001000
+[HUGECTR][12:37:49][INFO][RANK0]: Iter: 6000 Time(500 iters): 2.497391s Loss: 0.143188 lr:0.001000
+[HUGECTR][12:37:51][INFO][RANK0]: Evaluation, AUC: 0.755805
+[HUGECTR][12:37:51][INFO][RANK0]: Eval Time for 5000 iters: 1.904572s
+[HUGECTR][12:37:54][INFO][RANK0]: Iter: 6500 Time(500 iters): 4.332877s Loss: 0.159262 lr:0.001000
+[HUGECTR][12:37:56][INFO][RANK0]: Iter: 7000 Time(500 iters): 2.426105s Loss: 0.119848 lr:0.001000
+[HUGECTR][12:37:58][INFO][RANK0]: Evaluation, AUC: 0.757338
+[HUGECTR][12:37:58][INFO][RANK0]: Eval Time for 5000 iters: 1.900609s
+[HUGECTR][12:38:00][INFO][RANK0]: Iter: 7500 Time(500 iters): 4.348594s Loss: 0.139543 lr:0.001000
+[HUGECTR][12:38:03][INFO][RANK0]: Iter: 8000 Time(500 iters): 2.424926s Loss: 0.109002 lr:0.001000
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation, AUC: 0.758067
+[HUGECTR][12:38:05][INFO][RANK0]: Eval Time for 5000 iters: 1.900712s
+=====================================================Model Fit=====================================================
+[HUGECTR][12:38:05][INFO][RANK0]: Use embedding training cache mode with number of training sources: 2, number of epochs: 1
+[HUGECTR][12:38:05][INFO][RANK0]: Training batchsize: 1024, evaluation batchsize: 1024
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation interval: 1000, snapshot interval: 10000
+[HUGECTR][12:38:05][INFO][RANK0]: Sparse embedding trainable: True, dense network trainable: True
+[HUGECTR][12:38:05][INFO][RANK0]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HUGECTR][12:38:05][INFO][RANK0]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation source file: wdl_data/file_list.5.txt
+[HUGECTR][12:38:05][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.3.txt--------------------
+[HUGECTR][12:38:05][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:38:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 77.89 %
+[HUGECTR][12:38:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 71.22 %
+[HUGECTR][12:38:08][INFO][RANK0]: Iter: 500 Time(500 iters): 3.652928s Loss: 0.124229 lr:0.001000
+[HUGECTR][12:38:11][INFO][RANK0]: Iter: 1000 Time(500 iters): 2.455519s Loss: 0.142507 lr:0.001000
+[HUGECTR][12:38:13][INFO][RANK0]: Evaluation, AUC: 0.757185
+[HUGECTR][12:38:13][INFO][RANK0]: Eval Time for 5000 iters: 1.909209s
+[HUGECTR][12:38:15][INFO][RANK0]: Iter: 1500 Time(500 iters): 4.353392s Loss: 0.123939 lr:0.001000
+[HUGECTR][12:38:18][INFO][RANK0]: Iter: 2000 Time(500 iters): 2.522630s Loss: 0.130625 lr:0.001000
+[HUGECTR][12:38:21][INFO][RANK0]: Evaluation, AUC: 0.757897
+[HUGECTR][12:38:21][INFO][RANK0]: Eval Time for 5000 iters: 3.763415s
+[HUGECTR][12:38:24][INFO][RANK0]: Iter: 2500 Time(500 iters): 6.238394s Loss: 0.138125 lr:0.001000
+[HUGECTR][12:38:26][INFO][RANK0]: Iter: 3000 Time(500 iters): 2.429449s Loss: 0.126391 lr:0.001000
+[HUGECTR][12:38:28][INFO][RANK0]: Evaluation, AUC: 0.757794
+[HUGECTR][12:38:28][INFO][RANK0]: Eval Time for 5000 iters: 1.902641s
+[HUGECTR][12:38:31][INFO][RANK0]: Iter: 3500 Time(500 iters): 4.398343s Loss: 0.123047 lr:0.001000
+[HUGECTR][12:38:33][INFO][RANK0]: Iter: 4000 Time(500 iters): 2.420357s Loss: 0.142649 lr:0.001000
+[HUGECTR][12:38:35][INFO][RANK0]: Evaluation, AUC: 0.760467
+[HUGECTR][12:38:35][INFO][RANK0]: Eval Time for 5000 iters: 1.899759s
+[HUGECTR][12:38:35][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.4.txt--------------------
+[HUGECTR][12:38:35][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:38:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.88 %
+[HUGECTR][12:38:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 67.35 %
+[HUGECTR][12:38:40][INFO][RANK0]: Iter: 4500 Time(500 iters): 6.318908s Loss: 0.165160 lr:0.001000
+[HUGECTR][12:38:42][INFO][RANK0]: Iter: 5000 Time(500 iters): 2.423369s Loss: 0.112445 lr:0.001000
+[HUGECTR][12:38:44][INFO][RANK0]: Evaluation, AUC: 0.759795
+[HUGECTR][12:38:44][INFO][RANK0]: Eval Time for 5000 iters: 1.902252s
+[HUGECTR][12:38:46][INFO][RANK0]: Iter: 5500 Time(500 iters): 4.329618s Loss: 0.150855 lr:0.001000
+[HUGECTR][12:38:49][INFO][RANK0]: Iter: 6000 Time(500 iters): 2.422831s Loss: 0.121576 lr:0.001000
+[HUGECTR][12:38:51][INFO][RANK0]: Evaluation, AUC: 0.760036
+[HUGECTR][12:38:51][INFO][RANK0]: Eval Time for 5000 iters: 1.896330s
+[HUGECTR][12:38:53][INFO][RANK0]: Iter: 6500 Time(500 iters): 4.352440s Loss: 0.131191 lr:0.001000
+[HUGECTR][12:38:56][INFO][RANK0]: Iter: 7000 Time(500 iters): 2.426486s Loss: 0.130866 lr:0.001000
+[HUGECTR][12:38:57][INFO][RANK0]: Evaluation, AUC: 0.761125
+[HUGECTR][12:38:57][INFO][RANK0]: Eval Time for 5000 iters: 1.910397s
+[HUGECTR][12:39:00][INFO][RANK0]: Iter: 7500 Time(500 iters): 4.364026s Loss: 0.096611 lr:0.001000
+[HUGECTR][12:39:03][INFO][RANK0]: Iter: 8000 Time(500 iters): 2.664058s Loss: 0.142381 lr:0.001000
+[HUGECTR][12:39:05][INFO][RANK0]: Evaluation, AUC: 0.762636
+[HUGECTR][12:39:05][INFO][RANK0]: Eval Time for 5000 iters: 1.975668s
+[HUGECTR][12:39:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:39:07][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 57.86 %
+[HUGECTR][12:39:07][INFO][RANK0]: Get updated portion of embedding table [DONE}
+[HUGECTR][12:39:08][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:39:08][INFO][RANK0]: Updating sparse model in SSD [DONE]
+[HUGECTR][12:39:10][INFO][RANK0]: Sync blocks from HMEM-Cache to SSD
+  ████████████████████████████████████████▏ <span class=" -Color -Color-Bold -Color-Bold-Red">100.0% </span><span class=" -Color -Color-Bold -Color-Bold-Blue">[   2/   2 | 66.7 Hz | 0s&lt;0s]  </span>m
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping dense weights to file, successful
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping dense optimizer states to file, successful
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping untrainable weights to file, successful
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="continuous-training-with-the-low-level-api">
+<h3>Continuous Training with the Low-level API<a class="headerlink" href="#continuous-training-with-the-low-level-api" title="Permalink to this headline"></a></h3>
+<p>This section gives the code sample for continuous training using the low-level API.
+The program logic is the same as the preceding code sample.</p>
+<p>Although the low-level APIs provide fine-grained control of the training logic, we encourage you to use the high-level API if it can satisfy your requirements because the naked data reader and embedding training cache logics are not straightforward and error prone.</p>
+<p>For more about the low-level API, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#low-level-training-api">Low-level Training API</a> and samples of <a class="reference internal" href="hugectr_criteo.html"><span class="doc std std-doc">Low-level Training</span></a>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> wdl_etc.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                              <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
+                          <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.txt&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)],</span>
+                          <span class="n">keyset</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.keyset&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)],</span>
+                          <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;wdl_data/file_list.2.txt&quot;</span><span class="p">,</span>
+                          <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">)</span>
+<span class="n">hc_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">target_hit_rate</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">max_num_evict</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span><span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Staged</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">],</span>
+                        <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="s2">&quot;./wdl_1_sparse_model&quot;</span><span class="p">],</span>
+                        <span class="n">local_paths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./&quot;</span><span class="p">],</span> <span class="n">hmem_cache_configs</span> <span class="o">=</span> <span class="p">[</span><span class="n">hc_cnfg</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">etc</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">construct_from_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">,</span> <span class="n">include_dense_network</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">lr_sch</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_learning_rate_scheduler</span><span class="p">()</span>
+<span class="n">data_reader_train</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_data_reader_train</span><span class="p">()</span>
+<span class="n">data_reader_eval</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_data_reader_eval</span><span class="p">()</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_embedding_training_cache</span><span class="p">()</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.keyset&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span>
+<span class="n">data_reader_eval</span><span class="o">.</span><span class="n">set_source</span><span class="p">(</span><span class="s2">&quot;wdl_data/file_list.2.txt&quot;</span><span class="p">)</span>
+<span class="n">data_reader_eval_flag</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">iteration</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">file_list</span><span class="p">,</span> <span class="n">keyset_file</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">:</span>
+  <span class="n">data_reader_train</span><span class="o">.</span><span class="n">set_source</span><span class="p">(</span><span class="n">file_list</span><span class="p">)</span>
+  <span class="n">data_reader_train_flag</span> <span class="o">=</span> <span class="kc">True</span>
+  <span class="n">etc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">keyset_file</span><span class="p">)</span>
+  <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">lr</span> <span class="o">=</span> <span class="n">lr_sch</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">set_learning_rate</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">data_reader_train_flag</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">data_reader_train_flag</span><span class="p">:</span>
+      <span class="k">break</span>
+    <span class="k">if</span> <span class="n">iteration</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="n">batches</span> <span class="o">=</span> <span class="mi">0</span>
+      <span class="k">while</span> <span class="n">data_reader_eval_flag</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">batches</span> <span class="o">&gt;=</span> <span class="n">solver</span><span class="o">.</span><span class="n">max_eval_batches</span><span class="p">:</span>
+          <span class="k">break</span>
+        <span class="n">data_reader_eval_flag</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">batches</span> <span class="o">+=</span> <span class="mi">1</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">data_reader_eval_flag</span><span class="p">:</span>
+        <span class="n">data_reader_eval</span><span class="o">.</span><span class="n">set_source</span><span class="p">()</span>
+        <span class="n">data_reader_eval_flag</span> <span class="o">=</span> <span class="kc">True</span>
+      <span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_eval_metrics</span><span class="p">()</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] iter: </span><span class="si">{}</span><span class="s2">, metrics: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iteration</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+    <span class="n">iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] trained with data in </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file_list</span><span class="p">))</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl_data/file_list.&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;.keyset&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)]</span>
+<span class="k">for</span> <span class="n">file_list</span><span class="p">,</span> <span class="n">keyset_file</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">:</span>
+  <span class="n">data_reader_train</span><span class="o">.</span><span class="n">set_source</span><span class="p">(</span><span class="n">file_list</span><span class="p">)</span>
+  <span class="n">data_reader_train_flag</span> <span class="o">=</span> <span class="kc">True</span>
+  <span class="n">etc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">keyset_file</span><span class="p">)</span>
+  <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">lr</span> <span class="o">=</span> <span class="n">lr_sch</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">set_learning_rate</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">data_reader_train_flag</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">data_reader_train_flag</span><span class="p">:</span>
+      <span class="k">break</span>
+    <span class="k">if</span> <span class="n">iteration</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="n">batches</span> <span class="o">=</span> <span class="mi">0</span>
+      <span class="k">while</span> <span class="n">data_reader_eval_flag</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">batches</span> <span class="o">&gt;=</span> <span class="n">solver</span><span class="o">.</span><span class="n">max_eval_batches</span><span class="p">:</span>
+          <span class="k">break</span>
+        <span class="n">data_reader_eval_flag</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">batches</span> <span class="o">+=</span> <span class="mi">1</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">data_reader_eval_flag</span><span class="p">:</span>
+        <span class="n">data_reader_eval</span><span class="o">.</span><span class="n">set_source</span><span class="p">()</span>
+        <span class="n">data_reader_eval_flag</span> <span class="o">=</span> <span class="kc">True</span>
+      <span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_eval_metrics</span><span class="p">()</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] iter: </span><span class="si">{}</span><span class="s2">, metrics: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iteration</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+    <span class="n">iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] trained with data in </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file_list</span><span class="p">))</span>
+<span class="n">incremental_model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_incremental_model</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save_params_to_files</span><span class="p">(</span><span class="s2">&quot;wdl_etc&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing wdl_etc.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_etc.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HUGECTR][12:39:44][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_0_sparse_model
+[HUGECTR][12:39:44][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_1_sparse_model
+HugeCTR Version: 3.2
+====================================================Model Init=====================================================
+[HUGECTR][12:39:44][INFO][RANK0]: Global seed is 3498697826
+[HUGECTR][12:39:44][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[HUGECTR][12:39:45][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][12:39:45][INFO][RANK0]: Start all2all warmup
+[HUGECTR][12:39:45][INFO][RANK0]: End all2all warmup
+[HUGECTR][12:39:45][INFO][RANK0]: Using All-reduce algorithm: NCCL
+[HUGECTR][12:39:45][INFO][RANK0]: Device 0: Tesla V100-SXM2-32GB
+[HUGECTR][12:39:45][INFO][RANK0]: num of DataReader workers: 12
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_frequent_categories is not specified using default: 1
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_infrequent_samples is not specified using default: -1
+[HUGECTR][12:39:45][INFO][RANK0]: p_dup_max is not specified using default: 0.010000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_reduce_bandwidth is not specified using default: 130000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_to_all_bandwidth is not specified using default: 190000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: efficiency_bandwidth_ratio is not specified using default: 1.000000
+[HUGECTR][12:39:45][INFO][RANK0]: communication_type is not specified using default: IB_NVLink
+[HUGECTR][12:39:45][INFO][RANK0]: hybrid_embedding_type is not specified using default: Distributed
+[HUGECTR][12:39:45][INFO][RANK0]: max_vocabulary_size_per_gpu_=6029312
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_frequent_categories is not specified using default: 1
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_infrequent_samples is not specified using default: -1
+[HUGECTR][12:39:45][INFO][RANK0]: p_dup_max is not specified using default: 0.010000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_reduce_bandwidth is not specified using default: 130000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_to_all_bandwidth is not specified using default: 190000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: efficiency_bandwidth_ratio is not specified using default: 1.000000
+[HUGECTR][12:39:45][INFO][RANK0]: communication_type is not specified using default: IB_NVLink
+[HUGECTR][12:39:45][INFO][RANK0]: hybrid_embedding_type is not specified using default: Distributed
+[HUGECTR][12:39:45][INFO][RANK0]: max_vocabulary_size_per_gpu_=5865472
+[HUGECTR][12:39:45][INFO][RANK0]: Load the model graph from wdl.json successfully
+[HUGECTR][12:39:45][INFO][RANK0]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:39:49][INFO][RANK0]: Enable HMEM-Based Parameter Server
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_0_sparse_model not exist, create and train from scratch
+[HUGECTR][12:39:49][INFO][RANK0]: Enable HMemCache-Based Parameter Server
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/key doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/emb_vector doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/Adam.m doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/Adam.v doesn&#39;t exist, created
+[HUGECTR][12:39:50][INFO][RANK0]: Starting AUC NCCL warm-up
+[HUGECTR][12:39:50][INFO][RANK0]: Warm-up done
+[HUGECTR][12:39:50][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:39:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][INFO] iter: 0, metrics: [(&#39;AUC&#39;, 0.4865134358406067)]
+[HUGECTR][INFO] iter: 1000, metrics: [(&#39;AUC&#39;, 0.7405899167060852)]
+[HUGECTR][INFO] iter: 2000, metrics: [(&#39;AUC&#39;, 0.7468112707138062)]
+[HUGECTR][INFO] iter: 3000, metrics: [(&#39;AUC&#39;, 0.7530832290649414)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.0.txt
+[HUGECTR][12:40:28][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:40:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 0 %
+[HUGECTR][12:40:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][INFO] iter: 4000, metrics: [(&#39;AUC&#39;, 0.7554274201393127)]
+[HUGECTR][INFO] iter: 5000, metrics: [(&#39;AUC&#39;, 0.7563489079475403)]
+[HUGECTR][INFO] iter: 6000, metrics: [(&#39;AUC&#39;, 0.7577884197235107)]
+[HUGECTR][INFO] iter: 7000, metrics: [(&#39;AUC&#39;, 0.7599539160728455)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.1.txt
+[HUGECTR][12:41:08][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:41:09][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 77.89 %
+[HUGECTR][12:41:10][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 71.22 %
+[HUGECTR][INFO] iter: 8000, metrics: [(&#39;AUC&#39;, 0.7602559328079224)]
+[HUGECTR][INFO] iter: 9000, metrics: [(&#39;AUC&#39;, 0.7596363425254822)]
+[HUGECTR][INFO] iter: 10000, metrics: [(&#39;AUC&#39;, 0.7619153261184692)]
+[HUGECTR][INFO] iter: 11000, metrics: [(&#39;AUC&#39;, 0.7607191801071167)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.3.txt
+[HUGECTR][12:41:48][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:41:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.88 %
+[HUGECTR][12:41:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 67.35 %
+[HUGECTR][INFO] iter: 12000, metrics: [(&#39;AUC&#39;, 0.763184666633606)]
+[HUGECTR][INFO] iter: 13000, metrics: [(&#39;AUC&#39;, 0.7622747421264648)]
+[HUGECTR][INFO] iter: 14000, metrics: [(&#39;AUC&#39;, 0.7623080015182495)]
+[HUGECTR][INFO] iter: 15000, metrics: [(&#39;AUC&#39;, 0.7622851729393005)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.4.txt
+[HUGECTR][12:42:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:42:31][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 63.85 %
+[HUGECTR][12:42:31][INFO][RANK0]: Get updated portion of embedding table [DONE}
+[HUGECTR][12:42:32][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:42:32][INFO][RANK0]: Updating sparse model in SSD [DONE]
+[HUGECTR][12:42:34][INFO][RANK0]: Sync blocks from HMEM-Cache to SSD
+  ████████████████████████████████████████▏ <span class=" -Color -Color-Bold -Color-Bold-Red">100.0% </span><span class=" -Color -Color-Bold -Color-Bold-Blue">[   2/   2 | 64.6 Hz | 0s&lt;0s]  </span>m
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping dense weights to file, successful
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping dense optimizer states to file, successful
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping untrainable weights to file, successful
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hugectr2onnx_demo.html" class="btn btn-neutral float-left" title="HugeCTR to ONNX Converter" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hugectr_wdl_prediction.html" class="btn btn-neutral float-right" title="HugeCTR Wide and Deep Model with Criteo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v4.1/index.html">v4.1</a></dd>
+      <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="continuous_training.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
