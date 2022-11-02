@@ -15,22 +15,6 @@ nightly_build_all:
     DOCKER_FILE: dockerfile.ctr
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
 
-nightly_build_all_with_hdfs:
-  extends: .build_nightly
-  variables:
-    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${IMAGE_ALL_WITH_HDFS}
-    DOCKER_FILE: dockerfile.ctr
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg INSTALL_HDFS=true
-  
-#nightly_build_inference:
-#  extends: .build_nightly
-#  variables:
-#    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-#    DST_IMAGE: ${IMAGE_INFER}
-#    DOCKER_FILE: ./inference/dockerfile.ctr
-#    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
-
 nightly_build_sok_tf2:
   extends: .build_nightly
   variables:
@@ -45,14 +29,6 @@ nightly_build_sok_tf1:
     DST_IMAGE: ${IMAGE_SOK_TF1}
     DOCKER_FILE: Dockerfile.sok1
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
-  
-#nightly_build_unified_container.ctr:
-#  extends: .build_nightly
-#  variables:
-#    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-#    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest.new
-#    DOCKER_FILE: dockerfile.ctr
-#    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH}
   
 nightly_build_unified_container.tf:
   extends: .build_nightly
@@ -96,7 +72,7 @@ build_train_single_node:
 build_train_single_node_with_hdfs_minimal:
   extends: .build_hugectr
   variables:
-    FROM_IMAGE: ${IMAGE_ALL_WITH_HDFS}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS_MINI
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_HDFS=MINIMAL"
     BUILD_HUGECTR: 1
@@ -105,7 +81,7 @@ build_train_single_node_with_hdfs_minimal:
 build_train_single_node_with_hdfs_full:
   extends: .build_hugectr_daily
   variables:
-    FROM_IMAGE: ${IMAGE_ALL_WITH_HDFS}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
     BUILD_HUGECTR: 1
