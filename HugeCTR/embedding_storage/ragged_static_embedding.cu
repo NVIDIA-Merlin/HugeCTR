@@ -34,38 +34,50 @@ __global__ void ragged_static_embedding_table_lookup_kernel(
     const int *id_space_list, const int *local_id_space_list, size_t num_local_id_space_list,
     const key_t *key_location, const index_t *emb_table_id_space_offset, float *emb_table,
     const uint64_t *emb_table_ev_offset, const int *local_ev_size_list, float **emb_vec) {
-  uint32_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= num_keys) return;
-  int id_space_idx = binary_search_index_lower_bound(id_space_offset, num_id_space_offset, tid);
-  assert(id_space_idx >= 0);
-  int id_space = id_space_list[id_space_idx];
+  for (uint32_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num_keys;
+       tid += blockDim.x * gridDim.x) {
+    int id_space_idx = binary_search_index_lower_bound(id_space_offset, num_id_space_offset, tid);
+    assert(id_space_idx >= 0);
+    assert(id_space_idx < num_id_space_offset);
 
-  int local_id_space_idx =
-      binary_search_index_lower_bound(local_id_space_list, num_local_id_space_list, id_space);
-  assert(local_id_space_idx >= 0);
-  index_t start = emb_table_id_space_offset[local_id_space_idx];
-  index_t end = emb_table_id_space_offset[local_id_space_idx + 1];
-  key_t k = key[tid];
+    int id_space = id_space_list[id_space_idx];
 
-  int idx = binary_search_index_lower_bound(key_location + start, end - start, k);
-  assert(idx >= 0);
+    int local_id_space_idx =
+        binary_search_index_lower_bound(local_id_space_list, num_local_id_space_list, id_space);
+    assert(local_id_space_idx >= 0);
+    assert(local_id_space_idx < num_local_id_space_list);
 
-  uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
-  int ev_size = local_ev_size_list[local_id_space_idx];
+    index_t start = emb_table_id_space_offset[local_id_space_idx];
+    index_t end = emb_table_id_space_offset[local_id_space_idx + 1];
+    key_t k = key[tid];
 
-  emb_vec[tid] = &emb_table[ev_offset + idx * ev_size];
+    // Attention: we must convert idx to uint64_t so when we multiply idx with ev_size it would get
+    // overflow. So as in update_kernel
+    uint64_t idx = static_cast<uint64_t>(
+        binary_search_index_lower_bound(key_location + start, end - start, k));
+    assert(idx >= 0);
+    assert(idx < static_cast<uint64_t>(end - start));
+
+    uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
+    int ev_size = local_ev_size_list[local_id_space_idx];
+    assert(static_cast<uint64_t>(ev_offset + idx * ev_size) <
+           emb_table_ev_offset[local_id_space_idx + 1]);
+
+    emb_vec[tid] = &emb_table[ev_offset + idx * ev_size];
+  }
 }
 
 __global__ void sgd_update_grad_kernel(const uint32_t *ev_offset, size_t num_ev, float lr,
                                        float scaler, float *grad_ev) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= num_ev) return;
-  uint64_t start = ev_offset[tid];
-  uint64_t end = ev_offset[tid + 1];
+  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num_ev;
+       tid += blockDim.x * gridDim.x) {
+    uint64_t start = ev_offset[tid];
+    uint64_t end = ev_offset[tid + 1];
 
-  for (uint32_t i = start; i < end; ++i) {
-    float gi = grad_ev[i] / scaler;
-    grad_ev[i] = (-lr * gi);
+    for (uint32_t i = start; i < end; ++i) {
+      float gi = grad_ev[i] / scaler;
+      grad_ev[i] = (-lr * gi);
+    }
   }
 }
 
@@ -77,30 +89,41 @@ __global__ void update_kernel(const key_t *keys, size_t num_keys, const uint32_t
                               const key_t *key_location, const index_t *emb_table_id_space_offset,
                               float *emb_table, const uint64_t *emb_table_ev_offset,
                               const int *local_ev_size_list) {
-  uint32_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= num_keys) return;
+  for (uint32_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num_keys;
+       tid += blockDim.x * gridDim.x) {
+    int id_space_idx = binary_search_index_lower_bound(id_space_offset, num_id_space_offset, tid);
+    assert(id_space_idx >= 0);
+    assert(id_space_idx < num_id_space_offset);
+    int id_space = id_space_list[id_space_idx];
 
-  int id_space_idx = binary_search_index_lower_bound(id_space_offset, num_id_space_offset, tid);
-  assert(id_space_idx >= 0);
-  int id_space = id_space_list[id_space_idx];
+    int local_id_space_idx =
+        binary_search_index_lower_bound(local_id_space_list, num_local_id_space_list, id_space);
+    assert(local_id_space_idx >= 0);
+    assert(local_id_space_idx < num_local_id_space_list);
+    index_t start = emb_table_id_space_offset[local_id_space_idx];
+    index_t end = emb_table_id_space_offset[local_id_space_idx + 1];
+    key_t k = keys[tid];
 
-  int local_id_space_idx =
-      binary_search_index_lower_bound(local_id_space_list, num_local_id_space_list, id_space);
-  assert(local_id_space_idx >= 0);
-  index_t start = emb_table_id_space_offset[local_id_space_idx];
-  index_t end = emb_table_id_space_offset[local_id_space_idx + 1];
-  key_t k = keys[tid];
+    uint64_t idx = static_cast<uint64_t>(
+        binary_search_index_lower_bound(key_location + start, end - start, k));
+    assert(idx >= 0);
+    assert(idx < end - start);
 
-  int idx = binary_search_index_lower_bound(key_location + start, end - start, k);
-  assert(idx >= 0);
+    uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
+    int ev_size = local_ev_size_list[local_id_space_idx];
+    assert(ev_offset + idx * ev_size < emb_table_ev_offset[local_id_space_idx + 1]);
 
-  uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
-  int ev_size = local_ev_size_list[local_id_space_idx];
+    const emb_t *grad_ev_for_update = grad_ev + grad_ev_offset[tid];
+    for (int i = 0; i < ev_size; ++i) {
+      float gi = HugeCTR::TypeConvertFunc<float, emb_t>::convert(grad_ev_for_update[i]);
+      emb_table[ev_offset + idx * ev_size + i] += gi;
+    }
+  }
+}
 
-  const emb_t *grad_ev_for_update = grad_ev + grad_ev_offset[tid];
-  for (int i = 0; i < ev_size; ++i) {
-    float gi = HugeCTR::TypeConvertFunc<float, emb_t>::convert(grad_ev_for_update[i]);
-    emb_table[ev_offset + idx * ev_size + i] += gi;
+__global__ void init_kernel(float *data, int num) {
+  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num; tid += blockDim.x * gridDim.x) {
+    data[tid] = static_cast<float>(tid % 1000);
   }
 }
 }  // namespace

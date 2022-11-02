@@ -90,6 +90,7 @@ class EmbeddingCollection {
   EmbeddingCollectionParam eval_ebc_param_;
 
   std::vector<std::unique_ptr<PreprocessInput>> preprocess_inputs_;
+  std::vector<std::unique_ptr<PreprocessInput>> eval_preprocess_inputs_;
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_;
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> eval_embeddings_;
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingTable>>> embedding_tables_;
