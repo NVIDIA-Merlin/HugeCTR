@@ -55,7 +55,7 @@ inline void assert_array_eq(size_t num, const std::vector<type> &a, const std::v
 }
 
 inline void assert_array_eq(size_t num, const std::vector<float> &a, const std::vector<float> &b,
-                            float threshold = 1e-1) {
+                            float threshold = 1e-3) {
   ASSERT_GE(a.size(), num);
   ASSERT_GE(b.size(), num);
   float max_error = 0.f;
@@ -67,7 +67,7 @@ inline void assert_array_eq(size_t num, const std::vector<float> &a, const std::
 }
 
 inline void assert_array_eq(size_t num, const std::vector<__half> &a, const std::vector<__half> &b,
-                            float threshold = 1e-1) {
+                            float threshold = 1e-3) {
   ASSERT_GE(a.size(), num);
   ASSERT_GE(b.size(), num);
   float max_error = 0.f;
