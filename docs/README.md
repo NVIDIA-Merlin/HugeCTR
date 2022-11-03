@@ -54,6 +54,40 @@ Then, navigate a web browser to the IP address or hostname of the host machine a
 
 Now you can check if your docs edits formatted correctly, and read well.
 
+## Checking for broken links
+
+1. Build the documentation, as described in the preceding section, but use the following command:
+
+   ```shell
+   make -C docs clean linkcheck
+   ```
+
+1. Run the link-checking script:
+
+   ```shell
+   ./docs/check_for_broken_links.sh
+   ```
+
+If there are no broken links, then the script exits with `0`.
+
+If the script produces any output, cut and paste the `uri` value into your browser to confirm
+that the link is broken.
+
+```json
+{
+  "filename": "hugectr_core_features.md",
+  "lineno": 88,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/build-hadoop.sh",
+  "info": "404 Client Error: Not Found for url: https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/build-hadoop.sh"
+}
+```
+
+If the link is OK, and this is the case with many URLs that reference GitHub repository file headings,
+then cut and paste the JSON output and add it to `docs/false_positives.json`.
+Run the script again to confirm that the URL is no longer reported as a broken link.
+
 ## Decisions
 
 ### Source management: README and index files
