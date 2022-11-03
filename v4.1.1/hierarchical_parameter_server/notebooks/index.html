@@ -110,7 +110,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <div class="section" id="pull-the-ngc-docker">
 <h3>Pull the NGC Docker<a class="headerlink" href="#pull-the-ngc-docker" title="Permalink to this headline"></a></h3>
 <p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.10
 </pre></div>
 </div>
 </div>
@@ -125,7 +125,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.10
 </pre></div>
 </div>
 </li>
