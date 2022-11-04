@@ -142,11 +142,11 @@ We deperacated the old `overlapped_pipeline` knob and introduces four new knobs 
 
 + **Updates to 3G Embedding**:
   + Sparse Operation Kit (SOK) is updated to use the HugeCTR 3G embedding as a developer preview feature.
-    For more information, refer to the Python programs in the [sparse_operation_kit/experiment/benchmark/dlrm](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/experiment/benchmark/dlrm) directory of the repository on GitHub.
+    For more information, refer to the Python programs in the [sparse_operation_kit/experiment/benchmark/dlrm](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/sparse_operation_kit/experiment/benchmark/dlrm) directory of the repository on GitHub.
   + Dynamic embedding table mode is added.
     The mode is based on the [cuCollection](https://github.com/NVIDIA/cuCollections) with some functionality enhancement.
     A dynamic embedding table grows its size when the table is full so that you no longer need to configure the memory usage information for embedding.
-    For more information, refer to the [embedding_storage/dynamic_embedding_storage](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/embedding_storage/dynamic_embedding_table) directory of the repository on GitHub.
+    For more information, refer to the [embedding_storage/dynamic_embedding_storage](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/embedding_storage/dynamic_embedding_table) directory of the repository on GitHub.
 
 + **Enhancements to the HPS Plugin for TensorFlow**:
 This release includes improvements to the interoperability of SOK and HPS.
@@ -446,7 +446,7 @@ The default log format now includes milliseconds.
 + **Support HDFS Parameter Server in Training**:
     + Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.
     + Now supports loading and dumping models and optimizer states from HDFS.
-    + Added a [notebook](https://nvidia-merlin.github.io/HugeCTR/v3.4.1/notebooks/training_with_hdfs.html) to show how to use HugeCTR with HDFS.
+    + Added a [notebook](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/notebooks/training_with_hdfs.ipynb) to show how to use HugeCTR with HDFS.
 
 + **Support Multi-hot Inference on Hugectr Backend**: We support categorical input in multi-hot format for HugeCTR Backend inference.
 
@@ -492,7 +492,7 @@ The default log format now includes milliseconds.
 ## What's New in Version 3.3.1
 
 + **Hierarchical Parameter Server (HPS) Enhancements**:
-    + **HugeCTR Backend Enhancements**: The HugeCTR Backend is now fully compatible with the [Triton model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md), so new model configurations can be simply added to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the [Triton Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
+    + **HugeCTR Backend Enhancements**: The HugeCTR Backend is now fully compatible with the [Triton model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md), so new model configurations can be simply added to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-inference-hierarchical-parameter-server-configuration). The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the [Triton Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
     + **Simplified Database Backend**: Multi-nodes, single-node, and all other kinds of volatile database backends can now be configured using the same configuration object.
     + **Multi-Threaded Optimization of Redis Code**: The speedup of HugeCTR version 3.3.1 is 2.3 times faster than HugeCTR version 3.3.
     + **Additional HPS Enhancements and Fixes**:
@@ -501,7 +501,7 @@ The default log format now includes milliseconds.
     	+ The parquet data reader no longer incorrectly parses the index of categorical features when multiple embedded tables are being used.
     	+ The HPS Redis Backend overflow is now invoked during single insertions.
 
-+ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#groupdenselayer).
++ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html#groupdenselayer).
 
 + **Global Fixes**:
    + A warning message now appears when attempting to launch a multi-process job before importing the mpi.
@@ -513,7 +513,7 @@ The default log format now includes milliseconds.
 + **Hierarchical Parameter Server (HPS) Enhancements**:
     + **Support for Incremental Model Updates**: HPS now supports incremental model updates via Apache Kafka (a distributed event streaming platform) message queues. With this enhancement, HugeCTR can now be connected with Apache Kafka deployments to update models in real time during training and inference. For more information, refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
     + **Improvements to the Memory Management**: The Redis cluster and CPU memory database backends are now the primary sources for memory management. When performing incremental model updates, these memory database backends will automatically evict infrequently used embeddings as training progresses. The performance of the Redis cluster and CPU memory database backends have also been improved.
-    + **New Asynchronous Refresh Mechanism**: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
+    + **New Asynchronous Refresh Mechanism**: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-inference-hierarchical-parameter-server).
     + **Configurable Backend Implementations for Databases**: Backend implementations for databases are now fully configurable.
     + **Improvements to the JSON Interface Parser**: The JSON interface parser can now handle inaccurate parameterization.
     + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues.
