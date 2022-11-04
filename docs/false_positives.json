@@ -1,0 +1,88 @@
+{
+  "filename": "release_notes.md",
+  "lineno": 667,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/NVIDIA-Merlin/HugeCTR/blob/v2.3/docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks",
+  "info": "Anchor 'generating-synthetic-data-and-benchmarks' not found"
+}
+{
+  "filename": "QAList.md",
+  "lineno": 135,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/NVIDIA-Merlin/HugeCTR#getting-started",
+  "info": "Anchor 'getting-started' not found"
+}
+{
+  "filename": "index.rst",
+  "lineno": 7,
+  "status": "broken",
+  "code": 0,
+  "uri": "hugectr_user_guide.html",
+  "info": ""
+}
+{
+  "filename": "QAList.md",
+  "lineno": 218,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/hugectr_backend#embedding-cache-asynchronous-insertion-mechanism",
+  "info": "Anchor 'embedding-cache-asynchronous-insertion-mechanism' not found"
+}
+{
+  "filename": "release_notes.md",
+  "lineno": 495,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/hugectr_backend#independent-inference-hierarchical-parameter-server-configuration",
+  "info": "Anchor 'independent-inference-hierarchical-parameter-server-configuration' not found"
+}
+{
+  "filename": "release_notes.md",
+  "lineno": 517,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/hugectr_backend#hugectr-inference-hierarchical-parameter-server",
+  "info": "Anchor 'hugectr-inference-hierarchical-parameter-server' not found"
+}
+{
+  "filename": "hugectr_contributor_guide.md",
+  "lineno": 97,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/hugectr_backend#quick-start",
+  "info": "Anchor 'quick-start' not found"
+}
+{
+  "filename": "hugectr_core_features.md",
+  "lineno": 97,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server",
+  "info": "Anchor 'distributed-deployment-with-hierarchical-hugectr-parameter-server' not found"
+}
+{
+  "filename": "release_notes.md",
+  "lineno": 476,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load",
+  "info": "Anchor 'load' not found"
+}
+{
+  "filename": "release_notes.md",
+  "lineno": 496,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload",
+  "info": "Anchor 'unload' not found"
+}
+{
+  "filename": "hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.ipynb",
+  "lineno": 210002,
+  "status": "broken",
+  "code": 0,
+  "uri": "https://github.com/triton-inference-server/server/blob/main/docs/user_guide/custom_operations.md#tensorflow",
+  "info": "Anchor 'tensorflow' not found"
+}
