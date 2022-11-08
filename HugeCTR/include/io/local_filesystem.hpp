@@ -19,6 +19,12 @@
 #include <io/filesystem.hpp>
 
 namespace HugeCTR {
+
+/**
+ * @brief A wrapper for std::filesystem to be used when FileSystemType_t is specifid as Local. Note
+ * that this wrapper is NOT thread-safe.
+ *
+ */
 class LocalFileSystem final : public FileSystem {
  public:
   LocalFileSystem();
@@ -29,7 +35,7 @@ class LocalFileSystem final : public FileSystem {
 
   void create_dir(const std::string& path) override;
 
-  void delete_file(const std::string& path, bool recursive) override;
+  void delete_file(const std::string& path) override;
 
   void fetch(const std::string& source_path, const std::string& target_path) override;
 
@@ -41,8 +47,8 @@ class LocalFileSystem final : public FileSystem {
 
   void copy(const std::string& source_file, const std::string& target_file) override;
 
-  int batch_fetch(const std::string& source_dir, const std::string& target_dir) override;
+  void batch_fetch(const std::string& source_dir, const std::string& target_dir) override;
 
-  int batch_upload(const std::string& source_dir, const std::string& target_dir) override;
+  void batch_upload(const std::string& source_dir, const std::string& target_dir) override;
 };
 }  // namespace HugeCTR

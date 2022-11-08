@@ -790,6 +790,20 @@ hdfs_backend_test:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
     - bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
 
+# S3 backend_test
+s3_backend_test:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node_with_s3
+  variables:
+    GPFSFOLDER: $LOGDIR/s3_backend_test
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED_WITH_S3
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
 wdl_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job_daily

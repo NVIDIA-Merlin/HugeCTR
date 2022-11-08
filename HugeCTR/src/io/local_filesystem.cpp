@@ -41,9 +41,7 @@ void LocalFileSystem::create_dir(const std::string& path) {
   HCTR_CHECK_HINT(success, std::string("Failed to create the directory: " + path).c_str());
 }
 
-void LocalFileSystem::delete_file(const std::string& path, bool recursive) {
-  std::filesystem::remove_all(path);
-}
+void LocalFileSystem::delete_file(const std::string& path) { std::filesystem::remove_all(path); }
 
 void LocalFileSystem::fetch(const std::string& source_path, const std::string& target_path) {
   std::filesystem::copy(source_path, target_path);
@@ -64,13 +62,11 @@ int LocalFileSystem::write(const std::string& path, const void* const data, cons
     HCTR_CHECK_HINT(file_stream.is_open(),
                     std::string("File not open for writing: " + path).c_str());
     file_stream.write(reinterpret_cast<const char*>(data), data_size);
-    file_stream.close();
   } else {
     std::ofstream file_stream(path, std::ofstream::binary | std::ofstream::app);
     HCTR_CHECK_HINT(file_stream.is_open(),
                     std::string("File not open for appending: " + path).c_str());
     file_stream.write(reinterpret_cast<const char*>(data), data_size);
-    file_stream.close();
   }
   return data_size;
 }
@@ -87,7 +83,6 @@ int LocalFileSystem::read(const std::string& path, void* const buffer, const siz
   } else {
     num_bytes_read = file_stream.gcount();
   }
-  file_stream.close();
   return num_bytes_read;
 }
 
@@ -95,14 +90,12 @@ void LocalFileSystem::copy(const std::string& source_path, const std::string& ta
   std::filesystem::copy(source_path, target_path);
 }
 
-int LocalFileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
+void LocalFileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
   std::filesystem::copy(source_path, target_path);
-  return 1;
 }
 
-int LocalFileSystem::batch_upload(const std::string& source_path, const std::string& target_path) {
+void LocalFileSystem::batch_upload(const std::string& source_path, const std::string& target_path) {
   std::filesystem::copy(source_path, target_path);
-  return 1;
 }
 
 }  // namespace HugeCTR
