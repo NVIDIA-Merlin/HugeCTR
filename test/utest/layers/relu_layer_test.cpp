@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (c) 2021, NVIDIA CORPORATION.  * * Licensed under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License. You may obtain a
+ * copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -122,6 +120,11 @@ void relu_test(size_t dim0, size_t dim1) {
 TEST(relu_layer, fp32_10x20) { relu_test<float>(10, 20); }
 TEST(relu_layer, fp32_10x500) { relu_test<float>(10, 500); }
 TEST(relu_layer, fp32_512x2048) { relu_test<float>(512, 1024 * 2); }
+
 TEST(relu_layer, fp16_10x20) { relu_test<__half>(10, 20); }
 TEST(relu_layer, fp16_10x500) { relu_test<__half>(10, 500); }
 TEST(relu_layer, fp16_512x2048) { relu_test<__half>(512, 1024 * 2); }
+
+TEST(relu_layer, fp16_9x19) { relu_test<__half>(9, 19); }
+TEST(relu_layer, fp16_9x499) { relu_test<__half>(9, 499); }
+TEST(relu_layer, fp16_511x2047) { relu_test<__half>(511, 2047); }

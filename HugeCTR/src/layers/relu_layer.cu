@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuda_fp16.h>
+
 #include <algorithm>
+#include <cuda/std/array>
 #include <functional>
 #include <include/utils.cuh>
 #include <layers/element_wise_function.hpp>
@@ -31,27 +34,29 @@ namespace HugeCTR {
 
 namespace {
 
-__global__ void forward_half2_relu_kernel(__half* top, const __half* bottom, int size) {
-  const __half2 zero = TypeFunc<__half2>::zero();
-  __half2* top2 = reinterpret_cast<__half2*>(top);
-  const __half2* bottom2 = reinterpret_cast<const __half2*>(bottom);
+struct alignas(8) half4 : public cuda::std::array<__half2, 2> {};
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < size; i += blockDim.x * gridDim.x) {
-    __half2 t = __ldg(bottom2 + i);
-    __half2 mask = __hgt2(t, zero);
-    top2[i] = __hmul2(t, mask);
+template <typename MainOp, typename Fallback>
+__global__ void half4_relu_kernel(__half* __restrict__ out, const __half* __restrict__ in, int size,
+                                  MainOp main_op, Fallback fallback) {
+  const __half2 zero2 = TypeFunc<__half2>::zero();
+  const half4 zero4 = {zero2, zero2};
+  half4* out4 = reinterpret_cast<half4*>(out);
+  const half4* in4 = reinterpret_cast<const half4*>(in);
+
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  int size4 = size / 4;
+
+  for (int i = tid; i < size4; i += stride) {
+    main_op(in4, zero2, i, out4);
   }
-}
 
-__global__ void backward_half2_relu_kernel(__half* bottom, const __half* top, int size) {
-  const __half2 zero = TypeFunc<__half2>::zero();
-  __half2* bottom2 = reinterpret_cast<__half2*>(bottom);
-  const __half2* top2 = reinterpret_cast<const __half2*>(top);
+  const __half zero = TypeFunc<__half>::zero();
+  int rmdr_base = size4 * 4;
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < size; i += blockDim.x * gridDim.x) {
-    __half2 t = bottom2[i];
-    half2 mask = __hgt2(t, zero);
-    bottom2[i] = __hmul2(__ldg(top2 + i), mask);
+  for (int i = rmdr_base + tid; i < size; i += stride) {
+    fallback(in, zero, i, out);
   }
 }
 
@@ -62,7 +67,6 @@ ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tenso
                         const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
-  assert(in_tensor.get_num_elements() % 2 == 0);
 
   in_tensors_.push_back(in_tensor);
   out_tensors_.push_back(out_tensor);
@@ -108,7 +112,6 @@ ReluLayer<__half>::ReluLayer(const Tensor2<__half>& bottom_tensor,
     : Layer(gpu_resource) {
   assert(get_size_from_dims(bottom_tensor.get_dimensions()) ==
          get_size_from_dims(top_tensor.get_dimensions()));
-  assert(get_size_from_dims(bottom_tensor.get_dimensions()) % 2 == 0);
 
   bottom_tensor_ = bottom_tensor;
   top_tensor_ = top_tensor;
@@ -118,12 +121,26 @@ void ReluLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   const size_t BLOCK_DIM = 1024;
-  const size_t MAX_GRID_DIM = 1024;
 
-  const size_t size = bottom_tensor_.get_num_elements() / 2;
-  const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
-  forward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
-      top_tensor_.get_ptr(), bottom_tensor_.get_ptr(), size);
+  const size_t size = bottom_tensor_.get_num_elements();
+  const size_t grid_dim = get_gpu().get_sm_count() * 4;
+
+  half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+      top_tensor_.get_ptr(), bottom_tensor_.get_ptr(), size,
+      [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+        const int2 hack = reinterpret_cast<const int2*>(in4)[i];
+        half4 t = *reinterpret_cast<const half4*>(&hack);
+
+        const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+        const half4 res = {__hmul2(t[0], mask[0]), __hmul2(t[1], mask[1])};
+
+        reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+      },
+      [] __device__(const __half* in, const __half zero, int i, __half* out) {
+        __half t = __ldg(in + i);
+        __half mask = __hgt(t, zero);
+        out[i] = __hmul(t, mask);
+      });
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -135,12 +152,29 @@ void ReluLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   const size_t BLOCK_DIM = 1024;
-  const size_t MAX_GRID_DIM = 1024;
 
-  const size_t size = bottom_tensor_.get_num_elements() / 2;
-  const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
-  backward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
-      bottom_tensor_.get_ptr(), top_tensor_.get_ptr(), size);
+  const size_t size = bottom_tensor_.get_num_elements();
+  const size_t grid_dim = get_gpu().get_sm_count() * 4;
+  half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+      bottom_tensor_.get_ptr(), top_tensor_.get_ptr(), size,
+      [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+        const int2 t_hack = reinterpret_cast<const int2*>(out4)[i];
+        const half4 t = *reinterpret_cast<const half4*>(&t_hack);
+
+        const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+
+        const int2 t2_hack = reinterpret_cast<const int2*>(in4)[i];
+        const half4 t2 = *reinterpret_cast<const half4*>(&t2_hack);
+
+        const half4 res = {__hmul2(t2[0], mask[0]), __hmul2(t2[1], mask[1])};
+
+        reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+      },
+      [] __device__(const __half* in, const __half zero, int i, __half* out) {
+        __half t = out[i];
+        __half mask = __hgt(t, zero);
+        out[i] = __hmul(__ldg(in + i), mask);
+      });
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
