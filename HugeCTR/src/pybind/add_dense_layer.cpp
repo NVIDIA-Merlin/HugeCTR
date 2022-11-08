@@ -2173,7 +2173,7 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::Reshape: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
-      int reshape_time_step = dense_layer.leading_dim;
+      int reshape_time_step = dense_layer.time_step;
       int leading_dim = dense_layer.leading_dim;
       if (reshape_time_step == 0) {
         tensor_shape_info_raw.insert(
