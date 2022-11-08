@@ -1058,7 +1058,8 @@ void Model::graph_analysis() {
       std::vector<std::pair<int, int>> ranges;
       for (unsigned int i = 0; i < iter->second; i++) {
         top_names.push_back(iter->first + "_slice" + std::to_string(i));
-        ranges.emplace_back(std::make_pair(0, tensor_shape_info_raw_[iter->first][1]));
+        auto dims = tensor_shape_info_raw_[iter->first].size();
+        ranges.emplace_back(std::make_pair(0, tensor_shape_info_raw_[iter->first][dims - 1]));
       }
       DenseLayer slice_layer(Layer_t::Slice, bottom_names, top_names);
       slice_layer.ranges = ranges;
