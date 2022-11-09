@@ -57,11 +57,21 @@ class GraphBuilder(object):
                         )
                     )
             # Create output (ValueInfoProto)
-            self.__outputs.append(
-                helper.make_tensor_value_info(
-                    "output", TensorProto.FLOAT, [None, layer_params.label_dim]
+            if np.ndim(layer_params.label_dim) == 0:
+                self.__outputs.append(
+                    helper.make_tensor_value_info(
+                        "output", TensorProto.FLOAT, [None, layer_params.label_dim]
+                    )
                 )
-            )
+            else:
+                self.__label_names = layer_params.label_name
+                for label_name, label_dim in zip(layer_params.label_name, layer_params.label_dim):
+                    self.__outputs.append(
+                        helper.make_tensor_value_info(
+                            label_name, TensorProto.FLOAT, [None, label_dim]
+                        )
+                    )
+
             self.__key_to_indice_hash_all_tables = weights_dict["key_to_indice_hash_all_tables"]
             key_to_indice_hash_all_tables = weights_dict["key_to_indice_hash_all_tables"]
             key_to_indice_hash_all_tables_name = "key_to_indice_hash_all_tables"
@@ -540,9 +550,7 @@ class GraphBuilder(object):
                 else:
                     self.__nodes.append(
                         helper.make_node(
-                            op_type="Gemm",
-                            inputs=[bottom_name, weight_name],
-                            outputs=[output_name],
+                            op_type="Gemm", inputs=[bottom_name, weight_name], outputs=[output_name]
                         )
                     )
 
@@ -709,16 +717,12 @@ class GraphBuilder(object):
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="Reshape",
-                        inputs=[query_name, shape_name],
-                        outputs=[query_reshape],
+                        op_type="Reshape", inputs=[query_name, shape_name], outputs=[query_reshape]
                     )
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="Reshape",
-                        inputs=[key_name, shape_name],
-                        outputs=[key_reshape],
+                        op_type="Reshape", inputs=[key_name, shape_name], outputs=[key_reshape]
                     )
                 )
                 self.__nodes.append(

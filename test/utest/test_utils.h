@@ -144,10 +144,17 @@ class GaussianDataSimulator {
   }
 
   void fill(__half* arr, size_t len) {
+    // To workaround "cuRAND length requested is not a multple of dimension"
+    size_t even_len = len / 2 * 2;
+
     std::unique_ptr<float[]> farr(new float[len]);
-    HCTR_LIB_THROW(curandGenerateNormal(curand_generator_, farr.get(), len, mean_, stddev_));
-    for (size_t i = 0; i < len; i++) {
+    HCTR_LIB_THROW(curandGenerateNormal(curand_generator_, farr.get(), even_len, mean_, stddev_));
+    for (size_t i = 0; i < even_len; i++) {
       arr[i] = __float2half(farr[i]);
+    }
+
+    for (size_t i = even_len; i < len; i++) {
+      arr[i] = arr[i - even_len];
     }
   }
 };

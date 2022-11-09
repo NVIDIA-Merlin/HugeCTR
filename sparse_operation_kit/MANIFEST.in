@@ -22,7 +22,7 @@ graft HugeCTR
 graft third_party
 
 # include other files
-include CMakeLists.txt ReadMe.md license.txt
+include CMakeLists.txt ReadMe.md LICENSE.txt
 
 # exclude files
 recursive-exclude * .gitkeep .gitignore

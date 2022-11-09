@@ -13,7 +13,7 @@ help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 clean:
-	rm -rf build/html source/notebooks source/release_notes.md source/hierarchical_parameter_server/notebooks
+	rm -rf build source/notebooks source/release_notes.md source/hierarchical_parameter_server/notebooks
 
 .PHONY: help clean Makefile
 

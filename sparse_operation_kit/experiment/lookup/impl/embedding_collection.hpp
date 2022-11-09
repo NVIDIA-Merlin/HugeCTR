@@ -35,6 +35,7 @@ using Tensor              = ::core::Tensor;
 using CoreResourceManager = ::core::CoreResourceManager;
 using TFCoreResourceManager = ::tf_internal::TFCoreResourceManager;
 using EmbeddingCollectionParam = ::embedding::EmbeddingCollectionParam;
+using UniformModelParallelEmbeddingMeta = ::embedding::UniformModelParallelEmbeddingMeta;
 using TablePlacementStrategy   = ::embedding::TablePlacementStrategy;
 using ISwizzleKey      = ::embedding::tf::IAll2AllEmbeddingCollectionSwizzleKey;
 using SwizzleKey       = ::embedding::tf::All2AllEmbeddingCollectionSwizzleKey;
@@ -59,13 +60,14 @@ std::shared_ptr<::core::TensorImpl> convert_tensor(const tensorflow::Tensor* ten
 }
 
 template <typename KeyType, typename OffsetType, typename DType>
-::embedding::EmbeddingCollectionParam make_embedding_collection_param(
+std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection_param(
                                       const std::vector<std::vector<int>> &shard_matrix,
                                       int num_lookups,
                                       const std::vector<std::string>& combiners,
                                       const std::vector<int>& hotness,
                                       const std::vector<int>& dimensions,
-                                      const int global_batch_size) {
+                                      const int global_batch_size,
+                                      const int global_gpu_id) {
   const static std::unordered_map<std::string, ::embedding::Combiner> combiner_map = {
     {"sum", ::embedding::Combiner::Sum},
     {"Sum", ::embedding::Combiner::Sum},
@@ -82,8 +84,9 @@ template <typename KeyType, typename OffsetType, typename DType>
   for (int i = 0; i < num_lookups; ++i) {
     lookup_params.emplace_back(i, table_ids[i], combiner_map.at(combiners[i]), hotness[i], dimensions[i]);
   }
+
   
-  return ::embedding::EmbeddingCollectionParam{
+  return std::unique_ptr<::embedding::EmbeddingCollectionParam>( new ::embedding::EmbeddingCollectionParam(
     num_lookups,
     num_lookups,
     lookup_params,
@@ -95,7 +98,6 @@ template <typename KeyType, typename OffsetType, typename DType>
     ::HugeCTR::TensorScalarTypeFunc<OffsetType>::get_type(),
     ::HugeCTR::TensorScalarTypeFunc<DType>::get_type(),
     ::embedding::EmbeddingLayout::FeatureMajor
-  };
+  ));
 }
-
 }  // namespace sok

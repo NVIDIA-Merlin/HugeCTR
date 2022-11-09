@@ -66,5 +66,13 @@ __device__ __forceinline__ void accumulate_array(CG const &g, uint32_t n, Elemen
   }
 }
 
+template <typename CG, typename Element>
+__device__ __forceinline__ void update_array(CG const &g, uint32_t n, Element *t,
+                                             Element const *u) {
+  for (auto i = g.thread_rank(); i < n; i += g.size()) {
+    t[i] = u[i];
+  }
+}
+
 }  // namespace detail
 }  // namespace cuco

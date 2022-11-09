@@ -2,23 +2,20 @@ import hugectr
 from mpi4py import MPI
 
 
-def generate_plan(slot_size_array, num_gpus):
+def generate_shard_plan(slot_size_array, num_gpus):
     mp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] > 6000]
     dp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] <= 6000]
-    shard_matrix = [[0 for _ in range(len(slot_size_array))] for _ in range(num_gpus)]
-    emb_table_group_strategy = [[], []]
-    emb_table_placement_strategy = ["mp", "dp"]
+    shard_matrix = [[] for _ in range(num_gpus)]
+    shard_strategy = [("mp", [str(i) for i in mp_table]), ("dp", [str(i) for i in dp_table])]
 
     for table_id in dp_table:
         for gpu_id in range(num_gpus):
-            shard_matrix[gpu_id][table_id] = 1
-        emb_table_group_strategy[emb_table_placement_strategy.index("dp")].append(table_id)
+            shard_matrix[gpu_id].append(str(table_id))
 
     for i, table_id in enumerate(mp_table):
         target_gpu = i % num_gpus
-        shard_matrix[target_gpu][table_id] = 1
-        emb_table_group_strategy[emb_table_placement_strategy.index("mp")].append(table_id)
-    return shard_matrix, emb_table_group_strategy, emb_table_placement_strategy
+        shard_matrix[target_gpu].append(str(table_id))
+    return shard_matrix, shard_strategy
 
 
 solver = hugectr.CreateSolver(
@@ -64,7 +61,7 @@ slot_size_array = [
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
     source=["./criteo_data/train/_file_list.txt"],
-    eval_source="./criteo_data/train/_file_list.txt",
+    eval_source="./criteo_data/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
     slot_size_array=slot_size_array,
 )
@@ -93,29 +90,23 @@ embedding_table_list = []
 for i in range(num_embedding):
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            table_id=i, max_vocabulary_size=slot_size_array[i], ev_size=128
+            name=str(i), max_vocabulary_size=slot_size_array[i], ev_size=128
         )
     )
-# create embedding planner and embedding collection
-embedding_planner = hugectr.EmbeddingPlanner()
+# create ebc config
+ebc_config = hugectr.EmbeddingCollectionConfig()
 emb_vec_list = []
 for i in range(num_embedding):
-    embedding_planner.embedding_lookup(
+    ebc_config.embedding_lookup(
         table_config=embedding_table_list[i],
         bottom_name="data{}".format(i),
         top_name="emb_vec{}".format(i),
         combiner="sum",
     )
-shard_matrix, emb_table_group_strategy, emb_table_placement_strategy = generate_plan(
-    slot_size_array, 8
-)
-embedding_collection = embedding_planner.create_embedding_collection(
-    shard_matrix=shard_matrix,
-    emb_table_group_strategy=emb_table_group_strategy,
-    emb_table_placement_strategy=emb_table_placement_strategy,
-)
+shard_matrix, shard_strategy = generate_shard_plan(slot_size_array, 8)
+ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy)
 
-model.add(embedding_collection)
+model.add(ebc_config)
 # need concat
 model.add(
     hugectr.DenseLayer(
@@ -133,9 +124,11 @@ model.add(
         num_output=512,
     )
 )
+
 model.add(
     hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc1"], top_names=["relu1"])
 )
+
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.InnerProduct,

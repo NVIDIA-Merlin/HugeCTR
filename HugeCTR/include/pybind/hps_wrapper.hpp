@@ -152,9 +152,15 @@ void HPS::initialize() {
 void HPS::lookup_fromdlpack(pybind11::capsule& keys, pybind11::capsule& vectors,
                             const std::string& model_name, size_t table_id, int64_t device_id) {
   HPSTensor hps_key = fromDLPack(keys);
-  size_t num_keys = *(reinterpret_cast<size_t*>(hps_key.shape));
+  size_t num_keys = 1;
+  for (int i = 0; i < hps_key.ndim; i++) {
+    num_keys *= *(reinterpret_cast<size_t*>(hps_key.shape + i));
+  }
   HPSTensor hps_vet = fromDLPack(vectors);
-  size_t num_vectors = *(reinterpret_cast<size_t*>(hps_vet.strides));
+  size_t num_vectors = 1;
+  for (int i = 0; i < hps_vet.ndim; i++) {
+    num_vectors *= *(reinterpret_cast<size_t*>(hps_vet.shape + i));
+  }
 
   if (lookup_session_map_.find(model_name) == lookup_session_map_.end()) {
     HCTR_OWN_THROW(Error_t::WrongInput, "The model name does not exist in HPS.");

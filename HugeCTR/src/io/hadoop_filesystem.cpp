@@ -174,10 +174,10 @@ void HadoopFileSystem::create_dir(const std::string& path) {
   HCTR_CHECK_HINT(res == 0, std::string("Failed to create the directory in HDFS: " + path).c_str());
 }
 
-void HadoopFileSystem::delete_file(const std::string& path, bool recursive) {
+void HadoopFileSystem::delete_file(const std::string& path) {
   HCTR_CHECK_HINT(fs_, "Not connected to HDFS.");
 
-  int res = hdfsDelete(fs_, path.c_str(), static_cast<int>(recursive));
+  int res = hdfsDelete(fs_, path.c_str(), static_cast<int>(true));
 
   HCTR_CHECK_HINT(res == 0, std::string("Failed to delete the file in HDFS: " + path).c_str());
 }
@@ -264,7 +264,7 @@ void HadoopFileSystem::copy(const std::string& source_path, const std::string& t
                           << std::endl;
 }
 
-int HadoopFileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
+void HadoopFileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
   HCTR_CHECK_HINT(fs_, "Not connected to HDFS.");
   HCTR_CHECK_HINT(local_fs_, "Not connected to local FS.");
 
@@ -303,10 +303,10 @@ int HadoopFileSystem::batch_fetch(const std::string& source_path, const std::str
   hdfsFreeFileInfo(fi, fi_count);
 
   HCTR_LOG_S(INFO, WORLD) << "HDFS batch fetch is complete!" << std::endl;
-  return fi_count;
 }
 
-int HadoopFileSystem::batch_upload(const std::string& source_path, const std::string& target_path) {
+void HadoopFileSystem::batch_upload(const std::string& source_path,
+                                    const std::string& target_path) {
   HCTR_CHECK_HINT(fs_, "Not connected to HDFS.");
   HCTR_CHECK_HINT(local_fs_, "Not connected to local FS.");
 
@@ -344,7 +344,6 @@ int HadoopFileSystem::batch_upload(const std::string& source_path, const std::st
   hdfsFreeFileInfo(fi, fi_count);
 
   HCTR_LOG_S(INFO, WORLD) << "HDFS batch upload is complete!" << std::endl;
-  return fi_count;
 }
 #endif
 }  // namespace HugeCTR

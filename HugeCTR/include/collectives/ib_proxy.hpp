@@ -84,8 +84,13 @@ struct M2PHierA2AvCollInit {
   HierA2AvCollHandle coll_handle_;
   CollSyncHelper* sync_helper_;
   bool skip_barrier_;
-  M2PHierA2AvCollInit(HierA2AvCollHandle handle_, CollSyncHelper* sync_helper, bool skip_barrier)
-      : coll_handle_(handle_), sync_helper_(sync_helper), skip_barrier_(skip_barrier) {}
+  size_t num_buffers_;
+  M2PHierA2AvCollInit(HierA2AvCollHandle handle_, CollSyncHelper* sync_helper, bool skip_barrier,
+                      size_t num_buffers)
+      : coll_handle_(handle_),
+        sync_helper_(sync_helper),
+        skip_barrier_(skip_barrier),
+        num_buffers_(num_buffers) {}
 };
 struct M2PARCollInit {
   ARCollHandle coll_handle_;
@@ -319,6 +324,7 @@ struct IbvProxy {
     size_t num_procs_ = 1;
     size_t my_proc_ = 0;
     size_t num_gpus_ = 1;
+    size_t num_buffers_ = 1;
 
     int num_expected_send_completions_ = 0;
     int num_send_completions_ = 0;
@@ -328,7 +334,7 @@ struct IbvProxy {
     bool skip_barrier_ = false;
 
     HierA2AvCollContext(IbvProxy* proxy_ctx, HierA2AIbvContext* ibv_ctx,
-                        CollSyncHelper* sync_helper, bool skip_barrier);
+                        CollSyncHelper* sync_helper, size_t num_buffers, bool skip_barrier);
     ~HierA2AvCollContext();
     void init_buf(const M2PHierA2AvBufInit& in, P2MHierA2AvBufInit& out);
 

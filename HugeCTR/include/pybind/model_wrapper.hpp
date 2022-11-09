@@ -172,6 +172,14 @@ void ModelPybind(pybind11::module &m) {
            pybind11::overload_cast<const std::map<std::string, std::string> &>(
                &HugeCTR::Model::load_sparse_weights),
            pybind11::arg("sparse_embedding_files_map"))
+      .def("embedding_load",
+           pybind11::overload_cast<const std::string &, const std::vector<std::string> &>(
+               &HugeCTR::Model::embedding_load),
+           pybind11::arg("path"), pybind11::arg("table_names") = std::vector<std::string>())
+      .def("embedding_dump",
+           pybind11::overload_cast<const std::string &, const std::vector<std::string> &>(
+               &HugeCTR::Model::embedding_dump),
+           pybind11::arg("path"), pybind11::arg("table_names") = std::vector<std::string>())
       .def("load_dense_optimizer_states", &HugeCTR::Model::load_dense_optimizer_states,
            pybind11::arg("dense_opt_states_file"))
       .def("load_sparse_optimizer_states",
@@ -189,8 +197,8 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
-      .def("add", pybind11::overload_cast<const EmbeddingPlanner &>(&HugeCTR::Model::add),
-           pybind11::arg("embedding_collection"))
+      .def("add", pybind11::overload_cast<const EmbeddingCollectionConfig &>(&HugeCTR::Model::add),
+           pybind11::arg("ebc_config"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)

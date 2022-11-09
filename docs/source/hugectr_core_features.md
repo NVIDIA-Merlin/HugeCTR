@@ -88,7 +88,7 @@ HugeCTR supports interactions with HDFS during training, e.g. loading and dumpin
 If you use the [Merlin NGC container](https://catalog.ngc.nvidia.com/containers), you can build Hadoop by running the [build-hadoop.sh](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/build-hadoop.sh) script.
 If you want to build [HugeCTR from scratch](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch), you should make sure that Hadoop is correctly built in your system and specify `-DENABLE_HDFS=ON` when you build HugeCTR with `cmake`.
 
-After HDFS is successfully enabled, you are able to use our [Python API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api) to train with HDFS. An end-to-end demo notebook can be found at [here](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/training_with_hdfs.ipynb).
+After HDFS is successfully enabled, you are able to use our [Python API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api) to train with HDFS. An end-to-end demo notebook can be found at [here](./notebooks/training_with_remote_filesystem.ipynb).
 
 ## Hierarchical Parameter Server
 

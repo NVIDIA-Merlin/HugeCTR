@@ -24,8 +24,8 @@ namespace embedding {
 class PreprocessInput {
  private:
   std::shared_ptr<CoreResourceManager> core_;
-
-  const EmbeddingCollectionParam &ebc_param_;
+  EmbeddingLayout input_layout_;
+  int num_lookup_;
 
   Tensor feature_major_key_;
   Tensor feature_major_bucket_range_;

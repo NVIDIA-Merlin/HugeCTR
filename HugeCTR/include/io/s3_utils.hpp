@@ -22,6 +22,7 @@
 
 #include <base/debug/logger.hpp>
 #include <string>
+#include <string_view>
 
 namespace HugeCTR {
 
@@ -70,41 +71,44 @@ struct S3Path {
   std::string key = "";
 
   static S3Path FromString(const std::string& s) {
-    auto exist_colon = s.find_first_of(':');
+    std::string_view sv(s);
+    auto exist_colon = sv.find_first_of(':');
     HCTR_CHECK_HINT(exist_colon != std::string::npos,
                     "This is not a valid s3 path. Please provide a correct S3 object url.");
-    std::string scheme = s.substr(0, exist_colon);
+    std::string_view scheme = sv.substr(0, exist_colon);
     HCTR_CHECK_HINT(scheme == "https" || scheme == "s3",
                     "The path format is not correct. Please provide either a https url or s3 url.");
-    std::string body = s.substr(exist_colon + 3);
+    std::string_view body = sv.substr(exist_colon + 3);
     auto first_slash = body.find_first_of('/');
     if (scheme == "s3" || scheme == "S3") {
       if (first_slash == std::string::npos) {
-        return S3Path{"", body, ""};
+        return S3Path{"", std::string(body), ""};
       } else {
-        return S3Path{"", body.substr(0, first_slash), body.substr(first_slash + 1)};
+        return S3Path{"", std::string(body.substr(0, first_slash)),
+                      std::string(body.substr(first_slash + 1))};
       }
     } else {
       S3Path path;
       auto host_end = body.find_first_of("/");
       HCTR_CHECK_HINT(host_end != std::string::npos,
                       "This is not a valid s3 path. Please provide a correct S3 object url.");
-      std::string host = body.substr(0, host_end);
-      std::string remaining = body.substr(host_end + 1);
-      std::vector<std::string> dot_sep_parts = split_str(host, ".");
+      std::string_view host = body.substr(0, host_end);
+      std::string_view remaining = body.substr(host_end + 1);
+      std::string host_cpy = std::string(host);
+      std::vector<std::string> dot_sep_parts = split_str(host_cpy, ".");
       if (dot_sep_parts.size() == 4 && dot_sep_parts[0] == "s3" &&
           dot_sep_parts[2] == "amazonaws" && dot_sep_parts[3] == "com") {
         path.region = dot_sep_parts[1];
         auto bucket_key_split = remaining.find_first_of('/');
         HCTR_CHECK_HINT(bucket_key_split != std::string::npos,
                         "This is not a valid s3 path. Please provide a correct S3 object url.");
-        path.bucket = remaining.substr(0, bucket_key_split);
-        path.key = remaining.substr(bucket_key_split + 1);
+        path.bucket = std::string(remaining.substr(0, bucket_key_split));
+        path.key = std::string(remaining.substr(bucket_key_split + 1));
       } else if (dot_sep_parts.size() == 5 && dot_sep_parts[1] == "s3" &&
                  dot_sep_parts[3] == "amazonaws" && dot_sep_parts[4] == "com") {
-        path.region = dot_sep_parts[2];
-        path.bucket = dot_sep_parts[0];
-        path.key = remaining;
+        path.region = std::string(dot_sep_parts[2]);
+        path.bucket = std::string(dot_sep_parts[0]);
+        path.key = std::string(remaining);
       } else {
         HCTR_OWN_THROW(Error_t::FileCannotOpen, "This is not a valid AWS S3 path: " + s);
       }

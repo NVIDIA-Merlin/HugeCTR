@@ -238,41 +238,26 @@ struct IbCommsTest {
     }
   }
 
-  void do_intra_node_a2a_bare() {
-    auto& device_list = resource_manager_->get_local_gpu_device_id_list();
-    for (size_t g = 0; g < num_gpus_; g++) {
-      auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
-      intra_node_a2a<TypeEmbeddingComp><<<96, 256, 0, stream>>>(
-          d_send_buffs_[g].get_ptr(), d_interim_send_buffs_ptrs_[g].get_ptr(),
-          d_send_sizes_[g].get_ptr(), max_elems_per_dest_, num_gpus_, num_procs_, g);
-    }
+  void do_intra_node_a2a_bare(size_t g, cudaStream_t stream) {
+    intra_node_a2a<TypeEmbeddingComp><<<96, 256, 0, stream>>>(
+        d_send_buffs_[g].get_ptr(), d_interim_send_buffs_ptrs_[g].get_ptr(),
+        d_send_sizes_[g].get_ptr(), max_elems_per_dest_, num_gpus_, num_procs_, g);
   }
 
-  void do_inter_node_a2a_bare() {
-    auto& device_list = resource_manager_->get_local_gpu_device_id_list();
-    for (size_t g = 0; g < num_gpus_; g++) {
-      auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
-      ib_comm_->post_send_command_a2a<TypeEmbeddingComp>(coll_handle_, stream, g);
-    }
-
-    for (size_t g = 0; g < num_gpus_; g++) {
-      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
-      auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      HCTR_LIB_THROW(cudaEventRecord(comm_events_[g], comm_stream_[g]));
-      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_events_[g]));
-    }
+  void do_inter_node_a2a_bare(size_t g, cudaStream_t stream) {
+    ib_comm_->post_send_command_a2a<TypeEmbeddingComp>(coll_handle_, stream, g);
+    HCTR_LIB_THROW(cudaEventRecord(comm_events_[g], comm_stream_[g]));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_events_[g]));
   }
 
-  void do_device_a2a_bare() {
-    do_intra_node_a2a_bare();
-    do_inter_node_a2a_bare();
+  void do_device_a2a_bare(size_t g, cudaStream_t stream) {
+    do_intra_node_a2a_bare(g, stream);
+    do_inter_node_a2a_bare(g, stream);
   }
 
   void do_device_a2a() {
+    auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     if (use_cuda_graph_) {
-      auto& device_list = resource_manager_->get_local_gpu_device_id_list();
       if (!integ_graph_captured_) {
         integ_graph_captured_ = true;
         integ_graph_.resize(num_gpus_);
@@ -281,11 +266,7 @@ struct IbCommsTest {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
           HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
           HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
-        }
-        do_device_a2a_bare();
-        for (size_t g = 0; g < num_gpus_; g++) {
-          auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          do_device_a2a_bare(g, stream);
           HCTR_LIB_THROW(cudaStreamEndCapture(stream, &integ_graph_[g]));
           HCTR_LIB_THROW(
               cudaGraphInstantiate(&integ_graph_instance_[g], integ_graph_[g], NULL, NULL, 0));
@@ -298,11 +279,16 @@ struct IbCommsTest {
         HCTR_LIB_THROW(cudaGraphLaunch(integ_graph_instance_[g], stream));
       }
     } else {
-      do_device_a2a_bare();
+      for (size_t g = 0; g < num_gpus_; g++) {
+        auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
+        HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+        do_device_a2a_bare(g, stream);
+      }
     }
   }
 
   void do_intra_a2a() {
+    auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     if (use_cuda_graph_) {
       auto& device_list = resource_manager_->get_local_gpu_device_id_list();
       if (!intra_graph_captured_) {
@@ -313,11 +299,9 @@ struct IbCommsTest {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
           HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
           HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
-        }
-        do_intra_node_a2a_bare();
-        for (size_t g = 0; g < num_gpus_; g++) {
-          auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+
+          do_intra_node_a2a_bare(g, stream);
+
           HCTR_LIB_THROW(cudaStreamEndCapture(stream, &intra_graph_[g]));
           HCTR_LIB_THROW(
               cudaGraphInstantiate(&intra_graph_instance_[g], intra_graph_[g], NULL, NULL, 0));
@@ -330,13 +314,17 @@ struct IbCommsTest {
         HCTR_LIB_THROW(cudaGraphLaunch(intra_graph_instance_[g], stream));
       }
     } else {
-      do_intra_node_a2a_bare();
+      for (size_t g = 0; g < num_gpus_; g++) {
+        auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
+        HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+        do_intra_node_a2a_bare(g, stream);
+      }
     }
   }
 
   void do_inter_a2a() {
+    auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     if (use_cuda_graph_) {
-      auto& device_list = resource_manager_->get_local_gpu_device_id_list();
       if (!inter_graph_captured_) {
         inter_graph_captured_ = true;
         inter_graph_.resize(num_gpus_);
@@ -345,11 +333,7 @@ struct IbCommsTest {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
           HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
           HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
-        }
-        do_inter_node_a2a_bare();
-        for (size_t g = 0; g < num_gpus_; g++) {
-          auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          do_inter_node_a2a_bare(g, stream);
           HCTR_LIB_THROW(cudaStreamEndCapture(stream, &inter_graph_[g]));
           HCTR_LIB_THROW(
               cudaGraphInstantiate(&inter_graph_instance_[g], inter_graph_[g], NULL, NULL, 0));
@@ -362,7 +346,11 @@ struct IbCommsTest {
         HCTR_LIB_THROW(cudaGraphLaunch(inter_graph_instance_[g], stream));
       }
     } else {
-      do_inter_node_a2a_bare();
+      for (size_t g = 0; g < num_gpus_; g++) {
+        auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
+        HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+        do_inter_node_a2a_bare(g, stream);
+      }
     }
   }
 

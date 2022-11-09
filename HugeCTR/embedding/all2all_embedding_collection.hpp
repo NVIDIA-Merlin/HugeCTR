@@ -39,7 +39,7 @@ class All2AllEmbeddingCollectionSwizzleKey : public IAll2AllEmbeddingCollectionS
 
 class All2AllEmbeddingCollectionModelForward : public IAll2AllEmbeddingCollectionModelForward {
   std::shared_ptr<CoreResourceManager> core_;
-  UniformModelParallelEmbeddingMeta meta_;
+  const UniformModelParallelEmbeddingMeta &meta_;
 
   ModelIndexCalculation model_index_calculation_;
   CompressOffset compress_offset_;
@@ -49,7 +49,7 @@ class All2AllEmbeddingCollectionModelForward : public IAll2AllEmbeddingCollectio
 
  public:
   All2AllEmbeddingCollectionModelForward(std::shared_ptr<CoreResourceManager> core,
-                                         const EmbeddingCollectionParam &ebc_param);
+                                         const UniformModelParallelEmbeddingMeta &meta);
 
   std::vector<size_t> get_model_comm_buffer_size(int batch_size) override;
 
@@ -63,13 +63,13 @@ class All2AllEmbeddingCollectionModelForward : public IAll2AllEmbeddingCollectio
 
 class All2AllEmbeddingCollectionNetworkForward : public IAll2AllEmbeddingCollectionNetworkForward {
   std::shared_ptr<CoreResourceManager> core_;
-  UniformModelParallelEmbeddingMeta meta_;
+  const UniformModelParallelEmbeddingMeta &meta_;
 
   NetworkForward network_forward_;
 
  public:
   All2AllEmbeddingCollectionNetworkForward(std::shared_ptr<CoreResourceManager> core,
-                                           const EmbeddingCollectionParam &ebc_param);
+                                           const UniformModelParallelEmbeddingMeta &meta);
 
   void sparse_forward_per_gpu(const std::vector<Tensor> &emb_vec_network_buffer,
                               const std::vector<Tensor> &row_lengths,
@@ -79,13 +79,13 @@ class All2AllEmbeddingCollectionNetworkForward : public IAll2AllEmbeddingCollect
 class All2AllEmbeddingCollectionNetworkBackward
     : public IAll2AllEmbeddingCollectionNetworkBackward {
   std::shared_ptr<CoreResourceManager> core_;
-  UniformModelParallelEmbeddingMeta meta_;
+  const UniformModelParallelEmbeddingMeta &meta_;
 
   NetworkBackward network_backward_;
 
  public:
   All2AllEmbeddingCollectionNetworkBackward(std::shared_ptr<CoreResourceManager> core,
-                                            const EmbeddingCollectionParam &ebc_param);
+                                            const UniformModelParallelEmbeddingMeta &meta);
 
   void backward_per_gpu(const std::vector<Tensor> &top_grad, const std::vector<Tensor> &row_lengths,
                         std::vector<Tensor> &emb_vec_network_buffer) override;
@@ -93,7 +93,7 @@ class All2AllEmbeddingCollectionNetworkBackward
 
 class All2AllEmbeddingCollectionModelBackward : public IAll2AllEmbeddingCollectionModelBackward {
   std::shared_ptr<CoreResourceManager> core_;
-  UniformModelParallelEmbeddingMeta meta_;
+  const UniformModelParallelEmbeddingMeta &meta_;
 
   ModelBackwardIndexCalculation model_backward_index_calculation_;
   ModelBackward model_backward_;
@@ -102,7 +102,7 @@ class All2AllEmbeddingCollectionModelBackward : public IAll2AllEmbeddingCollecti
 
  public:
   All2AllEmbeddingCollectionModelBackward(std::shared_ptr<CoreResourceManager> core,
-                                          const EmbeddingCollectionParam &ebc_param);
+                                          const UniformModelParallelEmbeddingMeta &meta);
 
   void sparse_backward_per_gpu(const std::vector<Tensor> &emb_vec_model_buffer,
                                const Tensor &model_key, const Tensor &model_offsets,

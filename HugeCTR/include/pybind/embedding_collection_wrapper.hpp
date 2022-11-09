@@ -26,22 +26,22 @@ namespace HugeCTR {
 namespace python_lib {
 
 void EmbeddingCollectionPybind(pybind11::module &m) {
-  pybind11::class_<embedding::EmbeddingTableParam, std::shared_ptr<embedding::EmbeddingTableParam>>(
+  pybind11::class_<EmbeddingTableConfig, std::shared_ptr<EmbeddingTableConfig>>(
       m, "EmbeddingTableConfig")
-      .def(pybind11::init<int, int, int, std::optional<OptParams>, Initializer_t, float, float>(),
-           pybind11::arg("table_id"), pybind11::arg("max_vocabulary_size"),
-           pybind11::arg("ev_size"), pybind11::arg("opt_params_py") = std::nullopt,
-           pybind11::arg("initializer_type") = Initializer_t::Default,
-           pybind11::arg("up_bound") = -1, pybind11::arg("max_sequence_len") = -1);
-  pybind11::class_<HugeCTR::EmbeddingPlanner, std::shared_ptr<HugeCTR::EmbeddingPlanner>>(
-      m, "EmbeddingPlanner")
+      .def(pybind11::init<const std::string &, int, int, std::optional<OptParams>,
+                          std::optional<embedding::InitParams>>(),
+           pybind11::arg("name"), pybind11::arg("max_vocabulary_size"), pybind11::arg("ev_size"),
+           pybind11::arg("opt_params_or_empty") = std::nullopt,
+           pybind11::arg("init_param_or_empty") = std::nullopt);
+  pybind11::class_<HugeCTR::EmbeddingCollectionConfig,
+                   std::shared_ptr<HugeCTR::EmbeddingCollectionConfig>>(m,
+                                                                        "EmbeddingCollectionConfig")
       .def(pybind11::init())
-      .def("embedding_lookup", &HugeCTR::EmbeddingPlanner::embedding_lookup,
+      .def("embedding_lookup", &HugeCTR::EmbeddingCollectionConfig::embedding_lookup,
            pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))
-      .def("create_embedding_collection", &HugeCTR::EmbeddingPlanner::create_embedding_collection,
-           pybind11::arg("shard_matrix"), pybind11::arg("emb_table_group_strategy"),
-           pybind11::arg("emb_table_placement_strategy"));
+      .def("shard", &HugeCTR::EmbeddingCollectionConfig::shard, pybind11::arg("shard_matrix"),
+           pybind11::arg("shard_strategy"));
 }
 }  // namespace python_lib
 }  // namespace HugeCTR

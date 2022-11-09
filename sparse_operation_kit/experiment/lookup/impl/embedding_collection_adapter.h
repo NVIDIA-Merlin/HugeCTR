@@ -39,7 +39,7 @@ template <typename KeyType, typename DType>
 class TFAdapter : public ::embedding::ILookup {
  public:
   TFAdapter();
-  ~TFAdapter();
+  virtual ~TFAdapter();
 
   void set(std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
@@ -68,7 +68,7 @@ template <typename KeyType, typename DType>
 class DummyVarAdapter : public ::embedding::ILookup {
  public:
   DummyVarAdapter();
-  ~DummyVarAdapter() = default;
+  virtual ~DummyVarAdapter() = default;
 
   void set(std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,

@@ -50,9 +50,8 @@ class FileSystem {
    * @brief Delete a file or files in directory from the remote file system
    *
    * @param path Remote path.
-   * @param recursive wheter to delete recursively
    */
-  virtual void delete_file(const std::string& path, bool recursive = true) = 0;
+  virtual void delete_file(const std::string& path) = 0;
 
   /**
    * @brief Copy a file from remote file system to Local
@@ -106,18 +105,16 @@ class FileSystem {
    *
    * @param source_dir Source dir path.
    * @param target_dir Target dir path.
-   * @return Number of files copied.
    */
-  virtual int batch_fetch(const std::string& source_dir, const std::string& target_dir) = 0;
+  virtual void batch_fetch(const std::string& source_dir, const std::string& target_dir) = 0;
 
   /**
    * @brief Copy all files under the local source directory to remote target directory.
    *
    * @param source_dir
    * @param target_dir
-   * @return Number of files copied.
    */
-  virtual int batch_upload(const std::string& source_dir, const std::string& target_dir) = 0;
+  virtual void batch_upload(const std::string& source_dir, const std::string& target_dir) = 0;
 };
 
 enum class FileSystemType_t { Local, HDFS, S3, GCS, Other };

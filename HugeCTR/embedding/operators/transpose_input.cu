@@ -33,8 +33,8 @@ __global__ void convert_batch_major_to_feature_major_for_bucket_range_kernel(
 
     int hotness = bucket_range[tid + 1] - bucket_range[tid];
 
-    int batch_major_idx = lookup_id * batch_size + batch_id;
-    feature_major_bucket_range[1 + batch_major_idx] = hotness;
+    int feature_major_idx = lookup_id * batch_size + batch_id;
+    feature_major_bucket_range[1 + feature_major_idx] = hotness;
   }
   if (threadIdx.x + blockIdx.x * blockDim.x == 0) {
     feature_major_bucket_range[0] = 0;
@@ -43,19 +43,20 @@ __global__ void convert_batch_major_to_feature_major_for_bucket_range_kernel(
 
 template <typename key_t, typename offset_t>
 __global__ void convert_batch_major_to_feature_major_for_key_kernel(
-    const key_t *key, const offset_t *bucket_range, const offset_t *feature_major_bucket_range,
-    int num_lookup, int batch_size, key_t *feature_major_key) {
+    const key_t *batch_major_key, const offset_t *batch_major_bucket_range,
+    const offset_t *feature_major_bucket_range, int num_lookup, int batch_size,
+    key_t *feature_major_key) {
   for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < batch_size * num_lookup;
        tid += blockDim.x * gridDim.x) {
-    offset_t start = bucket_range[tid];
-    offset_t end = bucket_range[tid + 1];
+    offset_t start = batch_major_bucket_range[tid];
+    offset_t end = batch_major_bucket_range[tid + 1];
 
     int lookup_id = tid % num_lookup;  // lookup major
     int batch_id = tid / num_lookup;   // lookup major
-    int batch_major_idx = lookup_id * batch_size + batch_id;
-    offset_t batch_major_start = feature_major_bucket_range[batch_major_idx];
+    int feature_major_idx = lookup_id * batch_size + batch_id;
+    offset_t feature_major_start = feature_major_bucket_range[feature_major_idx];
     for (uint32_t i = 0; i < (end - start); ++i) {
-      feature_major_key[batch_major_start + i] = key[start + i];
+      feature_major_key[feature_major_start + i] = batch_major_key[start + i];
     }
   }
 }
@@ -63,7 +64,7 @@ __global__ void convert_batch_major_to_feature_major_for_key_kernel(
 
 PreprocessInput::PreprocessInput(std::shared_ptr<CoreResourceManager> core,
                                  const EmbeddingCollectionParam &ebc_param)
-    : core_(core), ebc_param_(ebc_param) {
+    : core_(core), input_layout_(ebc_param.input_layout_), num_lookup_(ebc_param.num_lookup) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   Device device{DeviceType::GPU};
   int universal_batch_size = ebc_param.universal_batch_size;
@@ -96,7 +97,7 @@ void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range,
                               int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
-  if (ebc_param_.input_layout_ == EmbeddingLayout::FeatureMajor) {  // feature major
+  if (input_layout_ == EmbeddingLayout::FeatureMajor) {  // feature major
     *feature_major_key = key;
     *feature_major_bucket_range = bucket_range;
   } else {
@@ -112,7 +113,7 @@ void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range,
         int grid_size = (bucket_range.get_num_elements() - 1) / block_size + 1;
         convert_batch_major_to_feature_major_for_bucket_range_kernel<<<grid_size, block_size, 0,
                                                                        stream>>>(
-            bucket_range.get<offset_t>(), ebc_param_.num_lookup, batch_size,
+            bucket_range.get<offset_t>(), num_lookup_, batch_size,
             feature_major_bucket_range_.get<offset_t>());
       }
 
@@ -133,7 +134,7 @@ void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range,
         int grid_size = (bucket_range.get_num_elements() - 2) / block_size + 1;
         convert_batch_major_to_feature_major_for_key_kernel<<<grid_size, block_size, 0, stream>>>(
             key.get<key_t>(), bucket_range.get<offset_t>(),
-            feature_major_bucket_range_.get<offset_t>(), ebc_param_.num_lookup, batch_size,
+            feature_major_bucket_range_.get<offset_t>(), num_lookup_, batch_size,
             feature_major_key_.get<key_t>());
       });
     });
