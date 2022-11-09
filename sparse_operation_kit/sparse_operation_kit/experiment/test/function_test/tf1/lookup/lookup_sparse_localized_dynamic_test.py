@@ -100,7 +100,7 @@ if __name__ == "__main__":
     sok_optimizer = sok.OptimizerWrapper(optimizer)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, total_indices, hotness, combiners)
+        embeddings = sok.lookup_sparse(params, total_indices, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])

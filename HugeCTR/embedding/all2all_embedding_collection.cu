@@ -92,8 +92,8 @@ void All2AllEmbeddingCollectionSwizzleKey::sparse_forward_per_gpu(
 }
 
 All2AllEmbeddingCollectionModelForward::All2AllEmbeddingCollectionModelForward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
-    : core_(core), meta_(core, ebc_param, 0) {}
+    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
+    : core_(core), meta_(meta) {}
 
 std::vector<size_t> All2AllEmbeddingCollectionModelForward::get_model_comm_buffer_size(
     int batch_size) {
@@ -288,8 +288,8 @@ void All2AllEmbeddingCollectionModelForward::copy_model_keys_and_offsets(Tensor 
 }
 
 All2AllEmbeddingCollectionNetworkForward::All2AllEmbeddingCollectionNetworkForward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
-    : core_(core), meta_(core, ebc_param, 0) {
+    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
+    : core_(core), meta_(meta) {
   int num_gpus = core->get_global_gpu_count();
   network_forward_ = NetworkForward(core, num_gpus);
 }
@@ -304,75 +304,22 @@ void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
   int batch_size = batch_size_per_gpu * num_gpus;
   int global_gpu_id = core_->get_global_gpu_id();
 
-  Tensor bucket_range;
-  auto copy_needed_bucket_range = [&] {
-    DISPATCH_INTEGRAL_FUNCTION(row_lengths[0].dtype().type(), offset_t, [&] {
-      auto buffer_ptr = GetBuffer(core_);
-      bucket_range = buffer_ptr->reserve(1 + batch_size * meta_.num_lookup_, DeviceType::GPU,
-                                         row_lengths[0].dtype());
-      buffer_ptr->allocate();
-
-      HCTR_LIB_THROW(
-          cudaMemsetAsync(bucket_range.get<offset_t>(), 0, bucket_range.nbytes(), stream));
-      for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
-        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * lookup_id +
-                                           global_gpu_id * batch_size_per_gpu + 1,
-                                       row_lengths[lookup_id].get<offset_t>(),
-                                       row_lengths[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
-                                       stream));
-      }
-
-      size_t temp_bytes = 0;
-      Tensor temp_scan_storage;
-      cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (offset_t *)nullptr, (offset_t *)nullptr,
-                                    bucket_range.get_num_elements());
-      temp_scan_storage = buffer_ptr->reserve(temp_bytes, DeviceType::GPU, TensorScalarType::Void);
-      buffer_ptr->allocate();
-
-      cub::DeviceScan::InclusiveSum(temp_scan_storage.get(), temp_bytes,
-                                    bucket_range.get<offset_t>(), bucket_range.get<offset_t>(),
-                                    bucket_range.get_num_elements(), stream);
-    });
-  };
-
-  Tensor output_buffer;
-  auto allocate_continous_output_buffer = [&] {
-    int num_output_elements = 0;
-    for (auto &t : forward_emb_vec) {
-      num_output_elements += t.get_num_elements();
-    }
-    auto buffer_ptr = GetBuffer(core_);
-    output_buffer =
-        buffer_ptr->reserve(num_output_elements, DeviceType::GPU, forward_emb_vec[0].dtype());
-    buffer_ptr->allocate();
-  };
-
-  auto copy_back_fwd_result = [&] {
-    size_t nbytes_offset = 0ul;
-    for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
-      HCTR_LIB_THROW(cudaMemcpyAsync(forward_emb_vec[lookup_id].get(),
-                                     reinterpret_cast<char *>(output_buffer.get()) + nbytes_offset,
-                                     forward_emb_vec[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
-                                     stream));
-      nbytes_offset += forward_emb_vec[lookup_id].nbytes();
-    }
-  };
-  copy_needed_bucket_range();
-  allocate_continous_output_buffer();
-
+  TensorList row_lengths_buffer{core_.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
+                                stream};
   TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
-  network_forward_.compute(bucket_range, meta_.d_combiner_list_, network_comm_buffer,
+  TensorList output_buffer{core_.get(), forward_emb_vec, DeviceType::GPU,
+                           forward_emb_vec[0].dtype(), stream};
+  network_forward_.compute(row_lengths_buffer, meta_.d_combiner_list_, network_comm_buffer,
                            meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
                            meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
                            meta_.network_ev_offsets_, output_buffer, meta_.d_ev_size_offset_,
                            batch_size, meta_.max_ev_size_);
-  copy_back_fwd_result();
 }
 
 All2AllEmbeddingCollectionNetworkBackward::All2AllEmbeddingCollectionNetworkBackward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
-    : core_(core), meta_(core, ebc_param, 0) {
+    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
+    : core_(core), meta_(meta) {
   int num_gpus = core->get_global_gpu_count();
   network_backward_ = NetworkBackward(core, num_gpus);
 }
@@ -387,66 +334,14 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
   int num_gpus = core_->get_global_gpu_count();
   int batch_size_per_gpu = row_lengths[0].get_num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
-  int global_gpu_id = core_->get_global_gpu_id();
 
-  Tensor bucket_range;
-  auto copy_needed_bucket_range = [&] {
-    DISPATCH_INTEGRAL_FUNCTION(row_lengths[0].dtype().type(), offset_t, [&] {
-      auto buffer_ptr = GetBuffer(core_);
-      bucket_range = buffer_ptr->reserve(1 + batch_size * meta_.num_lookup_, DeviceType::GPU,
-                                         row_lengths[0].dtype());
-      buffer_ptr->allocate();
-
-      HCTR_LIB_THROW(
-          cudaMemsetAsync(bucket_range.get<offset_t>(), 0, bucket_range.nbytes(), stream));
-      for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
-        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * lookup_id +
-                                           global_gpu_id * batch_size_per_gpu + 1,
-                                       row_lengths[lookup_id].get<offset_t>(),
-                                       row_lengths[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
-                                       stream));
-      }
-
-      size_t temp_bytes = 0;
-      Tensor temp_scan_storage;
-      cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (offset_t *)nullptr, (offset_t *)nullptr,
-                                    bucket_range.get_num_elements());
-      temp_scan_storage = buffer_ptr->reserve(temp_bytes, DeviceType::GPU, TensorScalarType::Void);
-      buffer_ptr->allocate();
-
-      cub::DeviceScan::InclusiveSum(temp_scan_storage.get(), temp_bytes,
-                                    bucket_range.get<offset_t>(), bucket_range.get<offset_t>(),
-                                    bucket_range.get_num_elements(), stream);
-    });
-  };
-
-  Tensor continous_top_grad;
-  auto allocate_and_copy_continous_top_grad = [&] {
-    int num_output_elements = 0;
-    for (auto &t : top_grad) {
-      num_output_elements += t.get_num_elements();
-    }
-    auto buffer_ptr = GetBuffer(core_);
-    continous_top_grad =
-        buffer_ptr->reserve(num_output_elements, DeviceType::GPU, top_grad[0].dtype());
-    buffer_ptr->allocate();
-
-    size_t nbytes_offset = 0ul;
-    for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
-      HCTR_LIB_THROW(
-          cudaMemcpyAsync(reinterpret_cast<char *>(continous_top_grad.get()) + nbytes_offset,
-                          top_grad[lookup_id].get(), top_grad[lookup_id].nbytes(),
-                          cudaMemcpyDeviceToDevice, stream));
-      nbytes_offset += top_grad[lookup_id].nbytes();
-    }
-  };
-  copy_needed_bucket_range();
-  allocate_and_copy_continous_top_grad();
-
+  TensorList row_lengths_buffer{core_.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
+                                stream};
   TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
+  TensorList top_grad_buffer{core_.get(), top_grad, DeviceType::GPU, top_grad[0].dtype(), stream};
 
-  network_backward_.compute(bucket_range, meta_.d_combiner_list_, continous_top_grad,
+  network_backward_.compute(row_lengths_buffer, meta_.d_combiner_list_, top_grad_buffer,
                             meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
                             meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
                             meta_.network_ev_offsets_, network_comm_buffer, meta_.d_ev_size_offset_,
@@ -454,8 +349,8 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
 }
 
 All2AllEmbeddingCollectionModelBackward::All2AllEmbeddingCollectionModelBackward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
-    : core_(core), meta_(core, ebc_param, 0) {}
+    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
+    : core_(core), meta_(meta) {}
 
 void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
     const std::vector<Tensor> &emb_vec_model_buffer, const Tensor &model_key,

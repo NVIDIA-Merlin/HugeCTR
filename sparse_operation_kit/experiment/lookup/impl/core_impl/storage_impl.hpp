@@ -97,8 +97,8 @@ class TFStorageImpl final : public IStorageImpl {
   }
 
   void *get_ptr() override {
-    if (!ptr_ || !allocated_) {
-      LOG(WARNING) << "Tensor is not allocated. You forget call allocate()?";
+    if ((total_size_ > 0 && !ptr_) || !allocated_) {
+      LOG(FATAL) << "Tensor is not allocated. You forget call allocate()?";
     }
     return ptr_;
   }

@@ -28,12 +28,12 @@ def test():
         [v1.handle, v2.handle],
         key_recv,
         offset_recv,
+        hotness=[2, 2],
         rank=1,
         num_ranks=2,
         id_in_local_rank=0,
         num_gpus=2,
         combiners=["sum", "sum"],
-        hotness=[2, 2],
         shard=[-1, -1],
         dimensions=[3, 5],
     )

@@ -44,6 +44,14 @@ if (SOK_ASYNC)
     add_definitions(-DSOK_ASYNC)
 endif()
 
+# whether build for DeepRec
+option(ENABLE_DEEPREC "Enable op support for deeprec" OFF)
+if (ENABLE_DEEPREC)
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+endif()
+
 # setting compiler flags
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
@@ -77,7 +85,7 @@ endforeach()
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
     set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas")
-    if (${TF_VERSION_MAJOR} EQUAL 1)
+    if (${TF_VERSION_MAJOR} EQUAL 1 AND NOT ENABLE_DEEPREC)
         set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-error=class-memaccess")
     endif()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall,-Wno-error=cpp")

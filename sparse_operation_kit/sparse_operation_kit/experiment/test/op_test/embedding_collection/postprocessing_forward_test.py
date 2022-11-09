@@ -29,8 +29,8 @@ def test():
     outputs, shape = sok.raw_ops.postprocessing_forward(
         [emb_vec_buffer],
         [offset1, offset2],
+        [2, 2],
         combiners=["sum", "sum"],
-        hotness=[2, 2],
         shard=[0, 0],
         dimensions=[3, 5],
         rank=0,
