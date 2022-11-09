@@ -41,7 +41,7 @@ namespace HugeCTR {
 #ifdef ENABLE_S3
 
 Aws::SDKOptions sdk_options;
-static bool sdk_running = false;
+static std::once_flag sdk_is_running;
 
 void start_aws_sdk() {
   Aws::Utils::Logging::LogLevel sdk_log_level = Aws::Utils::Logging::LogLevel::Off;
@@ -53,18 +53,6 @@ void start_aws_sdk() {
         sdk_options.loggingOptions.logLevel);
   };
   Aws::InitAPI(sdk_options);
-  sdk_running = true;
-}
-
-void stop_aws_sdk() {
-  Aws::ShutdownAPI(sdk_options);
-  sdk_running = false;
-}
-
-void ensure_aws_sdk_running() {
-  if (!sdk_running) {
-    start_aws_sdk();
-  }
 }
 
 S3Configs::S3Configs() {}
@@ -164,7 +152,11 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, size_t nbytes) {
 }
 
 S3FileSystem::S3FileSystem(const S3Configs& configs) {
-  ensure_aws_sdk_running();
+  try {
+    std::call_once(sdk_is_running, start_aws_sdk);
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+  }
   S3ClientBuilder builder = S3ClientBuilder(configs);
   client_ = builder.build_s3client();
 }
@@ -196,7 +188,7 @@ void S3FileSystem::create_dir(const std::string& path) {
   HCTR_CHECK_HINT(outcome.IsSuccess(), "Failed to create the directory in S3.");
 }
 
-void S3FileSystem::delete_file(const std::string& path, bool recursive) {
+void S3FileSystem::delete_file(const std::string& path) {
   // S3 deletion is always recursive
   S3Path s3_path = S3Path::FromString(path);
   HCTR_CHECK_HINT(s3_path.has_bucket_and_key(),
@@ -273,14 +265,12 @@ void S3FileSystem::copy(const std::string& source_path, const std::string& targe
   HCTR_CHECK_HINT(outcome.IsSuccess(), "Failed to copy the files.");
 }
 
-int S3FileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
+void S3FileSystem::batch_fetch(const std::string& source_path, const std::string& target_path) {
   fetch(source_path, target_path);
-  return 1;
 }
 
-int S3FileSystem::batch_upload(const std::string& source_path, const std::string& target_path) {
+void S3FileSystem::batch_upload(const std::string& source_path, const std::string& target_path) {
   upload(source_path, target_path);
-  return 1;
 }
 #endif
 }  // namespace HugeCTR

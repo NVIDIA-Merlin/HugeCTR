@@ -66,12 +66,9 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
     }
 
     auto in_dims = in_tensor.get_dimensions();
-    if (in_dims.size() != 2) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be concatenated");
-    }
+    auto dims = in_dims.size();
 
-    size_t height = in_dims[0];
-    int in_w = in_dims[1];
+    int in_w = in_dims[dims - 1];
     int prev_min = -1;
     int prev_max = 0;
     for (auto& range : ranges) {
@@ -90,7 +87,12 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
         HCTR_OWN_THROW(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
       }
       size_t out_w = cur_max - cur_min;
-      std::vector<size_t> out_dims = {height, out_w};
+      std::vector<size_t> out_dims;
+      for (size_t i = 0; i < dims - 1; i++) {
+        out_dims.push_back(in_dims[i]);
+      }
+      out_dims.push_back(out_w);
+      // std::vector<size_t> out_dims = {height, out_w};
       {
         Tensor2<T> tensor;
         blobs_buff->reserve(out_dims, &tensor);
@@ -119,13 +121,19 @@ void SliceLayer<T>::fprop(bool is_train) {
   int block_size = 256;
   int n_blocks = get_gpu().get_sm_count() * 4;
   T* in = in_tensor_.get_ptr();
-  int2 in_dim = {static_cast<int>(in_tensor_.get_dimensions()[0]),
-                 static_cast<int>(in_tensor_.get_dimensions()[1])};
+  auto in_dims = in_tensor_.get_dimensions();
+  auto dims = in_dims.size();
+  int height = 1;
+  for (size_t i = 0; i < dims - 1; i++) {
+    height = height * in_dims[i];
+  }
+  int width = in_dims[dims - 1];
+  int2 in_dim = {static_cast<int>(height), static_cast<int>(width)};
   int grid_size = std::min(in_dim.x, n_blocks);
   for (std::size_t i = 0; i < out_tensors_.size(); i++) {
     Tensor2<T>& out_tensor = out_tensors_[i];
     T* out = out_tensor.get_ptr();
-    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[1])};
+    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[dims - 1])};
 
     slice_fwd_kernel<<<grid_size, block_size, 0, stream>>>(out, in, in_dim, slice);
   }
@@ -139,14 +147,20 @@ void SliceLayer<T>::bprop() {
   int block_size = 256;
   int n_blocks = get_gpu().get_sm_count() * 4;
   T* in = in_tensor_.get_ptr();
-  int2 in_dim = {static_cast<int>(in_tensor_.get_dimensions()[0]),
-                 static_cast<int>(in_tensor_.get_dimensions()[1])};
+  auto in_dims = in_tensor_.get_dimensions();
+  auto dims = in_dims.size();
+  int height = 1;
+  for (size_t i = 0; i < dims - 1; i++) {
+    height = height * in_dims[i];
+  }
+  int width = in_dims[dims - 1];
+  int2 in_dim = {static_cast<int>(height), static_cast<int>(width)};
   int grid_size = std::min(in_dim.x, n_blocks);
   initialize_array<<<n_blocks, block_size, 0, stream>>>(in, in_dim.x * in_dim.y, T(0));
   for (std::size_t i = 0; i < out_tensors_.size(); i++) {
     Tensor2<T>& out_tensor = out_tensors_[i];
     T* out = out_tensor.get_ptr();
-    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[1])};
+    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[dims - 1])};
 
     slice_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, in, in_dim, slice);
   }

@@ -428,6 +428,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   }
   resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed, solver.device_layout);
 
+  embedding_para_io_ = std::shared_ptr<embedding::EmbeddingParameterIO>(
+      new embedding::EmbeddingParameterIO(resource_manager_));
   init_exchange_wgrad(resource_manager_, exchange_wgrad_, solver_);
 
   graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
@@ -766,12 +768,21 @@ core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_ten
 
 }  // namespace core_helper
 
-void Model::add(const EmbeddingPlanner& planner) {
+void Model::add(const EmbeddingCollectionConfig& ebc_config) {
+  TableNameToIDDict table_name_to_id_dict =
+      create_table_name_to_id_dict_from_ebc_config(ebc_config);
+  int global_ebc_id = static_cast<int>(ebc_list_.size());
+  for (auto& [name, id] : table_name_to_id_dict) {
+    HCTR_CHECK_HINT(ebc_name_to_global_id_dict_.find(name) == ebc_name_to_global_id_dict_.end(),
+                    "Duplicate table name: %s\n", name.c_str());
+    ebc_name_to_global_id_dict_[name] = {global_ebc_id, id};
+  }
+
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
-  int num_table = planner.emb_table_list_.size();
-  int num_lookup = planner.lookup_params_.size();
+  int num_table = ebc_config.emb_table_config_list_.size();
+  int num_lookup = ebc_config.lookup_configs_.size();
   core::DataType key_type =
       solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
   core::DataType index_type =
@@ -782,36 +793,35 @@ void Model::add(const EmbeddingPlanner& planner) {
       solver_.use_mixed_precision ? TensorScalarType::Float16 : TensorScalarType::Float32;
   embedding::EmbeddingLayout input_layout_ = embedding::EmbeddingLayout::BatchMajor;
 
-  std::vector<embedding::LookupParam> lookup_params;
   std::vector<std::string> bottom_name_list;
   std::vector<std::string> top_name_list;
   for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-    auto bottom_name = planner.bottom_names_[lookup_id];
-    auto top_name = planner.top_names_[lookup_id];
+    auto bottom_name = ebc_config.bottom_names_[lookup_id];
+    auto top_name = ebc_config.top_names_[lookup_id];
     bottom_name_list.push_back(bottom_name);
     top_name_list.push_back(top_name);
-
-    auto lookup_param = planner.lookup_params_[lookup_id];
-    lookup_param.max_hotness = hotness_map_[bottom_name];
-    lookup_params.push_back(lookup_param);
   }
 
-  std::vector<embedding::GroupedEmbeddingParam> grouped_emb_params;
-  for (size_t i = 0; i < planner.emb_table_group_strategy_.size(); ++i) {
-    grouped_emb_params.emplace_back(planner.emb_table_placement_strategy_[i],
-                                    planner.emb_table_group_strategy_[i]);
+  auto lookup_params = create_lookup_params_from_ebc_config(table_name_to_id_dict, ebc_config);
+  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+    auto bottom_name = ebc_config.bottom_names_[lookup_id];
+    lookup_params[lookup_id].max_hotness = hotness_map_[bottom_name];
   }
+
+  auto shard_matrix = create_shard_matrix_from_ebc_config(table_name_to_id_dict, ebc_config);
+
+  auto grouped_emb_params =
+      create_grouped_embedding_param_from_ebc_config(table_name_to_id_dict, ebc_config);
+
   embedding::EmbeddingCollectionParam ebc_param{
-      num_table,          num_lookup,        lookup_params, planner.shard_matrix_,
-      grouped_emb_params, solver_.batchsize, key_type,      index_type,
-      offset_type,        emb_type,          input_layout_};
+      num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params, solver_.batchsize,
+      key_type,  index_type, offset_type,   emb_type,     input_layout_};
 
-  embedding::EmbeddingCollectionParam eval_ebc_param{num_table,          num_lookup,
-                                                     lookup_params,      planner.shard_matrix_,
-                                                     grouped_emb_params, solver_.batchsize_eval,
-                                                     key_type,           index_type,
-                                                     offset_type,        emb_type,
-                                                     input_layout_};
+  embedding::EmbeddingCollectionParam eval_ebc_param{
+      num_table,    num_lookup,         lookup_params,
+      shard_matrix, grouped_emb_params, solver_.batchsize_eval,
+      key_type,     index_type,         offset_type,
+      emb_type,     input_layout_};
 
   std::string bottom_name = join(bottom_name_list, ",");
   deactivate_tensor(tensor_active_, bottom_name);
@@ -819,7 +829,7 @@ void Model::add(const EmbeddingPlanner& planner) {
   layer_info_.push_back("EmbeddingCollection" + std::to_string(ebc_list_.size()));
   input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
 
-  auto emb_table_list = planner.emb_table_list_;
+  auto emb_table_list = create_table_params_from_ebc_config(table_name_to_id_dict, ebc_config);
   for (auto& p : emb_table_list) {
     if (p.opt_param.optimizer == Optimizer_t::NOT_INITIALIZED) {
       p.opt_param = opt_params_;
@@ -835,6 +845,8 @@ void Model::add(const EmbeddingPlanner& planner) {
   }
   ebc_list_.push_back(std::make_unique<embedding::EmbeddingCollection>(
       resource_manager_, core_list, ebc_param, eval_ebc_param, emb_table_list));
+  int tmp_size = ebc_list_.size();
+  embedding_para_io_->add_embedding_collection((ebc_list_[tmp_size - 1]).get());
 
   auto prepare_ebc_input = [&](auto& sparse_input_map) {
     auto train_sparse_tensors = sparse_input_map[bottom_name].train_sparse_tensors;
@@ -884,7 +896,7 @@ void Model::add(const EmbeddingPlanner& planner) {
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
         embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-        std::string top_name = planner.top_names_[lookup_id];
+        std::string top_name = ebc_config.top_names_[lookup_id];
 
         size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
                                   ? lookup_param.max_hotness * lookup_param.ev_size
@@ -919,7 +931,7 @@ void Model::add(const EmbeddingPlanner& planner) {
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
         auto& lookup_param = ebc_param.lookup_params[lookup_id];
-        std::string top_name = planner.top_names_[lookup_id];
+        std::string top_name = ebc_config.top_names_[lookup_id];
 
         size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
                                   ? lookup_param.max_hotness * lookup_param.ev_size
@@ -948,7 +960,7 @@ void Model::add(const EmbeddingPlanner& planner) {
 
   for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-    std::string top_name = planner.top_names_[lookup_id];
+    std::string top_name = ebc_config.top_names_[lookup_id];
     int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
                            ? lookup_param.max_hotness * lookup_param.ev_size
                            : lookup_param.ev_size;
@@ -1058,7 +1070,8 @@ void Model::graph_analysis() {
       std::vector<std::pair<int, int>> ranges;
       for (unsigned int i = 0; i < iter->second; i++) {
         top_names.push_back(iter->first + "_slice" + std::to_string(i));
-        ranges.emplace_back(std::make_pair(0, tensor_shape_info_raw_[iter->first][1]));
+        auto dims = tensor_shape_info_raw_[iter->first].size();
+        ranges.emplace_back(std::make_pair(0, tensor_shape_info_raw_[iter->first][dims - 1]));
       }
       DenseLayer slice_layer(Layer_t::Slice, bottom_names, top_names);
       slice_layer.ranges = ranges;
@@ -1461,6 +1474,152 @@ void Model::load_sparse_weights(
     auto embedding_target = embeddings_map_.find(iter->first)->second;
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << iter->second << std::endl;
     embedding_target->load_parameters(iter->second);
+  }
+}
+
+void Model::embedding_load(const std::string& path, const std::vector<std::string>& table_names) {
+  TableNameToGlobalIDDict table_id_map;
+  if (!table_names.empty()) {
+    check_table_name_correct(ebc_name_to_global_id_dict_, table_names);
+    for (auto& name : table_names) {
+      table_id_map[name] = ebc_name_to_global_id_dict_.at(name);
+    }
+  } else {
+    for (auto& [name, ids] : ebc_name_to_global_id_dict_) {
+      table_id_map[name] = ids;
+    }
+  }
+
+  int num_total_gpus = resource_manager_->get_global_gpu_count();
+  int num_local_gpus = resource_manager_->get_local_gpu_count();
+  std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
+
+  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+    auto core_resource_manager =
+        std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager_, local_gpu_id);
+    core_list.push_back(core_resource_manager);
+  }
+
+  for (auto& [name, ids] : table_id_map) {
+    int embedding_collection_id = ids.first;
+    int file_table_id = ids.second;
+    int model_table_id = ids.second;
+    auto& tmp_embedding_collection = ebc_list_[embedding_collection_id];
+    auto& tmp_ebc_param = tmp_embedding_collection->ebc_param_;
+    auto& tmp_shard_matrix = tmp_ebc_param.shard_matrix;
+
+    struct embedding::EmbeddingParameterInfo tmp_epi = embedding::EmbeddingParameterInfo();
+    embedding_para_io_->load_metadata(path, embedding_collection_id, tmp_epi);
+
+    int target_grouped_id = -1;
+    embedding::TablePlacementStrategy target_placement;
+    for (int grouped_id = 0; grouped_id < tmp_ebc_param.grouped_emb_params.size(); ++grouped_id) {
+      auto& tmp_table_ids = tmp_ebc_param.grouped_emb_params[grouped_id].table_ids;
+
+      auto tmp_it = std::find(tmp_table_ids.begin(), tmp_table_ids.end(), model_table_id);
+      if (tmp_it != tmp_table_ids.end()) {
+        target_grouped_id = grouped_id;
+        target_placement = tmp_ebc_param.grouped_emb_params[grouped_id].table_placement_strategy;
+        break;
+      }
+    }
+    if (target_grouped_id == -1) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "can not find table_id in model table_ids,please check your input");
+    }
+
+    if (target_placement == embedding::TablePlacementStrategy::DataParallel) {
+      auto tmp_filter = [=](size_t key) { return true; };
+      core::Tensor keys;
+      core::Tensor embedding_weights;
+      auto& target_key_type = tmp_ebc_param.key_type;
+      auto& target_value_type = tmp_ebc_param.emb_type;
+      embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                tmp_filter, core_list[0], target_key_type,
+                                                target_value_type);
+      for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+        HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
+        auto& grouped_table =
+            tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
+        grouped_table->load_by_id(&keys, &embedding_weights, model_table_id);
+      }
+    } else if (target_placement == embedding::TablePlacementStrategy::ModelParallel) {
+      for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+        HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
+        size_t global_id = resource_manager_->get_gpu_global_id_from_local_id(local_gpu_id);
+        auto& target_key_type = tmp_ebc_param.key_type;
+        auto& target_value_type = tmp_ebc_param.emb_type;
+        std::vector<int> shard_gpu_list;
+        for (int gpu_id = 0; gpu_id < num_total_gpus; ++gpu_id) {
+          HCTR_CHECK_HINT(model_table_id < static_cast<int>(tmp_shard_matrix[gpu_id].size()),
+                          "table_id is out of range");
+          if (tmp_ebc_param.shard_matrix[gpu_id][model_table_id] == 1) {
+            shard_gpu_list.push_back(gpu_id);
+          }
+        }
+        int num_shards = static_cast<int>(shard_gpu_list.size());
+        auto find_shard_id_iter =
+            std::find(shard_gpu_list.begin(), shard_gpu_list.end(), global_id);
+        if (find_shard_id_iter == shard_gpu_list.end()) {
+          continue;
+        }
+        int shard_id = static_cast<int>(std::distance(shard_gpu_list.begin(), find_shard_id_iter));
+
+        auto tmp_filter = [=](size_t key) { return key % num_shards == shard_id; };
+        core::Tensor keys;
+        core::Tensor embedding_weights;
+        embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                  tmp_filter, core_list[0], target_key_type,
+                                                  target_value_type);
+        auto& grouped_table =
+            tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
+        grouped_table->load_by_id(&keys, &embedding_weights, model_table_id);
+      }
+    } else {
+      HCTR_OWN_THROW(Error_t::UnspecificError, "unsupport parallel mode");
+    }
+  }
+}
+
+void Model::embedding_dump(const std::string& path, const std::vector<std::string>& table_names) {
+  std::vector<struct embedding::EmbeddingParameterInfo> epis;
+
+  embedding_para_io_->get_parameter_info_from_model(path, epis);
+  std::map<int, std::vector<int>> table_ids;
+
+  if (!table_names.empty()) {
+    check_table_name_correct(ebc_name_to_global_id_dict_, table_names);
+    for (auto& name : table_names) {
+      auto& id_pair = ebc_name_to_global_id_dict_.at(name);
+      int embedding_collection_id = id_pair.first;
+      int table_id = id_pair.second;
+      if (table_ids.find(embedding_collection_id) == table_ids.end()) {
+        table_ids[embedding_collection_id] = std::vector<int>();
+        table_ids.at(embedding_collection_id).push_back(table_id);
+      } else {
+        table_ids.at(embedding_collection_id).push_back(table_id);
+      }
+    }
+  } else {
+    for (auto& [name, id_pair] : ebc_name_to_global_id_dict_) {
+      int embedding_collection_id = id_pair.first;
+      int table_id = id_pair.second;
+      if (table_ids.find(embedding_collection_id) == table_ids.end()) {
+        table_ids[embedding_collection_id] = std::vector<int>();
+        table_ids.at(embedding_collection_id).push_back(table_id);
+      } else {
+        table_ids.at(embedding_collection_id).push_back(table_id);
+      }
+    }
+  }
+
+  for (auto collection_id_iter = table_ids.begin(); collection_id_iter != table_ids.end();
+       ++collection_id_iter) {
+    auto& cid = collection_id_iter->first;
+    auto& tmp_table_ids = collection_id_iter->second;
+    std::sort(tmp_table_ids.begin(), tmp_table_ids.end());
+    embedding_para_io_->dump_metadata(path, epis[cid], tmp_table_ids);
+    embedding_para_io_->dump_embedding_weight(path, epis[cid], tmp_table_ids);
   }
 }
 

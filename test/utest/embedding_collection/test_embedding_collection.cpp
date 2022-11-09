@@ -29,49 +29,47 @@
 #include "embeddings/embedding_collection.hpp"
 using namespace embedding;
 
+const int batch_size = 8192;
 // table params
 const int num_table = 4;
-// const std::vector<int> table_ev_size_list = {128, 64, 32, 16};
-const std::vector<int> table_ev_size_list = {4, 8, 16, 32};
-const std::vector<int> table_max_vocabulary_list = {1000, 1000, 1000, 1000};
+const std::vector<int> table_ev_size_list = {128, 64, 32, 16};
+const std::vector<int> table_max_vocabulary_list = {398844, 39043, 17289, 124345};
 
 // lookup params
-const std::vector<LookupParam> lookup_params0 = {
-    {0, 0, Combiner::Sum, 2, table_ev_size_list[0]},
-    {1, 1, Combiner::Sum, 2, table_ev_size_list[1]},
-    {2, 2, Combiner::Sum, 2, table_ev_size_list[2]},
-    {3, 3, Combiner::Sum, 2, table_ev_size_list[3]},
-};
-
-const std::vector<LookupParam> lookup_params1 = {
+const std::vector<LookupParam> lookup_params = {
     {0, 0, Combiner::Sum, 8, table_ev_size_list[0]},
     {1, 1, Combiner::Average, 20, table_ev_size_list[1]},
     {2, 2, Combiner::Sum, 10, table_ev_size_list[2]},
     {3, 3, Combiner::Average, 5, table_ev_size_list[3]},
 };
 
-const std::vector<LookupParam> lookup_params2 = {
+const std::vector<LookupParam> lookup_params_with_shared_table = {
     {0, 0, Combiner::Sum, 8, table_ev_size_list[0]},
     {1, 1, Combiner::Average, 20, table_ev_size_list[1]},
     {2, 2, Combiner::Sum, 10, table_ev_size_list[2]},
     {3, 3, Combiner::Average, 5, table_ev_size_list[3]},
-    {4, 3, Combiner::Average, 5, table_ev_size_list[3]},
 };
 
-const int batch_size = 8;
 const std::vector<int> device_list = {0, 1};
+bool debug_verbose = false;
 
 std::vector<EmbeddingTableParam> get_table_param_list(core::DataType emb_type) {
   std::vector<EmbeddingTableParam> table_param_list;
 
   HugeCTR::OptParams opt_param;
+  // FIXME: We need to initialize all variable or we will trigger uninitialized error in
+  // EmbeddingTableParam ctor because the copy constructor of HugeCTR::OptParams trys to copy all
+  // members
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
   opt_param.scaler = (emb_type == TensorScalarType::Float16) ? 1024 : 1;
+  opt_param.hyperparams = HugeCTR::OptHyperParams{};
+  opt_param.update_type = HugeCTR::Update_t::Local;
 
+  InitParams init_param;
   for (int table_id = 0; table_id < num_table; ++table_id) {
     EmbeddingTableParam table_param{table_id, table_max_vocabulary_list[table_id],
-                                    table_ev_size_list[table_id], opt_param};
+                                    table_ev_size_list[table_id], opt_param, init_param};
     table_param_list.push_back(std::move(table_param));
   }
   return table_param_list;
@@ -81,6 +79,9 @@ template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                               const std::vector<std::vector<int>> &shard_matrix,
                               const std::vector<GroupedEmbeddingParam> &grouped_emb_params) {
+  ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
+  ASSERT_EQ(table_ev_size_list.size(), num_table);
+
   EmbeddingCollectionParam ebc_param{num_table,
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
@@ -114,7 +115,6 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
       auto &table_param = table_param_list[table_id];
 
       for (int b = 0; b < ebc_param.universal_batch_size; ++b) {
-        // int nnz = max_hotness;
         int nnz = (lookup_param.combiner == Combiner::Concat)
                       ? max_hotness
                       : 1 + rand() % max_hotness;  // TODO: support nnz=0
@@ -232,9 +232,10 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       ASSERT_EQ(ebc_cpu.embedding_vec_[gpu_id].size(), emb_ref.embedding_vec_[gpu_id].size());
       // std::cout << "forward cpu output:\n";
-      // print_array(ebc_cpu.embedding_vec_[gpu_id].size(), ebc_cpu.embedding_vec_[gpu_id]);
-      // std::cout << "forward ref output:\n";
-      // print_array(emb_ref.embedding_vec_[gpu_id].size(), emb_ref.embedding_vec_[gpu_id]);
+      // print_array(ebc_cpu.embedding_vec_[gpu_id].size(),
+      // ebc_cpu.embedding_vec_[gpu_id]); std::cout << "forward ref output:\n";
+      // print_array(emb_ref.embedding_vec_[gpu_id].size(),
+      // emb_ref.embedding_vec_[gpu_id]);
       assert_array_eq(ebc_cpu.embedding_vec_[gpu_id].size(), ebc_cpu.embedding_vec_[gpu_id],
                       emb_ref.embedding_vec_[gpu_id]);
     }
@@ -245,18 +246,19 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
       std::vector<emb_t> gpu_emb_output;
       ebc_outptut[gpu_id].to(&gpu_emb_output);
       ASSERT_EQ(gpu_emb_output.size(), emb_ref.embedding_vec_[gpu_id].size());
-      // std::cout << "forward ref output:\n";
-      // print_array(emb_ref.embedding_vec_[gpu_id].size(), emb_ref.embedding_vec_[gpu_id]);
-      // std::cout << "forward gpu output:\n";
-      // print_array(gpu_emb_output.size(), gpu_emb_output);
+      if (debug_verbose) {
+        std::cout << "forward ref output:\n";
+        print_array(emb_ref.embedding_vec_[gpu_id].size(), emb_ref.embedding_vec_[gpu_id]);
+        std::cout << "forward gpu output:\n";
+        print_array(gpu_emb_output.size(), gpu_emb_output);
+      }
       assert_array_eq(gpu_emb_output.size(), gpu_emb_output, ebc_cpu.embedding_vec_[gpu_id]);
     }
     std::cout << "\t>pass compare ebc gpu emb output vs. emb reference emb output.\n";
   };
   auto check_backward_result = [&] {
     auto compare_grad_in_table = [](const std::unordered_map<key_t, std::vector<float>> &lhs,
-                                    const std::unordered_map<key_t, std::vector<float>> &rhs,
-                                    bool verbose = false) {
+                                    const std::unordered_map<key_t, std::vector<float>> &rhs) {
       ASSERT_EQ(lhs.size(), rhs.size());
 
       for (auto p : lhs) {
@@ -265,12 +267,12 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
         ASSERT_TRUE(rhs.find(k) != rhs.end());
         auto &rhs_ev = rhs.at(k);
         ASSERT_EQ(lhs_ev.size(), rhs_ev.size());
-        if (verbose) {
-          std::cout << "lhs output:\n";
-          print_array(lhs_ev.size(), lhs_ev);
-          std::cout << "rhs output:\n";
-          print_array(rhs_ev.size(), rhs_ev);
-        }
+        // if (debug_verbose) {
+        //   std::cout << "lhs output:\n";
+        //   print_array(lhs_ev.size(), lhs_ev);
+        //   std::cout << "rhs output:\n";
+        //   print_array(rhs_ev.size(), rhs_ev);
+        // }
         assert_array_eq(lhs_ev.size(), lhs_ev, rhs_ev);
       }
     };
@@ -314,11 +316,13 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     // ASSERT_TRUE(gpu_emb_table.size() == ref_emb_table.size());
 
     // for (size_t id_space = 0; id_space < gpu_emb_table.size(); ++id_space) {
-    //   ASSERT_EQ(gpu_emb_table[id_space].size(), ref_emb_table[id_space].size());
+    //   ASSERT_EQ(gpu_emb_table[id_space].size(),
+    //   ref_emb_table[id_space].size());
 
     //   for (auto &[k, gpu_ev] : gpu_emb_table[id_space]) {
-    //     ASSERT_TRUE(gpu_emb_table[id_space].find(k) != ref_emb_table[id_space].end());
-    //     auto ref_ev = ref_emb_table[id_space].at(k);
+    //     ASSERT_TRUE(gpu_emb_table[id_space].find(k) !=
+    //     ref_emb_table[id_space].end()); auto ref_ev =
+    //     ref_emb_table[id_space].at(k);
 
     //     ASSERT_EQ(gpu_ev.size(), ref_ev.size());
     //     assert_array_eq(gpu_ev.size(), gpu_ev, ref_ev);
@@ -378,13 +382,10 @@ const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
     {TablePlacementStrategy::DataParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection, dp_plan0) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params0, shard_matrix,
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params, shard_matrix,
                                                                 grouped_emb_params);
-}
-
-TEST(test_embedding_collection, dp_plan1) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params1, shard_matrix,
-                                                                grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(lookup_params, shard_matrix,
+                                                                 grouped_emb_params);
 }
 }  // namespace dp
 
@@ -398,18 +399,17 @@ const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection, mp_plan0) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params0, shard_matrix,
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params, shard_matrix,
                                                                 grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(lookup_params, shard_matrix,
+                                                                 grouped_emb_params);
 }
 
 TEST(test_embedding_collection, mp_plan1) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params1, shard_matrix,
-                                                                grouped_emb_params);
-}
-
-TEST(test_embedding_collection, mp_plan2) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params2, shard_matrix,
-                                                                grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params_with_shared_table,
+                                                                shard_matrix, grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(lookup_params_with_shared_table,
+                                                                 shard_matrix, grouped_emb_params);
 }
 }  // namespace mp
 
@@ -424,17 +424,16 @@ const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 3}}};
 
 TEST(test_embedding_collection, dp_and_mp_plan0) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params0, shard_matrix,
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params, shard_matrix,
                                                                 grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(lookup_params, shard_matrix,
+                                                                 grouped_emb_params);
 }
 
 TEST(test_embedding_collection, dp_and_mp_plan1) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params1, shard_matrix,
-                                                                grouped_emb_params);
-}
-
-TEST(test_embedding_collection, dp_and_mp_plan2) {
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params2, shard_matrix,
-                                                                grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(lookup_params_with_shared_table,
+                                                                shard_matrix, grouped_emb_params);
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(lookup_params_with_shared_table,
+                                                                 shard_matrix, grouped_emb_params);
 }
 }  // namespace dp_and_mp

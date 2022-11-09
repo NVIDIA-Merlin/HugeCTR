@@ -49,6 +49,14 @@ class DynamicEmbeddingTable {
   void scatter_add(KeyType const *keys, ElementType const *elements, size_t num_keys,
                    size_t const *id_spaces, size_t const *id_space_offsets, size_t num_id_spaces,
                    cudaStream_t stream = 0);
+  void scatter_update(KeyType const *keys, ElementType const *elements, size_t num_keys,
+                      size_t const *id_spaces, size_t const *id_space_offsets, size_t num_id_spaces,
+                      cudaStream_t stream = 0);
+  void lookup_by_index(size_t class_index, KeyType const *d_keys, ElementType *d_values,
+                       size_t num_keys, cudaStream_t stream = 0);
+  void scatter_update_by_index(size_t class_index, KeyType const *d_keys,
+                               ElementType const *d_values, size_t num_keys,
+                               cudaStream_t stream = 0);
   void remove(KeyType const *keys, size_t num_keys, size_t const *id_spaces,
               size_t const *id_space_offsets, size_t num_id_spaces, cudaStream_t stream = 0);
   void eXport(size_t class_index, KeyType *keys, ElementType *values, size_t num_keys,
@@ -57,6 +65,9 @@ class DynamicEmbeddingTable {
 
   size_t size() const;
   size_t capacity() const;
+
+  std::vector<size_t> size_per_class() const;
+  std::vector<size_t> capacity_per_class() const;
 };
 
 }  // namespace det

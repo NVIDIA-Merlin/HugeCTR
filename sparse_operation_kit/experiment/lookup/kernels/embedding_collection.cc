@@ -27,6 +27,7 @@
 
 #include "lookup/impl/embedding_collection.hpp"
 #include "lookup/impl/embedding_collection_adapter.h"
+#include "lookup/impl/hotness_calculate.h"
 // clang-format on
 
 namespace stream_executor {
@@ -42,7 +43,7 @@ class EmbeddingCollectionBase : public OpKernel {
  protected:
   int num_lookups_;
   std::vector<std::string> combiners_;
-  std::vector<int> hotness_;
+  //std::vector<int> hotness_;
   std::vector<int> shard_;
   std::vector<int> dimensions_;
 
@@ -55,6 +56,9 @@ class EmbeddingCollectionBase : public OpKernel {
   int global_gpu_id_;
   int num_local_lookups_;
 
+  std::unique_ptr<sok::EmbeddingCollectionParam> ebc_param_;
+  std::unique_ptr<sok::UniformModelParallelEmbeddingMeta> meta_;
+
   std::shared_ptr<sok::CoreResourceManager> make_core_resource(OpKernelContext* ctx) {
     return std::make_shared<sok::TFCoreResourceManager>(ctx,
                                                         /*device_id*/ -1,
@@ -66,9 +70,9 @@ class EmbeddingCollectionBase : public OpKernel {
 
   void make_shard_matrix(std::vector<std::vector<int>>& shard_matrix) {
     shard_matrix.resize(num_gpus_);
-    for (int i = 0; i < shard_matrix.size(); ++i) {
-      for (int j = 0; j < shard_.size(); ++j) {
-        if (shard_[j] < 0 || shard_[j] == i) {
+    for (size_t i = 0; i < shard_matrix.size(); ++i) {
+      for (size_t j = 0; j < shard_.size(); ++j) {
+        if (shard_[j] < 0 || shard_[j] == static_cast<int>(i)) {
           // Distributed embedding
           // Localized embedding with embedding table on i_th GPU
           shard_matrix[i].push_back(1);
@@ -78,31 +82,40 @@ class EmbeddingCollectionBase : public OpKernel {
         }
       }
     }
+  }
 
-    // std::cout << "global_gpu_id: " << global_gpu_id_ << ", shard_matrix:" << std::endl;
-    // for (int i = 0; i < shard_matrix.size(); ++i) {
-    //   for (int j = 0; j < shard_matrix[i].size(); ++j) {
-    //     std::cout << shard_matrix[i][j] << ", ";
-    //   }
-    //   std::cout << std::endl;
-    // }
+  void update_meta(std::shared_ptr<sok::CoreResourceManager> tf_backend, int global_batch_size,std::vector<int>& hotness) {
+    if (!ebc_param_ || ebc_param_->universal_batch_size != global_batch_size) {
+      std::vector<std::vector<int>> shard_matrix;
+      this->make_shard_matrix(shard_matrix);
+      this->ebc_param_ = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(
+      shard_matrix, this->num_lookups_, this->combiners_, hotness, this->dimensions_,
+      global_batch_size,global_gpu_id_);
+      this->meta_.reset(new sok::UniformModelParallelEmbeddingMeta(tf_backend, *ebc_param_, 0));
+    }
+    else{
+      std::vector<std::vector<int>> shard_matrix;
+      this->make_shard_matrix(shard_matrix);
+      this->ebc_param_ = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(
+          shard_matrix, this->num_lookups_, this->combiners_, hotness, this->dimensions_,
+          global_batch_size,global_gpu_id_);
+      this->meta_->update_mutable_meta(tf_backend, *ebc_param_, 0);
+   }
   }
 
  public:
-  explicit EmbeddingCollectionBase(OpKernelConstruction* ctx) : OpKernel(ctx) {
+  explicit EmbeddingCollectionBase(OpKernelConstruction* ctx)
+      : OpKernel(ctx), ebc_param_(nullptr), meta_(nullptr) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("num_lookups", &num_lookups_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("combiners", &combiners_));
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("hotness", &hotness_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("shard", &shard_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("dimensions", &dimensions_));
 
-    OP_REQUIRES(ctx, combiners_.size() == num_lookups_,
+    OP_REQUIRES(ctx, combiners_.size() == static_cast<size_t>(num_lookups_),
                 errors::InvalidArgument("len(combiners) != num_lookups."));
-    OP_REQUIRES(ctx, hotness_.size() == num_lookups_,
-                errors::InvalidArgument("len(hotness) != num_lookups."));
-    OP_REQUIRES(ctx, shard_.size() == num_lookups_,
+    OP_REQUIRES(ctx, shard_.size() == static_cast<size_t>(num_lookups_),
                 errors::InvalidArgument("len(shard) != num_lookups."));
-    OP_REQUIRES(ctx, dimensions_.size() == this->num_lookups_,
+    OP_REQUIRES(ctx, dimensions_.size() == static_cast<size_t>(this->num_lookups_),
                 errors::InvalidArgument("len(dimensions) != num_lookups."));
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr("rank", &rank_));
@@ -126,7 +139,7 @@ class EmbeddingCollectionBase : public OpKernel {
     global_gpu_id_ = rank_ * num_gpu_per_rank_ + id_in_local_rank_;
 
     num_local_lookups_ = 0;
-    for (int i = 0; i < shard_.size(); ++i) {
+    for (size_t i = 0; i < shard_.size(); ++i) {
       if (shard_[i] == -1 || shard_[i] == global_gpu_id_) {
         // shard_[i] == -1 means distributed embedding.
         // shard_[i] == global_gpu_id_ means localized embedding and embedding table is located in
@@ -136,6 +149,65 @@ class EmbeddingCollectionBase : public OpKernel {
     }
   }
 };
+
+// -----------------------------------------------------------------------------------------------
+// HotnessCalculate 
+// -----------------------------------------------------------------------------------------------
+template <typename DType>
+class HotnessCalculateOp : public OpKernel{
+ public:
+  explicit HotnessCalculateOp(OpKernelConstruction* ctx): OpKernel(ctx){
+    launcher_.initialize();
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("num_lookups", &num_lookups_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("num_gpus", &num_gpus_));
+  }
+
+  void Compute(OpKernelContext* ctx) override {
+    
+    const Tensor* row_length_send_buffer = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("row_length_buffer", &row_length_send_buffer));
+    int64_t input_len = row_length_send_buffer->dim_size(0);
+    OP_REQUIRES(ctx, input_len%(num_lookups_*num_gpus_) == 0,
+                errors::InvalidArgument("input_len%(num_lookups_*num_gpus_) != 0"));
+    size_t local_batchsize = input_len/num_lookups_/num_gpus_;
+    Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {num_lookups_}, &hotness));
+
+    // temp buffer
+    Tensor device_buffer;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_INT32, {num_lookups_}, &device_buffer));
+
+    // stream
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+
+    // cuda kernel
+    launcher_(row_length_send_buffer->data(), local_batchsize, num_lookups_,num_gpus_, device_buffer.data(),hotness->data(),stream);
+    }
+ private:
+  sok::HotnessCalLauncher<DType> launcher_;
+  int num_lookups_;
+  int num_gpus_;
+};
+
+#define REGISTER_GPU_KERNELS(dtype_tf, dtype) \
+  REGISTER_KERNEL_BUILDER(Name("HotnessCalculate")                           \
+                              .Device(DEVICE_GPU)                                \
+                              .HostMemory("hotness")                                 \
+                              .TypeConstraint<dtype_tf>("Tindices"),           \
+                          HotnessCalculateOp<dtype>)
+
+#if TF_VERSION_MAJOR == 1
+REGISTER_GPU_KERNELS(int64,int64_t);
+REGISTER_GPU_KERNELS(int32,int32_t);
+#else
+REGISTER_GPU_KERNELS(int64_t,int64_t);
+REGISTER_GPU_KERNELS(int32_t,int32_t);
+#endif
+
+#undef REGISTER_GPU_KERNELS
+
 
 // -----------------------------------------------------------------------------------------------
 // PreprocessingForward
@@ -244,9 +316,6 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
     cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
 
-    // Prepare ILookup (i.e. embedding table)
-    adapter_.set(vars, locks, this->dimensions_, scale, stream);
-
     // Prepare inputs (except handles)
     const Tensor* key_recv_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("key_recv_buffer", &key_recv_buffer));
@@ -259,20 +328,32 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
 
     int global_batch_size = row_length_recv_buffer->NumElements() / this->num_lookups_;
 
+    const Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
+    std::vector<int> hotness_vector;
+    int* t_hotness = (int*)hotness->data();
+    int64_t hotness_num = hotness->NumElements();
+    for (int64_t i =0;i<hotness_num;++i){
+       hotness_vector.push_back(t_hotness[i]);
+    }
+
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    std::vector<std::vector<int>> shard_matrix;
-    this->make_shard_matrix(shard_matrix);
-
-    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
-
+    this->update_meta(tf_backend, global_batch_size,hotness_vector);
     std::unique_ptr<sok::IModelForward> model =
-        std::make_unique<sok::ModelForward>(tf_backend, ebc_param);
+        std::make_unique<sok::ModelForward>(tf_backend, *this->meta_);
+
+    // Prepare ILookup (i.e. embedding table)
+    std::vector<int> ev_size_per_lookup;
+    for (auto& p : this->ebc_param_->lookup_params) {
+      ev_size_per_lookup.push_back(p.ev_size);
+    }
+    adapter_.set(vars, locks, this->dimensions_, scale, stream);
 
     // Prepare outputs
     auto buffer_size_list = model->get_model_comm_buffer_size(global_batch_size);
     std::vector<sok::Tensor> emb_vec_model_buffer;
-    for (int i = 0; i < buffer_size_list.size(); ++i) {
+    for (size_t i = 0; i < buffer_size_list.size(); ++i) {
       Tensor* output = nullptr;
       OP_REQUIRES_OK(ctx,
                      ctx->allocate_output(i, {static_cast<int64_t>(buffer_size_list[i])}, &output));
@@ -304,6 +385,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
   REGISTER_KERNEL_BUILDER(Name("LookupForward")                                                    \
                               .Device(DEVICE_GPU)                                                  \
                               .HostMemory("handles")                                               \
+                              .HostMemory("hotness")                                               \
                               .TypeConstraint<key_type_tf>("Tindices")                             \
                               .TypeConstraint<offset_type_tf>("Toffsets")                          \
                               .TypeConstraint<dtype_tf>("dtype"),                                  \
@@ -312,6 +394,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
   REGISTER_KERNEL_BUILDER(Name("LookupForwardDynamic")                                             \
                               .Device(DEVICE_GPU)                                                  \
                               .HostMemory("handles")                                               \
+                              .HostMemory("hotness")                                               \
                               .TypeConstraint<key_type_tf>("Tindices")                             \
                               .TypeConstraint<offset_type_tf>("Toffsets")                          \
                               .TypeConstraint<dtype_tf>("dtype"),                                  \
@@ -376,14 +459,21 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     // Get global batch size
     int batch_size = (model_offsets->NumElements() - 1) / this->num_local_lookups_;
 
+    const Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
+    std::vector<int> hotness_vector;
+    int* t_hotness = (int*)hotness->data();
+    int64_t hotness_num = hotness->NumElements();
+    for (int64_t i =0;i<hotness_num;++i){
+       hotness_vector.push_back(t_hotness[i]);
+    }
+
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    std::vector<std::vector<int>> shard_matrix;
-    this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, batch_size);
+    this->update_meta(tf_backend, batch_size,hotness_vector);
 
     std::unique_ptr<sok::IModelBackward> model =
-        std::make_unique<sok::ModelBackward>(tf_backend, ebc_param);
+        std::make_unique<sok::ModelBackward>(tf_backend, *this->meta_);
 
     // Do backward
     std::vector<int> num_unique_key_per_table, unique_id_space_list;
@@ -391,32 +481,25 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
                                    &num_unique_key_per_table, &unique_id_space_list);
 
     // Prepare output
-    std::vector<int> num_unique_key_per_handle;
-    num_unique_key_per_handle.resize(this->num_lookups_, -1);
-    for (int i = 0; i < num_unique_key_per_table.size(); ++i) {
-      int id_space = unique_id_space_list[i];
-      num_unique_key_per_handle[id_space] = num_unique_key_per_table[i];
-    }
-    for (int i = 0; i < this->num_lookups_; ++i) {
-      if (num_unique_key_per_handle[i] == -1) {
-        Tensor* unused = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {0}, &unused));
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(this->num_lookups_ + i, {0}, &unused));
-      }
-    }
     std::vector<sok::Tensor> unique_key, grad;
-    for (int i = 0; i < num_unique_key_per_table.size(); ++i) {
-      int id_space = unique_id_space_list[i];
+    for (int i = 0; i < this->num_lookups_; ++i) {
+      int num_unique_key = 0;
+      auto target_id_space_iter =
+          std::find(unique_id_space_list.begin(), unique_id_space_list.end(), i);
+      if (target_id_space_iter != unique_id_space_list.end()) {
+        const auto idx = std::distance(unique_id_space_list.begin(), target_id_space_iter);
+        num_unique_key = num_unique_key_per_table[idx];
+      }
+
       Tensor* unique_key_tf = nullptr;
-      OP_REQUIRES_OK(ctx,
-                     ctx->allocate_output(id_space, {num_unique_key_per_table[i]}, &unique_key_tf));
+      OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {num_unique_key}, &unique_key_tf));
       Tensor* grad_tf = nullptr;
-      OP_REQUIRES_OK(
-          ctx, ctx->allocate_output(id_space + this->num_lookups_,
-                                    {num_unique_key_per_table[i], this->dimensions_[id_space]},
-                                    &grad_tf));
-      unique_key.push_back(sok::convert_tensor<KeyType>(unique_key_tf));
-      grad.push_back(sok::convert_tensor<DType>(grad_tf));
+      OP_REQUIRES_OK(ctx, ctx->allocate_output(i + this->num_lookups_,
+                                               {num_unique_key, this->dimensions_[i]}, &grad_tf));
+      if (target_id_space_iter != unique_id_space_list.end()) {
+        unique_key.push_back(sok::convert_tensor<KeyType>(unique_key_tf));
+        grad.push_back(sok::convert_tensor<DType>(grad_tf));
+      }
     }
 
     // Copy output
@@ -427,6 +510,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 #define REGISTER_GPU_KERNELS(key_type_tf, key_type, offset_type_tf, offset_type, dtype_tf, dtype) \
   REGISTER_KERNEL_BUILDER(Name("LookupBackward")                                                  \
                               .Device(DEVICE_GPU)                                                 \
+                              .HostMemory("hotness")                                               \
                               .TypeConstraint<key_type_tf>("Tindices")                            \
                               .TypeConstraint<offset_type_tf>("Toffsets")                         \
                               .TypeConstraint<dtype_tf>("dtype"),                                 \
@@ -501,14 +585,21 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
     // Get global batch size
     int global_batch_size = batch_size * this->num_gpus_;
 
+    const Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
+    std::vector<int> hotness_vector;
+    int* t_hotness = (int*)hotness->data();
+    int64_t hotness_num = hotness->NumElements();
+    for (int64_t i =0;i<hotness_num;++i){
+       hotness_vector.push_back(t_hotness[i]);
+    }
+
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    std::vector<std::vector<int>> shard_matrix;
-    this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
+    this->update_meta(tf_backend, global_batch_size,hotness_vector);
 
     std::unique_ptr<sok::INetworkForward> network_forward =
-        std::make_unique<sok::NetworkForward>(tf_backend, ebc_param);
+        std::make_unique<sok::NetworkForward>(tf_backend, *this->meta_);
 
     // Prepare output
     std::vector<sok::Tensor> emb_vec;
@@ -527,6 +618,7 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
   REGISTER_KERNEL_BUILDER(Name("PostprocessingForward")                                           \
                               .Device(DEVICE_GPU)                                                 \
                               .HostMemory("emb_vec_buffer_shape")                                 \
+                              .HostMemory("hotness")                                               \
                               .TypeConstraint<key_type_tf>("Tindices")                            \
                               .TypeConstraint<offset_type_tf>("Toffsets")                         \
                               .TypeConstraint<dtype_tf>("dtype"),                                 \
@@ -593,14 +685,21 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
     // Get global batch size
     int global_batch_size = batch_size * this->num_gpus_;
 
+    const Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
+    std::vector<int> hotness_vector;
+    int* t_hotness = (int*)hotness->data();
+    int64_t hotness_num = hotness->NumElements();
+    for (int64_t i =0;i<hotness_num;++i){
+       hotness_vector.push_back(t_hotness[i]);
+    }
+
     // instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    std::vector<std::vector<int>> shard_matrix;
-    this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
+    this->update_meta(tf_backend, global_batch_size,hotness_vector);
 
     std::unique_ptr<sok::INetworkBackward> network_backward =
-        std::make_unique<sok::NetworkBackward>(tf_backend, ebc_param);
+        std::make_unique<sok::NetworkBackward>(tf_backend, *this->meta_);
 
     // Prepare output
     const Tensor* emb_vec_buffer_shape = nullptr;
@@ -626,6 +725,7 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
   REGISTER_KERNEL_BUILDER(Name("PostprocessingBackward")                                          \
                               .Device(DEVICE_GPU)                                                 \
                               .HostMemory("emb_vec_buffer_shape")                                 \
+                              .HostMemory("hotness")                                               \
                               .TypeConstraint<key_type_tf>("Tindices")                            \
                               .TypeConstraint<offset_type_tf>("Toffsets")                         \
                               .TypeConstraint<dtype_tf>("dtype"),                                 \
@@ -654,3 +754,123 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, int32_t, int32_t, Eigen::half, __half);
 #undef REGISTER_GPU_KERNELS
 
 }  // namespace tensorflow
+
+#ifdef GOOGLE_CUDA
+#ifdef TENSORFLOW_USE_GPU_EV
+#include "lookup_adapter.hpp"
+
+// clang-format off
+namespace tensorflow {
+
+template <typename KeyType, typename OffsetType, typename DType>
+class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, OffsetType, DType> {
+ private:
+  using VarType = EmbeddingVarGPU<KeyType, float>;
+  EmbeddingVarGPUAdapter<KeyType, float> adapter_;
+
+ public:
+  explicit LookupForwardEmbeddingVarGPUOp(OpKernelConstruction* ctx) : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
+  
+  void Compute(OpKernelContext* ctx) override {
+    // std::vector<tf_shared_lock> locks;
+    std::vector<core::RefCountPtr<VarType>> vars;
+    std::vector<int> scale;
+    std::vector<int> ev_size_per_lookup;
+    for (int i = 0; i < this->num_lookups_; ++i) {
+      auto handle = HandleFromInput(ctx, i);
+      
+      core::RefCountPtr<VarType> var;
+      OP_REQUIRES_OK(ctx, LookupResource(ctx, handle, &var));
+      ev_size_per_lookup.push_back(var->ValueLen());
+      vars.push_back(std::move(var));
+
+      if (this->shard_[i] < 0) {
+        scale.push_back(this->num_gpus_);
+      } else {
+        scale.push_back(1);
+      }
+    }
+
+    // stream
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+    
+    const Tensor* key_recv_buffer = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("key_recv_buffer", &key_recv_buffer));
+    sok::Tensor key_recv_buffer_tensor(sok::convert_tensor<KeyType>(key_recv_buffer));
+
+    const Tensor* row_length_recv_buffer = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("row_length_recv_buffer", &row_length_recv_buffer));
+    sok::Tensor row_length_recv_buffer_tensor(
+        sok::convert_tensor<OffsetType>(row_length_recv_buffer));
+
+    int global_batch_size = row_length_recv_buffer->NumElements() / this->num_lookups_;
+
+    const Tensor* hotness = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
+    std::vector<int> hotness_vector;
+    int* t_hotness = (int*)hotness->data();
+    int64_t hotness_num = hotness->NumElements();
+    for (int64_t i =0;i<hotness_num;++i){
+       hotness_vector.push_back(t_hotness[i]);
+    }
+    // Instance 3g embedding
+    auto tf_backend = this->make_core_resource(ctx);
+    this->update_meta(tf_backend, global_batch_size,hotness_vector);
+
+    std::unique_ptr<sok::IModelForward> model =
+        std::make_unique<sok::ModelForward>(tf_backend, *this->meta_, hotness_vector);
+
+    // Prepare outputs
+    auto buffer_size_list = model->get_model_comm_buffer_size(global_batch_size);
+    std::vector<sok::Tensor> emb_vec_model_buffer;
+    for (size_t i = 0; i < buffer_size_list.size(); ++i) {
+      Tensor* output = nullptr;
+      OP_REQUIRES_OK(ctx,
+                     ctx->allocate_output(i, {static_cast<int64_t>(buffer_size_list[i])}, &output));
+      emb_vec_model_buffer.push_back(sok::convert_tensor<DType>(output));
+    }
+
+    adapter_.set(ctx, vars, ev_size_per_lookup, stream);
+
+    // Do forward
+    int64_t num_model_key, num_model_offsets;
+    model->sparse_forward_per_gpu(key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
+                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets);
+
+    // Prepare model_key & model_offsets
+    // Note the type of model_offsets is always uint32_t
+    Tensor* model_key = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(this->num_gpus_, {num_model_key}, &model_key));
+    sok::Tensor model_key_tensor(sok::convert_tensor<KeyType>(model_key));
+    Tensor* model_offsets = nullptr;
+    OP_REQUIRES_OK(ctx,
+                   ctx->allocate_output(this->num_gpus_ + 1, {num_model_offsets}, &model_offsets));
+    sok::Tensor model_offsets_tensor(sok::convert_tensor<uint32_t>(model_offsets));
+
+    // Copy tensors that will be used in backward
+    model->copy_model_keys_and_offsets(model_key_tensor, model_offsets_tensor);
+    adapter_.clear_tmp_ev_list();
+  }
+};
+
+#define REGISTER_GPU_KERNELS(key_type, offset_type, dtype)                   \
+  REGISTER_KERNEL_BUILDER(                                                   \
+    Name("LookupForwardEmbeddingVarGPU")                                     \
+      .Device(DEVICE_GPU)                                                    \
+      .HostMemory("handles")                                                 \
+       .HostMemory("hotness")                                               \
+      .TypeConstraint<key_type>("Tindices")                                  \
+      .TypeConstraint<offset_type>("Toffsets")                               \
+      .TypeConstraint<dtype>("dtype"),                                       \
+    LookupForwardEmbeddingVarGPUOp<key_type, offset_type, dtype>)
+REGISTER_GPU_KERNELS(int32, int32, float)
+REGISTER_GPU_KERNELS(int32, int64, float)
+REGISTER_GPU_KERNELS(int64, int32, float)
+REGISTER_GPU_KERNELS(int64, int64, float)
+#undef REGISTER_GPU_KERNELS
+}  // namespace tensorflow
+#endif
+#endif
+

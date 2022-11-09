@@ -29,11 +29,6 @@ void hdfs_configs_test() {
   EXPECT_EQ(configs1.port, 9000);
   EXPECT_EQ(configs1.ready_to_connect, true);
 
-  auto configs2 = HdfsConfigs::FromUrl("hdfs://172.0.0.1:8888/my/dir/to/data");
-  EXPECT_EQ(configs2.namenode, "172.0.0.1");
-  EXPECT_EQ(configs2.port, 8888);
-  EXPECT_EQ(configs2.ready_to_connect, true);
-
   auto dsp = DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000};
   auto configs3 = HdfsConfigs::FromDataSourceParams(dsp);
   EXPECT_EQ(configs3.namenode, "localhost");
@@ -102,8 +97,7 @@ void upload2hdfs_test(const std::string path, const int num_rows_per_file, const
                                        nnz_array);
 
   // copy the files to HDFS
-  int result = hs->batch_upload("." + path, path);
-  EXPECT_EQ(result, num_files + 1);
+  hs->batch_upload("." + path, path);
 }
 
 void copy_test(const std::string source_path, const std::string target_path) {
@@ -117,15 +111,14 @@ void delete_test(const std::string path) {
   auto hs = FileSystemBuilder::build_unique_by_data_source_params(
       DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
-  hs->delete_file(path, true);
+  hs->delete_file(path);
 }
 
 void fetch2local_test(const std::string path, const std::string local_path, const int num_files) {
   auto hs = FileSystemBuilder::build_unique_by_data_source_params(
       DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
-  int result = hs->batch_fetch(path, "." + path);
-  EXPECT_EQ(result, num_files + 1);
+  hs->batch_fetch(path, "." + path);
 }
 
 TEST(hdfs_backend_test, hdfs_configs_test) { hdfs_configs_test(); }

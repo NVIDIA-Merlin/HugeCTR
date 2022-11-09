@@ -91,6 +91,9 @@ nitpick_ignore = [
     (r"myst", r"./multi-modal-data/"),
 ]
 
+html_static_path = ["_static"]
+html_css_files = ["css/custom.css"]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -109,7 +112,8 @@ exclude_patterns = [
 #
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "titles_only": True
+    "titles_only": True,
+    "analytics_id": "G-NVJ1Y1YJHK",
 }
 html_show_sourcelink = False
 
@@ -156,6 +160,7 @@ intersphinx_mapping = {
 }
 
 html_sidebars = {"**": ["versions.html"]}
+html_baseurl = "https://nvidia-merlin.github.io/HugeCTR/main"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

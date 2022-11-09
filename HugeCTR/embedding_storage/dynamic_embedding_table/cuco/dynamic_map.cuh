@@ -119,6 +119,10 @@ class dynamic_map {
                    cudaStream_t stream = 0, Hash hash = Hash{});
 
   template <typename Hash = cuco::detail::MurmurHash3_32<key_type>>
+  void scatter_update(key_type const *keys, element_type const *values, size_t num_keys,
+                      cudaStream_t stream = 0, Hash hash = Hash{});
+
+  template <typename Hash = cuco::detail::MurmurHash3_32<key_type>>
   void remove(key_type const *keys, size_t num_keys, cudaStream_t stream = 0, Hash hash = Hash{});
 
   void eXport(key_type *keys, element_type *values, size_t num_keys, cudaStream_t stream = 0);

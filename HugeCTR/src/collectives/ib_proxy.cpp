@@ -572,10 +572,12 @@ void IbvProxy::HierA2ACollContext::stm() {
 
 IbvProxy::HierA2AvCollContext::HierA2AvCollContext(IbvProxy* _proxy_ctx,
                                                    HierA2AIbvContext* _ibv_ctx,
-                                                   CollSyncHelper* _sync_helper, bool skip_barrier)
+                                                   CollSyncHelper* _sync_helper, size_t num_buffers,
+                                                   bool skip_barrier)
     : sync_helper_(_sync_helper),
       proxy_ctx_(_proxy_ctx),
       ibv_ctx_(_ibv_ctx),
+      num_buffers_(num_buffers),
       skip_barrier_(skip_barrier) {
   num_procs_ = proxy_ctx_->cfg_.num_procs_;
   my_proc_ = proxy_ctx_->cfg_.my_proc_;
@@ -593,24 +595,24 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
   // pre-construct work requests in memory
   wr_ = (ibv_send_wr**)malloc(sizeof(ibv_send_wr*) * num_procs_);
   for (size_t n = 0; n < num_procs_; n++) {
-    wr_[n] = (ibv_send_wr*)malloc(sizeof(ibv_send_wr) * num_gpus_);
-    memset(wr_[n], 0, sizeof(ibv_send_wr) * num_gpus_);
-    for (size_t g = 1; g < num_gpus_; g++) {
+    wr_[n] = (ibv_send_wr*)malloc(sizeof(ibv_send_wr) * num_buffers_);
+    memset(wr_[n], 0, sizeof(ibv_send_wr) * num_buffers_);
+    for (size_t g = 1; g < num_buffers_; g++) {
       wr_[n][g - 1].next = &wr_[n][g];
     }
   }
 
-  HCTR_LIB_THROW(cudaMallocHost(&send_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
-  HCTR_LIB_THROW(cudaMallocHost(&recv_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
+  HCTR_LIB_THROW(cudaMallocHost(&send_sizes_, sizeof(size_t) * num_procs_ * num_buffers_));
+  HCTR_LIB_THROW(cudaMallocHost(&recv_sizes_, sizeof(size_t) * num_procs_ * num_buffers_));
 
   PROXY_ASSERT(in.h_max_send_size_ == in.h_max_recv_size_);
-  PROXY_ASSERT(in.h_max_send_size_ % (num_procs_ * num_gpus_) == 0);
+  PROXY_ASSERT(in.h_max_send_size_ % (num_procs_ * num_buffers_) == 0);
 
-  h_max_send_size_per_dest_ = in.h_max_send_size_ / (num_procs_ * num_gpus_);
-  h_max_recv_size_per_dest_ = in.h_max_recv_size_ / (num_procs_ * num_gpus_);
+  h_max_send_size_per_dest_ = in.h_max_send_size_ / (num_procs_ * num_buffers_);
+  h_max_recv_size_per_dest_ = in.h_max_recv_size_ / (num_procs_ * num_buffers_);
 
   // Initialize send/recv sizes to max
-  for (size_t i = 0; i < num_procs_ * num_gpus_; i++) {
+  for (size_t i = 0; i < num_procs_ * num_buffers_; i++) {
     send_sizes_[i] = h_max_send_size_per_dest_;
     recv_sizes_[i] = h_max_recv_size_per_dest_;
   }
@@ -638,11 +640,11 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
 
   // set send pointers
   for (size_t n = 0; n < num_procs_; n++) {
-    for (size_t g = 0; g < num_gpus_; g++) {
-      wr_[n][g].wr_id = n * num_gpus_ + g;
+    for (size_t g = 0; g < num_buffers_; g++) {
+      wr_[n][g].wr_id = n * num_buffers_ + g;
       wr_[n][g].sg_list = (struct ibv_sge*)malloc(sizeof(ibv_sge));
       auto& sge = wr_[n][g].sg_list[0];
-      size_t offset = (n * num_gpus_ + g) * h_max_send_size_per_dest_;
+      size_t offset = (n * num_buffers_ + g) * h_max_send_size_per_dest_;
       sge.addr = (uintptr_t)((char*)in.d_send_ptrs_ + offset);
       sge.length = h_max_send_size_per_dest_;
       sge.lkey = input_mr_->lkey;
@@ -661,8 +663,8 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
 
   // Populate remote MRs
   for (size_t n = 0; n < num_procs_; n++) {
-    for (size_t g = 0; g < num_gpus_; g++) {
-      size_t offset = (my_proc_ * num_gpus_ + g) * h_max_recv_size_per_dest_;
+    for (size_t g = 0; g < num_buffers_; g++) {
+      size_t offset = (my_proc_ * num_buffers_ + g) * h_max_recv_size_per_dest_;
       wr_[n][g].wr.rdma.remote_addr = (uintptr_t)((char*)rem_output_mr_[n].addr + offset);
       wr_[n][g].wr.rdma.rkey = rem_output_mr_[n].rkey;
     }
@@ -708,7 +710,7 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
     atomic_wr.wr.atomic.remote_addr = (uintptr_t)(((size_t*)rem_atomic_mr_[n].addr) + my_proc_);
     atomic_wr.wr.atomic.compare_add = 1;
     atomic_wr.wr.atomic.rkey = rem_atomic_mr_[n].rkey;
-    wr_[n][num_gpus_ - 1].next = &atomic_wr_[n];
+    wr_[n][num_buffers_ - 1].next = &atomic_wr_[n];
   }
 
   __sync_synchronize();
@@ -716,7 +718,7 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
   // Set expected completions
   for (size_t n = 0; n < num_procs_; n++) {
     if (my_proc_ == n) continue;
-    num_expected_send_completions_ += num_gpus_;
+    num_expected_send_completions_ += num_buffers_;
     num_expected_atomic_completions_++;
   }
   state_ = WAIT_RECV_CMD;
@@ -746,8 +748,8 @@ void IbvProxy::HierA2AvCollContext::process_recv() {
 void IbvProxy::HierA2AvCollContext::process_send() {
   for (size_t i = 1; i < num_procs_; i++) {
     int n = (my_proc_ + i) % num_procs_;
-    for (size_t g = 0; g < num_gpus_; g++) {
-      volatile size_t* send_size_ptr = (volatile size_t*)&send_sizes_[n * num_gpus_ + g];
+    for (size_t g = 0; g < num_buffers_; g++) {
+      volatile size_t* send_size_ptr = (volatile size_t*)&send_sizes_[n * num_buffers_ + g];
       volatile size_t send_len = *send_size_ptr;
       PROXY_ASSERT(send_len <= h_max_send_size_per_dest_);
       wr_[n][g].sg_list[0].length = send_len;
@@ -903,7 +905,7 @@ void IbvProxy::exec_proxy_cmd(const M2PHierA2AvCollInit& in, const P2MNull& __un
     hier_a2a_ibv_ctx_ = std::make_unique<HierA2AIbvContext>(cfg_);
   }
   hier_a2a_v_coll_ctx_.emplace_back(std::make_unique<HierA2AvCollContext>(
-      this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.skip_barrier_));
+      this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.num_buffers_, in.skip_barrier_));
   if ((hier_a2a_v_coll_ctx_.size() - 1) != in.coll_handle_) {
     HCTR_LOG_S(ERROR, WORLD) << "CollHandle mismatch between main and proxy threads. "
                              << HCTR_LOCATION() << std::endl;

@@ -261,7 +261,7 @@ class LocalizedVariable(ResourceVariable):
 
             initial_value_shape_length = len(initial_value.shape)
             if initial_value_shape_length == 1 and initial_value.shape[0] > 0:
-                self._global_shape = (1, initial_value.shapae[0])
+                self._global_shape = (1, initial_value.shape[0])
             elif initial_value_shape_length == 2:
                 self._global_shape = initial_value.shape
             else:

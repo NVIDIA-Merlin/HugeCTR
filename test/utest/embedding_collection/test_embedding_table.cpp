@@ -25,9 +25,9 @@
 using namespace embedding;
 int num_embedding_table = 3;
 std::vector<EmbeddingTableParam> table_param_list = {
-    {0, 504663, 8, std::nullopt, {}},
-    {0, 12345, 16, std::nullopt, {}},
-    {0, 122334, 16, std::nullopt, {}},
+    {0, 504663, 8, {}, {}},
+    {0, 12345, 16, {}, {}},
+    {0, 122334, 16, {}, {}},
 };
 
 const std::vector<std::vector<int>> shard_matrix = {{1, 1, 1}};

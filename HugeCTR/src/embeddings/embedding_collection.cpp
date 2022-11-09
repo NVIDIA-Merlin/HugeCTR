@@ -8,7 +8,6 @@ EmbeddingCollection::EmbeddingCollection(
     const std::vector<EmbeddingTableParam> &emb_table_param_list)
     : ebc_param_(ebc_param), eval_ebc_param_(eval_ebc_param) {
   int num_gpus = resource_manager->get_local_gpu_count();
-
   unique_key_list_.resize(num_gpus);
   num_unique_key_list_.resize(num_gpus);
   num_unique_key_per_table_offset_list_.resize(num_gpus);
@@ -17,16 +16,22 @@ EmbeddingCollection::EmbeddingCollection(
   wgrad_idx_offset_list_.resize(num_gpus);
   table_id_list_list_.resize(num_gpus);
 
+  for (size_t i = 0; i < emb_table_param_list.size(); ++i) {
+    embedding_optimizers_.push_back(emb_table_param_list[i].opt_param);
+  }
+
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
 
-    preprocess_inputs_.push_back(std::make_unique<PreprocessInput>(core[gpu_id], ebc_param));
+    preprocess_inputs_.push_back(std::make_unique<PreprocessInput>(core[gpu_id], ebc_param_));
+    eval_preprocess_inputs_.push_back(
+        std::make_unique<PreprocessInput>(core[gpu_id], eval_ebc_param_));
     embedding_tables_.push_back(create_grouped_embedding_tables(resource_manager, core[gpu_id],
-                                                                ebc_param, emb_table_param_list));
-    embeddings_.push_back(create_grouped_embeddings(core[gpu_id], ebc_param));
-    eval_embeddings_.push_back(create_grouped_embeddings(core[gpu_id], eval_ebc_param));
+                                                                ebc_param_, emb_table_param_list));
+    embeddings_.push_back(create_grouped_embeddings(core[gpu_id], ebc_param_));
+    eval_embeddings_.push_back(create_grouped_embeddings(core[gpu_id], eval_ebc_param_));
 
-    int num_grouped = static_cast<int>(ebc_param.grouped_emb_params.size());
+    int num_grouped = static_cast<int>(ebc_param_.grouped_emb_params.size());
     unique_key_list_[gpu_id].resize(num_grouped);
     num_unique_key_list_[gpu_id].resize(num_grouped);
     num_unique_key_per_table_offset_list_[gpu_id].resize(num_grouped);
@@ -42,15 +47,18 @@ void EmbeddingCollection::forward_per_gpu(bool is_train, int gpu_id, const Tenso
                                           Tensor &output_buffer) {
   int batch_size = (bucket_range.get_num_elements() - 1) / ebc_param_.num_lookup;
   Tensor feature_major_key, feature_major_bucket_range;
-  preprocess_inputs_[gpu_id]->compute(key, bucket_range, &feature_major_key,
-                                      &feature_major_bucket_range, batch_size);
+
   if (is_train) {
+    preprocess_inputs_[gpu_id]->compute(key, bucket_range, &feature_major_key,
+                                        &feature_major_bucket_range, batch_size);
     for (size_t emb_id = 0; emb_id < embeddings_[gpu_id].size(); ++emb_id) {
       ILookup *lookup = dynamic_cast<ILookup *>(embedding_tables_[gpu_id][emb_id].get());
       embeddings_[gpu_id][emb_id]->forward_per_gpu(feature_major_key, feature_major_bucket_range,
                                                    num_keys, lookup, output_buffer, batch_size);
     }
   } else {
+    eval_preprocess_inputs_[gpu_id]->compute(key, bucket_range, &feature_major_key,
+                                             &feature_major_bucket_range, batch_size);
     for (size_t emb_id = 0; emb_id < embeddings_[gpu_id].size(); ++emb_id) {
       ILookup *lookup = dynamic_cast<ILookup *>(embedding_tables_[gpu_id][emb_id].get());
       eval_embeddings_[gpu_id][emb_id]->forward_per_gpu(feature_major_key,

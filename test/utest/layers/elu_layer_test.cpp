@@ -117,6 +117,11 @@ void elu_test(size_t dim0, size_t dim1, T alpha) {
 TEST(elu_layer, fp32_10x20_1) { elu_test<float>(10, 20, 1.0); }
 TEST(elu_layer, fp32_10x500_1) { elu_test<float>(10, 500, 1.0); }
 TEST(elu_layer, fp32_512x2048_1) { elu_test<float>(512, 1024 * 2, 1.0); }
+
 TEST(elu_layer, fp16_10x20_1) { elu_test<__half>(10, 20, 1.0); }
 TEST(elu_layer, fp16_10x500_1) { elu_test<__half>(10, 500, 1.0); }
 TEST(elu_layer, fp16_512x2048_1) { elu_test<__half>(512, 1024 * 2, 1.0); }
+
+TEST(elu_layer, fp16_9x19_1) { elu_test<__half>(10, 20, 1.0); }
+TEST(elu_layer, fp16_9x499_1) { elu_test<__half>(10, 500, 1.0); }
+TEST(elu_layer, fp16_511x2047_1) { elu_test<__half>(512, 1024 * 2, 1.0); }

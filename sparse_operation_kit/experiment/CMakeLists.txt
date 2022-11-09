@@ -33,5 +33,16 @@ file(GLOB files
     ${CMAKE_CURRENT_SOURCE_DIR}/variable/impl/dynamic_embedding_table/hash_table.cu
 )
 
+if (ENABLE_DEEPREC)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../core/adapter
+    $ENV{DeepRecBuild}/external/com_github_google_leveldb/include
+    $ENV{DeepRecBuild}/external/sparsehash_c11
+    $ENV{DeepRecBuild}/external/cuCollections/include/
+)
+
+list(APPEND files ${CMAKE_CURRENT_SOURCE_DIR}/../../../core/adapter/lookup_adapter.cpp)
+endif()
+
 add_library(sok_experiment SHARED ${files})
 target_link_libraries(sok_experiment PUBLIC ${TF_LINK_FLAGS} core embedding)

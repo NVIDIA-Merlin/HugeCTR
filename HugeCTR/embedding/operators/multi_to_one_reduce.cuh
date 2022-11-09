@@ -264,6 +264,7 @@ __global__ void multi_to_one_reduce_final(CopyDesc copy_desc, int max_ev_length)
     }
   }
 
+  __syncthreads();
   if (dest_index[warp_id] == warp_id) {
     dst_type* tmp_dst = copy_desc.get_dst_ptr(local_sample_num - 1 + start_offset);
     int tmp_ev_length = smem_ev_length[warp_id];
