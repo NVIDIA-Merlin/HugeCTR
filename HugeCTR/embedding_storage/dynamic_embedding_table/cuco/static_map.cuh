@@ -346,6 +346,9 @@ class static_map {
     __device__ bool add(CG g, const_pair_type const &add_pair, Hash hash = Hash{}) noexcept;
 
     template <typename CG, typename Hash = cuco::detail::MurmurHash3_32<key_type>>
+    __device__ bool update(CG g, const_pair_type const &add_pair, Hash hash = Hash{}) noexcept;
+
+    template <typename CG, typename Hash = cuco::detail::MurmurHash3_32<key_type>>
     __device__ bool try_remove(CG const &g, key_type const &k, Hash hash = Hash{}) noexcept;
 
     template <typename CG>
