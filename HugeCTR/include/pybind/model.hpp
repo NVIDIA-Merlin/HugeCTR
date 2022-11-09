@@ -33,6 +33,7 @@
 #include <utility>
 #include <utils.hpp>
 
+#include "embedding_storage/weight_io/parameter_IO.hpp"
 #include "embeddings/embedding_collection.hpp"
 #include "pipeline.hpp"
 
@@ -374,7 +375,7 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingPlanner& embedding_collection);
+  virtual void add(const EmbeddingCollectionConfig& ebc_config);
 
   virtual void add_internal(DenseLayer& dense_layer);
 
@@ -488,6 +489,8 @@ class Model {
   void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_maps);
   void load_dense_optimizer_states(const std::string& dense_opt_states_file);
   void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
+  void embedding_load(const std::string& path, const std::vector<std::string>& table_names);
+  void embedding_dump(const std::string& path, const std::vector<std::string>& table_names);
   void load_sparse_optimizer_states(
       const std::map<std::string, std::string>& sparse_opt_states_files_map);
   void freeze_embedding() {
@@ -579,6 +582,8 @@ class Model {
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
 
+  using TableNameToGlobalIDDict = std::unordered_map<std::string, std::pair<int, int>>;
+  TableNameToGlobalIDDict ebc_name_to_global_id_dict_;
   std::map<std::string, int> hotness_map_;
   std::vector<std::unique_ptr<embedding::EmbeddingCollection>> ebc_list_;
 
@@ -600,7 +605,8 @@ class Model {
       train_data_reader_; /**< data reader to reading data from data set to embedding. */
   std::shared_ptr<IDataReader> evaluate_data_reader_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
-      resource_manager_;     /**< GPU resources include handles and streams etc.*/
+      resource_manager_; /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<embedding::EmbeddingParameterIO> embedding_para_io_;
   metrics::Metrics metrics_; /**< evaluation metrics. */
 
   long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */

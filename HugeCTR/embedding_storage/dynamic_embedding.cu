@@ -28,6 +28,7 @@ DynamicEmbeddingTable::DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_res
   CudaDeviceContext ctx(core_->get_device_id());
   const auto &grouped_emb_params = ebc_param.grouped_emb_params[grouped_id];
   const auto &table_ids = grouped_emb_params.table_ids;
+  h_table_ids_.assign(table_ids.begin(), table_ids.end());
   DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
     std::vector<size_t> dim_per_class;
     for (auto table_id : table_ids) {
@@ -36,6 +37,8 @@ DynamicEmbeddingTable::DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_res
       size_t local_id_space = global_to_local_id_space_map_.size();
       global_to_local_id_space_map_[table_id] = local_id_space;
     }
+
+    dim_per_class_ = dim_per_class;
 
     table_ =
         new det::DynamicEmbeddingTable<key_t, float>(dim_per_class.size(), dim_per_class.data());
@@ -160,10 +163,130 @@ void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
   }
 }
 
+void DynamicEmbeddingTable::assign(const Tensor &keys, size_t num_keys,
+                                   const Tensor &num_unique_key_per_table_offset,
+                                   size_t num_table_offset, const Tensor &table_id_list,
+                                   Tensor &embeding_vector, const Tensor &embedding_vector_offset) {
+  CudaDeviceContext context(core_->get_device_id());
+  cudaStream_t stream = core_->get_local_gpu()->get_stream();
+
+  HCTR_ASSERT(keys.dtype() == key_type_);
+  HCTR_ASSERT(embeding_vector.dtype().type() == TensorScalarType::Float32);
+
+  const auto mapped_id_space_list = remap_id_space(table_id_list, stream);
+  std::vector<size_t> id_space_offset_cpu;
+  DISPATCH_INTEGRAL_FUNCTION(num_unique_key_per_table_offset.dtype().type(), index_t, [&] {
+    const auto id_space_offset_cpu_tensor =
+        num_unique_key_per_table_offset.to(core_, DeviceType::CPU, stream);
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    for (int i = 0; i < id_space_offset_cpu_tensor.get_num_elements(); ++i) {
+      size_t offset = static_cast<size_t>(id_space_offset_cpu_tensor.get<index_t>()[i]);
+      id_space_offset_cpu.push_back(offset);
+    }
+  });
+
+  if (num_keys > 0) {
+    DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
+      // `scatter_add` automatically handles the offsets in `grad_ev_offset` using
+      // the embedding vector dimensions given at construction.
+
+      auto table = cast_table<key_t, float>(table_);
+      table->scatter_update(keys.get<key_t>(), embeding_vector.get<float>(), num_keys,
+                            mapped_id_space_list.data(), id_space_offset_cpu.data(),
+                            num_table_offset - 1, stream);
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    });
+  }
+}
+
 void DynamicEmbeddingTable::load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table,
                                  Tensor &ev_size_list, Tensor &id_space) {}
 void DynamicEmbeddingTable::dump(Tensor *keys, Tensor *id_space_offset, Tensor *embedding_table,
                                  Tensor *ev_size_list, Tensor *id_space) {}
+void DynamicEmbeddingTable::dump_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table,
+                                       int table_id) {
+  CudaDeviceContext ctx(core_->get_device_id());
+  cudaStream_t stream = core_->get_local_gpu()->get_stream();
+
+  auto it = find(h_table_ids_.begin(), h_table_ids_.end(), table_id);
+  int table_index = 0;
+  if (it != h_table_ids_.end()) {
+    table_index = it - h_table_ids_.begin();
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput, "Error: Wrong table id");
+  }
+
+  auto key_type = h_keys_tensor->dtype();
+  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+    auto table = cast_table<key_t, float>(table_);
+    key_t *d_keys;
+    float *d_values;
+    auto values_sizes = table->size_per_class();
+    auto key_nums = this->key_num_per_table();
+
+    auto key_num = key_nums[table_index];
+    auto values_size = values_sizes[table_index];
+
+    HCTR_LIB_THROW(cudaMalloc(&d_keys, sizeof(key_t) * key_num));
+    HCTR_LIB_THROW(cudaMalloc(&d_values, sizeof(float) * values_size));
+
+    table->eXport(table_index, d_keys, d_values, key_num, stream);
+
+    key_t *h_keys = (key_t *)h_keys_tensor->get();
+    float *h_values = (float *)h_embedding_table->get();
+    HCTR_LIB_THROW(
+        cudaMemcpyAsync(h_keys, d_keys, sizeof(key_t) * key_num, cudaMemcpyDeviceToHost, stream));
+
+    HCTR_LIB_THROW(cudaMemcpyAsync(h_values, d_values, sizeof(float) * values_size,
+                                   cudaMemcpyDeviceToHost, stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaFree(d_keys));
+    HCTR_LIB_THROW(cudaFree(d_values));
+  });
+}
+
+void DynamicEmbeddingTable::load_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table,
+                                       int table_id) {
+  CudaDeviceContext ctx(core_->get_device_id());
+  cudaStream_t stream = core_->get_local_gpu()->get_stream();
+  auto key_type = h_keys_tensor->dtype();
+  HCTR_ASSERT(h_keys_tensor->dtype() == key_type_);
+
+  auto it = find(h_table_ids_.begin(), h_table_ids_.end(), table_id);
+  int table_index = 0;
+  if (it != h_table_ids_.end()) {
+    table_index = it - h_table_ids_.begin();
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput, "Error: Wrong table id");
+  }
+
+  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+    key_t *d_keys;
+    float *d_values;
+    auto values_size = h_embedding_table->get_num_elements();
+    auto key_num = h_keys_tensor->get_num_elements();
+
+    HCTR_LIB_THROW(cudaMalloc(&d_keys, sizeof(key_t) * key_num));
+    HCTR_LIB_THROW(cudaMalloc(&d_values, sizeof(float) * values_size));
+
+    key_t *h_keys = (key_t *)h_keys_tensor->get();
+    HCTR_LIB_THROW(
+        cudaMemcpyAsync(d_keys, h_keys, sizeof(key_t) * key_num, cudaMemcpyHostToDevice, stream));
+
+    auto table = cast_table<key_t, float>(table_);
+    table->lookup_by_index(table_index, d_keys, d_values, key_num, stream);
+
+    float *h_values = (float *)h_embedding_table->get();
+
+    HCTR_LIB_THROW(cudaMemcpyAsync(d_values, h_values, sizeof(float) * values_size,
+                                   cudaMemcpyHostToDevice, stream));
+
+    table->scatter_update_by_index(table_index, d_keys, d_values, key_num, stream);
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaFree(d_keys));
+    HCTR_LIB_THROW(cudaFree(d_values));
+  });
+}
 
 size_t DynamicEmbeddingTable::size() const {
   size_t sz = 0;
@@ -181,6 +304,60 @@ size_t DynamicEmbeddingTable::capacity() const {
     cap = table->capacity();
   });
   return cap;
+}
+
+size_t DynamicEmbeddingTable::key_num() const {
+  size_t kn = 0;
+  DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
+    auto table = cast_table<key_t, float>(table_);
+    std::vector<size_t> sizes = table->size_per_class();
+    int table_nums = sizes.size();
+    for (int i = 0; i < table_nums; ++i) {
+      kn += sizes[i] / dim_per_class_[i];
+    }
+  });
+  return kn;
+}
+
+std::vector<size_t> DynamicEmbeddingTable::size_per_table() const {
+  std::vector<size_t> sizes;
+  DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
+    auto table = cast_table<key_t, float>(table_);
+    sizes = table->size_per_class();
+  });
+  return sizes;
+}
+
+std::vector<int> DynamicEmbeddingTable::table_ids() const { return h_table_ids_; }
+
+std::vector<size_t> DynamicEmbeddingTable::capacity_per_table() const {
+  std::vector<size_t> capacities;
+  DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
+    auto table = cast_table<key_t, float>(table_);
+    capacities = table->capacity_per_class();
+  });
+  return capacities;
+}
+
+std::vector<size_t> DynamicEmbeddingTable::key_num_per_table() const {
+  std::vector<size_t> key_nums;
+  DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
+    auto table = cast_table<key_t, float>(table_);
+    std::vector<size_t> sizes = table->size_per_class();
+    int table_nums = sizes.size();
+    for (int i = 0; i < table_nums; ++i) {
+      key_nums.push_back(sizes[i] / dim_per_class_[i]);
+    }
+  });
+  return key_nums;
+}
+
+std::vector<int> DynamicEmbeddingTable::table_evsize() const {
+  std::vector<int> ev_vector;
+  for (auto dim : dim_per_class_) {
+    ev_vector.push_back(static_cast<int>(dim));
+  }
+  return ev_vector;
 }
 
 void DynamicEmbeddingTable::clear() {

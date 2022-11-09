@@ -30,15 +30,36 @@ class IGroupedEmbeddingTable : public ILookup {
                       const Tensor &table_id_list, Tensor &wgrad,
                       const Tensor &wgrad_idx_offset) = 0;
 
+  virtual void assign(const Tensor &unique_key, size_t num_unique_key,
+                      const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
+                      const Tensor &table_id_list, Tensor &embeding_vector,
+                      const Tensor &embedding_vector_offset) = 0;
+
   virtual void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table,
                     Tensor &ev_size_list, Tensor &id_space) = 0;
 
   virtual void dump(Tensor *keys, Tensor *id_space_offset, Tensor *embedding_table,
                     Tensor *ev_size_list, Tensor *id_space) = 0;
 
+  virtual void dump_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) = 0;
+
+  virtual void load_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) = 0;
+
   virtual size_t size() const = 0;
 
   virtual size_t capacity() const = 0;
+
+  virtual size_t key_num() const = 0;
+
+  virtual std::vector<size_t> size_per_table() const = 0;
+
+  virtual std::vector<size_t> capacity_per_table() const = 0;
+
+  virtual std::vector<size_t> key_num_per_table() const = 0;
+
+  virtual std::vector<int> table_ids() const = 0;
+
+  virtual std::vector<int> table_evsize() const = 0;
 
   virtual void clear() = 0;
 

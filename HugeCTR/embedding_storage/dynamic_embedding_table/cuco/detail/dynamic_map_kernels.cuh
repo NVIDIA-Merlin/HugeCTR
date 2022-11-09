@@ -159,6 +159,29 @@ __global__ void scatter_add(key_type const *keys, element_type const *updates, u
   }
 }
 
+template <uint32_t tile_size, typename pair_type, typename key_type, typename element_type,
+          typename mutableViewT, typename Hash>
+__global__ void scatter_update(key_type const *keys, element_type const *updates,
+                               uint32_t dimension, size_t num_keys,
+                               mutableViewT *submap_mutable_views, uint32_t num_submaps,
+                               Hash hash) {
+  auto grid = cooperative_groups::this_grid();
+  auto block = cooperative_groups::this_thread_block();
+  auto tile = cooperative_groups::tiled_partition<tile_size>(block);
+
+  for (auto key_idx = tile.meta_group_size() * block.group_index().x + tile.meta_group_rank();
+       key_idx < num_keys; key_idx += tile.meta_group_size() * grid.group_dim().x) {
+    pair_type add_pair = {keys[key_idx], updates + dimension * key_idx};
+
+    for (auto i = 0; i < num_submaps; ++i) {
+      auto submap_view = submap_mutable_views[i];
+      if (submap_view.update(tile, add_pair, hash)) {
+        break;
+      }
+    }
+  }
+}
+
 template <uint32_t tile_size, typename key_type, typename mutableViewT, typename atomicT,
           typename Hash>
 __global__ void remove(key_type const *keys, size_t num_keys, mutableViewT *submap_mutable_views,

@@ -89,6 +89,8 @@ struct OptHyperParams {
   bool operator!=(const OptHyperParams& other) const { return !(*this == other); }
 };
 
+// Comment: Maybe it's better to seperate this class as std::variant<SGDParams, AdamParams, ...> and
+// use function overload to deal with different params for different update algorithm
 struct OptParams {
   Optimizer_t optimizer;
   float lr;

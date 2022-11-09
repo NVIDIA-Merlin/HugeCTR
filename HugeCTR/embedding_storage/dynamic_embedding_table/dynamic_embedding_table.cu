@@ -172,6 +172,51 @@ void DynamicEmbeddingTable<KeyType, ElementType>::scatter_add(
 }
 
 template <typename KeyType, typename ElementType>
+void DynamicEmbeddingTable<KeyType, ElementType>::scatter_update(
+    KeyType const *keys, ElementType const *update_elements, size_t num_keys,
+    size_t const *id_spaces, size_t const *id_space_offsets, size_t num_id_spaces,
+    cudaStream_t stream) {
+  CUCO_CUDA_TRY(cudaEventRecord(primary_event_, stream));
+  size_t update_offset = 0;
+  for (size_t i = 0; i < num_id_spaces; ++i) {
+    size_t id_space = id_spaces[i];
+    size_t id_space_offset = id_space_offsets[i];
+    size_t id_space_size = id_space_offsets[i + 1] - id_space_offset;
+    assert(id_space < num_classes_);
+    assert(id_space_offset + id_space_size <= num_keys);
+
+    CUCO_CUDA_TRY(cudaStreamWaitEvent(stream_per_class_[id_space], primary_event_));
+    maps_[id_space]->scatter_update(keys + id_space_offset, update_elements + update_offset,
+                                    id_space_size, stream_per_class_[id_space]);
+    update_offset += id_space_size * dimension_per_class_[id_space];
+    CUCO_CUDA_TRY(cudaEventRecord(event_per_class_[id_space], stream_per_class_[id_space]));
+  }
+
+  for (size_t i = 0; i < num_classes_; ++i) {
+    CUCO_CUDA_TRY(cudaStreamWaitEvent(stream, event_per_class_[i]));
+  }
+  CUCO_CUDA_TRY(cudaGetLastError());
+}
+
+template <typename KeyType, typename ElementType>
+void DynamicEmbeddingTable<KeyType, ElementType>::lookup_by_index(size_t class_index,
+                                                                  KeyType const *d_keys,
+                                                                  ElementType *d_values,
+                                                                  size_t num_keys,
+                                                                  cudaStream_t stream) {
+  maps_[class_index]->lookup(d_keys, d_values, num_keys, stream);
+  CUCO_CUDA_TRY(cudaGetLastError());
+}
+
+template <typename KeyType, typename ElementType>
+void DynamicEmbeddingTable<KeyType, ElementType>::scatter_update_by_index(
+    size_t class_index, KeyType const *d_keys, ElementType const *d_values, size_t num_keys,
+    cudaStream_t stream) {
+  maps_[class_index]->scatter_update(d_keys, d_values, num_keys, stream);
+  CUCO_CUDA_TRY(cudaGetLastError());
+}
+
+template <typename KeyType, typename ElementType>
 void DynamicEmbeddingTable<KeyType, ElementType>::remove(KeyType const *keys, size_t num_keys,
                                                          size_t const *id_spaces,
                                                          size_t const *id_space_offsets,
@@ -228,6 +273,24 @@ size_t DynamicEmbeddingTable<KeyType, ElementType>::capacity() const {
     n += maps_[i]->get_capacity();
   }
   return n;
+}
+
+template <typename KeyType, typename ElementType>
+std::vector<size_t> DynamicEmbeddingTable<KeyType, ElementType>::size_per_class() const {
+  std::vector<size_t> sizes;
+  for (size_t i = 0; i < num_classes_; i++) {
+    sizes.push_back(maps_[i]->get_size());
+  }
+  return sizes;
+}
+
+template <typename KeyType, typename ElementType>
+std::vector<size_t> DynamicEmbeddingTable<KeyType, ElementType>::capacity_per_class() const {
+  std::vector<size_t> capacities;
+  for (size_t i = 0; i < num_classes_; i++) {
+    capacities.push_back(maps_[i]->get_capacity());
+  }
+  return capacities;
 }
 
 template class DynamicEmbeddingTable<uint64_t, float>;

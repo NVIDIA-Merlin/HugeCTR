@@ -8,7 +8,6 @@ EmbeddingCollection::EmbeddingCollection(
     const std::vector<EmbeddingTableParam> &emb_table_param_list)
     : ebc_param_(ebc_param), eval_ebc_param_(eval_ebc_param) {
   int num_gpus = resource_manager->get_local_gpu_count();
-
   unique_key_list_.resize(num_gpus);
   num_unique_key_list_.resize(num_gpus);
   num_unique_key_per_table_offset_list_.resize(num_gpus);
@@ -16,6 +15,10 @@ EmbeddingCollection::EmbeddingCollection(
   wgrad_list_.resize(num_gpus);
   wgrad_idx_offset_list_.resize(num_gpus);
   table_id_list_list_.resize(num_gpus);
+
+  for (size_t i = 0; i < emb_table_param_list.size(); ++i) {
+    embedding_optimizers_.push_back(emb_table_param_list[i].opt_param);
+  }
 
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());

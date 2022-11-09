@@ -165,6 +165,22 @@ void dynamic_map<Key, Element, Initializer>::scatter_add(key_type const *keys, e
 
 template <typename Key, typename Element, typename Initializer>
 template <typename Hash>
+void dynamic_map<Key, Element, Initializer>::scatter_update(key_type const *keys,
+                                                            element_type const *updates,
+                                                            size_t num_keys, cudaStream_t stream,
+                                                            Hash hash) {
+  auto const block_size = 128;
+  auto const stride = 1;
+  auto const tile_size = 4;
+  auto const grid_size = (tile_size * num_keys + stride * block_size - 1) / (stride * block_size);
+
+  detail::scatter_update<tile_size, const_pair_type><<<grid_size, block_size, 0, stream>>>(
+      keys, updates, dimension_, num_keys, submap_mutable_views_.data().get(), submaps_.size(),
+      hash);
+}
+
+template <typename Key, typename Element, typename Initializer>
+template <typename Hash>
 void dynamic_map<Key, Element, Initializer>::remove(key_type const *keys, size_t num_keys, cudaStream_t stream, Hash hash) {
 
   auto const block_size = 128;

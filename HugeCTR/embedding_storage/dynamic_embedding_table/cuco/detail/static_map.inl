@@ -201,6 +201,38 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
+__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::update(
+    CG g, const_pair_type const &add_pair, Hash hash) noexcept {
+  auto current_slot = initial_slot(g, add_pair.first, hash);
+
+  while (true) {
+    auto const existing_key = current_slot.key().load(cuda::std::memory_order_relaxed);
+
+    // the key we were searching for was found by one of the threads, so we return an iterator to
+    // the entry
+    auto const exists = g.ballot(existing_key == add_pair.first);
+    if (exists) {
+      auto const src_lane = __ffs(exists) - 1;
+      auto const value = g.shfl(current_slot.value(), src_lane);
+      current_slot.lock().acquire(g, src_lane);
+      detail::update_array(g, this->get_dimension(), value, add_pair.second);
+      current_slot.lock().release(g, src_lane);
+      return true;
+    }   
+
+    // we found an empty slot, meaning that the key we're searching for isn't present
+    if (g.any(existing_key == this->get_empty_key_sentinel())) {
+      return false;
+    }   
+
+    // otherwise, all slots in the current window are full with other keys, so we move onto the next
+    // window
+    current_slot = next_slot(g, current_slot);
+  }
+}
+
+template <typename Key, typename Element, typename Initializer>
+template <typename CG, typename Hash>
 __device__ bool static_map<Key, Element, Initializer>::device_view::lookup(CG g, pair_type const &lookup_pair, Hash hash) const noexcept {
   auto current_slot = initial_slot(g, lookup_pair.first, hash);
 

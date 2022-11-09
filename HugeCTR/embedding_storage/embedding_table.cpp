@@ -60,6 +60,7 @@ std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_ta
     HugeCTR::OptParams opt_params = get_opt_params(table_ids);
 
     if (is_dynamic_embedding_table(table_ids)) {
+      // ebc_param.is_dynamic = true;
       embedding_table_list.push_back(std::make_unique<DynamicEmbeddingTable>(
           *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list, ebc_param,
           grouped_id, opt_params));
