@@ -51,6 +51,8 @@ class IbComm {
   void post_send_command_a2a(HierA2ACollHandle coll, cudaStream_t dep_stream, size_t device_id);
 
   /* Hier A2Av coll api. Requires control buffer for intra-node A2A */
+  HierA2AvCollHandle register_hier_a2a_v_coll(size_t num_buffers, bool skip_barrier = false);
+  // legacy API. Implemented as a wrapper of the new API
   HierA2AvCollHandle register_hier_a2a_v_coll(bool skip_barrier = false);
   void set_a2a_coll_stream(HierA2AvCollHandle coll, cudaStream_t stream, size_t device_id);
   void wait_global_recv_async(HierA2ACollHandle coll, size_t device_id);
@@ -136,8 +138,9 @@ class IbComm {
     size_t** d_ibv_atomic_recv_ = NULL;
     std::unique_ptr<GPUBarrier> barrier_ = NULL;
     std::unique_ptr<CollSyncHelper> sync_helper_ = NULL;
+    size_t num_buffers_ = 1;
 
-    HierA2ACollContext(IbComm* comm);
+    HierA2ACollContext(IbComm* comm, size_t num_buffers);
     ~HierA2ACollContext();
   };
 

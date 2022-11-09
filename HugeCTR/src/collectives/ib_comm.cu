@@ -357,7 +357,7 @@ int IbComm::init(size_t num_procs, size_t num_gpus, size_t my_proc,
   return 0;
 }
 
-IbComm::HierA2ACollContext::HierA2ACollContext(IbComm* comm) {
+IbComm::HierA2ACollContext::HierA2ACollContext(IbComm* comm, size_t num_buffers = 0) {
   HCTR_LIB_THROW(cudaMallocHost(&cmd_storage_, 2 * sizeof(size_t)));
   h_recv_cmd_ptr_ = &cmd_storage_[0];
   *h_recv_cmd_ptr_ = 1;
@@ -392,6 +392,7 @@ IbComm::HierA2ACollContext::HierA2ACollContext(IbComm* comm) {
 
   barrier_ = std::make_unique<GPUBarrier>(comm->num_gpus_, comm->device_list_);
   sync_helper_ = std::make_unique<CollSyncHelper>();
+  num_buffers_ = num_buffers;
 }
 
 IbComm::HierA2ACollContext::~HierA2ACollContext() {
@@ -450,13 +451,13 @@ HierA2ACollHandle IbComm::register_hier_a2a_coll(bool skip_barrier) {
   return coll_handle;
 }
 
-HierA2AvCollHandle IbComm::register_hier_a2a_v_coll(bool skip_barrier) {
+HierA2AvCollHandle IbComm::register_hier_a2a_v_coll(size_t num_buffers, bool skip_barrier) {
   // std::unique_lock<std::mutex> lock(proxy_cmd_->mutex_);
-  hier_a2a_v_coll_ctx_.emplace_back(std::make_unique<HierA2ACollContext>(this));
+  hier_a2a_v_coll_ctx_.emplace_back(std::make_unique<HierA2ACollContext>(this, num_buffers));
   HierA2AvCollHandle coll_handle = (HierA2AvCollHandle)(hier_a2a_v_coll_ctx_.size() - 1);
   auto sync_helper = hier_a2a_v_coll_ctx_[coll_handle]->sync_helper_.get();
   for (size_t g = 0; g < num_gpus_; g++) {
-    M2PHierA2AvCollInit coll_init_cmd_(coll_handle, sync_helper, skip_barrier);
+    M2PHierA2AvCollInit coll_init_cmd_(coll_handle, sync_helper, skip_barrier, num_buffers);
     HierA2AvCollInitCmd cmd = std::make_pair(std::move(coll_init_cmd_), std::move(P2MNull()));
     proxy_cmd_->cmd_[g] = std::move(cmd);
   }
@@ -465,6 +466,10 @@ HierA2AvCollHandle IbComm::register_hier_a2a_v_coll(bool skip_barrier) {
   proxy_cmd_->reset();
 
   return coll_handle;
+}
+
+HierA2AvCollHandle IbComm::register_hier_a2a_v_coll(bool skip_barrier) {
+  return register_hier_a2a_v_coll(num_gpus_, skip_barrier);
 }
 
 void IbComm::set_a2a_coll_stream(HierA2ACollHandle coll, cudaStream_t stream, size_t device_id) {
@@ -526,11 +531,13 @@ void IbComm::set_a2a_coll_buf(HierA2AvCollHandle coll, void* send_ptrs, const si
   HCTR_LIB_THROW(cudaSetDevice(device_list_[device_id]));
 
   // Allocate A2Av send size copy storage
-  HCTR_LIB_THROW(
-      cudaMalloc((void**)(&gpu_ctx.d_send_sizes_copy_), sizeof(size_t) * num_gpus_ * num_procs_));
-  std::vector<size_t> send_sizes(num_gpus_ * num_procs_, send_max_size / (num_gpus_ * num_procs_));
+  HCTR_LIB_THROW(cudaMalloc((void**)(&gpu_ctx.d_send_sizes_copy_),
+                            sizeof(size_t) * coll_ctx.num_buffers_ * num_procs_));
+  std::vector<size_t> send_sizes(coll_ctx.num_buffers_ * num_procs_,
+                                 send_max_size / (coll_ctx.num_buffers_ * num_procs_));
   HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_send_sizes_copy_, send_sizes.data(),
-                            sizeof(size_t) * num_gpus_ * num_procs_, cudaMemcpyHostToDevice));
+                            sizeof(size_t) * coll_ctx.num_buffers_ * num_procs_,
+                            cudaMemcpyHostToDevice));
 
   buf_init.coll_handle_ = coll;
   buf_init.d_send_ptrs_ = send_ptrs;
@@ -598,7 +605,7 @@ void IbComm::update_a2a_coll_sizes(HierA2AvCollHandle coll, const size_t* d_send
   size_t n_blocks = ceildiv<size_t>(num_procs_ * num_gpus_, MAX_TPB);
   update_sizes<<<n_blocks, MAX_TPB, 0, gpu_ctx.stream_>>>(
       gpu_ctx.h_send_sizes_, gpu_ctx.h_recv_sizes_, gpu_ctx.d_send_sizes_copy_, d_send_sizes,
-      d_recv_sizes, num_procs_ * num_gpus_);
+      d_recv_sizes, num_procs_ * ctx.num_buffers_);
 }
 
 // Local first distribution TODO: node first might be efficient
@@ -712,12 +719,14 @@ void IbComm::post_send_command_a2a<T>(HierA2AvCollHandle coll, cudaStream_t dep_
   ctx.barrier_->sync_all_gpus_report_host_and_inc(ctx.d_send_cmd_[device_id], ctx.h_recv_cmd_ptr_,
                                                   gpu_ctx.stream_, device_id);
   // TODO: Change it to use max SMs
-  size_t* copy_sizes = &gpu_ctx.d_send_sizes_copy_[my_proc_ * num_gpus_];
-  size_t offset = gpu_ctx.h_max_send_size_ / (num_procs_ * num_gpus_) / sizeof(T);
+  auto num_buffers = ctx.num_buffers_;
+  size_t* copy_sizes = &gpu_ctx.d_send_sizes_copy_[my_proc_ * num_buffers];
+  size_t offset = gpu_ctx.h_max_send_size_ / (num_procs_ * num_buffers) / sizeof(T);
   // TODO: This is not good, we are reading the sizes from host, create a device copy!
   copy_local_segmented<T><<<96, 1024, 0, gpu_ctx.stream_>>>(
-      (T*)gpu_ctx.d_send_ptrs_[0] + (my_proc_ * num_gpus_ * offset),
-      (T*)gpu_ctx.d_recv_ptrs_[0] + (my_proc_ * num_gpus_ * offset), copy_sizes, num_gpus_, offset);
+      (T*)gpu_ctx.d_send_ptrs_[0] + (my_proc_ * num_buffers * offset),
+      (T*)gpu_ctx.d_recv_ptrs_[0] + (my_proc_ * num_buffers * offset), copy_sizes, num_buffers,
+      offset);
   wait_completion<<<1, 32, 0, gpu_ctx.stream_>>>(
       ctx.d_send_cmd_[device_id], ctx.d_ibv_atomic_[device_id], num_procs_, my_proc_, device_id);
 }
