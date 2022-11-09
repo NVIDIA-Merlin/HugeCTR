@@ -129,8 +129,15 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
     cache_config_.num_set_in_cache_.reserve(cache_config_.num_emb_table_);
     for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
       const size_t row_num = ps_config.embedding_key_count_.at(inference_params.model_name)[i];
-      const size_t num_feature_in_cache = static_cast<size_t>(
+      size_t num_feature_in_cache = static_cast<size_t>(
           static_cast<double>(cache_config_.cache_size_percentage_) * static_cast<double>(row_num));
+      if (num_feature_in_cache < SLAB_SIZE * SET_ASSOCIATIVITY) {
+        num_feature_in_cache = SLAB_SIZE * SET_ASSOCIATIVITY;
+        HCTR_LOG(INFO, ROOT,
+                 "The initial size of the embedding cache is smaller than the minimum setting: "
+                 "\"%d\" and %d will be used as the default embedding cache size.\n",
+                 num_feature_in_cache, SLAB_SIZE * SET_ASSOCIATIVITY);
+      }
       cache_config_.num_set_in_cache_.emplace_back(
           (num_feature_in_cache + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
           (SLAB_SIZE * SET_ASSOCIATIVITY));

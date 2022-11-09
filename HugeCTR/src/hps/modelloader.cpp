@@ -43,6 +43,12 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
   const size_t key_size_in_byte = sizeof(long long);
   const size_t vec_size_in_byte = sizeof(float);
 
+  if (key_file_size_in_byte == 0) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings key file is empty");
+  }
+  if (vec_file_size_in_byte == 0) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings vector file is empty");
+  }
   if (key_file_size_in_byte % key_size_in_byte != 0) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings key file size is not correct");
   }
