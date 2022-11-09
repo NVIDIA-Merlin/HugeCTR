@@ -187,12 +187,27 @@ df_test = hash_df_test.astype(np.int32)
 df = df.astype({"income_over_50k": "float32", "never_married": "float32"})
 df_test = df_test.astype({"income_over_50k": "float32", "never_married": "float32"})
 
-df.to_parquet(write_dir + "train/0.parquet")
-df_test.to_parquet(write_dir + "val/0.parquet")
 
 CATEGORICAL_COLUMNS = list(df.columns)
 CATEGORICAL_COLUMNS.remove("income_over_50k")
 CATEGORICAL_COLUMNS.remove("never_married")
+
+# compress values to between 0 and slot size
+for col in CATEGORICAL_COLUMNS:
+    u_list = list(set(df[col].unique()) | set(df_test[col].unique()))
+    u_dict = {}
+
+    for idx, x in enumerate(u_list):
+        u_dict[x] = idx
+
+    temp = df[col].apply(lambda x: u_dict[x])
+    df[col] = temp.astype(np.int32)
+
+    temp_test = df_test[col].apply(lambda x: u_dict[x])
+    df_test[col] = temp_test.astype(np.int32)
+
+df.to_parquet(write_dir + "train/0.parquet")
+df_test.to_parquet(write_dir + "val/0.parquet")
 
 idx = 2
 with open(write_dir + "train/_metadata.json", "w") as f:

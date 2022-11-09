@@ -187,7 +187,13 @@ class HugeCTRLoader(object):
                 max_nnz = max(sparse_i["nnz_per_slot"])
                 layer_params.sparse_dims.append((sparse_i["slot_num"], max_nnz))
                 self.__dimensions[sparse_i["top"]] = (sparse_i["slot_num"], max_nnz)
-            self.__dimensions[layer_params.label_name] = layer_params.label_dim
+
+            if np.ndim(layer_params.label_dim) == 0:
+                self.__dimensions[layer_params.label_name] = layer_params.label_dim
+            else:
+                for name, dim in zip(layer_params.label_name, layer_params.label_dim):
+                    self.__dimensions[name] = dim
+
             self.__dimensions[layer_params.dense_name] = layer_params.dense_dim
             layer_weights_dict["key_to_indice_hash_all_tables"] = self.key_to_indice_hash_all_tables
         elif (
@@ -519,8 +525,9 @@ class HugeCTRLoader(object):
         elif layer_type == "BinaryCrossEntropyLoss":
             layer_params.layer_type = "Sigmoid"
             pred_name = layer_params.bottom_names[0]
+            label_name = layer_params.bottom_names[1]
             layer_params.bottom_names = [pred_name]
-            layer_params.top_names = []
+            layer_params.top_names = [label_name]
         elif layer_type == "CrossEntropyLoss":
             layer_params.layer_type = "Softmax"
             pred_name = layer_params.bottom_names[0]

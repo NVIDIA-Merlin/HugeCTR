@@ -16,8 +16,8 @@ solver = hugectr.CreateSolver(
 )
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
-    source=["./data/census_parquet/file_names.txt"],
-    eval_source="./data/census_parquet/file_names_val.txt",
+    source=["./file_names.txt"],
+    eval_source="./file_names_val.txt",
     check_type=hugectr.Check_t.Sum,
     num_samples=199523,
     eval_num_samples=99762,
@@ -525,9 +525,16 @@ model.add(
     )
 )
 
+model.graph_to_json(
+    graph_config_file="/onnx_converter/graph_files/mmoe.json"
+)  # Write model to json (optional)
+
 model.compile(loss_names=["50k_label", "married_label"], loss_weights=[0.5, 0.5])
 model.summary()
 model.fit(
-    max_iter=10000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="mmoe"
+    max_iter=2300,
+    display=200,
+    eval_interval=1000,
+    snapshot=2000,
+    snapshot_prefix="/onnx_converter/hugectr_models/mmoe",
 )
-# model.graph_to_json(graph_config_file = "mmoe.json") # Write model to json (optional)

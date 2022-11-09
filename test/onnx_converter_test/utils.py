@@ -162,3 +162,18 @@ def read_samples_for_din(
     good = np.reshape(cat_data[:, 1:12], newshape=(num_samples, 11, 1))
     cate = np.reshape(cat_data[:, 12:23], newshape=(num_samples, 11, 1))
     return dense, user, good, cate
+
+
+def read_samples_for_mmoe(data_file, num_samples=64, key_type="I32", slot_num=32):
+    df = pd.read_parquet(data_file, engine="pyarrow")
+    columns = df.columns
+    np_arr = df.to_numpy()
+    dense = np.reshape(np.array([], dtype=np.float32), newshape=(num_samples, 0))
+    batch_label = np.reshape(
+        np.array(np_arr[0:num_samples, 0:2], dtype=np.int64), newshape=(num_samples, 2)
+    )
+    batch_keys = np.reshape(
+        np.array(np_arr[0:num_samples, 2:34], dtype=np.int64), newshape=(num_samples, 32, 1)
+    )
+
+    return batch_label, dense, batch_keys
