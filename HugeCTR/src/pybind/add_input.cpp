@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <linux/fs.h>
+#include <sys/ioctl.h>
+
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/data_reader.hpp>
 #include <pybind/model.hpp>
@@ -81,6 +84,18 @@ Input get_input_from_json(const nlohmann::json& j_input) {
   Input input =
       Input(label_dim_vec, label_name_vec, dense_dim, dense_name, data_reader_sparse_param_array);
   return input;
+}
+
+static int get_logical_sector_size(std::string file) {
+  int fd = open(file.c_str(), O_RDONLY);
+  int logical_sector_size = 0;
+  if (ioctl(fd, BLKSSZGET, &logical_sector_size) < 0) {
+    std::string msg = "Can't get logical sector size of " + file + ". Returning default 4096\n";
+    HCTR_LOG(WARNING, WORLD, msg.c_str());
+    logical_sector_size = 4096;
+  }
+  close(fd);
+  return logical_sector_size;
 }
 
 template <typename TypeKey>
@@ -153,17 +168,21 @@ void add_input(Input& input, DataReaderParams& reader_params,
     int io_alignment = reader_params.async_param.io_alignment;
     bool shuffle = reader_params.async_param.shuffle;
 
+    // Could be different if eval and train datasets are on different storage systems
+    int max_logical_sector_size =
+        std::max(get_logical_sector_size(source_data), get_logical_sector_size(eval_source));
+
+    if (max_logical_sector_size > io_alignment) {
+      std::string msg = "Invalid io_alignment of " + std::to_string(io_alignment) + ", using " +
+                        std::to_string(max_logical_sector_size) + "\n";
+      HCTR_LOG(WARNING, WORLD, msg.c_str());
+      io_alignment = max_logical_sector_size;
+    }
+
     int io_block_size = io_alignment;
     // TODO train_reader + evaluate_reader + init_reader?
     int max_nr_requests_user = max_num_requests_per_thread * num_threads;
     int max_num_batches = num_batches_per_thread * num_threads;
-
-    if ((io_alignment) % 4096) {
-      HCTR_LOG(WARNING, WORLD, " Recommended io_alignment is 4096 bytes \n");
-      if ((io_alignment) % 512) {
-        HCTR_DIE("open() with O_DIRECT requires alignment of at least 512 bytes!\n");
-      }
-    }
 
     // note that nr_requests =  max_num_batches * (bytes_per_batch / io_block_size + 2). Each batch
     // has at least 2 io requests
