@@ -63,6 +63,7 @@ class DataType final {
     return (std::is_same<float, T>::value && type_ == TensorScalarType::Float32) ||
            (std::is_same<__half, T>::value && type_ == TensorScalarType::Float16) ||
            (std::is_same<int64_t, T>::value && type_ == TensorScalarType::Int64) ||
+           (std::is_same<long long, T>::value && type_ == TensorScalarType::Int64) ||
            (std::is_same<uint64_t, T>::value && type_ == TensorScalarType::UInt64) ||
            (std::is_same<int32_t, T>::value && type_ == TensorScalarType::Int32) ||
            (std::is_same<uint32_t, T>::value && type_ == TensorScalarType::UInt32) ||

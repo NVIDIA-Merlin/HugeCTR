@@ -27,7 +27,6 @@ def test():
         [key1, key2],
         [offset1, offset2],
         combiners=["sum", "sum"],
-        hotness=[2, 2],
         shard=[-1, -1],
         dimensions=[3, 5],
         rank=0,

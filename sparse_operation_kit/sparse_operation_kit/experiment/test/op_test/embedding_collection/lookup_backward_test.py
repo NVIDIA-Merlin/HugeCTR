@@ -32,7 +32,6 @@ def test():
         model_offsets,
         num_lookups=2,
         combiners=["sum", "sum"],
-        hotness=[2, 2],
         shard=[0, 0],
         dimensions=[3, 5],
         rank=0,

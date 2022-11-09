@@ -81,6 +81,7 @@ void all2all_embedding_collection_test() {
   }
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
+  std::vector<UniformModelParallelEmbeddingMeta> meta_list;
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionSwizzleKey>> swizzle_key_list;
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionModelForward>> model_forward_list;
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionNetworkForward>> network_forward_list;
@@ -89,19 +90,25 @@ void all2all_embedding_collection_test() {
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionModelBackward>> model_backward_list;
   std::vector<std::unique_ptr<IGroupedEmbeddingTable>> ebc_table_list;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    HugeCTR::CudaDeviceContext context(gpu_id);
     auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, gpu_id);
     core_list.push_back(core);
+    meta_list.emplace_back(core, ebc_param, 0);
+  }
+
+  for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    auto core = core_list[gpu_id];
 
     swizzle_key_list.push_back(
         std::move(std::make_unique<tf::All2AllEmbeddingCollectionSwizzleKey>(core)));
-    model_forward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelForward>(core, ebc_param)));
-    network_forward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionNetworkForward>(core, ebc_param)));
+    model_forward_list.push_back(std::move(
+        std::make_unique<tf::All2AllEmbeddingCollectionModelForward>(core, meta_list[gpu_id])));
+    network_forward_list.push_back(std::move(
+        std::make_unique<tf::All2AllEmbeddingCollectionNetworkForward>(core, meta_list[gpu_id])));
     network_backward_list.push_back(std::move(
-        std::make_unique<tf::All2AllEmbeddingCollectionNetworkBackward>(core, ebc_param)));
-    model_backward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelBackward>(core, ebc_param)));
+        std::make_unique<tf::All2AllEmbeddingCollectionNetworkBackward>(core, meta_list[gpu_id])));
+    model_backward_list.push_back(std::move(
+        std::make_unique<tf::All2AllEmbeddingCollectionModelBackward>(core, meta_list[gpu_id])));
     ebc_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
         *resource_manager->get_local_gpu(gpu_id), core, table_param_list, ebc_param, 0, opt_param));
   }
