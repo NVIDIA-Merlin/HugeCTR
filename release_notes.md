@@ -1,5 +1,96 @@
 # Release Notes
 
+## What's New in Version 4.2
+
+  ```{important}
+  In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.2`.
+  Afterward, the library will use calendar versioning only, such as `v23.01`.
+  ```
+
++ **Change to HPS with Redis or Kafka**:
+This release includes a change to Hierarchical Parameter Server and affects deployments that use Redis or model parameter streaming with Kafka.
+A third-party library that was used for HPS partition selection algorithm is replaced to improve performance.
+The new algorithm can produce different partition assignments for volatile databases.
+As a result, volatile database backends that retain data between application startup, such as Redis, must be reinitialized.
+Model streaming with Kafka is equally affected.
+To avoid issues with updates, reset all respective queue offsets to the `end_offset` before you reinitialize the Redis database.
+
++ **Enhancements to the Sparse Operation Kit in DeepRec**:
+This release includes updates to the Sparse Operation Kit to improve the performance of the embedding variable lookup operation in DeepRec.
+The API for the `lookup_sparse()` function is changed to remove the `hotness` argument.
+The `lookup_sparse()` function is enhanced to calculate the number of non-zero elements dynamically.
+For more information, refer to the [sparse_operation_kit directory](https://github.com/alibaba/DeepRec/tree/main/addons/sparse_operation_kit) of the DeepRec repository in GitHub.
+
++ **Enhancements to 3G Embedding**:
+This release includes the following enhancements to 3G embedding:
+  + The API is changed.
+    The `EmbeddingPlanner` class is replaced with the `EmbeddingCollectionConfig` class.
+    For examples of the API, see the tests in the [test/embedding_collection_test](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.2/test/embedding_collection_test) directory of the repository in GitHub.
+  + The API is enhanced to support dumping and loading weights during the training process.
+    The methods are `Model.embedding_dump(path: str, table_names: list[str])` and `Model.embedding_load(path: str, list[str])`.
+    The `path` argument is a directory in file system that you can dump weights to or load weights from.
+    The `table_names` argument is a list of embedding table names as strings.
+
++ **New Volatile Database Type for HPS**:
+This release adds a `db_type` value of `multi_process_hash_map` to the Hierarchical Parameter Server.
+This database type supports sharing embeddings across process boundaries by using shared memory and the `/dev/shm` device file.
+Multiple processes running HPS can read and write to the same hash map.
+For an example, refer to the [Hierarchcal Parameter Server Demo](./notebooks/hps_demo.ipynb) notebook.
+
++ **Enhancements to the HPS Redis Backend**:
+In this release, the Hierarchical Parameter Server can open multiple connections in parallel to each Redis node.
+This enhancement enables HPS to take advantage of overlapped processing optimizations in the I/O module of Redis servers.
+In addition, HPS can now take advantage of Redis hash tags to co-locate embedding values and metadata.
+This enhancement can reduce the number of accesses to Redis nodes and the number of per-node round trip communications that are needed to complete transactions.
+As a result, the enhancement increases the insertion performance.
+
++ **MLPLayer is New**:
+This release adds an MLP layer with the `hugectr.Layer_t.MLP` class.
+This layer is very flexible and makes it easier to use a group of fused fully-connected layers and enable the related optimizations.
+For each fused fully-connected layer in `MLPLayer`, the output dimension, bias, and activation function are all adjustable.
+MLPLayer supports FP32, FP16 and TF32 data types.
+For an example, refer to the [dgx_a100_mlp.py](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/dlrm/dgx_a100_mlp.py) in the `samples/dlrm` directory of the GitHub repository to learn how to use the layer.
+
++ **Sparse Operation Kit installable from PyPi**:
+Version `1.1.4` of the Sparse Operation Kit is installable from PyPi in the [merlin-sok](https://pypi.org/project/merlin-sok/) package.
+
++ **Multi-task Model Support added to the ONNX Model Converter**:
+This release adds support for multi-task models to the ONNX converter.
+This release also includes an enhancement to the [preprocess_census.py](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/mmoe/preprocess_census.py) script in `samples/mmoe` directory of the GitHub repository.
+
++ **Issues Fixed**:
+  + Using the HPS Plugin for TensorFlow with `MirroredStrategy` and running the [Hierarchical Parameter Server Demo](https://nvidia-merlin.github.io/HugeCTR/v4.2/hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.html) notebook triggered an issue with [ReplicaContext](https://www.tensorflow.org/api_docs/python/tf/distribute/ReplicaContext) and caused a crash.
+    The issue is fixed and resolves GitHub [issue #362](https://github.com/NVIDIA-Merlin/HugeCTR/issues/362).
+  + The [4_nvt_process.py](https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/din/utils/4_nvt_process.py) sample in the `samples/din/utils` directory of the GitHub repository is updated to use the latest NVTabular API.
+    This update resolves GitHub [issue #364](https://github.com/NVIDIA-Merlin/HugeCTR/issues/364).
+  + An illegal memory access related to 3G embedding and the [dgx_a100_ib_nvlink.py](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.2/samples/dlrm/dgx_a100_ib_nvlink.py) sample in the `samples/dlrm` directory of the GitHub repository is fixed.
+  + An error in HPS with the `lookup_fromdlpack()` method is fixed.
+    The error was related to calculating the number of keys and vectors from the corresponding DLPack tensors.
+  + An error in the HugeCTR backend for Triton Inference Server is fixed.
+    A crash was triggered when the initial size of the embedding cache is smaller than the allowed minimum size.
+  + An error related to using a ReLU layer with an odd input size in mixed precision mode could trigger a crash.
+    The issue is fixed.
+  + An error related to using an asynchronous reader with the [AsyncParam](https://nvidia-merlin.github.io/HugeCTR/v4.2/api/python_interface.html?highlight=io_alignment#asyncparam-class) class and specifying an `io_alignment` value that is smaller than the block device sector size is fixed.
+    Now, if the specified `io_alignment` value is smaller than the block device sector size, `io_alignment` is automatically set to the block device sector size.
+  + Unreported memory leaks in the GRU layer and collectives are fixed.
+  + Several broken documentation links related to HPS are fixed.
+
++ **Known Issues**:
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
 ## What's New in Version 4.1
 
 + **Simplified Interface for 3G Embedding Table Placement Strategy**:
