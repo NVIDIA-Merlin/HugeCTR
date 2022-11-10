@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -26,7 +28,14 @@
     <link rel="prev" title="SOK to HPS DLRM Demo" href="sok_to_hps_dlrm_demo.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
@@ -582,7 +591,7 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 </div>
 </div>
 </div>
-<p>We can then launch the Triton inference server using the TensorFlow backend. Please note that <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> is utilized to load the custom TensorFlow operations (i.e., HPS related operations) into Triton. For more information, please refer to <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/custom_operations.md#tensorflow">TensorFlow Custom Operations in Triton</a>.</p>
+<p>We can then launch the Triton inference server using the TensorFlow backend. Please note that <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> is utilized to load the custom TensorFlow operations (i.e., HPS related operations) into Triton. For more information, please refer to <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/user_guide/custom_operations.md#tensorflow">TensorFlow Custom Operations in Triton</a>.</p>
 <p>Note: <code class="docutils literal notranslate"><span class="pre">Since</span> <span class="pre">Background</span> <span class="pre">processes</span> <span class="pre">not</span> <span class="pre">supported</span> <span class="pre">by</span> <span class="pre">Jupyter,</span> <span class="pre">please</span> <span class="pre">launch</span> <span class="pre">the</span> <span class="pre">Triton</span> <span class="pre">Server</span> <span class="pre">according</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">command</span> <span class="pre">independently</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">background</span></code>.</p>
 <blockquote>
 <div><p><strong>LD_PRELOAD=/usr/local/lib/python3.8/dist-packages/merlin_hps-1.0.0-py3.8-linux-x86_64.egg/hierarchical_parameter_server/lib/libhierarchical_parameter_server.so tritonserver –model-repository=/hugectr/hierarchical_parameter_server/notebooks/model_repo –backend-config=tensorflow,version=2 –load-model=hps_tf_triton –model-control-mode=explicit</strong></p>
@@ -802,7 +811,18 @@ Response details:
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
 
 </body>
 </html>

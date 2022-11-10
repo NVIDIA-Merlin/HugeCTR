@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hps_demo.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -26,7 +28,14 @@
     <link rel="prev" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
@@ -573,7 +582,9 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
 <span class="c1"># 2. Look up from dlpack for Pytorch tensor on GPU</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;************Look up from pytorch dlpack on GPU&quot;</span><span class="p">)</span>
 <span class="n">cuda_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
-<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">cuda_device</span><span class="p">)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">key_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">cuda_device</span><span class="p">)</span>
 <span class="n">out_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
 <span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span> <span class="n">out_capsule</span><span class="p">,</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="n">out_put</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_capsule</span><span class="p">)</span>
@@ -590,12 +601,12 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> Look up from dlpack for Pytorch tensor
 ************Look up from pytorch dlpack on CPU
-The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the keys: tensor([    0, 10000,     0,  ..., 10037,    57, 10057])
-[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]])
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the keys: tensor([    4, 10000,    17,  ..., 10208,     5, 10012])
+[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the vectors: tensor([[ 0.0201,  0.0179,  0.0029,  ...,  0.0168, -0.0059,  0.0017]])
 
 Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: 0.0
 ************Look up from pytorch dlpack on GPU
-The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cuda:0, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]],
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cuda:0, the vectors: tensor([ 0.0201,  0.0179,  0.0029,  ...,  0.0168, -0.0059,  0.0017],
        device=&#39;cuda:0&#39;)
 
 
@@ -633,7 +644,8 @@ Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: 0.
 <span class="c1"># 4. Look up from dlpack for tensorflow tensor on GPU</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;***************Look up from tensorflow dlpack on GPU**********&quot;</span><span class="p">)</span>
 <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;/GPU:0&#39;</span><span class="p">):</span>
-    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">key_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="n">key_capsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
     <span class="n">out_dlcapsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
 <span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span><span class="n">out_dlcapsule</span><span class="p">,</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -651,15 +663,18 @@ Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: 0.
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Look up from dlpack for Tensorflow tensor
-***************Look up from tensorflow dlpack on CPU**********
-The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the keys: [20000 30000 20000 ... 30037 20057 30057]
-The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
-  -0.06696524]]
-
-tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>***************Look up from tensorflow dlpack on CPU**********
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the keys: [20005 30347 20001 ... 30174 20000 30013]
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the vectors: [[ 0.02120136  0.03807243 -0.04021286 ... -0.00556568  0.00462132
+   0.01774719]]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
 ***************Look up from tensorflow dlpack on GPU**********
-[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: /job:localhost/replica:0/task:0/device:GPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
-  -0.06696524]]
+[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: /job:localhost/replica:0/task:0/device:GPU:0, the vectors: [ 0.02120136  0.03807243 -0.04021286 ... -0.00556568  0.00462132
+  0.01774719]
 
 tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: 0.0
 </pre></div>
@@ -1017,7 +1032,18 @@ Main process; exiting...
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
 
 </body>
 </html>

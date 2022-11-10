@@ -74,5 +74,5 @@ Among the three deployment methods, the performance of the Triton ensemble model
 ## Resources
 
 * [Triton TensorFlow Backend](https://github.com/triton-inference-server/tensorflow_backend)
-* [Triton Performance Analyzer](https://github.com/triton-inference-server/server/blob/main/docs/perf_analyzer.md)
+* [Triton Performance Analyzer](https://github.com/triton-inference-server/server/blob/main/docs/user_guide/perf_analyzer.md)
 * [Triton HPS backend](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend)

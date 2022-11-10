@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -26,7 +28,14 @@
     <link rel="prev" title="Merlin HugeCTR" href="index.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
@@ -102,7 +111,7 @@
 </div>
 <div class="section" id="about-hugectr">
 <h2>About HugeCTR<a class="headerlink" href="#about-hugectr" title="Permalink to this headline"></a></h2>
-<p>HugeCTR is a GPU-accelerated framework designed to distribute training across multiple GPUs and nodes and estimate click-through rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as <a class="reference external" href="https://arxiv.org/abs/1606.07792">Wide and Deep Learning (WDL)</a>, <a class="reference external" href="https://arxiv.org/abs/1708.05123">Deep Cross Network (DCN)</a>, <a class="reference external" href="https://arxiv.org/abs/1703.04247">DeepFM</a>, and <a class="reference external" href="https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/">Deep Learning Recommendation Model (DLRM)</a>. HugeCTR is a component of <a class="reference external" href="https://developer.nvidia.com/nvidia-merlin#getstarted">NVIDIA Merlin Open Beta</a>. NVIDIA Merlin is used for building large-scale recommender systems, which require massive datasets to train, particularly for deep learning based solutions.</p>
+<p>HugeCTR is a GPU-accelerated framework designed to distribute training across multiple GPUs and nodes and estimate click-through rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as <a class="reference external" href="https://arxiv.org/abs/1606.07792">Wide and Deep Learning (WDL)</a>, <a class="reference external" href="https://arxiv.org/abs/1708.05123">Deep Cross Network (DCN)</a>, <a class="reference external" href="https://arxiv.org/abs/1703.04247">DeepFM</a>, and <a class="reference external" href="https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/">Deep Learning Recommendation Model (DLRM)</a>. HugeCTR is a component of <a class="reference external" href="https://developer.nvidia.com/nvidia-merlin">NVIDIA Merlin</a>. Merlin is used for building large-scale recommender systems, which require massive datasets to train, particularly for deep learning based solutions.</p>
 <p><br><img alt="_images/merlin_arch.png" src="_images/merlin_arch.png" /></br></p>
 <div align=center>Fig. 1: Merlin Architecture</div>
 <p><br></br></p>
@@ -292,7 +301,18 @@ $ bash preprocess.sh <span class="m">1</span> criteo_data pandas <span class="m"
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
 
 </body>
 </html>

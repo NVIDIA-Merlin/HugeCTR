@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_contributor_guide.html" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -25,7 +27,14 @@
     <link rel="prev" title="Release Notes" href="release_notes.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
@@ -184,7 +193,7 @@ default.</p></li>
 <li><p><strong>ENABLE_INFERENCE</strong>: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
 will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
 OFF by default. For building inference container, please refer to <a class="reference internal" href="#build-hugectr-inference-container-from-source"><span class="std std-doc">Build HugeCTR Inference Container from Source</span></a></p></li>
-<li><p><strong>ENABLE_HDFS</strong>: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissable values are <code class="docutils literal notranslate"><span class="pre">ON</span></code>, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary Hadoop modules that are required for building AND running both HugeCTR and HDFS. In contrast, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> restricts building only the minimum necessary set of components for building HugeCTR. Make sure you are using the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_train.with_hdfs</span></code> container or make sure you have correctly built Hadoop in your system before setting this option to either <code class="docutils literal notranslate"><span class="pre">ON</span></code> or <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code>.</p></li>
+<li><p><strong>ENABLE_HDFS</strong>: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissable values are <code class="docutils literal notranslate"><span class="pre">ON</span></code>, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary Hadoop modules that are required for building AND running both HugeCTR and HDFS. In contrast, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> restricts building only the minimum necessary set of components for building HugeCTR.</p></li>
 </ul>
 <p>Here are some examples of how you can build HugeCTR using these build options:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
@@ -194,6 +203,11 @@ $ make -j <span class="o">&amp;&amp;</span> make install
 </div>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
 $ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_MULTINODES<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_HDFS<span class="o">=</span>MINIMAL .. <span class="c1"># Target is NVIDIA V100 / A100 with only minimum HDFS components mode on.</span>
 $ make -j <span class="o">&amp;&amp;</span> make install
 </pre></div>
 </div>
@@ -301,7 +315,18 @@ $ python setup.py install
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
 
 </body>
 </html>

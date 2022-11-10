@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/release_notes.html" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -26,7 +28,14 @@
     <link rel="prev" title="Questions and Answers" href="QAList.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
@@ -234,11 +243,11 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <li><p><strong>Updates to 3G Embedding</strong>:</p>
 <ul class="simple">
 <li><p>Sparse Operation Kit (SOK) is updated to use the HugeCTR 3G embedding as a developer preview feature.
-For more information, refer to the Python programs in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/experiment/benchmark/dlrm">sparse_operation_kit/experiment/benchmark/dlrm</a> directory of the repository on GitHub.</p></li>
+For more information, refer to the Python programs in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/sparse_operation_kit/experiment/benchmark/dlrm">sparse_operation_kit/experiment/benchmark/dlrm</a> directory of the repository on GitHub.</p></li>
 <li><p>Dynamic embedding table mode is added.
 The mode is based on the <a class="reference external" href="https://github.com/NVIDIA/cuCollections">cuCollection</a> with some functionality enhancement.
 A dynamic embedding table grows its size when the table is full so that you no longer need to configure the memory usage information for embedding.
-For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/embedding_storage/dynamic_embedding_table">embedding_storage/dynamic_embedding_storage</a> directory of the repository on GitHub.</p></li>
+For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/embedding_storage/dynamic_embedding_table">embedding_storage/dynamic_embedding_storage</a> directory of the repository on GitHub.</p></li>
 </ul>
 </li>
 <li><p><strong>Enhancements to the HPS Plugin for TensorFlow</strong>:
@@ -558,7 +567,7 @@ For more information, see the <a class="reference external" href="https://github
 <ul>
 <li><p>Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.</p></li>
 <li><p>Now supports loading and dumping models and optimizer states from HDFS.</p></li>
-<li><p>Added a <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.4.1/notebooks/training_with_hdfs.html">notebook</a> to show how to use HugeCTR with HDFS.</p></li>
+<li><p>Added a <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/notebooks/training_with_hdfs.ipynb">notebook</a> to show how to use HugeCTR with HDFS.</p></li>
 </ul>
 </li>
 <li><p><strong>Support Multi-hot Inference on Hugectr Backend</strong>: We support categorical input in multi-hot format for HugeCTR Backend inference.</p></li>
@@ -615,7 +624,7 @@ For more information, see the <a class="reference external" href="https://github
 <ul class="simple">
 <li><p><strong>Hierarchical Parameter Server (HPS) Enhancements</strong>:</p>
 <ul>
-<li><p><strong>HugeCTR Backend Enhancements</strong>: The HugeCTR Backend is now fully compatible with the <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md">Triton model control protocol</a>, so new model configurations can be simply added to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration">HPS configuration file</a>. The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload">Triton Unload API</a>.</p></li>
+<li><p><strong>HugeCTR Backend Enhancements</strong>: The HugeCTR Backend is now fully compatible with the <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md">Triton model control protocol</a>, so new model configurations can be simply added to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#independent-inference-hierarchical-parameter-server-configuration">HPS configuration file</a>. The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload">Triton Unload API</a>.</p></li>
 <li><p><strong>Simplified Database Backend</strong>: Multi-nodes, single-node, and all other kinds of volatile database backends can now be configured using the same configuration object.</p></li>
 <li><p><strong>Multi-Threaded Optimization of Redis Code</strong>: The speedup of HugeCTR version 3.3.1 is 2.3 times faster than HugeCTR version 3.3.</p></li>
 <li><p><strong>Additional HPS Enhancements and Fixes</strong>:</p>
@@ -645,7 +654,7 @@ For more information, see the <a class="reference external" href="https://github
 <ul>
 <li><p><strong>Support for Incremental Model Updates</strong>: HPS now supports incremental model updates via Apache Kafka (a distributed event streaming platform) message queues. With this enhancement, HugeCTR can now be connected with Apache Kafka deployments to update models in real time during training and inference. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo">Demo Notebok</a>.</p></li>
 <li><p><strong>Improvements to the Memory Management</strong>: The Redis cluster and CPU memory database backends are now the primary sources for memory management. When performing incremental model updates, these memory database backends will automatically evict infrequently used embeddings as training progresses. The performance of the Redis cluster and CPU memory database backends have also been improved.</p></li>
-<li><p><strong>New Asynchronous Refresh Mechanism</strong>: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server">HPS README</a>.</p></li>
+<li><p><strong>New Asynchronous Refresh Mechanism</strong>: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#hugectr-inference-hierarchical-parameter-server">HPS README</a>.</p></li>
 <li><p><strong>Configurable Backend Implementations for Databases</strong>: Backend implementations for databases are now fully configurable.</p></li>
 <li><p><strong>Improvements to the JSON Interface Parser</strong>: The JSON interface parser can now handle inaccurate parameterization.</p></li>
 <li><p><strong>More Meaningful Jabber</strong>: As requested, we’ve revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues.</p></li>
@@ -819,7 +828,18 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
 
 </body>
 </html>

@@ -621,7 +621,7 @@
    "id": "3ebb10e4",
    "metadata": {},
    "source": [
-    "We can then launch the Triton inference server using the TensorFlow backend. Please note that `LD_PRELOAD` is utilized to load the custom TensorFlow operations (i.e., HPS related operations) into Triton. For more information, please refer to [TensorFlow Custom Operations in Triton](https://github.com/triton-inference-server/server/blob/main/docs/custom_operations.md#tensorflow).\n",
+    "We can then launch the Triton inference server using the TensorFlow backend. Please note that `LD_PRELOAD` is utilized to load the custom TensorFlow operations (i.e., HPS related operations) into Triton. For more information, please refer to [TensorFlow Custom Operations in Triton](https://github.com/triton-inference-server/server/blob/main/docs/user_guide/custom_operations.md#tensorflow).\n",
     "\n",
     "Note: `Since Background processes not supported by Jupyter, please launch the Triton Server according to the following command independently in the background`.\n",
     "\n",
