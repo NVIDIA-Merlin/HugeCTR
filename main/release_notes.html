@@ -91,6 +91,98 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-4-2">
+<h2>What’s New in Version 4.2<a class="headerlink" href="#what-s-new-in-version-4-2" title="Permalink to this headline"></a></h2>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as <code class="docutils literal notranslate"><span class="pre">v4.2</span></code>.
+Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.01</span></code>.</p>
+</div>
+<ul>
+<li><p><strong>Change to HPS with Redis or Kafka</strong>:
+This release includes a change to Hierarchical Parameter Server and affects deployments that use Redis or model parameter streaming with Kafka.
+A third-party library that was used for HPS partition selection algorithm is replaced to improve performance.
+The new algorithm can produce different partition assignments for volatile databases.
+As a result, volatile database backends that retain data between application startup, such as Redis, must be reinitialized.
+Model streaming with Kafka is equally affected.
+To avoid issues with updates, reset all respective queue offsets to the <code class="docutils literal notranslate"><span class="pre">end_offset</span></code> before you reinitialize the Redis database.</p></li>
+<li><p><strong>Enhancements to the Sparse Operation Kit in DeepRec</strong>:
+This release includes updates to the Sparse Operation Kit to improve the performance of the embedding variable lookup operation in DeepRec.
+The API for the <code class="docutils literal notranslate"><span class="pre">lookup_sparse()</span></code> function is changed to remove the <code class="docutils literal notranslate"><span class="pre">hotness</span></code> argument.
+The <code class="docutils literal notranslate"><span class="pre">lookup_sparse()</span></code> function is enhanced to calculate the number of non-zero elements dynamically.
+For more information, refer to the <a class="reference external" href="https://github.com/alibaba/DeepRec/tree/main/addons/sparse_operation_kit">sparse_operation_kit directory</a> of the DeepRec repository in GitHub.</p></li>
+<li><p><strong>Enhancements to 3G Embedding</strong>:
+This release includes the following enhancements to 3G embedding:</p>
+<ul class="simple">
+<li><p>The API is changed.
+The <code class="docutils literal notranslate"><span class="pre">EmbeddingPlanner</span></code> class is replaced with the <code class="docutils literal notranslate"><span class="pre">EmbeddingCollectionConfig</span></code> class.
+For examples of the API, see the tests in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.2/test/embedding_collection_test">test/embedding_collection_test</a> directory of the repository in GitHub.</p></li>
+<li><p>The API is enhanced to support dumping and loading weights during the training process.
+The methods are <code class="docutils literal notranslate"><span class="pre">Model.embedding_dump(path:</span> <span class="pre">str,</span> <span class="pre">table_names:</span> <span class="pre">list[str])</span></code> and <code class="docutils literal notranslate"><span class="pre">Model.embedding_load(path:</span> <span class="pre">str,</span> <span class="pre">list[str])</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">path</span></code> argument is a directory in file system that you can dump weights to or load weights from.
+The <code class="docutils literal notranslate"><span class="pre">table_names</span></code> argument is a list of embedding table names as strings.</p></li>
+</ul>
+</li>
+<li><p><strong>New Volatile Database Type for HPS</strong>:
+This release adds a <code class="docutils literal notranslate"><span class="pre">db_type</span></code> value of <code class="docutils literal notranslate"><span class="pre">multi_process_hash_map</span></code> to the Hierarchical Parameter Server.
+This database type supports sharing embeddings across process boundaries by using shared memory and the <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> device file.
+Multiple processes running HPS can read and write to the same hash map.
+For an example, refer to the <a class="reference internal" href="notebooks/hps_demo.html"><span class="doc std std-doc">Hierarchcal Parameter Server Demo</span></a> notebook.</p></li>
+<li><p><strong>Enhancements to the HPS Redis Backend</strong>:
+In this release, the Hierarchical Parameter Server can open multiple connections in parallel to each Redis node.
+This enhancement enables HPS to take advantage of overlapped processing optimizations in the I/O module of Redis servers.
+In addition, HPS can now take advantage of Redis hash tags to co-locate embedding values and metadata.
+This enhancement can reduce the number of accesses to Redis nodes and the number of per-node round trip communications that are needed to complete transactions.
+As a result, the enhancement increases the insertion performance.</p></li>
+<li><p><strong>MLPLayer is New</strong>:
+This release adds an MLP layer with the <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MLP</span></code> class.
+This layer is very flexible and makes it easier to use a group of fused fully-connected layers and enable the related optimizations.
+For each fused fully-connected layer in <code class="docutils literal notranslate"><span class="pre">MLPLayer</span></code>, the output dimension, bias, and activation function are all adjustable.
+MLPLayer supports FP32, FP16 and TF32 data types.
+For an example, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/dlrm/dgx_a100_mlp.py">dgx_a100_mlp.py</a> in the <code class="docutils literal notranslate"><span class="pre">samples/dlrm</span></code> directory of the GitHub repository to learn how to use the layer.</p></li>
+<li><p><strong>Sparse Operation Kit installable from PyPi</strong>:
+Version <code class="docutils literal notranslate"><span class="pre">1.1.4</span></code> of the Sparse Operation Kit is installable from PyPi in the <a class="reference external" href="https://pypi.org/project/merlin-sok/">merlin-sok</a> package.</p></li>
+<li><p><strong>Multi-task Model Support added to the ONNX Model Converter</strong>:
+This release adds support for multi-task models to the ONNX converter.
+This release also includes an enhancement to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/mmoe/preprocess_census.py">preprocess_census.py</a> script in <code class="docutils literal notranslate"><span class="pre">samples/mmoe</span></code> directory of the GitHub repository.</p></li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>Using the HPS Plugin for TensorFlow with <code class="docutils literal notranslate"><span class="pre">MirroredStrategy</span></code> and running the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.2/hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a> notebook triggered an issue with <a class="reference external" href="https://www.tensorflow.org/api_docs/python/tf/distribute/ReplicaContext">ReplicaContext</a> and caused a crash.
+The issue is fixed and resolves GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/362">issue #362</a>.</p></li>
+<li><p>The <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/v4.2/samples/din/utils/4_nvt_process.py">4_nvt_process.py</a> sample in the <code class="docutils literal notranslate"><span class="pre">samples/din/utils</span></code> directory of the GitHub repository is updated to use the latest NVTabular API.
+This update resolves GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/364">issue #364</a>.</p></li>
+<li><p>An illegal memory access related to 3G embedding and the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.2/samples/dlrm/dgx_a100_ib_nvlink.py">dgx_a100_ib_nvlink.py</a> sample in the <code class="docutils literal notranslate"><span class="pre">samples/dlrm</span></code> directory of the GitHub repository is fixed.</p></li>
+<li><p>An error in HPS with the <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack()</span></code> method is fixed.
+The error was related to calculating the number of keys and vectors from the corresponding DLPack tensors.</p></li>
+<li><p>An error in the HugeCTR backend for Triton Inference Server is fixed.
+A crash was triggered when the initial size of the embedding cache is smaller than the allowed minimum size.</p></li>
+<li><p>An error related to using a ReLU layer with an odd input size in mixed precision mode could trigger a crash.
+The issue is fixed.</p></li>
+<li><p>An error related to using an asynchronous reader with the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.2/api/python_interface.html?highlight=io_alignment#asyncparam-class">AsyncParam</a> class and specifying an <code class="docutils literal notranslate"><span class="pre">io_alignment</span></code> value that is smaller than the block device sector size is fixed.
+Now, if the specified <code class="docutils literal notranslate"><span class="pre">io_alignment</span></code> value is smaller than the block device sector size, <code class="docutils literal notranslate"><span class="pre">io_alignment</span></code> is automatically set to the block device sector size.</p></li>
+<li><p>Unreported memory leaks in the GRU layer and collectives are fixed.</p></li>
+<li><p>Several broken documentation links related to HPS are fixed.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>Dumping Adam optimizer states to AWS S3 is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-4-1">
 <h2>What’s New in Version 4.1<a class="headerlink" href="#what-s-new-in-version-4-1" title="Permalink to this headline"></a></h2>
 <ul>
@@ -812,12 +904,12 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v3.8/index.html">v3.8</a></dd>
       <dd><a href="../v3.9/index.html">v3.9</a></dd>
       <dd><a href="../v3.9.1/index.html">v3.9.1</a></dd>
       <dd><a href="../v4.0/index.html">v4.0</a></dd>
       <dd><a href="../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="../v4.2/index.html">v4.2</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

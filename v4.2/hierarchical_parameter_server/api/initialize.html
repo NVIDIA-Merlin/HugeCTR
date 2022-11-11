@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS Initialize &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/api/initialize.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="HPS Layers" href="layers.html" />
+    <link rel="prev" title="Hierarchical Parameter Server API" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hugectr_parameter_server.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../hps_tf_benchmark.html">Benchmark</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/index.html">Notebooks</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">API Documentation</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Initialize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="layers.html">Layers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Hierarchical Parameter Server</a></li>
+          <li class="breadcrumb-item"><a href="../hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Hierarchical Parameter Server API</a></li>
+      <li class="breadcrumb-item active">HPS Initialize</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="hps-initialize">
+<h1>HPS Initialize<a class="headerlink" href="#hps-initialize" title="Permalink to this headline"></a></h1>
+<dl class="py function">
+<dt id="hierarchical_parameter_server.Init">
+<code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">Init</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/initialize.html#Init"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.Init" title="Permalink to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.Init(**kwargs)</span></code>.</p>
+<p>This function initializes the HPS for all the deployed models. It can be used
+explicitly or implicitly. When used explicitly, you must call the function
+only once and you must call it before any other HPS APIs.
+When used implicitly, <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code> and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code>
+should be specified in the constructor of <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer</span></code>
+and <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code>. When the layer is executed for the first time, it triggers
+the internal HPS initialization implicitly in a thread-safe call-once manner. The
+implicit initialization is especially useful for deploying the SavedModels that
+leverage the HPS layers for online inference.</p>
+<p>HPS leverages all available GPUs for the current CPU process. Set
+<code class="docutils literal notranslate"><span class="pre">CUDA_VISIBLE_DEVICES</span></code> or <code class="docutils literal notranslate"><span class="pre">tf.config.set_visible_devices</span></code> to specify which
+GPUs to use in this process before you launch the TensorFlow runtime
+and calling this function. Additionally, ensure that the <code class="docutils literal notranslate"><span class="pre">deployed_device_list</span></code>
+parameter in the HPS configuration JSON file matches the visible devices.</p>
+<p>In <strong>TensorFlow 2.x</strong>, HPS can be used with <code class="docutils literal notranslate"><span class="pre">tf.distribute.Strategy</span></code> or Horovod.
+When it is used with <code class="docutils literal notranslate"><span class="pre">tf.distribute.Strategy</span></code>, you must call it under <code class="docutils literal notranslate"><span class="pre">strategy.scope()</span></code>
+as shown in the following code block.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+
+<span class="k">with</span> <span class="n">strategy</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
+    <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To use the function with Horovod, call it one for each time you initialize a
+Horovod process such as the following code block shows.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In <strong>TensorFlow 1.15</strong>, HPS can only work with Horovod. The returned status
+must be evaluated with <code class="docutils literal notranslate"><span class="pre">sess.run</span></code> and it must be the first step before evaluating
+any other HPS APIs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+
+<span class="n">hps_init</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">sess</span><span class="p">:</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">hps_init</span><span class="p">)</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – <p>Keyword arguments for this function.
+The dictionary must contain <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code>.</p>
+<ul class="simple">
+<li><p><cite>global_batch_size</cite>: int, the global batch size for HPS that is deployed on multiple GPUs.</p></li>
+<li><p><cite>ps_config_file</cite>: str, the JSON configuration file for HPS initialization.</p></li>
+</ul>
+<p>An example <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code> is as follows and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> can be
+configured as 16384 correspondingly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ps_config_file</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span> <span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span> <span class="p">:</span>
+    <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;demo_model&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;demo_model_sparse.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">16384</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="kc">True</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;demo_model2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;demo_model2_sparse_0.model&quot;</span><span class="p">,</span> <span class="s2">&quot;demo_model2_sparse_1.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">,</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">16384</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>status</strong> – On success, the function returns string with the value <code class="docutils literal notranslate"><span class="pre">OK</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="layers.html" class="btn btn-neutral float-right" title="HPS Layers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.9/hierarchical_parameter_server/api/initialize.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/hierarchical_parameter_server/api/initialize.html">v3.9.1</a></dd>
+      <dd><a href="../../../v4.0/hierarchical_parameter_server/api/initialize.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/hierarchical_parameter_server/api/initialize.html">v4.1</a></dd>
+      <dd><a href="../../../v4.1.1/hierarchical_parameter_server/api/initialize.html">v4.1.1</a></dd>
+      <dd><a href="initialize.html">v4.2</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/hierarchical_parameter_server/api/initialize.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

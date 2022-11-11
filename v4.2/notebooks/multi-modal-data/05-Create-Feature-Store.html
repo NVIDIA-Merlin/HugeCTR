@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Creating Multi-Modal Movie Feature Store &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/multi-modal-data/05-Create-Feature-Store.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ETL with NVTabular" href="06-ETL-with-NVTabular.html" />
+    <link rel="prev" title="Movie Synopsis Feature Extraction with Bart text summarization" href="04-Feature-Extraction-Text.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Example Notebooks</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Multi-modal Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-Data-Enrichment.html">MovieLens Data Enrichment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Creating Multi-Modal Movie Feature Store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-Training-with-HugeCTR.html">Training HugeCTR Model with Pre-trained Embeddings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Multi-modal Example Notebooks</a></li>
+      <li class="breadcrumb-item active">Creating Multi-Modal Movie Feature Store</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-05-create-feature-store/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-05-create-feature-store/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="creating-multi-modal-movie-feature-store">
+<h1>Creating Multi-Modal Movie Feature Store<a class="headerlink" href="#creating-multi-modal-movie-feature-store" title="Permalink to this headline"></a></h1>
+<p>Finally, with both the text and image features ready, we now put the multi-modal movie features into a unified feature store.</p>
+<p>If you have downloaded the real data and proceeded through the feature extraction process in notebooks 03-05, then proceed to create the feature store. Else, skip to the <code class="docutils literal notranslate"><span class="pre">Synthetic</span> <span class="pre">data</span></code> section below to create random features.</p>
+<div class="section" id="real-data">
+<h2>Real data<a class="headerlink" href="#real-data" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;movies_poster_features.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">poster_feature</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="s2">&quot;feature_dict&quot;</span><span class="p">]</span>
+    
+<span class="nb">len</span><span class="p">(</span><span class="n">poster_feature</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>61947
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;movies_synopsis_embeddings-1024.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">text_feature</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="s2">&quot;embeddings&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">text_feature</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>61291
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">links</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;./data/ml-25m/links.csv&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;imdbId&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">links</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(62423, 3)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">links</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>movieId</th>
+      <th>imdbId</th>
+      <th>tmdbId</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>0114709</td>
+      <td>862.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>0113497</td>
+      <td>8844.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>0113228</td>
+      <td>15602.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>0114885</td>
+      <td>31357.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>0113041</td>
+      <td>11862.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">poster_feature</span><span class="p">[</span><span class="s1">&#39;0105812&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(2048,)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="n">feature_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">links</span><span class="p">),</span> <span class="mi">1</span><span class="o">+</span><span class="mi">2048</span><span class="o">+</span><span class="mi">1024</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">links</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+    <span class="n">feature_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;imdbId&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">poster_feature</span><span class="p">:</span>
+        <span class="n">feature_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">:</span><span class="mi">2049</span><span class="p">]</span> <span class="o">=</span> <span class="n">poster_feature</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;imdbId&#39;</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">text_feature</span><span class="p">:</span>
+        <span class="n">feature_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2049</span><span class="p">:]</span> <span class="o">=</span> <span class="n">text_feature</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]]</span>
+    
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dtype</span><span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="p">{</span><span class="s1">&#39;movieId&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">},</span><span class="o">**</span><span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;poster_feature_</span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="k">i</span> for i in range(2048)]+[&#39;text_feature_%d&#39;%i for i in range(1024)]}}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>3073
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">feature_array</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]</span><span class="o">+</span><span class="p">[</span><span class="s1">&#39;poster_feature_</span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="k">i</span> for i in range(2048)]+[&#39;text_feature_%d&#39;%i for i in range(1024)])
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>movieId</th>
+      <th>poster_feature_0</th>
+      <th>poster_feature_1</th>
+      <th>poster_feature_2</th>
+      <th>poster_feature_3</th>
+      <th>poster_feature_4</th>
+      <th>poster_feature_5</th>
+      <th>poster_feature_6</th>
+      <th>poster_feature_7</th>
+      <th>poster_feature_8</th>
+      <th>...</th>
+      <th>text_feature_1014</th>
+      <th>text_feature_1015</th>
+      <th>text_feature_1016</th>
+      <th>text_feature_1017</th>
+      <th>text_feature_1018</th>
+      <th>text_feature_1019</th>
+      <th>text_feature_1020</th>
+      <th>text_feature_1021</th>
+      <th>text_feature_1022</th>
+      <th>text_feature_1023</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1.0</td>
+      <td>0.000000</td>
+      <td>0.088281</td>
+      <td>0.036760</td>
+      <td>0.000000</td>
+      <td>0.006470</td>
+      <td>0.000000</td>
+      <td>0.023553</td>
+      <td>0.000163</td>
+      <td>0.238797</td>
+      <td>...</td>
+      <td>0.291230</td>
+      <td>-0.197272</td>
+      <td>0.024294</td>
+      <td>1.307049</td>
+      <td>-0.789571</td>
+      <td>0.084938</td>
+      <td>-0.187339</td>
+      <td>0.061683</td>
+      <td>0.183281</td>
+      <td>-0.356245</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.289105</td>
+      <td>0.134672</td>
+      <td>0.691380</td>
+      <td>0.045417</td>
+      <td>0.000000</td>
+      <td>0.051422</td>
+      <td>...</td>
+      <td>0.203168</td>
+      <td>-0.617449</td>
+      <td>0.443821</td>
+      <td>1.501953</td>
+      <td>-0.736949</td>
+      <td>0.180542</td>
+      <td>-0.313696</td>
+      <td>0.274087</td>
+      <td>0.153105</td>
+      <td>-0.218745</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3.0</td>
+      <td>0.000000</td>
+      <td>0.187553</td>
+      <td>0.000000</td>
+      <td>0.904370</td>
+      <td>0.069441</td>
+      <td>0.026665</td>
+      <td>0.817211</td>
+      <td>0.000000</td>
+      <td>0.125072</td>
+      <td>...</td>
+      <td>0.173140</td>
+      <td>-0.209240</td>
+      <td>0.451933</td>
+      <td>1.491917</td>
+      <td>-0.743956</td>
+      <td>-0.069061</td>
+      <td>-0.900011</td>
+      <td>0.583347</td>
+      <td>0.192817</td>
+      <td>0.224088</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4.0</td>
+      <td>0.182279</td>
+      <td>0.014646</td>
+      <td>0.004135</td>
+      <td>0.197796</td>
+      <td>0.077938</td>
+      <td>0.000000</td>
+      <td>0.215127</td>
+      <td>0.021160</td>
+      <td>0.023108</td>
+      <td>...</td>
+      <td>-0.394012</td>
+      <td>0.679462</td>
+      <td>1.225475</td>
+      <td>1.196255</td>
+      <td>-0.169627</td>
+      <td>-0.008575</td>
+      <td>-0.172138</td>
+      <td>0.114755</td>
+      <td>-0.127861</td>
+      <td>-0.003679</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5.0</td>
+      <td>0.000000</td>
+      <td>0.082123</td>
+      <td>0.447287</td>
+      <td>0.002375</td>
+      <td>0.135956</td>
+      <td>0.000000</td>
+      <td>0.989514</td>
+      <td>0.808180</td>
+      <td>0.317510</td>
+      <td>...</td>
+      <td>-0.176658</td>
+      <td>-0.078992</td>
+      <td>0.726118</td>
+      <td>1.017430</td>
+      <td>-0.249834</td>
+      <td>0.183357</td>
+      <td>-0.071451</td>
+      <td>0.644567</td>
+      <td>0.090399</td>
+      <td>-1.147284</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 3073 columns</p>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(62423, 3073)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install pyarrow
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Looking in indexes: https://pypi.org/simple, https://pypi.ngc.nvidia.com
+Requirement already satisfied: pyarrow in /usr/local/lib/python3.8/dist-packages (1.0.1)
+Requirement already satisfied: numpy&gt;=1.14 in /usr/local/lib/python3.8/dist-packages (from pyarrow) (1.20.3)
+<span class=" -Color -Color-Yellow">WARNING: You are using pip version 21.0.1; however, version 21.1.2 is available.</span>
+<span class=" -Color -Color-Yellow">You should consider upgrading via the &#39;/usr/bin/python -m pip install --upgrade pip&#39; command.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;feature_df.parquet&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="synthetic-data">
+<h2>Synthetic data<a class="headerlink" href="#synthetic-data" title="Permalink to this headline"></a></h2>
+<p>If you have not extrated image and text features from real data, proceed with this section to create synthetic features.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">links</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;./data/ml-25m/links.csv&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;imdbId&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">feature_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">links</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3073</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_array</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">links</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">feature_array</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">]</span><span class="o">+</span><span class="p">[</span><span class="s1">&#39;poster_feature_</span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="k">i</span> for i in range(2048)]+[&#39;text_feature_%d&#39;%i for i in range(1024)])
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;feature_df.parquet&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">feature_df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>movieId</th>
+      <th>poster_feature_0</th>
+      <th>poster_feature_1</th>
+      <th>poster_feature_2</th>
+      <th>poster_feature_3</th>
+      <th>poster_feature_4</th>
+      <th>poster_feature_5</th>
+      <th>poster_feature_6</th>
+      <th>poster_feature_7</th>
+      <th>poster_feature_8</th>
+      <th>...</th>
+      <th>text_feature_1014</th>
+      <th>text_feature_1015</th>
+      <th>text_feature_1016</th>
+      <th>text_feature_1017</th>
+      <th>text_feature_1018</th>
+      <th>text_feature_1019</th>
+      <th>text_feature_1020</th>
+      <th>text_feature_1021</th>
+      <th>text_feature_1022</th>
+      <th>text_feature_1023</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1.0</td>
+      <td>0.026260</td>
+      <td>0.857608</td>
+      <td>0.410247</td>
+      <td>0.066654</td>
+      <td>0.382803</td>
+      <td>0.899998</td>
+      <td>0.511562</td>
+      <td>0.592291</td>
+      <td>0.565434</td>
+      <td>...</td>
+      <td>0.636716</td>
+      <td>0.578369</td>
+      <td>0.996169</td>
+      <td>0.402107</td>
+      <td>0.412318</td>
+      <td>0.859952</td>
+      <td>0.293852</td>
+      <td>0.341114</td>
+      <td>0.727113</td>
+      <td>0.085829</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2.0</td>
+      <td>0.141265</td>
+      <td>0.721758</td>
+      <td>0.679958</td>
+      <td>0.955634</td>
+      <td>0.391091</td>
+      <td>0.324611</td>
+      <td>0.505211</td>
+      <td>0.258331</td>
+      <td>0.048264</td>
+      <td>...</td>
+      <td>0.161505</td>
+      <td>0.431864</td>
+      <td>0.836532</td>
+      <td>0.525013</td>
+      <td>0.654566</td>
+      <td>0.823841</td>
+      <td>0.818313</td>
+      <td>0.856280</td>
+      <td>0.638048</td>
+      <td>0.685537</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3.0</td>
+      <td>0.119418</td>
+      <td>0.911146</td>
+      <td>0.470762</td>
+      <td>0.762258</td>
+      <td>0.626335</td>
+      <td>0.768947</td>
+      <td>0.241833</td>
+      <td>0.775992</td>
+      <td>0.236340</td>
+      <td>...</td>
+      <td>0.865548</td>
+      <td>0.387806</td>
+      <td>0.668321</td>
+      <td>0.552122</td>
+      <td>0.750238</td>
+      <td>0.863707</td>
+      <td>0.382173</td>
+      <td>0.894487</td>
+      <td>0.565142</td>
+      <td>0.164083</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4.0</td>
+      <td>0.538184</td>
+      <td>0.980678</td>
+      <td>0.643513</td>
+      <td>0.928519</td>
+      <td>0.794906</td>
+      <td>0.201022</td>
+      <td>0.744666</td>
+      <td>0.962188</td>
+      <td>0.915320</td>
+      <td>...</td>
+      <td>0.777534</td>
+      <td>0.904200</td>
+      <td>0.167337</td>
+      <td>0.875194</td>
+      <td>0.180481</td>
+      <td>0.815904</td>
+      <td>0.808288</td>
+      <td>0.036711</td>
+      <td>0.902779</td>
+      <td>0.580946</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5.0</td>
+      <td>0.772951</td>
+      <td>0.239788</td>
+      <td>0.061874</td>
+      <td>0.162997</td>
+      <td>0.388310</td>
+      <td>0.236311</td>
+      <td>0.162757</td>
+      <td>0.207134</td>
+      <td>0.111078</td>
+      <td>...</td>
+      <td>0.250022</td>
+      <td>0.335043</td>
+      <td>0.091674</td>
+      <td>0.121507</td>
+      <td>0.418124</td>
+      <td>0.150020</td>
+      <td>0.803506</td>
+      <td>0.059504</td>
+      <td>0.002342</td>
+      <td>0.932321</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 3073 columns</p>
+</div></div></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="04-Feature-Extraction-Text.html" class="btn btn-neutral float-left" title="Movie Synopsis Feature Extraction with Bart text summarization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="06-ETL-with-NVTabular.html" class="btn btn-neutral float-right" title="ETL with NVTabular" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+      <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="05-Create-Feature-Store.html">v4.2</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/index.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
