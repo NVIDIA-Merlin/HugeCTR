@@ -11,9 +11,9 @@
 This release includes a change to Hierarchical Parameter Server and affects deployments that use `RedisClusterBackend` or model parameter streaming with Kafka.
 A third-party library that was used for HPS partition selection algorithm is replaced to improve performance.
 The new algorithm can produce different partition assignments for volatile databases.
-As a result, volatile database backends that retain data between application startup, such as Redis, must be reinitialized.
+As a result, volatile database backends that retain data between application startup, such as the `RedisClusterBackend`, must be reinitialized.
 Model streaming with Kafka is equally affected.
-To avoid issues with updates, reset all respective queue offsets to the `end_offset` before you reinitialize the Redis database.
+To avoid issues with updates, reset all respective queue offsets to the `end_offset` before you reinitialize the `RedisClusterBackend`.
 
 + **Enhancements to the Sparse Operation Kit in DeepRec**:
 This release includes updates to the Sparse Operation Kit to improve the performance of the embedding variable lookup operation in DeepRec.
