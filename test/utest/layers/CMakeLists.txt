@@ -15,6 +15,7 @@
 
 cmake_minimum_required(VERSION 3.17)
 file(GLOB layers_test_src
+  trainable_layer_test.cpp
   dropout_layer_test.cpp
   batch_norm_layer_test.cpp
   cast_layer_test.cpp
