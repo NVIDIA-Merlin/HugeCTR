@@ -64,67 +64,66 @@ __global__ void reorder_key_kernel(const key_t *key, const offset_t *row_offsets
 
 }  // namespace
 
-All2AllEmbeddingCollectionSwizzleKey::All2AllEmbeddingCollectionSwizzleKey(
-    std::shared_ptr<CoreResourceManager> core)
-    : core_(core) {}
+namespace swizzle_key {
 
-void All2AllEmbeddingCollectionSwizzleKey::sparse_forward_per_gpu(
-    const std::vector<Tensor> &keys, const std::vector<Tensor> &row_lengths,
-    Tensor &key_all_gather_send_buffer, Tensor &row_lengths_all_gather_send_buffer) {
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const std::vector<Tensor> &keys, const std::vector<Tensor> &row_lengths,
+                            Tensor &key_all_gather_send_buffer,
+                            Tensor &row_lengths_all_gather_send_buffer) {
   size_t key_bytes_offset = 0;
   size_t row_lengths_bytes_offset = 0;
   key_all_gather_send_buffer.get();
   for (size_t i = 0; i < keys.size(); ++i) {
-    keys[i].get();
     HCTR_LIB_THROW(cudaMemcpyAsync(
         reinterpret_cast<char *>(key_all_gather_send_buffer.get()) + key_bytes_offset,
         keys[i].get(), keys[i].nbytes(), cudaMemcpyDeviceToDevice,
-        core_->get_local_gpu()->get_stream()));
+        core->get_local_gpu()->get_stream()));
     key_bytes_offset += keys[i].nbytes();
 
     HCTR_LIB_THROW(
         cudaMemcpyAsync(reinterpret_cast<char *>(row_lengths_all_gather_send_buffer.get()) +
                             row_lengths_bytes_offset,
                         row_lengths[i].get(), row_lengths[i].nbytes(), cudaMemcpyDeviceToDevice,
-                        core_->get_local_gpu()->get_stream()));
+                        core->get_local_gpu()->get_stream()));
     row_lengths_bytes_offset += row_lengths[i].nbytes();
   }
 }
+}  // namespace swizzle_key
 
-All2AllEmbeddingCollectionModelForward::All2AllEmbeddingCollectionModelForward(
-    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
-    : core_(core), meta_(meta) {}
+namespace model_forward {
 
-std::vector<size_t> All2AllEmbeddingCollectionModelForward::get_model_comm_buffer_size(
-    int batch_size) {
-  int num_gpus = core_->get_global_gpu_count();
+std::vector<size_t> get_model_comm_buffer_size(const UniformModelParallelEmbeddingMeta &meta,
+                                               int num_gpus, int batch_size) {
   size_t num_ev_elements = 0;
   int batch_size_per_gpu = batch_size / num_gpus;
-  for (int lookup_id : meta_.h_local_lookup_id_list_) {
-    int ev_size = meta_.h_ev_size_list_[lookup_id];
+  for (int lookup_id : meta.h_local_lookup_id_list_) {
+    int ev_size = meta.h_ev_size_list_[lookup_id];
     num_ev_elements += ev_size * batch_size_per_gpu;
   }
   return std::vector<size_t>(num_gpus, num_ev_elements);
 }
 
-void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
-    const Tensor &key_all_gather_recv_buffer, const Tensor &row_lengths_all_gather_recv_buffer,
-    ILookup *emb_storage, std::vector<Tensor> &emb_vec_model_buffer, int64_t *num_model_key,
-    int64_t *num_model_offsets) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const UniformModelParallelEmbeddingMeta &meta,
+                            const Tensor &key_all_gather_recv_buffer,
+                            const Tensor &row_lengths_all_gather_recv_buffer, ILookup *emb_storage,
+                            std::vector<Tensor> &emb_vec_model_buffer, int64_t *num_model_key,
+                            int64_t *num_model_offsets, Tensor *ret_model_key,
+                            Tensor *ret_model_offset) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
 
-  int num_gpus = core_->get_global_gpu_count();
-  cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  int batch_size = row_lengths_all_gather_recv_buffer.get_num_elements() / meta_.num_lookup_;
+  int num_gpus = core->get_global_gpu_count();
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
+  int batch_size = row_lengths_all_gather_recv_buffer.get_num_elements() / meta.num_lookup_;
 
   Tensor keys, bucket_range;
   size_t num_keys = static_cast<size_t>(key_all_gather_recv_buffer.get_num_elements());
-  // the shape of key_all_gather is (num_gpus, num_embedding, batch_size_per_gpu)
-  // the shape of key is (num_embedding, batch_size)
+  // the shape of key_all_gather is (num_gpus, num_embedding,
+  // batch_size_per_gpu) the shape of key is (num_embedding, batch_size)
   auto reorder_from_all_gather_input = [&] {
     Tensor all_gather_row_offsets;
 
-    auto buffer_ptr = GetBuffer(core_);
+    auto buffer_ptr = GetBuffer(core);
     keys = buffer_ptr->reserve({key_all_gather_recv_buffer.get_num_elements()},
                                key_all_gather_recv_buffer.device(),
                                key_all_gather_recv_buffer.dtype());
@@ -145,7 +144,7 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
         reorder_row_lengths_kernel<<<grid_size, block_size, 0, stream>>>(
             row_lengths_all_gather_recv_buffer.get<offset_t>(),
             row_lengths_all_gather_recv_buffer.get_num_elements(), bucket_range.get<offset_t>(),
-            batch_size / num_gpus, num_gpus, meta_.num_lookup_);
+            batch_size / num_gpus, num_gpus, meta.num_lookup_);
 
         size_t temp_bytes = 0;
         Tensor temp_scan_storage;
@@ -216,7 +215,7 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
                   key_all_gather_recv_buffer.get<key_t>(), all_gather_row_offsets.get<offset_t>(),
                   row_lengths_all_gather_recv_buffer.get_num_elements(),
                   bucket_range.get<offset_t>(), keys.get<key_t>(), batch_size / num_gpus, num_gpus,
-                  meta_.num_lookup_);
+                  meta.num_lookup_);
               // HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
               // std::vector<key_t> gpu_all_gather_key;
@@ -245,130 +244,130 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
   reorder_from_all_gather_input();
 
   DataType key_type = key_all_gather_recv_buffer.dtype();
-  model_index_calculation_ =
-      ModelIndexCalculation(core_, meta_.num_local_lookup_, meta_.num_local_hotness_,
-                            meta_.hotness_sum_, batch_size, key_type);
+  ModelIndexCalculation model_index_calculation_ =
+      ModelIndexCalculation(core, meta.num_local_lookup_, meta.num_local_hotness_,
+                            meta.hotness_sum_, batch_size, key_type);
 
   Tensor model_key, model_offsets;
   size_t num_model_key_;
-  model_index_calculation_.compute(keys, bucket_range, num_keys, meta_.d_local_lookup_id_list_,
-                                   meta_.d_local_shard_id_list_, meta_.d_local_num_shards_list_,
+  model_index_calculation_.compute(keys, bucket_range, num_keys, meta.d_local_lookup_id_list_,
+                                   meta.d_local_shard_id_list_, meta.d_local_num_shards_list_,
                                    batch_size, &model_key, &model_offsets, &num_model_key_);
 
-  compress_offset_ = CompressOffset(core_, meta_.num_local_lookup_ + 1);
+  CompressOffset compress_offset_ = CompressOffset(core, meta.num_local_lookup_ + 1);
   Tensor num_key_per_lookup_offset;
   compress_offset_.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-  TensorList embedding_vec = TensorList(core_.get(), key_all_gather_recv_buffer.get_num_elements(),
+  TensorList embedding_vec = TensorList(core.get(), key_all_gather_recv_buffer.get_num_elements(),
                                         DeviceType::GPU, TensorScalarType::Float32);
   emb_storage->lookup(model_key, num_model_key_, num_key_per_lookup_offset,
-                      meta_.num_local_lookup_ + 1, meta_.d_local_table_id_list_, embedding_vec);
+                      meta.num_local_lookup_ + 1, meta.d_local_table_id_list_, embedding_vec);
 
-  model_forward_ = ModelForward(core_, num_gpus, meta_.h_local_lookup_id_list_);
+  ModelForward model_forward_ = ModelForward(core, num_gpus, meta.h_local_lookup_id_list_);
 
-  TensorList model_comm_buffer{core_.get(), emb_vec_model_buffer, DeviceType::GPU,
+  TensorList model_comm_buffer{core.get(), emb_vec_model_buffer, DeviceType::GPU,
                                emb_vec_model_buffer[0].dtype(), stream};
   model_forward_.compute(embedding_vec, model_offsets, model_comm_buffer,
-                         meta_.d_local_ev_size_list_, meta_.d_local_ev_size_offset_, batch_size,
-                         meta_.max_ev_size_);
+                         meta.d_local_ev_size_list_, meta.d_local_ev_size_offset_, batch_size,
+                         meta.max_ev_size_);
 
-  model_key_ = model_key;
-  model_offsets_ = model_offsets;
+  *ret_model_key = model_key;
+  *ret_model_offset = model_offsets;
   *num_model_key = static_cast<int64_t>(num_model_key_);
   *num_model_offsets = model_offsets.get_num_elements();
 }
 
-void All2AllEmbeddingCollectionModelForward::copy_model_keys_and_offsets(Tensor &model_key,
-                                                                         Tensor &model_offsets) {
-  HCTR_LIB_THROW(cudaMemcpyAsync(model_key.get(), model_key_.get(), model_key.nbytes(),
-                                 cudaMemcpyDeviceToDevice, core_->get_local_gpu()->get_stream()));
-  HCTR_LIB_THROW(cudaMemcpyAsync(model_offsets.get(), model_offsets_.get(), model_offsets.nbytes(),
-                                 cudaMemcpyDeviceToDevice, core_->get_local_gpu()->get_stream()));
+void copy_model_keys_and_offsets(std::shared_ptr<CoreResourceManager> core, const Tensor &model_key,
+                                 const Tensor &model_offset, Tensor &tf_model_key,
+                                 Tensor &tf_model_offsets) {
+  HCTR_LIB_THROW(cudaMemcpyAsync(tf_model_key.get(), model_key.get(), tf_model_key.nbytes(),
+                                 cudaMemcpyDeviceToDevice, core->get_local_gpu()->get_stream()));
+  HCTR_LIB_THROW(cudaMemcpyAsync(tf_model_offsets.get(), model_offset.get(),
+                                 tf_model_offsets.nbytes(), cudaMemcpyDeviceToDevice,
+                                 core->get_local_gpu()->get_stream()));
 }
+}  // namespace model_forward
 
-All2AllEmbeddingCollectionNetworkForward::All2AllEmbeddingCollectionNetworkForward(
-    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
-    : core_(core), meta_(meta) {
+namespace network_forward {
+
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const UniformModelParallelEmbeddingMeta &meta,
+                            const std::vector<Tensor> &emb_vec_network_buffer,
+                            const std::vector<Tensor> &row_lengths,
+                            std::vector<Tensor> &forward_emb_vec) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
   int num_gpus = core->get_global_gpu_count();
-  network_forward_ = NetworkForward(core, num_gpus);
-}
-
-void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
-    const std::vector<Tensor> &emb_vec_network_buffer, const std::vector<Tensor> &row_lengths,
-    std::vector<Tensor> &forward_emb_vec) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  int num_gpus = core_->get_global_gpu_count();
+  NetworkForward network_forward = NetworkForward(core, num_gpus);
   int batch_size_per_gpu = row_lengths[0].get_num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
-  int global_gpu_id = core_->get_global_gpu_id();
+  int global_gpu_id = core->get_global_gpu_id();
 
-  TensorList row_lengths_buffer{core_.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
+  TensorList row_lengths_buffer{core.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
                                 stream};
-  TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
+  TensorList network_comm_buffer{core.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
-  TensorList output_buffer{core_.get(), forward_emb_vec, DeviceType::GPU,
-                           forward_emb_vec[0].dtype(), stream};
-  network_forward_.compute(row_lengths_buffer, meta_.d_combiner_list_, network_comm_buffer,
-                           meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
-                           meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
-                           meta_.network_ev_offsets_, output_buffer, meta_.d_ev_size_offset_,
-                           batch_size, meta_.max_ev_size_);
+  TensorList output_buffer{core.get(), forward_emb_vec, DeviceType::GPU, forward_emb_vec[0].dtype(),
+                           stream};
+  network_forward.compute(row_lengths_buffer, meta.d_combiner_list_, network_comm_buffer,
+                          meta.network_ids_, meta.network_gpu_ids_, meta.network_offsets_,
+                          meta.network_dst_lookup_ids_, meta.network_ev_sizes_,
+                          meta.network_ev_offsets_, output_buffer, meta.d_ev_size_offset_,
+                          batch_size, meta.max_ev_size_);
 }
+}  // namespace network_forward
 
-All2AllEmbeddingCollectionNetworkBackward::All2AllEmbeddingCollectionNetworkBackward(
-    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
-    : core_(core), meta_(meta) {
+namespace network_backward {
+
+void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                      const UniformModelParallelEmbeddingMeta &meta,
+                      const std::vector<Tensor> &top_grad, const std::vector<Tensor> &row_lengths,
+                      std::vector<Tensor> &emb_vec_network_buffer) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
   int num_gpus = core->get_global_gpu_count();
-  network_backward_ = NetworkBackward(core, num_gpus);
-}
-
-void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
-    const std::vector<Tensor> &top_grad, const std::vector<Tensor> &row_lengths,
-    std::vector<Tensor> &emb_vec_network_buffer) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  // int batch_size = (top_grad[0].get_num_elements() * core_->get_global_gpu_count()) /
-  // meta_.h_ev_size_list_[0];
-  int num_gpus = core_->get_global_gpu_count();
   int batch_size_per_gpu = row_lengths[0].get_num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
 
-  TensorList row_lengths_buffer{core_.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
+  NetworkBackward network_backward = NetworkBackward(core, num_gpus);
+
+  TensorList row_lengths_buffer{core.get(), row_lengths, DeviceType::GPU, row_lengths[0].dtype(),
                                 stream};
-  TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
+  TensorList network_comm_buffer{core.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
-  TensorList top_grad_buffer{core_.get(), top_grad, DeviceType::GPU, top_grad[0].dtype(), stream};
+  TensorList top_grad_buffer{core.get(), top_grad, DeviceType::GPU, top_grad[0].dtype(), stream};
 
-  network_backward_.compute(row_lengths_buffer, meta_.d_combiner_list_, top_grad_buffer,
-                            meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
-                            meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
-                            meta_.network_ev_offsets_, network_comm_buffer, meta_.d_ev_size_offset_,
-                            batch_size, meta_.max_ev_size_);
+  network_backward.compute(row_lengths_buffer, meta.d_combiner_list_, top_grad_buffer,
+                           meta.network_ids_, meta.network_gpu_ids_, meta.network_offsets_,
+                           meta.network_dst_lookup_ids_, meta.network_ev_sizes_,
+                           meta.network_ev_offsets_, network_comm_buffer, meta.d_ev_size_offset_,
+                           batch_size, meta.max_ev_size_);
 }
+}  // namespace network_backward
 
-All2AllEmbeddingCollectionModelBackward::All2AllEmbeddingCollectionModelBackward(
-    std::shared_ptr<CoreResourceManager> core, const UniformModelParallelEmbeddingMeta &meta)
-    : core_(core), meta_(meta) {}
+namespace model_backward {
 
-void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
-    const std::vector<Tensor> &emb_vec_model_buffer, const Tensor &model_key,
-    const Tensor &model_offsets, std::vector<int> *num_unique_key_per_table,
-    std::vector<int> *table_id_list) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  int num_gpus = core_->get_global_gpu_count();
-  cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  int batch_size = (model_offsets.get_num_elements() - 1) / meta_.num_local_lookup_;
+void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                             const UniformModelParallelEmbeddingMeta &meta,
+                             const std::vector<Tensor> &emb_vec_model_buffer,
+                             const Tensor &model_key, const Tensor &model_offsets,
+                             std::vector<int> *num_unique_key_per_table,
+                             std::vector<int> *table_id_list, Tensor *ret_continous_unique_key,
+                             Tensor *ret_continous_emb_vec) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  int num_gpus = core->get_global_gpu_count();
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
+  int batch_size = (model_offsets.get_num_elements() - 1) / meta.num_local_lookup_;
   size_t num_model_key = static_cast<size_t>(model_key.get_num_elements());
 
   Tensor num_key_per_lookup_offset;
-  CompressOffset compress_offset{core_, meta_.num_local_lookup_ + 1};
+  CompressOffset compress_offset{core, meta.num_local_lookup_ + 1};
   compress_offset.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
 
-  model_backward_index_calculation_ = ModelBackwardIndexCalculation(
-      core_, num_gpus, meta_.num_local_lookup_, meta_.h_local_hotness_list_,
-      meta_.h_local_table_id_list_, meta_.h_local_ev_size_list_, batch_size, model_key.dtype());
+  ModelBackwardIndexCalculation model_backward_index_calculation_ = ModelBackwardIndexCalculation(
+      core, num_gpus, meta.num_local_lookup_, meta.h_local_hotness_list_,
+      meta.h_local_table_id_list_, meta.h_local_ev_size_list_, batch_size, model_key.dtype());
 
   Tensor continous_unique_key, wgrad_idx_offset, sorted_bucket_id_list, sorted_bucket_id_offset,
       d_table_id_list, num_unique_key_per_table_offset, continous_grad_emb_ev, coordinate_key,
@@ -376,23 +375,23 @@ void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
   size_t num_unique_key;
   model_backward_index_calculation_.compute(
       model_key, num_model_key, model_offsets, num_key_per_lookup_offset,
-      meta_.d_local_table_id_list_, batch_size, &continous_unique_key, &num_unique_key,
+      meta.d_local_table_id_list_, batch_size, &continous_unique_key, &num_unique_key,
       &wgrad_idx_offset, &sorted_bucket_id_list, &sorted_bucket_id_offset, &d_table_id_list,
       &num_unique_key_per_table_offset, &coordinate_key, &coordinate_wgrad_dst_idx);
 
-  model_backward_ =
-      ModelBackward(core_, num_gpus, meta_.num_local_lookup_, meta_.h_local_hotness_list_,
-                    meta_.h_local_ev_size_list_, batch_size, meta_.max_ev_size_, meta_.num_sms_);
+  ModelBackward model_backward_ =
+      ModelBackward(core, num_gpus, meta.num_local_lookup_, meta.h_local_hotness_list_,
+                    meta.h_local_ev_size_list_, batch_size, meta.max_ev_size_, meta.num_sms_);
 
-  TensorList model_comm_buffer{core_.get(), emb_vec_model_buffer, DeviceType::GPU,
+  TensorList model_comm_buffer{core.get(), emb_vec_model_buffer, DeviceType::GPU,
                                emb_vec_model_buffer[0].dtype(), stream};
   model_backward_.compute(model_comm_buffer, wgrad_idx_offset, sorted_bucket_id_list,
                           sorted_bucket_id_offset, num_unique_key, coordinate_key,
-                          coordinate_wgrad_dst_idx, meta_.d_local_ev_size_offset_, batch_size,
-                          meta_.max_ev_size_, num_model_key, &continous_grad_emb_ev);
+                          coordinate_wgrad_dst_idx, meta.d_local_ev_size_offset_, batch_size,
+                          meta.max_ev_size_, num_model_key, &continous_grad_emb_ev);
   d_table_id_list.to(table_id_list, stream);
-  continous_unique_key_ = continous_unique_key;
-  continous_emb_vec_ = continous_grad_emb_ev;
+  *ret_continous_unique_key = continous_unique_key;
+  *ret_continous_emb_vec = continous_grad_emb_ev;
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   std::vector<uint32_t> gpu_num_key_per_table_offset;
   num_unique_key_per_table_offset.to(&gpu_num_key_per_table_offset);
@@ -404,23 +403,25 @@ void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
   }
 }
 
-void All2AllEmbeddingCollectionModelBackward::copy_backward_key_and_emb_vec(
-    std::vector<Tensor> &unique_key, std::vector<Tensor> &emb_vec) {
+void copy_backward_key_and_emb_vec(std::shared_ptr<CoreResourceManager> core,
+                                   const Tensor &continous_unique_key,
+                                   const Tensor &continous_emb_vec, std::vector<Tensor> &unique_key,
+                                   std::vector<Tensor> &emb_vec) {
   size_t nbytes_key_offsets = 0ul;
   size_t nbytes_emb_vec_offsets = 0ul;
   for (size_t i = 0; i < unique_key.size(); ++i) {
     HCTR_LIB_THROW(cudaMemcpyAsync(
         unique_key[i].get(),
-        reinterpret_cast<char *>(continous_unique_key_.get()) + nbytes_key_offsets,
-        unique_key[i].nbytes(), cudaMemcpyDeviceToDevice, core_->get_local_gpu()->get_stream()));
+        reinterpret_cast<char *>(continous_unique_key.get()) + nbytes_key_offsets,
+        unique_key[i].nbytes(), cudaMemcpyDeviceToDevice, core->get_local_gpu()->get_stream()));
     HCTR_LIB_THROW(cudaMemcpyAsync(
         emb_vec[i].get(),
-        reinterpret_cast<char *>(continous_emb_vec_.get()) + nbytes_emb_vec_offsets,
-        emb_vec[i].nbytes(), cudaMemcpyDeviceToDevice, core_->get_local_gpu()->get_stream()));
+        reinterpret_cast<char *>(continous_emb_vec.get()) + nbytes_emb_vec_offsets,
+        emb_vec[i].nbytes(), cudaMemcpyDeviceToDevice, core->get_local_gpu()->get_stream()));
     nbytes_key_offsets += unique_key[i].nbytes();
     nbytes_emb_vec_offsets += emb_vec[i].nbytes();
   }
 }
-
+}  // namespace model_backward
 }  // namespace tf
 }  // namespace embedding

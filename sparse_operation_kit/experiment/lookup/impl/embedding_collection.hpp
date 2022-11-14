@@ -37,16 +37,6 @@ using TFCoreResourceManager = ::tf_internal::TFCoreResourceManager;
 using EmbeddingCollectionParam = ::embedding::EmbeddingCollectionParam;
 using UniformModelParallelEmbeddingMeta = ::embedding::UniformModelParallelEmbeddingMeta;
 using TablePlacementStrategy   = ::embedding::TablePlacementStrategy;
-using ISwizzleKey      = ::embedding::tf::IAll2AllEmbeddingCollectionSwizzleKey;
-using SwizzleKey       = ::embedding::tf::All2AllEmbeddingCollectionSwizzleKey;
-using IModelForward    = ::embedding::tf::IAll2AllEmbeddingCollectionModelForward;
-using ModelForward     = ::embedding::tf::All2AllEmbeddingCollectionModelForward;
-using IModelBackward   = ::embedding::tf::IAll2AllEmbeddingCollectionModelBackward;
-using ModelBackward    = ::embedding::tf::All2AllEmbeddingCollectionModelBackward;
-using INetworkForward  = ::embedding::tf::IAll2AllEmbeddingCollectionNetworkForward;
-using NetworkForward   = ::embedding::tf::All2AllEmbeddingCollectionNetworkForward;
-using INetworkBackward = ::embedding::tf::IAll2AllEmbeddingCollectionNetworkBackward;
-using NetworkBackward  = ::embedding::tf::All2AllEmbeddingCollectionNetworkBackward;
 // clang-foramt on
 
 template <typename T>

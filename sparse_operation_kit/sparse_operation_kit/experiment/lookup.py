@@ -132,7 +132,7 @@ def _lookup_forward(params, *args, **kwargs):
         handles = [param.handle for param in params]
         if isinstance(params[0], DynamicVariable):
             return raw_ops.lookup_forward_dynamic(handles, *args, **kwargs)
-        elif importlib.find_loader("kv_variable_ops") and isinstance(
+        elif importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
             params[0], kv_variable_ops.EmbeddingVariable
         ):
             return raw_ops.lookup_forward_embedding_var_gpu(handles, *args, **kwargs)
@@ -362,7 +362,7 @@ def lookup_sparse(params, sp_ids, combiners):
     shard, dimensions = [], []
     for param in params:
         shard.append(param.target_gpu)
-        if importlib.find_loader("kv_variable_ops") and isinstance(
+        if importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
             param, kv_variable_ops.EmbeddingVariable
         ):
             dimensions.append(param.shape[0])

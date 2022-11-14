@@ -23,7 +23,6 @@
 #include "../embedding_collection_utils.hpp"
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding/all2all_embedding_collection.hpp"
-#include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding_storage/ragged_static_embedding.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 using namespace embedding;
@@ -82,12 +81,6 @@ void all2all_embedding_collection_test() {
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
   std::vector<UniformModelParallelEmbeddingMeta> meta_list;
-  std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionSwizzleKey>> swizzle_key_list;
-  std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionModelForward>> model_forward_list;
-  std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionNetworkForward>> network_forward_list;
-  std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionNetworkBackward>>
-      network_backward_list;
-  std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionModelBackward>> model_backward_list;
   std::vector<std::unique_ptr<IGroupedEmbeddingTable>> ebc_table_list;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(gpu_id);
@@ -99,16 +92,6 @@ void all2all_embedding_collection_test() {
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     auto core = core_list[gpu_id];
 
-    swizzle_key_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionSwizzleKey>(core)));
-    model_forward_list.push_back(std::move(
-        std::make_unique<tf::All2AllEmbeddingCollectionModelForward>(core, meta_list[gpu_id])));
-    network_forward_list.push_back(std::move(
-        std::make_unique<tf::All2AllEmbeddingCollectionNetworkForward>(core, meta_list[gpu_id])));
-    network_backward_list.push_back(std::move(
-        std::make_unique<tf::All2AllEmbeddingCollectionNetworkBackward>(core, meta_list[gpu_id])));
-    model_backward_list.push_back(std::move(
-        std::make_unique<tf::All2AllEmbeddingCollectionModelBackward>(core, meta_list[gpu_id])));
     ebc_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
         *resource_manager->get_local_gpu(gpu_id), core, table_param_list, ebc_param, 0, opt_param));
   }
@@ -194,9 +177,9 @@ void all2all_embedding_collection_test() {
       };
       allocate_all_gather_buffer();
 
-      swizzle_key_list[gpu_id]->sparse_forward_per_gpu(ebc_key_list, ebc_row_lengths_list,
-                                                       key_all_gather_send_buffer,
-                                                       row_lengths_all_gather_send_buffer);
+      tf::swizzle_key::sparse_forward_per_gpu(core_list[gpu_id], ebc_key_list, ebc_row_lengths_list,
+                                              key_all_gather_send_buffer,
+                                              row_lengths_all_gather_send_buffer);
 
       HCTR_LIB_THROW(cudaStreamSynchronize(core_list[gpu_id]->get_local_gpu()->get_stream()));
       auto print_input_key = [&] {
@@ -260,7 +243,8 @@ void all2all_embedding_collection_test() {
 
       std::vector<Tensor> emb_vec_model_buffer;
       auto prepare_model_buffer = [&] {
-        auto buffer_size_list = model_forward_list[gpu_id]->get_model_comm_buffer_size(batch_size);
+        auto buffer_size_list = tf::model_forward::get_model_comm_buffer_size(
+            meta_list[gpu_id], core_list[gpu_id]->get_global_gpu_count(), batch_size);
         for (size_t buffer_size : buffer_size_list) {
           auto t = buffer->reserve(buffer_size, DeviceType::GPU, ebc_param.emb_type);
           emb_vec_model_buffer.push_back(t);
@@ -271,9 +255,11 @@ void all2all_embedding_collection_test() {
       prepare_model_buffer();
 
       int64_t num_model_key, num_model_offsets;
-      model_forward_list[gpu_id]->sparse_forward_per_gpu(
-          key_all_gather_recv_buffer, row_lengths_all_gather_recv_buffer,
-          ebc_table_list[gpu_id].get(), emb_vec_model_buffer, &num_model_key, &num_model_offsets);
+      Tensor ret_model_key, ret_model_offset;
+      tf::model_forward::sparse_forward_per_gpu(
+          core_list[gpu_id], meta_list[gpu_id], key_all_gather_recv_buffer,
+          row_lengths_all_gather_recv_buffer, ebc_table_list[gpu_id].get(), emb_vec_model_buffer,
+          &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
 
       Tensor model_key, model_offsets;
       auto allocate_model_key_and_offsets = [&] {
@@ -283,7 +269,8 @@ void all2all_embedding_collection_test() {
         buffer->allocate();
       };
       allocate_model_key_and_offsets();
-      model_forward_list[gpu_id]->copy_model_keys_and_offsets(model_key, model_offsets);
+      tf::model_forward::copy_model_keys_and_offsets(core_list[gpu_id], ret_model_key,
+                                                     ret_model_offset, model_key, model_offsets);
 
       HCTR_LIB_THROW(cudaStreamSynchronize(core_list[gpu_id]->get_local_gpu()->get_stream()));
       auto print_model_buffer = [&] {
@@ -364,8 +351,9 @@ void all2all_embedding_collection_test() {
       };
       allocate_forward_emb_vec();
 
-      network_forward_list[gpu_id]->sparse_forward_per_gpu(emb_vec_network_buffer,
-                                                           ebc_row_lengths_list, forward_emb_vec);
+      tf::network_forward::sparse_forward_per_gpu(core_list[gpu_id], meta_list[gpu_id],
+                                                  emb_vec_network_buffer, ebc_row_lengths_list,
+                                                  forward_emb_vec);
       HCTR_LIB_THROW(cudaStreamSynchronize(core_list[gpu_id]->get_local_gpu()->get_stream()));
       auto print_output_buffer = [&] {
         std::cout << "forward emb result:\n";
@@ -377,15 +365,17 @@ void all2all_embedding_collection_test() {
       };
       print_output_buffer();
 
-      network_backward_list[gpu_id]->backward_per_gpu(forward_emb_vec, ebc_row_lengths_list,
-                                                      emb_vec_network_buffer);
+      tf::network_backward::backward_per_gpu(core_list[gpu_id], meta_list[gpu_id], forward_emb_vec,
+                                             ebc_row_lengths_list, emb_vec_network_buffer);
       std::cout << "backward network buffer:\n";
       print_network_buffer();
 
       std::vector<int> num_unique_key_per_table, unique_id_space_list;
-      model_backward_list[gpu_id]->sparse_backward_per_gpu(emb_vec_model_buffer, model_key,
-                                                           model_offsets, &num_unique_key_per_table,
-                                                           &unique_id_space_list);
+      Tensor ret_continous_unique_key, ret_continous_emb_vec;
+      tf::model_backward::sparse_backward_per_gpu(
+          core_list[gpu_id], meta_list[gpu_id], emb_vec_model_buffer, model_key, model_offsets,
+          &num_unique_key_per_table, &unique_id_space_list, &ret_continous_unique_key,
+          &ret_continous_emb_vec);
 
       std::vector<Tensor> unique_key, grad_emb_vec;
       auto allocate_grad = [&] {
@@ -402,7 +392,9 @@ void all2all_embedding_collection_test() {
       };
       allocate_grad();
 
-      model_backward_list[gpu_id]->copy_backward_key_and_emb_vec(unique_key, grad_emb_vec);
+      tf::model_backward::copy_backward_key_and_emb_vec(core_list[gpu_id], ret_continous_unique_key,
+                                                        ret_continous_emb_vec, unique_key,
+                                                        grad_emb_vec);
       HCTR_LIB_THROW(cudaStreamSynchronize(core_list[gpu_id]->get_local_gpu()->get_stream()));
 
       auto print_grad = [&] {

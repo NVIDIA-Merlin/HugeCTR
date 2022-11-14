@@ -219,10 +219,6 @@ class PreprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTyp
       : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
 
   void Compute(OpKernelContext* ctx) override {
-    // instance 3g embedding
-    std::unique_ptr<sok::ISwizzleKey> model =
-        std::make_unique<sok::SwizzleKey>(this->make_core_resource(ctx));
-
     // Prepare inputs
     int64_t num_keys = 0;
     int64_t num_row_lengths = 0;
@@ -249,7 +245,7 @@ class PreprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTyp
         sok::convert_tensor<OffsetType>(row_length_send_buffer_tf));
 
     // Do forward
-    model->sparse_forward_per_gpu(keys_sok, row_lengths_sok, key_send_buffer_sok,
+    ::embedding::tf::swizzle_key::sparse_forward_per_gpu(this->make_core_resource(ctx), keys_sok, row_lengths_sok, key_send_buffer_sok,
                                   row_length_send_buffer_sok);
   }
 };
@@ -340,8 +336,6 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, global_batch_size,hotness_vector);
-    std::unique_ptr<sok::IModelForward> model =
-        std::make_unique<sok::ModelForward>(tf_backend, *this->meta_);
 
     // Prepare ILookup (i.e. embedding table)
     std::vector<int> ev_size_per_lookup;
@@ -351,7 +345,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     adapter_.set(vars, locks, this->dimensions_, scale, stream);
 
     // Prepare outputs
-    auto buffer_size_list = model->get_model_comm_buffer_size(global_batch_size);
+    auto buffer_size_list = ::embedding::tf::model_forward::get_model_comm_buffer_size(*this->meta_, tf_backend->get_global_gpu_count(), global_batch_size);
     std::vector<sok::Tensor> emb_vec_model_buffer;
     for (size_t i = 0; i < buffer_size_list.size(); ++i) {
       Tensor* output = nullptr;
@@ -362,8 +356,9 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
 
     // Do forward
     int64_t num_model_key, num_model_offsets;
-    model->sparse_forward_per_gpu(key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
-                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets);
+    sok::Tensor ret_model_key, ret_model_offset;
+    ::embedding::tf::model_forward::sparse_forward_per_gpu(tf_backend, *this->meta_, key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
+                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
 
     // Prepare model_key & model_offsets
     // Note the type of model_offsets is always uint32_t
@@ -376,7 +371,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     sok::Tensor model_offsets_tensor(sok::convert_tensor<uint32_t>(model_offsets));
 
     // Copy tensors that will be used in backward
-    model->copy_model_keys_and_offsets(model_key_tensor, model_offsets_tensor);
+    ::embedding::tf::model_forward::copy_model_keys_and_offsets(tf_backend, ret_model_key, ret_model_offset, model_key_tensor, model_offsets_tensor);
   }
 };
 
@@ -472,13 +467,11 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, batch_size,hotness_vector);
 
-    std::unique_ptr<sok::IModelBackward> model =
-        std::make_unique<sok::ModelBackward>(tf_backend, *this->meta_);
-
     // Do backward
     std::vector<int> num_unique_key_per_table, unique_id_space_list;
-    model->sparse_backward_per_gpu(emb_vec_buffer_grad, model_key_tensor, model_offsets_tensor,
-                                   &num_unique_key_per_table, &unique_id_space_list);
+    sok::Tensor ret_continous_unique_key, ret_continous_emb_vec;
+    ::embedding::tf::model_backward::sparse_backward_per_gpu(tf_backend, *this->meta_, emb_vec_buffer_grad, model_key_tensor, model_offsets_tensor,
+                                   &num_unique_key_per_table, &unique_id_space_list, &ret_continous_unique_key, &ret_continous_emb_vec);
 
     // Prepare output
     std::vector<sok::Tensor> unique_key, grad;
@@ -503,7 +496,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     }
 
     // Copy output
-    model->copy_backward_key_and_emb_vec(unique_key, grad);
+    ::embedding::tf::model_backward::copy_backward_key_and_emb_vec(tf_backend, ret_continous_unique_key, ret_continous_emb_vec, unique_key, grad);
   }
 };
 
@@ -598,9 +591,6 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
     auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, global_batch_size,hotness_vector);
 
-    std::unique_ptr<sok::INetworkForward> network_forward =
-        std::make_unique<sok::NetworkForward>(tf_backend, *this->meta_);
-
     // Prepare output
     std::vector<sok::Tensor> emb_vec;
     for (int i = 0; i < this->num_lookups_; ++i) {
@@ -610,7 +600,7 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
     }
 
     // Do forward
-    network_forward->sparse_forward_per_gpu(emb_vec_buffer, row_lengths, emb_vec);
+    ::embedding::tf::network_forward::sparse_forward_per_gpu(tf_backend, *this->meta_, emb_vec_buffer, row_lengths, emb_vec);
   }
 };
 
@@ -698,9 +688,6 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
     auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, global_batch_size,hotness_vector);
 
-    std::unique_ptr<sok::INetworkBackward> network_backward =
-        std::make_unique<sok::NetworkBackward>(tf_backend, *this->meta_);
-
     // Prepare output
     const Tensor* emb_vec_buffer_shape = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("emb_vec_buffer_shape", &emb_vec_buffer_shape));
@@ -717,7 +704,7 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
     }
 
     // Do backward
-    network_backward->backward_per_gpu(emb_vec_grad, row_lengths, emb_vec_buffer_grad);
+    ::embedding::tf::network_backward::backward_per_gpu(tf_backend, *this->meta_, emb_vec_grad, row_lengths, emb_vec_buffer_grad);
   }
 };
 
@@ -817,13 +804,10 @@ class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, O
     }
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    this->update_meta(tf_backend, global_batch_size,hotness_vector);
-
-    std::unique_ptr<sok::IModelForward> model =
-        std::make_unique<sok::ModelForward>(tf_backend, *this->meta_, hotness_vector);
+    this->update_meta(tf_backend, global_batch_size, hotness_vector);
 
     // Prepare outputs
-    auto buffer_size_list = model->get_model_comm_buffer_size(global_batch_size);
+    auto buffer_size_list = ::embedding::tf::model_forward::get_model_comm_buffer_size(*this->meta_, tf_backend->get_global_gpu_count(), global_batch_size);
     std::vector<sok::Tensor> emb_vec_model_buffer;
     for (size_t i = 0; i < buffer_size_list.size(); ++i) {
       Tensor* output = nullptr;
@@ -836,8 +820,9 @@ class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, O
 
     // Do forward
     int64_t num_model_key, num_model_offsets;
-    model->sparse_forward_per_gpu(key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
-                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets);
+    sok::Tensor ret_model_key, ret_model_offset;
+    ::embedding::tf::model_forward::sparse_forward_per_gpu(tf_backend, *this->meta_, key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
+                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
 
     // Prepare model_key & model_offsets
     // Note the type of model_offsets is always uint32_t
@@ -850,7 +835,7 @@ class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, O
     sok::Tensor model_offsets_tensor(sok::convert_tensor<uint32_t>(model_offsets));
 
     // Copy tensors that will be used in backward
-    model->copy_model_keys_and_offsets(model_key_tensor, model_offsets_tensor);
+    ::embedding::tf::model_forward::copy_model_keys_and_offsets(tf_backend, ret_model_key, ret_model_offset, model_key_tensor, model_offsets_tensor);
     adapter_.clear_tmp_ev_list();
   }
 };
@@ -873,4 +858,3 @@ REGISTER_GPU_KERNELS(int64, int64, float)
 }  // namespace tensorflow
 #endif
 #endif
-

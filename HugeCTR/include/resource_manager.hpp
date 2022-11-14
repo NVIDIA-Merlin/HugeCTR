@@ -23,50 +23,9 @@
 #include <resource_manager_base.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
+#include "core/mpi_lifetime_service.hpp"
+
 namespace HugeCTR {
-
-#ifdef ENABLE_MPI
-class MPILifetimeService {
- private:
-  MPILifetimeService() {
-    MPI_Initialized(&mpi_preinitialized_);
-    // TODO: logs must be reactivated after resolving the lib dependency
-    if (mpi_preinitialized_) {
-      // HCTR_LOG(WARNING, ROOT,
-      //          "MPI was already initialized somewhere elese. Lifetime service disabled.\n");
-    } else {
-      MPI_Init(nullptr, nullptr);
-      // HCTR_LOG(INFO, ROOT, "MPI initialized from native backend.\n");
-      // HCTR_LOG(WARNING, ROOT,
-      //          "\nMPI can only be initialized once per process. If HugeCTR is run on top of\n"
-      //          "Python, unexpected things might happen if other other packages are used that\n"
-      //          "rely on MPI. If you experience problems, try adding \"from mpi4py import MPI\"\n"
-      //          "in your Python script before importing HugeCTR.\n");
-    }
-  }
-
-  MPILifetimeService(const MPILifetimeService&) = delete;
-  MPILifetimeService& operator=(const MPILifetimeService&) = delete;
-
- public:
-  virtual ~MPILifetimeService() {
-    if (!mpi_preinitialized_) {
-      HCTR_MPI_THROW(MPI_Finalize());
-      HCTR_LOG(INFO, ROOT, "MPI finalization done.\n");
-    }
-  }
-
-  static void init() {
-    static std::unique_ptr<MPILifetimeService> instance;
-    static std::once_flag once_flag;
-    std::call_once(once_flag, []() { instance.reset(new MPILifetimeService()); });
-  }
-
- private:
-  int mpi_preinitialized_ = 0;
-};
-#endif
-
 /**
  * @brief Second-level ResourceManager interface
  *
