@@ -1,5 +1,6 @@
 import hugectr
 import sys
+import os
 
 
 def embedding_training_cache_test(json_file, output_dir):
@@ -64,7 +65,7 @@ def embedding_training_cache_test(json_file, output_dir):
             iteration += 1
         print("[HUGECTR][INFO] trained with data in {}".format(file_list))
     updated_model = model.get_incremental_model()
-    model.save_params_to_files("wdl", iteration)
+    model.save_params_to_files(os.path.join(output_dir, "wdl"), iteration)
 
 
 if __name__ == "__main__":

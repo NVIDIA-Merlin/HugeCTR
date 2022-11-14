@@ -2,6 +2,7 @@ import hugectr
 from mpi4py import MPI
 import threading
 import sys
+import os
 
 
 def embedding_training_cache_test(json_file, output_dir):
@@ -39,7 +40,7 @@ def embedding_training_cache_test(json_file, output_dir):
     model.summary()
     model.fit(num_epochs=1, eval_interval=200, display=200)
     updated_model = model.get_incremental_model()
-    model.save_params_to_files("wdl")
+    model.save_params_to_files(os.path.join(output_dir, "wdl"))
     model.set_source(
         source=["file_list." + str(i) + ".txt" for i in range(6, 9)],
         keyset=["file_list." + str(i) + ".keyset" for i in range(6, 9)],
@@ -47,7 +48,7 @@ def embedding_training_cache_test(json_file, output_dir):
     )
     model.fit(num_epochs=1, eval_interval=200, display=200)
     updated_model = model.get_incremental_model()
-    model.save_params_to_files("wdl")
+    model.save_params_to_files(os.path.join(output_dir, "wdl"))
 
 
 if __name__ == "__main__":

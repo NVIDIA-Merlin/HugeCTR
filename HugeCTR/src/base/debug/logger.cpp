@@ -27,9 +27,10 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
 #include <string>
 #include <thread>
+
+#include "core/mpi_lifetime_service.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
