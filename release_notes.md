@@ -8,7 +8,7 @@
   ```
 
 + **Change to HPS with Redis or Kafka**:
-This release includes a change to Hierarchical Parameter Server and affects deployments that use Redis or model parameter streaming with Kafka.
+This release includes a change to Hierarchical Parameter Server and affects deployments that use `RedisClusterBackend` or model parameter streaming with Kafka.
 A third-party library that was used for HPS partition selection algorithm is replaced to improve performance.
 The new algorithm can produce different partition assignments for volatile databases.
 As a result, volatile database backends that retain data between application startup, such as Redis, must be reinitialized.
