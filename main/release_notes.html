@@ -100,12 +100,12 @@ Afterward, the library will use calendar versioning only, such as <code class="d
 </div>
 <ul>
 <li><p><strong>Change to HPS with Redis or Kafka</strong>:
-This release includes a change to Hierarchical Parameter Server and affects deployments that use Redis or model parameter streaming with Kafka.
+This release includes a change to Hierarchical Parameter Server and affects deployments that use <code class="docutils literal notranslate"><span class="pre">RedisClusterBackend</span></code> or model parameter streaming with Kafka.
 A third-party library that was used for HPS partition selection algorithm is replaced to improve performance.
 The new algorithm can produce different partition assignments for volatile databases.
-As a result, volatile database backends that retain data between application startup, such as Redis, must be reinitialized.
+As a result, volatile database backends that retain data between application startup, such as the <code class="docutils literal notranslate"><span class="pre">RedisClusterBackend</span></code>, must be reinitialized.
 Model streaming with Kafka is equally affected.
-To avoid issues with updates, reset all respective queue offsets to the <code class="docutils literal notranslate"><span class="pre">end_offset</span></code> before you reinitialize the Redis database.</p></li>
+To avoid issues with updates, reset all respective queue offsets to the <code class="docutils literal notranslate"><span class="pre">end_offset</span></code> before you reinitialize the <code class="docutils literal notranslate"><span class="pre">RedisClusterBackend</span></code>.</p></li>
 <li><p><strong>Enhancements to the Sparse Operation Kit in DeepRec</strong>:
 This release includes updates to the Sparse Operation Kit to improve the performance of the embedding variable lookup operation in DeepRec.
 The API for the <code class="docutils literal notranslate"><span class="pre">lookup_sparse()</span></code> function is changed to remove the <code class="docutils literal notranslate"><span class="pre">hotness</span></code> argument.
