@@ -1,0 +1,1032 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "0e814db9",
+   "metadata": {},
+   "source": [
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "\n",
+    "# HugeCTR training with Remote File System example"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dfa44b99",
+   "metadata": {},
+   "source": [
+    "## Overview"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d7166fb3",
+   "metadata": {},
+   "source": [
+    "HugeCTR supports reading Parquet data, loading and saving models from/to remote file systems like HDFS and AWS S3. Users can read their data stored in these remote file systems and train with it. And after training, users can choose to dump the trained parameters and optimizer states into these file systems. In this example notebook, we are going to demonstrate the end to end procedure of training with HDFS and AWS S3"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "025dd2e5",
+   "metadata": {},
+   "source": [
+    "## Get HugeCTR from NGC\n",
+    "The HugeCTR Python module is preinstalled in the 22.10 and later [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr): `nvcr.io/nvidia/merlin/merlin-hugectr:22.10`.\n",
+    "\n",
+    "You can check the existence of required libraries by running the following Python code after launching the container.\n",
+    "\n",
+    "```bash\n",
+    "$ python3 -c \"import hugectr\"\n",
+    "```\n",
+    "\n",
+    "> If you prefer to build HugeCTR from the source code instead of using the NGC container, refer to the \n",
+    "> [How to Start Your Development](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development)\n",
+    "> documentation."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6e4e0b59",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "## Training with HDFS Example"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2a4483d4-c559-48df-acc7-665e350d4b44",
+   "metadata": {},
+   "source": [
+    "Hadoop is not pre-installe din the Merlin Training Container. To help you build and install HDFS, we provide a script [here](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sbin). Please build and install Hadoop using these two scripts. Make sure you have hadoop installed in your Container by running the following:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "74f2ed11-6379-4232-96f3-0bfc46b84db7",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Hadoop 3.3.2\n",
+      "Source code repository https://github.com/apache/hadoop.git -r 0bcb014209e219273cb6fd4152df7df713cbac61\n",
+      "Compiled by root on 2022-07-25T09:53Z\n",
+      "Compiled with protoc 3.7.1\n",
+      "From source with checksum 4b40fff8bb27201ba07b6fa5651217fb\n",
+      "This command was run using /opt/hadoop/share/hadoop/common/hadoop-common-3.3.2.jar\n"
+     ]
+    }
+   ],
+   "source": [
+    "!hadoop version"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "399717d1",
+   "metadata": {},
+   "source": [
+    "### Data Preparation"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "19c4321d-c27a-481a-89d9-a2360e1b1fc0",
+   "metadata": {},
+   "source": [
+    "Users can use the [DataSourceParams](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api) to setup file system configurations. Currently, we support `Local` and `HDFS`."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a3ce1453-379f-4789-865f-be7d17e515f6",
+   "metadata": {},
+   "source": [
+    "**Firstly, we want to make sure that we have train and validation datasets ready:**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "f81abc7b-1600-4545-b5c4-d2d2f9eaf0c5",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Found 8 items\n",
+      "-rw-r--r--   1 root supergroup  112247365 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_0.parquet\n",
+      "-rw-r--r--   1 root supergroup  112243637 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_1.parquet\n",
+      "-rw-r--r--   1 root supergroup  112251207 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_2.parquet\n",
+      "-rw-r--r--   1 root supergroup  112241764 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_3.parquet\n",
+      "-rw-r--r--   1 root supergroup  112247838 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_4.parquet\n",
+      "-rw-r--r--   1 root supergroup  112244076 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_5.parquet\n",
+      "-rw-r--r--   1 root supergroup  112253553 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_6.parquet\n",
+      "-rw-r--r--   1 root supergroup  112249557 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_7.parquet\n"
+     ]
+    }
+   ],
+   "source": [
+    "!hdfs dfs -ls hdfs://10.19.172.76:9000/dlrm_parquet/train"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "3e09246d-e14b-47ff-b43b-b7e3a285ad78",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Found 2 items\n",
+      "-rw-r--r--   1 root supergroup  112239093 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/val/gen_0.parquet\n",
+      "-rw-r--r--   1 root supergroup  112249156 2022-07-27 06:19 hdfs://10.19.172.76:9000/dlrm_parquet/val/gen_1.parquet\n"
+     ]
+    }
+   ],
+   "source": [
+    "!hdfs dfs -ls hdfs://10.19.172.76:9000/dlrm_parquet/val"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6a3b8175-f2a8-41b4-ad24-a9ee60027e8e",
+   "metadata": {},
+   "source": [
+    "**Secondly, create `file_list.txt and file_list_test.txt`:**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "1ee9b926-ce91-4450-8acd-6d1181438bfe",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "!mkdir /dlrm_parquet\n",
+    "!mkdir /dlrm_parquet/train\n",
+    "!mkdir /dlrm_parquet/val"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "eab450f3-3a33-4446-9667-856c3f390fdd",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /dlrm_parquet/file_list.txt\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /dlrm_parquet/file_list.txt\n",
+    "8\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_0.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_1.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_2.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_3.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_4.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_5.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_6.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/train/gen_7.parquet"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "cb442cb7-12c3-4a77-9ee3-bb8813e40982",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /dlrm_parquet/file_list_test.txt\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /dlrm_parquet/file_list_test.txt\n",
+    "2\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/val/gen_0.parquet\n",
+    "hdfs://10.19.172.76:9000/dlrm_parquet/val/gen_1.parquet"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "eeec5dfd-019e-46ad-a796-40a5ef0579d7",
+   "metadata": {},
+   "source": [
+    "**Lastly, create `_metadata.json` for both train and validation dataset to specify the feature information of your dataset:**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "3ae0075a-24ae-4548-9a46-85bd958b62a7",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Writing /dlrm_parquet/train/_metadata.json\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /dlrm_parquet/train/_metadata.json\n",
+    "{ \"file_stats\": [{\"file_name\": \"./dlrm_parquet/train/gen_0.parquet\", \"num_rows\":1000000}, {\"file_name\": \"./dlrm_parquet/train/gen_1.parquet\", \"num_rows\":1000000}, \n",
+    "                 {\"file_name\": \"./dlrm_parquet/train/gen_2.parquet\", \"num_rows\":1000000}, {\"file_name\": \"./dlrm_parquet/train/gen_3.parquet\", \"num_rows\":1000000}, \n",
+    "                 {\"file_name\": \"./dlrm_parquet/train/gen_4.parquet\", \"num_rows\":1000000}, {\"file_name\": \"./dlrm_parquet/train/gen_5.parquet\", \"num_rows\":1000000}, \n",
+    "                 {\"file_name\": \"./dlrm_parquet/train/gen_6.parquet\", \"num_rows\":1000000}, {\"file_name\": \"./dlrm_parquet/train/gen_7.parquet\", \"num_rows\":1000000} ], \n",
+    "  \"labels\": [{\"col_name\": \"label0\", \"index\":0} ], \n",
+    "  \"conts\": [{\"col_name\": \"C1\", \"index\":1}, {\"col_name\": \"C2\", \"index\":2}, {\"col_name\": \"C3\", \"index\":3}, \n",
+    "            {\"col_name\": \"C4\", \"index\":4}, {\"col_name\": \"C5\", \"index\":5}, {\"col_name\": \"C6\", \"index\":6}, \n",
+    "            {\"col_name\": \"C7\", \"index\":7}, {\"col_name\": \"C8\", \"index\":8}, {\"col_name\": \"C9\", \"index\":9}, \n",
+    "            {\"col_name\": \"C10\", \"index\":10}, {\"col_name\": \"C11\", \"index\":11}, {\"col_name\": \"C12\", \"index\":12}, \n",
+    "            {\"col_name\": \"C13\", \"index\":13} ], \n",
+    "  \"cats\": [{\"col_name\": \"C14\", \"index\":14}, {\"col_name\": \"C15\", \"index\":15}, {\"col_name\": \"C16\", \"index\":16}, \n",
+    "           {\"col_name\": \"C17\", \"index\":17}, {\"col_name\": \"C18\", \"index\":18}, {\"col_name\": \"C19\", \"index\":19}, \n",
+    "           {\"col_name\": \"C20\", \"index\":20}, {\"col_name\": \"C21\", \"index\":21}, {\"col_name\": \"C22\", \"index\":22}, \n",
+    "           {\"col_name\": \"C23\", \"index\":23}, {\"col_name\": \"C24\", \"index\":24}, {\"col_name\": \"C25\", \"index\":25}, \n",
+    "           {\"col_name\": \"C26\", \"index\":26}, {\"col_name\": \"C27\", \"index\":27}, {\"col_name\": \"C28\", \"index\":28}, \n",
+    "           {\"col_name\": \"C29\", \"index\":29}, {\"col_name\": \"C30\", \"index\":30}, {\"col_name\": \"C31\", \"index\":31}, \n",
+    "           {\"col_name\": \"C32\", \"index\":32}, {\"col_name\": \"C33\", \"index\":33}, {\"col_name\": \"C34\", \"index\":34}, \n",
+    "           {\"col_name\": \"C35\", \"index\":35}, {\"col_name\": \"C36\", \"index\":36}, {\"col_name\": \"C37\", \"index\":37}, \n",
+    "           {\"col_name\": \"C38\", \"index\":38}, {\"col_name\": \"C39\", \"index\":39} ] }"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "0bbbeec7-6861-45e0-b680-035709ff63d2",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Writing /dlrm_parquet/val/_metadata.json\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /dlrm_parquet/val/_metadata.json\n",
+    "{ \"file_stats\": [{\"file_name\": \"./dlrm_parquet/val/gen_0.parquet\", \"num_rows\":1000000}, \n",
+    "                 {\"file_name\": \"./dlrm_parquet/val/gen_1.parquet\", \"num_rows\":1000000} ], \n",
+    "  \"labels\": [{\"col_name\": \"label0\", \"index\":0} ], \n",
+    "  \"conts\": [{\"col_name\": \"C1\", \"index\":1}, {\"col_name\": \"C2\", \"index\":2}, {\"col_name\": \"C3\", \"index\":3}, \n",
+    "            {\"col_name\": \"C4\", \"index\":4}, {\"col_name\": \"C5\", \"index\":5}, {\"col_name\": \"C6\", \"index\":6}, \n",
+    "            {\"col_name\": \"C7\", \"index\":7}, {\"col_name\": \"C8\", \"index\":8}, {\"col_name\": \"C9\", \"index\":9}, \n",
+    "            {\"col_name\": \"C10\", \"index\":10}, {\"col_name\": \"C11\", \"index\":11}, {\"col_name\": \"C12\", \"index\":12}, \n",
+    "            {\"col_name\": \"C13\", \"index\":13} ], \n",
+    "  \"cats\": [{\"col_name\": \"C14\", \"index\":14}, {\"col_name\": \"C15\", \"index\":15}, {\"col_name\": \"C16\", \"index\":16}, \n",
+    "           {\"col_name\": \"C17\", \"index\":17}, {\"col_name\": \"C18\", \"index\":18}, {\"col_name\": \"C19\", \"index\":19}, \n",
+    "           {\"col_name\": \"C20\", \"index\":20}, {\"col_name\": \"C21\", \"index\":21}, {\"col_name\": \"C22\", \"index\":22}, \n",
+    "           {\"col_name\": \"C23\", \"index\":23}, {\"col_name\": \"C24\", \"index\":24}, {\"col_name\": \"C25\", \"index\":25}, \n",
+    "           {\"col_name\": \"C26\", \"index\":26}, {\"col_name\": \"C27\", \"index\":27}, {\"col_name\": \"C28\", \"index\":28}, \n",
+    "           {\"col_name\": \"C29\", \"index\":29}, {\"col_name\": \"C30\", \"index\":30}, {\"col_name\": \"C31\", \"index\":31}, \n",
+    "           {\"col_name\": \"C32\", \"index\":32}, {\"col_name\": \"C33\", \"index\":33}, {\"col_name\": \"C34\", \"index\":34}, \n",
+    "           {\"col_name\": \"C35\", \"index\":35}, {\"col_name\": \"C36\", \"index\":36}, {\"col_name\": \"C37\", \"index\":37}, \n",
+    "           {\"col_name\": \"C38\", \"index\":38}, {\"col_name\": \"C39\", \"index\":39} ] }"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "814a4622-9ee4-402e-a4bf-34ef3353953a",
+   "metadata": {},
+   "source": [
+    "### Training a DLRM model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "02510bae",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting train_with_hdfs.py\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile train_with_hdfs.py\n",
+    "import hugectr\n",
+    "from mpi4py import MPI\n",
+    "from hugectr.data import DataSourceParams\n",
+    "\n",
+    "# Create a file system configuration \n",
+    "data_source_params = DataSourceParams(\n",
+    "    source = hugectr.DataSourceType_t.HDFS, #use HDFS\n",
+    "    server = '10.19.172.76', #your HDFS namenode IP\n",
+    "    port = 9000, #your HDFS namenode port\n",
+    ")\n",
+    "\n",
+    "# DLRM train\n",
+    "solver = hugectr.CreateSolver(max_eval_batches = 1280,\n",
+    "                              batchsize_eval = 1024,\n",
+    "                              batchsize = 1024,\n",
+    "                              lr = 0.01,\n",
+    "                              vvgpu = [[1]],\n",
+    "                              i64_input_key = True,\n",
+    "                              use_mixed_precision = False,\n",
+    "                              repeat_dataset = True,\n",
+    "                              use_cuda_graph = False)\n",
+    "reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,\n",
+    "                                  source = [\"/dlrm_parquet/file_list.txt\"],\n",
+    "                                  eval_source = \"/dlrm_parquet/file_list_test.txt\",\n",
+    "                                  slot_size_array = [405274, 72550, 55008, 222734, 316071, 156265, 220243, 200179, 234566, 335625, 278726, 263070, 312542, 203773, 145859, 117421, 78140, 3648, 156308, 94562, 357703, 386976, 238046, 230917, 292, 156382],\n",
+    "                                  data_source_params = data_source_params, #file system config for data reading\n",
+    "                                  check_type = hugectr.Check_t.Non)\n",
+    "optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,\n",
+    "                                    update_type = hugectr.Update_t.Local,\n",
+    "                                    atomic_update = True)\n",
+    "model = hugectr.Model(solver, reader, optimizer)\n",
+    "model.add(hugectr.Input(label_dim = 1, label_name = \"label\",\n",
+    "                        dense_dim = 13, dense_name = \"dense\",\n",
+    "                        data_reader_sparse_param_array = \n",
+    "                        [hugectr.DataReaderSparseParam(\"data1\", 1, True, 26)]))\n",
+    "model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,\n",
+    "                            workspace_size_per_gpu_in_mb = 10720,\n",
+    "                            embedding_vec_size = 128,\n",
+    "                            combiner = \"sum\",\n",
+    "                            sparse_embedding_name = \"sparse_embedding1\",\n",
+    "                            bottom_name = \"data1\",\n",
+    "                            optimizer = optimizer))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"dense\"],\n",
+    "                            top_names = [\"fc1\"],\n",
+    "                            num_output=512))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc1\"],\n",
+    "                            top_names = [\"relu1\"]))                           \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu1\"],\n",
+    "                            top_names = [\"fc2\"],\n",
+    "                            num_output=256))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc2\"],\n",
+    "                            top_names = [\"relu2\"]))                            \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu2\"],\n",
+    "                            top_names = [\"fc3\"],\n",
+    "                            num_output=128))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc3\"],\n",
+    "                            top_names = [\"relu3\"]))                              \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,\n",
+    "                            bottom_names = [\"relu3\",\"sparse_embedding1\"],\n",
+    "                            top_names = [\"interaction1\"]))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"interaction1\"],\n",
+    "                            top_names = [\"fc4\"],\n",
+    "                            num_output=1024))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc4\"],\n",
+    "                            top_names = [\"relu4\"]))                              \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu4\"],\n",
+    "                            top_names = [\"fc5\"],\n",
+    "                            num_output=1024))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc5\"],\n",
+    "                            top_names = [\"relu5\"]))                              \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu5\"],\n",
+    "                            top_names = [\"fc6\"],\n",
+    "                            num_output=512))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc6\"],\n",
+    "                            top_names = [\"relu6\"]))                               \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu6\"],\n",
+    "                            top_names = [\"fc7\"],\n",
+    "                            num_output=256))\n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,\n",
+    "                            bottom_names = [\"fc7\"],\n",
+    "                            top_names = [\"relu7\"]))                                                                              \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,\n",
+    "                            bottom_names = [\"relu7\"],\n",
+    "                            top_names = [\"fc8\"],\n",
+    "                            num_output=1))                                                                                           \n",
+    "model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,\n",
+    "                            bottom_names = [\"fc8\", \"label\"],\n",
+    "                            top_names = [\"loss\"]))\n",
+    "model.compile()\n",
+    "model.summary()\n",
+    "\n",
+    "model.fit(max_iter = 2020, display = 200, eval_interval = 1000, snapshot = 2000, snapshot_prefix = \"hdfs://10.19.172.76:9000/model/dlrm/\") "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "b29f1042",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "HugeCTR Version: 3.8\n",
+      "====================================================Model Init=====================================================\n",
+      "[HCTR][07:51:52.502][WARNING][RK0][main]: The model name is not specified when creating the solver.\n",
+      "[HCTR][07:51:52.502][INFO][RK0][main]: Global seed is 3218787045\n",
+      "[HCTR][07:51:52.505][INFO][RK0][main]: Device to NUMA mapping:\n",
+      "  GPU 1 ->  node 0\n",
+      "[HCTR][07:51:55.607][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.\n",
+      "[HCTR][07:51:55.607][INFO][RK0][main]: Start all2all warmup\n",
+      "[HCTR][07:51:55.609][INFO][RK0][main]: End all2all warmup\n",
+      "[HCTR][07:51:56.529][INFO][RK0][main]: Using All-reduce algorithm: NCCL\n",
+      "[HCTR][07:51:56.530][INFO][RK0][main]: Device 1: NVIDIA A10\n",
+      "[HCTR][07:51:56.531][INFO][RK0][main]: num of DataReader workers for train: 1\n",
+      "[HCTR][07:51:56.531][INFO][RK0][main]: num of DataReader workers for eval: 1\n",
+      "[HCTR][07:51:57.695][INFO][RK0][main]: Using Hadoop Cluster 10.19.172.76:9000\n",
+      "[HCTR][07:51:57.740][INFO][RK0][main]: Using Hadoop Cluster 10.19.172.76:9000\n",
+      "[HCTR][07:51:57.740][INFO][RK0][main]: Vocabulary size: 5242880\n",
+      "[HCTR][07:51:57.741][INFO][RK0][main]: max_vocabulary_size_per_gpu_=21954560\n",
+      "[HCTR][07:51:57.755][INFO][RK0][main]: Graph analysis to resolve tensor dependency\n",
+      "===================================================Model Compile===================================================\n",
+      "[HCTR][07:52:04.336][INFO][RK0][main]: gpu0 start to init embedding\n",
+      "[HCTR][07:52:04.411][INFO][RK0][main]: gpu0 init embedding done\n",
+      "[HCTR][07:52:04.413][INFO][RK0][main]: Starting AUC NCCL warm-up\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Warm-up done\n",
+      "===================================================Model Summary===================================================\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: label                                   Dense                         Sparse                        \n",
+      "label                                   dense                          data1                         \n",
+      "(None, 1)                               (None, 13)                              \n",
+      "——————————————————————————————————————————————————————————————————————————————————————————————————————————————————\n",
+      "Layer Type                              Input Name                    Output Name                   Output Shape                  \n",
+      "——————————————————————————————————————————————————————————————————————————————————————————————————————————————————\n",
+      "DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (None, 26, 128)               \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            dense                         fc1                           (None, 512)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc1                           relu1                         (None, 512)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu1                         fc2                           (None, 256)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc2                           relu2                         (None, 256)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu2                         fc3                           (None, 128)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc3                           relu3                         (None, 128)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Interaction                             relu3                         interaction1                  (None, 480)                   \n",
+      "                                        sparse_embedding1                                                                         \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            interaction1                  fc4                           (None, 1024)                  \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc4                           relu4                         (None, 1024)                  \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu4                         fc5                           (None, 1024)                  \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc5                           relu5                         (None, 1024)                  \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu5                         fc6                           (None, 512)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc6                           relu6                         (None, 512)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu6                         fc7                           (None, 256)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc7                           relu7                         (None, 256)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            relu7                         fc8                           (None, 1)                     \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "BinaryCrossEntropyLoss                  fc8                           loss                                                        \n",
+      "                                        label                                                                                     \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "=====================================================Model Fit=====================================================\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Use non-epoch mode with number of iterations: 2020\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Training batchsize: 1024, evaluation batchsize: 1024\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Evaluation interval: 1000, snapshot interval: 2000\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Dense network trainable: True\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: False\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: lr: 0.010000, warmup_steps: 1, end_lr: 0.000000\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Training source file: /dlrm_parquet/file_list.txt\n",
+      "[HCTR][07:52:04.415][INFO][RK0][main]: Evaluation source file: /dlrm_parquet/file_list_test.txt\n",
+      "[HCTR][07:52:05.134][INFO][RK0][main]: Iter: 200 Time(200 iters): 0.716815s Loss: 0.69327 lr:0.01\n",
+      "[HCTR][07:52:05.856][INFO][RK0][main]: Iter: 400 Time(200 iters): 0.719486s Loss: 0.693207 lr:0.01\n",
+      "[HCTR][07:52:06.608][INFO][RK0][main]: Iter: 600 Time(200 iters): 0.750294s Loss: 0.693568 lr:0.01\n",
+      "[HCTR][07:52:07.331][INFO][RK0][main]: Iter: 800 Time(200 iters): 0.721128s Loss: 0.693352 lr:0.01\n",
+      "[HCTR][07:52:09.118][INFO][RK0][main]: Iter: 1000 Time(200 iters): 1.78435s Loss: 0.693352 lr:0.01\n",
+      "[HCTR][07:52:11.667][INFO][RK0][main]: Evaluation, AUC: 0.499891\n",
+      "[HCTR][07:52:11.668][INFO][RK0][main]: Eval Time for 1280 iters: 2.5486s\n",
+      "[HCTR][07:52:12.393][INFO][RK0][main]: Iter: 1200 Time(200 iters): 3.2728s Loss: 0.693178 lr:0.01\n",
+      "[HCTR][07:52:13.116][INFO][RK0][main]: Iter: 1400 Time(200 iters): 0.720984s Loss: 0.693292 lr:0.01\n",
+      "[HCTR][07:52:13.875][INFO][RK0][main]: Iter: 1600 Time(200 iters): 0.756448s Loss: 0.693053 lr:0.01\n",
+      "[HCTR][07:52:14.603][INFO][RK0][main]: Iter: 1800 Time(200 iters): 0.725832s Loss: 0.693433 lr:0.01\n",
+      "[HCTR][07:52:16.382][INFO][RK0][main]: Iter: 2000 Time(200 iters): 1.77763s Loss: 0.693193 lr:0.01\n",
+      "[HCTR][07:52:18.959][INFO][RK0][main]: Evaluation, AUC: 0.500092\n",
+      "[HCTR][07:52:18.959][INFO][RK0][main]: Eval Time for 1280 iters: 2.57548s\n",
+      "[HCTR][07:52:19.575][INFO][RK0][main]: Rank0: Write hash table to file\n",
+      "[HDFS][INFO]: Write to HDFS /model/dlrm/0_sparse_2000.model/key successfully!\n",
+      "[HDFS][INFO]: Write to HDFS /model/dlrm/0_sparse_2000.model/emb_vector successfully!\n",
+      "[HCTR][07:52:31.132][INFO][RK0][main]: Dumping sparse weights to files, successful\n",
+      "[HCTR][07:52:31.132][INFO][RK0][main]: Dumping sparse optimzer states to files, successful\n",
+      "[HDFS][INFO]: Write to HDFS /model/dlrm/_dense_2000.model successfully!\n",
+      "[HCTR][07:52:31.307][INFO][RK0][main]: Dumping dense weights to HDFS, successful\n",
+      "[HDFS][INFO]: Write to HDFS /model/dlrm/_opt_dense_2000.model successfully!\n",
+      "[HCTR][07:52:31.365][INFO][RK0][main]: Dumping dense optimizer states to HDFS, successful\n",
+      "[HCTR][07:52:31.430][INFO][RK0][main]: Finish 2020 iterations with batchsize: 1024 in 27.02s.\n"
+     ]
+    }
+   ],
+   "source": [
+    "!python train_with_hdfs.py"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f1dec161-b9e7-40b3-9f59-d00130f386ca",
+   "metadata": {},
+   "source": [
+    "**Check that our model files are saved in HDFS:**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "93ee7d71-4f51-4011-bde4-600e7cb5b96a",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Found 3 items\n",
+      "drwxr-xr-x   - root supergroup          0 2022-07-27 07:52 hdfs://10.19.172.76:9000/model/dlrm/0_sparse_2000.model\n",
+      "-rw-r--r--   3 root supergroup    9479684 2022-07-27 07:52 hdfs://10.19.172.76:9000/model/dlrm/_dense_2000.model\n",
+      "-rw-r--r--   3 root supergroup          0 2022-07-27 07:52 hdfs://10.19.172.76:9000/model/dlrm/_opt_dense_2000.model\n"
+     ]
+    }
+   ],
+   "source": [
+    "!hdfs dfs -ls hdfs://10.19.172.76:9000/model/dlrm"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6c03a8ae-77d1-4e68-9b0a-ae4449ac5743",
+   "metadata": {},
+   "source": [
+    "## Training a DCN model with AWS S3"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0bfcdab6-50c8-4c8d-b3fa-0cffb2e8e35e",
+   "metadata": {},
+   "source": [
+    "### Data preparation"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bdc602d7-c9f7-48cb-84e0-1f7b1bf85335",
+   "metadata": {},
+   "source": [
+    "**Create `file_list.txt and file_list_test.txt`:**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "4979d23b-7392-4a3c-b6a1-960ea7637a16",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "!mkdir -p /hugectr-io-test/data/dcn_parquet/train\n",
+    "!mkdir -p /hugectr-io-test/data/dcn_parquet/val"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "2fe17b12-c704-4962-a1ca-ffabd8625a6e",
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /hugectr-io-test/data/dcn_parquet/file_list.txt\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /hugectr-io-test/data/dcn_parquet/file_list.txt\n",
+    "16\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_0.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_1.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_2.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_3.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_4.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_5.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_6.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_7.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_8.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_9.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_10.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_11.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_12.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_13.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_14.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/train/gen_15.parquet"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "334060b5-74ee-481c-9ab3-1ef65902c2b8",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /hugectr-io-test/data/dcn_parquet/file_list_test.txt\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /hugectr-io-test/data/dcn_parquet/file_list_test.txt\n",
+    "4\n",
+    "s3://hugectr-io-test/data/dcn_parquet/val/gen_0.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/val/gen_1.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/val/gen_2.parquet\n",
+    "s3://hugectr-io-test/data/dcn_parquet/val/gen_3.parquet"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "0c94830e-4284-4a8a-9ca7-ce487ad90f59",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /hugectr-io-test/data/dcn_parquet/train/_metadata.json\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /hugectr-io-test/data/dcn_parquet/train/_metadata.json\n",
+    "{ \"file_stats\": [{\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_0.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_1.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_2.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_3.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_4.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_5.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_6.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_7.parquet\", \"num_rows\":40960},\n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_8.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_9.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_10.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_11.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_12.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_13.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_14.parquet\", \"num_rows\":40960}, {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/train/gen_15.parquet\", \"num_rows\":40960}], \n",
+    "  \"labels\": [{\"col_name\": \"label0\", \"index\":0} ], \n",
+    "  \"conts\": [{\"col_name\": \"C1\", \"index\":1}, {\"col_name\": \"C2\", \"index\":2}, {\"col_name\": \"C3\", \"index\":3}, {\"col_name\": \"C4\", \"index\":4}, {\"col_name\": \"C5\", \"index\":5}, {\"col_name\": \"C6\", \"index\":6}, \n",
+    "            {\"col_name\": \"C7\", \"index\":7}, {\"col_name\": \"C8\", \"index\":8}, {\"col_name\": \"C9\", \"index\":9}, {\"col_name\": \"C10\", \"index\":10}, {\"col_name\": \"C11\", \"index\":11}, {\"col_name\": \"C12\", \"index\":12}, \n",
+    "            {\"col_name\": \"C13\", \"index\":13} ], \n",
+    "  \"cats\": [{\"col_name\": \"C14\", \"index\":14}, {\"col_name\": \"C15\", \"index\":15}, {\"col_name\": \"C16\", \"index\":16}, {\"col_name\": \"C17\", \"index\":17}, {\"col_name\": \"C18\", \"index\":18}, \n",
+    "            {\"col_name\": \"C19\", \"index\":19}, {\"col_name\": \"C20\", \"index\":20}, {\"col_name\": \"C21\", \"index\":21}, {\"col_name\": \"C22\", \"index\":22}, {\"col_name\": \"C23\", \"index\":23}, \n",
+    "            {\"col_name\": \"C24\", \"index\":24}, {\"col_name\": \"C25\", \"index\":25}, {\"col_name\": \"C26\", \"index\":26}, {\"col_name\": \"C27\", \"index\":27}, {\"col_name\": \"C28\", \"index\":28}, \n",
+    "            {\"col_name\": \"C29\", \"index\":29}, {\"col_name\": \"C30\", \"index\":30}, {\"col_name\": \"C31\", \"index\":31}, {\"col_name\": \"C32\", \"index\":32}, {\"col_name\": \"C33\", \"index\":33}, \n",
+    "            {\"col_name\": \"C34\", \"index\":34}, {\"col_name\": \"C35\", \"index\":35}, {\"col_name\": \"C36\", \"index\":36}, {\"col_name\": \"C37\", \"index\":37}, {\"col_name\": \"C38\", \"index\":38}, {\"col_name\": \"C39\", \"index\":39} ] }"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "06691beb-01b4-4bd9-b5c5-0cdace72e789",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting /hugectr-io-test/data/dcn_parquet/val/_metadata.json\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile /hugectr-io-test/data/dcn_parquet/val/_metadata.json\n",
+    "{ \"file_stats\": [{\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/val/gen_0.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/val/gen_1.parquet\", \"num_rows\":40960},\n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/val/gen_2.parquet\", \"num_rows\":40960}, \n",
+    "                 {\"file_name\": \"s3://hugectr-io-test/data/dcn_parquet/val/gen_3.parquet\", \"num_rows\":40960}], \n",
+    "  \"labels\": [{\"col_name\": \"label0\", \"index\":0} ], \n",
+    "  \"conts\": [{\"col_name\": \"C1\", \"index\":1}, {\"col_name\": \"C2\", \"index\":2}, {\"col_name\": \"C3\", \"index\":3}, {\"col_name\": \"C4\", \"index\":4}, {\"col_name\": \"C5\", \"index\":5}, {\"col_name\": \"C6\", \"index\":6}, \n",
+    "            {\"col_name\": \"C7\", \"index\":7}, {\"col_name\": \"C8\", \"index\":8}, {\"col_name\": \"C9\", \"index\":9}, {\"col_name\": \"C10\", \"index\":10}, {\"col_name\": \"C11\", \"index\":11}, {\"col_name\": \"C12\", \"index\":12}, \n",
+    "            {\"col_name\": \"C13\", \"index\":13} ], \n",
+    "  \"cats\": [{\"col_name\": \"C14\", \"index\":14}, {\"col_name\": \"C15\", \"index\":15}, {\"col_name\": \"C16\", \"index\":16}, {\"col_name\": \"C17\", \"index\":17}, {\"col_name\": \"C18\", \"index\":18}, \n",
+    "            {\"col_name\": \"C19\", \"index\":19}, {\"col_name\": \"C20\", \"index\":20}, {\"col_name\": \"C21\", \"index\":21}, {\"col_name\": \"C22\", \"index\":22}, {\"col_name\": \"C23\", \"index\":23}, \n",
+    "            {\"col_name\": \"C24\", \"index\":24}, {\"col_name\": \"C25\", \"index\":25}, {\"col_name\": \"C26\", \"index\":26}, {\"col_name\": \"C27\", \"index\":27}, {\"col_name\": \"C28\", \"index\":28}, \n",
+    "            {\"col_name\": \"C29\", \"index\":29}, {\"col_name\": \"C30\", \"index\":30}, {\"col_name\": \"C31\", \"index\":31}, {\"col_name\": \"C32\", \"index\":32}, {\"col_name\": \"C33\", \"index\":33}, \n",
+    "            {\"col_name\": \"C34\", \"index\":34}, {\"col_name\": \"C35\", \"index\":35}, {\"col_name\": \"C36\", \"index\":36}, {\"col_name\": \"C37\", \"index\":37}, {\"col_name\": \"C38\", \"index\":38}, {\"col_name\": \"C39\", \"index\":39} ] }"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ff0c300b-802d-451e-9e59-8f53c77423cc",
+   "metadata": {},
+   "source": [
+    "### Trainig"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "0fbf62db-aa0b-4b69-a043-e19ec994ad03",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overwriting train_with_s3.py\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%writefile train_with_s3.py\n",
+    "import hugectr\n",
+    "from mpi4py import MPI\n",
+    "from hugectr.data import DataSourceParams\n",
+    "\n",
+    "# Create a file system configuration for data reading\n",
+    "data_source_params = DataSourceParams(\n",
+    "    source = hugectr.FileSystemType_t.S3, #use AWS S3\n",
+    "    server = 'us-east-1', #your AWS region\n",
+    "    port = 9000, #with be ignored\n",
+    ")\n",
+    "\n",
+    "solver = hugectr.CreateSolver(\n",
+    "    max_eval_batches=1280,\n",
+    "    batchsize_eval=1024,\n",
+    "    batchsize=1024,\n",
+    "    lr=0.001,\n",
+    "    vvgpu=[[0]],\n",
+    "    i64_input_key=True,\n",
+    "    repeat_dataset=False,\n",
+    ")\n",
+    "reader = hugectr.DataReaderParams(\n",
+    "    data_reader_type=hugectr.DataReaderType_t.Parquet,\n",
+    "    source=[\"/hugectr-io-test/data/dcn_parquet/file_list.txt\"],\n",
+    "    eval_source=\"/hugectr-io-test/data/dcn_parquet/file_list_test.txt\",\n",
+    "    slot_size_array=[39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543],\n",
+    "    data_source_params=data_source_params, # Using the S3 configurations\n",
+    "    check_type=hugectr.Check_t.Non,\n",
+    ")\n",
+    "optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.SGD)\n",
+    "model = hugectr.Model(solver, reader, optimizer)\n",
+    "model.add(\n",
+    "    hugectr.Input(\n",
+    "        label_dim=1,\n",
+    "        label_name=\"label\",\n",
+    "        dense_dim=13,\n",
+    "        dense_name=\"dense\",\n",
+    "        data_reader_sparse_param_array=[\n",
+    "            hugectr.DataReaderSparseParam(\"data1\", 1, True, 26)\n",
+    "        ],\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.SparseEmbedding(\n",
+    "        embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,\n",
+    "        workspace_size_per_gpu_in_mb=150,\n",
+    "        embedding_vec_size=16,\n",
+    "        combiner=\"sum\",\n",
+    "        sparse_embedding_name=\"sparse_embedding1\",\n",
+    "        bottom_name=\"data1\",\n",
+    "        optimizer=optimizer,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.Reshape,\n",
+    "        bottom_names=[\"sparse_embedding1\"],\n",
+    "        top_names=[\"reshape1\"],\n",
+    "        leading_dim=416,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.Concat, bottom_names=[\"reshape1\", \"dense\"], top_names=[\"concat1\"]\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.Slice,\n",
+    "        bottom_names=[\"concat1\"],\n",
+    "        top_names=[\"slice11\", \"slice12\"],\n",
+    "        ranges=[(0, 429), (0, 429)],\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.MultiCross,\n",
+    "        bottom_names=[\"slice11\"],\n",
+    "        top_names=[\"multicross1\"],\n",
+    "        num_layers=6,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.InnerProduct,\n",
+    "        bottom_names=[\"slice12\"],\n",
+    "        top_names=[\"fc1\"],\n",
+    "        num_output=1024,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=[\"fc1\"], top_names=[\"relu1\"])\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.Dropout,\n",
+    "        bottom_names=[\"relu1\"],\n",
+    "        top_names=[\"dropout1\"],\n",
+    "        dropout_rate=0.5,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.Concat,\n",
+    "        bottom_names=[\"dropout1\", \"multicross1\"],\n",
+    "        top_names=[\"concat2\"],\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.InnerProduct,\n",
+    "        bottom_names=[\"concat2\"],\n",
+    "        top_names=[\"fc2\"],\n",
+    "        num_output=1,\n",
+    "    )\n",
+    ")\n",
+    "model.add(\n",
+    "    hugectr.DenseLayer(\n",
+    "        layer_type=hugectr.Layer_t.BinaryCrossEntropyLoss,\n",
+    "        bottom_names=[\"fc2\", \"label\"],\n",
+    "        top_names=[\"loss\"],\n",
+    "    )\n",
+    ")\n",
+    "model.compile()\n",
+    "model.summary()\n",
+    "\n",
+    "model.fit(num_epochs = 1, display = 100, eval_interval = 500)\n",
+    "model.save_params_to_files(\"https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/test\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "29838415-6be5-46f8-9ee7-435b0910cee0",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "HugeCTR Version: 4.0\n",
+      "====================================================Model Init=====================================================\n",
+      "[HCTR][10:20:27.878][WARNING][RK0][main]: The model name is not specified when creating the solver.\n",
+      "[HCTR][10:20:27.878][INFO][RK0][main]: Global seed is 1453804877\n",
+      "[HCTR][10:20:27.880][INFO][RK0][main]: Device to NUMA mapping:\n",
+      "  GPU 0 ->  node 0\n",
+      "[HCTR][10:20:29.757][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.\n",
+      "[HCTR][10:20:29.757][INFO][RK0][main]: Start all2all warmup\n",
+      "[HCTR][10:20:29.757][INFO][RK0][main]: End all2all warmup\n",
+      "[HCTR][10:20:29.757][INFO][RK0][main]: Using All-reduce algorithm: NCCL\n",
+      "[HCTR][10:20:29.759][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB\n",
+      "[HCTR][10:20:29.759][INFO][RK0][main]: num of DataReader workers for train: 1\n",
+      "[HCTR][10:20:29.759][INFO][RK0][main]: num of DataReader workers for eval: 1\n",
+      "[HCTR][10:20:29.760][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:31.802][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:33.806][INFO][RK0][main]: Vocabulary size: 397821\n",
+      "[HCTR][10:20:33.807][INFO][RK0][main]: max_vocabulary_size_per_gpu_=2457600\n",
+      "[HCTR][10:20:33.810][INFO][RK0][main]: Graph analysis to resolve tensor dependency\n",
+      "===================================================Model Compile===================================================\n",
+      "[HCTR][10:20:35.435][INFO][RK0][main]: gpu0 start to init embedding\n",
+      "[HCTR][10:20:35.436][INFO][RK0][main]: gpu0 init embedding done\n",
+      "[HCTR][10:20:35.437][INFO][RK0][main]: Starting AUC NCCL warm-up\n",
+      "[HCTR][10:20:35.439][INFO][RK0][main]: Warm-up done\n",
+      "===================================================Model Summary===================================================\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: label                                   Dense                         Sparse                        \n",
+      "label                                   dense                          data1                         \n",
+      "(1024,1)                                (1024,13)                               \n",
+      "——————————————————————————————————————————————————————————————————————————————————————————————————————————————————\n",
+      "Layer Type                              Input Name                    Output Name                   Output Shape                  \n",
+      "——————————————————————————————————————————————————————————————————————————————————————————————————————————————————\n",
+      "DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (1024,26,16)                  \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Reshape                                 sparse_embedding1             reshape1                      (1024,416)                    \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Concat                                  reshape1                      concat1                       (1024,429)                    \n",
+      "                                        dense                                                                                     \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Slice                                   concat1                       slice11                       (1024,429)                    \n",
+      "                                                                      slice12                       (1024,429)                    \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "MultiCross                              slice11                       multicross1                   (1024,429)                    \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            slice12                       fc1                           (1024,1024)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "ReLU                                    fc1                           relu1                         (1024,1024)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Dropout                                 relu1                         dropout1                      (1024,1024)                   \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "Concat                                  dropout1                      concat2                       (1024,1453)                   \n",
+      "                                        multicross1                                                                               \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "InnerProduct                            concat2                       fc2                           (1024,1)                      \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "BinaryCrossEntropyLoss                  fc2                           loss                                                        \n",
+      "                                        label                                                                                     \n",
+      "------------------------------------------------------------------------------------------------------------------\n",
+      "=====================================================Model Fit=====================================================\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Use epoch mode with number of epochs: 1\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Training batchsize: 1024, evaluation batchsize: 1024\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Evaluation interval: 500, snapshot interval: 10000\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Dense network trainable: True\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000\n",
+      "[HCTR][10:20:35.440][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:37.444][INFO][RK0][main]: Training source file: /hugectr-io-test/data/dcn_parquet/file_list.txt\n",
+      "[HCTR][10:20:37.444][INFO][RK0][main]: Evaluation source file: /hugectr-io-test/data/dcn_parquet/file_list_test.txt\n",
+      "[HCTR][10:20:37.444][INFO][RK0][main]: -----------------------------------Epoch 0-----------------------------------\n",
+      "[HCTR][10:20:37.444][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:41.825][INFO][RK0][main]: Iter: 100 Time(100 iters): 6.38401s Loss: 0.705401 lr:0.001\n",
+      "[HCTR][10:20:43.615][INFO][RK0][main]: Iter: 200 Time(100 iters): 1.78939s Loss: 0.696282 lr:0.001\n",
+      "[HCTR][10:20:44.823][INFO][RK0][main]: Iter: 300 Time(100 iters): 1.20686s Loss: 0.694805 lr:0.001\n",
+      "[HCTR][10:20:46.391][INFO][RK0][main]: Iter: 400 Time(100 iters): 1.56753s Loss: 0.697866 lr:0.001\n",
+      "[HCTR][10:20:47.468][INFO][RK0][main]: Iter: 500 Time(100 iters): 1.07658s Loss: 0.69365 lr:0.001\n",
+      "[HCTR][10:20:49.335][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:51.342][INFO][RK0][main]: Evaluation, AUC: 0.497726\n",
+      "[HCTR][10:20:51.342][INFO][RK0][main]: Eval Time for 1280 iters: 3.87204s\n",
+      "[HCTR][10:20:52.845][INFO][RK0][main]: Iter: 600 Time(100 iters): 5.37563s Loss: 0.695273 lr:0.001\n",
+      "[HCTR][10:20:52.898][INFO][RK0][main]: Finish 1 epochs 641 global iterations with batchsize 1024 in 17.46s.\n",
+      "[HCTR][10:20:52.914][INFO][RK0][main]: Rank0: Write hash table to file\n",
+      "[HCTR][10:20:52.914][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:20:56.138][DEBUG][RK0][main]: Successfully write to AWS S3 location:  https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/test0_sparse_0.model/key\n",
+      "[HCTR][10:21:01.654][DEBUG][RK0][main]: Successfully write to AWS S3 location:  https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/test0_sparse_0.model/emb_vector\n",
+      "[HCTR][10:21:01.663][INFO][RK0][main]: Dumping sparse weights to files, successful\n",
+      "[HCTR][10:21:01.663][INFO][RK0][main]: Dumping sparse optimzer states to files, successful\n",
+      "[HCTR][10:21:01.664][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:21:04.832][DEBUG][RK0][main]: Successfully write to AWS S3 location:  https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/test_dense_0.model\n",
+      "[HCTR][10:21:04.834][INFO][RK0][main]: Dumping dense weights to file, successful\n",
+      "[HCTR][10:21:04.834][INFO][RK0][main]: Using S3 file system backend.\n",
+      "[HCTR][10:21:07.183][DEBUG][RK0][main]: Successfully write to AWS S3 location:  https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/test_opt_dense_0.model\n",
+      "[HCTR][10:21:07.185][INFO][RK0][main]: Dumping dense optimizer states to file, successful\n"
+     ]
+    }
+   ],
+   "source": [
+    "!python train_with_s3.py"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.10"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
