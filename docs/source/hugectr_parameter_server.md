@@ -472,7 +472,7 @@ Specify a value between `0` and `1`, but not exactly `0` or `1`.
 The default value is `0.8` and indicates to evict embeddings from a partition until it is shrunk to 80% of its maximum size.
 In other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the specified `overflow_policy`.
 
-* `initialize_after_startup`: Boolean,when set to `True` *(default)*, the contents of the sparse model files are used to initialize this database. This is useful if multiple processes should connect to the same databse, or if restarting processes connect to a previously-initialized database that retains its state between inference process restarts. For example, if you reconnect to an existing RocksDB or Redis deployment, or an already materialized multi-process hashmap.
+* `initialize_after_startup`: Boolean,when set to `True` *(default)*, the contents of the sparse model files are used to initialize this database. This is useful if multiple processes should connect to the same database, or if restarting processes connect to a previously-initialized database that retains its state between inference process restarts. For example, if you reconnect to an existing RocksDB or Redis deployment, or an already materialized multi-process hashmap.
 
 * `initial_cache_rate`: Double, specifies the fraction of the embeddings to initially attempt to cache.
 Specify a value in the range `[0.0, 1.0]`.
