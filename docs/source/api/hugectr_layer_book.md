@@ -181,7 +181,7 @@ hugectr.DenseLayer()
 `DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 **Arguments**
-* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.ElementwiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
+* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.MLP`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.ElementwiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
 
 * `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
 
@@ -236,6 +236,78 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             bottom_names = ["fc1"],
                             top_names = ["fc2"],
                             num_output=1024))
+```
+
+
+### MLP Layer
+
+The MLP layer is comprised of multiple fused fully-connected layers. The MLP layer supports FP16, FP32, and TF32.
+
+**Arguments**
+
+* `num_outputs`: List[Integer], specifies the number of output elements for each fused fully-connected layer in the MLP layer. There is NO default value and it should be specified by users.
+
+* `act_type`: The activation type of the MLP layer. This argument is applied to all layers in the MLP layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. The default value is `Activation_t.Relu`.
+
+* `use_bias`: Boolean, whether to use bias. This argument is applied to all layers in the MLP layer. The default value is True.
+
+* `activations`: List[Activation_t], specifies the activation type for each layer in the MLP Layer. This argument overrides the `act_type` argument.
+
+* `biases`: List[Boolean], specifies for each layer in the MLP Layer whether to use bias. This argument overrides the `use_bias` argument.
+
+* `weight_init_type`: Specifies how to initialize the weight array of all layers in the MLP layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* `bias_init_type`: Specifies how to initialize the bias array of all layers in the MLP layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* input: (batch_size, *) where * represents any number of elements
+* output: (batch_size, num_output of the last layer)
+
+Example:
+
+```python
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.MLP,
+        bottom_names=["dense"],
+        top_names=["mlp1"],
+        num_outputs=[512, 256, 128],
+        act_type=hugectr.Activation_t.Relu,
+        use_bias=True,
+    )
+)
+
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.Interaction,
+        bottom_names=["mlp1", "sparse_embedding1"],
+        top_names=["interaction1", "interaction_grad"],
+    )
+)
+
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.MLP,
+        bottom_names=["interaction1", "interaction_grad"],
+        top_names=["mlp2"],
+        num_outputs=[1024, 1024, 512, 256, 1],
+        activations=[
+            hugectr.Activation_t.Relu,
+            hugectr.Activation_t.Relu,
+            hugectr.Activation_t.Relu,
+            hugectr.Activation_t.Relu,
+            hugectr.Activation_t.Non,
+        ],
+        biases = [True, True, True, True, True],
+    )
+)
+
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.BinaryCrossEntropyLoss,
+        bottom_names=["mlp2", "label"],
+        top_names=["loss"],
+    )
+)
 ```
 
 ### MultiCross Layer
@@ -601,7 +673,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
 ```
 
 **Important Notes**:
-There are optimizations that can be employed on the `Interaction` layer and the following `GroupFusedInnerProduct` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `GroupFusedInnerProduct` layer. Please refer to the example of [GroupDenseLayer](#groupdenselayer) for the detailed usage.
+There are optimizations that can be employed on the `Interaction` layer and the following `MLP` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `MLP` layer. Please refer to the example of [MLP layer](#mlp-layer) for the detailed usage.
 
 ### Add Layer
 
@@ -1238,6 +1310,8 @@ The following sample plan file demonstrates how to shared lookups `0`, `1`, `2`,
 ```python
 hugectr.GroupDenseLayer()
 ```
+
+**WARNING**: this class is deprecated in favor of [MLP layer](#mlp-layer).
 
 `GroupDenseLayer` specifies the parameters related to a group of dense layers. HugeCTR currently supports only `GroupFusedInnerProduct`, which is comprised of multiple `FusedInnerProduct` layers. Please **NOTE** that the `FusedInnerProduct` layer only supports fp16.
 
