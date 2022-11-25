@@ -115,6 +115,7 @@ html_theme_options = {
     "titles_only": True,
     "analytics_id": "G-NVJ1Y1YJHK",
 }
+html_copy_source = False
 html_show_sourcelink = False
 
 # Whitelist pattern for tags (set to None to ignore all tags)
