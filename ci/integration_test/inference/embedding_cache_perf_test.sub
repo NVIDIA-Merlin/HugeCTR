@@ -1,0 +1,5 @@
+#!/bin/bash
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" bash -cx "\
+      cd /workdir/build/bin && \
+      ./ec_perf_test"

@@ -514,6 +514,19 @@ inference_hps:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/inference/inference_hps.sub
 
+embedding_cache_perf:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/embedding_cache_perf
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/inference/embedding_cache_perf_test.sub
+
 py_low_level:
   extends: .cluster_test_job_daily
   needs:
