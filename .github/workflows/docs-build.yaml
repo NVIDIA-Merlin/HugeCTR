@@ -11,7 +11,7 @@ jobs:
       image: nvcr.io/nvidia/merlin/merlin-tensorflow:nightly
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
           fetch-depth: 1
@@ -27,16 +27,11 @@ jobs:
           python -m pip install --upgrade pip setuptools==59.4.0 wheel
           python -m pip install -r docs/requirements-doc.txt
           python -m pip install scikit-build ninja
-      - name: Build HPS plugin for TF
-        run: |
-          pushd hierarchical_parameter_server
-          python3 setup.py install
-          popd
       - name: Building docs
         run: |
           make -C docs html
       - name: Upload HTML
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: html-build-artifact
           path: docs/build/html
@@ -49,7 +44,7 @@ jobs:
           echo ${{ github.event.pull_request.merged }} > ./pr/merged.txt
           echo ${{ github.event.action }}              > ./pr/action.txt
       - name: Upload PR information
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: pr
           path: pr/
