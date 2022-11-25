@@ -1,5 +1,6 @@
 variables:
   IMAGE_ALL: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_all
+  MERLIN_NIGHTLY_DEVEL: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:merlin_nightly
   IMAGE_SOK_TF2: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf2
   IMAGE_SOK_TF1: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf1
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
@@ -19,6 +20,7 @@ variables:
   DLRM_MOUNT: /etc/workspace/dataset
   GIT_CLONE_PATH_SELENE: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
   TRAIN_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:train.$CI_PIPELINE_ID
+  TRAIN_IMAGE_VERSIONED_LATEST: ${CI_REGISTRY}/dl/hugectr/hugectr:train.latest.$CI_PIPELINE_ID
   TRAIN_IMAGE_VERSIONED_WITH_HDFS: ${CI_REGISTRY}/dl/hugectr/hugectr:train.with_hdfs.$CI_PIPELINE_ID
   TRAIN_IMAGE_VERSIONED_WITH_HDFS_MINI: ${CI_REGISTRY}/dl/hugectr/hugectr:train.with_hdfs_mini.$CI_PIPELINE_ID
   TRAIN_IMAGE_VERSIONED_WITH_S3: ${CI_REGISTRY}/dl/hugectr/hugectr:train.with_s3.${CI_PIPELINE_ID}

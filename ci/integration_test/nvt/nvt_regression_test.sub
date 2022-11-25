@@ -1,0 +1,9 @@
+#!/bin/bash
+
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cex " \
+    cd /workdir/samples/din && \
+    mkdir -p din_data && cd utils && \
+    bash preprocess.sh && \
+    cd /workdir/tools/ && \
+    bash preprocess.sh 1 criteo_data nvt 1 0 0 && \
+    cd /workdir/test/notebook_test && pytest e2e_test_with_nvt.py"

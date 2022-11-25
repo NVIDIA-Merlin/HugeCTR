@@ -69,6 +69,15 @@ build_train_single_node:
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
+build_train_single_node_latest:
+  extends: .build_hugectr_daily
+  variables:
+    FROM_IMAGE: ${MERLIN_NIGHTLY_DEVEL}
+    DST_IMAGE: $TRAIN_IMAGE_VERSIONED_LATEST
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+
 build_train_single_node_with_hdfs_minimal:
   extends: .build_hugectr
   variables:
@@ -816,6 +825,21 @@ s3_backend_test:
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
+# NVT regression
+e2e_nvt_regression_test:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node_latest
+  variables:
+    GPFSFOLDER: $LOGDIR/e2e_nvt_regression_test
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED_LATEST
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1,/lustre/fsw/devtech/hpc-hugectr/inference/nvt_regression:/workdir/samples/din/raw_data,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/dir/to/criteo/day_0
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
 
 wdl_check:
   # Push logs to gitlab
