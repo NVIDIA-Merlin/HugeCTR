@@ -60,7 +60,7 @@ class GraphBuilder(object):
             if np.ndim(layer_params.label_dim) == 0:
                 self.__outputs.append(
                     helper.make_tensor_value_info(
-                        "output", TensorProto.FLOAT, [None, layer_params.label_dim]
+                        layer_params.label_name, TensorProto.FLOAT, [None, layer_params.label_dim]
                     )
                 )
             else:
