@@ -93,7 +93,7 @@ class Layer {
    * Layer initializer. If a layer wants the specific weight initialization,
    * Override each private function accordingly, e.g., BatchNormLayer
    */
-  std::unique_ptr<DataSimulator> get_zero_initializer(const int index) {
+  virtual std::unique_ptr<DataSimulator> get_zero_initializer(const int index) {
     return std::make_unique<ConstantDataSimulator>(0.0f);
   }
 

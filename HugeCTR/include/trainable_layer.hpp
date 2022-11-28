@@ -19,6 +19,7 @@
 #include <cassert>
 #include <type_traits>
 
+#include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/layer.hpp"
 
 namespace HugeCTR {
@@ -51,6 +52,23 @@ class TrainableLayer : public Layer {
   const std::shared_ptr<BufferBlock2<float>> master_weight_buff_;
   const std::shared_ptr<BufferBlock2<WeightType>> weight_buff_;
   const std::shared_ptr<BufferBlock2<WeightType>> wgrad_buff_;
+  // Layer initializers.
+  // if the layer need a specific weight initialization, override each function accordingly.
+  virtual std::unique_ptr<DataSimulator> get_zero_initializer(const int index) override {
+    return std::make_unique<ConstantDataSimulator>(0.0f);
+  }
+  virtual std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override {
+    return std::move(get_default_initializer(index));
+  };
+  virtual std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override {
+    return std::move(get_default_initializer(index));
+  };
+  virtual std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override {
+    return std::move(get_default_initializer(index));
+  };
+  virtual std::unique_ptr<DataSimulator> get_default_initializer(const int index) override {
+    return std::move(get_zero_initializer(index));
+  };
 
  protected:
   // @brief a modifier to reserve a weight tensor at idx with the specified dims.
@@ -99,6 +117,12 @@ class TrainableLayer : public Layer {
   }
 
  public:
+  // @brief a parameter initialization function
+  // @details
+  // init_params calls the specific initializers to initialize parameters. The types of initializers
+  // are specified by initializer_types_.
+  void init_params(const curandGenerator_t& generator) override;
+
   /**
    * Ctor of TrainableLayer.
    * @param master_weight_buff the buffer to reserve master weight tensors, used only if WeightType
@@ -119,4 +143,63 @@ class TrainableLayer : public Layer {
         weight_buff_(weight_buff),
         wgrad_buff_(wgrad_buff) {}
 };
+
+template <typename DType, bool use_FP32_weight>
+void TrainableLayer<DType, use_FP32_weight>::init_params(const curandGenerator_t& generator) {
+  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
+      GeneralBuffer2<CudaHostAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> block = buff->create_block<float>();
+
+  Tensors2<float> weights = master_weights_;
+  if constexpr (std::is_same<DType, float>::value && use_FP32_weight) {
+    weights = weights_;
+  }
+
+  Tensors2<float> weight_cpu_tensors;
+  for (const Tensor2<float>& weight : weights) {
+    Tensor2<float> tensor;
+    block->reserve(weight.get_dimensions(), &tensor);
+    weight_cpu_tensors.push_back(tensor);
+  }
+
+  buff->allocate();
+
+  std::vector<std::unique_ptr<DataSimulator>> simulators;
+  // each weight has its own initializer
+  for (int index = 0; index < static_cast<int>(weights.size()); ++index) {
+    switch (initializer_types_[index % initializer_types_.size()]) {
+      case Initializer_t::Uniform: {
+        simulators.push_back(get_uniform_initializer(index));
+        break;
+      }
+      case Initializer_t::XavierNorm: {
+        simulators.push_back(get_xavier_norm_initializer(index));
+        break;
+      }
+      case Initializer_t::XavierUniform: {
+        simulators.push_back(get_xavier_uniform_initializer(index));
+        break;
+      }
+      case Initializer_t::Zero: {
+        simulators.push_back(get_zero_initializer(index));
+        break;
+      }
+      case Initializer_t::Default: {
+        simulators.push_back(get_default_initializer(index));
+        break;
+      }
+      default: {
+        HCTR_OWN_THROW(Error_t::OutOfBound, "Not supported initializer.");
+        break;
+      }
+    }
+  }
+
+  for (size_t i = 0; i < weights.size(); ++i) {
+    simulators[i]->fill(weight_cpu_tensors[i], generator);
+    HCTR_LIB_THROW(cudaMemcpyAsync(weights[i].get_ptr(), weight_cpu_tensors[i].get_ptr(),
+                                   weights[i].get_size_in_bytes(), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+  }
+}
 }  // namespace HugeCTR
