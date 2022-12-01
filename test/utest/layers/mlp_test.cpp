@@ -39,8 +39,6 @@ using namespace HugeCTR;
 
 struct ConfigSet {
   bool is_perf_test;
-  bool use_nvtx;
-  bool use_record;
   bool use_cuda_graph;
   bool async_mlp_wgrad;
   size_t test_loop_cnt;
@@ -285,7 +283,7 @@ static float check_data_cpu_and_gpu(T* host, T* device, uint32_t N, float thresh
 template <typename T>
 static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_t>> mlp_num_outputs,
                      std::vector<std::vector<bool>> use_relu,
-                     std::vector<std::vector<bool>> use_bias, bool use_fuse_wb,
+                     std::vector<std::vector<bool>> use_bias, std::vector<bool> use_fuse_wb,
                      bool enable_tf32_compute, size_t input_dim, size_t batch_size,
                      const ConfigSet& config_set) {
   int n_fc_layers = 0;
@@ -328,7 +326,7 @@ static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_
     layers.push_back(new MLPLayer(master_weights_buff, weights_buff, weights_grad_buff, blobs_buff,
                                   train_in_tensors, train_out_tensors, num_outputs, gpu_resource,
                                   relu, bias, std::vector<Initializer_t>(), false,
-                                  config_set.async_mlp_wgrad, use_fuse_wb, enable_tf32_compute));
+                                  config_set.async_mlp_wgrad, use_fuse_wb[i], enable_tf32_compute));
     if (i != cnt_mlp - 1) {
       Tensor2<T> in_mlp_tensor = train_out_tensors[0];
       Tensor2<T> in_emb_tensor;
@@ -399,7 +397,7 @@ static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_
     d_bias_grad[i] = layer->get_bias_grad(index[1]).get_ptr();
     ASSERT_EQ(
         check_data_cpu_and_gpu(p.h_kernel[i], d_kernel[i], fc_in_dims[i] * fc_out_dims[i], 1e-3), 0)
-        << " kernel cross_check result fail" << std::endl;
+        << "kernel cross_check result fail" << std::endl;
     ASSERT_EQ(check_data_cpu_and_gpu(p.h_bias[i], d_bias[i], fc_out_dims[i], 1e-3), 0)
         << "bias cross_check result fail" << std::endl;
     ASSERT_EQ(check_data_cpu_and_gpu(p.h_kernel_grad[i], d_kernel_grad[i],
@@ -521,72 +519,60 @@ static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_
     cudaGraph_t graph;
     cudaGraphExec_t graph_exec;
     bool graph_inited = false;
-    std::string nvtx_str;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-    for (size_t test_loop_idx = config_set.test_loop_cnt; test_loop_idx > 0; --test_loop_idx) {
-      printf("test_loop_idx = %ld\n", test_loop_idx);
 
-      if (test_loop_idx == 1) {
-        if (config_set.use_cuda_graph && !graph_inited) {
-          cudaStreamBeginCapture(gpu_resource->get_stream(), cudaStreamCaptureModeThreadLocal);
-        } else {
-          cudaProfilerStart();
-        }
+    auto run_network = [&]() {
+      if (config_set.use_cuda_graph && !graph_inited) {
+        cudaStreamBeginCapture(gpu_resource->get_stream(), cudaStreamCaptureModeThreadLocal);
       }
 
-      for (int fprop_idx = layer_start; fprop_idx < layer_end; ++fprop_idx) {
-        // printf("fprop_idx = %d, layers = 0x%lx\n", fprop_idx, (size_t)layers[fprop_idx]);
-        layers[fprop_idx]->fprop(true);
+      if (!graph_inited || !config_set.use_cuda_graph) {
+        for (int fprop_idx = layer_start; fprop_idx < layer_end; ++fprop_idx) {
+          layers[fprop_idx]->fprop(true);
+        }
+        for (int bprop_idx = layer_end - 1; bprop_idx >= layer_start; --bprop_idx) {
+          for (size_t layer_loop_idx = 0; layer_loop_idx < config_set.layer_loop_cnt;
+               ++layer_loop_idx) {
+            layers[bprop_idx]->bprop();
+          }
+        }
+        if (config_set.async_mlp_wgrad) {
+          gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+        }
+      } else {
+        cudaGraphLaunch(graph_exec, gpu_resource->get_stream());
       }
 
-      for (int bprop_idx = layer_end - 1; bprop_idx >= layer_start; --bprop_idx) {
-        if (config_set.use_nvtx) {
-          nvtx_str = std::to_string(bprop_idx);
-          nvtxRangePush(nvtx_str.c_str());
-        }
-        for (size_t layer_loop_idx = 0; layer_loop_idx < config_set.layer_loop_cnt;
-             ++layer_loop_idx) {
-          layers[bprop_idx]->bprop();
-        }
-        if (config_set.use_nvtx) nvtxRangePop();
+      if (config_set.use_cuda_graph && !graph_inited) {
+        cudaStreamEndCapture(gpu_resource->get_stream(), &graph);
+        cudaGraphInstantiate(&graph_exec, graph, NULL, NULL, 0);
+        graph_inited = true;
       }
-      if (config_set.async_mlp_wgrad) {
-        gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
-      }
-      if (test_loop_idx == 1) {
-        if (config_set.use_cuda_graph && !graph_inited) {
-          cudaStreamEndCapture(gpu_resource->get_stream(), &graph);
-          cudaGraphInstantiate(&graph_exec, graph, NULL, NULL, 0);
-          graph_inited = true;
-        } else {
-          cudaProfilerStop();
-        }
-      }
-    }
+    };
+
+    run_network();
 
     float mean_time = 0.0f;
     // size_t test_loop = config_set.test_loop_cnt;
     size_t test_loop = 10000;
     for (size_t test_loop_idx = 0; test_loop_idx < test_loop; ++test_loop_idx) {
-      if (graph_inited) {
-        if (0 == test_loop_idx) {
-          cudaProfilerStart();
-        }
-        float elapsedTime = 0.0f;
-        cudaEventRecord(start, gpu_resource->get_stream());
-        cudaGraphLaunch(graph_exec, gpu_resource->get_stream());
-        cudaEventRecord(stop, gpu_resource->get_stream());
-        cudaStreamSynchronize(gpu_resource->get_stream());
-        cudaEventElapsedTime(&elapsedTime, start, stop);
-        if (test_loop_idx % 1000 == 0) {
-          printf("test_loop_idx = %ld, elapsed_time = %f\n", test_loop_idx, elapsedTime);
-        }
-        mean_time += elapsedTime;
-        if (10 == test_loop_idx) {
-          cudaProfilerStop();
-        }
+      if (0 == test_loop_idx) {
+        cudaProfilerStart();
+      }
+      float elapsedTime = 0.0f;
+      cudaEventRecord(start, gpu_resource->get_stream());
+      run_network();
+      cudaEventRecord(stop, gpu_resource->get_stream());
+      cudaStreamSynchronize(gpu_resource->get_stream());
+      cudaEventElapsedTime(&elapsedTime, start, stop);
+      if (test_loop_idx % 1000 == 0) {
+        printf("test_loop_idx = %ld, elapsed_time = %f\n", test_loop_idx, elapsedTime);
+      }
+      mean_time += elapsedTime;
+      if (10 == test_loop_idx) {
+        cudaProfilerStop();
       }
     }
     printf("test_loop = %ld, elapsed_time = %f\n", test_loop, mean_time / test_loop);
@@ -594,29 +580,44 @@ static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_
   layers.clear();
 }
 
-// ConfigSet config_set = {false, true, true, 10, 1000};
-ConfigSet config_set = {false, true, false, true, true, 10, 1};
+ConfigSet function_config_set = {false, true, true, 10, 1};
+ConfigSet perf_config_set = {true, true, true, 10, 1};
 
 std::vector<Layer_t> network{Layer_t::MLP, Layer_t::Interaction, Layer_t::MLP};
 std::vector<std::vector<size_t>> mlp_num_outputs{{512, 256, 128}, {1024, 1024, 512, 256, 1}};
 std::vector<std::vector<bool>> use_relu{{true, true, true}, {false, false, true, true, false}};
 std::vector<std::vector<bool>> use_bias{{true, false, true}, {true, false, false, true, true}};
+std::vector<bool> use_fuse_wb{false, true};
 
 size_t input_dim = 16;
 size_t batch_size = 32;
-bool use_fuse_wb = true;
 
 TEST(mlp_test_fp16, all) {
   mlp_test<__half>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, false, input_dim,
-                   batch_size, config_set);
+                   batch_size, function_config_set);
 };
 
 TEST(mlp_test_fp32, all) {
   mlp_test<float>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, false, input_dim,
-                  batch_size, config_set);
+                  batch_size, function_config_set);
 };
 
 TEST(mlp_test_tf32, all) {
   mlp_test<float>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, true, input_dim,
-                  batch_size, config_set);
+                  batch_size, function_config_set);
+};
+
+TEST(mlp_test_fp16_perf, all) {
+  mlp_test<__half>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, false, input_dim,
+                   batch_size, perf_config_set);
+};
+
+TEST(mlp_test_fp32_perf, all) {
+  mlp_test<float>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, false, input_dim,
+                  batch_size, perf_config_set);
+};
+
+TEST(mlp_test_tf32_perf, all) {
+  mlp_test<float>(network, mlp_num_outputs, use_relu, use_bias, use_fuse_wb, true, input_dim,
+                  batch_size, perf_config_set);
 };
