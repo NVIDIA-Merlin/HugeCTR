@@ -129,8 +129,16 @@ class TestOp : public AsyncOpKernel {
       ctx->device()->tensorflow_cpu_worker_threads()->workers->Schedule(std::move(work_func));
     } else if (std::is_same<Device, GPUDevice>::value) {
       auto stream = ctx->op_device_context()->stream();
+#ifdef TF_GE_210
+      ctx->device()->tensorflow_accelerator_device_info()->event_mgr->ThenExecute(
+          stream, std::move(work_func));
+#endif
+
+#ifdef TF_LESS_210
       ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream,
                                                                           std::move(work_func));
+#endif
+
     } else {
       ctx->SetStatus(errors::Aborted("Not supported Device Type"));
       done();

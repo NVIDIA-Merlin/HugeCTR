@@ -538,9 +538,15 @@ class UniqueOpGPU : public AsyncOpKernel {
 
       done();
     };
+#ifdef TF_GE_210
+    context->device()->tensorflow_accelerator_device_info()->event_mgr->ThenExecute(
+        stream, async_finish_computation);
+#endif
 
+#ifdef TF_LESS_210
     context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
         stream, async_finish_computation);
+#endif
   }
 };
 

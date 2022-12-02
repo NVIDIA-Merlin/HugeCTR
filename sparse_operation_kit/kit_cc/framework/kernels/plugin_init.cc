@@ -89,8 +89,15 @@ class PluginInitOp : public AsyncOpKernel {
     };
 
     auto stream = ctx->op_device_context()->stream();
+#ifdef TF_GE_210
+    ctx->device()->tensorflow_accelerator_device_info()->event_mgr->ThenExecute(stream,
+                                                                        std::move(work_func));
+#endif
+
+#ifdef TF_LESS_210
     ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream,
                                                                         std::move(work_func));
+#endif
   }
 
  private:

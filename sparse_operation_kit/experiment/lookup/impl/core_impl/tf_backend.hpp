@@ -51,10 +51,17 @@ class TFCoreResourceManager : public core::CoreResourceManager {
   int get_global_gpu_id() const override {
     return local_rank_ * num_gpu_per_rank_ + get_local_gpu_id();
   }
+#ifdef TF_GE_210
+  int get_device_id() const override {
+    return ctx_->device()->tensorflow_accelerator_device_info()->gpu_id;
+  }
+#endif
 
+#ifdef TF_LESS_210
   int get_device_id() const override {
     return ctx_->device()->tensorflow_gpu_device_info()->gpu_id;
   }
+#endif
 
   size_t get_local_gpu_count() const override { return num_gpu_per_rank_; }
 
