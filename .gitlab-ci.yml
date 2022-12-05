@@ -680,7 +680,7 @@ inference_model:
 
 # hugectr to onnx converter test
 hugectr2onnx:
-  extends: .cluster_test_job_daily
+  extends: .cluster_test_job
   needs:
     - build_train_single_node
   variables:
