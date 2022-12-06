@@ -6,7 +6,7 @@ version = "4.3.0"
  
 [[oss.excluded.directories]]
 paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-ui', 'third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/webapps'] 
-comment = 'We don't use and aren't planning on using the Haddop Yarn Web UI'
+comment = 'We do not use and are not planning on using the Hadoop Yarn Web UI'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
