@@ -51,9 +51,15 @@ if __name__ == "__main__":
 
     # sok variables
     sok_vars = []
-    for i, w in enumerate(weights):
-        v = sok.Variable(w, mode="localized:%d" % gpus[i])
-        sok_vars.append(v)
+    if len(gpus) >= 2:
+        for i, w in enumerate(weights):
+            v = sok.Variable(w, mode="localized:%d" % gpus[i])
+            sok_vars.append(v)
+    else:
+        for i, w in enumerate(weights):
+            v = sok.Variable(w, mode="localized:0")
+            sok_vars.append(v)
+
     local_indices = []
     for i, row in enumerate(rows):
         if hvd.rank() == gpus[i]:

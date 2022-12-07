@@ -231,11 +231,14 @@ class CudaDeviceContext {
 
 /**
  * Helper class for switching device and the associated NUMA domain.
- * Sticky: thread will remember the context and affinity.
  */
 class CudaCPUDeviceContext {
+ private:
+  int original_device_;
+
  public:
-  CudaCPUDeviceContext(int device_id) {
+  CudaCPUDeviceContext() { HCTR_LIB_THROW(cudaGetDevice(&original_device_)); }
+  CudaCPUDeviceContext(int device_id) : CudaCPUDeviceContext() {
     auto node_it = device_id_to_numa_node_.find(device_id);
     assert(node_it != device_id_to_numa_node_.end());
     HCTR_LIB_THROW(cudaSetDevice(device_id));
@@ -282,6 +285,8 @@ class CudaCPUDeviceContext {
 
     numa_bitmask_free(cpu_mask);
   }
+
+  ~CudaCPUDeviceContext() { HCTR_LIB_THROW(cudaSetDevice(original_device_)); }
 
  public:
   static std::unordered_map<int, int> device_id_to_numa_node_;

@@ -56,7 +56,7 @@ Here's a list of notebooks that you can run:
 
 - [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb): Demonstrates how to train a DLRM model with [SparseOperationKit (SOK)](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) and then make inference with HPS.
 
-- [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb): Demonstrates how to deploy the inference SavedModel that leverages HPS with the [Triton TensorFlow backend](https://github.com/triton-inference-server/tensorflow_backend). The feature of implicit [HPS initialization](https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html) is utilized in this notebook.
+- [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb): Demonstrates how to deploy the inference SavedModel that leverages HPS with the [Triton TensorFlow backend](https://github.com/triton-inference-server/tensorflow_backend). The feature of implicit [HPS initialization](https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html) is utilized in this notebook. It also shows how to apply [TF-TRT](https://github.com/tensorflow/tensorrt) optimization to SavedModel whose embedding lookup is based on HPS.
 
 ## System Specifications
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.

@@ -124,9 +124,8 @@ stages:
         echo "FROM ${FROM_IMAGE}" > ${JOB_DOCKERFILE};
       fi
     - echo "WORKDIR /workdir" >> ${JOB_DOCKERFILE}
-    - echo "RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1" >> ${JOB_DOCKERFILE}
+    - echo "RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE}
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
-    - echo "ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
         echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
@@ -147,7 +146,7 @@ stages:
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hierarchical_parameter_server/ && python setup.py install" >> ${JOB_DOCKERFILE};
       fi
-    - echo "RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1" >> ${JOB_DOCKERFILE};
+    - echo "RUN rm /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then

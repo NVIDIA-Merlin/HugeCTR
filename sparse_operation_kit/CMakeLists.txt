@@ -18,7 +18,27 @@ project(SparseOperationKit LANGUAGES CXX CUDA)
 
 message(STATUS "Building Sparse Operation Kit from source.")
 
-set(CMAKE_CXX_STANDARD 14)
+set(TF_VERSION,"")
+#check TF version
+execute_process(COMMAND python -c "import tensorflow as tf;print(tf.__version__)" OUTPUT_VARIABLE TF_VERSION)
+#message(STATUS "TF_VERSION = ${TF_VERSION}")
+string(COMPARE EQUAL "${TF_VERSION}" "" TF_RESULT)
+if (NOT TF_RESULT)
+    string(REPLACE "." ";" TF_VERSION_LIST ${TF_VERSION})
+    list(GET TF_VERSION_LIST 0 TF_VERSION_MAJOR)
+    list(GET TF_VERSION_LIST 1 TF_VERSION_MINOR)
+    list(GET TF_VERSION_LIST 2 TF_VERSION_PATCH)
+    if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 9)
+        add_definitions(-DTF_GE_210)
+        set(CMAKE_CXX_STANDARD 17)
+    else()
+        add_definitions(-DTF_LESS_210)
+        set(CMAKE_CXX_STANDARD 14)
+    endif()
+else()
+    message(FATAL_ERROR "Can not detect tensorflow in your environment,please install tensorflow(tf1 support version 1.15, for tf2 support version 2.60~latest) ")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
 
 find_package(CUDA REQUIRED)

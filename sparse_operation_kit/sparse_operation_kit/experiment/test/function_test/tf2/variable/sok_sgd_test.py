@@ -16,6 +16,7 @@
 
 import numpy as np
 import tensorflow as tf
+import horovod.tensorflow as hvd
 
 from sparse_operation_kit import experiment as sok
 

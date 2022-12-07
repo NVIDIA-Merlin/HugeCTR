@@ -1,0 +1,15 @@
+version = "4.3.0"
+ 
+[oss]
+ 
+[oss.excluded]
+ 
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-ui', 'third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/webapps'] 
+comment = 'We do not use and are not planning on using the Hadoop Yarn Web UI'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/rocksdb/docs'] 
+comment = 'The package is for the RocksDB documentation and its hosting on the GitHub pages. We never use it.'
+nspect_ids = ['NSPECT-OZP9-WUQA']

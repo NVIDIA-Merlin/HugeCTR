@@ -177,6 +177,10 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 ### Talks ###
 |Conference / Website|Title|Date|Speaker|Language|
 |--------------------|-----|----|-------|--------|
+|Short Videos Episode 1|[Merlin HugeCTR：GPU 加速的推荐系统框架](https://www.bilibili.com/video/BV1jT411E7VJ/)|May 2022|Joey Wang|中文|
+|Short Videos Episode 2|[HugeCTR 分级参数服务器如何加速推理](https://www.bilibili.com/video/BV1PW4y127UA/)|May 2022|Joey Wang|中文|
+|Short Videos Episode 3|[使用 HugeCTR SOK 加速 TensorFlow 训练](https://www.bilibili.com/video/BV1mG411n7XH/)|May 2022|Gems Guo|中文|
+|GTC Sping 2022|[Merlin HugeCTR: Distributed Hierarchical Inference Parameter Server Using GPU Embedding Cache](https://www.nvidia.com/en-us/on-demand/session/gtcspring22-s41126/)|March 2022|Matthias Langer, Yingcan Wei, Yu Fan|English|
 |APSARA 2021|[GPU 推荐系统 Merlin](https://yunqi.aliyun.com/2021/agenda/session205?spm=5176.23948577a2c4e.J_6988780170.27.5ae7379893BcVp)|Oct 2021|Joey Wang|中文|
 |GTC Spring 2021|[Learn how Tencent Deployed an Advertising System on the Merlin GPU Recommender Framework](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31820/)|April 2021|Xiangting Kong, Joey Wang|English|
 |GTC Spring 2021|[Merlin HugeCTR: Deep Dive Into Performance Optimization](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31269/)|April 2021|Minseok Lee|English|
@@ -191,6 +195,12 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 ### Blogs ###
 |Conference / Website|Title|Date|Authors|Language|
 |--------------------|-----|----|-------|--------|
+|Wechat Blog|[Merlin HugeCTR 分级参数服务器系列之三：集成到TensorFlow](https://mp.weixin.qq.com/s/sFmJXZ53Qj4J7iGkzGvQbw)|Nov. 2022|Kingsley Liu|中文|
+|NVIDIA Devblog|[Scaling Recommendation System Inference with Merlin Hierarchical Parameter Server/使用 Merlin 分层参数服务器扩展推荐系统推理](https://developer.nvidia.com/zh-cn/blog/scaling-recommendation-system-inference-with-merlin-hierarchical-parameter-server/)|August 2022|Shashank Verma, Wenwen Gao, Yingcan Wei, Matthias Langer, Jerry Shi, Fan Yu, Kingsley Liu, Minseok Lee|English/中文|
+|NVIDIA Devblog|[Merlin HugeCTR Sparse Operation Kit 系列之二](https://developer.nvidia.cn/zh-cn/blog/merlin-hugectr-sparse-operation-kit-series-2/)|June 2022|Kunlun Li|中文|
+|NVIDIA Devblog|[Merlin HugeCTR Sparse Operation Kit 系列之一](https://developer.nvidia.com/zh-cn/blog/merlin-hugectr-sparse-operation-kit-part-1/)|March 2022|Gems Guo, Jianbing Dong|中文|
+|Wechat Blog|[Merlin HugeCTR 分级参数服务器系列之二](https://mp.weixin.qq.com/s/z-K3UNg6-ysrfKe3C6McZg)|March 2022|Yingcan Wei, Matthias Langer, Jerry Shi|中文|
+|Wechat Blog|[Merlin HugeCTR 分级参数服务器系列之一](https://mp.weixin.qq.com/s/5_AKe6f_nJjddCLZU28P2A)|Jan. 2022|Yingcan Wei, Jerry Shi|中文|
 |NVIDIA Devblog|[Accelerating Embedding with the HugeCTR TensorFlow Embedding Plugin](https://developer.nvidia.com/blog/accelerating-embedding-with-the-hugectr-tensorflow-embedding-plugin/)|Sept 2021|Vinh Nguyen, Ann Spencer, Joey Wang and Jianbing Dong|English|
 |medium.com|[Optimizing Meituan’s Machine Learning Platform: An Interview with Jun Huang](https://medium.com/nvidia-merlin/optimizing-meituans-machine-learning-platform-an-interview-with-jun-huang-7e046143131f)|Sept 2021|Sheng Luo and Benedikt Schifferer|English|
 |medium.com|[Leading Design and Development of the Advertising Recommender System at Tencent: An Interview with Xiangting Kong](https://medium.com/nvidia-merlin/leading-design-and-development-of-the-advertising-recommender-system-at-tencent-an-interview-with-37f1eed898a7)|Sept 2021|Xiangting Kong, Ann Spencer|English|

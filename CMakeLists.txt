@@ -183,7 +183,6 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
-  ${PROJECT_SOURCE_DIR}/third_party/xxhash
   ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
   ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/no_tls
   ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
@@ -277,4 +276,5 @@ add_subdirectory(HugeCTR/embedding)
 add_subdirectory(third_party/googletest)
 add_subdirectory(test/utest)
 add_subdirectory(tools)
+add_subdirectory(test/embedding_cache_perf_test)
 endif()

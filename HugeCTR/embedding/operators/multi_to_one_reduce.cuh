@@ -167,7 +167,8 @@ __global__ void multi_to_one_reduce_vec4(CopyDesc copy_desc, DST_T* partial_buff
 }
 
 template <typename CopyDesc, int kMaxElemPerThread, int kWarpSize>
-__global__ void multi_to_one_reduce_final(CopyDesc copy_desc, int max_ev_length) {
+__launch_bounds__(1024, 1) __global__
+    void multi_to_one_reduce_final(CopyDesc copy_desc, int max_ev_length) {
   using src_type = typename CopyDesc::SrcT;
   using dst_type = typename CopyDesc::DstT;
   using vec_length_type = int;
