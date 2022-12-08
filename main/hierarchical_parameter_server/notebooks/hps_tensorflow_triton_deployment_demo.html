@@ -113,7 +113,7 @@
 <h1>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
-<p>This notebook demonstrates how to deploy the SavedModel that leverages HPS with <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow backend</a>. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
+<p>This notebook demonstrates how to deploy the SavedModel that leverages HPS with <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow backend</a>. It also shows how to apply <a class="reference external" href="https://github.com/tensorflow/tensorrt">TF-TRT</a> optimization to SavedModel whose embedding lookup is based on HPS. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
 <p>For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
 </div>
 <div class="section" id="installation">
@@ -166,6 +166,10 @@
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[INFO] hierarchical_parameter_server is imported
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn&#39;t match a supported version!
+  warnings.warn(&quot;urllib3 ({}) or chardet ({}) doesn&#39;t match a supported &quot;
 </pre></div>
 </div>
 </div>
@@ -281,9 +285,9 @@
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-08-31 02:41:00.863222: I tensorflow/core/platform/cpu_feature_guard.cc:152] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-11-23 01:36:13.919938: I tensorflow/core/platform/cpu_feature_guard.cc:194] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2022-08-31 02:41:01.391912: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30999 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+2022-11-23 01:36:14.444040: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1532] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30991 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
 </pre></div>
 </div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:The following Variables were used in a Lambda layer&#39;s call (tf.compat.v1.nn.embedding_lookup), but are not present in its tracked objects:   &lt;tf.Variable &#39;Variable:0&#39; shape=(50000, 16) dtype=float32&gt;. This is a strong indication that the Lambda layer should be rewritten as a subclassed Layer.
@@ -313,16 +317,16 @@ Total params: 23,553
 Trainable params: 23,553
 Non-trainable params: 0
 __________________________________________________________________________________________________
--------------------- Step 0, loss: 11092.1826171875 --------------------
--------------------- Step 1, loss: 8587.974609375 --------------------
--------------------- Step 2, loss: 6780.404296875 --------------------
--------------------- Step 3, loss: 5393.8896484375 --------------------
--------------------- Step 4, loss: 4023.296142578125 --------------------
--------------------- Step 5, loss: 2579.7099609375 --------------------
--------------------- Step 6, loss: 1797.363037109375 --------------------
--------------------- Step 7, loss: 1062.6259765625 --------------------
--------------------- Step 8, loss: 566.6324462890625 --------------------
--------------------- Step 9, loss: 221.4973602294922 --------------------
+-------------------- Step 0, loss: 10934.333984375 --------------------
+-------------------- Step 1, loss: 9218.0703125 --------------------
+-------------------- Step 2, loss: 7060.255859375 --------------------
+-------------------- Step 3, loss: 5094.876953125 --------------------
+-------------------- Step 4, loss: 3605.475830078125 --------------------
+-------------------- Step 5, loss: 2593.270751953125 --------------------
+-------------------- Step 6, loss: 1741.0677490234375 --------------------
+-------------------- Step 7, loss: 1045.5091552734375 --------------------
+-------------------- Step 8, loss: 541.4227905273438 --------------------
+-------------------- Step 9, loss: 242.8596649169922 --------------------
 Model: &quot;model_1&quot;
 __________________________________________________________________________________________________
  Layer (type)                   Output Shape         Param #     Connected to                     
@@ -346,8 +350,7 @@ ________________________________________________________________________________
 WARNING:tensorflow:Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-08-31 02:41:02.894935: W tensorflow/python/util/util.cc:368] Sets are not currently considered sequences, but this may change in the future, so consider avoiding using them.
-WARNING:absl:Function `_wrapped_model` contains input name(s) args_0 with unsupported characters which will be renamed to args_0_1 in the SavedModel.
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:absl:Function `_wrapped_model` contains input name(s) args_0 with unsupported characters which will be renamed to args_0_1 in the SavedModel.
 </pre></div>
 </div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: hps_tf_triton_dense.model/assets
@@ -371,7 +374,7 @@ WARNING:absl:Function `_wrapped_model` contains input name(s) args_0 with unsupp
     <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
     <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
         <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;hps_tf_triton&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/hugectr/hierarchical_parameter_server/notebooks/model_repo/hps_tf_triton/1/hps_tf_triton_sparse_0.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/hugectr/hierarchical_parameter_server/notebooks/model_repo/hps_tf_triton/hps_tf_triton_sparse_0.model&quot;</span><span class="p">],</span>
         <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
         <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
         <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span>
@@ -509,12 +512,12 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 </div>
 <div class="section" id="id1">
 <h2>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h2>
-<p>In order to deploy the inference SavedModel with the Triton TensorFlow backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
+<p>In order to deploy the inference SavedModel with the Triton TensorFlow backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first. Please note that some required portions (i.e., the input and output tensors) of the model configuration are generated automatically by Triton (see <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_configuration.md#auto-generated-model-configuration">Auto-Generated Model Configuration</a>), so you do NOT need to specify them explicitly in <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p model_repo/hps_tf_triton/1
 <span class="o">!</span>mv hps_tf_triton_tf_saved_model model_repo/hps_tf_triton/1/model.savedmodel
-<span class="o">!</span>mv hps_tf_triton_sparse_0.model model_repo/hps_tf_triton/1
+<span class="o">!</span>mv hps_tf_triton_sparse_0.model model_repo/hps_tf_triton
 <span class="o">!</span>mv hps_tf_triton.json model_repo/hps_tf_triton
 </pre></div>
 </div>
@@ -528,12 +531,12 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <span class="n">max_batch_size</span><span class="p">:</span><span class="mi">1024</span>
 <span class="nb">input</span> <span class="p">[</span>
   <span class="p">{</span>
-    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_1&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_6&quot;</span>
     <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_INT64</span>
     <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">]</span>
   <span class="p">},</span>
   <span class="p">{</span>
-    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_2&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_7&quot;</span>
     <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
     <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">]</span>
   <span class="p">}</span>
@@ -573,9 +576,6 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span><span class=" -Color -Color-Bold -Color-Bold-Blue">model_repo/hps_tf_triton</span>
 ├── <span class=" -Color -Color-Bold -Color-Bold-Blue">1</span>
-│   ├── <span class=" -Color -Color-Bold -Color-Bold-Blue">hps_tf_triton_sparse_0.model</span>
-│   │   ├── emb_vector
-│   │   └── key
 │   └── <span class=" -Color -Color-Bold -Color-Bold-Blue">model.savedmodel</span>
 │       ├── <span class=" -Color -Color-Bold -Color-Bold-Blue">assets</span>
 │       ├── keras_metadata.pb
@@ -584,7 +584,10 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 │           ├── variables.data-00000-of-00001
 │           └── variables.index
 ├── config.pbtxt
-└── hps_tf_triton.json
+├── hps_tf_triton.json
+└── <span class=" -Color -Color-Bold -Color-Bold-Blue">hps_tf_triton_sparse_0.model</span>
+    ├── emb_vector
+    └── key
 
 5 directories, 8 files
 </pre></div>
@@ -599,6 +602,18 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <p>We can then send the requests to the Triton inference server using the HTTP client. Please note that HPS will be initialized implicitly when the first request is processed at the server side, and the latency can be higher than that of later requests.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl localhost:8000/v2/models/hps_tf_triton/config
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&quot;name&quot;:&quot;hps_tf_triton&quot;,&quot;platform&quot;:&quot;tensorflow_savedmodel&quot;,&quot;backend&quot;:&quot;tensorflow&quot;,&quot;version_policy&quot;:{&quot;specific&quot;:{&quot;versions&quot;:[1]}},&quot;max_batch_size&quot;:1024,&quot;input&quot;:[{&quot;name&quot;:&quot;input_6&quot;,&quot;data_type&quot;:&quot;TYPE_INT64&quot;,&quot;format&quot;:&quot;FORMAT_NONE&quot;,&quot;dims&quot;:[5],&quot;is_shape_tensor&quot;:false,&quot;allow_ragged_batch&quot;:false,&quot;optional&quot;:false},{&quot;name&quot;:&quot;input_7&quot;,&quot;data_type&quot;:&quot;TYPE_FP32&quot;,&quot;format&quot;:&quot;FORMAT_NONE&quot;,&quot;dims&quot;:[10],&quot;is_shape_tensor&quot;:false,&quot;allow_ragged_batch&quot;:false,&quot;optional&quot;:false}],&quot;output&quot;:[{&quot;name&quot;:&quot;output_1&quot;,&quot;data_type&quot;:&quot;TYPE_FP32&quot;,&quot;dims&quot;:[1],&quot;label_filename&quot;:&quot;&quot;,&quot;is_shape_tensor&quot;:false}],&quot;batch_input&quot;:[],&quot;batch_output&quot;:[],&quot;optimization&quot;:{&quot;priority&quot;:&quot;PRIORITY_DEFAULT&quot;,&quot;input_pinned_memory&quot;:{&quot;enable&quot;:true},&quot;output_pinned_memory&quot;:{&quot;enable&quot;:true},&quot;gather_kernel_buffer_threshold&quot;:0,&quot;eager_batching&quot;:false},&quot;dynamic_batching&quot;:{&quot;preferred_batch_size&quot;:[1024],&quot;max_queue_delay_microseconds&quot;:0,&quot;preserve_ordering&quot;:false,&quot;priority_levels&quot;:0,&quot;default_priority_level&quot;:0,&quot;priority_queue_policy&quot;:{}},&quot;instance_group&quot;:[{&quot;name&quot;:&quot;hps_tf_triton_0&quot;,&quot;kind&quot;:&quot;KIND_GPU&quot;,&quot;count&quot;:1,&quot;gpus&quot;:[0],&quot;secondary_devices&quot;:[],&quot;profile&quot;:[],&quot;passive&quot;:false,&quot;host_policy&quot;:&quot;&quot;}],&quot;default_model_filename&quot;:&quot;model.savedmodel&quot;,&quot;cc_model_filenames&quot;:{},&quot;metric_tags&quot;:{},&quot;parameters&quot;:{},&quot;model_warmup&quot;:[]}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
 <span class="n">num_gpu</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_gpu</span><span class="p">)))</span>
@@ -607,43 +622,48 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <span class="kn">import</span> <span class="nn">tritonclient.http</span> <span class="k">as</span> <span class="nn">httpclient</span>
 <span class="kn">from</span> <span class="nn">tritonclient.utils</span> <span class="kn">import</span> <span class="o">*</span>
 
-<span class="n">triton_client</span> <span class="o">=</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">triton_client</span><span class="o">.</span><span class="n">is_server_live</span><span class="p">()</span>
-<span class="n">triton_client</span><span class="o">.</span><span class="n">get_model_repository_index</span><span class="p">()</span>
 
-<span class="n">num_requests</span> <span class="o">=</span> <span class="mi">5</span>
-<span class="n">num_samples</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="k">def</span> <span class="nf">send_inference_requests</span><span class="p">(</span><span class="n">num_requests</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">):</span>
+    <span class="n">triton_client</span> <span class="o">=</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">triton_client</span><span class="o">.</span><span class="n">is_server_live</span><span class="p">()</span>
+    <span class="n">triton_client</span><span class="o">.</span><span class="n">get_model_repository_index</span><span class="p">()</span>
 
-<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_requests</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------------Request </span><span class="si">{}</span><span class="s2">--------------------------&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
-    <span class="n">key_tensor</span><span class="p">,</span> <span class="n">dense_tensor</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_requests</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------------Request </span><span class="si">{}</span><span class="s2">--------------------------&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+        <span class="n">key_tensor</span><span class="p">,</span> <span class="n">dense_tensor</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
 
-    <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;input_1&quot;</span><span class="p">,</span> 
-                              <span class="n">key_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-                              <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)),</span>
-        <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;input_2&quot;</span><span class="p">,</span> 
-                              <span class="n">dense_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-                              <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)),</span>
-    <span class="p">]</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;input_6&quot;</span><span class="p">,</span> 
+                                  <span class="n">key_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                                  <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)),</span>
+            <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;input_7&quot;</span><span class="p">,</span> 
+                                  <span class="n">dense_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                                  <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)),</span>
+        <span class="p">]</span>
 
-    <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
-    <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">dense_tensor</span><span class="p">)</span>
-    <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">httpclient</span><span class="o">.</span><span class="n">InferRequestedOutput</span><span class="p">(</span><span class="s2">&quot;output_1&quot;</span><span class="p">)</span>
-    <span class="p">]</span>
+        <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
+        <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">dense_tensor</span><span class="p">)</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">httpclient</span><span class="o">.</span><span class="n">InferRequestedOutput</span><span class="p">(</span><span class="s2">&quot;output_1&quot;</span><span class="p">)</span>
+        <span class="p">]</span>
 
-    <span class="c1"># print(&quot;Input key tensor is \n{}&quot;.format(key_tensor))</span>
-    <span class="c1"># print(&quot;Input dense tensor is \n{}&quot;.format(dense_tensor))</span>
-    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;hps_tf_triton&quot;</span>
-    <span class="k">with</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span>
-                                <span class="n">inputs</span><span class="p">,</span>
-                                <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_response</span><span class="p">()</span>
+        <span class="c1"># print(&quot;Input key tensor is \n{}&quot;.format(key_tensor))</span>
+        <span class="c1"># print(&quot;Input dense tensor is \n{}&quot;.format(dense_tensor))</span>
+        <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;hps_tf_triton&quot;</span>
+        <span class="k">with</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span>
+                                    <span class="n">inputs</span><span class="p">,</span>
+                                    <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_response</span><span class="p">()</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prediction result:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">as_numpy</span><span class="p">(</span><span class="s2">&quot;output_1&quot;</span><span class="p">)))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Response details:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Response details:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">send_inference_requests</span><span class="p">(</span><span class="n">num_requests</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">128</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -655,105 +675,300 @@ POST /v2/repository/index, headers None
 &lt;HTTPSocketPoolResponse status=200 headers={&#39;content-type&#39;: &#39;application/json&#39;, &#39;content-length&#39;: &#39;56&#39;}&gt;
 bytearray(b&#39;[{&quot;name&quot;:&quot;hps_tf_triton&quot;,&quot;version&quot;:&quot;1&quot;,&quot;state&quot;:&quot;READY&quot;}]&#39;)
 --------------------------Request 0--------------------------
-Prediction result:
-[[102.5896  ]
- [109.57728 ]
- [105.14982 ]
- [112.536064]
- [115.500206]
- [122.54994 ]
- [118.42626 ]
- [116.46372 ]
- [109.31565 ]
- [123.4528  ]
- [106.171906]
- [108.97251 ]
- [ 92.7147  ]
- [ 92.135   ]
- [103.82919 ]
- [119.42267 ]]
 Response details:
-{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [16, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 64}}]}
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
 --------------------------Request 1--------------------------
-Prediction result:
-[[108.39017 ]
- [111.06535 ]
- [112.19471 ]
- [123.16409 ]
- [ 84.799545]
- [115.29873 ]
- [104.93053 ]
- [ 92.51399 ]
- [111.03866 ]
- [118.73721 ]
- [119.996704]
- [111.64917 ]
- [111.96098 ]
- [106.95992 ]
- [118.8165  ]
- [102.89214 ]]
 Response details:
-{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [16, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 64}}]}
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
 --------------------------Request 2--------------------------
-Prediction result:
-[[115.43975 ]
- [104.05401 ]
- [ 95.1138  ]
- [109.50248 ]
- [117.69166 ]
- [111.92008 ]
- [ 99.65907 ]
- [ 91.395035]
- [103.35495 ]
- [115.99719 ]
- [114.05845 ]
- [ 90.95559 ]
- [110.51797 ]
- [105.39578 ]
- [104.69898 ]
- [ 97.37328 ]]
 Response details:
-{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [16, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 64}}]}
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
 --------------------------Request 3--------------------------
-Prediction result:
-[[119.3963  ]
- [125.18664 ]
- [123.5703  ]
- [112.66611 ]
- [ 99.078514]
- [105.94452 ]
- [102.65439 ]
- [111.734314]
- [ 91.28878 ]
- [104.32374 ]
- [117.849236]
- [102.520256]
- [115.76198 ]
- [102.74941 ]
- [101.43743 ]
- [115.935295]]
 Response details:
-{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [16, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 64}}]}
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
 --------------------------Request 4--------------------------
-Prediction result:
-[[111.10583 ]
- [107.11977 ]
- [ 93.52705 ]
- [119.05332 ]
- [116.221054]
- [101.29974 ]
- [111.83873 ]
- [106.383804]
- [ 95.079666]
- [118.63491 ]
- [101.41594 ]
- [107.80403 ]
- [113.61658 ]
- [104.66516 ]
- [107.94727 ]
- [106.81342 ]]
 Response details:
-{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [16, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 64}}]}
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend">
+<h2>Deploy TF-TRT SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this headline"></a></h2>
+<p>We can leverage TF-TRT to optimize the above inference TF SavedModel. The <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code> will fall back to the TF ops while the TensorRT engine will be built to execute the dense network. The optimized TF-TRT SavedModel can still be deployed with Triton TensorFlow backend.</p>
+<p>The TF-TRT SavedModel is be placed in the folder <code class="docutils literal notranslate"><span class="pre">&quot;model_repo/hps_tf_triton/2/&quot;</span></code> and the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> file is updated correspondingly to load the version 2 of the inference model, i.e., the TF-TRT optimized one.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build TF-TRT SavedModel</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.compiler.tensorrt</span> <span class="kn">import</span> <span class="n">trt_convert</span> <span class="k">as</span> <span class="n">trt</span>
+
+<span class="n">ORIGINAL_MODEL_PATH</span> <span class="o">=</span> <span class="s2">&quot;model_repo/hps_tf_triton/1/model.savedmodel&quot;</span>
+<span class="n">NEW_MODEL_PATH</span> <span class="o">=</span> <span class="s2">&quot;model_repo/hps_tf_triton/2/model.savedmodel&quot;</span>
+
+<span class="c1"># Instantiate the TF-TRT converter</span>
+<span class="n">converter</span> <span class="o">=</span> <span class="n">trt</span><span class="o">.</span><span class="n">TrtGraphConverterV2</span><span class="p">(</span>
+   <span class="n">input_saved_model_dir</span><span class="o">=</span><span class="n">ORIGINAL_MODEL_PATH</span><span class="p">,</span>
+   <span class="n">precision_mode</span><span class="o">=</span><span class="n">trt</span><span class="o">.</span><span class="n">TrtPrecisionMode</span><span class="o">.</span><span class="n">FP32</span>
+<span class="p">)</span>
+
+<span class="c1"># Convert the model into TRT compatible segments</span>
+<span class="n">trt_func</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">()</span>
+<span class="n">converter</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+<span class="n">keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+<span class="n">keys</span>  <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+<span class="n">dense_features</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">dense_features</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">input_fn</span><span class="p">():</span>
+   <span class="k">yield</span> <span class="p">[</span><span class="n">keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">]</span>
+
+<span class="n">converter</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">input_fn</span><span class="o">=</span><span class="n">input_fn</span><span class="p">)</span>
+<span class="n">converter</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">output_saved_model_dir</span><span class="o">=</span><span class="n">NEW_MODEL_PATH</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Linked TensorRT version: (8, 4, 2)
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Linked TensorRT version: (8, 4, 2)
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Loaded TensorRT version: (8, 4, 2)
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Loaded TensorRT version: (8, 4, 2)
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Clearing prior device assignments in loaded saved model
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-11-23 01:37:22.924379: I tensorflow/core/grappler/devices.cc:66] Number of eligible GPUs (core count &gt;= 8, compute capability &gt;= 0.0): 1
+2022-11-23 01:37:22.924537: I tensorflow/core/grappler/clusters/single_machine.cc:358] Starting new session
+2022-11-23 01:37:22.928272: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1532] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30991 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+INFO:tensorflow:Clearing prior device assignments in loaded saved model
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Automatic mixed precision has been deactivated.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Automatic mixed precision has been deactivated.
+2022-11-23 01:37:23.028482: I tensorflow/core/grappler/devices.cc:66] Number of eligible GPUs (core count &gt;= 8, compute capability &gt;= 0.0): 1
+2022-11-23 01:37:23.028568: I tensorflow/core/grappler/clusters/single_machine.cc:358] Starting new session
+2022-11-23 01:37:23.031909: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1532] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30991 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+2022-11-23 01:37:23.048593: W tensorflow/compiler/tf2tensorrt/convert/trt_optimization_pass.cc:198] Calibration with FP32 or FP16 is not implemented. Falling back to use_calibration = False.Note that the default value of use_calibration is True.
+2022-11-23 01:37:23.049761: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:952] 
+
+################################################################################
+TensorRT unsupported/non-converted OP Report:
+	- NoOp -&gt; 2x
+	- Placeholder -&gt; 2x
+	- Identity -&gt; 1x
+	- Init -&gt; 1x
+	- Lookup -&gt; 1x
+	- Reshape -&gt; 1x
+--------------------------------------------------------------------------------
+	- Total nonconverted OPs: 8
+	- Total nonconverted OP Types: 6
+For more information see https://docs.nvidia.com/deeplearning/frameworks/tf-trt-user-guide/index.html#supported-ops.
+################################################################################
+
+2022-11-23 01:37:23.049860: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:1280] The environment variable TF_TRT_MAX_ALLOWED_ENGINES=20 has no effect since there are only 1 TRT Engines with  at least minimum_segment_size=3 nodes.
+2022-11-23 01:37:23.049893: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:799] Number of TensorRT candidate segments: 1
+2022-11-23 01:37:23.050667: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:916] Replaced segment 0 consisting of 9 nodes by TRTEngineOp_000_000.
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TRTEngineOP Name                 Device        # Nodes # Inputs      # Outputs     Input DTypes       Output Dtypes      Input Shapes       Output Shapes     
+================================================================================================================================================================
+TRTEngineOp_000_000              device:GPU:0  10      2             1             [&#39;float32&#39;, &#39;f ... [&#39;float32&#39;]        [[-1, 80], [-1 ... [[-1, 1]]         
+
+	- BiasAdd: 2x
+	- ConcatV2: 1x
+	- Const: 5x
+	- MatMul: 2x
+
+================================================================================================================================================================
+[*] Total number of TensorRT engines: 1
+[*] % of OPs Converted: 50.00% [10/20]
+
+=====================================================HPS Parse====================================================
+[HCTR][01:37:23.329][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][01:37:23.329][INFO][RK0][main]: num_of_refresher_buffer_in_pool is not specified using default: 1
+[HCTR][01:37:23.329][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][01:37:23.329][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][01:37:23.329][INFO][RK0][main]: refresh_interval is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][01:37:23.329][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][01:37:23.329][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][01:37:23.329][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][01:37:23.329][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][01:37:23.329][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][01:37:23.745][INFO][RK0][main]: Table: hps_et.hps_tf_triton.sparse_embedding1; cached 50000 / 50000 embeddings in volatile database (HashMapBackend); load: 50000 / 18446744073709551615 (0.00%).
+[HCTR][01:37:23.745][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][01:37:23.745][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][01:37:23.753][INFO][RK0][main]: Model name: hps_tf_triton
+[HCTR][01:37:23.753][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][01:37:23.753][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][01:37:23.753][INFO][RK0][main]: Use I64 input key: True
+[HCTR][01:37:23.753][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][01:37:23.753][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][01:37:23.753][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][01:37:23.753][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][01:37:23.753][INFO][RK0][main]: The refresh percentage : 0.200000
+[HCTR][01:37:23.778][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][01:37:23.814][INFO][RK0][main]: EC initialization for model: &quot;hps_tf_triton&quot;, num_tables: 1
+[HCTR][01:37:23.814][INFO][RK0][main]: EC initialization on device: 0
+[HCTR][01:37:23.815][INFO][RK0][main]: Creating lookup session for hps_tf_triton on device: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-11-23 01:37:23.818078: I tensorflow/compiler/tf2tensorrt/common/utils.cc:104] Linked TensorRT version: 8.4.2
+2022-11-23 01:37:23.818150: I tensorflow/compiler/tf2tensorrt/common/utils.cc:106] Loaded TensorRT version: 8.4.2
+2022-11-23 01:37:28.749149: I tensorflow/compiler/tf2tensorrt/convert/convert_nodes.cc:1275] [TF-TRT] Sparse compute capability is enabled.
+2022-11-23 01:37:28.814132: E tensorflow/compiler/tf2tensorrt/utils/trt_logger.cc:86] DefaultLogger 1: [wrapper.cpp::CublasWrapper::85] Error Code 1: Cublas (Could not initialize cublas. Please check CUDA installation.)
+2022-11-23 01:37:28.817575: W tensorflow/compiler/tf2tensorrt/kernels/trt_engine_op.cc:1061] TF-TRT Warning: Engine creation for TRTEngineOp_000_000 failed. The native segment will be used instead. Reason: INTERNAL: Failed to build TensorRT engine
+2022-11-23 01:37:28.817694: W tensorflow/compiler/tf2tensorrt/kernels/trt_engine_op.cc:894] TF-TRT Warning: Engine retrieval for input shapes: [[1024,80], [1024,10]] failed. Running native segment for TRTEngineOp_000_000
+2022-11-23 01:37:28.823806: W tensorflow/compiler/tf2tensorrt/kernels/trt_engine_op.cc:894] TF-TRT Warning: Engine retrieval for input shapes: [[1024,80], [1024,10]] failed. Running native segment for TRTEngineOp_000_000
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: model_repo/hps_tf_triton/2/model.savedmodel/assets
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: model_repo/hps_tf_triton/2/model.savedmodel/assets
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> model_repo/hps_tf_triton/config.pbtxt
+<span class="n">name</span><span class="p">:</span> <span class="s2">&quot;hps_tf_triton&quot;</span>
+<span class="n">platform</span><span class="p">:</span> <span class="s2">&quot;tensorflow_savedmodel&quot;</span>
+<span class="n">max_batch_size</span><span class="p">:</span><span class="mi">1024</span>
+<span class="nb">input</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_6&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_INT64</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input_7&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">output</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;output_1&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">version_policy</span><span class="p">:</span> <span class="p">{</span>
+        <span class="n">specific</span><span class="p">:{</span><span class="n">versions</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<span class="p">},</span>
+<span class="n">instance_group</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">count</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">kind</span> <span class="p">:</span> <span class="n">KIND_GPU</span>
+    <span class="n">gpus</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting model_repo/hps_tf_triton/config.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/hps_tf_triton
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span><span class=" -Color -Color-Bold -Color-Bold-Blue">model_repo/hps_tf_triton</span>
+├── <span class=" -Color -Color-Bold -Color-Bold-Blue">1</span>
+│   └── <span class=" -Color -Color-Bold -Color-Bold-Blue">model.savedmodel</span>
+│       ├── <span class=" -Color -Color-Bold -Color-Bold-Blue">assets</span>
+│       ├── keras_metadata.pb
+│       ├── saved_model.pb
+│       └── <span class=" -Color -Color-Bold -Color-Bold-Blue">variables</span>
+│           ├── variables.data-00000-of-00001
+│           └── variables.index
+├── <span class=" -Color -Color-Bold -Color-Bold-Blue">2</span>
+│   └── <span class=" -Color -Color-Bold -Color-Bold-Blue">model.savedmodel</span>
+│       ├── <span class=" -Color -Color-Bold -Color-Bold-Blue">assets</span>
+│       │   └── trt-serialized-engine.TRTEngineOp_000_000
+│       ├── saved_model.pb
+│       └── <span class=" -Color -Color-Bold -Color-Bold-Blue">variables</span>
+│           ├── variables.data-00000-of-00001
+│           └── variables.index
+├── config.pbtxt
+├── hps_tf_triton.json
+└── <span class=" -Color -Color-Bold -Color-Bold-Blue">hps_tf_triton_sparse_0.model</span>
+    ├── emb_vector
+    └── key
+
+9 directories, 12 files
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Release the occupied GPU memory by TensorFlow and Keras</span>
+<span class="kn">from</span> <span class="nn">numba</span> <span class="kn">import</span> <span class="n">cuda</span>
+<span class="n">cuda</span><span class="o">.</span><span class="n">select_device</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cuda</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can then launch the Triton inference server using the TensorFlow backend using the same command in the background. Please remember to kill the previous <code class="docutils literal notranslate"><span class="pre">tritonserver</span></code> process completely before launching it again. Otherwise, there could be out of memory errors.</p>
+<p>When the triton server is succesfully launched, we can then send the requests to it using the HTTP client again.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl localhost:8000/v2/models/hps_tf_triton/config
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&quot;name&quot;:&quot;hps_tf_triton&quot;,&quot;platform&quot;:&quot;tensorflow_savedmodel&quot;,&quot;backend&quot;:&quot;tensorflow&quot;,&quot;version_policy&quot;:{&quot;specific&quot;:{&quot;versions&quot;:[2]}},&quot;max_batch_size&quot;:1024,&quot;input&quot;:[{&quot;name&quot;:&quot;input_6&quot;,&quot;data_type&quot;:&quot;TYPE_INT64&quot;,&quot;format&quot;:&quot;FORMAT_NONE&quot;,&quot;dims&quot;:[5],&quot;is_shape_tensor&quot;:false,&quot;allow_ragged_batch&quot;:false,&quot;optional&quot;:false},{&quot;name&quot;:&quot;input_7&quot;,&quot;data_type&quot;:&quot;TYPE_FP32&quot;,&quot;format&quot;:&quot;FORMAT_NONE&quot;,&quot;dims&quot;:[10],&quot;is_shape_tensor&quot;:false,&quot;allow_ragged_batch&quot;:false,&quot;optional&quot;:false}],&quot;output&quot;:[{&quot;name&quot;:&quot;output_1&quot;,&quot;data_type&quot;:&quot;TYPE_FP32&quot;,&quot;dims&quot;:[1],&quot;label_filename&quot;:&quot;&quot;,&quot;is_shape_tensor&quot;:false}],&quot;batch_input&quot;:[],&quot;batch_output&quot;:[],&quot;optimization&quot;:{&quot;priority&quot;:&quot;PRIORITY_DEFAULT&quot;,&quot;input_pinned_memory&quot;:{&quot;enable&quot;:true},&quot;output_pinned_memory&quot;:{&quot;enable&quot;:true},&quot;gather_kernel_buffer_threshold&quot;:0,&quot;eager_batching&quot;:false},&quot;dynamic_batching&quot;:{&quot;preferred_batch_size&quot;:[1024],&quot;max_queue_delay_microseconds&quot;:0,&quot;preserve_ordering&quot;:false,&quot;priority_levels&quot;:0,&quot;default_priority_level&quot;:0,&quot;priority_queue_policy&quot;:{}},&quot;instance_group&quot;:[{&quot;name&quot;:&quot;hps_tf_triton_0&quot;,&quot;kind&quot;:&quot;KIND_GPU&quot;,&quot;count&quot;:1,&quot;gpus&quot;:[0],&quot;secondary_devices&quot;:[],&quot;profile&quot;:[],&quot;passive&quot;:false,&quot;host_policy&quot;:&quot;&quot;}],&quot;default_model_filename&quot;:&quot;model.savedmodel&quot;,&quot;cc_model_filenames&quot;:{},&quot;metric_tags&quot;:{},&quot;parameters&quot;:{},&quot;model_warmup&quot;:[]}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">send_inference_requests</span><span class="p">(</span><span class="n">num_requests</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">128</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>GET /v2/health/live, headers None
+&lt;HTTPSocketPoolResponse status=200 headers={&#39;content-length&#39;: &#39;0&#39;, &#39;content-type&#39;: &#39;text/plain&#39;}&gt;
+POST /v2/repository/index, headers None
+
+&lt;HTTPSocketPoolResponse status=200 headers={&#39;content-type&#39;: &#39;application/json&#39;, &#39;content-length&#39;: &#39;56&#39;}&gt;
+bytearray(b&#39;[{&quot;name&quot;:&quot;hps_tf_triton&quot;,&quot;version&quot;:&quot;2&quot;,&quot;state&quot;:&quot;READY&quot;}]&#39;)
+--------------------------Request 0--------------------------
+Response details:
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;2&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
+--------------------------Request 1--------------------------
+Response details:
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;2&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
+--------------------------Request 2--------------------------
+Response details:
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;2&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
+--------------------------Request 3--------------------------
+Response details:
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;2&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
+--------------------------Request 4--------------------------
+Response details:
+{&#39;model_name&#39;: &#39;hps_tf_triton&#39;, &#39;model_version&#39;: &#39;2&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output_1&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [128, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 512}}]}
 </pre></div>
 </div>
 </div>
