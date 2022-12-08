@@ -84,6 +84,17 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
     }
     OptHyperParams hyperparams;
     switch (embedding_opt_params->optimizer) {
+      case Optimizer_t::Ftrl: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "ftrl_hparam");
+        const float beta = get_value_from_json<float>(j_optimizer_hparam, "beta");
+        const float lambda1 = get_value_from_json<float>(j_optimizer_hparam, "lambda1");
+        const float lambda2 = get_value_from_json<float>(j_optimizer_hparam, "lambda2");
+        hyperparams.ftrl.beta = beta;
+        hyperparams.ftrl.lambda1 = lambda1;
+        hyperparams.ftrl.lambda2 = lambda2;
+        embedding_opt_params->hyperparams = hyperparams;
+      } break;
+
       case Optimizer_t::Adam: {
         auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
         auto beta1 = get_value_from_json<float>(j_optimizer_hparam, "beta1");
@@ -93,8 +104,8 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
         hyperparams.adam.beta2 = beta2;
         hyperparams.adam.epsilon = epsilon;
         embedding_opt_params->hyperparams = hyperparams;
-        break;
-      }
+      } break;
+
       case Optimizer_t::AdaGrad: {
         auto j_optimizer_hparam = get_json(j_optimizer, "adagrad_hparam");
         auto initial_accu_value =
@@ -103,29 +114,29 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
         hyperparams.adagrad.initial_accu_value = initial_accu_value;
         hyperparams.adagrad.epsilon = epsilon;
         embedding_opt_params->hyperparams = hyperparams;
-        break;
-      }
+      } break;
+
       case Optimizer_t::MomentumSGD: {
         auto j_optimizer_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
         auto factor = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
         hyperparams.momentum.factor = factor;
         embedding_opt_params->hyperparams = hyperparams;
-        break;
-      }
+      } break;
+
       case Optimizer_t::Nesterov: {
         auto j_optimizer_hparam = get_json(j_optimizer, "nesterov_hparam");
         auto mu = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
         hyperparams.nesterov.mu = mu;
         embedding_opt_params->hyperparams = hyperparams;
-        break;
-      }
+      } break;
+
       case Optimizer_t::SGD: {
         auto j_optimizer_hparam = get_json(j_optimizer, "sgd_hparam");
         auto atomic_update = get_value_from_json<bool>(j_optimizer_hparam, "atomic_update");
         hyperparams.sgd.atomic_update = atomic_update;
         embedding_opt_params->hyperparams = hyperparams;
-        break;
-      }
+      } break;
+
       default: {
         assert(!"Error: no such optimizer && should never get here!");
       }

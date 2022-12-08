@@ -35,11 +35,17 @@ __device__ __forceinline__ unsigned int GlobalThreadId() {
 
 class initializer {
   curandState *states_;
+  bool use_val_;
+  float val_;
 
  public:
-  initializer(curandState *states) : states_(states) {}
+  initializer(curandState *states, bool use_val, float val)
+      : states_(states), use_val_(use_val), val_(val) {}
 
   __device__ float operator()() const {
+    if (use_val_) {
+      return val_;
+    }
     float val = curand_uniform(states_ + GlobalThreadId());
     val = (val - 0.5) * 0.1;
     return val;

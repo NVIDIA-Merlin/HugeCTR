@@ -236,6 +236,10 @@ auto get_data_file = [](Optimizer_t opt_type) {
   std::vector<std::string> data_files;
   data_files.emplace_back("emb_vector");
   switch (opt_type) {
+    case Optimizer_t::Ftrl:
+      data_files.emplace_back("Ftrl.n");
+      data_files.emplace_back("Ftrl.z");
+      break;
     case Optimizer_t::Adam:
       data_files.emplace_back("Adam.m");
       data_files.emplace_back("Adam.v");

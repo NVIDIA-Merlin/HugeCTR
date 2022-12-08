@@ -244,7 +244,9 @@ static const std::map<std::string, AllReduceAlgo> ALLREDUCE_ALGO_MAP = {
     {"Oneshot", AllReduceAlgo::ONESHOT}, {"NCCL", AllReduceAlgo::NCCL}};
 
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
+    {"Ftrl", Optimizer_t::Ftrl},
     {"Adam", Optimizer_t::Adam},
+    {"RMSProp", Optimizer_t::RMSProp},
     {"AdaGrad", Optimizer_t::AdaGrad},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
     {"Nesterov", Optimizer_t::Nesterov},

@@ -1,9 +1,24 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
+#include <core/registry.hpp>
+#include <embedding_storage/embedding_table.hpp>
 #include <map>
-
-#include "HugeCTR/core/registry.hpp"
-#include "embedding_table.hpp"
+#include <mutex>
 
 namespace embedding {
 
@@ -12,12 +27,19 @@ using HugeCTR::CudaDeviceContext;
 class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
   std::shared_ptr<CoreResourceManager> core_;
   core::DataType key_type_;
+
+  mutable std::mutex write_mutex_;
+
   void *table_;
   std::map<size_t, size_t> global_to_local_id_space_map_;
   std::vector<size_t> dim_per_class_;
   std::vector<int> h_table_ids_;
 
   HugeCTR::OptParams opt_param_;
+  void *table_opt_states_;
+
+  std::unique_ptr<TensorList> opt_state_view_;
+  std::unique_ptr<TensorList> weight_view_;
 
  public:
   DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
@@ -74,4 +96,5 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
 
   void set_learning_rate(float lr) override { opt_param_.lr = lr; }
 };
+
 }  // namespace embedding

@@ -99,9 +99,9 @@ void test_embedding_table(int device_id, int table_type) {
   {
     HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
 
-    float** cpu_emb_vec = new float*[cpu_searched_key.size()];
+    std::vector<float*> cpu_emb_vec(cpu_searched_key.size());
 
-    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec, emb_vec.get<float>(),
+    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec.data(), emb_vec.get<float>(),
                               cpu_searched_key.size() * sizeof(void*), cudaMemcpyDeviceToHost));
 
     for (size_t idx = 0; idx < cpu_searched_id_space_offset.size() - 1; ++idx) {
@@ -111,8 +111,9 @@ void test_embedding_table(int device_id, int table_type) {
       int ev_size = table_param_list[id_space].ev_size;
 
       for (uint32_t i = start; i < end; ++i) {
-        float* ev = new float[ev_size];
-        cudaMemcpy(ev, cpu_emb_vec[i], ev_size * sizeof(float), cudaMemcpyDeviceToHost);
+        std::vector<float> ev(ev_size);
+        HCTR_LIB_THROW(
+            cudaMemcpy(ev.data(), cpu_emb_vec[i], ev_size * sizeof(float), cudaMemcpyDeviceToHost));
         std::cout << "key:" << cpu_searched_key[i] << ", ev:";
         for (int t = 0; t < ev_size; ++t) {
           std::cout << ev[t] << " ";

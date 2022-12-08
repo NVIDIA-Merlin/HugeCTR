@@ -22,11 +22,31 @@
 
 namespace HugeCTR {
 
+struct FtrlOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 2;
+
+  float beta = 0.0f;
+  float lambda1 = 0.0f;
+  float lambda2 = 0.0f;
+
+  bool operator==(const FtrlOptHyperParams& other) const {
+    return (beta == other.beta) && (lambda1 == other.lambda1) && (lambda2 == other.lambda2);
+  }
+
+  bool operator!=(const FtrlOptHyperParams& other) const { return !(*this == other); }
+};
+
 struct AdamOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 2;
+
   uint64_t times = 0;
   float beta1 = 0.9f;
   float beta2 = 0.999f;
   float epsilon = 1e-7f;
+
+  inline float bias() const {
+    return std::sqrt(1 - std::pow(beta2, times)) / (1 - std::pow(beta1, times));
+  }
 
   bool operator==(const AdamOptHyperParams& other) const {
     return (times == other.times) && (beta1 == other.beta1) && (beta2 == other.beta2) &&
@@ -36,18 +56,35 @@ struct AdamOptHyperParams {
   bool operator!=(const AdamOptHyperParams& other) const { return !(*this == other); }
 };
 
-struct AdaGradParams {
+struct RMSPropOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 1;
+
+  float beta = 0.9f;
+  float epsilon = 1e-7f;
+
+  bool operator==(const RMSPropOptHyperParams& other) const {
+    return (beta == other.beta) && (epsilon == other.epsilon);
+  }
+
+  bool operator!=(const RMSPropOptHyperParams& other) const { return !(*this == other); }
+};
+
+struct AdaGradOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 1;
+
   float initial_accu_value = 0.f;
   float epsilon = 1e-7f;
 
-  bool operator==(const AdaGradParams& other) const {
+  bool operator==(const AdaGradOptHyperParams& other) const {
     return (initial_accu_value == other.initial_accu_value) && (epsilon == other.epsilon);
   }
 
-  bool operator!=(const AdaGradParams& other) const { return !(*this == other); }
+  bool operator!=(const AdaGradOptHyperParams& other) const { return !(*this == other); }
 };
 
 struct MomentumSGDOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 1;
+
   float factor = 0.1f;
 
   bool operator==(const MomentumSGDOptHyperParams& other) const { return (factor == other.factor); }
@@ -56,6 +93,8 @@ struct MomentumSGDOptHyperParams {
 };
 
 struct NesterovOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 1;
+
   float mu = 0.9f;
 
   bool operator==(const NesterovOptHyperParams& other) const { return (mu == other.mu); }
@@ -64,6 +103,8 @@ struct NesterovOptHyperParams {
 };
 
 struct SGDOptHyperParams {
+  static constexpr size_t num_parameters_per_weight = 0;
+
   bool atomic_update = false;
 
   bool operator==(const SGDOptHyperParams& other) const {
@@ -75,15 +116,18 @@ struct SGDOptHyperParams {
 
 // TODO: use union type should be better ???
 struct OptHyperParams {
+  FtrlOptHyperParams ftrl;
   AdamOptHyperParams adam;
+  RMSPropOptHyperParams rmsprop;
+  AdaGradOptHyperParams adagrad;
   MomentumSGDOptHyperParams momentum;
   NesterovOptHyperParams nesterov;
   SGDOptHyperParams sgd;
-  AdaGradParams adagrad;
 
   bool operator==(const OptHyperParams& other) const {
-    return (adam == other.adam) && (momentum == other.momentum) && (nesterov == other.nesterov) &&
-           (sgd == other.sgd) && (adagrad == other.adagrad);
+    return (ftrl == other.ftrl) && (adam == other.adam) && (rmsprop == other.rmsprop) &&
+           (adagrad == other.adagrad) && (momentum == other.momentum) &&
+           (nesterov == other.nesterov) && (sgd == other.sgd);
   }
 
   bool operator!=(const OptHyperParams& other) const { return !(*this == other); }
@@ -98,6 +142,30 @@ struct OptParams {
   Update_t update_type;
   float scaler;
 
+  inline static size_t num_parameters_per_weight(Optimizer_t opt_type) {
+    switch (opt_type) {
+      case Optimizer_t::Ftrl:
+        return FtrlOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::Adam:
+        return AdamOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::RMSProp:
+        return RMSPropOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::AdaGrad:
+        return AdaGradOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::MomentumSGD:
+        return MomentumSGDOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::Nesterov:
+        return NesterovOptHyperParams::num_parameters_per_weight;
+      case Optimizer_t::SGD:
+        return SGDOptHyperParams::num_parameters_per_weight;
+      default:
+        HCTR_OWN_THROW(Error_t::NotInitialized, "OptParams not correctly initialized.");
+        return 0;
+    }
+  }
+
+  inline size_t num_parameters_per_weight() const { return num_parameters_per_weight(optimizer); }
+
   bool operator==(const OptParams& other) const {
     return (optimizer == other.optimizer) && (lr == other.lr) &&
            (hyperparams == other.hyperparams) && (update_type == other.update_type) &&
@@ -107,15 +175,15 @@ struct OptParams {
   bool operator!=(const OptParams& other) const { return !(*this == other); }
 };
 
-//
 class OptParamsPy {
  public:
   Optimizer_t optimizer;
   Update_t update_type;
   OptHyperParams hyperparams;
   bool initialized;
-  OptParamsPy(Optimizer_t optimizer_type, Update_t update_t, OptHyperParams opt_hyper_params);
+
   OptParamsPy();
+  OptParamsPy(Optimizer_t optimizer_type, Update_t update_t, OptHyperParams opt_hyper_params);
 };
 
 /**
@@ -201,6 +269,8 @@ class Optimizer {
 struct SparseEmbeddingHashParams;
 template <typename TypeEmbeddingComp>
 struct OptimizerTensor {
+  Tensor2<TypeEmbeddingComp> opt_z_tensors_;  // FTRL z variable.
+  Tensor2<TypeEmbeddingComp> opt_n_tensors_;  // FTRL n variable.
   Tensor2<TypeEmbeddingComp>
       opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
   Tensor2<TypeEmbeddingComp>

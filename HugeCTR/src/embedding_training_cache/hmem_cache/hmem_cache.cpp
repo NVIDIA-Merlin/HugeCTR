@@ -17,6 +17,7 @@
 #include <omp.h>
 #include <tqdm.h>
 
+#include <HugeCTR/include/optimizer.hpp>
 #include <cstddef>
 #include <embedding_training_cache/hmem_cache/hmem_cache.hpp>
 #include <execution>
@@ -59,7 +60,7 @@ HMemCache<TypeKey>::HMemCache(size_t num_cached_pass, double target_hit_rate, si
       block_capacity_{max_vocabulary_size},
       use_slot_id_{use_slot_id},
       emb_vec_size_{emb_vec_size},
-      vec_per_line_{vec_per_line[opt_type]},
+      vec_per_line_{1 + OptParams::num_parameters_per_weight(opt_type)},
       resource_manager_{resource_manager},
       sparse_model_file_ptr_(std::make_shared<SparseModelFileTS<TypeKey>>(
           sparse_model_file, local_path, use_slot_id, opt_type, emb_vec_size, resource_manager)) {

@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include "HugeCTR/core/registry.hpp"
-#include "embedding_table.hpp"
+
+#include <core/registry.hpp>
+#include <embedding_storage/embedding_table.hpp>
+
 namespace embedding {
 using HugeCTR::CudaDeviceContext;
 
@@ -91,4 +93,5 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
 
   void set_learning_rate(float lr) override { opt_param_.lr = lr; }
 };
+
 }  // namespace embedding

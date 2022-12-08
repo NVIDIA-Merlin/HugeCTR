@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <random>
 
 #include "dynamic_embedding_table.hpp"
@@ -31,10 +30,12 @@ namespace det {
 template <typename KeyType, typename ValueType>
 DynamicEmbeddingTable<KeyType, ValueType>::DynamicEmbeddingTable(size_t num_classes,
                                                                  size_t const *dimension_per_class,
+                                                                 std::string initializer,
                                                                  size_t initial_capacity)
     : initial_capacity_(initial_capacity),
       num_classes_(num_classes),
-      dimension_per_class_(dimension_per_class, dimension_per_class + num_classes) {}
+      dimension_per_class_(dimension_per_class, dimension_per_class + num_classes),
+      initializer_(initializer) {}
 
 template <typename KeyType, typename ValueType>
 void DynamicEmbeddingTable<KeyType, ValueType>::initialize(cudaStream_t stream) {
@@ -65,8 +66,29 @@ void DynamicEmbeddingTable<KeyType, ValueType>::initialize(cudaStream_t stream) 
   CUCO_CUDA_TRY(cudaEventCreate(&primary_event_));
 
   for (size_t i = 0; i < num_classes_; i++) {
+    bool use_const_initializer = false;
+    float initial_val = 0.0;
+    if (initializer_ != "") {
+      if (initializer_ == "ones") {
+        use_const_initializer = true;
+        initial_val = 1.0;
+      } else if (initializer_ == "zeros") {
+        use_const_initializer = true;
+        initial_val = 0.0;
+      } else {
+        try {
+          initial_val = std::stof(initializer_);
+          use_const_initializer = true;
+        } catch (std::invalid_argument &err) {
+          std::cout << "Using random initializer." << std::endl;
+          use_const_initializer = false;
+          initial_val = 0.0;
+        }
+      }
+    }
     auto map = std::make_unique<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>>(
-        dimension_per_class_[i], initial_capacity_, cuco::initializer(curand_states_));
+        dimension_per_class_[i], initial_capacity_,
+        cuco::initializer(curand_states_, use_const_initializer, initial_val));
     map->initialize(stream);
     maps_.push_back(std::move(map));
   }
@@ -99,6 +121,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::lookup(
     KeyType const *keys, ElementType *output_elements, size_t num_keys, size_t const *id_spaces,
     size_t const *id_space_offsets, size_t num_id_spaces, cudaStream_t stream) {
   CUCO_CUDA_TRY(cudaEventRecord(primary_event_, stream));
+
   for (size_t i = 0; i < num_id_spaces; ++i) {
     size_t id_space = id_spaces[i];
     size_t id_space_offset = id_space_offsets[i];
@@ -116,6 +139,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::lookup(
   for (size_t i = 0; i < num_classes_; ++i) {
     CUCO_CUDA_TRY(cudaStreamWaitEvent(stream, event_per_class_[i]));
   }
+
   CUCO_CUDA_TRY(cudaGetLastError());
 }
 
@@ -124,6 +148,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::lookup_unsafe(
     KeyType const *keys, ElementType **output_elements, size_t num_keys, size_t const *id_spaces,
     size_t const *id_space_offsets, size_t num_id_spaces, cudaStream_t stream) {
   CUCO_CUDA_TRY(cudaEventRecord(primary_event_, stream));
+
   for (size_t i = 0; i < num_id_spaces; ++i) {
     size_t id_space = id_spaces[i];
     size_t id_space_offset = id_space_offsets[i];
@@ -141,6 +166,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::lookup_unsafe(
   for (size_t i = 0; i < num_classes_; ++i) {
     CUCO_CUDA_TRY(cudaStreamWaitEvent(stream, event_per_class_[i]));
   }
+
   CUCO_CUDA_TRY(cudaGetLastError());
 }
 
@@ -150,6 +176,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::scatter_add(
     size_t const *id_spaces, size_t const *id_space_offsets, size_t num_id_spaces,
     cudaStream_t stream) {
   CUCO_CUDA_TRY(cudaEventRecord(primary_event_, stream));
+
   size_t update_offset = 0;
   for (size_t i = 0; i < num_id_spaces; ++i) {
     size_t id_space = id_spaces[i];
@@ -168,6 +195,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::scatter_add(
   for (size_t i = 0; i < num_classes_; ++i) {
     CUCO_CUDA_TRY(cudaStreamWaitEvent(stream, event_per_class_[i]));
   }
+
   CUCO_CUDA_TRY(cudaGetLastError());
 }
 
@@ -223,6 +251,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::remove(KeyType const *keys, si
                                                          size_t num_id_spaces,
                                                          cudaStream_t stream) {
   CUCO_CUDA_TRY(cudaEventRecord(primary_event_, stream));
+
   for (size_t i = 0; i < num_id_spaces; ++i) {
     size_t id_space = id_spaces[i];
     size_t id_space_offset = id_space_offsets[i];
@@ -238,6 +267,7 @@ void DynamicEmbeddingTable<KeyType, ElementType>::remove(KeyType const *keys, si
   for (size_t i = 0; i < num_classes_; ++i) {
     CUCO_CUDA_TRY(cudaStreamWaitEvent(stream, event_per_class_[i]));
   }
+
   CUCO_CUDA_TRY(cudaGetLastError());
 }
 

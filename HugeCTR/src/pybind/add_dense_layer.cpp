@@ -158,15 +158,23 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
             : (embedding_opt_params_list[i]->update_type == Update_t::Local ? "Local"
                                                                             : "LazyGlobal");
     switch (embedding_opt_params_list[i]->optimizer) {
-      case Optimizer_t::Adam: {
+      case Optimizer_t::Ftrl:
+        optimizer_config["type"] = "Ftrl";
+        optimizer_hparam_config["beta"] = embedding_opt_params_list[i]->hyperparams.ftrl.beta;
+        optimizer_hparam_config["lambda1"] = embedding_opt_params_list[i]->hyperparams.ftrl.lambda1;
+        optimizer_hparam_config["lambda2"] = embedding_opt_params_list[i]->hyperparams.ftrl.lambda2;
+        optimizer_config["ftrl_hparam"] = optimizer_hparam_config;
+        break;
+
+      case Optimizer_t::Adam:
         optimizer_config["type"] = "Adam";
         optimizer_hparam_config["beta1"] = embedding_opt_params_list[i]->hyperparams.adam.beta1;
         optimizer_hparam_config["beta2"] = embedding_opt_params_list[i]->hyperparams.adam.beta2;
         optimizer_hparam_config["epsilon"] = embedding_opt_params_list[i]->hyperparams.adam.epsilon;
         optimizer_config["adam_hparam"] = optimizer_hparam_config;
         break;
-      }
-      case Optimizer_t::AdaGrad: {
+
+      case Optimizer_t::AdaGrad:
         optimizer_config["type"] = "AdaGrad";
         optimizer_hparam_config["initial_accu_value"] =
             embedding_opt_params_list[i]->hyperparams.adagrad.initial_accu_value;
@@ -174,28 +182,28 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
             embedding_opt_params_list[i]->hyperparams.adagrad.epsilon;
         optimizer_config["adagrad_hparam"] = optimizer_hparam_config;
         break;
-      }
-      case Optimizer_t::MomentumSGD: {
+
+      case Optimizer_t::MomentumSGD:
         optimizer_config["type"] = "MomentumSGD";
         optimizer_hparam_config["momentum_factor"] =
             embedding_opt_params_list[i]->hyperparams.momentum.factor;
         optimizer_config["momentum_sgd_hparam"] = optimizer_hparam_config;
         break;
-      }
-      case Optimizer_t::Nesterov: {
+
+      case Optimizer_t::Nesterov:
         optimizer_config["type"] = "Nesterov";
         optimizer_hparam_config["momentum_factor"] =
             embedding_opt_params_list[i]->hyperparams.nesterov.mu;
         optimizer_config["nesterov_hparam"] = optimizer_hparam_config;
         break;
-      }
-      case Optimizer_t::SGD: {
+
+      case Optimizer_t::SGD:
         optimizer_config["type"] = "SGD";
         optimizer_hparam_config["atomic_update"] =
             embedding_opt_params_list[i]->hyperparams.sgd.atomic_update;
         optimizer_config["sgd_hparam"] = optimizer_hparam_config;
         break;
-      }
+
       default: {
         assert(!"Error: no such optimizer && should never get here!");
       }

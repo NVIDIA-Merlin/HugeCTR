@@ -17,17 +17,31 @@
 namespace cuco {
 
 template <typename Key, typename Element, typename Initializer>
-static_map<Key, Element, Initializer>::static_map(uint32_t dimension, size_t capacity, atomic_ctr_type *occupied_size, atomic_ctr_type *reclaimed_size, atomic_ctr_type *h_occupied_size, atomic_ctr_type *h_reclaimed_size, Initializer initializer)
-    : dimension_(dimension), capacity_(capacity), occupied_size_(occupied_size), reclaimed_size_(reclaimed_size), h_occupied_size_(h_occupied_size), h_reclaimed_size_(h_reclaimed_size), initializer_(initializer) {}
+static_map<Key, Element, Initializer>::static_map(uint32_t dimension, size_t capacity,
+                                                  atomic_ctr_type *occupied_size,
+                                                  atomic_ctr_type *reclaimed_size,
+                                                  atomic_ctr_type *h_occupied_size,
+                                                  atomic_ctr_type *h_reclaimed_size,
+                                                  Initializer initializer)
+    : dimension_(dimension),
+      capacity_(capacity),
+      occupied_size_(occupied_size),
+      reclaimed_size_(reclaimed_size),
+      h_occupied_size_(h_occupied_size),
+      h_reclaimed_size_(h_reclaimed_size),
+      initializer_(initializer) {}
 
 template <typename Key, typename Element, typename Initializer>
 void static_map<Key, Element, Initializer>::initialize(cudaStream_t stream) {
-  printf("static_map allocated, size=%zu\n", (sizeof(pair_atomic_type) + sizeof(element_type) * dimension_) * capacity_);
+  printf("static_map allocated, size=%zu\n",
+         (sizeof(pair_atomic_type) + sizeof(element_type) * dimension_) * capacity_);
   CUCO_CUDA_TRY(cudaMallocAsync(&slots_, sizeof(pair_atomic_type) * capacity_, stream));
   CUCO_CUDA_TRY(cudaMallocAsync(&elements_, sizeof(element_type) * dimension_ * capacity_, stream));
   auto constexpr block_size = 1024;
   auto const grid_size = (capacity_ + block_size - 1) / block_size;
-  detail::initialize<atomic_key_type, element_type, lock_type><<<grid_size, block_size, 0, stream>>>(slots_, elements_, empty_key_sentinel, dimension_, capacity_);
+  detail::initialize<atomic_key_type, element_type, lock_type>
+      <<<grid_size, block_size, 0, stream>>>(slots_, elements_, empty_key_sentinel, dimension_,
+                                             capacity_);
 }
 
 template <typename Key, typename Element, typename Initializer>
@@ -37,15 +51,17 @@ void static_map<Key, Element, Initializer>::uninitialize(cudaStream_t stream) {
 }
 
 template <typename Key, typename Element, typename Initializer>
-__device__ insert_result static_map<Key, Element, Initializer>::device_mutable_view::try_occupy(iterator current_slot, key_type const &key) noexcept {
-
+__device__ insert_result static_map<Key, Element, Initializer>::device_mutable_view::try_occupy(
+    iterator current_slot, key_type const &key) noexcept {
   auto expected_key = this->get_empty_key_sentinel();
-  if (current_slot.key().compare_exchange_strong(expected_key, key, cuda::std::memory_order_relaxed)) {
+  if (current_slot.key().compare_exchange_strong(expected_key, key,
+                                                 cuda::std::memory_order_relaxed)) {
     return insert_result::OCCUPIED_EMPTY;
   }
 
   if (expected_key == this->get_reclaimed_key_sentinel()) {
-    if (current_slot.key().compare_exchange_strong(expected_key, key, cuda::std::memory_order_relaxed)) {
+    if (current_slot.key().compare_exchange_strong(expected_key, key,
+                                                   cuda::std::memory_order_relaxed)) {
       return insert_result::OCCUPIED_RECLAIMED;
     }
   }
@@ -60,7 +76,9 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
-__device__ insert_result static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(CG const &g, pair_type const &lookup_or_insert_pair, Hash hash) noexcept {
+__device__ insert_result
+static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
+    CG const &g, pair_type const &lookup_or_insert_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, lookup_or_insert_pair.first, hash);
 
   while (true) {
@@ -77,9 +95,11 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
       return insert_result::DUPLICATE;
     }
 
-    auto const window_contains_empty = g.ballot(existing_key == this->get_empty_key_sentinel() || existing_key == this->get_reclaimed_key_sentinel());
+    auto const window_contains_empty = g.ballot(existing_key == this->get_empty_key_sentinel() ||
+                                                existing_key == this->get_reclaimed_key_sentinel());
 
-    // we found an empty slot, but not the key we are inserting, so this must be an empty slot into which we can insert the key
+    // we found an empty slot, but not the key we are inserting, so this must be an empty slot into
+    // which we can insert the key
     if (window_contains_empty) {
       // the first lane in the group with an empty slot will attempt the insert
       insert_result status{insert_result::CONTINUE};
@@ -93,7 +113,8 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
 
       if (status == insert_result::OCCUPIED_EMPTY || status == insert_result::OCCUPIED_RECLAIMED) {
         auto const value = g.shfl(current_slot.value(), src_lane);
-        detail::init_and_copy_array(g, this->get_dimension(), value, lookup_or_insert_pair.second, this->get_initializer());
+        detail::init_and_copy_array(g, this->get_dimension(), value, lookup_or_insert_pair.second,
+                                    this->get_initializer());
         current_slot.lock().release(g, src_lane);
       } else if (status == insert_result::DUPLICATE) {
         auto const value = g.shfl(current_slot.value(), src_lane);
@@ -106,7 +127,8 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
       if (status != insert_result::CONTINUE) {
         return status;
       }
-      // if we've gotten this far, a different key took our spot before we could insert. We need to retry the insert on the same window
+      // if we've gotten this far, a different key took our spot before we could insert. We need to
+      // retry the insert on the same window
     }
     // if there are no empty slots in the current window, we move onto the next window
     else {
@@ -117,7 +139,9 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
-__device__ auto static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert_unsafe(CG const &g, key_type const &lookup_or_insert_key, Hash hash) noexcept -> std::pair<element_type*, insert_result> {
+__device__ auto static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert_unsafe(
+    CG const &g, key_type const &lookup_or_insert_key, Hash hash) noexcept
+    -> std::pair<element_type *, insert_result> {
   auto current_slot = initial_slot(g, lookup_or_insert_key, hash);
 
   while (true) {
@@ -131,9 +155,11 @@ __device__ auto static_map<Key, Element, Initializer>::device_mutable_view::look
       return {value, insert_result::DUPLICATE};
     }
 
-    auto const window_contains_empty = g.ballot(existing_key == this->get_empty_key_sentinel() || existing_key == this->get_reclaimed_key_sentinel());
+    auto const window_contains_empty = g.ballot(existing_key == this->get_empty_key_sentinel() ||
+                                                existing_key == this->get_reclaimed_key_sentinel());
 
-    // we found an empty slot, but not the key we are inserting, so this must be an empty slot into which we can insert the key
+    // we found an empty slot, but not the key we are inserting, so this must be an empty slot into
+    // which we can insert the key
     if (window_contains_empty) {
       // the first lane in the group with an empty slot will attempt the insert
       insert_result status{insert_result::CONTINUE};
@@ -145,7 +171,7 @@ __device__ auto static_map<Key, Element, Initializer>::device_mutable_view::look
 
       status = g.shfl(status, src_lane);
 
-      element_type* insert_ptr = nullptr;
+      element_type *insert_ptr = nullptr;
       if (status == insert_result::OCCUPIED_EMPTY || status == insert_result::OCCUPIED_RECLAIMED) {
         auto const value = g.shfl(current_slot.value(), src_lane);
         detail::init_array(g, this->get_dimension(), value, this->get_initializer());
@@ -161,7 +187,8 @@ __device__ auto static_map<Key, Element, Initializer>::device_mutable_view::look
         assert(insert_ptr != nullptr);
         return {insert_ptr, status};
       }
-      // if we've gotten this far, a different key took our spot before we could insert. We need to retry the insert on the same window
+      // if we've gotten this far, a different key took our spot before we could insert. We need to
+      // retry the insert on the same window
     }
     // if there are no empty slots in the current window, we move onto the next window
     else {
@@ -172,13 +199,15 @@ __device__ auto static_map<Key, Element, Initializer>::device_mutable_view::look
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(CG g, const_pair_type const &add_pair, Hash hash) noexcept {
+__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(
+    CG g, const_pair_type const &add_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, add_pair.first, hash);
 
   while (true) {
     auto const existing_key = current_slot.key().load(cuda::std::memory_order_relaxed);
 
-    // the key we were searching for was found by one of the threads, so we return an iterator to the entry
+    // the key we were searching for was found by one of the threads, so we return an iterator to
+    // the entry
     auto const exists = g.ballot(existing_key == add_pair.first);
     if (exists) {
       auto const src_lane = __ffs(exists) - 1;
@@ -194,7 +223,8 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(
       return false;
     }
 
-    // otherwise, all slots in the current window are full with other keys, so we move onto the next window
+    // otherwise, all slots in the current window are full with other keys, so we move onto the next
+    // window
     current_slot = next_slot(g, current_slot);
   }
 }
@@ -218,12 +248,12 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::upda
       detail::update_array(g, this->get_dimension(), value, add_pair.second);
       current_slot.lock().release(g, src_lane);
       return true;
-    }   
+    }
 
     // we found an empty slot, meaning that the key we're searching for isn't present
     if (g.any(existing_key == this->get_empty_key_sentinel())) {
       return false;
-    }   
+    }
 
     // otherwise, all slots in the current window are full with other keys, so we move onto the next
     // window
@@ -233,13 +263,15 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::upda
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_view::lookup(CG g, pair_type const &lookup_pair, Hash hash) const noexcept {
+__device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
+    CG g, pair_type const &lookup_pair, Hash hash) const noexcept {
   auto current_slot = initial_slot(g, lookup_pair.first, hash);
 
   while (true) {
     auto const existing_key = current_slot.key().load(cuda::std::memory_order_relaxed);
 
-    // the key we were searching for was found by one of the threads, so we return an iterator to the entry
+    // the key we were searching for was found by one of the threads, so we return an iterator to
+    // the entry
     auto const exists = g.ballot(existing_key == lookup_pair.first);
     if (exists) {
       auto const src_lane = __ffs(exists) - 1;
@@ -250,19 +282,22 @@ __device__ bool static_map<Key, Element, Initializer>::device_view::lookup(CG g,
       return true;
     }
 
-    // we found an empty slot, meaning that the key we're searching for isn't in this submap, so we should move onto the next one
+    // we found an empty slot, meaning that the key we're searching for isn't in this submap, so we
+    // should move onto the next one
     if (g.any(existing_key == this->get_empty_key_sentinel())) {
       return false;
     }
 
-    // otherwise, all slots in the current window are full with other keys, so we move onto the next window in the current submap
+    // otherwise, all slots in the current window are full with other keys, so we move onto the next
+    // window in the current submap
     current_slot = next_slot(g, current_slot);
   }
 }
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG, typename Hash>
-__device__ auto static_map<Key, Element, Initializer>::device_view::lookup_unsafe(CG g, key_type const &lookup_key, Hash hash) const noexcept -> element_type* {
+__device__ auto static_map<Key, Element, Initializer>::device_view::lookup_unsafe(
+    CG g, key_type const &lookup_key, Hash hash) const noexcept -> element_type * {
   auto current_slot = initial_slot(g, lookup_key, hash);
 
   while (true) {
@@ -324,10 +359,11 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::try_
 
 template <typename Key, typename Element, typename Initializer>
 template <typename CG>
-__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::clear(CG const &g) noexcept {
+__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::clear(
+    CG const &g) noexcept {
   const auto k = this->get_empty_key_sentinel();
   const auto tid = g.thread_rank();
-  
+
   for (int i = tid; i < this->get_capacity(); i += g.size()) {
     iterator slot = this->at(i);
     slot.key().store(k, cuda::std::memory_order_relaxed);
@@ -335,4 +371,4 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::clea
   }
 }
 
-} // namespace cuco
+}  // namespace cuco

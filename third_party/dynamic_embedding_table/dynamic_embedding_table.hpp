@@ -17,6 +17,7 @@
 #pragma once
 #include <cuco/dynamic_map.cuh>
 #include <cuco/initializer.cuh>
+#include <string>
 
 namespace det {
 
@@ -30,12 +31,13 @@ class DynamicEmbeddingTable {
   std::vector<cudaStream_t> stream_per_class_;
   std::vector<cudaEvent_t> event_per_class_;
   cudaEvent_t primary_event_;
+  std::string initializer_;
 
   void reserve(size_t n);
 
  public:
   DynamicEmbeddingTable(size_t num_classes, size_t const *dimension_per_class,
-                        size_t initial_capacity_for_class = 1048576);
+                        std::string initializer = "", size_t initial_capacity_for_class = 1048576);
   ~DynamicEmbeddingTable() {}
 
   void initialize(cudaStream_t stream = 0);
