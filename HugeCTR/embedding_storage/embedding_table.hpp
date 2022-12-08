@@ -15,9 +15,10 @@
  */
 #pragma once
 
-#include "HugeCTR/embedding/embedding_table.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
-#include "common.hpp"
+#include <embedding/embedding_table.hpp>
+#include <embedding_storage/common.hpp>
+#include <resource_manager.hpp>
+
 namespace embedding {
 
 // per gpu object
@@ -76,4 +77,5 @@ std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_ta
     std::shared_ptr<CoreResourceManager> core,
     const EmbeddingCollectionParam &embedding_collection_param,
     const std::vector<EmbeddingTableParam> &emb_table_param_list);
+
 }  // namespace embedding

@@ -253,26 +253,11 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
 }
 
 void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
-  size_t num_opt_state_copies = 0;
-  switch (embedding_opt_params->optimizer) {
-    case Optimizer_t::Adam: {
-      num_opt_state_copies = 2;
-      if (embedding_opt_params->update_type == Update_t::LazyGlobal) {
-        num_opt_state_copies += 1;
-      }
-      break;
-    }
-    case Optimizer_t::AdaGrad:
-    case Optimizer_t::MomentumSGD:
-    case Optimizer_t::Nesterov: {
-      num_opt_state_copies = 1;
-      break;
-    }
-    case Optimizer_t::SGD:
-      break;
-    default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  size_t num_opt_state_copies =
+      OptParams::num_parameters_per_weight(embedding_opt_params->optimizer);
+  if (embedding_opt_params->optimizer == Optimizer_t::Adam &&
+      embedding_opt_params->update_type == Update_t::LazyGlobal) {
+    num_opt_state_copies += 1;
   }
 
   max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) /

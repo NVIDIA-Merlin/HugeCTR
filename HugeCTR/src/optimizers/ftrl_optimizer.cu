@@ -15,7 +15,7 @@
  */
 
 #include <general_buffer2.hpp>
-#include <optimizers/adam_optimizer.hpp>
+#include <optimizers/ftrl_optimizer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -24,74 +24,75 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* wgrad,
-                                   float alpha_t, float beta1, float beta2, float epsilon,
-                                   float scaler) {
+__global__ void ftrl_update_kernel(int len, float* weight, T* z, T* n, const T* wgrad, float alpha,
+                                   float beta, float lambda1, float lambda2, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    float mi = beta1 * TypeConvertFunc<float, T>::convert(m[i]) + (1.f - beta1) * gi;
-    float vi = beta2 * TypeConvertFunc<float, T>::convert(v[i]) + (1.f - beta2) * gi * gi;
-    m[i] = TypeConvertFunc<T, float>::convert(mi);
-    v[i] = TypeConvertFunc<T, float>::convert(vi);
-    weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
+    float ni_new = TypeConvertFunc<float, T>::convert(n[i]) + gi * gi;
+    float zi = TypeConvertFunc<float, T>::convert(z[i]) + gi +
+               (sqrt(TypeConvertFunc<float, T>::convert(n[i])) - sqrt(ni_new)) *
+                   TypeConvertFunc<float, T>::convert(weight[i]) / alpha;
+    float x = lambda1 * (1.0f - 2.0f * signbit(zi)) - zi;
+    float y = sqrt(ni_new) / alpha + lambda2;
+    n[i] = TypeConvertFunc<T, float>::convert(ni_new);
+    z[i] = TypeConvertFunc<T, float>::convert(zi);
+    weight[i] = x / y * signbit(lambda1 - abs(zi));
   }
 }
 
 }  // namespace
 
 template <typename T>
-AdamOptimizer<T>::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
                                 const std::shared_ptr<BufferBlock2<T>>& opt_buf,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
-                                float learning_rate, float beta1, float beta2, float epsilon,
+                                float learning_rate, float beta, float lambda1, float lambda2,
                                 float scaler)
     : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
       wgrad_(wgrad),
-      t_(0),
-      beta1_(beta1),
-      beta2_(beta2),
-      epsilon_(epsilon) {
+      beta_(beta),
+      lambda1_(lambda1),
+      lambda2_(lambda2) {
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
     HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
-  opt_buf->reserve({weight_main.get_num_elements()}, &m_);
-  opt_buf->reserve({weight_main.get_num_elements()}, &v_);
+  opt_buf->reserve({weight_main.get_num_elements()}, &n_);
+  opt_buf->reserve({weight_main.get_num_elements()}, &z_);
 }
 
 template <typename T>
-void AdamOptimizer<T>::initialize() {
+void FtrlOptimizer<T>::initialize() {
   HCTR_LIB_THROW(
-      cudaMemsetAsync(m_.get_ptr(), 0, m_.get_size_in_bytes(), gpu_resource_->get_stream()));
+      cudaMemsetAsync(n_.get_ptr(), 0, n_.get_size_in_bytes(), gpu_resource_->get_stream()));
   HCTR_LIB_THROW(
-      cudaMemsetAsync(v_.get_ptr(), 0, v_.get_size_in_bytes(), gpu_resource_->get_stream()));
+      cudaMemsetAsync(z_.get_ptr(), 0, z_.get_size_in_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
-void AdamOptimizer<T>::update() {
+void FtrlOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
   const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  ++t_;
-  const float alpha_t = lr_ * std::sqrt(1 - std::pow(beta2_, t_)) / (1 - std::pow(beta1_, t_));
+  // const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
 
   float* weight = weight_main_.get_ptr();
 
-  T* m = m_.get_ptr();
-  T* v = v_.get_ptr();
+  T* z = z_.get_ptr();
+  T* n = n_.get_ptr();
   const T* wgrad = wgrad_.get_ptr();
-  adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-      len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
+  ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
 #ifndef NDEBUG
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
-template class AdamOptimizer<float>;
-template class AdamOptimizer<__half>;
+template class FtrlOptimizer<float>;
+template class FtrlOptimizer<__half>;
 
 }  // namespace HugeCTR

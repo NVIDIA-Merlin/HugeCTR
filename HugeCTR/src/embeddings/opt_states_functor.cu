@@ -29,36 +29,33 @@ std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states
 
   for (size_t i = 0; i < local_gpu_count; ++i) {
     switch (optimizer_type) {
-      case Optimizer_t::Adam:  // adam
-      {
+      case Optimizer_t::Ftrl:
+        opt_states[i].push_back(opt_tensors_[i].opt_n_tensors_);
+        opt_states[i].push_back(opt_tensors_[i].opt_z_tensors_);
+        break;
+
+      case Optimizer_t::Adam:
         opt_states[i].push_back(opt_tensors_[i].opt_m_tensors_);
         opt_states[i].push_back(opt_tensors_[i].opt_v_tensors_);
         break;
-      }
 
-      case Optimizer_t::AdaGrad:  // nesterov
-      {
+      case Optimizer_t::AdaGrad:
         opt_states[i].push_back(opt_tensors_[i].opt_accm_tensors_);
         break;
-      }
-      case Optimizer_t::MomentumSGD:  // momentum_sgd
-      {
+
+      case Optimizer_t::MomentumSGD:
         opt_states[i].push_back(opt_tensors_[i].opt_momentum_tensors_);
         break;
-      }
 
-      case Optimizer_t::Nesterov:  // nesterov
-      {
+      case Optimizer_t::Nesterov:
         opt_states[i].push_back(opt_tensors_[i].opt_accm_tensors_);
         break;
-      }
 
       case Optimizer_t::SGD:
         break;
 
       default:
-        throw std::runtime_error(
-            std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+        throw std::runtime_error("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n");
     }
   }
 

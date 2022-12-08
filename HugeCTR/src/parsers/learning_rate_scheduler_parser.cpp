@@ -58,31 +58,36 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
   float lr = 0;
   nlohmann::json j_hparam;
   switch (optimizer_type) {
-    case Optimizer_t::Adam: {
+    case Optimizer_t::Ftrl:
+      j_hparam = get_json(j_optimizer, "ftrl_hparam");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
+      break;
+
+    case Optimizer_t::Adam:
       j_hparam = get_json(j_optimizer, "adam_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
-    }
-    case Optimizer_t::AdaGrad: {
+
+    case Optimizer_t::AdaGrad:
       j_hparam = get_json(j_optimizer, "adagrad_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
-    }
-    case Optimizer_t::MomentumSGD: {
+
+    case Optimizer_t::MomentumSGD:
       j_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
-    }
-    case Optimizer_t::Nesterov: {
+
+    case Optimizer_t::Nesterov:
       j_hparam = get_json(j_optimizer, "nesterov_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
-    }
-    case Optimizer_t::SGD: {
+
+    case Optimizer_t::SGD:
       j_hparam = get_json(j_optimizer, "sgd_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
-    }
+
     default:
       assert(!"Error: no such optimizer && should never get here!");
   }

@@ -30,46 +30,44 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
   // should be match with HugeCTR/src/parsers/create_embedding.cpp
   // should be match with HugeCTR/src/pybind/model.cpp
   switch (param.opt_params.optimizer) {
-    case Optimizer_t::Adam:  // adam
-    {
-      {
-        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
-                     &opt_tensors_.opt_m_tensors_);
-        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
-                     &opt_tensors_.opt_v_tensors_);
-      }
+    case Optimizer_t::Ftrl:
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_n_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_z_tensors_);
+      break;
+
+    case Optimizer_t::Adam:
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_m_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_v_tensors_);
       if (param.opt_params.update_type == Update_t::LazyGlobal) {
         buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
                      &opt_tensors_.opt_prev_time_tensors_);
       }
       break;
-    }
-    case Optimizer_t::AdaGrad:  // nesterov
-    {
+
+    case Optimizer_t::AdaGrad:
       buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
                    &opt_tensors_.opt_accm_tensors_);
       break;
-    }
-    case Optimizer_t::MomentumSGD:  // momentum_sgd
-    {
+
+    case Optimizer_t::MomentumSGD:
       buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
                    &opt_tensors_.opt_momentum_tensors_);
       break;
-    }
 
-    case Optimizer_t::Nesterov:  // nesterov
-    {
+    case Optimizer_t::Nesterov:
       buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
                    &opt_tensors_.opt_accm_tensors_);
       break;
-    }
 
     case Optimizer_t::SGD:
       break;
 
     default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+      throw std::runtime_error("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n");
   }
 
   { buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_tensors_); }
@@ -116,7 +114,16 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPUResource &local_gpu) {
   switch (param.opt_params.optimizer) {
-    case Optimizer_t::Adam:  // adam
+    case Optimizer_t::Ftrl:
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_n_tensors_.get_ptr(), 0,
+                                     opt_tensors_.opt_n_tensors_.get_size_in_bytes(),
+                                     local_gpu.get_stream()));
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_z_tensors_.get_ptr(), 0,
+                                     opt_tensors_.opt_z_tensors_.get_size_in_bytes(),
+                                     local_gpu.get_stream()));
+      break;
+
+    case Optimizer_t::Adam:
       HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_m_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_m_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
@@ -132,19 +139,21 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
             opt_tensors_.opt_prev_time_tensors_.get_num_elements(), uint64_t(1));
       }
       break;
+
     case Optimizer_t::AdaGrad:
       HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(),
                                      param.opt_params.hyperparams.adagrad.initial_accu_value,
                                      opt_tensors_.opt_accm_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
-    case Optimizer_t::MomentumSGD:  // momentum_sgd
+
+    case Optimizer_t::MomentumSGD:
       HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_momentum_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_momentum_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
 
-    case Optimizer_t::Nesterov:  // nesterov
+    case Optimizer_t::Nesterov:
       HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_accm_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
@@ -154,8 +163,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
       break;
 
     default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+      throw std::runtime_error("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n");
   }
 }
 
@@ -163,9 +171,7 @@ namespace {
 
 __global__ void value_count_kernel_2(int nnz, const uint32_t *new_hash_value_flag,
                                      const uint32_t *hash_value_flag_sumed,
-                                     uint32_t *hash_value_index_index, uint32_t *counter)
-
-{
+                                     uint32_t *hash_value_index_index, uint32_t *counter) {
   for (int gid = blockIdx.x * blockDim.x + threadIdx.x; gid < nnz; gid += blockDim.x * gridDim.x) {
     uint32_t flag = new_hash_value_flag[gid];
     if (flag == 1) {
@@ -405,7 +411,7 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
 // weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adagrad_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                   float lr, const AdaGradParams adagrad,
+                                   float lr, const AdaGradOptHyperParams adagrad,
                                    TypeEmbeddingComp *accum_ptr, const TypeKey *sample_id,
                                    const size_t *hash_value_index_sort,
                                    const uint32_t *hash_value_index_count_offset,
@@ -684,11 +690,8 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
         case Update_t::Global: {
           switch (opt_params.optimizer) {
             case Optimizer_t::Adam: {
-              float alpha_t =
-                  opt_params.lr *
-                  sqrt(1 -
-                       pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-                  (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+              const float alpha_t = opt_params.lr * opt_params.hyperparams.adam.bias();
+
               // update target mi and vi
               opt_adam_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
@@ -700,9 +703,9 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
                   opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(), alpha_t,
                   hash_table_value.get_ptr());
-              break;
-            }
-            case Optimizer_t::AdaGrad: {
+            } break;
+
+            case Optimizer_t::AdaGrad:
               opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(),
@@ -710,7 +713,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
-            }
+
             case Optimizer_t::MomentumSGD:
               opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -721,6 +724,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum,
                   opt_tensor.opt_momentum_tensors_.get_ptr(), hash_table_value.get_ptr());
               break;
+
             case Optimizer_t::Nesterov:
               nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
                   embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
@@ -732,6 +736,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
+
             case Optimizer_t::SGD:
               // Note: this is in fact a local update
               /// TODO: remove duplicate?
@@ -741,19 +746,16 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
+
             default:
-              HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
-          }  // switch (optimizer)
-          break;
-        }
+              HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid optimizer type");
+          }
+        } break;  // Update_t::Global
+
         case Update_t::Local: {
           switch (opt_params.optimizer) {
             case Optimizer_t::Adam: {
-              float alpha_t =
-                  opt_params.lr *
-                  sqrt(1 -
-                       pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-                  (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+              const float alpha_t = opt_params.lr * opt_params.hyperparams.adam.bias();
 
               opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
@@ -761,9 +763,9 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
-              break;
-            }
-            case Optimizer_t::AdaGrad: {
+            } break;
+
+            case Optimizer_t::AdaGrad:
               opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(),
@@ -771,7 +773,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
-            }
+
             case Optimizer_t::MomentumSGD:
               opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -780,6 +782,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
+
             case Optimizer_t::Nesterov:
               opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -788,6 +791,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
+
             case Optimizer_t::SGD:
               opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -795,13 +799,18 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
+
             default:
               HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
-          }  // switch (optimizer)
-          break;
-        }
+          }
+        } break;  // case Update_t::Local:
+
         case Update_t::LazyGlobal: {
           switch (opt_params.optimizer) {
+            case Optimizer_t::Ftrl:
+              /// TODO: implement lazy global update for other optimizer types
+              HCTR_OWN_THROW(Error_t::WrongInput,
+                             "Error: lazy global update is only implemented for Adam");
             case Optimizer_t::Adam: {
               const float alpha_t_common =
                   opt_params.lr / (1.0f - opt_params.hyperparams.adam.beta1);
@@ -827,8 +836,8 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
             default:
               HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
           }
-          break;
-        }
+        } break;  // case Update_t::LazyGlobal
+
         default:
           HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid update type");
       }  // switch (update type)

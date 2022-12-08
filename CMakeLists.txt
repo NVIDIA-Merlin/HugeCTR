@@ -37,6 +37,11 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/tools/*.cpp
     ${PROJECT_SOURCE_DIR}/tools/*.cu
     ${PROJECT_SOURCE_DIR}/tools/*.cuh
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.hpp
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cpp
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cu
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cuh
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.inl
   )
 
   set(clangformat_srcs ${HUGECTR_SRC})
@@ -189,7 +194,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
   ${PROJECT_SOURCE_DIR}/third_party/librdkafka/src
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
-  ${PROJECT_SOURCE_DIR}/HugeCTR/embedding_storage/dynamic_embedding_table
+  ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table
+  ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/cuCollections/include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}

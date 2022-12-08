@@ -18,17 +18,6 @@
 
 #include <embedding_training_cache/hmem_cache/sparse_model_file_ts.hpp>
 
-namespace {
-
-std::unordered_map<HugeCTR::Optimizer_t, size_t> vec_per_line = {
-    {HugeCTR::Optimizer_t::Adam, 3},
-    {HugeCTR::Optimizer_t::AdaGrad, 2},
-    {HugeCTR::Optimizer_t::MomentumSGD, 2},
-    {HugeCTR::Optimizer_t::Nesterov, 2},
-    {HugeCTR::Optimizer_t::SGD, 1}};
-
-}
-
 namespace HugeCTR {
 
 struct HMemCacheConfig {
@@ -36,6 +25,7 @@ struct HMemCacheConfig {
   double target_hit_rate;
   size_t max_num_evict;
   size_t block_capacity;
+
   HMemCacheConfig() {}
   HMemCacheConfig(size_t _num_cached_pass, double _target_hit_rate, size_t _max_num_evict)
       : num_cached_pass(_num_cached_pass),

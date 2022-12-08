@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <HugeCTR/include/optimizer.hpp>
+
 #include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
 #include "embedding_training_cache/parameter_server.hpp"
 #include "etc_test_utils.hpp"
@@ -78,7 +80,7 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
                         std::filesystem::copy_options::recursive);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
-    return std::string(sparse_model_file) + "/" + ext;
+    return sparse_model_file + "/" + ext;
   };
 
   // Create a ParameterServer
@@ -112,7 +114,7 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   BufferBag buf_bag;
   {
     auto blobs_buff{GeneralBuffer2<CudaHostAllocator>::create()};
-    buf_bag.opt_states.resize(vec_per_line[opt_type] - 1);
+    buf_bag.opt_states.resize(OptParams::num_parameters_per_weight(opt_type));
 
     Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;

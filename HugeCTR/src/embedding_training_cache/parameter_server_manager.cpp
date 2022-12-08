@@ -87,11 +87,12 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
       }
     }
 
-    auto it{std::max_element(
-        embedding_params.begin(), embedding_params.end(), [](auto const& a, auto const& b) {
-          return vec_per_line[a.opt_params.optimizer] < vec_per_line[b.opt_params.optimizer];
-        })};
-    size_t const num_vec_per_key{vec_per_line[it->opt_params.optimizer]};
+    auto it{std::max_element(embedding_params.begin(), embedding_params.end(),
+                             [](auto const& a, auto const& b) {
+                               return a.opt_params.num_parameters_per_weight() <
+                                      b.opt_params.num_parameters_per_weight();
+                             })};
+    size_t const num_opt_params_per_weight{it->opt_params.num_parameters_per_weight()};
 
     it = std::max_element(
         embedding_params.begin(), embedding_params.end(),
@@ -119,7 +120,7 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
     host_blobs_buff->reserve({buffer_size}, &tensor_slot_id);
     host_blobs_buff->reserve({buffer_size, max_vec_size}, &(buf_bag_.embedding));
 
-    buf_bag_.opt_states.resize(num_vec_per_key - 1);
+    buf_bag_.opt_states.resize(num_opt_params_per_weight);
     for (auto& opt_state : buf_bag_.opt_states) {
       host_blobs_buff->reserve({buffer_size, max_vec_size}, &opt_state);
     }

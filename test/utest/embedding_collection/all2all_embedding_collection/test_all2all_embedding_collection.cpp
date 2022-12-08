@@ -67,12 +67,13 @@ void all2all_embedding_collection_test() {
                                      HugeCTR::TensorScalarTypeFunc<emb_t>::get_type(),
                                      EmbeddingLayout::FeatureMajor};
 
-  std::vector<EmbeddingTableParam> table_param_list;
   HugeCTR::OptParams opt_param;
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
   opt_param.scaler = (ebc_param.emb_type == TensorScalarType::Float16) ? 1024 : 1;
 
+  std::vector<EmbeddingTableParam> table_param_list;
+  table_param_list.reserve(num_table);
   for (int id = 0; id < num_table; ++id) {
     EmbeddingTableParam table_param{
         id, table_max_vocabulary_size_list[id], table_ev_size_list[id], opt_param, {}};

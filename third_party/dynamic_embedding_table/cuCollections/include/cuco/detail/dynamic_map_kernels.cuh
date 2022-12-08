@@ -16,6 +16,7 @@
 
 #include <cooperative_groups.h>
 
+#include <cub/cub.cuh>
 #include <cuco/detail/insert_result.cuh>
 #include <cuco/detail/utils.cuh>
 #include <cuda/std/atomic>
