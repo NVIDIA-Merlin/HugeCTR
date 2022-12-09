@@ -46,6 +46,19 @@ nightly_build_unified_container.ctr:
     DOCKER_FILE: dockerfile.ctr
     BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
+nightly_build_optimized:
+  extends: .build_nightly
+  variables:
+    REMOTE_REPO: https://${RD_CI_JOB_TOKEN}gitlab-master.nvidia.com/dl/mlperf/optimized.git
+    DST_IMAGE: ${IMAGE_OPTIMIZED}
+    DOCKER_FILE: Dockerfile
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg FROM_IMAGE_NAME=gitlab-master.nvidia.com:5005/dl/dgx/pytorch:master-py3-devel
+    OPTIMIZED: 1
+  rules:
+    - if: $NIGHTLY_OPTIMIZED == "1"
+      when: always
+    - when: never
+
 ### Stage: build
 format_check_python:
   extends: .python_format
