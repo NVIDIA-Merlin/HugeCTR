@@ -60,7 +60,11 @@ stages:
       else
         git clone $MERLIN_REMOTE_REPO;
       fi
-    - cd Merlin/docker;
+    - if [[ "$OPTIMIZED" == 1 ]]; then
+        cd optimized/recommendation/hugectr;
+      else
+        cd Merlin/docker;
+      fi
     - if [[ "$MERLIN_REMOTE_BRANCH" != "" ]]; then
         git checkout $MERLIN_REMOTE_BRANCH;
       fi
