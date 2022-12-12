@@ -60,11 +60,16 @@ LookupSession::~LookupSession() {
 
 void LookupSession::lookup(const void* const h_keys, float* const d_vectors, const size_t num_keys,
                            const size_t table_id) {
+  const auto begin = std::chrono::high_resolution_clock::now();
   CudaDeviceContext context(inference_params_.device_id);
   // embedding_cache lookup
   embedding_cache_->lookup(table_id, d_vectors, h_keys, num_keys,
                            inference_params_.hit_rate_threshold, lookup_streams_[table_id]);
   HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+  const auto latency = std::chrono::high_resolution_clock::now() - begin;
+  HCTR_LOG_S(TRACE, WORLD) << "Lookup single table; number of keys " << num_keys << ", table id  "
+                           << table_id << "lookup latency: " << latency.count() / 1000 << " us."
+                           << std::endl;
 }
 
 void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
@@ -76,6 +81,7 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
   HCTR_CHECK_HINT(
       d_vectors_per_table.size() == inference_params_.sparse_model_files.size(),
       "The d_vectors_per_table.size() should be equal to the number of embedding tables");
+  const auto begin = std::chrono::high_resolution_clock::now();
   for (size_t table_id{0}; table_id < h_keys_per_table.size(); ++table_id) {
     embedding_cache_->lookup(table_id, d_vectors_per_table[table_id], h_keys_per_table[table_id],
                              num_keys_per_table[table_id], inference_params_.hit_rate_threshold,
@@ -84,16 +90,24 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
   for (size_t table_id{0}; table_id < h_keys_per_table.size(); ++table_id) {
     HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
   }
+  const auto latency = std::chrono::high_resolution_clock::now() - begin;
+  HCTR_LOG_S(TRACE, WORLD) << "Lookup multiple tables;"
+                           << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
 }
 
 void LookupSession::lookup_from_device(const void* const d_keys, float* const d_vectors,
                                        const size_t num_keys, const size_t table_id) {
+  const auto begin = std::chrono::high_resolution_clock::now();
   CudaDeviceContext context(inference_params_.device_id);
   // embedding_cache lookup
   embedding_cache_->lookup_from_device(table_id, d_vectors, d_keys, num_keys,
                                        inference_params_.hit_rate_threshold,
                                        lookup_streams_[table_id]);
   HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+  const auto latency = std::chrono::high_resolution_clock::now() - begin;
+  HCTR_LOG_S(TRACE, WORLD) << "Lookup single table; number of keys " << num_keys << ", table id  "
+                           << table_id << "lookup latency: " << latency.count() / 1000 << " us."
+                           << std::endl;
 }
 
 void LookupSession::lookup_from_device(const std::vector<const void*>& d_keys_per_table,
@@ -105,6 +119,7 @@ void LookupSession::lookup_from_device(const std::vector<const void*>& d_keys_pe
   HCTR_CHECK_HINT(
       d_vectors_per_table.size() == inference_params_.sparse_model_files.size(),
       "The d_vectors_per_table.size() should be equal to the number of embedding tables");
+  const auto begin = std::chrono::high_resolution_clock::now();
   for (size_t table_id{0}; table_id < d_keys_per_table.size(); ++table_id) {
     embedding_cache_->lookup_from_device(table_id, d_vectors_per_table[table_id],
                                          d_keys_per_table[table_id], num_keys_per_table[table_id],
@@ -114,6 +129,9 @@ void LookupSession::lookup_from_device(const std::vector<const void*>& d_keys_pe
   for (size_t table_id{0}; table_id < d_keys_per_table.size(); ++table_id) {
     HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
   }
+  const auto latency = std::chrono::high_resolution_clock::now() - begin;
+  HCTR_LOG_S(TRACE, WORLD) << "Lookup multiple tables;"
+                           << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
 }
 
 }  // namespace HugeCTR

@@ -172,10 +172,11 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
   }
   buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
 
-  // Insert emeddings to embedding cache for each embedding table of each mode
+  // Insert embeddings to embedding cache for each embedding table of each mode
   for (size_t i = 0; i < inference_params_array.size(); i++) {
-    if (inference_params_array[i].use_gpu_embedding_cache &&
-        inference_params_array[i].cache_refresh_percentage_per_iteration > 0) {
+    if ((inference_params_array[i].use_gpu_embedding_cache &&
+         inference_params_array[i].cache_refresh_percentage_per_iteration > 0) ||
+        inference_params_array[i].use_static_table) {
       init_ec(inference_params_array[i], model_cache_map_[inference_params_array[i].model_name]);
     }
   }
@@ -373,32 +374,52 @@ void HierParameterServer<TypeHashKey>::init_ec(
             inference_params.model_name, device_id, CACHE_SPACE_TYPE::REFRESHER));
       }
       EmbeddingCacheRefreshspace refreshspace_handler = memory_block->refresh_buffer;
-      // initilize the embedding cache for each table
-      const size_t stride_set = floor(cache_config.num_set_in_cache_[j] *
-                                      cache_config.cache_refresh_percentage_per_iteration);
-      size_t length = SLAB_SIZE * SET_ASSOCIATIVITY * stride_set;
-      size_t num_iteration = 0;
-      for (size_t idx_set = 0; idx_set + stride_set < cache_config.num_set_in_cache_[j];
-           idx_set += stride_set) {
-        refreshspace_handler.h_length_ = &length;
-        // copy the embedding keys from reader to refresh space
+
+      if (!inference_params.use_static_table) {
+        // initilize the embedding cache for each table
+        const size_t stride_set = floor(cache_config.num_set_in_cache_[j] *
+                                        cache_config.cache_refresh_percentage_per_iteration);
+        size_t length = SLAB_SIZE * SET_ASSOCIATIVITY * stride_set;
+        size_t num_iteration = 0;
+        for (size_t idx_set = 0; idx_set + stride_set < cache_config.num_set_in_cache_[j];
+             idx_set += stride_set) {
+          refreshspace_handler.h_length_ = &length;
+          // copy the embedding keys from reader to refresh space
+          HCTR_LIB_THROW(
+              cudaMemcpyAsync(refreshspace_handler.d_refresh_embeddingcolumns_,
+                              reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()) +
+                                  (*refreshspace_handler.h_length_ * num_iteration),
+                              *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
+                              cudaMemcpyHostToDevice, stream));
+          // copy the embedding vectors from reader to refresh space
+          HCTR_LIB_THROW(cudaMemcpyAsync(
+              refreshspace_handler.d_refresh_emb_vec_,
+              reinterpret_cast<const float*>(rawreader->getvectors()) +
+                  (*refreshspace_handler.h_length_ * num_iteration *
+                   cache_config.embedding_vec_size_[j]),
+              *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
+              cudaMemcpyHostToDevice, stream));
+
+          embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
+          HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+          num_iteration++;
+        }
+      } else {
+        HCTR_LOG(INFO, WORLD,
+                 "To achieve the best performance, when using static table, the pointers of keys "
+                 "and vectors in HPS lookup should preferably be aligned to at least 16 Bytes.\n");
+        *refreshspace_handler.h_length_ = cache_config.num_set_in_cache_[j];
         HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.d_refresh_embeddingcolumns_,
-                                       reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()) +
-                                           (*refreshspace_handler.h_length_ * num_iteration),
+                                       reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()),
                                        *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
                                        cudaMemcpyHostToDevice, stream));
-        // copy the embedding vectors from reader to refresh space
         HCTR_LIB_THROW(cudaMemcpyAsync(
             refreshspace_handler.d_refresh_emb_vec_,
-            reinterpret_cast<const float*>(rawreader->getvectors()) +
-                (*refreshspace_handler.h_length_ * num_iteration *
-                 cache_config.embedding_vec_size_[j]),
+            reinterpret_cast<const TypeHashKey*>(rawreader->getvectors()),
             *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
             cudaMemcpyHostToDevice, stream));
-
         embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
         HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-        num_iteration++;
       }
       this->free_buffer(memory_block);
     }

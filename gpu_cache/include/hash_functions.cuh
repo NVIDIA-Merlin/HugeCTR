@@ -109,6 +109,10 @@ struct MurmurHash3_32 {
     h1 = fmix32(h1);
     return h1;
   }
+
+  __host__ __device__ __forceinline__ result_type operator()(const Key& key) const {
+    return this->hash(key);
+  }
 };
 
 template <typename key_type, typename index_type, index_type result>

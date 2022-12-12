@@ -69,7 +69,7 @@ class MemoryPool {
       }
     }
   }
-  void* AllcoMemory() {
+  void* AllocMemory() {
     std::lock_guard<std::mutex> lock(_mutex);
     MemoryBlock* pRes = nullptr;
     if (_pHeader == nullptr) {
@@ -162,7 +162,7 @@ class ManagerPool {
       auto device_pool_map = _model_pool_map.find(model_name);
       auto cache = device_pool_map->second.find(device_id);
       if (cache != device_pool_map->second.end()) {
-        return cache->second->AllcoMemory();
+        return cache->second->AllocMemory();
       }
     }
     if (space_type == CACHE_SPACE_TYPE::REFRESHER &&
@@ -170,7 +170,7 @@ class ManagerPool {
       auto device_pool_map = _model_refresh_pool_map.find(model_name);
       auto cache = device_pool_map->second.find(device_id);
       if (cache != device_pool_map->second.end()) {
-        return cache->second->AllcoMemory();
+        return cache->second->AllocMemory();
       }
     }
     return NULL;
