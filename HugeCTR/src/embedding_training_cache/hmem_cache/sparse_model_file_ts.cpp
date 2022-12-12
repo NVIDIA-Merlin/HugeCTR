@@ -127,6 +127,10 @@ struct SparseModelFileTS<TypeKey>::EmbeddingTableFile {
     data_files.emplace_back(local_model + "/emb_vector");
 
     switch (opt_type) {
+      case Optimizer_t::Ftrl:
+        data_files.emplace_back(local_model + "/Ftrl.n");
+        data_files.emplace_back(local_model + "/Ftrl.z");
+        break;
       case Optimizer_t::Adam:
         // Adam.m & Adam.v & (Update_t == LazyGlobal is not supported)
         data_files.emplace_back(local_model + "/Adam.m");

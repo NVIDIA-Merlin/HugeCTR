@@ -60,7 +60,11 @@ stages:
       else
         git clone $MERLIN_REMOTE_REPO;
       fi
-    - cd Merlin/docker;
+    - if [[ "$OPTIMIZED" == 1 ]]; then
+        cd optimized/recommendation/hugectr;
+      else
+        cd Merlin/docker;
+      fi
     - if [[ "$MERLIN_REMOTE_BRANCH" != "" ]]; then
         git checkout $MERLIN_REMOTE_BRANCH;
       fi
@@ -144,7 +148,7 @@ stages:
       fi
     - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
-        echo "RUN cd /workdir/hierarchical_parameter_server/ && python setup.py install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - echo "RUN rm /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}

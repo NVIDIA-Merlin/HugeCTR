@@ -367,8 +367,7 @@ mpiexec -np 8 --allow-run-as-root \
         --num_dense_layers=4 \
         --embedding_vec_size_list 4 8 \
         --dataset_iter_num=30 \
-        --optimizer="adam" \
-        --dynamic_input=1
+        --optimizer="adam"
 mpiexec -np 8 --allow-run-as-root \
         --oversubscribe \
         python3 test_multi_dense_emb_demo_model_mpi.py \
@@ -381,7 +380,6 @@ mpiexec -np 8 --allow-run-as-root \
         --embedding_vec_size_list 4 8 \
         --dataset_iter_num=30 \
         --optimizer="adam" \
-        --dynamic_input=1 \
         --mixed_precision=1
 
 # -------------------- Horovod -------------------- #

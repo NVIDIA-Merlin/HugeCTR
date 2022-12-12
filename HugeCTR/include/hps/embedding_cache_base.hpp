@@ -43,7 +43,7 @@ class EmbeddingCacheBase {
 
   virtual void insert(size_t table_id, EmbeddingCacheWorkspace& workspace_handler,
                       cudaStream_t stream) = 0;
-  virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refeshspace_handler,
+  virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refreshspace_handler,
                     cudaStream_t stream) = 0;
   virtual void dump(size_t table_id, void* d_keys, size_t* d_length, size_t start_index,
                     size_t end_index, cudaStream_t stream) = 0;

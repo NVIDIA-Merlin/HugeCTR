@@ -71,7 +71,6 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
     sok_optimizer = sok.SGD(lr=1.0)
 
-    @tf.function
     def step(params, indices):
         with tf.GradientTape() as tape:
             embeddings = sok.lookup_sparse(params, indices, combiners)

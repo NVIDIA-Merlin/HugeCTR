@@ -19,13 +19,13 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include <common.hpp>
+#include <data_readers/check_none.hpp>
+#include <data_readers/check_sum.hpp>
+#include <data_readers/file_list.hpp>
+#include <data_readers/file_source.hpp>
 #include <filesystem>
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_readers/check_none.hpp"
-#include "HugeCTR/include/data_readers/check_sum.hpp"
-#include "HugeCTR/include/data_readers/file_list.hpp"
-#include "HugeCTR/include/data_readers/file_source.hpp"
 #include "utest/embedding/cpu_hashtable.hpp"
 
 using namespace HugeCTR;
@@ -70,25 +70,22 @@ class SparseEmbeddingHashCpu {
   uint64_t times_;
   OptParams opt_params_;
 
-  std::unique_ptr<TypeHashKey[]> row_offset_;
-  std::unique_ptr<TypeHashKey[]> hash_key_;
-  std::unique_ptr<float[]> dense_feature_;
-  std::unique_ptr<float[]> lable_;
-  std::unique_ptr<TypeHashValueIndex[]> hash_value_index_;
-  std::unique_ptr<TypeHashValueIndex[]> hash_value_index_undup_;
-  std::unique_ptr<TypeHashValueIndex[]> hash_value_index_undup_offset_;
-  std::unique_ptr<TypeHashKey[]> sample_id_;
-  std::unique_ptr<TypeHashKey[]> hash_table_key_;
-  std::unique_ptr<TypeHashValueIndex[]> hash_table_value_index_;
-  std::unique_ptr<float[]> hash_table_value_;
-  std::unique_ptr<TypeEmbeddingComp[]> embedding_feature_;
-  std::unique_ptr<TypeEmbeddingComp[]> wgrad_;
-  std::unique_ptr<TypeEmbeddingComp[]> opt_m_;
-  std::unique_ptr<TypeEmbeddingComp[]> opt_v_;
-  std::unique_ptr<uint64_t[]> opt_prev_time_;
-  std::unique_ptr<TypeEmbeddingComp[]> opt_momentum_;
-  std::unique_ptr<TypeEmbeddingComp[]> opt_accm_;
-  std::unique_ptr<TypeEmbeddingComp[]> opt_accm_adagrad_;
+  std::vector<TypeHashKey> row_offset_;
+  std::vector<TypeHashKey> hash_key_;
+  std::vector<float> dense_feature_;
+  std::vector<float> label_;
+  std::vector<TypeHashValueIndex> hash_value_index_;
+  std::vector<TypeHashValueIndex> hash_value_index_undup_;
+  std::vector<TypeHashValueIndex> hash_value_index_undup_offset_;
+  std::vector<TypeHashKey> sample_id_;
+  std::vector<TypeHashKey> hash_table_key_;
+  std::vector<TypeHashValueIndex> hash_table_value_index_;
+  std::vector<float> hash_table_value_;
+  std::vector<TypeEmbeddingComp> embedding_feature_;
+  std::vector<TypeEmbeddingComp> wgrad_;
+  std::vector<TypeEmbeddingComp> opt_param0_;
+  std::vector<TypeEmbeddingComp> opt_param1_;
+  std::vector<uint64_t> opt_prev_time_;
 
   // std::ifstream &csr_stream_;
   // long long csr_stream_offset_ = 0;
@@ -126,7 +123,7 @@ class SparseEmbeddingHashCpu {
   SparseEmbeddingHashCpu(int batchsize, int max_feature_num, int vocabulary_size,
                          int embedding_vec_size, int slot_num, int label_dim, int dense_dim,
                          Check_t check_sum, long long num_records, int combiner,
-                         OptParams opt_params, const std::string &file_list_name,
+                         const OptParams &opt_params, const std::string &file_list_name,
                          const std::string &hash_table_file, const SparseEmbedding_t emb_type);
   ~SparseEmbeddingHashCpu();
 
@@ -179,6 +176,14 @@ class SparseEmbeddingHashCpu {
                           TypeHashValueIndex *hash_value_index_undup,
                           TypeHashValueIndex *hash_value_index_undup_offset);
 
+  void cpu_optimizer_ftrl(int feature_num_undup, int embedding_vec_size,
+                          const TypeHashValueIndex *hash_value_index_undup,
+                          const TypeHashValueIndex *hash_value_index_undup_offset,
+                          const TypeHashKey *sample_id, const TypeEmbeddingComp *wgrad,
+                          float *hash_table_value, TypeEmbeddingComp *n, TypeEmbeddingComp *z,
+                          float lr, float lambda1, float lambda2_plus_beta_div_lr,
+                          int vocabulary_size, Update_t update_type, float scaler);
+
   void cpu_optimizer_adam(int feature_num_undup, int embedding_vec_size,
                           const TypeHashValueIndex *hash_value_index_undup,
                           const TypeHashValueIndex *hash_value_index_undup_offset,
@@ -186,6 +191,14 @@ class SparseEmbeddingHashCpu {
                           float *hash_table_value, TypeEmbeddingComp *m, TypeEmbeddingComp *v,
                           uint64_t *prev_times, float lr, uint64_t times, float beta1, float beta2,
                           float epsilon, int vocabulary_size, Update_t update_type, float scaler);
+
+  void cpu_optimizer_rmsprop(int feature_num_undup, int embedding_vec_size,
+                             const TypeHashValueIndex *hash_value_index_undup,
+                             const TypeHashValueIndex *hash_value_index_undup_offset,
+                             const TypeHashKey *sample_id, const TypeEmbeddingComp *wgrad,
+                             float *hash_table_value, TypeEmbeddingComp *v, float lr, float beta,
+                             float epsilon, int vocabulary_size, Update_t update_type,
+                             float scaler);
 
   void cpu_optimizer_adagrad(int feature_num_undup, int embedding_vec_size,
                              const TypeHashValueIndex *hash_value_index_undup,
@@ -217,11 +230,11 @@ class SparseEmbeddingHashCpu {
                          float *hash_table_value, float lr, int vocabulary_size, float scaler);
 
   // only used for results check
-  TypeEmbeddingComp *get_forward_results() { return embedding_feature_.get(); }
-  TypeEmbeddingComp *get_backward_results() { return wgrad_.get(); }
-  TypeHashKey *get_hash_table_key_ptr() { return hash_table_key_.get(); }
-  TypeHashValueIndex *get_hash_table_value_index_ptr() { return hash_table_value_index_.get(); }
-  float *get_hash_table_value_ptr() { return hash_table_value_.get(); }
+  TypeEmbeddingComp *get_forward_results() { return embedding_feature_.data(); }
+  TypeEmbeddingComp *get_backward_results() { return wgrad_.data(); }
+  TypeHashKey *get_hash_table_key_ptr() { return hash_table_key_.data(); }
+  TypeHashValueIndex *get_hash_table_value_index_ptr() { return hash_table_value_index_.data(); }
+  float *get_hash_table_value_ptr() { return hash_table_value_.data(); }
 
 };  // end of class SparseEmbeddingHashCpu
 
@@ -229,7 +242,7 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     int batchsize, int max_feature_num, int vocabulary_size, int embedding_vec_size, int slot_num,
     int label_dim, int dense_dim, const Check_t check_sum, const long long num_records,
-    int combiner, OptParams opt_params, const std::string &file_list_name,
+    int combiner, const OptParams &opt_params, const std::string &file_list_name,
     const std::string &hash_table_file, const SparseEmbedding_t emb_type)
     : batchsize_(batchsize),
       max_feature_num_(max_feature_num),
@@ -248,38 +261,23 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
 
   // malloc memory
   hash_table_.reset(new HashTableCpu<TypeHashKey, TypeHashValueIndex>());
-  hash_table_value_.reset(new float[vocabulary_size_ * embedding_vec_size_]);  // embedding table
-  hash_table_key_.reset(new TypeHashKey[vocabulary_size_]);
-  row_offset_.reset(new TypeHashKey[batchsize_ * slot_num_ + 1]);
-  lable_.reset(new float[batchsize_ * label_dim_]);
-  dense_feature_.reset(new float[batchsize_ * dense_dim_]);
-  hash_key_.reset(new TypeHashKey[batchsize_ * max_feature_num_]);
-  hash_value_index_.reset(new TypeHashValueIndex[batchsize_ * max_feature_num_]);
-  hash_value_index_undup_.reset(new TypeHashValueIndex[batchsize_ * max_feature_num_]);
-  hash_value_index_undup_offset_.reset(new TypeHashValueIndex[batchsize_ * max_feature_num_ + 1]);
-  sample_id_.reset(new TypeHashKey[batchsize_ * max_feature_num_]);
-  embedding_feature_.reset(new TypeEmbeddingComp[batchsize_ * slot_num_ * embedding_vec_size_]);
-  wgrad_.reset(new TypeEmbeddingComp[batchsize_ * slot_num_ * embedding_vec_size_]);
-  opt_m_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
-  memset(opt_m_.get(), 0, vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
-  opt_v_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
-  memset(opt_v_.get(), 0, vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
-  opt_prev_time_.reset(new uint64_t[vocabulary_size_ * embedding_vec_size_]);
-  uint64_t *opt_prev_time_ptr = opt_prev_time_.get();
-  for (TypeHashValueIndex i = 0; i < vocabulary_size_ * embedding_vec_size_; i++) {
-    opt_prev_time_ptr[i] = 1;
-  }
-  opt_momentum_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
-  memset(opt_momentum_.get(), 0,
-         vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
-  opt_accm_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
-  memset(opt_accm_.get(), 0, vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
+  hash_table_value_.resize(vocabulary_size_ * embedding_vec_size_);  // embedding table
+  hash_table_key_.resize(vocabulary_size_);
+  row_offset_.resize(batchsize_ * slot_num_ + 1);
+  label_.resize(batchsize_ * label_dim_);
+  dense_feature_.resize(batchsize_ * dense_dim_);
+  hash_key_.resize(batchsize_ * max_feature_num_);
+  hash_value_index_.resize(batchsize_ * max_feature_num_);
+  hash_value_index_undup_.resize(batchsize_ * max_feature_num_);
+  hash_value_index_undup_offset_.resize(batchsize_ * max_feature_num_ + 1);
+  sample_id_.resize(batchsize_ * max_feature_num_);
+  embedding_feature_.resize(batchsize_ * slot_num_ * embedding_vec_size_);
+  wgrad_.resize(batchsize_ * slot_num_ * embedding_vec_size_);
+  opt_param0_.resize(vocabulary_size_ * embedding_vec_size_, 0);
+  opt_param1_.resize(vocabulary_size_ * embedding_vec_size_, 0);
+  opt_prev_time_.resize(vocabulary_size_ * embedding_vec_size_, 1);
 
-  opt_accm_adagrad_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
-  memset(opt_accm_adagrad_.get(), 0,
-         vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
-
-  hash_table_value_index_.reset(new TypeHashValueIndex[vocabulary_size_]);
+  hash_table_value_index_.resize(vocabulary_size_);
   for (TypeHashValueIndex i = 0; i < vocabulary_size_; i++) {
     hash_table_value_index_[i] = i;
   }
@@ -307,18 +305,18 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
       return;
     }
     if (std::is_same<TypeHashKey, long long>::value) {
-      key_stream.read(reinterpret_cast<char *>(hash_table_key_.get()), key_file_size_in_B);
+      key_stream.read(reinterpret_cast<char *>(hash_table_key_.data()), key_file_size_in_B);
     } else {
       std::vector<long long> i64_key_vec(num_key, 0);
       key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_B);
-      std::transform(i64_key_vec.begin(), i64_key_vec.end(), hash_table_key_.get(),
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), hash_table_key_.begin(),
                      [](long long key) { return static_cast<unsigned>(key); });
     }
-    vec_stream.read(reinterpret_cast<char *>(hash_table_value_.get()), vec_file_size_in_B);
+    vec_stream.read(reinterpret_cast<char *>(hash_table_value_.data()), vec_file_size_in_B);
   }
 
   // insert <key,value_index> into HashTableCpu
-  hash_table_->insert(hash_table_key_.get(), hash_table_value_index_.get(), vocabulary_size_);
+  hash_table_->insert(hash_table_key_.data(), hash_table_value_index_.data(), vocabulary_size_);
 
   // dataset filelist
   source_ = std::make_shared<FileSource>(0, 1, file_list_name, true);
@@ -357,16 +355,15 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::read_a_batch() {
 
     // batch loop
     for (int i = 0; i < batchsize_; i++) {
-      checker_->read(reinterpret_cast<char *>(lable_.get() + i * label_dim_),
-                     sizeof(float) * label_dim_);
-      checker_->read(reinterpret_cast<char *>(dense_feature_.get() + i * dense_dim_),
+      checker_->read(reinterpret_cast<char *>(&label_[i * label_dim_]), sizeof(float) * label_dim_);
+      checker_->read(reinterpret_cast<char *>(&dense_feature_[i * dense_dim_]),
                      sizeof(float) * dense_dim_);
 
       for (int k = 0; k < slot_num_; k++) {
         int nnz;
         checker_->read(reinterpret_cast<char *>(&nnz), sizeof(int));
         row_offset_[i * slot_num_ + k + 1] = row_offset_[i * slot_num_ + k] + nnz;
-        checker_->read(reinterpret_cast<char *>(hash_key_.get() + row_offset_[i * slot_num_ + k]),
+        checker_->read(reinterpret_cast<char *>(&hash_key_[row_offset_[i * slot_num_ + k]]),
                        sizeof(TypeHashKey) * nnz);
       }
 
@@ -455,15 +452,15 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::forward() {
   read_a_batch();
 
   // do hash_table get() value_index by key
-  hash_table_->get(hash_key_.get(), hash_value_index_.get(), row_offset_[batchsize_ * slot_num_]);
+  hash_table_->get(hash_key_.data(), hash_value_index_.data(), row_offset_[batchsize_ * slot_num_]);
 
   if (combiner_ == 0) {
-    cpu_forward_sum(batchsize_, slot_num_, embedding_vec_size_, row_offset_.get(),
-                    hash_value_index_.get(), hash_table_value_.get(), embedding_feature_.get());
+    cpu_forward_sum(batchsize_, slot_num_, embedding_vec_size_, row_offset_.data(),
+                    hash_value_index_.data(), hash_table_value_.data(), embedding_feature_.data());
 
   } else if (combiner_ == 1) {
-    cpu_forward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_.get(),
-                     hash_value_index_.get(), hash_table_value_.get(), embedding_feature_.get());
+    cpu_forward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_.data(),
+                     hash_value_index_.data(), hash_table_value_.data(), embedding_feature_.data());
   } else {
   }
 }
@@ -517,11 +514,11 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::backward() {
 #endif
 
   if (combiner_ == 0) {
-    cpu_backward_sum(batchsize_, slot_num_, embedding_vec_size_, embedding_feature_.get(),
-                     wgrad_.get());
+    cpu_backward_sum(batchsize_, slot_num_, embedding_vec_size_, embedding_feature_.data(),
+                     wgrad_.data());
   } else if (combiner_ == 1) {
-    cpu_backward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_.get(),
-                      embedding_feature_.get(), wgrad_.get());
+    cpu_backward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_.data(),
+                      embedding_feature_.data(), wgrad_.data());
   } else {
   }
 }
@@ -588,6 +585,54 @@ int SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_csr_unduplicate(
   counter++;
 
   return counter;
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_ftrl(
+    const int feature_num_undup, const int embedding_vec_size,
+    const TypeHashValueIndex *const hash_value_index_undup,
+    const TypeHashValueIndex *const hash_value_index_undup_offset,
+    const TypeHashKey *const sample_id, const TypeEmbeddingComp *const wgrad,
+    float *const hash_table_value, TypeEmbeddingComp *const n, TypeEmbeddingComp *const z,
+    const float lr, const float lambda1, const float lambda2_plus_beta_div_lr,
+    const int vocabulary_size, const Update_t update_type, const float scaler) {
+  for (int i = 0; i < feature_num_undup; ++i) {
+    TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
+    TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
+    TypeHashValueIndex row_index = hash_value_index_undup[i];
+
+    for (int j = 0; j < embedding_vec_size; ++j) {
+      float gi = 0;
+      for (int k = 0; k < sample_num; ++k) {
+        int sample_index = sample_id[cur_offset + k];
+        gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+            wgrad[sample_index * embedding_vec_size + j]);
+      }
+
+      gi = gi / scaler;
+
+      TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+
+      float ni = TypeConvertFunc<float, TypeEmbeddingComp>::convert(n[feature_index]);
+      float ni_prev = std::sqrt(ni);
+      ni += gi * gi;
+      n[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(ni);
+      ni = std::sqrt(ni);
+
+      float sigma = (ni - ni_prev) / lr;
+      float wi = hash_table_value[feature_index];
+
+      float zi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(z[feature_index]);
+      zi += gi - sigma * wi;
+      z[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(zi);
+
+      float p = (1.f - 2.f * std::signbit(zi)) * lambda1 - zi;
+      float q = ni / lr + lambda2_plus_beta_div_lr;
+      wi = (p / q) * std::signbit(lambda1 - std::abs(zi));
+
+      hash_table_value[feature_index] = wi;
+    }
+  }
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -673,6 +718,40 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
         float weight_diff = -alpha_t * mi / (sqrtf(vi) + epsilon);
         hash_table_value[feature_index] += weight_diff;
       }
+    }
+  }
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_rmsprop(
+    const int feature_num_undup, const int embedding_vec_size,
+    const TypeHashValueIndex *hash_value_index_undup,
+    const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
+    const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *v, const float lr,
+    const float beta, const float epsilon, const int vocabulary_size, const Update_t update_type,
+    const float scaler) {
+  for (int i = 0; i < feature_num_undup; i++) {
+    TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
+    TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
+    TypeHashValueIndex row_index = hash_value_index_undup[i];
+
+    for (int j = 0; j < embedding_vec_size; j++) {
+      float gi = 0;
+      for (int k = 0; k < sample_num; k++) {
+        int sample_index = sample_id[cur_offset + k];
+        gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+            wgrad[sample_index * embedding_vec_size + j]);
+      }
+
+      gi = gi / scaler;
+
+      TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+      float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(v[feature_index]);
+      vi = beta * vi + (1 - beta) * gi * gi;
+      v[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
+
+      float weight_diff = -lr * gi / (std::sqrt(vi) + epsilon);
+      hash_table_value[feature_index] += weight_diff;
     }
   }
 }
@@ -849,67 +928,89 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
 #endif
 
   // step1: extend sample IDs
-  cpu_csr_extend(batchsize_, slot_num_, row_offset_.get(), sample_id_.get());
+  cpu_csr_extend(batchsize_, slot_num_, row_offset_.data(), sample_id_.data());
 
   // step2: do hash table get() value_index by key
   int nnz = row_offset_[batchsize_ * slot_num_];
-  hash_table_->get(hash_key_.get(), hash_value_index_.get(), nnz);
+  hash_table_->get(hash_key_.data(), hash_value_index_.data(), nnz);
 
   // step3: sort by value_index
-  cpu_csr_sort(nnz, hash_value_index_.get(), sample_id_.get());
+  cpu_csr_sort(nnz, hash_value_index_.data(), sample_id_.data());
 
   // step4: unduplicate by value_index
   int feature_num_undup =
-      cpu_csr_unduplicate(nnz, hash_value_index_.get(), hash_value_index_undup_.get(),
-                          hash_value_index_undup_offset_.get());
+      cpu_csr_unduplicate(nnz, hash_value_index_.data(), hash_value_index_undup_.data(),
+                          hash_value_index_undup_offset_.data());
 
   // step5: sort by value_index   no need to do this for CPU
-  cpu_csr_sort(feature_num_undup, hash_value_index_undup_.get(),
-               hash_value_index_undup_offset_.get());
+  cpu_csr_sort(feature_num_undup, hash_value_index_undup_.data(),
+               hash_value_index_undup_offset_.data());
 
   // step6: update params
   switch (opt_params_.optimizer) {
+    case Optimizer_t::Ftrl: {
+      const float lambda2_plus_beta_div_lr =
+          opt_params_.hyperparams.ftrl.lambda2 + opt_params_.hyperparams.ftrl.beta / opt_params_.lr;
+
+      cpu_optimizer_ftrl(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                         hash_value_index_undup_offset_.data(), sample_id_.data(), wgrad_.data(),
+                         hash_table_value_.data(), opt_param0_.data(), opt_param1_.data(),
+                         opt_params_.lr, opt_params_.hyperparams.ftrl.lambda1,
+                         lambda2_plus_beta_div_lr, vocabulary_size_, opt_params_.update_type,
+                         opt_params_.scaler);
+    } break;
+
     case Optimizer_t::Adam: {
       times_++;
-      cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                         hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                         hash_table_value_.get(), opt_m_.get(), opt_v_.get(), opt_prev_time_.get(),
-                         opt_params_.lr, times_, opt_params_.hyperparams.adam.beta1,
-                         opt_params_.hyperparams.adam.beta2, opt_params_.hyperparams.adam.epsilon,
-                         vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
+      cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                         hash_value_index_undup_offset_.data(), sample_id_.data(), wgrad_.data(),
+                         hash_table_value_.data(), opt_param0_.data(), opt_param1_.data(),
+                         opt_prev_time_.data(), opt_params_.lr, times_,
+                         opt_params_.hyperparams.adam.beta1, opt_params_.hyperparams.adam.beta2,
+                         opt_params_.hyperparams.adam.epsilon, vocabulary_size_,
+                         opt_params_.update_type, opt_params_.scaler);
+    } break;
+
+    case Optimizer_t::RMSProp: {
+      cpu_optimizer_rmsprop(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                            hash_value_index_undup_offset_.data(), sample_id_.data(), wgrad_.data(),
+                            hash_table_value_.data(), opt_param0_.data(), opt_params_.lr,
+                            opt_params_.hyperparams.rmsprop.beta,
+                            opt_params_.hyperparams.rmsprop.epsilon, vocabulary_size_,
+                            opt_params_.update_type, opt_params_.scaler);
+    } break;
+
     case Optimizer_t::AdaGrad: {
-      cpu_optimizer_adagrad(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                            hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                            hash_table_value_.get(), opt_accm_adagrad_.get(), opt_params_.lr,
+      cpu_optimizer_adagrad(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                            hash_value_index_undup_offset_.data(), sample_id_.data(), wgrad_.data(),
+                            hash_table_value_.data(), opt_param0_.data(), opt_params_.lr,
                             opt_params_.hyperparams.adagrad.epsilon, vocabulary_size_,
                             opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
+    } break;
+
     case Optimizer_t::MomentumSGD: {
-      cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                             hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_momentum_.get(),
+      cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                             hash_value_index_undup_offset_.data(), sample_id_.data(),
+                             wgrad_.data(), hash_table_value_.data(), opt_param0_.data(),
                              opt_params_.hyperparams.momentum.factor, opt_params_.lr,
                              vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
+    } break;
+
     case Optimizer_t::Nesterov: {
-      cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                             hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_accm_.get(),
+      cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                             hash_value_index_undup_offset_.data(), sample_id_.data(),
+                             wgrad_.data(), hash_table_value_.data(), opt_param0_.data(),
                              opt_params_.hyperparams.nesterov.mu, opt_params_.lr, vocabulary_size_,
                              opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
+    } break;
+
     case Optimizer_t::SGD: {
-      cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                        hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                        hash_table_value_.get(), opt_params_.lr, vocabulary_size_,
+      cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.data(),
+                        hash_value_index_undup_offset_.data(), sample_id_.data(), wgrad_.data(),
+                        hash_table_value_.data(), opt_params_.lr, vocabulary_size_,
                         opt_params_.scaler);
-      break;
-    }
+    } break;
+
     default: {
       HCTR_LOG(INFO, WORLD, "Error: optimizer not supported in CPU version\n");
     }

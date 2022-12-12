@@ -166,62 +166,6 @@ void FusedFCLayerFunctors<T>::bprop(const T* kernel, const T* bottom, const T* t
 }
 
 template <typename T>
-void FusedFCLayerFunctors<T>::init_params(float* kernel, float* bias, size_t bottom_dim,
-                                          size_t top_dim,
-                                          std::vector<Initializer_t> initializer_types,
-                                          const curandGenerator_t& generator, cudaStream_t stream) {
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
-  std::shared_ptr<BufferBlock2<float>> block = buff->create_block<float>();
-  Tensors2<float> weight_cpu_tensors;
-  {
-    Tensor2<float> tensor;
-    block->reserve({bottom_dim, top_dim}, &tensor);
-    weight_cpu_tensors.push_back(tensor);
-  }
-  if (bias != nullptr) {
-    Tensor2<float> tensor;
-    block->reserve({1, top_dim}, &tensor);
-    weight_cpu_tensors.push_back(tensor);
-  }
-  buff->allocate();
-
-  std::vector<std::unique_ptr<DataSimulator>> simulators;
-  for (int index = 0; index < static_cast<int>(initializer_types.size()); ++index) {
-    switch (initializer_types[index]) {
-      case Initializer_t::Uniform: {
-        simulators.push_back(get_uniform_initializer(index, bottom_dim, top_dim));
-        break;
-      }
-      case Initializer_t::XavierNorm: {
-        simulators.push_back(get_xavier_norm_initializer(index, bottom_dim, top_dim));
-        break;
-      }
-      case Initializer_t::XavierUniform: {
-        simulators.push_back(get_xavier_uniform_initializer(index, bottom_dim, top_dim));
-        break;
-      }
-      case Initializer_t::Default: {
-        simulators.push_back(get_default_initializer(index, bottom_dim, top_dim));
-        break;
-      }
-      default: {
-        HCTR_OWN_THROW(Error_t::OutOfBound, "Not supported initializer.");
-        break;
-      }
-    }
-  }
-
-  for (size_t i = 0; i < weight_cpu_tensors.size(); ++i) {
-    simulators[i]->fill(weight_cpu_tensors[i], generator);
-    float* weight = i == 0 ? kernel : bias;
-    size_t size_in_bytes = i == 0 ? sizeof(float) * bottom_dim * top_dim : sizeof(float) * top_dim;
-    HCTR_LIB_THROW(cudaMemcpyAsync(weight, weight_cpu_tensors[i].get_ptr(), size_in_bytes,
-                                   cudaMemcpyHostToDevice, stream));
-  }
-}
-
-template <typename T>
 void FusedFCLayerFunctors<T>::search_algorithm(T* bottom, T* top, T* kernel, size_t batch_size,
                                                size_t input_size, size_t output_size,
                                                const CublasFusedFCLayerDesc<T>& cublas_layer_desc,
@@ -230,48 +174,6 @@ void FusedFCLayerFunctors<T>::search_algorithm(T* bottom, T* top, T* kernel, siz
                                                cudaStream_t stream) {
   cublas_layer_algo.search_algorithm(bottom, top, kernel, batch_size, input_size, output_size,
                                      cublas_layer_desc, cublaslt_handle, stream);
-}
-
-template <typename T>
-std::unique_ptr<DataSimulator> FusedFCLayerFunctors<T>::get_uniform_initializer(int index,
-                                                                                size_t bottom_dim,
-                                                                                size_t top_dim) {
-  float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
-  return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
-}
-
-template <typename T>
-std::unique_ptr<DataSimulator> FusedFCLayerFunctors<T>::get_xavier_uniform_initializer(
-    int index, size_t bottom_dim, size_t top_dim) {
-  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
-                                                    data_simu::Distribution_t::Uniform,
-                                                    0 == index ? bottom_dim : 0, top_dim);
-}
-
-template <typename T>
-std::unique_ptr<DataSimulator> FusedFCLayerFunctors<T>::get_xavier_norm_initializer(
-    int index, size_t bottom_dim, size_t top_dim) {
-  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
-                                                    data_simu::Distribution_t::Norm,
-                                                    0 == index ? bottom_dim : 0, top_dim);
-}
-
-template <typename T>
-std::unique_ptr<DataSimulator> FusedFCLayerFunctors<T>::get_default_initializer(const int index,
-                                                                                size_t bottom_dim,
-                                                                                size_t top_dim) {
-  std::unique_ptr<DataSimulator> simu(nullptr);
-  if (0 == index) {
-    simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
-                                            data_simu::Distribution_t::Norm, bottom_dim, top_dim));
-  } else if (1 == index) {
-    float stddev = sqrt(1.f / top_dim);
-    simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
-  } else {
-    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
-  }
-
-  return simu;
 }
 
 }  // namespace HugeCTR

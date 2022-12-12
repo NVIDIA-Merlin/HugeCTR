@@ -61,6 +61,7 @@ file(GLOB huge_ctr_inference_src
   ../layers/gather_layer.cu
   ../layers/reduce_mean_layer.cu
   ../layers/sequence_mask_layer.cu
+  ../trainable_layer.cpp
   ../loss.cu
   ../network.cu
   ../network.cpp

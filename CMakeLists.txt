@@ -37,6 +37,11 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/tools/*.cpp
     ${PROJECT_SOURCE_DIR}/tools/*.cu
     ${PROJECT_SOURCE_DIR}/tools/*.cuh
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.hpp
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cpp
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cu
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.cuh
+    ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/*.inl
   )
 
   set(clangformat_srcs ${HUGECTR_SRC})
@@ -58,9 +63,9 @@ if (DISABLE_CUDF)
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_CUDF")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_CUDF")
 else()
-  find_package(Parquet PATHS /usr/lib/cmake/arrow/ NO_DEFAULT_PATH)
-  if(Parquet_FOUND AND NOT ENABLE_HDFS AND NOT ENABLE_S3)
+  find_package(Parquet CONFIG REQUIRED PATHS  /usr/lib/cmake/arrow/ NO_DEFAULT_PATH)
   message (STATUS "Arrow Parquet is found")
+  if(Parquet_FOUND)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
@@ -189,7 +194,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
   ${PROJECT_SOURCE_DIR}/third_party/librdkafka/src
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
-  ${PROJECT_SOURCE_DIR}/HugeCTR/embedding_storage/dynamic_embedding_table
+  ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table
+  ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/cuCollections/include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}

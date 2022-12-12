@@ -1,25 +1,12 @@
 # HugeCTR Example Notebooks
 
 This directory contains a set of Jupyter notebook that demonstrate how to use HugeCTR.
-
-## Quickstart
-
+ 
 The simplest way to run a one of our notebooks is with a Docker container.
 A container provides a self-contained, isolated, and reproducible environment for repetitive experiments.
 Docker images are available from the NVIDIA GPU Cloud (NGC).
-If you prefer to build the HugeCTR Docker image on your own, refer to [Set Up the Development Environment With Merlin Containers](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#set-up-the-development-environment-with-merlin-containers).
 
-### Pull the NGC Docker
-
-Pull the container using the following command:
-
-```shell
-docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.10
-```
-
-> To run the Sparse Operation Kit notebooks, pull the `nvcr.io/nvidia/merlin/merlin-tensorflow:22.10` container.
-
-### Clone the HugeCTR Repository
+## 1. Clone the HugeCTR Repository
 
 Use the following command to clone the HugeCTR repository:
 
@@ -27,30 +14,73 @@ Use the following command to clone the HugeCTR repository:
 git clone https://github.com/NVIDIA/HugeCTR
 ```
 
-### Start the Jupyter Notebook
+## 2. Pull the NGC Docker and run it
 
-1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
+Pull the container using the following command:
+
+```shell
+docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+```
+
+Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.10
+   docker run --gpus all --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u root -v $(pwd):/HugeCTR -w /HugeCTR -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.12
    ```  
 
-   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow:22.10` container.
+   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow:22.12` container.
 
-2. Start Jupyter using these commands: 
+## 3. Customized Building (Optional)
+
+HugeCTR is already installed in the NGC container. But you can also setup HugeCTR from source to customize the build more. This is useful for developmental purposes.
+
+1. Go to HugeCTR repo and update third party modules
+
+```shell
+$ cd HugeCTR
+$ git submodule update --init --recursive
+```
+
+2. There are options to customize the build using parameters, which are detailed [here](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_contributor_guide.html#build-hugectr-training-container-from-source)
+Here are some examples of how you can build HugeCTR using these build options:
+
+```shell
+# Example 1
+$ mkdir -p build && cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100 with all others by default
+$ make -j && make install
+```
+```shell
+# Example 2
+$ mkdir -p build && cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_MULTINODES=ON .. # Target is NVIDIA V100 / A100 with the multi-node mode on.
+$ make -j && make install
+```
+
+By default, HugeCTR is installed at `/usr/local`. However, you can use `CMAKE_INSTALL_PREFIX` to install HugeCTR to non-default location:
+
+`$ cmake -DCMAKE_INSTALL_PREFIX=/opt/HugeCTR -DSM=70 ..`
+
+Refer to the
+> [How to Start Your Development](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development)
+> documentation for more details on building HugeCTR From Source
+
+## 4. Start the Jupyter Notebook
+
+1. Start Jupyter using these commands: 
 
    ```shell
-   cd /hugectr/notebooks
+   cd /HugeCTR/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token='hugectr'
    ```
 
-3. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
+2. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
 
    Use the token available from the output by running the command above to log in. For example:
 
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
-4. Optional: Import MPI.
+3. Optional: Import MPI.
 
    By default, HugeCTR initializes and finalizes MPI when you run the `import hugectr` statement within the NGC Merlin container.
    If you build and install HugeCTR yourself, specify the `ENABLE_MULTINODES=ON` argument when you build.
@@ -58,13 +88,13 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    If your program uses MPI for a reason other than interacting with HugeCTR, initialize MPI with the `from mpi4py import MPI` statement before you import HugeCTR.
    
-5. Important Note:
+4. Important Note:
 
    HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
 
 ## Notebook List
 
-The notebooks are located within the container and can be found in the `/hugectr/notebooks` directory.
+The notebooks are located within the container and can be found in the `/HugeCTR/notebooks` directory.
 
 Here's a list of notebooks that you can run:
 - [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
@@ -98,3 +128,5 @@ The specifications of the system on which each notebook can run successfully are
 | [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb)           | AMD Ryzen 9 3900X 12-Core <br />32 GB Memory                 | GeForce RTX 2080Ti<br />11 GB Memory   | 1       | Yingcan Wei    |
 | [movie-lens-example.ipynb](movie-lens-example.ipynb)                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
 | [news-example.ipynb](news-example.ipynb)                               | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Ashish Sardana |
+| [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
+| [embedding_training_cache_example.ipynb](embedding_training_cache_example.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |

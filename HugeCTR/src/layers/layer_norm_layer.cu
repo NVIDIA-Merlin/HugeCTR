@@ -367,15 +367,17 @@ __global__ void layer_norm_backward2(const __half* out_grad, __half* X_vals, con
 }  // namespace
 
 template <typename T>
-LayerNormLayer<T>::LayerNormLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+LayerNormLayer<T>::LayerNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                  const std::shared_ptr<BufferBlock2<T>>& weight_buff,
                                   const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                                   const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                                   const Params& params,
                                   const std::shared_ptr<GPUResource>& gpu_resource,
                                   std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types), params_(params) {
-  CudaDeviceContext context(get_device_id());
+    : Base(master_weight_buff, weight_buff, wgrad_buff, gpu_resource, initializer_types),
+      params_(params) {
+  CudaDeviceContext context(this->get_device_id());
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
@@ -405,16 +407,16 @@ LayerNormLayer<T>::LayerNormLayer(const std::shared_ptr<BufferBlock2<T>>& weight
   std::vector<size_t> mean_dim = {batch, 1};
 
   // gamma & beta
-  weight_buff->reserve(gamma_dim, &gamma_);
-  weight_buff->reserve(gamma_dim, &beta_);
-  weights_.push_back(gamma_);
-  weights_.push_back(beta_);
+  this->set_weight(0, gamma_dim);
+  this->set_weight(1, gamma_dim);
 
+  gamma_ = this->get_weight(0);
+  beta_ = this->get_weight(1);
   // gamma grad & beta grad
-  wgrad_buff->reserve(gamma_dim, &gamma_grad_);
-  wgrad_buff->reserve(gamma_dim, &beta_grad_);
-  wgrad_.push_back(gamma_grad_);
-  wgrad_.push_back(beta_grad_);
+  this->set_wgrad(0, gamma_dim);
+  this->set_wgrad(1, gamma_dim);
+  gamma_grad_ = this->get_wgrad(0);
+  beta_grad_ = this->get_wgrad(1);
 
   // save running mean & var (cache)
   blob_buff->reserve(mean_dim, &result_save_mean_);
@@ -423,7 +425,7 @@ LayerNormLayer<T>::LayerNormLayer(const std::shared_ptr<BufferBlock2<T>>& weight
 
 template <typename T>
 void LayerNormLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
   float one = 1.0f, zero = 0.0f;
 
   Tensor2<T>& in_tensor = in_tensors_[0];
@@ -447,13 +449,13 @@ void LayerNormLayer<T>::fprop(bool is_train) {
   dim3 block_size(min(hidden_dim, static_cast<size_t>(MAX_THREADS)), 1, 1);
   dim3 grid_size(batch, 1, 1);
 
-  layer_norm_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+  layer_norm_kernel<<<grid_size, block_size, 0, this->get_gpu().get_stream()>>>(
       out, in, result_save_var, result_save_mean, gamma, beta, batch, hidden_dim, params_.eps);
 }
 
 template <typename T>
 void LayerNormLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
   float one = 1.0f, zero = 0.0f;
 
@@ -481,14 +483,14 @@ void LayerNormLayer<T>::bprop() {
 
   dim3 grid_dim1(max(hidden_dim / TILE_DIM, static_cast<size_t>(1)));
   dim3 block_dim1(TILE_DIM, TILE_DIM);
-  layer_norm_backward1<<<grid_dim1, block_dim1, 0, get_gpu().get_stream()>>>(
+  layer_norm_backward1<<<grid_dim1, block_dim1, 0, this->get_gpu().get_stream()>>>(
       out, in, result_save_var, result_save_mean, gamma_grad, beta_grad, batch, hidden_dim);
 
   dim3 grid_dim2(batch);
   size_t blockDimx = hidden_dim < 32 ? hidden_dim : ((hidden_dim >> 5) << 5);
   dim3 block_dim2(min(blockDimx, static_cast<size_t>(MAX_THREADS)));
 
-  layer_norm_backward2<<<grid_dim2, block_dim2, 0, get_gpu().get_stream()>>>(
+  layer_norm_backward2<<<grid_dim2, block_dim2, 0, this->get_gpu().get_stream()>>>(
       out, in, gamma, result_save_var, result_save_mean, in, hidden_dim);
 }
 

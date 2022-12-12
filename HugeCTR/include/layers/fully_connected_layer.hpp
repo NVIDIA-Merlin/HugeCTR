@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <layer.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -32,7 +33,7 @@ class FullyConnectedLayer;
  * This class implements the fully connected layer.
  */
 template <>
-class FullyConnectedLayer<float> : public Layer {
+class FullyConnectedLayer<float> : public TrainableLayer<float> {
  private:
   const bool use_mixed_precision_{false};
   const bool enable_tf32_compute_{false};
@@ -41,14 +42,6 @@ class FullyConnectedLayer<float> : public Layer {
   cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
 
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */

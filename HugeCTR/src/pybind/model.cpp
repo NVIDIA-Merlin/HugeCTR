@@ -253,44 +253,32 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
 }
 
 void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
-  size_t num_opt_state_copies = 0;
-  switch (embedding_opt_params->optimizer) {
-    case Optimizer_t::Adam: {
-      num_opt_state_copies = 2;
-      if (embedding_opt_params->update_type == Update_t::LazyGlobal) {
-        num_opt_state_copies += 1;
-      }
-      break;
-    }
-    case Optimizer_t::AdaGrad:
-    case Optimizer_t::MomentumSGD:
-    case Optimizer_t::Nesterov: {
-      num_opt_state_copies = 1;
-      break;
-    }
-    case Optimizer_t::SGD:
-      break;
-    default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  size_t num_opt_state_copies =
+      OptParams::num_parameters_per_weight(embedding_opt_params->optimizer);
+  if (embedding_opt_params->optimizer == Optimizer_t::Adam &&
+      embedding_opt_params->update_type == Update_t::LazyGlobal) {
+    num_opt_state_copies += 1;
   }
 
   max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) /
                                 ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
-DenseLayer::DenseLayer(
-    Layer_t layer_type, std::vector<std::string>& bottom_names, std::vector<std::string>& top_names,
-    float factor, float eps, Initializer_t gamma_init_type, Initializer_t beta_init_type,
-    float dropout_rate, float elu_alpha, size_t num_output, Initializer_t weight_init_type,
-    Initializer_t bias_init_type, int num_layers, size_t leading_dim, size_t time_step,
-    size_t batchsize, size_t SeqLength, size_t vector_size, bool selected,
-    std::vector<int> selected_slots, std::vector<std::pair<int, int>> ranges,
-    std::vector<int> indices, std::vector<size_t> weight_dims, size_t out_dim, int axis,
-    int max_sequence_len, int num_attention_heads, std::vector<float> target_weight_vec,
-    bool use_regularizer, Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-    Activation_t act_type, DenseLayerSwitchs dense_layer_switches, std::vector<size_t> num_outputs,
-    bool use_bias, std::vector<Activation_t> acts, std::vector<bool> biases)
+DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
+                       std::vector<std::string>& top_names, float factor, float eps,
+                       Initializer_t gamma_init_type, Initializer_t beta_init_type,
+                       float dropout_rate, float elu_alpha, size_t num_output,
+                       Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
+                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
+                       size_t vector_size, bool selected, std::vector<int> selected_slots,
+                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
+                       std::vector<size_t> weight_dims, size_t projection_dim, size_t out_dim,
+                       int axis, int max_sequence_len, int num_attention_heads,
+                       std::vector<float> target_weight_vec, bool use_regularizer,
+                       Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
+                       Activation_t act_type, DenseLayerSwitchs dense_layer_switches,
+                       std::vector<size_t> num_outputs, bool use_bias,
+                       std::vector<Activation_t> acts, std::vector<bool> biases)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -314,9 +302,11 @@ DenseLayer::DenseLayer(
       ranges(ranges),
       indices(indices),
       weight_dims(weight_dims),
+      projection_dim(projection_dim),
       out_dim(out_dim),
       axis(axis),
       max_sequence_len(max_sequence_len),
+      num_attention_heads(num_attention_heads),
       target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer),
       regularizer_type(regularizer_type),

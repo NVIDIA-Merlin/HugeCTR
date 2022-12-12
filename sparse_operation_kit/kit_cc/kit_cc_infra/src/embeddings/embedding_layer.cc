@@ -207,6 +207,9 @@ class EmbeddingVariantWrapper {
   EmbeddingVariantWrapper& operator=(const EmbeddingVariantWrapper& other) = delete;
 
   std::shared_ptr<EmbeddingLayer> get() const { return embedding_; }
+#ifdef TF_GE_210
+  void set_embedding_layer(const std::shared_ptr<EmbeddingLayer> emb) { embedding_ = emb; }
+#endif 
 
   ~EmbeddingVariantWrapper() = default;
   tensorflow::string TypeName() const { return "EmbeddingPlugin::EmbeddingVariantWrapper"; }
@@ -248,3 +251,26 @@ void StoreEmbeddingInVariantTensor(const std::shared_ptr<EmbeddingLayer>& emb,
 }
 
 }  // namespace SparseOperationKit
+#ifdef TF_GE_210
+namespace tensorflow{
+
+Status EmbeddingVariantWrapperDeviceCopy(
+    const SparseOperationKit::EmbeddingVariantWrapper& from, SparseOperationKit::EmbeddingVariantWrapper* to, 
+    const UnaryVariantOpRegistry::AsyncTensorDeviceCopyFn& copy) {
+  std::shared_ptr<SparseOperationKit::EmbeddingLayer> embedding = from.get();
+  to->set_embedding_layer(embedding);
+  return OkStatus();
+}
+
+
+#define REGISTER_EMBEDDING_VARIANT_WRAPPER_COPY(DIRECTION)  \
+  INTERNAL_REGISTER_UNARY_VARIANT_DEVICE_COPY_FUNCTION( \
+      SparseOperationKit::EmbeddingVariantWrapper, DIRECTION, EmbeddingVariantWrapperDeviceCopy)
+
+REGISTER_EMBEDDING_VARIANT_WRAPPER_COPY(VariantDeviceCopyDirection::HOST_TO_DEVICE);
+REGISTER_EMBEDDING_VARIANT_WRAPPER_COPY(VariantDeviceCopyDirection::DEVICE_TO_HOST);
+REGISTER_EMBEDDING_VARIANT_WRAPPER_COPY(
+    VariantDeviceCopyDirection::DEVICE_TO_DEVICE);
+
+}  // namespace tensorflow
+#endif 

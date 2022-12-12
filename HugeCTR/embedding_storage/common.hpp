@@ -23,6 +23,7 @@
 #include "HugeCTR/include/optimizer.hpp"
 
 namespace embedding {
+
 using core::CoreResourceManager;
 using core::DataType;
 using core::Device;

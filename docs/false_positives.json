@@ -79,7 +79,7 @@
   "info": "Anchor 'unload' not found"
 }
 {
-  "filename": "hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.ipynb",
+  "filename": "hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb",
   "lineno": 210002,
   "status": "broken",
   "code": 0,

@@ -176,7 +176,8 @@ InferenceParams::InferenceParams(
     const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
     const std::vector<size_t>& embedding_vecsize_per_table,
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
-    const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file)
+    const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file,
+    bool use_static_table)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -210,7 +211,8 @@ InferenceParams::InferenceParams(
       network_file(network_file),
       label_dim(label_dim),
       slot_num(slot_num),
-      non_trainable_params_file(non_trainable_params_file) {
+      non_trainable_params_file(non_trainable_params_file),
+      use_static_table(use_static_table) {
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
         WARNING, ROOT,
@@ -239,6 +241,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
   // Initialize for each model
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));
+
+  bool i64_input_key = get_value_from_json<bool>(hps_config, "supportlonglong");
 
   // Parsing HPS Databse backend
   //****Update source parameters.
@@ -409,7 +413,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     const int device_id = 0;
 
     InferenceParams params(model_name, max_batch_size, hit_rate_threshold, dense_file, sparse_files,
-                           device_id, use_gpu_embedding_cache, cache_size_percentage, true);
+                           device_id, use_gpu_embedding_cache, cache_size_percentage,
+                           i64_input_key);
     // [8] number_of_worker_buffers_in_pool ->int
     params.number_of_worker_buffers_in_pool =
         get_value_from_json_soft<int>(model, "num_of_worker_buffer_in_pool", 1);
@@ -490,6 +495,9 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
         params.embedding_table_names.emplace_back("sparse_embedding" + std::to_string(i));
       }
     }
+
+    // [19] use_static_table -> bool
+    params.use_static_table = get_value_from_json_soft<bool>(model, "use_static_table", false);
 
     params.volatile_db = volatile_db_params;
     params.persistent_db = persistent_db_params;

@@ -166,7 +166,9 @@ void CommonPybind(pybind11::module& m) {
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
   pybind11::enum_<HugeCTR::Optimizer_t>(m, "Optimizer_t")
+      .value("Ftrl", HugeCTR::Optimizer_t::Ftrl)
       .value("Adam", HugeCTR::Optimizer_t::Adam)
+      .value("RMSProp", HugeCTR::Optimizer_t::RMSProp)
       .value("AdaGrad", HugeCTR::Optimizer_t::AdaGrad)
       .value("MomentumSGD", HugeCTR::Optimizer_t::MomentumSGD)
       .value("Nesterov", HugeCTR::Optimizer_t::Nesterov)

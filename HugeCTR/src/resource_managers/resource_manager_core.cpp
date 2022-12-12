@@ -17,6 +17,7 @@
 #include <omp.h>
 
 #include <base/debug/logger.hpp>
+#include <cstdlib>
 #include <random>
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
@@ -99,21 +100,25 @@ void ResourceManagerCore::enable_all_peer_accesses() {
 
 void ResourceManagerCore::initialize_rmm_resources() {
   const size_t pool_alloc_size = 256 * 1024 * 1024;
-
   using dmmr = rmm::mr::device_memory_resource;
-
+  static const char* allow_set_char = getenv("HCTR_RMM_SETTABLE");
+  bool allow_set = true;
+  if (allow_set_char && allow_set_char[0] == '0') {
+    allow_set = false;
+  }
   CudaDeviceContext context;
   auto local_gpu_device_id_list = get_local_gpu_device_id_list();
   for (size_t i = 0; i < local_gpu_device_id_list.size(); i++) {
     context.set_device(local_gpu_device_id_list[i]);
-    base_cuda_mr_.emplace_back(
-        std::shared_ptr<rmm::mr::cuda_memory_resource>(new rmm::mr::cuda_memory_resource()));
-    memory_resource_.emplace_back(std::shared_ptr<rmm::mr::pool_memory_resource<dmmr>>(
-        new rmm::mr::pool_memory_resource<dmmr>(base_cuda_mr_.back().get(), pool_alloc_size)));
-    rmm::mr::set_current_device_resource(memory_resource_.back().get());
+    base_cuda_mr_.emplace_back(std::make_shared<rmm::mr::cuda_memory_resource>());
+    memory_resource_.emplace_back(std::make_shared<rmm::mr::pool_memory_resource<dmmr>>(
+        base_cuda_mr_.back().get(), pool_alloc_size));
+    if (allow_set) {
+      original_device_resource_.push_back(
+          rmm::mr::set_current_device_resource(memory_resource_.back().get()));
+    }
   }
 }
-
 ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
                                          unsigned long long seed)
     : num_process_(num_process), process_id_(process_id), device_map_(std::move(device_map)) {
@@ -201,7 +206,17 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
 
   initialize_rmm_resources();
 }
-
+ResourceManagerCore::~ResourceManagerCore() {
+  if (original_device_resource_.empty()) {
+    return;
+  }
+  auto local_gpu_device_id_list = get_local_gpu_device_id_list();
+  CudaDeviceContext context;
+  for (size_t i = 0; i < local_gpu_device_id_list.size(); i++) {
+    context.set_device(local_gpu_device_id_list[i]);
+    rmm::mr::set_current_device_resource(original_device_resource_[i]);
+  }
+}
 bool ResourceManagerCore::p2p_enabled(int src_device_id, int dst_device_id) const {
   return p2p_matrix_[src_device_id][dst_device_id];
 }

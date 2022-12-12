@@ -39,7 +39,6 @@ if __name__ == "__main__":
     tf_var = tf.Variable(table_val)
     tf_optimizer = tf.optimizers.SGD(learning_rate=1.0)
 
-    @tf.function
     def sok_step(indices, weight, var):
         with tf.GradientTape() as tape:
             emb = tf.nn.embedding_lookup(var, indices)

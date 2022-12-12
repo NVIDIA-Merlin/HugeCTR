@@ -22,12 +22,13 @@
 #include <functional>
 #include <layer.hpp>
 #include <layers/functors/fused_fc_layer_functors.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
 
 template <typename T>
-class MLPLayer : public Layer {
+class MLPLayer : public TrainableLayer<T> {
   Tensors2<T> bottom_tensors_;
   Tensors2<T> top_tensors_;
 
@@ -54,6 +55,11 @@ class MLPLayer : public Layer {
   std::vector<CublasFusedFCLayerAlgo<T>> layer_algo_;
   FusedFCLayerFunctors<T> layer_functors_;
 
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+
  public:
   MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
            const std::shared_ptr<BufferBlock2<T>>& weights_buff,
@@ -77,8 +83,6 @@ class MLPLayer : public Layer {
 
   void initialize() final;
 
-  void init_params(const curandGenerator_t& generator) final;
-
   /*
    * Interfaces for unit tests to debug
    */
@@ -91,14 +95,10 @@ class MLPLayer : public Layer {
   Tensors2<T>& get_output_tensors() { return top_tensors_; }
 
   ~MLPLayer() {
-    CudaDeviceContext context(get_device_id());
+    CudaDeviceContext context(this->get_device_id());
     if (event_overlap_created_) {
       cudaEventDestroy(event_overlap_);
     }
   };
 };
-
-template class MLPLayer<float>;
-template class MLPLayer<__half>;
-
 }  // namespace HugeCTR

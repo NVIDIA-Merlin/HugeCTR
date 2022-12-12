@@ -139,6 +139,13 @@ class Tensor final {
   template <typename T>
   void to(std::vector<T> *other, cudaStream_t stream = 0) const;
 
+  template <typename T>
+  inline std::vector<T> to_vector(cudaStream_t stream = 0) const {
+    std::vector<T> v;
+    to(&v, stream);
+    return v;
+  }
+
   void zeros(cudaStream_t stream = 0);
 
   // Check function

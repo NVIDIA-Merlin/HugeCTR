@@ -32,8 +32,17 @@ if(NOT pybind11_sources_POPULATED)
     )
 endif()
 
-file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu ../embedding_storage/dynamic_embedding_table/*.cpp
-../embedding_storage/dynamic_embedding_table/*.cu)
+file(
+  GLOB_RECURSE huge_ctr_src 
+  RELATIVE 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    *.cpp
+    *.cu
+    ../embedding_storage/*.cpp
+    ../embedding_storage/*.cu
+    ../../third_party/dynamic_embedding_table/*.cpp
+    ../../third_party/dynamic_embedding_table/*.cu
+    )
 
 list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})

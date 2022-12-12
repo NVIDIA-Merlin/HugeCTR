@@ -15,15 +15,13 @@
  */
 #include <curand_kernel.h>
 
+#include <core/registry.hpp>
 #include <cub/cub.cuh>
+#include <data_simulator.hpp>
+#include <embedding/view.hpp>
+#include <embedding_storage/ragged_static_embedding.hpp>
 #include <numeric>
 #include <utils.cuh>
-
-#include "HugeCTR/core/registry.hpp"
-#include "HugeCTR/embedding/view.hpp"
-#include "HugeCTR/include/data_simulator.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "ragged_static_embedding.hpp"
 
 namespace embedding {
 
@@ -189,6 +187,7 @@ __global__ void embedding_insert_by_tableindex_kernel(
     tmp_embedding_table[output_offset + i] = ei;
   }
 }
+
 }  // namespace
 
 RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(

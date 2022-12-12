@@ -251,6 +251,7 @@ struct DenseLayer {
   std::vector<std::pair<int, int>> ranges;
   std::vector<int> indices;
   std::vector<size_t> weight_dims;
+  size_t projection_dim;
   size_t out_dim;
   int axis;
   int max_sequence_len;
@@ -279,8 +280,9 @@ struct DenseLayer {
              std::vector<int> selected_slots = std::vector<int>(),
              std::vector<std::pair<int, int>> ranges = std::vector<std::pair<int, int>>(),
              std::vector<int> indices = std::vector<int>(),
-             std::vector<size_t> weight_dims = std::vector<size_t>(), size_t out_dim = 0,
-             int axis = 1, int max_sequence_len = 1, int num_attention_heads = 1,
+             std::vector<size_t> weight_dims = std::vector<size_t>(), size_t projection_dim = 0,
+             size_t out_dim = 0, int axis = 1, int max_sequence_len = 1,
+             int num_attention_heads = 1,
              std::vector<float> target_weight_vec = std::vector<float>(),
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
@@ -667,6 +669,7 @@ class Model {
    public:
     GraphScheduler(std::shared_ptr<ResourceManager> resource_manager) : launched_iter(0) {
       // set up trickling launch
+      CudaDeviceContext ctx_helper;
       CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(0)->get_device_id());
       HCTR_LIB_THROW(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
       *executed_iter = 0;

@@ -76,7 +76,7 @@ void AdamOptimizer<T>::update() {
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
   ++t_;
-  const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
+  const float alpha_t = lr_ * std::sqrt(1 - std::pow(beta2_, t_)) / (1 - std::pow(beta1_, t_));
 
   float* weight = weight_main_.get_ptr();
 

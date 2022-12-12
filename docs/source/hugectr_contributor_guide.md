@@ -105,6 +105,9 @@ To build HugeCTR Training Container from source, do the following:
      will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
      OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-container-from-source)
    - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissable values are `ON`, `MINIMAL` and `OFF` *(default)*. Setting this option to `ON` leads to building all necessary Hadoop modules that are required for building AND running both HugeCTR and HDFS. In contrast, `MINIMAL` restricts building only the minimum necessary set of components for building HugeCTR.
+   - **ENABLE_S3**: You can use this option to build HugeCTR together with Amazon AWS S3 SDK to enable S3 related functions. Permissable values are `ON` and `OFF` *(default)*. Setting this option to `ON` leads to building all necessary AWS SKKs and dependecies that are required for building AND running both HugeCTR and S3. 
+
+   **Please note that setting DENABLE_HDFS=ON/MINIMAL or DENABLE_S3=ON requires root permission. So before using these two options to do the customized building, make sure you use `-u root` when you run the docker container.**
 
    Here are some examples of how you can build HugeCTR using these build options:
    ```shell

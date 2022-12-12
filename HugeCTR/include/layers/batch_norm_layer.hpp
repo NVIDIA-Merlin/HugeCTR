@@ -19,8 +19,8 @@
 #include <cudnn.h>
 
 #include <general_buffer2.hpp>
-#include <layer.hpp>
 #include <memory>
+#include <trainable_layer.hpp>
 
 namespace HugeCTR {
 
@@ -28,15 +28,10 @@ namespace HugeCTR {
  * BatchNorm layer based on cuDNN
  */
 template <typename T>
-class BatchNormLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<float> wgrad_;
+class BatchNormLayer : public TrainableLayer<T, true> {
+  using Base = TrainableLayer<T, true>;
+  using WeightType = typename Base::WeightType;
+
   /*
    * stores the references to the input tensors of this layer.
    */
@@ -65,8 +60,9 @@ class BatchNormLayer : public Layer {
    * @param cudnn_handle cuDNN handle created externally
    * @param device_id the id of GPU where this layer belongs
    */
-  BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+  BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                 const std::shared_ptr<BufferBlock2<WeightType>>& weight_buff,
+                 const std::shared_ptr<BufferBlock2<WeightType>>& wgrad_buff,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, const Params& params,
                  const std::shared_ptr<GPUResource>& gpu_resource,

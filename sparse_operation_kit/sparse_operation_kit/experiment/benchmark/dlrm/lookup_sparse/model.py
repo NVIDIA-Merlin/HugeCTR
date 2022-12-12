@@ -88,7 +88,7 @@ class SOKEmbedding(tf.keras.layers.Layer):
             # emb_vectors: [batch_size*26, embedding_vec_size]
             # emb_vectors = sok.all2all_dense_embedding(self._var, fused_inputs)
             fused_inputs = tf.RaggedTensor.from_tensor(tf.reshape(fused_inputs, [-1, 1]))
-            emb_vectors = sok.lookup_sparse(self._var, fused_inputs, 1, "sum")
+            emb_vectors = sok.lookup_sparse(self._var, fused_inputs, "sum")
 
             if compress:
                 # Restore the first dimension of emb_vectors to batch_size*26
@@ -109,7 +109,6 @@ class SOKEmbedding(tf.keras.layers.Layer):
             emb_vectors = sok.lookup_sparse(
                 self._vars,
                 input_list,
-                [1 for _ in range(len(self._vocab_sizes))],
                 ["sum" for _ in range(len(self._vocab_sizes))],
             )
             for i in range(len(self._vocab_sizes)):

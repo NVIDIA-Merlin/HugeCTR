@@ -17,6 +17,7 @@
 #include <optimizer.hpp>
 #include <optimizers/adagrad_optimizer.hpp>
 #include <optimizers/adam_optimizer.hpp>
+#include <optimizers/ftrl_optimizer.hpp>
 #include <optimizers/momentum_sgd_optimizer.hpp>
 #include <optimizers/nesterov_optimizer.hpp>
 #include <optimizers/sgd_optimizer.hpp>
@@ -44,45 +45,56 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
   std::unique_ptr<Optimizer> ret;
 
   switch (params.optimizer) {
+    case Optimizer_t::Ftrl: {
+      auto lr = params.lr;
+      auto beta = params.hyperparams.ftrl.beta;
+      auto lambda1 = params.hyperparams.ftrl.lambda1;
+      auto lambda2 = params.hyperparams.ftrl.lambda2;
+      ret = std::make_unique<FtrlOptimizer<T>>(weight_main, wgrad, opt_buff, gpu_resource, lr, beta,
+                                               lambda1, lambda2, scaler);
+    } break;
+
     case Optimizer_t::Adam: {
       auto lr = params.lr;
       auto beta1 = params.hyperparams.adam.beta1;
       auto beta2 = params.hyperparams.adam.beta2;
       auto epsilon = params.hyperparams.adam.epsilon;
-      ret.reset(new AdamOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, lr, beta1, beta2,
-                                     epsilon, scaler));
-      break;
-    }
+      ret = std::make_unique<AdamOptimizer<T>>(weight_main, wgrad, opt_buff, gpu_resource, lr,
+                                               beta1, beta2, epsilon, scaler);
+    } break;
+
     case Optimizer_t::AdaGrad: {
       auto lr = params.lr;
       auto initial_accu_value = params.hyperparams.adagrad.initial_accu_value;
       auto epsilon = params.hyperparams.adagrad.epsilon;
-      ret.reset(new AdaGradOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, lr,
-                                        initial_accu_value, epsilon, scaler));
-    }
+      ret = std::make_unique<AdaGradOptimizer<T>>(weight_main, wgrad, opt_buff, gpu_resource, lr,
+                                                  initial_accu_value, epsilon, scaler);
+    } break;
+
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = params.lr;
       auto momentum_factor = params.hyperparams.momentum.factor;
-      ret.reset(new MomentumSGDOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource,
-                                            learning_rate, momentum_factor, scaler));
-      break;
-    }
+      ret = std::make_unique<MomentumSGDOptimizer<T>>(weight_main, wgrad, opt_buff, gpu_resource,
+                                                      learning_rate, momentum_factor, scaler);
+    } break;
+
     case Optimizer_t::Nesterov: {
       auto learning_rate = params.lr;
       auto momentum_factor = params.hyperparams.nesterov.mu;
-      ret.reset(new NesterovOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, learning_rate,
-                                         momentum_factor, scaler));
-      break;
-    }
+      ret = std::make_unique<NesterovOptimizer<T>>(weight_main, wgrad, opt_buff, gpu_resource,
+                                                   learning_rate, momentum_factor, scaler);
+    } break;
+
     case Optimizer_t::SGD: {
       auto learning_rate = params.lr;
-      ret.reset(new SGDOptimizer<T>(weight_main, weight_main_half, wgrad, gpu_resource,
-                                    learning_rate, scaler, use_mixed_precision));
-      break;
-    }
+      ret = std::make_unique<SGDOptimizer<T>>(weight_main, weight_main_half, wgrad, gpu_resource,
+                                              learning_rate, scaler, use_mixed_precision);
+    } break;
+
     default:
-      assert(!"Error: no such optimizer && should never get here!");
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such optimizer && should never get here!");
   }
+
   return ret;
 }
 
