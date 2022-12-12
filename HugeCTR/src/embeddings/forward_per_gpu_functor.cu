@@ -20,28 +20,10 @@
 namespace HugeCTR {
 
 namespace {
-/**
- * All the CUDA kernel functions used by embedding layer are defined in this file, including
- * forward propagation, backward propagation. The functions are defined by propagation type
- * and combiner type(sum or mean) as below:
- *   1) forward
- *        sum: calling forward_sum_kernel()
- *        mean: calling foward_sum_kernel() + forward_scale_kernel()
- *   2) backward:
- *        calculating wgrad:
- *          sum: calling backward_sum_kernel()
- *          mean: calling backward_mean_kernel()
- *        update embedding table: including several steps as below,
- *          step1: expand sample IDs, calling sample_id_expand_kernel()
- *          step2: get value_index by key (will call hash_table->get_insert() in nv_hashtable lib)
- *          step3: sort by value_index (will call cub::DeviceRadixSort::SortPairs in cub lib)
- *          step4: count the number for each unduplicated value_index, calling value_count_kernel()
- *          step5: use optimizer method to compute deltaw, and record corresponding, including three
- * types of optimizer: Adam: caling opt_adam_kernel() Momentum sgd: calling
- * opt_momentum_sgd_kernel() Nesterov: calling opt_nesterov_kernel() step6: update embedding table
- * by deltaw, calling update_kernel()
- */
 
+// forward
+//*        sum: calling forward_sum_kernel()
+//*        mean: calling foward_sum_kernel() + forward_scale_kernel()
 // forward kernel funcion: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
