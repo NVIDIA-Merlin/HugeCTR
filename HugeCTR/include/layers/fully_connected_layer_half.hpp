@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <layer.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 #include "cublas_v2.h"
@@ -29,30 +30,13 @@ namespace HugeCTR {
  * This class implements the fully connected layer.
  */
 template <>
-class FullyConnectedLayer<__half> : public Layer {
+class FullyConnectedLayer<__half> : public TrainableLayer<__half> {
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_b_;
   cublasGemmAlgo_t falgo_k_;
   cublasGemmAlgo_t balgo_b_;
   cublasGemmAlgo_t balgo_k_;
   cublasGemmAlgo_t balgo_x_;
-
-  /*
-   * stores the weight tensors for compute of this layer.
-   */
-  // std::vector<TensorPtr<float>> master_weights_; It is inherited from Layer, and named as
-  // weights_;
-
-  /*
-   * stores the weight tensors for compute of this layer.
-   */
-  // std::vector<TensorPtr<__half>> weights_;
-  Tensors2<__half> weights_half_;
-
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<__half> weights_grad_;
 
   /*
    * stores the references to the input tensors of this layer.
@@ -96,6 +80,7 @@ class FullyConnectedLayer<__half> : public Layer {
    * algorithm search for cublasGemmEx
    */
   void search_algorithm() final;
+
   /**
    * This is the constructor of the FullyConnectedLayer.
    * It will check whether the format combination of all tensors is supported or not.

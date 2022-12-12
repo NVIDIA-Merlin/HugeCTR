@@ -96,7 +96,8 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
     const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types),
+    : TrainableLayer<__half>(master_weights_buff, weights_buff, weights_grad_buff, gpu_resource,
+                             initializer_types),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP) {
@@ -121,36 +122,10 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
   std::vector<size_t> kernel_dim = {input_size, output_size};
   std::vector<size_t> bias_dim = {1, output_size};
 
-  {
-    Tensor2<float> tensor;
-    master_weights_buff->reserve(kernel_dim, &tensor);
-    weights_.push_back(tensor);
-  }
-  {
-    Tensor2<float> tensor;
-    master_weights_buff->reserve(bias_dim, &tensor);
-    weights_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_buff->reserve(kernel_dim, &tensor);
-    weights_half_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_buff->reserve(bias_dim, &tensor);
-    weights_half_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_grad_buff->reserve(kernel_dim, &tensor);
-    weights_grad_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_grad_buff->reserve(bias_dim, &tensor);
-    weights_grad_.push_back(tensor);
-  }
+  this->set_weight(0, kernel_dim);
+  this->set_weight(1, bias_dim);
+  this->set_wgrad(0, kernel_dim);
+  this->set_wgrad(1, bias_dim);
 
   bottom_tensor_ = bottom_tensor;
   top_tensor_ = top_tensor;
@@ -161,8 +136,8 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
 void FusedFullyConnectedLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const __half* kernel = weights_half_[0].get_ptr();
-  const __half* bias = weights_half_[1].get_ptr();
+  const __half* kernel = this->get_weight(0).get_ptr();
+  const __half* bias = this->get_weight(1).get_ptr();
   const __half* bottom = get_bottom_tensor(is_train).get_ptr();
   __half* middle = middle_tensor_.get_ptr();
   __half* top = top_tensor_.get_ptr();
@@ -197,10 +172,10 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
 void FusedFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  const __half* kernel = weights_half_[0].get_ptr();
+  const __half* kernel = this->get_weight(0).get_ptr();
   const __half* top = top_tensor_.get_ptr();
-  __half* kernel_grad = weights_grad_[0].get_ptr();
-  __half* bias_grad = weights_grad_[1].get_ptr();
+  __half* kernel_grad = this->get_wgrad(0).get_ptr();
+  __half* bias_grad = this->get_wgrad(1).get_ptr();
   __half* bottom = get_bottom_tensor(true).get_ptr();
   __half* middle = middle_tensor_.get_ptr();
   float* bias_grad_float = bias_grad_tensor_.get_ptr();
@@ -251,10 +226,10 @@ void FusedFullyConnectedLayer::search_algorithm() {
   // Device Tensors to be used
   __half* bottom = get_bottom_tensor(true).get_ptr();
   __half* top = top_tensor_.get_ptr();
-  __half* kernel = weights_half_[0].get_ptr();
-  __half* bias = weights_half_[1].get_ptr();
-  __half* kernel_grad = weights_grad_[0].get_ptr();
-  __half* bias_grad = weights_grad_[1].get_ptr();
+  __half* kernel = this->get_weight(0).get_ptr();
+  __half* bias = this->get_weight(1).get_ptr();
+  __half* kernel_grad = this->get_wgrad(0).get_ptr();
+  __half* bias_grad = this->get_wgrad(1).get_ptr();
 
   // Tensor dim
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();

@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <layer.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -29,7 +30,7 @@ namespace HugeCTR {
  * @brief
  * This class implements the fully connected layer.
  */
-class FusedReluBiasFullyConnectedLayer : public Layer {
+class FusedReluBiasFullyConnectedLayer : public TrainableLayer<__half> {
   // Optimized cublasGemmEx algorithm selection
   cublasLtMatmulAlgo_t falgo_k_;
   cublasLtMatmulAlgo_t balgo_dRelu_;

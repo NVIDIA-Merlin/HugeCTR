@@ -104,14 +104,14 @@ class TrainableLayer : public Layer {
   // @brief an accessor to get a weight tensor at idx
   // @details
   // Usage: In a child class, auto weight2 = this->get_weight(2);
-  auto& get_weight(size_t idx) const {
+  auto& get_weight(size_t idx) {
     HCTR_CHECK_HINT(idx < weights_.size(), "Wrong index for getting weight tensors");
     return weights_[idx];
   }
   // @brief an accessor to get a wgrad tensor at idx
   // @details
   // Usage: In a child class, auto wgrad2 = this->get_wgrad(2);
-  auto& get_wgrad(size_t idx) const {
+  auto& get_wgrad(size_t idx) {
     HCTR_CHECK_HINT(idx < wgrads_.size(), "Wrong index for getting weight gradient tensors");
     return wgrads_[idx];
   }

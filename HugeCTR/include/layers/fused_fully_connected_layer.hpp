@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <layer.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -27,28 +28,11 @@ namespace HugeCTR {
  * @brief
  * This class implements the fully connected layer.
  */
-class FusedFullyConnectedLayer : public Layer {
+class FusedFullyConnectedLayer : public TrainableLayer<__half> {
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_x_{CUBLAS_GEMM_DEFAULT};
-
-  /*
-   * stores the weight tensors for compute of this layer.
-   */
-  // std::vector<TensorPtr<float>> master_weights_; It is inherited from Layer, and named as
-  // weights_;
-
-  /*
-   * stores the weight tensors for compute of this layer.
-   */
-  // std::vector<TensorPtr<__half>> weights_;
-  Tensors2<__half> weights_half_;
-
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<__half> weights_grad_;
 
   /*
    * stores the references to the bottom tensors of this layer.

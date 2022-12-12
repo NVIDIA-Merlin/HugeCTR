@@ -64,7 +64,8 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
     const bool async_mlp_wgrad, const bool head_mask_in,
     const DenseLayerSwitchs& dense_layer_switches)
-    : Layer(gpu_resource, initializer_types),
+    : TrainableLayer<__half>(master_weights_buff, weights_buff, weights_grad_buff, gpu_resource,
+                             initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -90,36 +91,16 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
   std::vector<size_t> bias_dim = {1, output_size};
   std::vector<size_t> identity_dim = {1, batch_size};
 
-  {
-    Tensor2<float> tensor;
-    master_weights_buff->reserve(kernel_dim, &tensor);
-    weights_.push_back(tensor);
-  }
-  {
-    Tensor2<float> tensor;
-    master_weights_buff->reserve(bias_dim, &tensor);
-    weights_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_buff->reserve(kernel_dim, &tensor);
-    weights_half_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_buff->reserve(bias_dim, &tensor);
-    weights_half_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_grad_buff->reserve(kernel_dim, &tensor);
-    weights_grad_.push_back(tensor);
-  }
-  {
-    Tensor2<__half> tensor;
-    weights_grad_buff->reserve(bias_dim, &db_out_tensor);
-    weights_grad_.push_back(db_out_tensor);
-  }
+  this->set_weight(0, kernel_dim);
+  weights_half_.push_back(this->get_weight(0));
+  this->set_weight(1, bias_dim);
+  weights_half_.push_back(this->get_weight(1));
+  this->set_wgrad(0, kernel_dim);
+  weights_grad_.push_back(this->get_wgrad(0));
+  this->set_wgrad(1, bias_dim);
+  db_out_tensor = this->get_wgrad(1);
+  weights_grad_.push_back(this->get_wgrad(1));
+
   blobs_buff->reserve(identity_dim, &identity_tensor_);
 
   train_in_tensor_ = train_in_tensor;

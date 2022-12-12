@@ -19,6 +19,9 @@
 
 namespace HugeCTR {
 
+template class MLPLayer<float>;
+template class MLPLayer<__half>;
+
 template <typename T>
 MLPLayer<T>::MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
                       const std::shared_ptr<BufferBlock2<T>>& weights_buff,
@@ -30,7 +33,8 @@ MLPLayer<T>::MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights
                       const std::vector<Activation_t>& acts, const std::vector<bool>& use_bias,
                       std::vector<Initializer_t> initializer_types, bool skip_head_dgrad,
                       bool async_wgrad, bool fuse_wb, bool enable_tf32_compute)
-    : Layer(gpu_resource, initializer_types),
+    : TrainableLayer<T>(master_weights_buff, weights_buff, weights_grad_buff, gpu_resource,
+                        initializer_types),
       bottom_tensors_(bottom_tensors_),
       top_tensors_(top_tensors),
       num_outputs_(num_outputs),
@@ -65,44 +69,14 @@ MLPLayer<T>::MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights
     std::vector<size_t> kernel_dim = {input_size, output_size};
     std::vector<size_t> bias_dim = {1, output_size};
 
-    {
-      Tensor2<float> tensor;
-      master_weights_buff->reserve(kernel_dim, &tensor);
-      weights_.push_back(tensor);
-      if constexpr (std::is_same<T, float>::value) {
-        kernels_.push_back(tensor);
-      }
-    }
-    {
-      Tensor2<float> tensor;
-      master_weights_buff->reserve(bias_dim, &tensor);
-      weights_.push_back(tensor);
-      if constexpr (std::is_same<T, float>::value) {
-        biases_.push_back(tensor);
-      }
-    }
-    if constexpr (std::is_same<T, __half>::value) {
-      {
-        Tensor2<__half> tensor;
-        weights_buff->reserve(kernel_dim, &tensor);
-        kernels_.push_back(tensor);
-      }
-      {
-        Tensor2<__half> tensor;
-        weights_buff->reserve(bias_dim, &tensor);
-        biases_.push_back(tensor);
-      }
-    }
-    {
-      Tensor2<T> tensor;
-      weights_grad_buff->reserve(kernel_dim, &tensor);
-      kernels_grad_.push_back(tensor);
-    }
-    {
-      Tensor2<T> tensor;
-      weights_grad_buff->reserve(bias_dim, &tensor);
-      db_tensors_.push_back(tensor);
-    }
+    this->set_weight(i * 2, kernel_dim);
+    kernels_.push_back(this->get_weight(i * 2));
+    this->set_weight(i * 2 + 1, bias_dim);
+    biases_.push_back(this->get_weight(i * 2 + 1));
+    this->set_wgrad(i * 2, kernel_dim);
+    kernels_grad_.push_back(this->get_wgrad(i * 2));
+    this->set_wgrad(i * 2 + 1, bias_dim);
+    db_tensors_.push_back(this->get_wgrad(i * 2 + 1));
 
     const auto& train_in_tensor = i == 0 ? bottom_tensors_[0] : train_tensors_[i - 1];
     size_t num_output = num_outputs[i];
@@ -129,7 +103,7 @@ MLPLayer<T>::MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights
 
 template <typename T>
 void MLPLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
   int num_layers = num_outputs_.size();
   for (int i = 0; i < num_layers; i++) {
     const T* kernel = kernels_[i].get_ptr();
@@ -137,19 +111,19 @@ void MLPLayer<T>::fprop(bool is_train) {
     T* top_fprop = train_tensors_[i].get_ptr();
 
     layer_functors_.fprop(kernel, bottom, top_fprop, layer_desc_[i], layer_algo_[i],
-                          get_gpu().get_cublaslt_handle(), get_gpu().get_stream());
+                          this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream());
     if (i == num_layers - 1 && acts_[i] == Activation_t::Relu) {
       T* mask_out = mask_tensors_[i].get_ptr();
       size_t len = train_tensors_[i].get_num_elements();
       HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(T), cudaMemcpyDeviceToDevice,
-                                     get_gpu().get_stream()));
+                                     this->get_gpu().get_stream()));
     }
   }
 }
 
 template <typename T>
 void MLPLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
   int num_layers = num_outputs_.size();
   for (int i = num_layers - 1; i >= 0; i--) {
@@ -186,15 +160,15 @@ void MLPLayer<T>::bprop() {
 
     layer_functors_.bprop(kernel, bottom, train_top, mask_top, batch_size * top_size, grad_top,
                           bottom_bprop, kernel_grad, layer_desc_[i], layer_algo_[i],
-                          get_gpu().get_cublaslt_handle(), get_gpu().get_stream(),
-                          get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
+                          this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),
+                          this->get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
                           i == 0 ? skip_head_dgrad_ : false);
     if (async_wgrad_ && i == 0) {
       if (inner_sync_overlap_stream_) {
-        HCTR_LIB_THROW(cudaEventRecord(event_overlap_, get_gpu().get_comp_overlap_stream()));
-        HCTR_LIB_THROW(cudaStreamWaitEvent(get_gpu().get_stream(), event_overlap_));
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
       } else {
-        get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
+        this->get_gpu().set_wgrad_event_sync(this->get_gpu().get_comp_overlap_stream());
       }
     }
   }
@@ -202,7 +176,7 @@ void MLPLayer<T>::bprop() {
 
 template <typename T>
 void MLPLayer<T>::initialize() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
   HCTR_LIB_THROW(cudaEventCreate(&event_overlap_));
   event_overlap_created_ = true;
@@ -250,33 +224,14 @@ void MLPLayer<T>::initialize() {
     }
     layer_desc_[i].set_bprop_attr(dbias_bottom_ptr, dbias_top_ptr, mask_in_ptr, batch_size,
                                   input_size, output_size, enable_tf32_compute_);
-    layer_algo_[i].set_fprop_algo(layer_desc_[i], get_gpu().get_cublaslt_handle());
-    layer_algo_[i].set_bprop_algo(layer_desc_[i], get_gpu().get_cublaslt_handle());
-  }
-}
-
-template <typename T>
-void MLPLayer<T>::init_params(const curandGenerator_t& generator) {
-  CudaDeviceContext context(get_device_id());
-
-  int num_layers = num_outputs_.size();
-  for (int i = 0; i < num_layers; i++) {
-    const auto& bottom_tensor_dim =
-        i == 0 ? bottom_tensors_[0].get_dimensions() : train_tensors_[i - 1].get_dimensions();
-    size_t input_size = bottom_tensor_dim[1];
-    size_t output_size = num_outputs_[i];
-    float* bias = nullptr;
-    if (use_bias_[i]) {
-      bias = weights_[i * 2 + 1].get_ptr();
-    }
-    layer_functors_.init_params(weights_[i * 2].get_ptr(), bias, input_size, output_size,
-                                initializer_types_, generator, get_gpu().get_stream());
+    layer_algo_[i].set_fprop_algo(layer_desc_[i], this->get_gpu().get_cublaslt_handle());
+    layer_algo_[i].set_bprop_algo(layer_desc_[i], this->get_gpu().get_cublaslt_handle());
   }
 }
 
 template <typename T>
 void MLPLayer<T>::search_algorithm() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
   int num_layers = num_outputs_.size();
   for (int i = 0; i < num_layers; i++) {
     T* kernel = kernels_[i].get_ptr();
@@ -289,10 +244,64 @@ void MLPLayer<T>::search_algorithm() {
     size_t input_size = bottom_tensor_dim[1];
     size_t output_size = num_outputs_[i];
 
-    layer_functors_.search_algorithm(bottom, top, kernel, batch_size, input_size, output_size,
-                                     layer_desc_[i], layer_algo_[i],
-                                     get_gpu().get_cublaslt_handle(), get_gpu().get_stream());
+    layer_functors_.search_algorithm(
+        bottom, top, kernel, batch_size, input_size, output_size, layer_desc_[i], layer_algo_[i],
+        this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream());
   }
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> MLPLayer<T>::get_uniform_initializer(const int index) {
+  int i = index / 2;
+  size_t bottom_dim =
+      i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
+  size_t top_dim = train_tensors_[i].get_dimensions()[1];
+
+  float limit = 1.0f / ((0 == index % 2 ? bottom_dim : 0) + top_dim);
+  return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> MLPLayer<T>::get_xavier_uniform_initializer(const int index) {
+  int i = index / 2;
+  size_t bottom_dim =
+      i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
+  size_t top_dim = train_tensors_[i].get_dimensions()[1];
+
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Uniform,
+                                                    0 == index % 2 ? bottom_dim : 0, top_dim);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> MLPLayer<T>::get_xavier_norm_initializer(const int index) {
+  int i = index / 2;
+  size_t bottom_dim =
+      i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
+  size_t top_dim = train_tensors_[i].get_dimensions()[1];
+
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Norm,
+                                                    0 == index % 2 ? bottom_dim : 0, top_dim);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> MLPLayer<T>::get_default_initializer(const int index) {
+  int i = index / 2;
+  size_t bottom_dim =
+      i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
+  size_t top_dim = train_tensors_[i].get_dimensions()[1];
+
+  std::unique_ptr<DataSimulator> simu(nullptr);
+  if (0 == index % 2) {
+    simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                            data_simu::Distribution_t::Norm, bottom_dim, top_dim));
+  } else {
+    float stddev = sqrt(1.f / top_dim);
+    simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
+  }
+
+  return simu;
 }
 
 }  // namespace HugeCTR
