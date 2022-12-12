@@ -35,6 +35,7 @@ class ResourceManagerCore : public ResourceManager {
 
   std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
   std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
+  std::vector<rmm::mr::device_memory_resource*> original_device_resource_;
 
   void all2all_warmup();
   void enable_all_peer_accesses();
@@ -45,6 +46,7 @@ class ResourceManagerCore : public ResourceManager {
                       unsigned long long seed);
   ResourceManagerCore(const ResourceManagerCore&) = delete;
   ResourceManagerCore& operator=(const ResourceManagerCore&) = delete;
+  ~ResourceManagerCore();
 
   // from ResourceManagerBase
   void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) override {

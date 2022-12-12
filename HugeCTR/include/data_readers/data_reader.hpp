@@ -87,6 +87,7 @@ class DataReader : public IDataReader {
         dense_dim_(dense_dim),
         repeat_(repeat),
         data_source_params_(data_source_params) {
+    CudaDeviceContext ctx;
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t total_gpu_count = resource_manager_->get_global_gpu_count();
 
@@ -105,7 +106,6 @@ class DataReader : public IDataReader {
     for (size_t i = 0; i < local_gpu_count; ++i) {
       buffs.push_back(GeneralBuffer2<CudaAllocator>::create());
     }
-
     thread_buffers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       // a worker may maintain multiple buffers on device i % local_gpu_count

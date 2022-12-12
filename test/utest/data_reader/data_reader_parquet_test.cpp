@@ -668,6 +668,9 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
   int files_per_worker = num_files / device_list.size();
 
   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  int dev_id = 0;
+  cudaGetDevice(&dev_id);
+  HCTR_LOG(INFO, WORLD, "test after resource_manager created getCurrentDeviceId %d\n", dev_id);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -1144,12 +1147,18 @@ TEST(data_reader_test, data_reader_parquet_group_test_9files_3worker_epoch) {
 TEST(data_reader_test, data_reader_parquet_group_test_4files_2workers_iter) {
   data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {0, 1}, 20);
 }
-TEST(data_reader_test, data_reader_parquet_group_test_3files_1workers_iter_strided) {
-  // data_reader_group_iter_strided_batch_test_impl(3,2048,  1026, {0}, 20);
-  data_reader_group_iter_strided_batch_test_impl(5, 163840, 51210, {0}, 120);
-  // data_reader_group_iter_strided_batch_test_impl(3,2048, 1008,{0},100);
-  // data_reader_group_iter_strided_batch_test_impl(3,2048, 1008,{1},100);
-  // data_reader_group_iter_strided_batch_test_impl(10,2048, 2049,{1},100);
+
+//* ====== ====== ====== ====== ====== ====== iter strided ====== ====== ====== ====== ====== ======
+//====== *//
+TEST(parquet, group_test_debug_stride_iter) {
+  int dev_id = 0;
+  HCTR_LOG(INFO, WORLD, "zero getCurrentDeviceId %d\n", dev_id);
+  data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {1, 2}, 10);
+  cudaGetDevice(&dev_id);
+  HCTR_LOG(INFO, WORLD, "first getCurrentDeviceId %d\n", dev_id);
+  data_reader_group_iter_strided_batch_test_impl(5, 16384, 51210, {3}, 10);
+  cudaGetDevice(&dev_id);
+  HCTR_LOG(INFO, WORLD, "second getCurrentDeviceId %d\n", dev_id);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_3files_3workers_iter) {
   data_reader_group_iter_strided_batch_test_impl(3, 2048, 1026, {0, 1, 2}, 20);
@@ -1157,7 +1166,8 @@ TEST(data_reader_test, data_reader_parquet_group_test_3files_3workers_iter) {
 TEST(data_reader_test, data_reader_parquet_group_test_6files_3workers_iter) {
   data_reader_group_iter_strided_batch_test_impl(6, 2048, 1026, {0, 1, 2}, 20);
 }
-
+//* ====== ====== ====== ====== ====== ====== iter seq ====== ====== ====== ====== ====== ======
+//====== *//
 TEST(data_reader_test, data_reader_parquet_group_test_6files_2workers_iter) {
   data_reader_group_iter_strided_batch_test_impl(6, 40960, 1048, {0, 1}, 120);
 }

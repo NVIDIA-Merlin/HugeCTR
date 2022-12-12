@@ -38,10 +38,11 @@ GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id,
 
   set_stream(stream_name_, 0);
   cudaStream_t computation_stream_ = stream_event_manager_.get_stream(stream_name_);
-  memcpy_stream_ = stream_event_manager_.get_stream("memcpy_stream_");
+  memcpy_stream_ = stream_event_manager_.get_stream("memcpy_stream_", cudaStreamNonBlocking);
   computation_stream_2_ = stream_event_manager_.get_stream("computation_stream_2_");
-  p2p_stream_ = stream_event_manager_.get_stream("p2p_stream_");
+  p2p_stream_ = stream_event_manager_.get_stream("p2p_stream_", cudaStreamNonBlocking);
   wait_wgrad_event_ = stream_event_manager_.get_event("wgrad_event", cudaEventDefault);
+
   HCTR_LIB_THROW(
       curandCreateGenerator(&replica_uniform_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   HCTR_LIB_THROW(

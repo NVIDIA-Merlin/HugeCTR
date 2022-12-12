@@ -239,7 +239,7 @@ class DataCollector {
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
     {
       size_t id = omp_get_thread_num();
-      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      CudaDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
     }
 
