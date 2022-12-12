@@ -65,7 +65,7 @@ FullyConnectedLayer<float>::FullyConnectedLayer(
     const Tensor2<float>& out_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
     bool use_mixed_precision, bool enable_tf32_compute,
     std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types),
+    : TrainableLayer<float>(weight_buff, weight_buff, wgrad_buff, gpu_resource, initializer_types),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
@@ -94,26 +94,11 @@ FullyConnectedLayer<float>::FullyConnectedLayer(
     std::vector<size_t> weight_dim = {input_size, output_size};
     std::vector<size_t> bias_dim = {1, output_size};
 
-    {
-      Tensor2<float> tensor;
-      weight_buff->reserve(weight_dim, &tensor);
-      weights_.push_back(tensor);
-    }
-    {
-      Tensor2<float> tensor;
-      weight_buff->reserve(bias_dim, &tensor);
-      weights_.push_back(tensor);
-    }
-    {
-      Tensor2<float> tensor;
-      wgrad_buff->reserve(weight_dim, &tensor);
-      wgrad_.push_back(tensor);
-    }
-    {
-      Tensor2<float> tensor;
-      wgrad_buff->reserve(bias_dim, &tensor);
-      wgrad_.push_back(tensor);
-    }
+    this->set_weight(0, weight_dim);
+    this->set_weight(1, bias_dim);
+    this->set_wgrad(0, weight_dim);
+    this->set_wgrad(1, bias_dim);
+
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
     // Where should we create this cuBLAS handle?
@@ -129,8 +114,8 @@ void FullyConnectedLayer<float>::fprop(bool is_train) {
   Tensor2<float>& in_tensor = get_in_tensors(is_train)[0];
   Tensor2<float>& out_tensor = out_tensors_[0];
 
-  float* weight = weights_[0].get_ptr();
-  float* bias = weights_[1].get_ptr();
+  float* weight = this->get_weight(0).get_ptr();
+  float* bias = this->get_weight(1).get_ptr();
   float* in = in_tensor.get_ptr();
   float* out = out_tensor.get_ptr();
 
@@ -163,9 +148,9 @@ void FullyConnectedLayer<float>::bprop() {
   Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   Tensor2<float>& out_tensor = out_tensors_[0];
 
-  float* wgrad = wgrad_[0].get_ptr();
-  float* bias_grad = wgrad_[1].get_ptr();
-  float* weight = weights_[0].get_ptr();
+  float* wgrad = this->get_wgrad(0).get_ptr();
+  float* bias_grad = this->get_wgrad(1).get_ptr();
+  float* weight = this->get_weight(0).get_ptr();
   float* in = in_tensor.get_ptr();
   float* out = out_tensor.get_ptr();
 
@@ -208,10 +193,10 @@ void FullyConnectedLayer<float>::search_algorithm() {
   // Device Tensors to be used
   Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   Tensor2<float>& out_tensor = out_tensors_[0];
-  float* weight = weights_[0].get_ptr();
+  float* weight = this->get_weight(0).get_ptr();
   float* in = in_tensor.get_ptr();
   float* out = out_tensor.get_ptr();
-  float* wgrad = wgrad_[0].get_ptr();
+  float* wgrad = this->get_wgrad(0).get_ptr();
 
   // Tensor dim
   const auto& in_tensor_dim = in_tensor.get_dimensions();

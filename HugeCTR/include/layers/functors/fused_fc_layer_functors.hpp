@@ -75,19 +75,6 @@ class FusedFCLayerFunctors {
                         size_t output_size, const CublasFusedFCLayerDesc<T>& cublas_layer_desc,
                         CublasFusedFCLayerAlgo<T>& cublas_layer_algo,
                         cublasLtHandle_t cublaslt_handle, cudaStream_t stream);
-
-  void init_params(float* kernel, float* bias, size_t bottom_dim, size_t top_dim,
-                   std::vector<Initializer_t> initializer_types, const curandGenerator_t& generator,
-                   cudaStream_t stream);
-
-  std::unique_ptr<DataSimulator> get_uniform_initializer(int index, size_t bottom_dim,
-                                                         size_t top_dim);
-  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(int index, size_t bottom_dim,
-                                                                size_t top_dim);
-  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(int index, size_t bottom_dim,
-                                                             size_t top_dim);
-  std::unique_ptr<DataSimulator> get_default_initializer(int index, size_t bottom_dim,
-                                                         size_t top_dim);
 };
 
 template class CublasFusedFCLayerDesc<float>;
