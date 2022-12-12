@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <layer.hpp>
+#include <trainable_layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -31,21 +31,9 @@ namespace HugeCTR {
  * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 template <typename T>
-class WeightMultiplyLayer : public Layer {
+class WeightMultiplyLayer : public TrainableLayer<T> {
   /*
    * stores the weight tensors of this layer.
-   */
-  Tensors2<float> master_weights_;
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
    */
   Tensors2<T> in_tensors_;
   /*
@@ -83,8 +71,9 @@ class WeightMultiplyLayer : public Layer {
   void bprop() override;
 
  private:
-  void reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                                    const std::vector<size_t>& weight_dims);
+  // void reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>&
+  // master_weight_buff,
+  //                                   const std::vector<size_t>& weight_dims);
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;

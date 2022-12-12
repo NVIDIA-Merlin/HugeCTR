@@ -33,17 +33,18 @@ using ToStringType = typename std::conditional<std::is_same<T, __half>::value, f
 }
 
 template <typename T>
-BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                  const std::shared_ptr<BufferBlock2<WeightType>>& weight_buff,
+                                  const std::shared_ptr<BufferBlock2<WeightType>>& wgrad_buff,
                                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                                   const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                                   const Params& params,
                                   const std::shared_ptr<GPUResource>& gpu_resource,
                                   std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types),
+    : Base(master_weight_buff, weight_buff, wgrad_buff, gpu_resource, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
@@ -74,16 +75,16 @@ BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& we
   std::vector<size_t> gamma_dim = {num_feature, 1};
 
   // gamma & beta
-  weight_buff->reserve(gamma_dim, &gamma_);
-  weight_buff->reserve(gamma_dim, &beta_);
-  weights_.push_back(gamma_);
-  weights_.push_back(beta_);
+  this->set_weight(0, gamma_dim);
+  this->set_weight(1, gamma_dim);
 
+  gamma_ = this->get_weight(0);
+  beta_ = this->get_weight(1);
   // gamma grad & beta grad
-  wgrad_buff->reserve(gamma_dim, &gamma_grad_);
-  wgrad_buff->reserve(gamma_dim, &beta_grad_);
-  wgrad_.push_back(gamma_grad_);
-  wgrad_.push_back(beta_grad_);
+  this->set_wgrad(0, gamma_dim);
+  this->set_wgrad(1, gamma_dim);
+  gamma_grad_ = this->get_wgrad(0);
+  beta_grad_ = this->get_wgrad(1);
 
   // result running mean & var
   blob_buff->reserve(gamma_dim, &result_running_mean_);
@@ -121,7 +122,7 @@ void BatchNormLayer<T>::initialize() {
 
 template <typename T>
 void BatchNormLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
   float one = 1.0f, zero = 0.0f;
 
   Tensor2<T>& in_tensor = in_tensors_[0];
@@ -139,19 +140,19 @@ void BatchNormLayer<T>::fprop(bool is_train) {
 
   if (is_train) {
     HCTR_LIB_THROW(cudnnBatchNormalizationForwardTraining(
-        get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
+        this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
         gamma_beta_desc_, gamma, beta, params_.factor, result_running_mean, result_running_var,
         params_.eps, result_save_mean, result_save_inv_var));
   } else {
     HCTR_LIB_THROW(cudnnBatchNormalizationForwardInference(
-        get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
+        this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
         gamma_beta_desc_, gamma, beta, result_running_mean, result_running_var, params_.eps));
   }
 }
 
 template <typename T>
 void BatchNormLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
   float one = 1.0f, zero = 0.0f;
 
@@ -169,9 +170,9 @@ void BatchNormLayer<T>::bprop() {
   float* result_save_inv_var = result_save_inv_var_.get_ptr();
 
   HCTR_LIB_THROW(cudnnBatchNormalizationBackward(
-      get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, in, in_out_desc_,
-      out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
-      result_save_mean, result_save_inv_var));
+      this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, in,
+      in_out_desc_, out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad,
+      params_.eps, result_save_mean, result_save_inv_var));
 }
 
 template <typename T>

@@ -697,6 +697,10 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
         }
       }
+      if (has_key_(j_mc_param, "projection_dim")) {
+        const auto projection_dim = get_value_from_json<int>(j_mc_param, "projection_dim");
+        dense_layer.projection_dim = projection_dim;
+      }
       auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
       dense_layer.num_layers = num_layers;
       break;
@@ -1020,9 +1024,9 @@ void Model::add_dense_layer_internal(
         std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
                                                      dense_layer.beta_init_type};
         BatchNormLayer<__half>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new BatchNormLayer<__half>(weight_buff, wgrad_buff, blobs_buff,
-                                                       bn_in_tensor, bn_out_tensor, params,
-                                                       gpu_resource, initializer_types));
+        layers.emplace_back(new BatchNormLayer<__half>(weight_buff, weight_buff, wgrad_buff,
+                                                       blobs_buff, bn_in_tensor, bn_out_tensor,
+                                                       params, gpu_resource, initializer_types));
       } else {
         Tensor2<float> bn_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         // establish out tensor
@@ -1033,9 +1037,9 @@ void Model::add_dense_layer_internal(
         std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
                                                      dense_layer.beta_init_type};
         BatchNormLayer<float>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new BatchNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
-                                                      bn_in_tensor, bn_out_tensor, params,
-                                                      gpu_resource, initializer_types));
+        layers.emplace_back(new BatchNormLayer<float>(weight_buff, weight_buff, wgrad_buff,
+                                                      blobs_buff, bn_in_tensor, bn_out_tensor,
+                                                      params, gpu_resource, initializer_types));
       }
       break;
     }
@@ -1050,9 +1054,9 @@ void Model::add_dense_layer_internal(
         std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
                                                      dense_layer.beta_init_type};
         LayerNormLayer<__half>::Params params = {dense_layer.eps};
-        layers.emplace_back(new LayerNormLayer<__half>(weight_buff_half, wgrad_buff_half,
-                                                       blobs_buff, ln_in_tensor, ln_out_tensor,
-                                                       params, gpu_resource, initializer_types));
+        layers.emplace_back(new LayerNormLayer<__half>(
+            weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, ln_in_tensor, ln_out_tensor,
+            params, gpu_resource, initializer_types));
       } else {
         Tensor2<float> ln_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         // establish out tensor
@@ -1063,9 +1067,9 @@ void Model::add_dense_layer_internal(
         std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
                                                      dense_layer.beta_init_type};
         LayerNormLayer<float>::Params params = {dense_layer.eps};
-        layers.emplace_back(new LayerNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
-                                                      ln_in_tensor, ln_out_tensor, params,
-                                                      gpu_resource, initializer_types));
+        layers.emplace_back(new LayerNormLayer<float>(weight_buff, weight_buff, wgrad_buff,
+                                                      blobs_buff, ln_in_tensor, ln_out_tensor,
+                                                      params, gpu_resource, initializer_types));
       }
       break;
     }
@@ -1568,9 +1572,11 @@ void Model::add_dense_layer_internal(
       break;
     }
     case Layer_t::MultiCross: {
+      // currently, only default init type is supported
       std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
                                                    dense_layer.bias_init_type};
       int num_layers = dense_layer.num_layers;
+      int projection_dim = dense_layer.projection_dim;
       if (use_mixed_precision) {
         Tensor2<__half> mc_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> out_tensor;
@@ -1578,7 +1584,7 @@ void Model::add_dense_layer_internal(
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         layers.emplace_back(new MultiCrossLayer<__half>(
             weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor, out_tensor,
-            gpu_resource, num_layers, initializer_types));
+            gpu_resource, num_layers, projection_dim, initializer_types));
       } else {
         Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
@@ -1586,7 +1592,7 @@ void Model::add_dense_layer_internal(
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         layers.emplace_back(new MultiCrossLayer<float>(
             weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor, out_tensor,
-            gpu_resource, num_layers, initializer_types));
+            gpu_resource, num_layers, projection_dim, initializer_types));
       }
       break;
     }

@@ -207,7 +207,7 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
   buff->reserve(dims, &out_tensor);
 
   typename BatchNormLayer<T>::Params params = {1.0, eps};
-  BatchNormLayer<T> batch_norm_layer(wbuff, wgbuff, buff, in_tensor, out_tensor, params,
+  BatchNormLayer<T> batch_norm_layer(wbuff, wbuff, wgbuff, buff, in_tensor, out_tensor, params,
                                      test::get_default_gpu());
 
   buff->allocate();

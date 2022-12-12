@@ -9,6 +9,8 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       cd /dataset/criteo_kaggle/dcn_parquet && \
       python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_distributed_1gpu.json && \
       python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_1gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcnv2_parquet_distributed_1gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcnv2_parquet_localized_1gpu.json && \
       cd /dataset/criteo_kaggle/dcn_parquet_vec_column && \
       python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_distributed_1gpu.json && \
       python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_1gpu.json"
