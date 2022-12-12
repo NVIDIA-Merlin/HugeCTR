@@ -669,6 +669,7 @@ class Model {
    public:
     GraphScheduler(std::shared_ptr<ResourceManager> resource_manager) : launched_iter(0) {
       // set up trickling launch
+      CudaDeviceContext ctx_helper;
       CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(0)->get_device_id());
       HCTR_LIB_THROW(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
       *executed_iter = 0;

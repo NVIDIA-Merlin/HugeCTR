@@ -39,6 +39,9 @@ namespace HugeCTR {
 static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& data_reader,
                                      int* p_loop_flag, int device_id) {
   try {
+    // for restoring
+    CudaDeviceContext ctx;
+    // this thread needs numa bind for higher IO bandwidth
     CudaCPUDeviceContext context(device_id);
 
     while ((*p_loop_flag) == 0) {

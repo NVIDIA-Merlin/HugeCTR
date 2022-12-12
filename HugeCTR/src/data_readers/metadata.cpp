@@ -60,8 +60,9 @@ void Metadata::get_parquet_metadata(std::string file_name) {
 #ifdef ENABLE_ARROW_PARQUET
       std::ifstream fexist(parquet_path);
       if (!fexist.good()) {
-        HCTR_LOG_S(WARNING, ROOT) << " skip file " << fname
-                                  << " listed in _metadata.json as it does not exist" << std::endl;
+        // HCTR_LOG_S(WARNING, ROOT) << " skip file " << fname
+        //                           << " listed in _metadata.json as it does not exist" <<
+        //                           std::endl;
         continue;
       }
       long long group_offset = 0;

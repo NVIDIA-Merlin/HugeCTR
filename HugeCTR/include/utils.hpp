@@ -34,13 +34,13 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
@@ -290,6 +290,35 @@ class CudaCPUDeviceContext {
 
  public:
   static std::unordered_map<int, int> device_id_to_numa_node_;
+};
+
+/**
+ * @brief Helper class for switching rmm::resource
+ *
+ */
+class RMMContext {
+  using dmmr = rmm::mr::device_memory_resource;
+  dmmr* original_mmr_;
+  bool same_with_current_;
+
+ public:
+  RMMContext() : same_with_current_(true) {
+    original_mmr_ = rmm::mr::get_current_device_resource();
+  }
+  RMMContext(dmmr* new_mmr) : RMMContext() {
+    if (!original_mmr_->is_equal(*new_mmr)) {
+      rmm::mr::set_current_device_resource(new_mmr);
+      same_with_current_ = false;
+    }
+  }
+  ~RMMContext() noexcept(false) {
+    if (!same_with_current_) {
+      rmm::mr::set_current_device_resource(original_mmr_);
+    }
+  }
+  void set_current_device_resource(dmmr* new_mmr) const {
+    rmm::mr::set_current_device_resource(new_mmr);
+  }
 };
 
 /**
