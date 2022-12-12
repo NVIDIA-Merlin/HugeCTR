@@ -605,6 +605,19 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 
 }  // namespace
 
+// update embedding table: including several steps as below,
+//*          step1: expand sample IDs, calling sample_id_expand_kernel()
+//*          step2: get value_index by key (will call hash_table->get_insert() in nv_hashtable
+// lib)
+//*          step3: sort by value_index (will call cub::DeviceRadixSort::SortPairs in cub lib)
+//*          step4: count the number for each unduplicated value_index, calling
+// value_count_kernel()
+//*          step5: use optimizer method to compute deltaw, and record corresponding, including
+// three
+//* types of optimizer: Adam: caling opt_adam_kernel() Momentum sgd: calling
+//* opt_momentum_sgd_kernel() Nesterov: calling opt_nesterov_kernel() step6: update embedding
+// table
+//* by deltaw, calling update_kernel()
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
