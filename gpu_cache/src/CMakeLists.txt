@@ -16,6 +16,8 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB gpu_cache_src
   nv_gpu_cache.cu
+  static_table.cu
+  static_hash_table.cu
 )
 
 add_library(gpu_cache SHARED ${gpu_cache_src})

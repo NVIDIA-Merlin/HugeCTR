@@ -253,6 +253,7 @@ struct InferenceParams {
   size_t label_dim;
   size_t slot_num;
   std::string non_trainable_params_file;
+  bool use_static_table;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -276,7 +277,7 @@ struct InferenceParams {
                   const std::vector<size_t>& embedding_vecsize_per_table = {128},
                   const std::vector<std::string>& embedding_table_names = {""},
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
-                  const std::string& non_trainable_params_file = "");
+                  const std::string& non_trainable_params_file = "", bool use_static_table = false);
 };
 
 struct parameter_server_config {

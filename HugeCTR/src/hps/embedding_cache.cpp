@@ -17,6 +17,7 @@
 #include <hps/embedding_cache.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/memory_pool.hpp>
+#include <hps/static_table.hpp>
 #include <io/filesystem.hpp>
 #include <memory>
 #include <mutex>
@@ -54,12 +55,22 @@ static void parameter_server_insert_thread_func_(
 std::shared_ptr<EmbeddingCacheBase> EmbeddingCacheBase::create(
     const InferenceParams& inference_params, const parameter_server_config& ps_config,
     HierParameterServerBase* const parameter_server) {
-  if (inference_params.i64_input_key) {
-    return std::make_shared<EmbeddingCache<long long>>(inference_params, ps_config,
-                                                       parameter_server);
+  if (inference_params.use_static_table) {
+    if (inference_params.i64_input_key) {
+      return std::make_shared<StaticTable<long long>>(inference_params, ps_config,
+                                                      parameter_server);
+    } else {
+      return std::make_shared<StaticTable<unsigned int>>(inference_params, ps_config,
+                                                         parameter_server);
+    }
   } else {
-    return std::make_shared<EmbeddingCache<unsigned int>>(inference_params, ps_config,
-                                                          parameter_server);
+    if (inference_params.i64_input_key) {
+      return std::make_shared<EmbeddingCache<long long>>(inference_params, ps_config,
+                                                         parameter_server);
+    } else {
+      return std::make_shared<EmbeddingCache<unsigned int>>(inference_params, ps_config,
+                                                            parameter_server);
+    }
   }
 }
 
@@ -80,6 +91,7 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
            inference_params.sparse_model_files.size());
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
            b2s(inference_params.use_gpu_embedding_cache), inference_params.cache_size_percentage);
+  HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
   HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
   HCTR_LOG(INFO, ROOT, "Configured cache hit rate threshold: %f\n",
            inference_params.hit_rate_threshold);
@@ -358,7 +370,7 @@ void EmbeddingCache<TypeHashKey>::insert(const size_t table_id,
 
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
-                                       EmbeddingCacheRefreshspace& refeshspace_handler,
+                                       EmbeddingCacheRefreshspace& refreshspace_handler,
                                        cudaStream_t stream) {
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
@@ -366,8 +378,8 @@ void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
     CudaDeviceContext dev_restorer;
     HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
     gpu_emb_caches_[table_id]->Replace(
-        static_cast<TypeHashKey*>(refeshspace_handler.d_refresh_embeddingcolumns_),
-        *refeshspace_handler.h_length_, refeshspace_handler.d_refresh_emb_vec_, stream);
+        static_cast<TypeHashKey*>(refreshspace_handler.d_refresh_embeddingcolumns_),
+        *refreshspace_handler.h_length_, refreshspace_handler.d_refresh_emb_vec_, stream);
   }
 }
 
