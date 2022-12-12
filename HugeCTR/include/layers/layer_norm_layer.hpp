@@ -19,8 +19,8 @@
 #include <cudnn.h>
 
 #include <general_buffer2.hpp>
-#include <layer.hpp>
 #include <memory>
+#include <trainable_layer.hpp>
 
 namespace HugeCTR {
 
@@ -28,15 +28,9 @@ namespace HugeCTR {
  * LayerNorm layer
  */
 template <typename T>
-class LayerNormLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
+class LayerNormLayer : public TrainableLayer<T> {
+  using Base = TrainableLayer<T>;
+
   /*
    * stores the references to the input tensors of this layer.
    */
@@ -55,6 +49,7 @@ class LayerNormLayer : public Layer {
   };
   /**
    * Ctor of LayerNormLayer.
+   * @param master_weight_buff master_weight buffer for mixed precision training
    * @param weight_buff weight buffer for internal gamma/beta tensors
    * @param wgrad_buff gradient buffer for internal gamma/beta tensors
    * @param in_tensor the input tensor
@@ -63,7 +58,8 @@ class LayerNormLayer : public Layer {
    * @param cudnn_handle cuDNN handle created externally
    * @param device_id the id of GPU where this layer belongs
    */
-  LayerNormLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+  LayerNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                 const std::shared_ptr<BufferBlock2<T>>& weight_buff,
                  const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, const Params& params,

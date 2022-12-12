@@ -86,8 +86,8 @@ void ModelPybind(pybind11::module &m) {
                          float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool,
                          std::vector<int> &, std::vector<std::pair<int, int>> &, std::vector<int> &,
-                         std::vector<size_t> &, size_t, int, int, int, std::vector<float> &, bool,
-                         Regularizer_t, float, FcPosition_t, Activation_t, DenseLayerSwitchs,
+                         std::vector<size_t> &, size_t, size_t, int, int, int, std::vector<float> &,
+                         bool, Regularizer_t, float, FcPosition_t, Activation_t, DenseLayerSwitchs,
                          std::vector<size_t>, bool, std::vector<Activation_t>, std::vector<bool>>(),
           pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
           pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
@@ -103,9 +103,9 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("selected_slots") = std::vector<int>(),
           pybind11::arg("ranges") = std::vector<std::pair<int, int>>(),
           pybind11::arg("indices") = std::vector<int>(),
-          pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("out_dim") = 0,
-          pybind11::arg("axis") = 1, pybind11::arg("max_sequence_len") = 1,
-          pybind11::arg("num_attention_heads") = 1,
+          pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("projection_dim") = 0,
+          pybind11::arg("out_dim") = 0, pybind11::arg("axis") = 1,
+          pybind11::arg("max_sequence_len") = 1, pybind11::arg("num_attention_heads") = 1,
           pybind11::arg("target_weight_vec") = std::vector<float>(),
           pybind11::arg("use_regularizer") = false,
           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
@@ -115,6 +115,7 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("num_outputs") = std::vector<size_t>(), pybind11::arg("use_bias") = true,
           pybind11::arg("activations") = std::vector<Activation_t>(),
           pybind11::arg("biases") = std::vector<bool>());
+
   pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
       m, "GroupDenseLayer")
       .def(pybind11::init<GroupLayer_t, std::vector<std::string> &, std::vector<std::string> &,

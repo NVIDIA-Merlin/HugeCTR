@@ -202,6 +202,7 @@ template <typename T>
 void layer_norm_test(std::vector<size_t> dims) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   std::shared_ptr<BufferBlock2<T>> wbuff = buff->create_block<T>();
+  std::shared_ptr<BufferBlock2<float>> master_weight_buff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<T>> wgbuff = buff->create_block<T>();
 
   Tensor2<T> in_tensor;
@@ -210,8 +211,8 @@ void layer_norm_test(std::vector<size_t> dims) {
   buff->reserve(dims, &out_tensor);
 
   typename LayerNormLayer<T>::Params params = {eps};
-  LayerNormLayer<T> layer_norm_layer(wbuff, wgbuff, buff, in_tensor, out_tensor, params,
-                                     test::get_default_gpu());
+  LayerNormLayer<T> layer_norm_layer(master_weight_buff, wbuff, wgbuff, buff, in_tensor, out_tensor,
+                                     params, test::get_default_gpu());
 
   buff->allocate();
 

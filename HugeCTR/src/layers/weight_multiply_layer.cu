@@ -134,7 +134,8 @@ WeightMultiplyLayer<T>::WeightMultiplyLayer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff, const Tensor2<T>& in_tensor,
     Tensor2<T>& out_tensor, const std::vector<size_t>& weight_dims,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types) {
+    : TrainableLayer<T>(master_weight_buff, weight_buff, wgrad_buff, gpu_resource,
+                        initializer_types) {
   try {
     const auto& in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
@@ -156,38 +157,14 @@ WeightMultiplyLayer<T>::WeightMultiplyLayer(
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
 
-    reserve_master_weight_tensor(master_weight_buff, weight_dims);
-    {
-      Tensor2<T> tensor;
-      weight_buff->reserve(weight_dims, &tensor);
-      weights_.push_back(tensor);
-    }
-    {
-      Tensor2<T> tensor;
-      wgrad_buff->reserve(weight_dims, &tensor);
-      wgrad_.push_back(tensor);
-    }
-
+    this->set_weight(0, weight_dims);
+    this->set_wgrad(0, weight_dims);
     blob_buff->reserve(out_dims, &wgrad_tmp_trans_);
 
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
-}
-
-template <>
-void WeightMultiplyLayer<float>::reserve_master_weight_tensor(
-    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-    const std::vector<size_t>& weight_dims) {}
-
-template <>
-void WeightMultiplyLayer<__half>::reserve_master_weight_tensor(
-    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-    const std::vector<size_t>& weight_dims) {
-  Tensor2<float> tensor;
-  master_weight_buff->reserve(weight_dims, &tensor);
-  master_weights_.push_back(tensor);
 }
 
 template <typename T>
@@ -233,34 +210,34 @@ std::unique_ptr<DataSimulator> WeightMultiplyLayer<T>::get_default_initializer(c
 
 template <typename T>
 void WeightMultiplyLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
   T* input = in_tensors_[0].get_ptr();
-  T* weight = weights_[0].get_ptr();
+  const T* weight = this->get_weight(0).get_ptr();
   T* output = out_tensors_[0].get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
-  weight_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+  weight_multiply_kernel<<<gridSize, blockSize, 0, this->get_gpu().get_stream()>>>(
       input, weight, output, batch_size_, slot_num_, embedding_vec_size_);
 }
 
 template <typename T>
 void WeightMultiplyLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
+  CudaDeviceContext context(this->get_device_id());
 
-  T* weight = weights_[0].get_ptr();
-  T* wgrad = wgrad_[0].get_ptr();
+  const T* weight = this->get_weight(0).get_ptr();
+  T* wgrad = this->get_wgrad(0).get_ptr();
   T* wgrad_tmp_trans = wgrad_tmp_trans_.get_ptr();
   T* input = in_tensors_[0].get_ptr();
   T* output = out_tensors_[0].get_ptr();
 
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
-                        embedding_vec_size_, get_gpu().get_stream());
+                        embedding_vec_size_, this->get_gpu().get_stream());
 
   // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad(output, weight, input, batch_size_, slot_num_, embedding_vec_size_,
-                        get_gpu().get_stream());
+                        this->get_gpu().get_stream());
 }
 
 template class WeightMultiplyLayer<float>;
