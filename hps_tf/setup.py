@@ -59,7 +59,7 @@ setup(
     version=_GetHPSVersion(),
     author="NVIDIA",
     author_email="hugectr-dev@exchange.nvidia.com",
-    url="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/hierarchical_parameter_server",
+    url="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/hps_tf",
     description="HierarchicalParameterServer (HPS)",
     long_description="HierarchicalParameterServer (HPS)",
     extras_require={"tensorflow": "tensorflow>=1.15"},

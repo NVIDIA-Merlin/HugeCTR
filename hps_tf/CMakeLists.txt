@@ -32,17 +32,11 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.h
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.cuh
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cc
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/ops/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/ops/*.cc
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/src/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/src/*.cc
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/src/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/*.hpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/*.h
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cc
   )
   set(clangformat_srcs ${HUGECTR_SRC})
   clangformat_setup("${clangformat_srcs}")
@@ -112,8 +106,7 @@ endif()
 
 # headers
 include_directories(
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/
+    ${PROJECT_SOURCE_DIR}/hps_cc
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
@@ -155,22 +148,19 @@ link_directories(
     ${TF_LINK_DIR}
 )
 
-# building HPS infra C++ code
-add_subdirectory(hps_cc/hps_cc_infra/src)
-
 # code sources related to framework
 file(GLOB framework
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cc
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/ops/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/ops/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cc
 )
 
 # build dynamic lib
 add_library(hierarchical_parameter_server SHARED ${framework})
 
-target_link_libraries(hierarchical_parameter_server PUBLIC ${TF_LINK_FLAGS} hps_cc_infra)
+target_link_libraries(hierarchical_parameter_server PUBLIC huge_ctr_hps ${CUDA_LIBRARIES} ${TF_LINK_FLAGS})
 target_compile_features(hierarchical_parameter_server PUBLIC cxx_std_17)
 set_target_properties(hierarchical_parameter_server PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(hierarchical_parameter_server PROPERTIES CUDA_ARCHITECTURES OFF)

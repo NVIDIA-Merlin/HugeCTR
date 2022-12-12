@@ -13,7 +13,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to [Set Up th
 Pull the container using the following command:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.10
+docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.12
 ```
 
 ### Clone the HugeCTR Repository
@@ -28,13 +28,13 @@ git clone https://github.com/NVIDIA/HugeCTR
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.10
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.12
    ```
 
 2. Start Jupyter using these commands: 
 
    ```shell
-   cd /hugectr/hierarchical_parameter_server/notebooks
+   cd /hugectr/hps_tf/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token='hugectr'
    ```
 

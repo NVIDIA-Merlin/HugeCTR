@@ -242,6 +242,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));
 
+  bool i64_input_key = get_value_from_json<bool>(hps_config, "supportlonglong");
+
   // Parsing HPS Databse backend
   //****Update source parameters.
   UpdateSourceParams update_source_params;
@@ -411,7 +413,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     const int device_id = 0;
 
     InferenceParams params(model_name, max_batch_size, hit_rate_threshold, dense_file, sparse_files,
-                           device_id, use_gpu_embedding_cache, cache_size_percentage, true);
+                           device_id, use_gpu_embedding_cache, cache_size_percentage,
+                           i64_input_key);
     // [8] number_of_worker_buffers_in_pool ->int
     params.number_of_worker_buffers_in_pool =
         get_value_from_json_soft<int>(model, "num_of_worker_buffer_in_pool", 1);

@@ -16,16 +16,14 @@ subtrees:
           - file: hierarchical_parameter_server/hps_tf_user_guide.md
             title: HPS Plugin for TensorFlow
             entries:
-              - file: hierarchical_parameter_server/hps_tf_benchmark.md
-                title: Benchmark
-              - file: hierarchical_parameter_server/notebooks/index.md
+              - file: hps_tf/notebooks/index.md
                 title: Notebooks
                 entries:
-                  - file: hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.ipynb
-                  - file: hierarchical_parameter_server/notebooks/hps_multi_table_sparse_input_demo.ipynb
-                  - file: hierarchical_parameter_server/notebooks/hps_pretrained_model_training_demo.ipynb
-                  - file: hierarchical_parameter_server/notebooks/sok_to_hps_dlrm_demo.ipynb
-                  - file: hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
+                  - file: hps_tf/notebooks/hierarchical_parameter_server_demo.ipynb
+                  - file: hps_tf/notebooks/hps_multi_table_sparse_input_demo.ipynb
+                  - file: hps_tf/notebooks/hps_pretrained_model_training_demo.ipynb
+                  - file: hps_tf/notebooks/sok_to_hps_dlrm_demo.ipynb
+                  - file: hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
               - file: hierarchical_parameter_server/api/index.rst
                 title: API Documentation
       - file: sparse_operation_kit.md

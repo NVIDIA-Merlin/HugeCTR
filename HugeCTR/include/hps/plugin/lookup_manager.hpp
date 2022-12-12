@@ -23,6 +23,11 @@ namespace HierarchicalParameterServer {
 
 using namespace HugeCTR;
 
+typedef enum {
+  TENSORFLOW = 0,
+  TENSORRT = 1,
+} pluginType_t;
+
 class LookupManager final {
  public:
   ~LookupManager() = default;
@@ -30,18 +35,23 @@ class LookupManager final {
   LookupManager& operator=(const LookupManager&) = delete;
 
   static std::shared_ptr<LookupManager> Create();
-  void init(parameter_server_config& ps_config, const int32_t global_batch_size,
-            const int32_t num_replicas_in_sync);
+
+  // global_batch_size and num_replicas_in_sync only valid for TensorFlow plugin
+  void init(parameter_server_config& ps_config, const pluginType_t plugin_type,
+            const int32_t global_batch_size, const int32_t num_replicas_in_sync);
+
   void forward(const std::string& model_name, const int32_t table_id,
                const int32_t global_replica_id, const size_t num_keys, const size_t emb_vec_size,
                const void* values_ptr, void* emb_vector_ptr);
+
+  void check(parameter_server_config& ps_config, const int32_t global_batch_size,
+             const int32_t num_replicas_in_sync) const;
 
  private:
   LookupManager();
   bool initialized_;
   std::shared_ptr<HierParameterServerBase> parameter_server_;
   std::map<std::string, std::map<size_t, std::shared_ptr<LookupSessionBase>>> lookup_session_map_;
-  std::map<std::string, std::map<size_t, std::vector<std::shared_ptr<void>>>> h_values_map_;
 };
 
 }  // namespace HierarchicalParameterServer
