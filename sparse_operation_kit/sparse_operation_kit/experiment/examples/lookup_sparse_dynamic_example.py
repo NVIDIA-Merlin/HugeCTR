@@ -50,9 +50,7 @@ if __name__ == "__main__":
     )
 
     with tf.GradientTape() as tape:
-        embeddings = sok.lookup_sparse(
-            [v1, v2], [indices1, indices2], hotness=[3, 2], combiners=["sum", "sum"]
-        )
+        embeddings = sok.lookup_sparse([v1, v2], [indices1, indices2], combiners=["sum", "sum"])
         loss = 0
         for embedding in embeddings:
             print(embedding)
