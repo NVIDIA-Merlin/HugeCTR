@@ -87,6 +87,7 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
                                std::thread::hardware_concurrency())) {
   auto b2s = [](const char val) { return val ? "True" : "False"; };
   HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
+  HCTR_LOG(INFO, ROOT, "Max batch size: %lu\n", inference_params.max_batchsize);
   HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
            inference_params.sparse_model_files.size());
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",

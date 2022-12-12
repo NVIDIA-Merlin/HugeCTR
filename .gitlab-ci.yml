@@ -712,7 +712,7 @@ hierarchical_parameter_server:
   needs:
     - build_hps_tf_plugin
   variables:
-    GPFSFOLDER: $LOGDIR/hierarchical_parameter_server
+    GPFSFOLDER: $LOGDIR/hps_tf
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TF_PLUGIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}

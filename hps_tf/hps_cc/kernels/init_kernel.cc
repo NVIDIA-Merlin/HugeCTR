@@ -17,13 +17,14 @@
 #include <exception>
 
 #include "config.h"
-#include "facade.h"
+#include "hps/plugin/facade.hpp"
 #include "tensorflow/core/framework/op_kernel.h"
 
 namespace tensorflow {
 
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice;
+using namespace HierarchicalParameterServer;
 
 template <typename Device>
 class Init : public OpKernel {
@@ -56,8 +57,8 @@ class Init : public OpKernel {
 
       auto device_ctx = ctx->op_device_context();
       OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
-      HierarchicalParameterServer::Facade::instance()->init(
-          ps_config_file_.c_str(), global_batch_size_, num_replicas_in_sync);
+      Facade::instance()->init(ps_config_file_.c_str(), pluginType_t::TENSORFLOW,
+                               global_batch_size_, num_replicas_in_sync);
     } catch (const std::exception& error) {
       ctx->SetStatus(errors::Aborted(error.what()));
       return;

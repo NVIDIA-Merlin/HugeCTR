@@ -60,7 +60,7 @@ RUN if [[ "${BUILD_HUGECTR_BACKEND}" == "true" ]]; then \
 	
 RUN if [[ "${BUILD_TF_PLUGIN}" == "true" ]]; then \
 	pip install tensorflow==2.8.0 ninja && \
-	cd /workdir/hierarchical_parameter_server/ && \
+	cd /workdir/hps_tf/ && \
 	python setup.py install \
 ; fi
 

@@ -182,7 +182,7 @@ autosummary_generate = True
 copydirs_additional_dirs = [
     "../../notebooks",
     "../../release_notes.md",
-    "../../hierarchical_parameter_server/notebooks",
+    "../../hps_tf/notebooks",
 ]
 copydirs_file_rename = {
     "README.md": "index.md",

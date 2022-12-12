@@ -55,7 +55,7 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
 
 LookupSession::~LookupSession() {
   CudaDeviceContext context(inference_params_.device_id);
-  for (auto stream : lookup_streams_) cudaStreamDestroy(stream);
+  for (auto stream : lookup_streams_) HCTR_LIB_THROW(cudaStreamDestroy(stream));
 }
 
 void LookupSession::lookup(const void* const h_keys, float* const d_vectors, const size_t num_keys,
