@@ -54,6 +54,10 @@ class OptimizerVariantWrapper {
 
   std::shared_ptr<Optimizer> get() const { return optimizer_; }
 
+#ifdef TF_GE_210
+  void set_optimizer_layer(const std::shared_ptr<Optimizer> opt) { optimizer_ = opt; }
+#endif 
+
   ~OptimizerVariantWrapper() = default;
   tensorflow::string TypeName() const { return "EmbeddingPlugin::OptimizerVariantWrapper"; }
   void Encode(tensorflow::VariantTensorData* data) const {
@@ -80,3 +84,29 @@ void StoreOptimizerInVariantTensor(const std::shared_ptr<Optimizer>& optimizer,
 }
 
 }  // namespace SparseOperationKit
+
+
+#ifdef TF_GE_210
+namespace tensorflow{
+
+Status OptimizerVariantWrapperDeviceCopy(
+    const SparseOperationKit::OptimizerVariantWrapper& from, SparseOperationKit::OptimizerVariantWrapper* to,
+    const UnaryVariantOpRegistry::AsyncTensorDeviceCopyFn& copy) {
+  std::shared_ptr<SparseOperationKit::Optimizer> opt = from.get();
+  to->set_optimizer_layer(opt);
+  return OkStatus();
+}
+
+
+#define REGISTER_OPTIMIZER_VARIANT_WRAPPER_COPY(DIRECTION)  \
+  INTERNAL_REGISTER_UNARY_VARIANT_DEVICE_COPY_FUNCTION( \
+      SparseOperationKit::OptimizerVariantWrapper, DIRECTION, OptimizerVariantWrapperDeviceCopy)
+
+REGISTER_OPTIMIZER_VARIANT_WRAPPER_COPY(VariantDeviceCopyDirection::HOST_TO_DEVICE);
+REGISTER_OPTIMIZER_VARIANT_WRAPPER_COPY(VariantDeviceCopyDirection::DEVICE_TO_HOST);
+REGISTER_OPTIMIZER_VARIANT_WRAPPER_COPY(
+    VariantDeviceCopyDirection::DEVICE_TO_DEVICE);
+
+}  // namespace tensorflow
+#endif
+

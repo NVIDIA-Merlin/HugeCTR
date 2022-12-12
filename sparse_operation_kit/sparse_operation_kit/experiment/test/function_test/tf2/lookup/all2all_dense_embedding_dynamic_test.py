@@ -60,7 +60,6 @@ if __name__ == "__main__":
     sok_optimizer = sok.SGD(lr=1.0)
 
     # graph with sok.all2all_dense_embedding
-    @tf.function
     def step(param, indices):
         with tf.GradientTape() as tape:
             embedding = sok.all2all_dense_embedding(param, indices)

@@ -64,7 +64,6 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
     # graph with sok.all2all_dense_embedding
-    @tf.function
     def step(param, indices, optimizer):
         with tf.GradientTape() as tape:
             embedding = sok.all2all_dense_embedding(param, indices)
