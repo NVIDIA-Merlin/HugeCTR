@@ -68,7 +68,6 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -115,20 +114,9 @@ The <code class="docutils literal notranslate"><span class="pre">Norm</span></co
 <p>This notebook explains how to perform multi-GPU offline inference with the HugeCTR Python APIs.
 For more details about the API, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">HugeCTR Python Interface</a> documentation.</p>
 </div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="get-hugectr-from-ngc">
-<h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
-<p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
-</pre></div>
-</div>
-<p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton Inference Server, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> documentation.</p>
-<blockquote>
-<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a> documentation.</p>
-</div></blockquote>
-</div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <span class="xref myst"><code class="docutils literal notranslate"><span class="pre">setup_notebook.ipynb</span></code></span> and follow the instructions there before running the following.</p>
 </div>
 <div class="section" id="data-generation">
 <h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>

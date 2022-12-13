@@ -68,7 +68,6 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -106,42 +105,69 @@
   <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-example-notebooks">
 <h1>HugeCTR Example Notebooks<a class="headerlink" href="#hugectr-example-notebooks" title="Permalink to this headline"></a></h1>
 <p>This directory contains a set of Jupyter notebook that demonstrate how to use HugeCTR.</p>
-<div class="section" id="quickstart">
-<h2>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this headline"></a></h2>
 <p>The simplest way to run a one of our notebooks is with a Docker container.
 A container provides a self-contained, isolated, and reproducible environment for repetitive experiments.
-Docker images are available from the NVIDIA GPU Cloud (NGC).
-If you prefer to build the HugeCTR Docker image on your own, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#set-up-the-development-environment-with-merlin-containers">Set Up the Development Environment With Merlin Containers</a>.</p>
-<div class="section" id="pull-the-ngc-docker">
-<h3>Pull the NGC Docker<a class="headerlink" href="#pull-the-ngc-docker" title="Permalink to this headline"></a></h3>
-<p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.10
-</pre></div>
-</div>
-<blockquote>
-<div><p>To run the Sparse Operation Kit notebooks, pull the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.10</span></code> container.</p>
-</div></blockquote>
-</div>
+Docker images are available from the NVIDIA GPU Cloud (NGC).</p>
 <div class="section" id="clone-the-hugectr-repository">
-<h3>Clone the HugeCTR Repository<a class="headerlink" href="#clone-the-hugectr-repository" title="Permalink to this headline"></a></h3>
+<h2>1. Clone the HugeCTR Repository<a class="headerlink" href="#clone-the-hugectr-repository" title="Permalink to this headline"></a></h2>
 <p>Use the following command to clone the HugeCTR repository:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/NVIDIA/HugeCTR
 </pre></div>
 </div>
 </div>
-<div class="section" id="start-the-jupyter-notebook">
-<h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
-<ol class="arabic">
-<li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.10
+<div class="section" id="pull-the-ngc-docker-and-run-it">
+<h2>2. Pull the NGC Docker and run it<a class="headerlink" href="#pull-the-ngc-docker-and-run-it" title="Permalink to this headline"></a></h2>
+<p>Pull the container using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+</pre></div>
+</div>
+<p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --gpus all --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u root -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/HugeCTR -w /HugeCTR -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.12
 </pre></div>
 </div>
 <blockquote>
-<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.10</span></code> container.</p>
+<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.12</span></code> container.</p>
 </div></blockquote>
-</li>
+</div>
+<div class="section" id="customized-building-optional">
+<h2>3. Customized Building (Optional)<a class="headerlink" href="#customized-building-optional" title="Permalink to this headline"></a></h2>
+<p>HugeCTR is already installed in the NGC container. But you can also setup HugeCTR from source to customize the build more. This is useful for developmental purposes.</p>
+<ol class="arabic simple">
+<li><p>Go to HugeCTR repo and update third party modules</p></li>
+</ol>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> HugeCTR
+$ git submodule update --init --recursive
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>There are options to customize the build using parameters, which are detailed <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_contributor_guide.html#build-hugectr-training-container-from-source">here</a>
+Here are some examples of how you can build HugeCTR using these build options:</p></li>
+</ol>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example 1</span>
+$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="m">70</span> .. <span class="c1"># Target is NVIDIA V100 with all others by default</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example 2</span>
+$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_MULTINODES<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<p>By default, HugeCTR is installed at <code class="docutils literal notranslate"><span class="pre">/usr/local</span></code>. However, you can use <code class="docutils literal notranslate"><span class="pre">CMAKE_INSTALL_PREFIX</span></code> to install HugeCTR to non-default location:</p>
+<p><code class="docutils literal notranslate"><span class="pre">$</span> <span class="pre">cmake</span> <span class="pre">-DCMAKE_INSTALL_PREFIX=/opt/HugeCTR</span> <span class="pre">-DSM=70</span> <span class="pre">..</span></code></p>
+<p>Refer to the</p>
+<blockquote>
+<div><p><a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>
+documentation for more details on building HugeCTR From Source</p>
+</div></blockquote>
+</div>
+<div class="section" id="start-the-jupyter-notebook">
+<h2>4. Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h2>
+<ol class="arabic">
 <li><p>Start Jupyter using these commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /hugectr/notebooks
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /HugeCTR/notebooks
 jupyter-notebook --allow-root --ip <span class="m">0</span>.0.0.0 --port <span class="m">8888</span> --NotebookApp.token<span class="o">=</span><span class="s1">&#39;hugectr&#39;</span>
 </pre></div>
 </div>
@@ -161,10 +187,9 @@ See <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/
 </li>
 </ol>
 </div>
-</div>
 <div class="section" id="notebook-list">
 <h2>Notebook List<a class="headerlink" href="#notebook-list" title="Permalink to this headline"></a></h2>
-<p>The notebooks are located within the container and can be found in the <code class="docutils literal notranslate"><span class="pre">/hugectr/notebooks</span></code> directory.</p>
+<p>The notebooks are located within the container and can be found in the <code class="docutils literal notranslate"><span class="pre">/HugeCTR/notebooks</span></code> directory.</p>
 <p>Here’s a list of notebooks that you can run:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="ecommerce-example.html"><span class="doc std std-doc">ecommerce-example.ipynb</span></a>: Explains how to train and inference with the eCommerce dataset.</p></li>
@@ -176,7 +201,7 @@ See <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/
 <li><p><a class="reference internal" href="news-example.html"><span class="doc std std-doc">news-example.ipynb</span></a>: Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.</p></li>
 <li><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="doc std std-doc">multi_gpu_offline_inference.ipynb</span></a>: Explain how to do multi-GPU offline inference with HugeCTR Python APIs.</p></li>
 <li><p><a class="reference internal" href="hps_demo.html"><span class="doc std std-doc">hps_demo.ipynb</span></a>: Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.</p></li>
-<li><p><a class="reference internal" href="training_with_remote_filesystem.html"><span class="doc std std-doc">training_with_remote_filesystem.ipynb</span></a>: Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.</p></li>
+<li><p><span class="xref myst">training_with_remote_filesystem.ipynb</span>: Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.</p></li>
 </ul>
 <p>The <a class="reference internal" href="multi-modal-data/index.html"><span class="xref myst">multi-modal-data</span></a> series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.</p>
@@ -254,6 +279,18 @@ The notebooks use the Movielens-25M dataset.</p>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>4</p></td>
 <td><p>Ashish Sardana</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="training_and_inference_with_remote_filesystem.html"><span class="doc std std-doc">training_and_inference_with_remote_filesystem.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Jerry Shi</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="embedding_training_cache_example.html"><span class="doc std std-doc">embedding_training_cache_example.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Jerry Shi</p></td>
 </tr>
 </tbody>
 </table>

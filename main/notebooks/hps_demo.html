@@ -24,7 +24,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="HugeCTR training with Remote File System example" href="training_with_remote_filesystem.html" />
+    <link rel="next" title="Embedding Training Cache Example" href="embedding_training_cache_example.html" />
     <link rel="prev" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" /> 
 </head>
 
@@ -68,7 +68,6 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -113,22 +112,9 @@
 HPS supports different database backends and GPU embedding caches.</p>
 <p>This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks.</p>
 </div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="get-hugectr-from-ngc">
-<h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
-<p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
-</pre></div>
-</div>
-<p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a>.</p>
-<blockquote>
-<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, please refer to the
-<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>
-documentation.</p>
-</div></blockquote>
-</div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <span class="xref myst">README</span> and follow the instructions there before running the following.</p>
 </div>
 <div class="section" id="data-generation">
 <h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
@@ -663,15 +649,12 @@ Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: 0.
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Look up from dlpack for Tensorflow tensor
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>***************Look up from tensorflow dlpack on CPU**********
+***************Look up from tensorflow dlpack on CPU**********
 The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the keys: [20005 30347 20001 ... 30174 20000 30013]
 The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the vectors: [[ 0.02120136  0.03807243 -0.04021286 ... -0.00556568  0.00462132
    0.01774719]]
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
+
+tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
 ***************Look up from tensorflow dlpack on GPU**********
 [HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: /job:localhost/replica:0/task:0/device:GPU:0, the vectors: [ 0.02120136  0.03807243 -0.04021286 ... -0.00556568  0.00462132
   0.01774719]
@@ -987,7 +970,7 @@ Main process; exiting...
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="multi_gpu_offline_inference.html" class="btn btn-neutral float-left" title="Multi-GPU Offline Inference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="training_with_remote_filesystem.html" class="btn btn-neutral float-right" title="HugeCTR training with Remote File System example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="embedding_training_cache_example.html" class="btn btn-neutral float-right" title="Embedding Training Cache Example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

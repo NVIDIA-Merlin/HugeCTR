@@ -68,7 +68,6 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -127,11 +126,53 @@ The notebook shows two different ETPS as reference.</p></li>
 </ul>
 <p>For the concepts and API reference information about the classes and file, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/hugectr_layer_book.html#overview-of-using-the-hugectr-embedding-collection">Overview of Using the HugeCTR Embedding Collection</a> in the HugeCTR Layer Classes and Methods information.</p>
 </div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <span class="xref myst">README</span> and follow the instructions there before running the following.</p>
+</div>
 <div class="section" id="use-an-embedding-collection-with-a-dlrm-model">
 <h2>Use an Embedding Collection with a DLRM Model<a class="headerlink" href="#use-an-embedding-collection-with-a-dlrm-model" title="Permalink to this headline"></a></h2>
-<div class="section" id="prepare-the-data">
-<h3>Prepare the Data<a class="headerlink" href="#prepare-the-data" title="Permalink to this headline"></a></h3>
-<p>Follow the instructions under heading “Preprocess the Dataset through NVTabular” from the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/deepfm">samples/deepfm</a> directory of the repository to prepare data.</p>
+<div class="section" id="data-preparation">
+<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
+<p>To download and prepare the dataset we will be doing the following steps. At the end of this cell, we provide the shell commands you can run on the terminal to get the data ready for this notebook.</p>
+<p><strong>Note</strong>: If you already have the data downloaded, then skip to the preprocessing step (2). If preprocessing is also done, skip to creating the softlink between the processed data to the <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory (3).</p>
+<ol class="arabic simple">
+<li><p>Download the Criteo dataset</p></li>
+</ol>
+<p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations:</p>
+<ul class="simple">
+<li><p>Reduce the amounts of data to speed up the preprocessing</p></li>
+<li><p>Fill missing values</p></li>
+<li><p>Remove the feature values whose occurrences are very rare, etc.</p></li>
+</ul>
+<ol class="arabic" start="2">
+<li><p>Preprocessing by Pandas:</p>
+<p>Meanings of the command line arguments:</p>
+<ul class="simple">
+<li><p>The 1st argument represents the dataset postfix. It is <code class="docutils literal notranslate"><span class="pre">1</span></code> here since <code class="docutils literal notranslate"><span class="pre">day_1</span></code> is used.</p></li>
+<li><p>The 2nd argument <code class="docutils literal notranslate"><span class="pre">wdl_data</span></code> is where the preprocessed data is stored.</p></li>
+<li><p>The 3rd argument <code class="docutils literal notranslate"><span class="pre">pandas</span></code> is the processing script going to use, here we choose <code class="docutils literal notranslate"><span class="pre">pandas</span></code>.</p></li>
+<li><p>The 4th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> embodies that the normalization is applied to dense features.</p></li>
+<li><p>The 5th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> means that the feature crossing is applied.</p></li>
+<li><p>The 6th argument <code class="docutils literal notranslate"><span class="pre">100</span></code> means the number of data files in each file list.</p></li>
+</ul>
+<p>For more details about the data preprocessing, please refer to the “Preprocess the Criteo Dataset” section of the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/criteo">samples/criteo</a> directory of the repository on GitHub.</p>
+</li>
+<li><p>Create a soft link of the dataset folder to the path of this notebook</p></li>
+</ol>
+<div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
+<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">project_root</span><span class="o">=</span>/home/hugectr <span class="c1"># set this to the directory where hugectr is downloaded</span>
+<span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+<span class="c1"># Step 1</span>
+wget https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+<span class="c1">#Step 2</span>
+bash preprocess.sh <span class="m">0</span> deepfm_data_nvt nvt <span class="m">1</span> <span class="m">0</span> <span class="m">0</span>
+<span class="c1">#Step 3</span>
+ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/deepfm_data_nvt <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/deepfm_data_nvt
+</pre></div>
+</div>
+</div>
 </div>
 <div class="section" id="prepare-the-training-script">
 <h3>Prepare the Training Script<a class="headerlink" href="#prepare-the-training-script" title="Permalink to this headline"></a></h3>
@@ -869,9 +910,7 @@ BinaryCrossEntropyLoss                  fc8                           loss
 [HCTR][08:42:08.061][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
 [HCTR][08:42:08.061][INFO][RK0][main]: Training source file: ./deepfm_data_nvt/train/_file_list.txt
 [HCTR][08:42:08.061][INFO][RK0][main]: Evaluation source file: ./deepfm_data_nvt/val/_file_list.txt
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][08:42:16.322][INFO][RK0][main]: Iter: 100 Time(100 iters): 8.19237s Loss: 0.140113 lr:0.168333
+[HCTR][08:42:16.322][INFO][RK0][main]: Iter: 100 Time(100 iters): 8.19237s Loss: 0.140113 lr:0.168333
 [HCTR][08:42:18.453][DEBUG][RK0][tid #140394662721280]: file_name_ deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet file_total_rows_ 571942
 [HCTR][08:42:18.491][DEBUG][RK0][tid #140394654328576]: file_name_ deepfm_data_nvt/val/1.01854d707a564342aef3af44b814de1c.parquet file_total_rows_ 573919
 [HCTR][08:42:18.534][DEBUG][RK0][tid #140394645935872]: file_name_ deepfm_data_nvt/val/2.7d7593c16af64625973ed246f68af624.parquet file_total_rows_ 572137
@@ -932,9 +971,7 @@ BinaryCrossEntropyLoss                  fc8                           loss
 [HCTR][08:43:05.111][DEBUG][RK0][tid #140397829383936]: file_name_ deepfm_data_nvt/train/3.4b192542e2ad4cc8b745feb142d1878a.parquet file_total_rows_ 4581022
 [HCTR][08:43:05.192][DEBUG][RK0][tid #140397783283456]: file_name_ deepfm_data_nvt/train/4.4f7e95ed8f9b4bcc9b63c5f3278e6905.parquet file_total_rows_ 4580476
 [HCTR][08:43:05.274][DEBUG][RK0][tid #140397774890752]: file_name_ deepfm_data_nvt/train/5.c5b89db1e82d4842998d560796eab838.parquet file_total_rows_ 4583901
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][08:43:05.354][DEBUG][RK0][tid #140394788546304]: file_name_ deepfm_data_nvt/train/6.92133f3ee3664684854969202958122f.parquet file_total_rows_ 4581782
+[HCTR][08:43:05.354][DEBUG][RK0][tid #140394788546304]: file_name_ deepfm_data_nvt/train/6.92133f3ee3664684854969202958122f.parquet file_total_rows_ 4581782
 [HCTR][08:43:06.072][DEBUG][RK0][tid #140394780153600]: file_name_ deepfm_data_nvt/train/7.9345ade3421b40a5803f518c48ae436f.parquet file_total_rows_ 4589169
 [HCTR][08:43:09.539][INFO][RK0][main]: Iter: 600 Time(100 iters): 10.5255s Loss: 0.140006 lr:0.5
 [HCTR][08:43:11.577][DEBUG][RK0][tid #140394662721280]: file_name_ deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet file_total_rows_ 571942
@@ -1331,9 +1368,7 @@ BinaryCrossEntropyLoss                  fc8                           loss
 [HCTR][08:44:55.512][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
 [HCTR][08:44:55.512][INFO][RK0][main]: Training source file: ./deepfm_data_nvt/train/_file_list.txt
 [HCTR][08:44:55.512][INFO][RK0][main]: Evaluation source file: ./deepfm_data_nvt/val/_file_list.txt
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][08:45:11.057][INFO][RK0][main]: Iter: 100 Time(100 iters): 15.3926s Loss: 0.144649 lr:0.168333
+[HCTR][08:45:11.057][INFO][RK0][main]: Iter: 100 Time(100 iters): 15.3926s Loss: 0.144649 lr:0.168333
 [HCTR][08:45:14.328][DEBUG][RK0][tid #139614102738688]: file_name_ deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet file_total_rows_ 571942
 [HCTR][08:45:14.386][DEBUG][RK0][tid #139609623230208]: file_name_ deepfm_data_nvt/val/1.01854d707a564342aef3af44b814de1c.parquet file_total_rows_ 573919
 [HCTR][08:45:14.444][DEBUG][RK0][tid #139609614837504]: file_name_ deepfm_data_nvt/val/2.7d7593c16af64625973ed246f68af624.parquet file_total_rows_ 572137
@@ -1394,9 +1429,7 @@ BinaryCrossEntropyLoss                  fc8                           loss
 [HCTR][08:46:40.125][DEBUG][RK0][tid #139614505387776]: file_name_ deepfm_data_nvt/train/3.4b192542e2ad4cc8b745feb142d1878a.parquet file_total_rows_ 4581022
 [HCTR][08:46:40.284][DEBUG][RK0][tid #139614387959552]: file_name_ deepfm_data_nvt/train/4.4f7e95ed8f9b4bcc9b63c5f3278e6905.parquet file_total_rows_ 4580476
 [HCTR][08:46:40.431][DEBUG][RK0][tid #139614379566848]: file_name_ deepfm_data_nvt/train/5.c5b89db1e82d4842998d560796eab838.parquet file_total_rows_ 4583901
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][08:46:40.586][DEBUG][RK0][tid #139614119524096]: file_name_ deepfm_data_nvt/train/6.92133f3ee3664684854969202958122f.parquet file_total_rows_ 4581782
+[HCTR][08:46:40.586][DEBUG][RK0][tid #139614119524096]: file_name_ deepfm_data_nvt/train/6.92133f3ee3664684854969202958122f.parquet file_total_rows_ 4581782
 [HCTR][08:46:41.968][DEBUG][RK0][tid #139614111131392]: file_name_ deepfm_data_nvt/train/7.9345ade3421b40a5803f518c48ae436f.parquet file_total_rows_ 4589169
 [HCTR][08:46:48.555][INFO][RK0][main]: Iter: 600 Time(100 iters): 19.4819s Loss: 0.134819 lr:0.5
 [HCTR][08:46:51.959][DEBUG][RK0][tid #139614102738688]: file_name_ deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet file_total_rows_ 571942

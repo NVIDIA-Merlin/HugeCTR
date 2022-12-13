@@ -99,21 +99,15 @@
 <li><p>Do offline inference using <strong>HugeCTR HPS</strong></p></li>
 </ol>
 </div>
-<div class="section" id="docker-and-preparation">
-<h2>Docker and Preparation<a class="headerlink" href="#docker-and-preparation" title="Permalink to this headline"></a></h2>
-<p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
-<p>You can check the existence of required libraries by running the following Python code after launching the container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
-</pre></div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <span class="xref myst">README</span> and follow the instructions there before running the following.</p>
 </div>
-<blockquote>
-<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, refer to the
-<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>
-documentation.</p>
-</div></blockquote>
+<div class="section" id="data-preparation">
+<h2>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 </pre></div>
 </div>
@@ -121,17 +115,17 @@ documentation.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!mkdir -p /hugectr_e2e
-!mkdir -p /hugectr_e2e/criteo/train
-!mkdir -p /hugectr_e2e/criteo/val
-!mkdir -p /hugectr_e2e/model
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p /hugectr_e2e
+<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/train
+<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/val
+<span class="o">!</span>mkdir -p /hugectr_e2e/model
 </pre></div>
 </div>
 </div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">BASE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;BASE_DIR&quot;</span><span class="p">,</span> <span class="s2">&quot;/hugectr_e2e&quot;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">BASE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;BASE_DIR&quot;</span><span class="p">,</span> <span class="s2">&quot;/hugectr_e2e&quot;</span><span class="p">)</span>
 <span class="n">DATA_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DATA_DIR&quot;</span><span class="p">,</span> <span class="n">BASE_DIR</span> <span class="o">+</span> <span class="s2">&quot;/criteo&quot;</span><span class="p">)</span>
 <span class="n">TRAIN_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TRAIN_DIR&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span><span class="s2">&quot;/train&quot;</span><span class="p">)</span>
 <span class="n">VAL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;VAL_DIR&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span><span class="s2">&quot;/val&quot;</span><span class="p">)</span>
@@ -143,10 +137,10 @@ documentation.</p>
 <p><strong>Download the Criteo data for 1 day:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>#!wget -P $DATA_DIR https://storage.googleapis.com/criteo-cail-datasets/day_0.gz  #decomment this line to download, otherwise soft link the data.
-#!gzip -d -c $DATA_DIR/day_0.gz &gt; $DATA_DIR/day_0
-INPUT_DATA = os.environ.get(&quot;INPUT_DATA&quot;, DATA_DIR + &quot;/day_0&quot;)
-!ln -s $INPUT_DATA $DATA_DIR/day_0
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!wget -P $DATA_DIR https://storage.googleapis.com/criteo-cail-datasets/day_0.gz  #decomment this line to download, otherwise soft link the data.</span>
+<span class="c1">#!gzip -d -c $DATA_DIR/day_0.gz &gt; $DATA_DIR/day_0</span>
+<span class="n">INPUT_DATA</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;INPUT_DATA&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span> <span class="s2">&quot;/day_0&quot;</span><span class="p">)</span>
+<span class="o">!</span>ln -s <span class="nv">$INPUT_DATA</span> <span class="nv">$DATA_DIR</span>/day_0
 </pre></div>
 </div>
 </div>
@@ -168,8 +162,8 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
 <p><strong>Unzip and split data</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!head -n 10000000 $DATA_DIR/day_0 &gt; $DATA_DIR/train/train.txt
-!tail -n 2000000 $DATA_DIR/day_0 &gt; $DATA_DIR/val/test.txt 
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>head -n <span class="m">10000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/train/train.txt
+<span class="o">!</span>tail -n <span class="m">2000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/val/test.txt 
 </pre></div>
 </div>
 </div>
@@ -179,7 +173,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
 <h2>Data Preprocessing using NVTabular<a class="headerlink" href="#data-preprocessing-using-nvtabular" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">argparse</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">time</span>
@@ -219,7 +213,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dask dashboard</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dask dashboard</span>
 <span class="n">dashboard_port</span> <span class="o">=</span> <span class="s2">&quot;8787&quot;</span>
 
 <span class="c1"># Deploy a Single-Machine Multi-GPU Cluster</span>
@@ -828,7 +822,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">train_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Training output data: &quot;</span><span class="o">+</span><span class="n">train_output</span><span class="p">)</span>
 <span class="n">val_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Validation output data: &quot;</span><span class="o">+</span><span class="n">val_output</span><span class="p">)</span>
@@ -999,7 +993,7 @@ Runtime[s]         | 8.17225694656372
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1">### Record the slot size array</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">### Record the slot size array</span>
 <span class="n">SLOT_SIZE_ARRAY</span> <span class="o">=</span> <span class="n">embeddings</span>
 </pre></div>
 </div>
@@ -1010,7 +1004,7 @@ Runtime[s]         | 8.17225694656372
 <h2>Training a WDL model with HugeCTR<a class="headerlink" href="#training-a-wdl-model-with-hugectr" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">%%</span><span class="n">writefile</span> <span class="s1">&#39;./train.py&#39;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;./train.py&#39;
 <span class="kn">import</span> <span class="nn">hugectr</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">argparse</span>
@@ -1124,7 +1118,7 @@ Runtime[s]         | 8.17225694656372
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!python train.py --data_path $DATA_DIR --model_path $MODEL_DIR
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python train.py --data_path <span class="nv">$DATA_DIR</span> --model_path <span class="nv">$MODEL_DIR</span>
 </pre></div>
 </div>
 </div>
@@ -1269,7 +1263,7 @@ BinaryCrossEntropyLoss                  add1                          loss
 <h2>Load model to HPS and inference with HugeCTR<a class="headerlink" href="#load-model-to-hps-and-inference-with-hugectr" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
     

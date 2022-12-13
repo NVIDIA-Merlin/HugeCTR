@@ -68,7 +68,6 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_remote_filesystem.html">HugeCTR training with Remote File System example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -117,9 +116,13 @@ All the required input files can be obtained with HugeCTR training APIs and the 
 Please make sure that you are familiar with HugeCTR training APIs which will be covered here to ensure the completeness.
 For more details of the usage of this converter, refer to the HugeCTR to ONNX Converter in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">onnx_converter</a> directory of the repository.</p>
 </div>
+<div class="section" id="setup-hugectr">
+<h2>Setup HugeCTR<a class="headerlink" href="#setup-hugectr" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <span class="xref myst">README</span> and follow the instructions there before running the following.</p>
+</div>
 <div class="section" id="access-the-hugectr-to-onnx-converter">
 <h2>Access the HugeCTR to ONNX Converter<a class="headerlink" href="#access-the-hugectr-to-onnx-converter" title="Permalink to this headline"></a></h2>
-<p>Make sure that you start the notebook inside a running 22.10 or later NGC docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.
+<p>Make sure that you start the notebook inside a running 22.09 or later NGC docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.09</span></code>.
 The module of the ONNX converter is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/lib/python3.8/dist-packages</span></code>.
 As for HugeCTR Python interface, a dynamic link to the <code class="docutils literal notranslate"><span class="pre">hugectr.so</span></code> library is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/hugectr/lib/</span></code>.
 You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container.</p>
@@ -142,28 +145,47 @@ You can access the ONNX converter as well as HugeCTR Python interface anywhere w
 </div>
 <div class="section" id="wide-and-deep-model">
 <h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this headline"></a></h2>
-<div class="section" id="download-and-preprocess-data">
-<h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
-<ol class="arabic">
-<li><p>Download the Criteo dataset using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
-</pre></div>
-</div>
-<p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
-</li>
-<li><p>Preprocessing by Pandas using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
-</pre></div>
-</div>
-<p>The first argument represents the dataset postfix. It is 1 here since day_1 is used. The second argument wdl_data is where the preprocessed data is stored. The fourth argument (one after pandas) 1 embodies that the normalization is applied to dense features. The fifth argument 1 means that the feature crossing is applied. The last argument 100 means the number of data files in each file list.</p>
-</li>
-<li><p>Create a soft link to the dataset folder using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
-</pre></div>
-</div>
-</li>
+<p>To download and prepare the dataset we will be doing the following steps. At the end of this cell, we provide the shell commands you can run on the terminal to get the data ready for this notebook.</p>
+<p><strong>Note</strong>: If you already have the data downloaded, then skip to the preprocessing step (2). If preprocessing is also done, skip to creating the softlink between the processed data to the <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory (3).</p>
+<div class="section" id="data-preparation">
+<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
+<ol class="arabic simple">
+<li><p>Download the Criteo dataset</p></li>
 </ol>
+<p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations:</p>
+<ul class="simple">
+<li><p>Reduce the amounts of data to speed up the preprocessing</p></li>
+<li><p>Fill missing values</p></li>
+<li><p>Remove the feature values whose occurrences are very rare, etc.</p></li>
+</ul>
+<ol class="arabic" start="2">
+<li><p>Preprocessing by Pandas:</p>
+<p>Meanings of the command line arguments:</p>
+<ul class="simple">
+<li><p>The 1st argument represents the dataset postfix. It is <code class="docutils literal notranslate"><span class="pre">1</span></code> here since <code class="docutils literal notranslate"><span class="pre">day_1</span></code> is used.</p></li>
+<li><p>The 2nd argument <code class="docutils literal notranslate"><span class="pre">wdl_data</span></code> is where the preprocessed data is stored.</p></li>
+<li><p>The 3rd argument <code class="docutils literal notranslate"><span class="pre">pandas</span></code> is the processing script going to use, here we choose <code class="docutils literal notranslate"><span class="pre">pandas</span></code>.</p></li>
+<li><p>The 4th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> embodies that the normalization is applied to dense features.</p></li>
+<li><p>The 5th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> means that the feature crossing is applied.</p></li>
+<li><p>The 6th argument <code class="docutils literal notranslate"><span class="pre">100</span></code> means the number of data files in each file list.</p></li>
+</ul>
+<p>For more details about the data preprocessing, please refer to the “Preprocess the Criteo Dataset” section of the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/criteo">samples/criteo</a> directory of the repository on GitHub.</p>
+</li>
+<li><p>Create a soft link of the dataset folder to the path of this notebook</p></li>
+</ol>
+<div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
+<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">project_root</span><span class="o">=</span>/home/hugectr <span class="c1"># set this to the directory where hugectr is downloaded</span>
+<span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+<span class="c1"># Step 1</span>
+wget https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+<span class="c1">#Step 2</span>
+bash preprocess.sh <span class="m">0</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+<span class="c1">#Step 3</span>
+ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+</pre></div>
+</div>
+</div>
 </div>
 <div class="section" id="train-the-hugectr-model">
 <h3>Train the HugeCTR Model<a class="headerlink" href="#train-the-hugectr-model" title="Permalink to this headline"></a></h3>
@@ -191,8 +213,8 @@ If it is <code class="docutils literal notranslate"><span class="pre">False</spa
                               <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
                               <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 <span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
-                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_data/file_list.txt&quot;</span><span class="p">],</span>
-                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_data/file_list.0.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.0.txt&quot;</span><span class="p">,</span>
                                   <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
 <span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
                                     <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
@@ -467,7 +489,7 @@ The model is saved at wdl.onnx
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;wdl_dense_2000.model&quot;</span>
 <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl0_sparse_2000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl1_sparse_2000.model&quot;</span><span class="p">]</span>
 <span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span>
-<span class="n">data_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.txt&quot;</span>
+<span class="n">data_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.0.txt&quot;</span>
 <span class="kn">import</span> <span class="nn">hugectr</span>
 <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 <span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>

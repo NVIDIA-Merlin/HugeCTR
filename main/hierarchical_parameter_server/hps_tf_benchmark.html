@@ -23,9 +23,7 @@
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Hierarchical Parameter Server Notebooks" href="notebooks/index.html" />
-    <link rel="prev" title="Hierarchical Parameter Server Plugin for TensorFlow" href="hps_tf_user_guide.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -51,20 +49,11 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption"><span class="caption-text">HUGECTR</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="index.html">Hierarchical Parameter Server</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../hugectr_parameter_server.html">HPS Database Backend</a></li>
-<li class="toctree-l2 current"><a class="reference internal" href="hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Benchmark</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/index.html">Notebooks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/index.html">API Documentation</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
@@ -89,8 +78,6 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a></li>
-          <li class="breadcrumb-item"><a href="index.html">Hierarchical Parameter Server</a></li>
-          <li class="breadcrumb-item"><a href="hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a></li>
       <li class="breadcrumb-item active">Benchmark the HPS Plugin for TensorFlow</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -111,7 +98,7 @@
 </div>
 <div class="section" id="benchmark-setup">
 <h2>Benchmark Setup<a class="headerlink" href="#benchmark-setup" title="Permalink to this headline"></a></h2>
-<p>The inference SavedModel that leverages HPS can be deployed with the Triton TensorFlow Backend, which is demonstrated in <a class="reference internal" href="notebooks/hps_tensorflow_triton_deployment_demo.html"><span class="doc std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a>. The inference performance of this deployment method needs to be investigated using Triton Performance Analyzer to verify the effectiveness of the HPS integration into TensorFlow.</p>
+<p>The inference SavedModel that leverages HPS can be deployed with the Triton TensorFlow Backend, which is demonstrated in <span class="xref myst">hps_tensorflow_triton_deployment_demo.ipynb</span>. The inference performance of this deployment method needs to be investigated using Triton Performance Analyzer to verify the effectiveness of the HPS integration into TensorFlow.</p>
 <p>We train a DLRM model following <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM">JoC TensorFlow2 DLRM</a> on the Criteo 1TB dataset filtered with the frequency threshold of 15. The trained model is in the SavedModel format and the size is about 16GB, which is almost the size of embedding weights because the size of dense layer weights is small. We compare three deployment methods on the Triton Infrence Server:</p>
 <ul class="simple">
 <li><p>Deploy the trained SavedModel directly with the TensorFlow backend.</p></li>
@@ -278,10 +265,7 @@
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="hps_tf_user_guide.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server Plugin for TensorFlow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="notebooks/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 
