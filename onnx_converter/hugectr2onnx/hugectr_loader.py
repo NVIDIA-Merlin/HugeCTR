@@ -101,6 +101,7 @@ class LayerParams(object):
         self.axis = 1
         self.max_sequence_len = 1
         self.num_attention_heads = 1
+        self.transpose_b = True
         # MLP Layer
         self.activation = "Relu"
         self.activations = []
@@ -266,8 +267,9 @@ class HugeCTRLoader(object):
             layer_weights_dict[layer_config["top"] + "_running_variance"] = running_variance
         elif layer_type == "LayerNorm":
             layer_params.eps = layer_config["ln_param"]["eps"]
+            dim_in = self.__dimensions[layer_config["bottom"]]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
-            in_feature = self.__dimensions[layer_config["bottom"]]
+            in_feature = dim_in[len(dim_in) - 1]
             layer_bytes = in_feature * 4 * 2
             with open(self.__dense_model, "rb") as file:
                 file.seek(self.__offset, 0)
@@ -285,7 +287,6 @@ class HugeCTRLoader(object):
             layer_weights_dict[layer_config["top"] + "_beta"] = beta
             # layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
             # layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
-
         elif layer_type == "Concat":
             layer_params.axis = layer_config["axis"]
             axis_without_batch = layer_config["axis"] - 1
@@ -298,7 +299,7 @@ class HugeCTRLoader(object):
                             dim = dim + dims[i]
                 else:
                     dim += self.__dimensions[tensor]
-            if isinstance(dim, tuple):
+            if isinstance(self.__dimensions[layer_config["bottom"][0]], tuple):
                 self.__dimensions[layer_config["top"]] = tuple(
                     [
                         dims[i] if i != axis_without_batch else dim
@@ -317,8 +318,7 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "SequenceMask":
             layer_params.max_sequence_len = layer_config["max_sequence_len"]
-        elif layer_type == "MultiHeadAttention":
-            layer_params.num_attention_heads = layer_config["num_attention_heads"]
+            self.__dimensions[layer_config["top"]] = (1, 1, layer_params.max_sequence_len)
         elif layer_type == "FmOrder2":
             layer_params.out_dim = layer_config["out_dim"]
             self.__dimensions[layer_config["top"]] = layer_params.out_dim
@@ -391,15 +391,26 @@ class HugeCTRLoader(object):
                 vec_size + (slot_num + 1) * (slot_num + 2) // 2 - (slot_num + 1) + 1
             )
         elif layer_type == "MultiHeadAttention":
+            layer_params.num_attention_heads = layer_config["num_attention_heads"]
+            layer_params.transpose_b = layer_config["transpose_b"]
+
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]
             if len(dim1) == 3:
-                self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[1])
+                if layer_params.transpose_b:
+                    self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[1])
+                else:
+                    self.__dimensions[layer_config["top"]] = (dim1[1], dim1[0] * dim2[2])
             if len(dim1) == 2:
-                self.__dimensions[layer_config["top"]] = (
+                self.__dimensions[layer_config["top"][0]] = (
                     layer_params.num_attention_heads,
                     dim1[0],
                     dim1[0],
+                )
+                self.__dimensions[layer_config["top"][1]] = (
+                    layer_params.num_attention_heads,
+                    dim1[0],
+                    (int)(dim1[1] / layer_params.num_attention_heads),
                 )
         elif layer_type == "MatrixMultiply":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
@@ -498,11 +509,26 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Slice":
             layer_params.ranges = layer_config["ranges"]
+            dim_in = self.__dimensions[layer_config["bottom"]]
             for tensor, dim in zip(layer_config["top"], layer_params.ranges):
-                self.__dimensions[tensor] = dim[1] - dim[0]
+                if isinstance(dim_in, tuple):
+                    self.__dimensions[tensor] = tuple(
+                        [
+                            dim_in[i] if i != len(dim_in) - 1 else dim[1] - dim[0]
+                            for i in range(len(dim_in))
+                        ]
+                    )
+                else:
+                    self.__dimensions[tensor] = dim[1] - dim[0]
         elif layer_type == "Softmax":
             layer_params.factor = layer_config["factor"]
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
+            if isinstance(layer_config["bottom"], list):
+                self.__dimensions[layer_config["top"]] = self.__dimensions[
+                    layer_config["bottom"][0]
+                ]
+            else:
+                self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
+
         elif layer_type == "Sub":
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]
         elif layer_type == "WeightMultiply":
