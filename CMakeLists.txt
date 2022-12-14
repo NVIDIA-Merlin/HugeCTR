@@ -135,6 +135,13 @@ if(${cuda_arch_list_length} EQUAL 0)
 endif()
 list(REMOVE_DUPLICATES cuda_arch_list)
 
+option(ENABLE_INFERENCE "Enable Inference" OFF)
+if(ENABLE_INFERENCE)
+add_definitions(-DLIBCUDACXX_VERSION)
+list(REMOVE_ITEM cuda_arch_list "60")
+list(REMOVE_ITEM cuda_arch_list "61")
+endif()
+
 foreach(arch_name ${cuda_arch_list})
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
 endforeach()
@@ -262,7 +269,7 @@ if(ENABLE_S3)
   s3_setup()
 endif()
 
-option(ENABLE_INFERENCE "Enable Inference" OFF)
+
 if(ENABLE_INFERENCE)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_INFERENCE")
