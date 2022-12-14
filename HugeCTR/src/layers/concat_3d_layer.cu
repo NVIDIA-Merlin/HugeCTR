@@ -120,7 +120,7 @@ Concat3DLayer<T>::Concat3DLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_t
           if (cur_in_dims[2] != first_in_dims[2]) {
             HCTR_OWN_THROW(
                 Error_t::WrongInput,
-                "When concatenating along axis 2, all the input tensors must have the same "
+                "When concatenating along axis 1, all the input tensors must have the same "
                 "shape in dimension 2");
           }
         }
