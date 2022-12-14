@@ -434,7 +434,7 @@ struct create_datareader {
                   std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-                  long long num_samples);
+                  long long num_samples, const DataSourceParams& data_source_params);
   // Used by InferenceModel
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
@@ -443,7 +443,8 @@ struct create_datareader {
                   std::vector<TensorBag2>& label_tensor_list,
                   std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
-                  const std::vector<long long>& slot_size_array, const bool repeat_dataset);
+                  const std::vector<long long>& slot_size_array, const bool repeat_dataset,
+                  const DataSourceParams& data_source_params);
 };
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {
