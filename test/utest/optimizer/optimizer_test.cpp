@@ -17,6 +17,7 @@
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
+#include "HugeCTR/include/optimizers/ftrl_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
@@ -120,6 +121,16 @@ TEST(adam_test, fp32_adam) {
 TEST(adam_test, fp16_adam) {
   optimizer_test<__half, AdamOptimizer, AdamCPU>(1024, 5, 1e-3);
   optimizer_test<__half, AdamOptimizer, AdamCPU>(10240, 5, 1e-3);
+}
+
+TEST(ftrl_test, fp32_fltr) {
+  optimizer_test<float, FtrlOptimizer, FtrlCPU>(1024, 5, 1e-6);
+  optimizer_test<float, FtrlOptimizer, FtrlCPU>(10240, 5, 1e-6);
+}
+
+TEST(ftrl_test, fp16_fltr) {
+  optimizer_test<__half, FtrlOptimizer, FtrlCPU>(1024, 5, 1e-3);
+  optimizer_test<__half, FtrlOptimizer, FtrlCPU>(10240, 5, 1e-3);
 }
 
 TEST(momentum_test, fp32_momentum) {
