@@ -30,11 +30,13 @@ class InferenceModel {
   InferenceModel& operator=(const InferenceModel&) = delete;
 
   float evaluate(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
-                 Check_t check_type, const std::vector<long long>& slot_size_array);
+                 Check_t check_type, const std::vector<long long>& slot_size_array,
+                 const DataSourceParams& data_source_params);
 
   void predict(float* pred_output, size_t num_batches, const std::string& source,
                DataReaderType_t data_reader_type, Check_t check_type,
-               const std::vector<long long>& slot_size_array);
+               const std::vector<long long>& slot_size_array,
+               const DataSourceParams& data_source_params);
 
   std::tuple<size_t, size_t, std::vector<size_t>, int> get_tensor_info_by_name(
       const std::string& tensor_name);

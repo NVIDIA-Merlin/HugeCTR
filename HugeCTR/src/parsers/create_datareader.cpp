@@ -36,7 +36,7 @@ void create_datareader<TypeKey>::operator()(
     std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
     const DataReaderType_t data_reader_type, const Check_t check_type,
     const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-    const long long num_samples) {
+    const long long num_samples, const DataSourceParams& data_source_params) {
   // TO DO：support multi-hot
   long long slot_sum = 0;
   std::vector<long long> slot_offset;
@@ -64,7 +64,7 @@ void create_datareader<TypeKey>::operator()(
 
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
-      data_reader_sparse_param_array, resource_manager, true, 1, false);
+      data_reader_sparse_param_array, resource_manager, true, 1, false, data_source_params);
   data_reader.reset(data_reader_tk);
 
   switch (data_reader_type) {
@@ -119,7 +119,8 @@ void create_datareader<TypeKey>::operator()(
     std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
     std::vector<TensorBag2>& label_tensor_list, std::vector<TensorBag2>& dense_tensor_list,
     const std::string& source, const DataReaderType_t data_reader_type, const Check_t check_type,
-    const std::vector<long long>& slot_size_array, const bool repeat_dataset) {
+    const std::vector<long long>& slot_size_array, const bool repeat_dataset,
+    const DataSourceParams& data_source_params) {
   HCTR_CHECK_HINT(label_tensor_list.size() == 0,
                   "label tensor list should be empty before creating data reader");
   HCTR_CHECK_HINT(dense_tensor_list.size() == 0,
@@ -158,8 +159,8 @@ void create_datareader<TypeKey>::operator()(
 
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
-      data_reader_sparse_param_array, resource_manager, repeat_dataset, num_workers,
-      false);  // use_mixed_precision = false
+      data_reader_sparse_param_array, resource_manager, repeat_dataset, num_workers, false,
+      data_source_params);  // use_mixed_precision = false
   data_reader.reset(data_reader_tk);
 
   switch (data_reader_type) {

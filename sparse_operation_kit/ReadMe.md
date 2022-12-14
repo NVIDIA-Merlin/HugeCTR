@@ -36,7 +36,7 @@ We provide containers with pre-compiled binaries of the latest HugeCTR and SOK v
 To get started quickly with container on your machine, run the following command:
 
 ```bash
-docker run nvcr.io/nvidia/merlin/merlin-tensorflow:22.10
+docker run nvcr.io/nvidia/merlin/merlin-tensorflow:22.12
 ```
 
 > In production, replace the `latest` tag with a specific version.
