@@ -7,9 +7,11 @@ variables:
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
+  BST_DATASET: /lustre/fsw/devtech/hpc-hugectr/bst
   NCF_DATASET: /lustre/fsw/devtech/hpc-hugectr/ncf_data
   MMOE_DATASET: /lustre/fsw/devtech/hpc-hugectr/mmoe_data
   DIN_DATASET_MOUNT: /etc/workspace/din
+  BST_DATASET_MOUNT: /etc/workspace/bst
   NCF_DATASET_MOUNT: /etc/workspace/ncf_data
   MMOE_DATASET_MOUNT: /etc/workspace/mmoe_data
   DATASET_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
