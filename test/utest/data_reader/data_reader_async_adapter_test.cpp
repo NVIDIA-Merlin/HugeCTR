@@ -74,7 +74,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  const int sample_dim = label_dim + dense_dim + sparse_dim * (sizeof(dtype) / sizeof(float));
+  const int sample_dim = label_dim + dense_dim + sparse_dim;
   const size_t file_size = num_batches * batch_size * sample_dim;
 
   std::vector<int> ref_data(file_size);
@@ -82,7 +82,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 #pragma omp parallel
   {
     std::mt19937 gen(seed + omp_get_thread_num());
-    std::uniform_int_distribution<dtype> dis(10000, 99999);
+    std::uniform_int_distribution<uint32_t> dis(10000, 99999);
     std::uniform_real_distribution<float> disf(0.1, 1.1);
 
 #pragma omp for
@@ -97,7 +97,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 
       for (int j = 0; j < sparse_dim; j++) {
         auto dtype_ref =
-            reinterpret_cast<dtype*>(ref_data.data() + i * sample_dim + label_dim + dense_dim);
+            reinterpret_cast<uint32_t*>(ref_data.data() + i * sample_dim + label_dim + dense_dim);
         dtype_ref[j] = dis(gen);
       }
     }
@@ -165,9 +165,8 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 
         for (size_t sample = 0; sample < sz; sample++) {
           for (int j = 0; j < sparse_dim; j++) {
-            auto dtype_ref =
-                reinterpret_cast<dtype*>(cur_ref + sample * sample_dim + label_dim + dense_dim);
-            ASSERT_EQ(dtype_ref[j], sparses[sample * sparse_dim + j]);
+            auto dtype_ref = cur_ref + sample * sample_dim + label_dim + dense_dim;
+            ASSERT_EQ(static_cast<dtype>(dtype_ref[j]), sparses[sample * sparse_dim + j]);
           }
         }
       }
@@ -188,6 +187,11 @@ class MPIEnvironment : public ::testing::Environment {
 
 //   device_list   batch  threads  batch_per_thread   label  dense  sparse  num_passes  seed
 //
+TEST(reader_adapter_test, dgxa100_longlong) {
+  reader_adapter_test<long long>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 26, 1,
+                                 global_seed += 128);
+}
+
 TEST(reader_adapter_test, test1) {
   reader_adapter_test<uint32_t>({0}, 100, 1, 1, 2, 1, 1, 1, global_seed += 128);
 }

@@ -67,10 +67,7 @@ struct Model {
       num_instances_per_node;  // number of gpus for each node, .size() == number of nodes
 
   Tensor2<dtype> category_location;  // indicator category => location in embedding vector
-
   Tensor2<dtype> frequent_categories;
-  Tensor2<dtype> infrequent_categories;
-
   std::vector<dtype> h_frequent_model_table_offsets;
   std::vector<dtype> h_infrequent_model_table_offsets;
 
@@ -98,7 +95,8 @@ struct Model {
                                size_t num_categories_in,
                                std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf);
   void init_hybrid_model(const CalibrationData &calibration, Statistics<dtype> &statistics,
-                         const Data<dtype> &data, cudaStream_t stream);
+                         const Data<dtype> &data, Tensor2<dtype> &tmp_categories,
+                         cudaStream_t stream);
 };
 
 }  // namespace hybrid_embedding
