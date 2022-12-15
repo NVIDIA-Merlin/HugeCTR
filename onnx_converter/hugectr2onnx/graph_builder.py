@@ -285,29 +285,58 @@ class GraphBuilder(object):
                 )
             )
         elif layer_type == "SequenceMask":
-            new_shape = np.array([-1, 1, 1, layer_params.max_sequence_len])
+            len_expand_shape = np.array([1, layer_params.max_sequence_len], dtype=np.int64)
+            len_expand_shape_name = layer_params.top_names[0] + "_len_expand_shape"
             len_expand_name = layer_params.top_names[0] + "_len_expand"
-            maxlen_expand_name = layer_params.top_names[0] + "_maxlen_expand"
-            maxlen = np.fill(np.array([-1, 1, 1, layer_params.max_sequence_len]), max_sequence_len)
-            self.__nodes.append(
-                helper.make_node(
-                    op_type="Expand",
-                    inputs=[layer_params.bottom_names[0], new_shape],
-                    outputs=[len_expand_name],
+
+            new_shape = np.array([-1, 1, 1, layer_params.max_sequence_len], dtype=np.int64)
+            new_shape_name = layer_params.top_names[0] + "_len_reshape"
+            input_expand_reshape_name = layer_params.top_names[0] + "_len_expand_reshape"
+
+            maxlen = np.array([layer_params.max_sequence_len], dtype=np.float32)
+            maxlen_name = layer_params.top_names[0] + "_maxlen_value"
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=new_shape_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[new_shape.dtype],
+                    dims=new_shape.shape,
+                    vals=new_shape.flatten(),
                 )
             )
             self.__initializers.append(
                 helper.make_tensor(
-                    name=maxlen_expand_name,
-                    inputs=[layer_params.bottom_names, new_shape],
+                    name=len_expand_shape_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[new_shape.dtype],
+                    dims=len_expand_shape.shape,
+                    vals=len_expand_shape.flatten(),
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Expand",
+                    inputs=[layer_params.bottom_names[0], len_expand_shape_name],
+                    outputs=[len_expand_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reshape",
+                    inputs=[len_expand_name, new_shape_name],
+                    outputs=[input_expand_reshape_name],
+                )
+            )
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=maxlen_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[maxlen.dtype],
                     dims=maxlen.shape,
                     vals=maxlen.flatten(),
                 )
             )
-            self.__node.append(
+            self.__nodes.append(
                 helper.make_node(
                     op_type="Less",
-                    inputs=[len_expand_name, maxlen_expand_name],
+                    inputs=[input_expand_reshape_name, maxlen_name],
                     outputs=layer_params.top_names,
                 )
             )
@@ -395,7 +424,8 @@ class GraphBuilder(object):
             if isinstance(dimensions[layer_params.bottom_names[0]], tuple):
                 dim = dimensions[layer_params.bottom_names[0]]
                 shape_name1 = layer_params.top_names[0] + "_shape1"
-                shape1 = np.array([-1, dim[0] * dim[1]], dtype=np.int64)
+                # shape1 = np.array([-1, dim[0] * dim[1]], dtype=np.int64)
+                shape1 = np.array([-1, dim[1]], dtype=np.int64)
 
                 shape_name2 = layer_params.top_names[0] + "_shape2"
                 shape2 = np.array([-1, dim[0], layer_params.num_output], dtype=np.int64)
@@ -699,14 +729,16 @@ class GraphBuilder(object):
             query_name = layer_params.bottom_names[0]
             key_name = layer_params.bottom_names[1]
             head_num = layer_params.num_attention_heads
-            dims = dimensions[layer_params.top_names[0]]
+            dims = dimensions[query_name]
             key_transpose_name = key_name + "_transpose"
-            query_transpose_name = key_name + "_transpose"
+            query_transpose_name = query_name + "_transpose"
             if len(dims) == 2:
+                value_name = layer_params.bottom_names[2]
                 shape_name = layer_params.bottom_names[0] + "_4d_shape"
                 shape = np.array([-1, dims[0], head_num, dims[1] / head_num], dtype=np.int64)
                 query_reshape = layer_params.bottom_names[0] + "_4d"
                 key_reshape = layer_params.bottom_names[1] + "_4d"
+                value_reshape = layer_params.bottom_names[2] + "_4d"
                 self.__initializers.append(
                     helper.make_tensor(
                         name=shape_name,
@@ -727,10 +759,9 @@ class GraphBuilder(object):
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="Transpose",
-                        inputs=[key_reshape],
-                        outputs=[key_transpose_name],
-                        perm=[0, 2, 3, 1],
+                        op_type="Reshape",
+                        inputs=[value_name, shape_name],
+                        outputs=[value_reshape],
                     )
                 )
                 self.__nodes.append(
@@ -743,27 +774,88 @@ class GraphBuilder(object):
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="MatMul",
-                        inputs=[query_transpose_name, key_transpose_name],
-                        outputs=layer_params.top_names,
+                        op_type="Transpose",
+                        inputs=[key_reshape],
+                        outputs=[key_transpose_name],
+                        perm=[0, 2, 3, 1],
                     )
                 )
-            elif dims == 3:
                 self.__nodes.append(
                     helper.make_node(
                         op_type="Transpose",
-                        inputs=[key_name],
-                        outputs=[key_transpose_name],
-                        perm=[0, 1, 3, 2],
+                        inputs=[value_reshape],
+                        outputs=[layer_params.top_names[1]],
+                        perm=[0, 2, 1, 3],
                     )
                 )
                 self.__nodes.append(
                     helper.make_node(
                         op_type="MatMul",
-                        inputs=[query_name, key_transpose_name],
-                        outputs=layer_params.top_names,
+                        inputs=[query_transpose_name, key_transpose_name],
+                        outputs=[layer_params.top_names[0]],
                     )
                 )
+                self.__outputs.append(
+                    helper.make_tensor_value_info(
+                        layer_params.top_names[0],
+                        TensorProto.FLOAT,
+                        [None, head_num, dims[0], dims[0]],
+                    )
+                )
+            elif len(dims) == 3:
+                key_transpose_name_4d = key_name + "_transpose4d"
+                if layer_params.transpose_b:
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="Transpose",
+                            inputs=[key_name],
+                            outputs=[key_transpose_name_4d],
+                            perm=[0, 1, 3, 2],
+                        )
+                    )
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="MatMul",
+                            inputs=[query_name, key_transpose_name_4d],
+                            outputs=layer_params.top_names,
+                        )
+                    )
+                else:
+                    value_name = layer_params.top_names[0] + "_4d"
+                    dims = dimensions[layer_params.top_names[0]]
+                    transpose_name = layer_params.top_names[0] + "_transposed_4d"
+                    shape_name = layer_params.top_names[0] + "_3d_shape"
+                    shape = np.array([-1, dims[0], dims[1]], dtype=np.int64)
+                    self.__initializers.append(
+                        helper.make_tensor(
+                            name=shape_name,
+                            data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape.dtype],
+                            dims=shape.shape,
+                            vals=shape.flatten(),
+                        )
+                    )
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="MatMul",
+                            inputs=[query_name, key_name],
+                            outputs=[value_name],
+                        )
+                    )
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="Transpose",
+                            inputs=[value_name],
+                            outputs=[transpose_name],
+                            perm=[0, 2, 1, 3],
+                        )
+                    )
+                    self.__nodes.append(
+                        helper.make_node(
+                            op_type="Reshape",
+                            inputs=[transpose_name, shape_name],
+                            outputs=layer_params.top_names,
+                        )
+                    )
         elif layer_type == "Interaction":
             slot_num = dimensions[layer_params.bottom_names[1]][0]
             vec_size = dimensions[layer_params.bottom_names[1]][1]
@@ -1210,7 +1302,7 @@ class GraphBuilder(object):
                 axes_name = tensor_name + "_axes"
                 starts = np.array([rng[0]], dtype=np.int64)
                 ends = np.array([rng[1]], dtype=np.int64)
-                axes = np.array([1], dtype=np.int64)
+                axes = np.array([-1], dtype=np.int64)
                 self.__initializers.append(
                     helper.make_tensor(
                         name=starts_name,
@@ -1256,9 +1348,12 @@ class GraphBuilder(object):
             else:
                 input_name = layer_params.bottom_names[0]
                 mask_name = layer_params.bottom_names[1]
+                masked_not_name = layer_params.bottom_names[1] + "_not"
+                float_masked_not_name = layer_params.bottom_names[1] + "_float_not"
+                masked_offset_name = layer_params.bottom_names[1] + "_masked_offset"
                 head_num = dimensions[layer_params.bottom_names[0]][0]
                 seq_len = dimensions[layer_params.bottom_names[0]][1]
-                padding = np.full([-1, head_num, seq_len, seq_len], -10000.0, dtype=np.float32)
+                padding = np.array([-10000.0], dtype=np.float32)
                 padding_name = layer_params.bottom_names[0] + "_padding_val"
                 masked_input_name = layer_params.bottom_names[0] + "_masked_val"
                 self.__initializers.append(
@@ -1271,8 +1366,29 @@ class GraphBuilder(object):
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="Where",
-                        inputs=[mask_name, input_name, padding_name],
+                        op_type="Not",
+                        inputs=[mask_name],
+                        outputs=[masked_not_name],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="CastLike",
+                        inputs=[masked_not_name, padding_name],
+                        outputs=[float_masked_not_name],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Mul",
+                        inputs=[float_masked_not_name, padding_name],
+                        outputs=[masked_offset_name],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Add",
+                        inputs=[input_name, masked_offset_name],
                         outputs=[masked_input_name],
                     )
                 )

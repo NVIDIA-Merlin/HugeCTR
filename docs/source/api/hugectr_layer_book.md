@@ -463,7 +463,7 @@ Parameters:
 
 Input and Output Shapes:
 
-* input: 2D: (batch_size, num_elem), 3D: (batch_size, seq_len, num_elem), 4D: (head_num, batch_size, seq_len, num_elem)
+* input: 2D: (batch_size, num_elem), 3D: (batch_size, seq_len, num_elem), 4D: (batch_size, num_attention_heads, seq_len, num_elem)
 * output: same as input
 
 Example:
@@ -473,7 +473,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.LayerNorm,
                             top_names = ["fmorder2"],
                             eps = 0.00001,
                             gamma_init_type = hugectr.Initializer_t.XavierUniform,
-                            beta_init_type = hugectr.Initializer_t.XavierUniform)
+                            beta_init_type = hugectr.Initializer_t.XavierUniform))
 ```
 
 ### Concat Layer
@@ -522,11 +522,11 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
 
 ### Slice Layer
 
-The Slice layer extracts multiple output tensors from a 2D input tensors.
+The Slice layer extracts multiple output tensors from input tensors.
 
 Parameter:
 
-* `ranges`: List[Tuple[int, int]], used for the Slice layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 6 elements starting from the second element in the input tensor are used to create an output tensor. Note that the start index is inclusive and the end index is exclusive. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is [].
+* `ranges`: List[Tuple[int, int]], used for the Slice layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 6 elements starting from the second element in the input tensor are used to create an output tensor. Note that the start index is inclusive and the end index is exclusive. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is []. The input tensors are sliced along the last dimension.
 
 Input and Output Shapes:
 
@@ -825,12 +825,16 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcatGene
 #### Softmax Layer
 
 The Softmax layer computes softmax activations.
+When the softmax layer accept two inputs tensors, the first one is the tensor need to do softmax and the other one is mask which mask some positions of the first tensor (setting them to -10000) before the softmax step.
 
 Parameter: None
 
 Input and Output Shapes:
 
 * input: (batch_size, num_elems)
+* output: same as input
+
+* input: (batch_size, num_attention_heads, seq_len, seq_len) (batch_size, 1, 1, seq_len)
 * output: same as input
 
 Example:
@@ -901,20 +905,59 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MatrixMutiply,
 
 The MultiHeadAttention Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.
 
-Parameters: None
+Parameter:
+
+* `num_attention_heads`: The number of attention heads. Default value is 1.
+* `transpose_b`: Transpose the second input or not when do matrix multiplication. Default value is False.
 
 Input and Output Shapes:
 
-* input: 4D: (head_num, batch_size, m, n), (head_num, batch_size, k, n)
-* output: 4D: (head_num, batch_size, m, k)
+* input: 4D: (batch_size, num_attention_heads, from_seq_len, size_per_head), (batch_size, num_attention_heads, to_seq_len, size_per_head)
+* output: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len)
+
+* input: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len), (batch_size, num_attention_heads, to_seq_len, size_per_head)
+* output: 4D: (batch_size, from_seq_len, num_attention_heads * size_per_head) when transpose_b is set to False
+
+* input: 3D: (batch_size, seq_len, hidden_dim), (batch_size, seq_len, hidden_dim), (batch_size, seq_len, hidden_dim)
+* output: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len) and (batch_size, num_attention_heads, from_seq_len, to_seq_len)
 
 Example:
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
                             bottom_names = ["query","key"],
-                            top_names = ["AttentionOut1"])
+                            top_names = ["attention_score"],
+                            transpose_b = True))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
+                            bottom_names = ["query","key","value"],
+                            top_names = ["attention_score","value_4d_out"],
+                            num_attention_heads = 4,
+                            transpose_b = True))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
+                            bottom_names = ["attention_score","value_4d"],
+                            top_names = ["attention_out"],
+                            transpose_b = False))
 ```
+#### SequenceMask Layer
 
+
+The SequenceMask Layer can generate a binary padding mask which marks the zero padding values in the input by 0.  The importance of having a padding mask is to make sure that these zero values are not processed along with the actual input values
+
+Parameter:
+
+* `max_sequence_len`: The number of attention heads. Default value is 1.
+
+Input and Output Shapes:
+
+* input: 4D: (batch_size, 1)
+* output: 4D: (batch_size, 1, 1, max_sequence_len)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type=hugectr.Layer_t.SequenceMask,
+                             bottom_names=["dense"],
+                             top_names=["sequence_mask"],
+                             max_sequence_len=10,))
+```
 #### Gather Layer
 
 The Gather layer gather multiple output tensor slices from an input tensors on the last dimension.

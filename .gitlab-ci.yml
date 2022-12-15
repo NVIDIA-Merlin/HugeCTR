@@ -577,6 +577,20 @@ din_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/din/din.sub
 
+bst_single_node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/bst_single_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${BST_DATASET}:${BST_DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/bst/bst.sub
+
 etc_single_node:
   extends: .cluster_test_job_daily
   needs:

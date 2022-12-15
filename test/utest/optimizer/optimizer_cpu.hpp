@@ -92,6 +92,55 @@ class AdamCPU {
 };
 
 template <typename T>
+class FtrlCPU {
+ public:
+  FtrlCPU(int len, float* w, const T* g, float lr = 1.f, float alpha = 0.001, float beta = 0.0f,
+          float lambda1 = 0.0f, float lambda2 = 0.0f, float scaler = 1.0f)
+      : w_(w),
+        g_(g),
+        len_(len),
+        lr_(lr),
+        alpha_(alpha),
+        beta_(beta),
+        lambda1_(lambda1),
+        lambda2_(lambda2),
+        scaler_(scaler) {
+    z_.resize(len);
+    n_.resize(len);
+  }
+  void update() {
+    for (int i = 0; i < len_; ++i) {
+      float gi = TypeConvert<float, T>::convert(g_[i]) / scaler_;
+      float ni_new = TypeConvert<float, T>::convert(n_[i]) + gi * gi;
+      float zi = TypeConvert<float, T>::convert(z_[i]) + gi +
+                 (sqrt(TypeConvert<float, T>::convert(n_[i])) - sqrt(ni_new)) *
+                     TypeConvert<float, T>::convert(w_[i]) / alpha_;
+      float x = lambda1_ * (1.0f - 2.0f * signbit(zi)) - zi;
+      float y = sqrt(ni_new) / alpha_ + lambda2_ + beta_ / alpha_;
+      n_[i] = TypeConvert<T, float>::convert(ni_new);
+      z_[i] = TypeConvert<T, float>::convert(zi);
+      w_[i] = x / y * signbit(lambda1_ - abs(zi));
+    }
+  }
+
+ private:
+  // named as in ftrl paper Ad Click Prediction: a View from the Trenches
+  // except alpha is lr_
+  float* w_;
+  const T* g_;
+  std::vector<T> z_;
+  std::vector<T> n_;
+  const int len_;
+
+  const float lr_;
+  const float alpha_;
+  const float beta_;
+  const float lambda1_;
+  const float lambda2_;
+  const float scaler_;
+};
+
+template <typename T>
 class MomentumSGDCPU {
  public:
   MomentumSGDCPU(int len, float* w, T* g, float lr = 0.01, float mu = 0.9, float scaler = 1.f)

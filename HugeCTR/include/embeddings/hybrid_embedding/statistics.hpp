@@ -66,7 +66,7 @@ struct Statistics {
       : num_samples(data.batch_size * data.num_iterations * data.table_sizes.size()),
         num_tables(data.table_sizes.size()),
         num_instances(num_instances_in),
-        num_categories(std::accumulate(data.table_sizes.begin(), data.table_sizes.end(), 0)),
+        num_categories(std::accumulate(data.table_sizes.begin(), data.table_sizes.end(), (dtype)0)),
         num_unique_categories(0) {
     std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
     reserve(buf);
@@ -115,12 +115,17 @@ struct Statistics {
       dtype *frequent_categories, dtype *infrequent_categories, dtype *category_location,
       const size_t num_frequent, const size_t num_infrequent, cudaStream_t stream);
   void calculate_infrequent_model_table_offsets(
-      std::vector<dtype> &h_infrequent_model_table_offsets,
-      const Tensor2<dtype> &infrequent_categories, const Tensor2<dtype> &category_location,
-      uint32_t global_instance_id, const dtype num_infrequent, cudaStream_t stream);
+      std::vector<dtype> &h_infrequent_model_table_offsets, const dtype *infrequent_categories,
+      const Tensor2<dtype> &category_location, uint32_t global_instance_id,
+      const dtype num_infrequent, cudaStream_t stream);
   void calculate_frequent_model_table_offsets(std::vector<dtype> &h_frequent_model_table_offsets,
-                                              const Tensor2<dtype> &frequent_categories,
+                                              const dtype *frequent_categories,
                                               const dtype num_frequent, cudaStream_t stream);
+  void revoke_temp_storage() {
+    sort_categories_by_count_temp_storages_.clear();
+    calculate_frequent_categories_temp_storages_.clear();
+    calculate_infrequent_categories_temp_storages_.clear();
+  }
 };
 
 }  // namespace hybrid_embedding

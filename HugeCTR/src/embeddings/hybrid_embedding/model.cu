@@ -52,7 +52,6 @@ Model<dtype>::Model(const Model &model) {
   num_instances_per_node = model.num_instances_per_node;
   category_location = model.category_location;
   frequent_categories = model.frequent_categories;
-  infrequent_categories = model.infrequent_categories;
   if (model.h_frequent_model_table_offsets.size() > 0) {
     h_frequent_model_table_offsets = model.h_frequent_model_table_offsets;
   }
@@ -88,10 +87,8 @@ void Model<dtype>::init_params_and_reserve(CommunicationType communication_type_
   buf->reserve({1, 1}, &d_num_frequent);
   buf->reserve({1, 1}, &d_total_frequent_count);
   buf->reserve({h_num_instances_per_node.size(), 1}, &num_instances_per_node);
-  buf->reserve({(size_t)(2 * (num_categories + 1)), 1},
-               &category_location);  // +1 for NULL category
-  buf->reserve({(size_t)num_categories, 1}, &frequent_categories);
-  buf->reserve({(size_t)num_categories, 1}, &infrequent_categories);
+  size_t cate_len = (static_cast<size_t>(num_categories) + 1) << 1;
+  buf->reserve({cate_len, 1}, &category_location);  // +1 for NULL category
 }
 
 /// init_model calculates the optimal number of frequent categories
@@ -99,7 +96,8 @@ void Model<dtype>::init_params_and_reserve(CommunicationType communication_type_
 template <typename dtype>
 void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
                                      Statistics<dtype> &statistics, const Data<dtype> &data,
-                                     cudaStream_t stream) {
+                                     Tensor2<dtype> &tmp_categories, cudaStream_t stream) {
+  dtype *frequent_categories_ptr = tmp_categories.get_ptr();  // tmp_categories.get_ptr();
   // list the top categories sorted by count
   const Tensor2<dtype> &samples = data.samples;
   statistics.sort_categories_by_count(samples, stream);
@@ -108,7 +106,7 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
   std::vector<dtype> h_table_offsets(data.table_sizes.size() + 1);
   h_table_offsets[0] = 0;
   for (size_t i = 0; i < data.table_sizes.size(); i++) {
-    h_table_offsets[i + 1] = h_table_offsets[i] + data.table_sizes[i];
+    h_table_offsets[i + 1] = h_table_offsets[i] + (dtype)data.table_sizes[i];
   }
   upload_tensor(h_table_offsets, statistics.table_offsets, stream);
 
@@ -120,29 +118,31 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
   num_frequent = ModelInitializationFunctors<dtype>::calculate_num_frequent_categories(
       communication_type, num_instances, calibration, statistics, data, d_num_frequent.get_ptr(),
       stream);
-
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+  buf->reserve({(size_t)num_frequent, 1}, &this->frequent_categories);
+  buf->allocate();
   frequent_probability = ModelInitializationFunctors<dtype>::calculate_frequent_probability(
       statistics, num_frequent, d_total_frequent_count.get_ptr(), stream);
 
   dtype num_infrequent = num_categories - num_frequent;
-  frequent_categories.reset_shape({(size_t)num_frequent, 1});
-  infrequent_categories.reset_shape({(size_t)num_infrequent, 1});
-
+  dtype *infrequent_categories_ptr = frequent_categories_ptr + num_frequent;
   /* The categories are organized:
    *  - per instance (round-robin)
    *  - then per slot
    *  - and finally in decreasing order of frequency
    */
   statistics.calculate_frequent_and_infrequent_categories(
-      frequent_categories.get_ptr(), infrequent_categories.get_ptr(), category_location.get_ptr(),
-      num_frequent, num_infrequent, stream);
+      frequent_categories_ptr, infrequent_categories_ptr, category_location.get_ptr(), num_frequent,
+      num_infrequent, stream);
+  HCTR_LIB_THROW(cudaMemcpyAsync(this->frequent_categories.get_ptr(), frequent_categories_ptr,
+                                 num_frequent * sizeof(dtype), cudaMemcpyDeviceToDevice, stream));
   /* Calculate frequent and infrequent table offsets */
   statistics.calculate_frequent_model_table_offsets(h_frequent_model_table_offsets,
-                                                    frequent_categories, num_frequent, stream);
+                                                    frequent_categories_ptr, num_frequent, stream);
   statistics.calculate_infrequent_model_table_offsets(h_infrequent_model_table_offsets,
-                                                      infrequent_categories, category_location,
+                                                      infrequent_categories_ptr, category_location,
                                                       global_instance_id, num_infrequent, stream);
-
+  // statistics.revoke_temp_storage();
   /* A synchronization is necessary to ensure that the host arrays have been copied */
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }

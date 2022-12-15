@@ -256,6 +256,7 @@ struct DenseLayer {
   int axis;
   int max_sequence_len;
   int num_attention_heads;
+  bool transpose_b;
   std::vector<float> target_weight_vec;
   bool use_regularizer;
   Regularizer_t regularizer_type;
@@ -282,7 +283,7 @@ struct DenseLayer {
              std::vector<int> indices = std::vector<int>(),
              std::vector<size_t> weight_dims = std::vector<size_t>(), size_t projection_dim = 0,
              size_t out_dim = 0, int axis = 1, int max_sequence_len = 1,
-             int num_attention_heads = 1,
+             int num_attention_heads = 1, bool transpose_b = false,
              std::vector<float> target_weight_vec = std::vector<float>(),
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,

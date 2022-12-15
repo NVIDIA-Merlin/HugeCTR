@@ -7,9 +7,9 @@ namespace HugeCTR {
 template <typename DenseType, typename SparseType>
 __global__ void split_kernel_3_way(int batch_size, float* label_ptr, int label_dim,
                                    DenseType* dense_ptr, int dense_dim, int dense_dim_no_align,
-                                   int* sparse_ptr, int sparse_dim, const int* label_dense_sparse,
-                                   int sample_size_int, size_t local_idx_start,
-                                   size_t local_idx_end) {
+                                   SparseType* sparse_ptr, int sparse_dim,
+                                   const int* label_dense_sparse, int sample_size_int,
+                                   size_t local_idx_start, size_t local_idx_end) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (idx < batch_size * sample_size_int) {
@@ -155,8 +155,8 @@ void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_t
     constexpr int samples_per_cta = 24;
 
     int vec_width = sizeof(int4) / sizeof(int);
-    if (batch_size % vec_width == 0 && local_idx_start % vec_width == 0 &&
-        local_idx_end % vec_width == 0 &&
+    if (sizeof(SparseType) == 4 && batch_size % vec_width == 0 &&
+        local_idx_start % vec_width == 0 && local_idx_end % vec_width == 0 &&
         samples_per_cta * sample_size_int * sizeof(int) <= 24 * 1024) {
       const int grid_dim = (batch_size + samples_per_cta - 1) / samples_per_cta;
       const int shmem = 2 * samples_per_cta * (label_dim + dense_dim + sparse_dim) * sizeof(int);
@@ -171,9 +171,8 @@ void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_t
       const int grid_dim = (label_dense_sparse_buffer.get_num_elements() - 1) / block_dim + 1;
       split_kernel_3_way<DenseType, SparseType><<<grid_dim, block_dim, 0, stream>>>(
           batch_size, label_tensor_per_dev.get_ptr(), label_dim, dense_tensor_per_dev.get_ptr(),
-          dense_dim, dense_dim_no_align, reinterpret_cast<int*>(sparse_tensor.get_ptr()),
-          sparse_dim, label_dense_sparse_buffer.get_ptr(), sample_size_int, local_idx_start,
-          local_idx_end);
+          dense_dim, dense_dim_no_align, sparse_tensor.get_ptr(), sparse_dim,
+          label_dense_sparse_buffer.get_ptr(), sample_size_int, local_idx_start, local_idx_end);
     }
 
     HCTR_LIB_THROW(cudaPeekAtLastError());
