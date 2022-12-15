@@ -398,15 +398,18 @@ template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype> &data,
                                                       size_t &wgrad_offset_in_bytes) {
   size_t local_gpu_count = resource_manager_->get_local_gpu_count();
-  HCTR_LOG(INFO, ROOT, "Initializing Hybrid Embedding\n");
 #pragma omp parallel for num_threads(local_gpu_count)
   for (size_t id = 0; id < local_gpu_count; ++id) {
     int cur_device = get_local_gpu(id).get_device_id();
     CudaDeviceContext context(cur_device);
+    std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+    Tensor2<dtype> tmp_categories;
+    buf->reserve({(size_t)statistics_[id].num_categories, 1}, &tmp_categories);
+    buf->allocate();
     auto stream = get_local_gpu(id).get_stream();
     data_statistics_[id].data_to_unique_categories(data[id].get_value_tensor(), stream);
-    model_[id].init_hybrid_model(calibration_[id], statistics_[id], data_statistics_[id], stream);
-
+    model_[id].init_hybrid_model(calibration_[id], statistics_[id], data_statistics_[id],
+                                 tmp_categories, stream);
     get_frequent_embedding_data(id).initialize_embedding_vectors(data_statistics_[id].table_sizes,
                                                                  wgrad_offset_in_bytes);
 
@@ -429,6 +432,9 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
           "Found too many frequent categories, please increase 'max_num_frequent_categories'");
     }
   }
+  // free statistics_ memory
+  // statistics_.clear();
+  data_statistics_.clear();
 
   HCTR_LOG_S(INFO, ROOT) << "Initialized hybrid model with " << model_[0].num_frequent
                          << " frequent categories, probability of being frequent is "

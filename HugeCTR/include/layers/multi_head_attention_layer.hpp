@@ -38,9 +38,10 @@ class MultiHeadAttentionLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiHeadAttentionLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
+  MultiHeadAttentionLayer(const Tensors2<T>& in_tensors, Tensors2<T>& out_tensor,
                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          int num_attention_heads, const std::shared_ptr<GPUResource>& gpu_resource,
+                          int num_attention_heads, bool transpose_b,
+                          const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute);
 
   // void initialize() override;
@@ -63,7 +64,7 @@ class MultiHeadAttentionLayer : public Layer {
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensor2<T> out_tensor_;
+  Tensors2<T> out_tensors_;
   /*
    * stores the axis.
    */
@@ -71,9 +72,11 @@ class MultiHeadAttentionLayer : public Layer {
   size_t dims_;
   size_t batch_size_;
   size_t num_head_;
+  bool transpose_b_;
   Tensor2<T> fprop_inputA_;
   Tensor2<T> query_buf_;
   Tensor2<T> key_buf_;
+  Tensor2<T> value_buf_;
 };
 
 }  // namespace HugeCTR

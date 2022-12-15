@@ -208,6 +208,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
 const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"Add", Layer_t::Add},
     {"BatchNorm", Layer_t::BatchNorm},
+    {"LayerNorm", Layer_t::LayerNorm},
     {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
     {"Cast", Layer_t::Cast},
     {"Concat", Layer_t::Concat},

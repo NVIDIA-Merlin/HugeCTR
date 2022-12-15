@@ -47,14 +47,15 @@ void EmbeddingTableFunctors<dtype>::get_embedding_offsets(std::vector<dtype>& em
   dtype embedding_offset = (dtype)0;
   for (size_t embedding = 0; embedding < num_tables; ++embedding) {
     embedding_offsets[embedding] = embedding_offset;
-    embedding_offset += table_sizes[embedding];
+    embedding_offset += static_cast<dtype>(table_sizes[embedding]);
   }
 }
 
 template <typename dtype>
 dtype EmbeddingTableFunctors<dtype>::get_num_categories(const std::vector<size_t>& table_sizes) {
   dtype num_categories = (dtype)0;
-  for (size_t i = 0; i < table_sizes.size(); ++i) num_categories += table_sizes[i];
+  for (size_t i = 0; i < table_sizes.size(); ++i)
+    num_categories += static_cast<dtype>(table_sizes[i]);
   return num_categories;
 }
 
@@ -102,6 +103,7 @@ __global__ void data_to_unique_categories_align4_kernel(dtype* data, dtype* embe
 ///        are concatenated and categories get an unique index / label.
 template <typename dtype>
 void Data<dtype>::data_to_unique_categories(Tensor2<dtype> data, cudaStream_t stream) {
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   /// === TODO: PERFORM ON GPU ===
   /// ============================
   // HCTR_LOG_S(WARNING, WORLD) << "data_to_unique_categories() needs to be placed on the GPU!" <<
@@ -121,18 +123,17 @@ void Data<dtype>::data_to_unique_categories(Tensor2<dtype> data, cudaStream_t st
                (table_sizes.size() * batch_size * num_iterations - 1) / block_size + 1);
   size_t num_samples = table_sizes.size() * batch_size * num_iterations;
   // Not all samples in a batch may be valid. I.e last iteration of evaluation may be incomplete.
-  size_t num_valid_samples = table_sizes.size() * current_batch_size * num_iterations;
+  size_t num_valid_samples = table_sizes.size() * current_batch_size;
   assert(num_valid_samples > 0 && "Batch contained 0 valid samples");
   auto null_category = static_cast<dtype>(num_categories);
-
   if (num_samples % 4 == 0 && sizeof(dtype) == 4) {
     data_to_unique_categories_align4_kernel<<<grid_size, block_size, 0, stream>>>(
         data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), num_samples,
         samples.get_ptr(), num_valid_samples, null_category);
   } else {
     data_to_unique_categories_kernel<<<grid_size, block_size, 0, stream>>>(
-        data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), num_samples,
-        samples.get_ptr(), num_valid_samples, null_category);
+        data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), (int)num_samples,
+        samples.get_ptr(), (int)num_valid_samples, null_category);
   }
   HCTR_LIB_THROW(cudaPeekAtLastError());
 }

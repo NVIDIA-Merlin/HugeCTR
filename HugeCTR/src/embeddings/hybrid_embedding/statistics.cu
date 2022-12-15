@@ -19,10 +19,12 @@
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
+#include "HugeCTR/include/embeddings/hybrid_embedding/select.cuh"
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 #include "HugeCTR/include/utils.cuh"
@@ -46,7 +48,7 @@ static __global__ void category_to_frequent_section(const dtype *__restrict__ ca
                                                     const dtype *__restrict__ table_offsets,
                                                     size_t num_frequent, size_t num_tables,
                                                     size_t num_instances) {
-  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
+  size_t tid = static_cast<size_t>(blockIdx.x) * static_cast<size_t>(blockDim.x) + threadIdx.x;
   if (tid < num_frequent) {
     dtype category = categories_sorted[tid];
 
@@ -63,7 +65,8 @@ static __global__ void category_to_frequent_section(const dtype *__restrict__ ca
 
 template <typename T, typename IdxT>
 static __global__ void fill(T *__restrict__ array, T val, IdxT n_elem) {
-  IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
+  IdxT tid = static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) +
+             static_cast<IdxT>(threadIdx.x);
   if (tid < n_elem) array[tid] = val;
 }
 
@@ -71,11 +74,11 @@ template <typename dtype>
 static __global__ void calculate_category_location_frequent(
     const dtype *__restrict__ frequent_categories, dtype *category_location, size_t num_frequent,
     size_t num_instances) {
-  dtype tid = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t tid = static_cast<size_t>(blockIdx.x) * static_cast<size_t>(blockDim.x) + threadIdx.x;
   if (tid < num_frequent) {
     dtype category = frequent_categories[tid];
-    category_location[2 * category] = num_instances;
-    category_location[2 * category + 1] = tid;
+    category_location[2 * (size_t)category] = num_instances;
+    category_location[2 * (size_t)category + 1] = tid;
   }
 }
 
@@ -83,11 +86,11 @@ template <typename dtype>
 static __global__ void calculate_category_location_infrequent(
     const dtype *__restrict__ infrequent_categories, dtype *category_location,
     size_t num_infrequent, size_t num_models) {
-  dtype tid = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t tid = static_cast<size_t>(blockIdx.x) * static_cast<size_t>(blockDim.x) + threadIdx.x;
   if (tid < num_infrequent) {
     dtype category = infrequent_categories[tid];
-    category_location[2 * category] = tid % num_models;
-    category_location[2 * category + 1] = tid / num_models;
+    category_location[2 * (size_t)category] = tid % num_models;
+    category_location[2 * (size_t)category + 1] = tid / num_models;
   }
 }
 
@@ -97,7 +100,9 @@ static __global__ void calculate_infrequent_model_table_offsets(
     const dtype *__restrict__ table_offsets, dtype *offsets, size_t n_tables, dtype n_elem,
     dtype n_model_elem, uint32_t global_instance_id) {
   const size_t table_id = threadIdx.x;
-
+  if (table_id > n_tables) {
+    return;
+  }
   // Find first category id belonging to that table (not necessarily in this model!)
   dtype category = table_offsets[table_id];
 
@@ -105,17 +110,17 @@ static __global__ void calculate_infrequent_model_table_offsets(
   dtype start = 0;
   dtype end = n_elem;
   while (start < end) {
-    dtype mid = (start + end) / 2;
+    dtype mid = start + (end - start) / 2;
     dtype value = categories[mid];
-
     if (value < category)
       start = mid + 1;
-    else
+    else {
       end = mid;
+    }
   }
 
   // Step 2: increment until the model id matches
-  while (start < n_elem && category_location[2 * categories[start]] != global_instance_id) {
+  while (start < n_elem && category_location[2 * (size_t)categories[start]] != global_instance_id) {
     start++;
   }
 
@@ -125,7 +130,7 @@ static __global__ void calculate_infrequent_model_table_offsets(
     offsets[table_id] = n_model_elem;
   } else {
     // Else, write the location of the first category from this table belonging to this model
-    offsets[table_id] = category_location[2 * categories[start] + 1];
+    offsets[table_id] = category_location[2 * (size_t)categories[start] + 1];
   }
 }
 
@@ -186,7 +191,7 @@ struct InfrequentSelectOp {
                                                          const dtype num_categories)
       : category_location(category_location), num_categories(num_categories) {}
   __device__ __forceinline__ bool operator()(const dtype &category) const {
-    return category_location[2 * category + 1] == num_categories;
+    return category_location[2 * (size_t)category + 1] == num_categories;
   }
 };
 
@@ -235,9 +240,14 @@ void Statistics<dtype>::reserve_temp_storage(std::shared_ptr<GeneralBuffer2<Cuda
   size_t size_select_temp = 0;
   cub::CountingInputIterator<dtype> counting(0);
   InfrequentSelectOp<dtype> select_op(nullptr, 0);
-  HCTR_LIB_THROW(cub::DeviceSelect::If((void *)nullptr, size_select_temp, counting,
-                                       (dtype *)nullptr, (dtype *)nullptr, num_categories,
-                                       select_op, 0));
+  if (static_cast<size_t>(num_categories) < (1ul << 31)) {
+    HCTR_LIB_THROW(cub::DeviceSelect::If((void *)nullptr, size_select_temp, counting,
+                                         (dtype *)nullptr, (dtype *)nullptr, num_categories,
+                                         select_op, 0));
+  } else {
+    HugeCTR::DeviceSelect::If((void *)nullptr, size_select_temp, counting, (dtype *)nullptr,
+                              (dtype *)nullptr, static_cast<size_t>(num_categories), select_op, 0);
+  }
   buf->reserve({size_select_temp, 1}, &calculate_infrequent_categories_temp_storages_[0]);
   buf->reserve({sizeof(dtype), 1}, &calculate_infrequent_categories_temp_storages_[1]);
 };
@@ -270,7 +280,7 @@ void Statistics<dtype>::sort_categories_by_count(const dtype *samples, size_t nu
   HCTR_LIB_THROW(cub::DeviceRadixSort::SortKeys(p_sort_keys_temp, temp_size, samples,
                                                 p_sort_keys_out, (int)num_samples, 0,
                                                 sizeof(dtype) * 8, stream));
-
+  size_t sorted_len = (size_t)num_samples;
   temp_size = sort_categories_by_count_temp_storages_[2].get_size_in_bytes();
   HCTR_LIB_THROW(cub::DeviceRunLengthEncode::Encode(
       p_unique_categories_temp, temp_size, p_sort_keys_out, p_unique_categories_out,
@@ -290,14 +300,13 @@ template <typename dtype>
 void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
     dtype *frequent_categories, dtype *infrequent_categories, dtype *category_location,
     const size_t num_frequent, const size_t num_infrequent, cudaStream_t stream) {
-  // Fill with default value
+  // Fill with default value1
   constexpr size_t TPB_fill = 256;
   const size_t total_num_categories = num_categories + 1;  // Add NULL category
   const size_t n_blocks_fill = ceildiv<size_t>(2 * total_num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
       category_location, (dtype)num_categories, 2 * total_num_categories);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-
   // Frequent category generation
   if (num_frequent > 0) {
     uint32_t *p_keys_in = reinterpret_cast<uint32_t *>(
@@ -322,14 +331,12 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
     HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairs(
         p_sort_temp, sort_temp_size, p_keys_in, p_keys_out, categories_sorted.get_ptr(),
         frequent_categories, (int)num_frequent, 0, bit_width, stream));
-
     constexpr size_t TPB_loc = 256;
     const size_t n_blocks_loc_freq = (size_t)ceildiv<dtype>(num_frequent, TPB_loc);
     statistics_kernels::
         calculate_category_location_frequent<<<n_blocks_loc_freq, TPB_loc, 0, stream>>>(
             frequent_categories, category_location, num_frequent, num_instances);
   }
-
   // Infrequent category generation
   if (num_infrequent > 0) {
     // TODO: combine select and writing to category_location with a custom output iterator
@@ -341,9 +348,15 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
 
     cub::CountingInputIterator<dtype> counting(0);
     InfrequentSelectOp<dtype> select_op(category_location, num_categories);
-    HCTR_LIB_THROW(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
-                                         infrequent_categories, p_num_selected, num_categories,
-                                         select_op, stream));
+    if (static_cast<size_t>(num_categories) < (1ul << 31)) {
+      HCTR_LIB_THROW(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
+                                           infrequent_categories, p_num_selected, num_categories,
+                                           select_op, stream));
+    } else {
+      HugeCTR::DeviceSelect::If(p_select_temp, select_temp_size, counting, infrequent_categories,
+                                p_num_selected, static_cast<size_t>(num_categories), select_op,
+                                stream);
+    }
 
     constexpr size_t TPB_loc = 256;
     const size_t n_blocks_loc_infreq = (size_t)ceildiv<dtype>(num_infrequent, TPB_loc);
@@ -356,14 +369,15 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
 
 template <typename dtype>
 void Statistics<dtype>::calculate_infrequent_model_table_offsets(
-    std::vector<dtype> &h_infrequent_model_table_offsets,
-    const Tensor2<dtype> &infrequent_categories, const Tensor2<dtype> &category_location,
-    uint32_t global_instance_id, const dtype num_infrequent, cudaStream_t stream) {
+    std::vector<dtype> &h_infrequent_model_table_offsets, const dtype *infrequent_categories,
+    const Tensor2<dtype> &category_location, uint32_t global_instance_id,
+    const dtype num_infrequent, cudaStream_t stream) {
   dtype num_model_infrequent = num_infrequent / num_instances +
                                (global_instance_id < num_infrequent % num_instances ? 1 : 0);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  statistics_kernels::calculate_infrequent_model_table_offsets<<<1, num_tables + 1, 0, stream>>>(
-      infrequent_categories.get_ptr(), category_location.get_ptr(), table_offsets.get_ptr(),
+  statistics_kernels::calculate_infrequent_model_table_offsets<<<1, 64, 0, stream>>>(
+      infrequent_categories, category_location.get_ptr(), table_offsets.get_ptr(),
       infrequent_model_table_offsets.get_ptr(), num_tables, num_infrequent, num_model_infrequent,
       global_instance_id);
   HCTR_LIB_THROW(cudaPeekAtLastError());
@@ -376,12 +390,12 @@ void Statistics<dtype>::calculate_infrequent_model_table_offsets(
 
 template <typename dtype>
 void Statistics<dtype>::calculate_frequent_model_table_offsets(
-    std::vector<dtype> &h_frequent_model_table_offsets, const Tensor2<dtype> &frequent_categories,
+    std::vector<dtype> &h_frequent_model_table_offsets, const dtype *frequent_categories,
     const dtype num_frequent, cudaStream_t stream) {
   statistics_kernels::
       calculate_frequent_model_table_offsets<<<num_instances, num_tables + 1, 0, stream>>>(
-          frequent_categories.get_ptr(), table_offsets.get_ptr(),
-          frequent_model_table_offsets.get_ptr(), num_instances, num_tables, num_frequent);
+          frequent_categories, table_offsets.get_ptr(), frequent_model_table_offsets.get_ptr(),
+          num_instances, num_tables, num_frequent);
   HCTR_LIB_THROW(cudaPeekAtLastError());
 
   h_frequent_model_table_offsets.resize(num_instances * (num_tables + 1));

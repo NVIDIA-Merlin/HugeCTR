@@ -273,7 +273,7 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        size_t vector_size, bool selected, std::vector<int> selected_slots,
                        std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
                        std::vector<size_t> weight_dims, size_t projection_dim, size_t out_dim,
-                       int axis, int max_sequence_len, int num_attention_heads,
+                       int axis, int max_sequence_len, int num_attention_heads, bool transpose_b,
                        std::vector<float> target_weight_vec, bool use_regularizer,
                        Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
                        Activation_t act_type, DenseLayerSwitchs dense_layer_switches,
@@ -307,6 +307,7 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       axis(axis),
       max_sequence_len(max_sequence_len),
       num_attention_heads(num_attention_heads),
+      transpose_b(transpose_b),
       target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer),
       regularizer_type(regularizer_type),
@@ -1226,7 +1227,6 @@ void Model::compile() {
   auto eval_data_reader_ar_i32 =
       dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
   auto init_data_reader_ar_i32 = dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
-
   // FIXME:
   // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
   // since we need to initialize the Frequent & Infrequent indices with those exact buffers.

@@ -860,31 +860,40 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         break;
       }
       case Layer_t::MultiHeadAttention: {
-        if (input_output_info.inputs.size() != 2) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two input tensors ");
+        if (input_output_info.inputs.size() < 2) {
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "MultiHeadAttentionLayer needs at least two input tensors ");
         }
         auto num_heads_it = j.find("num_attention_heads");
         auto num_attention_heads = (num_heads_it != j.end()) ? num_heads_it->get<int>() : 1;
+        auto transpose_b_it = j.find("transpose_b");
+        auto transpose_b = (transpose_b_it != j.end()) ? transpose_b_it->get<bool>() : 1;
         if (use_mixed_precision) {
           Tensors2<__half> in_tensors;
           for (const TensorBag2& bag : input_output_info.inputs) {
             in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
-          Tensor2<__half> out_tensor;
+          Tensors2<__half> out_tensors;
           layers.emplace_back(new MultiHeadAttentionLayer<__half>(
-              in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+              in_tensors, out_tensors, blobs_buff, num_attention_heads, transpose_b, gpu_resource,
               use_mixed_precision, enable_tf32_compute));
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          for (size_t i = 0; i < out_tensors.size(); i++) {
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[i], out_tensors[i].shrink()});
+          }
         } else {
           Tensors2<float> in_tensors;
           for (const auto& bag : input_output_info.inputs) {
             in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
-          Tensor2<float> out_tensor;
+          Tensors2<float> out_tensors;
           layers.emplace_back(new MultiHeadAttentionLayer<float>(
-              in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+              in_tensors, out_tensors, blobs_buff, num_attention_heads, transpose_b, gpu_resource,
               use_mixed_precision, enable_tf32_compute));
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          for (size_t i = 0; i < out_tensors.size(); i++) {
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[i], out_tensors[i].shrink()});
+          }
         }
         break;
       }
