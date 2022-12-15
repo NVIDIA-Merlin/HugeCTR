@@ -177,3 +177,22 @@ def read_samples_for_mmoe(data_file, num_samples=64, key_type="I32", slot_num=32
     )
 
     return batch_label, dense, batch_keys
+
+
+def read_samples_for_bst(
+    data_file, num_samples=64, key_type="I64", slot_num=23, slot_shift=slot_shift
+):
+    df = pd.read_parquet(data_file, engine="pyarrow")
+    columns = df.columns
+    dense = np.reshape(
+        df[columns[24:25]].loc[0 : num_samples - 1].values, newshape=(num_samples, 1)
+    )
+    cat_data = df[columns[0:24]].loc[0 : num_samples - 1].values + slot_shift
+    cat_data = cat_data.astype("int64")
+    label = np.reshape(cat_data[:, 0:1].astype("float64"), newshape=(num_samples, 1))
+    user = np.reshape(cat_data[:, 1:2], newshape=(num_samples, 1, 1))
+    good = np.reshape(cat_data[:, 2:12], newshape=(num_samples, 10, 1))
+    target_good = np.reshape(cat_data[:, 12:13], newshape=(num_samples, 1, 1))
+    cate = np.reshape(cat_data[:, 13:23], newshape=(num_samples, 10, 1))
+    target_cate = np.reshape(cat_data[:, 23:24], newshape=(num_samples, 1, 1))
+    return label, dense, user, good, target_good, cate, target_cate
