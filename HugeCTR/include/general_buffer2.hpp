@@ -55,6 +55,13 @@ class CudaAllocator {
   void *allocate(size_t size) const {
     void *ptr;
     HCTR_LIB_THROW(cudaMalloc(&ptr, size));
+    size_t cap{};
+    size_t ava{};
+    int dev_id{};
+    HCTR_LIB_THROW(cudaGetDevice(&dev_id));
+    HCTR_LIB_THROW(cudaMemGetInfo(&ava, &cap));
+    HCTR_LOG(DEBUG, WORLD, "[device %d] allocating %.4f GB, available %.4f \n", dev_id,
+             1.0 * size / ((1ul << 30) * 1.0), 1.0 * ava / ((1ul << 30) * 1.0));
     return ptr;
   }
   void deallocate(void *ptr) const { HCTR_LIB_THROW(cudaFree(ptr)); }

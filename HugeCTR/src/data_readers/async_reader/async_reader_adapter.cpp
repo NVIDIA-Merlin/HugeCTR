@@ -36,8 +36,7 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
   size_t dense_dim_align8 = dense_dim;
   if (aligned == Alignment_t::Auto) dense_dim_align8 = (dense_dim + 7) / 8 * 8;
   size_t sparse_dim = params[0].slot_num;
-  sample_size_items_ =
-      label_dim + dense_dim + sparse_dim * (sizeof(SparseType) / sizeof(InputType));
+  sample_size_items_ = label_dim + dense_dim + sparse_dim;
   size_t batch_size_bytes = sample_size_items_ * sizeof(InputType) * batch_size;
 
   label_dim_ = label_dim;

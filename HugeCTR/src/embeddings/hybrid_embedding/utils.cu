@@ -31,7 +31,7 @@ namespace hybrid_embedding {
 template <typename dtype>
 void download_tensor(std::vector<dtype>& h_tensor, const Tensor2<dtype> tensor,
                      cudaStream_t stream) {
-  size_t tensor_size = tensor.get_size_in_bytes() / sizeof(dtype);
+  size_t tensor_size = tensor.get_num_elements();
   h_tensor.resize(tensor_size);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   HCTR_LIB_THROW(cudaMemcpyAsync(h_tensor.data(), tensor.get_ptr(), tensor.get_size_in_bytes(),

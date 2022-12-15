@@ -66,7 +66,8 @@ template <typename dtype>
 void test_raw_data(dtype *d_raw_data, size_t num_samples, size_t num_tables, size_t num_iterations,
                    const std::vector<size_t> &table_sizes) {
   size_t num_elements = num_samples * num_tables * num_iterations;
-
+  std::cout << " test_raw_data:\tnum_samples " << num_samples << " num_tables " << num_tables
+            << std::endl;
   std::vector<dtype> h_raw_data(num_elements, (dtype)0);
   cudaStream_t stream = 0;
   HCTR_LIB_THROW(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
@@ -78,6 +79,10 @@ void test_raw_data(dtype *d_raw_data, size_t num_samples, size_t num_tables, siz
       for (size_t embedding = 0; embedding < num_tables; ++embedding) {
         size_t category = (size_t)
             h_raw_data[iteration * num_samples * num_tables + sample * num_tables + embedding];
+        if (category >= table_sizes[embedding]) {
+          std::cout << " sample " << sample << " embedding " << embedding << " category "
+                    << category << " table sizes " << table_sizes[embedding] << std::endl;
+        }
         EXPECT_TRUE(category < table_sizes[embedding]);
       }
     }
