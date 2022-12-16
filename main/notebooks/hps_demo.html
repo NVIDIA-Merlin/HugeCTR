@@ -485,41 +485,51 @@ The model is saved at hps_demo_without_embedding.onnx
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][11:17:13][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-[HCTR][11:17:13][INFO][RK0][main]: Creating ParallelHashMap CPU database backend...
-[HCTR][11:17:13][INFO][RK0][main]: Created parallel (16 partitions) blank database backend in local memory!
-[HCTR][11:17:13][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][11:17:13][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][11:17:13][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding1; cached 15749 / 15749 embeddings in volatile database (ParallelHashMap); load: 15749 / 18446744073709551615 (0.00%).
-[HCTR][11:17:13][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding2; cached 15781 / 15781 embeddings in volatile database (ParallelHashMap); load: 15781 / 18446744073709551615 (0.00%).
-[HCTR][11:17:13][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][11:17:13][INFO][RK0][main]: Create embedding cache in device 0.
-[HCTR][11:17:13][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
-[HCTR][11:17:13][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
-[HCTR][11:17:13][INFO][RK0][main]: Create inference session on device: 0
-[HCTR][11:17:13][INFO][RK0][main]: Model name: hps_demo
-[HCTR][11:17:13][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][11:17:13][INFO][RK0][main]: Use I64 input key: True
-ground_truth:  [0.456111 0.417843 0.428037 ... 0.336745 0.53599  0.508711]
-pred:  [[0.45611122]
- [0.4178428 ]
- [0.42803708]
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][11:58:45.621][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+====================================================HPS Create====================================================
+[HCTR][11:58:45.621][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][11:58:45.621][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][11:58:45.621][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][11:58:45.621][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][11:58:45.621][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][11:58:45.621][INFO][RK0][main]: Using Local file system backend.
+[HCTR][11:58:45.843][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding1; cached 18401 / 18401 embeddings in volatile database (HashMapBackend); load: 18401 / 18446744073709551615 (0.00%).
+[HCTR][11:58:45.843][INFO][RK0][main]: Using Local file system backend.
+[HCTR][11:58:46.045][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding2; cached 18436 / 18436 embeddings in volatile database (HashMapBackend); load: 18436 / 18446744073709551615 (0.00%).
+[HCTR][11:58:46.045][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][11:58:46.045][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][11:58:46.052][INFO][RK0][main]: Model name: hps_demo
+[HCTR][11:58:46.052][INFO][RK0][main]: Max batch size: 1024
+[HCTR][11:58:46.052][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][11:58:46.052][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
+[HCTR][11:58:46.052][INFO][RK0][main]: Use static table: False
+[HCTR][11:58:46.052][INFO][RK0][main]: Use I64 input key: True
+[HCTR][11:58:46.052][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][11:58:46.052][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][11:58:46.052][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][11:58:46.052][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][11:58:46.052][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][11:58:46.053][INFO][RK0][main]: Creating lookup session for hps_demo on device: 0
+ground_truth:  [0.52604  0.528162 0.510473 ... 0.511216 0.464687 0.420649]
+pred:  [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.3367453 ]
- [0.53599   ]
- [0.5087108 ]]
-mse between pred and ground_truth:  8.241691052249094e-14
-pred_ref:  [[0.45611122]
- [0.4178428 ]
- [0.42803708]
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+mse between pred and ground_truth:  8.653384858862709e-14
+pred_ref:  [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.3367453 ]
- [0.53599   ]
- [0.5087108 ]]
-mse between pred_ref and ground_truth:  7.573986338301264e-05
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+mse between pred_ref and ground_truth:  8.653384858862709e-14
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-03-31 11:17:13.779336470 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-12-13 11:58:46.521333358 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
 </pre></div>
 </div>
 </div>
@@ -682,9 +692,9 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 
 <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">]</span>
 <span class="n">key_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">slot_size_array</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">2048</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">1024</span>
 
-<span class="k">def</span> <span class="nf">create_hps</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">initialized</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">create_hps</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">initialized</span><span class="p">,</span><span class="n">device_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;subprocess：</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">（</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()</span><span class="si">}</span><span class="s1">）launch...&#39;</span><span class="p">)</span>
     
     <span class="c1"># 1. Let secondary processes wait until shared memory is initialized.</span>
@@ -704,7 +714,8 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
                 <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
                 <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
                 <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;hps_demo0_sparse_1000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;hps_demo1_sparse_1000.model&quot;</span><span class="p">],</span>
-                <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">device_id</span><span class="o">=</span><span class="n">device_id</span><span class="p">,</span>
+                <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_id</span><span class="p">],</span>
                 <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
                 <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
                 <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
@@ -731,8 +742,8 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
     <span class="n">cat_input2</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cat_input2_columns</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">batch_size</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">key_offset</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 
     <span class="c1"># 5. Make inference from the HPS object and the ONNX inference session of `hps_demo_without_embedding.onnx`.</span>
-    <span class="n">embedding1</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
-    <span class="n">embedding2</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+    <span class="n">embedding1</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="n">device_id</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+    <span class="n">embedding2</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="n">device_id</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
     <span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="s2">&quot;hps_demo_without_embedding.onnx&quot;</span><span class="p">)</span>
     <span class="n">res</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="n">sess</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
                    <span class="n">input_feed</span><span class="o">=</span><span class="p">{</span><span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">dense_input</span><span class="p">,</span>
@@ -761,6 +772,8 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Subprocess </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">; mse between pred_ref and ground_truth: </span><span class="si">{</span><span class="n">mse_ref</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
     
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Subprocess </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> exiting...&#39;</span><span class="p">)</span>
+    <span class="c1">#Make sure the primary process is not detached prematurely</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
     <span class="c1"># Destroy shared memory.</span>
@@ -773,9 +786,9 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 
     <span class="c1"># Create sub processes.</span>
     <span class="n">processes</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;primary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">)),</span>
-        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;secondary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">)),</span>
-        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;secondary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">)),</span>
+        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;primary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">,</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;secondary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span>
+        <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">create_hps</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;secondary&#39;</span><span class="p">,</span> <span class="n">initialized</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span>
     <span class="p">]</span>
     <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
         <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
@@ -806,157 +819,165 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>subprocess：primary（68230）launch...
-[HCTR][12:08:05.939][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-Main process; awaiting subprocess initializatiopn... So far 0 initialized...
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>subprocess：primary（23604）launch...
+[HCTR][12:00:52.960][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
 ====================================================HPS Create====================================================
-[HCTR][12:08:05.940][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
-subprocess：secondary（68231）launch...
+[HCTR][12:00:52.960][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
+[HCTR][12:00:52.960][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
+subprocess：secondary（23605）launch...
 Subprocess secondary awaiting initialization...
-[HCTR][12:08:05.940][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
-subprocess：secondary（68232）launch...
+Main process; awaiting subprocess initializatiopn... So far 0 initialized...
+subprocess：secondary（23607）launch...
 Subprocess secondary awaiting initialization...
-[HCTR][12:08:05.940][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 274877906944 bytes, OS available = 265611984896 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 17179868640 bytes; other processes connected = 0
-[HCTR][12:08:06.440][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][12:08:06.440][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][12:08:06.440][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][12:08:06.440][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:52.960][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 17179869184 bytes, OS available = 17179852800 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 17179868640 bytes; other processes connected = 0
+[HCTR][12:00:53.460][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][12:00:53.461][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][12:00:53.461][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][12:00:53.461][INFO][RK0][main]: Using Local file system backend.
+Subprocess secondary awaiting initialization...
 Main process; awaiting subprocess initializatiopn... So far 0 initialized...
 Subprocess secondary awaiting initialization...
+[HCTR][12:00:54.230][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding1; cached 18401 / 18401 embeddings in volatile database (MultiProcessHashMapBackend); load: 18401 / 18446744073709551615 (0.00%).
+[HCTR][12:00:54.231][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:54.748][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding2; cached 18436 / 18436 embeddings in volatile database (MultiProcessHashMapBackend); load: 18436 / 18446744073709551615 (0.00%).
+[HCTR][12:00:54.748][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][12:00:54.748][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][12:00:54.755][INFO][RK0][main]: Model name: hps_demo
+[HCTR][12:00:54.755][INFO][RK0][main]: Max batch size: 1024
+[HCTR][12:00:54.755][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][12:00:54.755][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
+[HCTR][12:00:54.755][INFO][RK0][main]: Use static table: False
+[HCTR][12:00:54.755][INFO][RK0][main]: Use I64 input key: True
+[HCTR][12:00:54.755][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][12:00:54.755][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][12:00:54.755][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][12:00:54.755][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][12:00:54.755][INFO][RK0][main]: The refresh percentage : 0.000000
 Subprocess secondary awaiting initialization...
-[HCTR][12:08:07.200][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding1; cached 18451 / 18451 embeddings in volatile database (MultiProcessHashMapBackend); load: 18451 / 18446744073709551615 (0.00%).
-[HCTR][12:08:07.200][INFO][RK0][main]: Using Local file system backend.
-[HCTR][12:08:07.875][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding2; cached 18345 / 18345 embeddings in volatile database (MultiProcessHashMapBackend); load: 18345 / 18446744073709551615 (0.00%).
-[HCTR][12:08:07.875][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][12:08:07.876][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][12:08:07.893][INFO][RK0][main]: Model name: hps_demo
-[HCTR][12:08:07.893][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][12:08:07.893][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
-[HCTR][12:08:07.893][INFO][RK0][main]: Use I64 input key: True
-[HCTR][12:08:07.893][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
-[HCTR][12:08:07.893][INFO][RK0][main]: The size of thread pool: 256
-[HCTR][12:08:07.893][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][12:08:07.893][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][12:08:07.893][INFO][RK0][main]: The refresh percentage : 0.000000
 Main process; awaiting subprocess initializatiopn... So far 0 initialized...
 Subprocess secondary awaiting initialization...
-Subprocess secondary awaiting initialization...
-[HCTR][12:08:08.781][INFO][RK0][main]: Creating lookup session for hps_demo on device: 0
+[HCTR][12:00:55.750][INFO][RK0][main]: Creating lookup session for hps_demo on device: 0
 Subprocess primary initialized
-2022-10-25 12:08:08.862765243 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
-Subprocess primary; ground_truth: [0.45834  0.483733 0.521425 ... 0.492849 0.385835 0.533917]
-Subprocess primary; pred: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+2022-12-13 12:00:55.835179528 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
+Subprocess primary; ground_truth: [0.52604  0.528162 0.510473 ... 0.511216 0.464687 0.420649]
+Subprocess primary; pred: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess primary; mse between pred and ground_truth: 0.0018104517608496385
-Subprocess primary; pred_ref: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess primary; mse between pred and ground_truth: 8.653384858862709e-14
+Subprocess primary; pred_ref: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess primary; mse between pred_ref and ground_truth: 0.0018104517608496385
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess primary; mse between pred_ref and ground_truth: 8.653384858862709e-14
 Subprocess primary exiting...
-[HCTR][12:08:08.934][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
 Main process; awaiting subprocess initializatiopn... So far 1 initialized...
-[HCTR][12:08:08.943][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-[HCTR][12:08:08.943][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][12:00:55.964][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
 ====================================================HPS Create====================================================
+[HCTR][12:00:55.965][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
+[HCTR][12:00:55.965][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][12:00:55.966][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
 ====================================================HPS Create====================================================
-[HCTR][12:08:08.944][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
-[HCTR][12:08:08.944][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
-[HCTR][12:08:08.944][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
-[HCTR][12:08:08.944][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
-[HCTR][12:08:09.443][INFO][RK0][main]: Detached last process from shared memory &#39;hctr_mp_hash_map_database&#39;. Auto remove in progress...
-[HCTR][12:08:09.443][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 274877906944 bytes, OS available = 256346140672 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 7914048128 bytes; other processes connected = 0
-[HCTR][12:08:09.943][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][12:08:09.943][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][12:08:09.943][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][12:08:09.943][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:55.966][INFO][RK0][main]: Creating Multi-Process HashMap CPU database backend...
+[HCTR][12:00:55.966][INFO][RK0][main]: Connecting to shared memory &#39;hctr_mp_hash_map_database&#39;...
+[HCTR][12:00:55.966][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 17179869184 bytes, OS available = 7913971712 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 7914009984 bytes; other processes connected = 1
+[HCTR][12:00:56.466][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][12:00:56.466][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][12:00:56.466][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][12:00:56.466][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:56.469][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:56.472][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][12:00:56.472][INFO][RK0][main]: Creating embedding cache in device 1.
+[HCTR][12:00:56.481][INFO][RK0][main]: Model name: hps_demo
+[HCTR][12:00:56.481][INFO][RK0][main]: Max batch size: 1024
+[HCTR][12:00:56.481][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][12:00:56.481][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
+[HCTR][12:00:56.481][INFO][RK0][main]: Use static table: False
+[HCTR][12:00:56.481][INFO][RK0][main]: Use I64 input key: True
+[HCTR][12:00:56.481][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][12:00:56.481][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][12:00:56.481][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][12:00:56.481][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][12:00:56.481][INFO][RK0][main]: The refresh percentage : 0.000000
 Main process; awaiting subprocess initializatiopn... So far 1 initialized...
-[HCTR][12:08:09.948][INFO][RK0][main]: Using Local file system backend.
-[HCTR][12:08:09.953][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][12:08:09.953][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][12:08:09.970][INFO][RK0][main]: Model name: hps_demo
-[HCTR][12:08:09.970][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][12:08:09.970][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
-[HCTR][12:08:09.970][INFO][RK0][main]: Use I64 input key: True
-[HCTR][12:08:09.970][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
-[HCTR][12:08:09.970][INFO][RK0][main]: The size of thread pool: 256
-[HCTR][12:08:09.970][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][12:08:09.970][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][12:08:09.970][INFO][RK0][main]: The refresh percentage : 0.000000
-[HCTR][12:08:09.943][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 274877906944 bytes, OS available = 256346140672 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 7914048128 bytes; other processes connected = 1
-[HCTR][12:08:10.444][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][12:08:10.444][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][12:08:10.444][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][12:08:10.444][INFO][RK0][main]: Using Local file system backend.
-[HCTR][12:08:10.448][INFO][RK0][main]: Using Local file system backend.
-[HCTR][12:08:10.453][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][12:08:10.453][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][12:08:10.470][INFO][RK0][main]: Model name: hps_demo
-[HCTR][12:08:10.470][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][12:08:10.470][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
-[HCTR][12:08:10.470][INFO][RK0][main]: Use I64 input key: True
-[HCTR][12:08:10.470][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
-[HCTR][12:08:10.470][INFO][RK0][main]: The size of thread pool: 256
-[HCTR][12:08:10.470][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][12:08:10.470][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][12:08:10.470][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][12:00:56.466][INFO][RK0][main]: Connected to shared memory &#39;hctr_mp_hash_map_database&#39;; OS total = 17179869184 bytes, OS available = 7913971712 bytes, HCTR allocated = 17179869184 bytes, HCTR free = 7914009984 bytes; other processes connected = 1
+[HCTR][12:00:56.967][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][12:00:56.967][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][12:00:56.967][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][12:00:56.967][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:56.969][INFO][RK0][main]: Using Local file system backend.
+[HCTR][12:00:56.972][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][12:00:56.972][INFO][RK0][main]: Creating embedding cache in device 2.
+[HCTR][12:00:56.980][INFO][RK0][main]: Model name: hps_demo
+[HCTR][12:00:56.980][INFO][RK0][main]: Max batch size: 1024
+[HCTR][12:00:56.980][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][12:00:56.980][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
+[HCTR][12:00:56.980][INFO][RK0][main]: Use static table: False
+[HCTR][12:00:56.980][INFO][RK0][main]: Use I64 input key: True
+[HCTR][12:00:56.980][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][12:00:56.980][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][12:00:56.980][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][12:00:56.980][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][12:00:56.980][INFO][RK0][main]: The refresh percentage : 0.000000
 Main process; awaiting subprocess initializatiopn... So far 1 initialized...
-[HCTR][12:08:10.971][INFO][RK0][main]: Creating lookup session for hps_demo on device: 0
+[HCTR][12:00:58.465][INFO][RK0][main]: Creating lookup session for hps_demo on device: 1
 Subprocess secondary initialized
-2022-10-25 12:08:11.064851917 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
-Subprocess secondary; ground_truth: [0.45834  0.483733 0.521425 ... 0.492849 0.385835 0.533917]
-Subprocess secondary; pred: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-12-13 12:00:58.556145398 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
+Subprocess secondary; ground_truth: [0.52604  0.528162 0.510473 ... 0.511216 0.464687 0.420649]
+Subprocess secondary; pred: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess secondary; mse between pred and ground_truth: 0.0018104517608496385
-Subprocess secondary; pred_ref: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess secondary; mse between pred and ground_truth: 8.653384858862709e-14
+Subprocess secondary; pred_ref: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess secondary; mse between pred_ref and ground_truth: 0.0018104517608496385
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess secondary; mse between pred_ref and ground_truth: 8.653384858862709e-14
 Subprocess secondary exiting...
-[HCTR][12:08:11.159][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
-[HCTR][12:08:11.359][INFO][RK0][main]: Creating lookup session for hps_demo on device: 0
+Main process; awaiting subprocess initializatiopn... So far 2 initialized...
+[HCTR][12:00:59.131][INFO][RK0][main]: Creating lookup session for hps_demo on device: 2
 Subprocess secondary initialized
-2022-10-25 12:08:11.801969051 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
-Subprocess secondary; ground_truth: [0.45834  0.483733 0.521425 ... 0.492849 0.385835 0.533917]
-Subprocess secondary; pred: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+2022-12-13 12:00:59.192390075 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
+Subprocess secondary; ground_truth: [0.52604  0.528162 0.510473 ... 0.511216 0.464687 0.420649]
+Subprocess secondary; pred: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess secondary; mse between pred and ground_truth: 0.0018104517608496385
-Subprocess secondary; pred_ref: [[0.47144616]
- [0.48876405]
- [0.5209218 ]
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess secondary; mse between pred and ground_truth: 8.653384858862709e-14
+Subprocess secondary; pred_ref: [[0.5260405 ]
+ [0.52816164]
+ [0.5104735 ]
  ...
- [0.5083375 ]
- [0.46721274]
- [0.44642204]]
-Subprocess secondary; mse between pred_ref and ground_truth: 0.0018104517608496385
+ [0.5112164 ]
+ [0.46468708]
+ [0.42064884]]
+Subprocess secondary; mse between pred_ref and ground_truth: 8.653384858862709e-14
 Subprocess secondary exiting...
-[HCTR][12:08:11.896][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
 Main process; awaiting subprocess 0 to exit...
+[HCTR][12:01:05.906][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
 Main process; awaiting subprocess 1 to exit...
-[HCTR][12:08:12.445][INFO][RK0][main]: Detached last process from shared memory &#39;hctr_mp_hash_map_database&#39;. Auto remove in progress...
+[HCTR][12:01:08.627][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
+[HCTR][12:01:09.261][INFO][RK0][main]: Disconnecting from shared memory &#39;hctr_mp_hash_map_database&#39;.
 Main process; awaiting subprocess 2 to exit...
+[HCTR][12:01:09.781][INFO][RK0][main]: Detached last process from shared memory &#39;hctr_mp_hash_map_database&#39;. Auto remove in progress...
 Main process; exiting...
 </pre></div>
 </div>
