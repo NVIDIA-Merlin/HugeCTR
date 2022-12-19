@@ -74,6 +74,10 @@ void CublasDesc<T>::set_fprop_attr(std::vector<size_t> dims_a, std::vector<size_
         cublas_op_desc, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD, &relu_mask_ld, sizeof(relu_mask_ld)));
   }
 
+  uint32_t pointer_mode = CUBLASLT_POINTER_MODE_HOST;
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc, CUBLASLT_MATMUL_DESC_POINTER_MODE,
+                                                &pointer_mode, sizeof(pointer_mode)));
+
   cudaDataType data_type = CUDA_R_32F;
   if constexpr (std::is_same<T, __half>::value) {
     data_type = CUDA_R_16F;
@@ -140,6 +144,10 @@ void CublasDesc<T>::set_bprop_attr(std::vector<size_t> dims_a, std::vector<size_
     }
   }
 
+  uint32_t pointer_mode = CUBLASLT_POINTER_MODE_HOST;
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc, CUBLASLT_MATMUL_DESC_POINTER_MODE,
+                                                &pointer_mode, sizeof(pointer_mode)));
+
   cudaDataType data_type = CUDA_R_32F;
   if constexpr (std::is_same<T, __half>::value) {
     data_type = CUDA_R_16F;
@@ -172,14 +180,15 @@ void CublasAlgo<T>::init_algorithm(const CublasDesc<T>& cublas_desc,
       cublas_preference, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size,
       sizeof(cublaslt_workspace_size)));
 
+#if CUBLAS_VERSION < 120000
   uint32_t pointer_mode = CUBLASLT_POINTER_MODE_MASK_HOST;
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference,
                                                       CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
                                                       &pointer_mode, sizeof(pointer_mode)));
-
   HCTR_LIB_THROW(
       cublasLtMatmulPreferenceSetAttribute(cublas_preference, CUBLASLT_MATMUL_PREF_EPILOGUE_MASK,
                                            &cublas_desc.epilogue, sizeof(cublas_desc.epilogue)));
+#endif
 
   cublasLtMatmulHeuristicResult_t heuristic_result;
   int returned_res = 0;

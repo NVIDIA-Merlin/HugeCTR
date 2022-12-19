@@ -665,7 +665,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
       HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairs(
           temp_storage_sort.get_ptr(), temp_storage_sort_size, hash_value_index.get_ptr(),
           hash_value_index_sort.get_ptr(), sample_id.get_ptr(), sample_id_sort.get_ptr(), nnz, 0,
-          end_bit, stream, false));
+          end_bit, stream));
 
       // step4: count the number for each unduplicated hash_value_index
       HCTR_LIB_THROW(
