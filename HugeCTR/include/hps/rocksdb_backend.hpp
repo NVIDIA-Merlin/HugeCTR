@@ -18,6 +18,7 @@
 
 #include <rocksdb/db.h>
 
+#include <filesystem>
 #include <hps/database_backend.hpp>
 #include <unordered_map>
 
@@ -27,6 +28,14 @@ namespace HugeCTR {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wconversion"
 
+struct RocksDBBackendParams final : public PersistentBackendParams {
+  std::string path{"/tmp/rocksdb"};  // File-system path to the database.
+  size_t num_threads{16};            // Number of threads that the RocksDB instance may use.
+  bool read_only{
+      false};  // If \p true will open the database in \p read-only mode. This allows simultaneously
+               // querying the same RocksDB database from multiple clients.
+};
+
 /**
  * \p DatabaseBackend implementation that connects to a RocksDB to store/retrieve information (i.e.
  * harddisk storage).
@@ -34,27 +43,17 @@ namespace HugeCTR {
  * @tparam Key The data-type that is used for keys in this database.
  */
 template <typename Key>
-class RocksDBBackend final : public PersistentBackend<Key> {
+class RocksDBBackend final : public PersistentBackend<Key, RocksDBBackendParams> {
  public:
-  using Base = PersistentBackend<Key>;
+  using Base = PersistentBackend<Key, RocksDBBackendParams>;
 
   RocksDBBackend() = delete;
   DISALLOW_COPY_AND_MOVE(RocksDBBackend);
 
   /**
    * @brief Construct a new RocksDBBackend object.
-   *
-   * @param path File-system path to the database.
-   * @param num_threads Number of threads that the RocksDB may use.
-   * @param read_only If \p true will open the database in \p read-only mode. This allows
-   * simultaneously querying the same RocksDB database from multiple clients.
-   * @param max_get_batch_size Maximum number of key/value pairs that can participate in a reading
-   * databse transaction.
-   * @param max_set_batch_size Maximum number of key/value pairs that can participate in a writing
-   * databse transaction.
    */
-  RocksDBBackend(const std::string& path, size_t num_threads = 16, bool read_only = false,
-                 size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L);
+  RocksDBBackend(const RocksDBBackendParams& params);
 
   virtual ~RocksDBBackend();
 

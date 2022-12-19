@@ -39,39 +39,39 @@ namespace HugeCTR {
 #ifdef HCTR_HASH_MAP_BACKEND_INSERT_
 #error HCTR_HASH_MAP_BACKEND_INSERT_ already defined. Potential naming conflict!
 #else
-#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                         \
-  do {                                                                         \
-    const auto& res = part.entries.try_emplace((KEY));                         \
-    Entry& entry = *res.first;                                                 \
-                                                                               \
-    /* If new insertion. */                                                    \
-    if (res.second) {                                                          \
-      /* If no free space, allocate another buffer, and fill pointer queue. */ \
-      if (part.payload_slots.empty()) {                                        \
-        const size_t payload_size = meta_size + value_size;                    \
-        const size_t num_payloads = allocation_rate_ / payload_size;           \
-        HCTR_CHECK(num_payloads > 0);                                          \
-                                                                               \
-        /* Get more memory. */                                                 \
-        part.payload_pages.emplace_back(num_payloads* payload_size);           \
-        Page& page = part.payload_pages.back();                                \
-                                                                               \
-        /* Stock up slot references. */                                        \
-        part.payload_slots.reserve(num_payloads);                              \
-        for (auto nxt = page.end(); nxt != page.begin();) {                    \
-          nxt -= payload_size;                                                 \
-          part.payload_slots.emplace_back(reinterpret_cast<Payload*>(&*nxt));  \
-        }                                                                      \
-      }                                                                        \
-                                                                               \
-      /* Fetch pointer. */                                                     \
-      entry.second = part.payload_slots.back();                                \
-      part.payload_slots.pop_back();                                           \
-    }                                                                          \
-                                                                               \
-    entry.second->last_access = now;                                           \
-    std::copy_n((VALUES_PTR), value_size, entry.second->value);                \
-    num_inserts++;                                                             \
+#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                            \
+  do {                                                                            \
+    const auto& res = part.entries.try_emplace((KEY));                            \
+    Entry& entry = *res.first;                                                    \
+                                                                                  \
+    /* If new insertion. */                                                       \
+    if (res.second) {                                                             \
+      /* If no free space, allocate another buffer, and fill pointer queue. */    \
+      if (part.payload_slots.empty()) {                                           \
+        const size_t payload_size = meta_size + value_size;                       \
+        const size_t num_payloads = this->params_.allocation_rate / payload_size; \
+        HCTR_CHECK(num_payloads > 0);                                             \
+                                                                                  \
+        /* Get more memory. */                                                    \
+        part.payload_pages.emplace_back(num_payloads* payload_size);              \
+        Page& page = part.payload_pages.back();                                   \
+                                                                                  \
+        /* Stock up slot references. */                                           \
+        part.payload_slots.reserve(num_payloads);                                 \
+        for (auto nxt = page.end(); nxt != page.begin();) {                       \
+          nxt -= payload_size;                                                    \
+          part.payload_slots.emplace_back(reinterpret_cast<Payload*>(&*nxt));     \
+        }                                                                         \
+      }                                                                           \
+                                                                                  \
+      /* Fetch pointer. */                                                        \
+      entry.second = part.payload_slots.back();                                   \
+      part.payload_slots.pop_back();                                              \
+    }                                                                             \
+                                                                                  \
+    entry.second->last_access = now;                                              \
+    std::copy_n((VALUES_PTR), value_size, entry.second->value);                   \
+    num_inserts++;                                                                \
   } while (0)
 #endif
 
@@ -112,15 +112,7 @@ namespace HugeCTR {
 #endif
 
 template <typename Key>
-HashMapBackend<Key>::HashMapBackend(const size_t num_partitions, const size_t allocation_rate,
-                                    const size_t max_get_batch_size,
-                                    const size_t max_set_batch_size, const size_t overflow_margin,
-                                    const DatabaseOverflowPolicy_t overflow_policy,
-                                    const double overflow_resolution_target)
-    : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
-           overflow_resolution_target),
-      num_partitions_{num_partitions},
-      allocation_rate_{allocation_rate} {
+HashMapBackend<Key>::HashMapBackend(const HashMapBackendParams& params) : Base(params) {
   HCTR_LOG_S(DEBUG, WORLD) << "Created blank database backend in local memory!" << std::endl;
 }
 
@@ -198,7 +190,7 @@ size_t HashMapBackend<Key>::contains(const std::string& table_name, const size_t
           }
 
           // Query next batch.
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
           }
@@ -243,7 +235,7 @@ size_t HashMapBackend<Key>::contains(const std::string& table_name, const size_t
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++k;
                     break;
                   }
@@ -283,14 +275,14 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
   const auto& tables_it = tables_.try_emplace(table_name).first;
   std::vector<Partition>& parts = tables_it->second;
   if (parts.empty()) {
-    HCTR_CHECK(value_size > 0 && value_size <= allocation_rate_);
+    HCTR_CHECK(value_size > 0 && value_size <= this->params_.allocation_rate);
 
-    parts.reserve(num_partitions_);
-    for (size_t i = 0; i < num_partitions_; i++) {
+    parts.reserve(this->params_.num_partitions);
+    for (size_t i = 0; i < this->params_.num_partitions; ++i) {
       parts.emplace_back(i, value_size);
     }
   } else {
-    HCTR_CHECK(parts.size() == num_partitions_);
+    HCTR_CHECK(parts.size() == this->params_.num_partitions);
   }
 
   size_t num_inserts = 0;
@@ -304,7 +296,7 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
       HCTR_CHECK(part.value_size == value_size);
 
       // Check overflow condition.
-      if (part.entries.size() >= this->overflow_margin_) {
+      if (part.entries.size() >= this->params_.overflow_margin) {
         resolve_overflow_(table_name, part);
       }
 
@@ -323,14 +315,14 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
         // Step through batch-by-batch.
         for (const Key* k = keys; k != keys_end;) {
           // Check overflow condition.
-          if (part.entries.size() >= this->overflow_margin_) {
+          if (part.entries.size() >= this->params_.overflow_margin) {
             resolve_overflow_(table_name, part);
           }
 
           // Perform insertion.
           const time_t now = std::time(nullptr);
 
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
           }
@@ -341,7 +333,7 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
         for (Partition& part : parts) {
           tasks.emplace_back(ThreadPool::get().submit([&]() {
@@ -353,7 +345,7 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
             size_t num_batches = 0;
             for (const Key* k = keys; k != keys_end; num_batches++) {
               // Check overflow condition.
-              if (part.entries.size() >= this->overflow_margin_) {
+              if (part.entries.size() >= this->params_.overflow_margin) {
                 resolve_overflow_(table_name, part);
               }
 
@@ -364,7 +356,7 @@ bool HashMapBackend<Key>::insert(const std::string& table_name, const size_t num
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
-                  if (++batch_size >= this->max_set_batch_size_) {
+                  if (++batch_size >= this->params_.max_set_batch_size) {
                     ++k;
                     break;
                   }
@@ -457,7 +449,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
           const size_t prev_hit_count = hit_count;
           const time_t now = std::time(nullptr);
 
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
           }
@@ -508,7 +500,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++k;
                     break;
                   }
@@ -608,7 +600,8 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
           const size_t prev_hit_count = hit_count;
           const time_t now = std::time(nullptr);
 
-          const size_t* const batch_end = std::min(&i[this->max_get_batch_size_], indices_end);
+          const size_t* const batch_end =
+              std::min(&i[this->params_.max_get_batch_size], indices_end);
           for (; i != batch_end; i++) {
             HCTR_HASH_MAP_BACKEND_FETCH_(keys[*i], *i);
           }
@@ -660,7 +653,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
                 const Key& k = keys[*i];
                 if (HCTR_KEY_TO_DB_PART_INDEX(k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++i;
                     break;
                   }
@@ -748,7 +741,7 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
           const size_t prev_hit_count = hit_count;
 
           // Step through batch 1 by 1 and delete.
-          const Key* const batch_end = std::min(&k[this->max_set_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_set_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_EVICT_(*k);
           }
@@ -778,7 +771,7 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_EVICT_(*k);
-                  if (++batch_size >= this->max_set_batch_size_) {
+                  if (++batch_size >= this->params_.max_set_batch_size) {
                     ++k;
                     break;
                   }
@@ -882,13 +875,13 @@ void HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::SstFi
 template <typename Key>
 size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Partition& part) {
   // Return if no overflow.
-  if (part.entries.size() > this->overflow_margin_) {
+  if (part.entries.size() > this->params_.overflow_margin) {
     return 0;
   }
 
   size_t hit_count = 0;
 
-  switch (this->overflow_policy_) {
+  switch (this->params_.overflow_policy) {
     case DatabaseOverflowPolicy_t::EvictOldest: {
       // Fetch keys and insert times.
       std::vector<std::pair<Key, time_t>> kt;
@@ -903,17 +896,18 @@ size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Par
 
       // Call erase, until we reached the target amount.
       for (auto kt_it = kt.begin(); kt_it != kt.end();) {
-        const auto& batch_end = std::min(kt_it + this->max_set_batch_size_, kt.end());
+        const auto& batch_end = std::min(kt_it + this->params_.max_set_batch_size, kt.end());
 
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << '/'
                                  << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->overflow_margin_ << "): Attempting to evict "
-                                 << (batch_end - kt_it) << " OLDEST key/value pairs!" << std::endl;
+                                 << " > " << this->params_.overflow_margin
+                                 << "): Attempting to evict " << (batch_end - kt_it)
+                                 << " OLDEST key/value pairs!" << std::endl;
 
         for (; kt_it != batch_end; kt_it++) {
           HCTR_HASH_MAP_BACKEND_EVICT_(kt_it->first);
         }
-        if (part.entries.size() <= this->overflow_resolution_target_) {
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
           break;
         }
       }
@@ -934,18 +928,19 @@ size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Par
 
       // Delete items.
       for (auto k_it = k.begin(); k_it != k.end();) {
-        const auto& batch_end = std::min(k_it + this->max_set_batch_size_, k.end());
+        const auto& batch_end = std::min(k_it + this->params_.max_set_batch_size, k.end());
 
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << "/"
                                  << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->overflow_margin_ << "): Attempting to evict "
-                                 << (batch_end - k_it) << " RANDOM key/value pairs!" << std::endl;
+                                 << " > " << this->params_.overflow_margin
+                                 << "): Attempting to evict " << (batch_end - k_it)
+                                 << " RANDOM key/value pairs!" << std::endl;
 
         // Call erase, until we reached the target amount.
         for (; k_it != batch_end; k_it++) {
           HCTR_HASH_MAP_BACKEND_EVICT_(*k_it);
         }
-        if (part.entries.size() <= this->overflow_resolution_target_) {
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
           break;
         }
       }
@@ -953,9 +948,10 @@ size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name, Par
     default: {
       HCTR_LOG_S(WARNING, WORLD)
           << get_name() << " backend; Partition " << table_name << "/" << part.index
-          << " is overflowing (size = " << part.entries.size() << " > " << this->overflow_margin_
+          << " is overflowing (size = " << part.entries.size() << " > "
+          << this->params_.overflow_margin
           << "): Overflow cannot be resolved. No implementation for selected policy (="
-          << this->overflow_policy_ << ")!" << std::endl;
+          << this->params_.overflow_policy << ")!" << std::endl;
     } break;
   }
 

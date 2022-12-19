@@ -447,7 +447,9 @@ void InferencePybind(pybind11::module& m) {
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
                           const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, const std::string&, size_t, size_t, size_t,
+                          size_t, size_t, const std::string&, size_t, size_t, size_t, bool,
+                          const std::string&, const std::string&, const std::string&,
+                          const std::string&,
                           // Overflow handling related.
                           bool, size_t, DatabaseOverflowPolicy_t, double,
                           // Caching behavior related.
@@ -464,7 +466,11 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
            pybind11::arg("num_node_connections") = 5,
            pybind11::arg("max_get_batch_size") = 64L * 1024L,
-           pybind11::arg("max_set_batch_size") = 64L * 1024L,
+           pybind11::arg("max_set_batch_size") = 64L * 1024L, pybind11::arg("enable_tls") = false,
+           pybind11::arg("tls_ca_certificate") = "cacertbundle.crt",
+           pybind11::arg("tls_client_certificate") = "client_cert.pem",
+           pybind11::arg("tls_client_key") = "client_key.pem",
+           pybind11::arg("tls_server_name_identification") = "redis.localhost",
            // Overflow handling related.
            pybind11::arg("refresh_time_after_fetch") = false,
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),

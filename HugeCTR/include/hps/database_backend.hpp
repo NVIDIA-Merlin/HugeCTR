@@ -17,6 +17,7 @@
 
 #include <rocksdb/sst_file_writer.h>
 
+#include <algorithm>
 #include <chrono>
 #include <common.hpp>
 #include <fstream>
@@ -24,6 +25,7 @@
 #include <hps/inference_utils.hpp>
 #include <string>
 #include <thread_pool.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -38,10 +40,10 @@ namespace HugeCTR {
 using DatabaseMissCallback = std::function<void(size_t)>;
 using DatabaseHitCallback = std::function<void(size_t, const char*, uint32_t)>;
 
-enum class DBTableDumpFormat_t {
+enum class DatabaseTableDumpFormat_t {
   Automatic = 0,  // Try to deduce the storage format from the provided path.
   Raw,            // Use raw storage format.
-  SST             // Write data as an "Static Sorted Table" file.
+  SST,            // Write data as an "Static Sorted Table" file.
 };
 
 /**
@@ -51,13 +53,13 @@ enum class DBTableDumpFormat_t {
  * @tparam Key The data-type that is used for keys in this database.
  */
 template <typename Key>
-class DatabaseBackend {
+class DatabaseBackendBase {
  public:
-  DatabaseBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(DatabaseBackend);
-  DatabaseBackend(size_t max_get_batch_size, size_t max_set_batch_size);
+  DatabaseBackendBase() = delete;
+  DatabaseBackendBase(size_t max_set_batch_size);
+  DISALLOW_COPY_AND_MOVE(DatabaseBackendBase);
 
-  virtual ~DatabaseBackend() = default;
+  virtual ~DatabaseBackendBase() = default;
 
   /**
    * Returns that allows identifying the backend implementation.
@@ -99,7 +101,7 @@ class DatabaseBackend {
    * recoverable error is encountered.
    */
   virtual size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
-                          const std::chrono::nanoseconds& time_budget) const;
+                          const std::chrono::nanoseconds& time_budget) const = 0;
 
   /**
    * Insert key/value pairs into the underlying database. For existing keys, the respective value is
@@ -137,7 +139,7 @@ class DatabaseBackend {
    */
   virtual size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
                        const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
-                       const std::chrono::nanoseconds& time_budget);
+                       const std::chrono::nanoseconds& time_budget) = 0;
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database. This variant
@@ -163,7 +165,7 @@ class DatabaseBackend {
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                        const Key* keys, const DatabaseHitCallback& on_hit,
                        const DatabaseMissCallback& on_miss,
-                       const std::chrono::nanoseconds& time_budget);
+                       const std::chrono::nanoseconds& time_budget) = 0;
 
   /**
    * Attempt to remove a table and all associated values from the underlying database.
@@ -212,8 +214,8 @@ class DatabaseBackend {
    * @param path File system path under which the dumped data should be stored.
    * @param format Dump format.
    */
-  virtual void dump(const std::string& table_name, const std::string& path,
-                    DBTableDumpFormat_t format = DBTableDumpFormat_t::Automatic);
+  void dump(const std::string& table_name, const std::string& path,
+            DatabaseTableDumpFormat_t format = DatabaseTableDumpFormat_t::Automatic);
 
   virtual void dump_bin(const std::string& table_name, std::ofstream& file) = 0;
 
@@ -231,9 +233,29 @@ class DatabaseBackend {
 
   virtual void load_dump_sst(const std::string& table_name, const std::string& path);
 
+ private:
+  const size_t max_set_batch_size_;  // Temporary, until find a better solution.
+};
+
+struct DatabaseBackendParams {
+  size_t max_get_batch_size{64L * 1024};  // Maximum number of key/value pairs per read transaction.
+  size_t max_set_batch_size{64L *
+                            1024};  // Maximum number of key/value pairs per write transaction.
+};
+
+template <typename Key, typename Params>
+class DatabaseBackend : public DatabaseBackendBase<Key> {
+ public:
+  using Base = DatabaseBackendBase<Key>;
+
+  DatabaseBackend() = delete;
+  DISALLOW_COPY_AND_MOVE(DatabaseBackend);
+  DatabaseBackend(const Params& params) : Base(params.max_set_batch_size), params_{params} {}
+
+  virtual ~DatabaseBackend() = default;
+
  protected:
-  const size_t max_get_batch_size_;
-  const size_t max_set_batch_size_;
+  const Params params_;
 };
 
 class DatabaseBackendError : std::exception {
@@ -261,55 +283,61 @@ class DatabaseBackendError : std::exception {
   std::string what_;
 };
 
-template <typename Key>
-class VolatileBackend : public DatabaseBackend<Key> {
+struct VolatileBackendParams : public DatabaseBackendParams {
+  size_t num_partitions{
+      16};  // The number of parallel partitions. Determines the maximum degree of parallelization.
+            // For Redis, this equates to the amount of separate storage partitions. For achieving
+            // the best performance, this should be signficantly higher than the number of cluster
+            // nodes! We use modulo-N to assign partitions. Hence, you must not change this value
+            // after writing the first data to a table.
+
+  size_t overflow_margin{std::numeric_limits<size_t>::max()};  // Margin at which further inserts
+                                                               // will trigger overflow handling.
+  DatabaseOverflowPolicy_t overflow_policy{
+      DatabaseOverflowPolicy_t::EvictOldest};  // Policy to use in case an overflow has been
+                                               // detected.
+  double overflow_resolution_target{0.8};  // Target margin after applying overflow handling policy.
+
+  inline size_t overflow_resolution_margin() const {
+    const size_t margin = static_cast<size_t>(
+        static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5);
+    HCTR_CHECK(margin <= overflow_margin);
+    return margin;
+  }
+};
+
+template <typename Key, typename Params>
+class VolatileBackend : public DatabaseBackend<Key, Params> {
  public:
-  using Base = DatabaseBackend<Key>;
+  using Base = DatabaseBackend<Key, Params>;
 
   VolatileBackend() = delete;
   DISALLOW_COPY_AND_MOVE(VolatileBackend);
-  VolatileBackend(size_t max_get_batch_size, size_t max_set_batch_size, size_t overflow_margin,
-                  DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
+  VolatileBackend(const Params& params)
+      : Base(params), overflow_resolution_margin_{params.overflow_resolution_margin()} {}
 
   virtual ~VolatileBackend() = default;
 
-  /**
-   * Asynchronously inserts the provided keys/values into the database.
-   *
-   * @param table_name
-   * @param keys
-   * @param values
-   * @param value_size
-   */
-  std::future<void> insert_async(const std::string& table_name,
-                                 const std::shared_ptr<std::vector<Key>>& keys,
-                                 const std::shared_ptr<std::vector<char>>& values,
-                                 size_t value_size);
-
-  /**
-   * Synchronize with the database (await background tasks)!
-   */
-  void synchronize();
+  size_t capacity(const std::string& table_name) const override final {
+    const size_t part_margin = this->params_.overflow_margin;
+    const size_t total_margin = part_margin * this->params_.num_partitions;
+    return std::max(total_margin, part_margin);
+  }
 
  protected:
-  // Overflow-handling / pruning related parameters.
-  const size_t overflow_margin_;
-  const DatabaseOverflowPolicy_t overflow_policy_;
-  const size_t overflow_resolution_target_;
-
-  // Worker used for asynchronours insertion, and other tasks that subclasses might want to apply
-  // asynchronously.
-  mutable ThreadPool background_worker_{"vol. db bg", 1};
+  const size_t overflow_resolution_margin_;
 };
 
-template <typename Key>
-class PersistentBackend : public DatabaseBackend<Key> {
+struct PersistentBackendParams : public DatabaseBackendParams {};
+
+template <typename Key, typename Params>
+class PersistentBackend : public DatabaseBackend<Key, Params> {
  public:
-  using Base = DatabaseBackend<Key>;
+  using Base = DatabaseBackend<Key, Params>;
 
   PersistentBackend() = delete;
   DISALLOW_COPY_AND_MOVE(PersistentBackend);
-  PersistentBackend(size_t max_get_batch_size, size_t max_set_batch_size);
+  PersistentBackend(const Params& params) : Base(params) {}
 
   virtual ~PersistentBackend() = default;
 
@@ -318,11 +346,15 @@ class PersistentBackend : public DatabaseBackend<Key> {
   }
 };
 
+#ifdef HCTR_ROCKSDB_CHECK
+#error HCTR_ROCKSDB_CHECK is already defined. This could lead to unpredictable behavior!
+#else
 #define HCTR_ROCKSDB_CHECK(EXPR)                                                  \
   do {                                                                            \
     const rocksdb::Status status = (EXPR);                                        \
     HCTR_CHECK_HINT(status.ok(), "RocksDB error: %s", status.ToString().c_str()); \
   } while (0)
+#endif
 
 // TODO: Remove me!
 #pragma GCC diagnostic pop

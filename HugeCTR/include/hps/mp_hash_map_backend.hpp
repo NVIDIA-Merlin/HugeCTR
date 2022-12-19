@@ -31,32 +31,33 @@ namespace HugeCTR {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wconversion"
 
+struct MultiProcessHashMapBackendParams final : public VolatileBackendParams {
+  size_t allocation_rate{256L * 1024 *
+                         1024};  // Number of additional bytes to allocate per allocation cycle.
+  size_t shared_memory_size{16L * 1024 * 1024 *
+                            1024};  // Total amount of shared memory to reserve on startup.
+  std::string shared_memory_name{
+      "hctr_mp_hash_map_database"};  // Name of the shared memory to which we connect.
+  std::chrono::nanoseconds heart_beat_frequency{std::chrono::milliseconds{
+      100}};               // Frequency at which we tick up the heart-beat frequency counter.
+  bool auto_remove{true};  // Remove SHM if this is the last process to detach from the SHM.
+};
+
 template <typename Key>
-class MultiProcessHashMapBackend final : public VolatileBackend<Key> {
+class MultiProcessHashMapBackend final
+    : public VolatileBackend<Key, MultiProcessHashMapBackendParams> {
  public:
-  using Base = VolatileBackend<Key>;
+  using Base = VolatileBackend<Key, MultiProcessHashMapBackendParams>;
 
   MultiProcessHashMapBackend() = delete;
   DISALLOW_COPY_AND_MOVE(MultiProcessHashMapBackend);
-
-  MultiProcessHashMapBackend(
-      size_t num_partitions = 16, size_t allocation_rate = 256L * 1024L * 1024L,
-      size_t sm_size = 16L * 1024L * 1024L * 1024L,
-      const std::string& sm_name = "hctr_mp_hash_map_database",
-      const std::chrono::nanoseconds& heart_beat_frequency = std::chrono::milliseconds{100},
-      bool auto_remove = true, size_t max_get_batch_size = 64L * 1024L,
-      size_t max_set_batch_size = 64L * 1024L,
-      size_t overflow_margin = std::numeric_limits<size_t>::max(),
-      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
-      double overflow_resolution_target = 0.8);
+  MultiProcessHashMapBackend(const MultiProcessHashMapBackendParams& params);
 
   virtual ~MultiProcessHashMapBackend();
 
   bool is_shared() const override { return true; }
 
   const char* get_name() const override { return "MultiProcessHashMapBackend"; }
-
-  size_t capacity(const std::string& table_name) const override;
 
   size_t size(const std::string& table_name) const override;
 
@@ -86,9 +87,6 @@ class MultiProcessHashMapBackend final : public VolatileBackend<Key> {
   void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
  protected:
-  // Key metrics.
-  static constexpr size_t key_size = sizeof(Key);
-
   // Data-structure that will be associated with every key.
   struct Payload final {
     time_t last_access;
@@ -170,9 +168,6 @@ class MultiProcessHashMapBackend final : public VolatileBackend<Key> {
           tables(segment.get_allocator<std::pair<const SharedString, SharedVector<Partition>>>()) {}
   };
 
-  const size_t num_partitions_;
-  const size_t allocation_rate_;
-  const std::string sm_name_;
   Segment sm_segment_;
   SegmentAllocator<char> sm_char_allocator_;
   SegmentAllocator<Page> sm_page_allocator_;

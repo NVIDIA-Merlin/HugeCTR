@@ -112,35 +112,29 @@ struct KafkaMessageDeleter {
 };
 
 template <typename Key>
-KafkaMessageSink<Key>::KafkaMessageSink(const std::string& brokers, const size_t num_key_groups,
-                                        const size_t send_buffer_size,
-                                        const size_t num_send_buffers, const bool await_connection)
-    : Base(),
-      num_partitions_(num_key_groups),
-      send_buffer_size_(send_buffer_size),
-      num_send_buffers_(num_send_buffers),
-      send_buffer_memory_(num_send_buffers * send_buffer_size) {
-  HCTR_CHECK(send_buffer_size >= 1024 && num_send_buffers > 0);
+KafkaMessageSink<Key>::KafkaMessageSink(const KafkaMessageSinkParams& params)
+    : Base(params), send_buffer_memory_(params.num_send_buffers * params.send_buffer_size) {
+  HCTR_CHECK(params.send_buffer_size >= 1024 && params.num_send_buffers > 0);
 
   // Create send buffers.
   HCTR_LOG_S(DEBUG, WORLD) << "Allocating Kafka send buffer (" << send_buffer_memory_.size()
                            << " bytes)..." << std::endl;
-  send_buffers_.reserve(num_send_buffers_);
+  send_buffers_.reserve(params.num_send_buffers);
   for (auto it = send_buffer_memory_.begin(); it != send_buffer_memory_.end();
-       it += send_buffer_size) {
+       it += params.send_buffer_size) {
     char* send_buffer = &(*it);
     *reinterpret_cast<uint32_t*>(send_buffer) = HCTR_KAFKA_VALUE_PREFIX;
     send_buffers_.push_back(send_buffer);
   }
-  HCTR_CHECK(send_buffers_.size() == num_send_buffers);
+  HCTR_CHECK(send_buffers_.size() == params.num_send_buffers);
 
   // Configure Kafka.
   rd_kafka_conf_t* conf = rd_kafka_conf_new();
 
   // Global parameters.
-  kafka_conf_set_and_check(conf, "metadata.broker.list", brokers);
+  kafka_conf_set_and_check(conf, "metadata.broker.list", params.brokers);
   kafka_conf_set_and_check(conf, "message.max.bytes",
-                           send_buffer_size + 1024);  // Default: 1'000'000
+                           params.send_buffer_size + 1024);  // Default: 1'000'000
   kafka_conf_set_and_check(conf, "receive.message.max.bytes",
                            128 * 1024 * 1024);  // Default: 100'000'000
   kafka_conf_set_and_check(conf, "topic.metadata.refresh.interval.ms", 60'000);  // Default: 300'000
@@ -188,7 +182,7 @@ KafkaMessageSink<Key>::KafkaMessageSink(const std::string& brokers, const size_t
   event_handler_ = std::thread(&KafkaMessageSink<Key>::run, this);
 
   // Send a beacon.
-  if (await_connection) {
+  if (params.await_connection) {
     HCTR_LOG_S(DEBUG, WORLD) << "Sending a beacon to the Kafka broker..." << std::endl;
     post("__hps_beacon", 0, nullptr, nullptr, sizeof(size_t));
     flush();
@@ -206,7 +200,7 @@ KafkaMessageSink<Key>::~KafkaMessageSink() {
   HCTR_KAFKA_CHECK(rd_kafka_flush(rk_, -1));
 
   // Destroy Kafka context.
-  for (const auto pair : topics_) {
+  for (const auto& pair : topics_) {
     rd_kafka_topic_destroy(pair.second);
   }
   topics_.clear();
@@ -219,7 +213,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
                                  const char* values, const uint32_t value_size) {
   // Make sure there enough space to store at least one key-value pair.
   const size_t key_value_size = sizeof(Key) + value_size;
-  HCTR_CHECK(sizeof(uint32_t) * 2 + key_value_size <= send_buffer_size_);
+  HCTR_CHECK(sizeof(uint32_t) * 2 + key_value_size <= this->params_.send_buffer_size);
 
   // Get topic, or create if it doesn't exist yet.
   rd_kafka_topic_t* const topic = resolve_topic(tag);
@@ -234,8 +228,8 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     // Produce Kafka message.
     blocking_produce(topic, payload, p_length, 0);
   } else if (num_pairs == 1) {
-    // Determine the key group.
-    const size_t key_group = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+    // Determine the key partition.
+    const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
 
     // Request send buffer to hold the payload.
     char* const payload = acquire_send_buffer(value_size);
@@ -248,25 +242,25 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     p_length += value_size;
 
     // Produce Kafka message.
-    blocking_produce(topic, payload, p_length, key_group);
+    blocking_produce(topic, payload, p_length, part);
   } else {
     const Key* const keys_end = &keys[num_pairs];
-    for (size_t key_group = 0; key_group < num_partitions_; key_group++) {
+    for (size_t part = 0; part < this->params_.num_partitions; ++part) {
       char* payload = nullptr;
       size_t p_length = 0;
 
-      for (const Key* k = keys; k != keys_end; k++) {
+      for (const Key* k = keys; k != keys_end; ++k) {
         // Only consider keys that belong to current group.
-        if (HCTR_KEY_TO_DB_PART_INDEX(*k) != key_group) {
+        if (HCTR_KEY_TO_DB_PART_INDEX(*k) != part) {
           continue;
         }
 
         // If send buffer buffer already available.
         if (payload) {
           // Not enough space to hold another key-value pair.
-          if (p_length + key_value_size > send_buffer_size_) {
+          if (p_length + key_value_size > this->params_.send_buffer_size) {
             // Send current buffer.
-            blocking_produce(topic, payload, p_length, key_group);
+            blocking_produce(topic, payload, p_length, part);
 
             // Get new send buffer.
             payload = acquire_send_buffer(value_size);
@@ -287,7 +281,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
 
       // Sent any unsent payload.
       if (payload) {
-        blocking_produce(topic, payload, p_length, key_group);
+        blocking_produce(topic, payload, p_length, part);
       }
     }
   }

@@ -437,7 +437,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
                    " The data source for training and evaluation should be specified");
   }
   if (etc_params_->use_embedding_training_cache && solver_.kafka_brokers.length()) {
-    message_sink_.reset(new KafkaMessageSink<long long>(solver_.kafka_brokers));
+    KafkaMessageSinkParams params;
+    params.brokers = solver_.kafka_brokers;
+    message_sink_ = std::make_shared<KafkaMessageSink<long long>>(params);
   }
   if (etc_params_->use_embedding_training_cache && solver_.repeat_dataset) {
     HCTR_OWN_THROW(Error_t::WrongInput,

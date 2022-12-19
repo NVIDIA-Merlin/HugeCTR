@@ -16,21 +16,33 @@
 cmake_minimum_required(VERSION 3.17)
 message(STATUS "Building third_party dependencies.")
 set(CMAKE_CXX_STANDARD 17)
+
 #install dependencies
+
 #hiredis
+SET(ENABLE_SSL ON CACHE BOOL "Build with SSL support")
+SET(DISABLE_TESTS ON CACHE BOOL "Disable building tests")
 add_subdirectory(hiredis)
 set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
 file(WRITE "${stub_dir}/hiredis-config.cmake" "")
+file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
 set(hiredis_DIR ${stub_dir})
 set(hiredis_LIBRARIES hiredis::hiredis)
 set(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
 if(NOT TARGET hiredis::hiredis)
   add_library(hiredis::hiredis ALIAS hiredis)
 endif()
+set(hiredis_ssl_DIR ${stub_dir})
+set(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
+set(hiredis_ssl_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+if(NOT TARGET hiredis::hiredis_ssl)
+  add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
+endif()
 
 #redis++
 set(REDIS_PLUS_PLUS_BUILD_STATIC OFF CACHE BOOL "Build static library")
 set(REDIS_PLUS_PLUS_BUILD_TEST OFF CACHE BOOL "Build test_redes++")
+set(REDIS_PLUS_PLUS_USE_TLS ON CACHE BOOL "Build with TLS support")
 add_subdirectory(redis_pp)
 
 #rocksdb

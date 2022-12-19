@@ -24,10 +24,8 @@
 namespace HugeCTR {
 
 template <typename Key>
-RocksDBBackend<Key>::RocksDBBackend(const std::string& path, const size_t num_threads,
-                                    const bool read_only, const size_t max_get_batch_size,
-                                    const size_t max_set_batch_size)
-    : Base(max_get_batch_size, max_set_batch_size), db_{nullptr} {
+RocksDBBackend<Key>::RocksDBBackend(const RocksDBBackendParams& params)
+    : Base(params), db_{nullptr} {
   HCTR_LOG(INFO, WORLD, "Connecting to RocksDB database...\n");
 
   // Basic behavior.
@@ -36,8 +34,8 @@ RocksDBBackend<Key>::RocksDBBackend(const std::string& path, const size_t num_th
   options.manual_wal_flush = true;
   options.OptimizeForPointLookup(8);
   options.OptimizeLevelStyleCompaction();
-  HCTR_CHECK(num_threads <= std::numeric_limits<int>::max());
-  options.IncreaseParallelism(static_cast<int>(num_threads));
+  HCTR_CHECK(this->params_.num_threads <= std::numeric_limits<int>::max());
+  options.IncreaseParallelism(static_cast<int>(this->params_.num_threads));
 
   // Configure various behaviors and options used in later operations.
   column_family_options_.OptimizeForPointLookup(8);
@@ -50,10 +48,11 @@ RocksDBBackend<Key>::RocksDBBackend(const std::string& path, const size_t num_th
   std::vector<rocksdb::ColumnFamilyDescriptor> column_descriptors;
   {
     std::vector<std::string> column_names;
-    const auto& status = rocksdb::DB::ListColumnFamilies(options, path, &column_names);
+    const auto& status =
+        rocksdb::DB::ListColumnFamilies(options, this->params_.path, &column_names);
     if (!status.ok()) {
-      HCTR_LOG_S(ERROR, WORLD) << "RocksDB " << path << ": Listing column names failed!"
-                               << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "RocksDB " << this->params_.path
+                               << ": Listing column names failed!" << std::endl;
       column_names.clear();
     }
     bool has_default = false;
@@ -65,19 +64,20 @@ RocksDBBackend<Key>::RocksDBBackend(const std::string& path, const size_t num_th
     }
 
     for (const auto& column_name : column_names) {
-      HCTR_LOG_S(INFO, WORLD) << "RocksDB " << path << ", found column family \"" << column_name
-                              << "\"." << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "RocksDB " << this->params_.path << ", found column family \""
+                              << column_name << "\"." << std::endl;
       column_descriptors.emplace_back(column_name, column_family_options_);
     }
   }
 
   // Connect to DB with all column families.
   std::vector<rocksdb::ColumnFamilyHandle*> column_handles;
-  if (read_only) {
-    HCTR_ROCKSDB_CHECK(
-        rocksdb::DB::OpenForReadOnly(options, path, column_descriptors, &column_handles, &db_));
+  if (this->params_.read_only) {
+    HCTR_ROCKSDB_CHECK(rocksdb::DB::OpenForReadOnly(options, this->params_.path, column_descriptors,
+                                                    &column_handles, &db_));
   } else {
-    HCTR_ROCKSDB_CHECK(rocksdb::DB::Open(options, path, column_descriptors, &column_handles, &db_));
+    HCTR_ROCKSDB_CHECK(
+        rocksdb::DB::Open(options, this->params_.path, column_descriptors, &column_handles, &db_));
   }
   HCTR_CHECK(column_handles.size() == column_descriptors.size());
 
@@ -187,7 +187,7 @@ size_t RocksDBBackend<Key>::contains(const std::string& table_name, const size_t
 
         // Create and launch query.
         k_views.clear();
-        const Key* const batch_end = std::min(&keys[this->max_get_batch_size_], keys_end);
+        const Key* const batch_end = std::min(&keys[this->params_.max_get_batch_size], keys_end);
         k_views.reserve(batch_end - keys);
 
         for (; keys != batch_end; keys++) {
@@ -260,7 +260,7 @@ bool RocksDBBackend<Key>::insert(const std::string& table_name, const size_t num
       for (size_t num_queries = 0; keys != keys_end; num_queries++) {
         // Assemble batch.
         batch.Clear();
-        const Key* const batch_end = std::min(&keys[this->max_set_batch_size_], keys_end);
+        const Key* const batch_end = std::min(&keys[this->params_.max_set_batch_size], keys_end);
         for (; keys != batch_end; keys++, values += value_size) {
           k_view.data_ = reinterpret_cast<const char*>(keys);
           v_view.data_ = values;
@@ -352,7 +352,7 @@ size_t RocksDBBackend<Key>::fetch(const std::string& table_name, const size_t nu
 
         // Create and launch query.
         k_views.clear();
-        const Key* const batch_end = std::min(&keys[this->max_get_batch_size_], keys_end);
+        const Key* const batch_end = std::min(&keys[this->params_.max_get_batch_size], keys_end);
         k_views.reserve(batch_end - keys);
 
         for (; keys != batch_end; keys++) {
@@ -464,7 +464,8 @@ size_t RocksDBBackend<Key>::fetch(const std::string& table_name, const size_t nu
 
         // Create and launch query.
         k_views.clear();
-        const size_t* const batch_end = std::min(&indices[this->max_get_batch_size_], indices_end);
+        const size_t* const batch_end =
+            std::min(&indices[this->params_.max_get_batch_size], indices_end);
         k_views.reserve(batch_end - indices);
 
         for (const size_t* i = indices; i != batch_end; i++) {
@@ -561,7 +562,7 @@ size_t RocksDBBackend<Key>::evict(const std::string& table_name, const size_t nu
       for (size_t num_batches = 0; keys != keys_end; num_batches++) {
         // Assemble batch.
         batch.Clear();
-        const Key* const batch_end = std::min(&keys[this->max_set_batch_size_], keys_end);
+        const Key* const batch_end = std::min(&keys[this->params_.max_set_batch_size], keys_end);
         for (; keys != batch_end; keys++) {
           k_view.data_ = reinterpret_cast<const char*>(keys);
           HCTR_ROCKSDB_CHECK(batch.Delete(col_handle, k_view));

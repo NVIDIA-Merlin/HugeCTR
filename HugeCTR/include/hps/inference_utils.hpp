@@ -101,116 +101,121 @@ inline std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value) {
   return os << hctr_enum_to_c_str(value);
 }
 
-DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key);
-UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key);
-DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string key);
+DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string& key,
+                                     DatabaseType_t default_value);
+UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string& key,
+                                             UpdateSourceType_t default_value);
+DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string& key,
+                                                 DatabaseOverflowPolicy_t default_value);
 
 struct VolatileDatabaseParams {
-  DatabaseType_t type;
+  DatabaseType_t type{DatabaseType_t::ParallelHashMap};
 
   // Backend specific.
-  std::string address;    // hostname[:port][[;hostname[:port]]...]
-  std::string user_name;  // "default" = Standard user for Redis!
+  std::string address{"127.0.0.1:7000"};  // hostname[:port][[;hostname[:port]]...]
+  std::string user_name{"default"};       // "default" = Standard user for Redis!
   std::string password;
-  size_t num_partitions;
-  size_t allocation_rate;     // Only used with HashMap type backends.
-  size_t shared_memory_size;  // Size-limit of the shared memory (only for Multi-Process hashmap).
-  std::string shared_memory_name;  // Name of the shared memory (only for Multi-Process hashmap).
-  size_t num_node_connections;     // Only used with Redis beckend.
-  size_t max_get_batch_size;
-  size_t max_set_batch_size;
+  size_t num_partitions{16};
+  size_t allocation_rate{256L * 1024 * 1024};  // Only used with HashMap type backends.
+  size_t shared_memory_size{
+      16L * 1024 * 1024 *
+      1024};  // Size-limit of the shared memory (only for Multi-Process hashmap).
+  std::string shared_memory_name{
+      "hctr_mp_hash_map_database"};  // Name of the shared memory (only for Multi-Process hashmap).
+  size_t num_node_connections{5};    // Only used with Redis backend.
+  size_t max_get_batch_size{64L * 1024};
+  size_t max_set_batch_size{64L * 1024};
+
+  bool enable_tls{false};
+  std::string tls_ca_certificate{"cacertbundle.crt"};
+  std::string tls_client_certificate{"client_cert.pem"};
+  std::string tls_client_key{"client_key.pem"};
+  std::string tls_server_name_identification{"redis.localhost"};
 
   // Overflow handling related.
-  bool refresh_time_after_fetch;
-  size_t overflow_margin;
-  DatabaseOverflowPolicy_t overflow_policy;
-  double overflow_resolution_target;
+  bool refresh_time_after_fetch{false};
+  size_t overflow_margin{std::numeric_limits<size_t>::max()};
+  DatabaseOverflowPolicy_t overflow_policy{DatabaseOverflowPolicy_t::EvictOldest};
+  double overflow_resolution_target{0.8};
 
   // Caching behavior related.
-  bool initialize_after_startup;
-  double initial_cache_rate;
-  bool cache_missed_embeddings;
+  bool initialize_after_startup{true};
+  double initial_cache_rate{1.0};
+  bool cache_missed_embeddings{false};
 
   // Real-time update mechanism related.
-  std::vector<std::string> update_filters;  // Should be a regex for Kafka.
+  std::vector<std::string> update_filters{{"^hps_.+$"}};  // Should be a regex for Kafka.
 
+  VolatileDatabaseParams();
   VolatileDatabaseParams(
-      DatabaseType_t type = DatabaseType_t::ParallelHashMap,
+      DatabaseType_t type,
       // Backend specific.
-      const std::string& address = "127.0.0.1:7000", const std::string& user_name = "default",
-      const std::string& password = "",
-      size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
-      size_t allocation_rate = 256L * 1024L * 1024L,
-      size_t shared_memory_size = 16L * 1024L * 1024L * 1024L,
-      const std::string& shared_memory_name = "hctr_mp_hash_map_database",
-      size_t num_node_connections = 5, size_t max_get_batch_size = 64L * 1024L,
-      size_t max_set_batch_size = 64L * 1024L,
+      const std::string& address, const std::string& user_name, const std::string& password,
+      size_t num_partitions, size_t allocation_rate, size_t shared_memory_size,
+      const std::string& shared_memory_name, size_t num_node_connections, size_t max_get_batch_size,
+      size_t max_set_batch_size, bool enable_tls, const std::string& tls_ca_certificate,
+      const std::string& tls_client_certificate, const std::string& tls_client_key,
+      const std::string& tls_server_name_identification,
       // Overflow handling related.
-      bool refresh_time_after_fetch = false,
-      size_t overflow_margin = std::numeric_limits<size_t>::max(),
-      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
-      double overflow_resolution_target = 0.8,
+      bool refresh_time_after_fetch, size_t overflow_margin,
+      DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target,
       // Caching behavior related.
-      bool initialize_after_startup = true, double initial_cache_rate = 1.0,
-      bool cache_missed_embeddings = false,
+      bool initialize_after_startup, double initial_cache_rate, bool cache_missed_embeddings,
       // Real-time update mechanism related.
-      const std::vector<std::string>& update_filters = {"^hps_.+$"});
+      const std::vector<std::string>& update_filters);
 
   bool operator==(const VolatileDatabaseParams& p) const;
   bool operator!=(const VolatileDatabaseParams& p) const;
 };
 
 struct PersistentDatabaseParams {
-  DatabaseType_t type;
+  DatabaseType_t type{DatabaseType_t::Disabled};
 
   // Backend specific.
   std::string path;
-  size_t num_threads;  // 16 = Default for RocksDB.
-  bool read_only = false;
-  size_t max_get_batch_size;
-  size_t max_set_batch_size;
+  size_t num_threads{16};  // 16 = Default for RocksDB.
+  bool read_only{false};
+  size_t max_get_batch_size{64L * 1024};
+  size_t max_set_batch_size{64L * 1024};
 
   // Caching behavior related.
-  bool initialize_after_startup;
+  bool initialize_after_startup{true};
 
   // Real-time update mechanism related.
-  std::vector<std::string> update_filters;  // Should be a regex for Kafka.
+  std::vector<std::string> update_filters{{"^hps_.+$"}};  // Should be a regex for Kafka.
 
-  PersistentDatabaseParams(DatabaseType_t type = DatabaseType_t::Disabled,
+  PersistentDatabaseParams();
+  PersistentDatabaseParams(DatabaseType_t type,
                            // Backend specific.
-                           const std::string& path = std::filesystem::temp_directory_path() /
-                                                     "rocksdb",
-                           size_t num_threads = 16, bool read_only = false,
-                           size_t max_get_batch_size = 64L * 1024L,
-                           size_t max_set_batch_size = 64L * 1024L,
+                           const std::string& path, size_t num_threads, bool read_only,
+                           size_t max_get_batch_size, size_t max_set_batch_size,
                            // Caching behavior related.
-                           bool initialize_after_startup = true,
+                           bool initialize_after_startup,
                            // Real-time update mechanism related.
-                           const std::vector<std::string>& update_filters = {"^hps_.+$"});
+                           const std::vector<std::string>& update_filters);
 
   bool operator==(const PersistentDatabaseParams& p) const;
   bool operator!=(const PersistentDatabaseParams& p) const;
 };
 
 struct UpdateSourceParams {
-  UpdateSourceType_t type;
+  UpdateSourceType_t type{UpdateSourceType_t::Null};
 
   // Backend specific.
-  std::string brokers;  // Kafka: The IP[:Port][[;IP[:Port]]...] of the brokers.
-  size_t metadata_refresh_interval_ms;
-  size_t receive_buffer_size;
-  size_t poll_timeout_ms;
-  size_t max_batch_size;
-  size_t failure_backoff_ms;
-  size_t max_commit_interval;
+  std::string brokers{"127.0.0.1:9092"};  // Kafka: The IP[:Port][[;IP[:Port]]...] of the brokers.
+  size_t metadata_refresh_interval_ms{30'000};
+  size_t receive_buffer_size{256 * 1024};
+  size_t poll_timeout_ms{500};
+  size_t max_batch_size{8 * 1024};
+  size_t failure_backoff_ms{50};
+  size_t max_commit_interval{32};
 
-  UpdateSourceParams(UpdateSourceType_t type = UpdateSourceType_t::Null,
+  UpdateSourceParams() {}
+  UpdateSourceParams(UpdateSourceType_t type,
                      // Backend specific.
-                     const std::string& brokers = "127.0.0.1:9092",
-                     size_t metadata_refresh_interval_ms = 30'000,
-                     size_t receive_buffer_size = 256 * 1024, size_t poll_timeout_ms = 500,
-                     size_t max_batch_size = 8 * 1024, size_t failure_backoff_ms = 50,
-                     size_t max_commit_interval = 32);
+                     const std::string& brokers, size_t metadata_refresh_interval_ms,
+                     size_t receive_buffer_size, size_t poll_timeout_ms, size_t max_batch_size,
+                     size_t failure_backoff_ms, size_t max_commit_interval);
 
   bool operator==(const UpdateSourceParams& p) const;
   bool operator!=(const UpdateSourceParams& p) const;

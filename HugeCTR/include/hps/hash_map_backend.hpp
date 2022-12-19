@@ -33,6 +33,11 @@ namespace HugeCTR {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wconversion"
 
+struct HashMapBackendParams final : public VolatileBackendParams {
+  size_t allocation_rate{256L * 1024 *
+                         1024};  // Number of additional bytes to allocate per allocation cycle.
+};
+
 /**
  * \p DatabaseBackend implementation that stores key/value pairs in the local CPU memory.
  * that takes advantage of parallel processing capabilities.
@@ -40,36 +45,21 @@ namespace HugeCTR {
  * @tparam Key The data-type that is used for keys in this database.
  */
 template <typename Key>
-class HashMapBackend final : public VolatileBackend<Key> {
+class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
  public:
-  using Base = VolatileBackend<Key>;
+  using Base = VolatileBackend<Key, HashMapBackendParams>;
 
   HashMapBackend() = delete;
   DISALLOW_COPY_AND_MOVE(HashMapBackend);
 
   /**
    * Construct a new parallelized HashMapBackend object.
-   * @param num_partitions The number of parallel partitions.
-   * @param allocation_rate Number of additional bytes to allocate per allocation.
-   * @param overflow_margin Margin at which further inserts will trigger overflow handling.
-   * @param overflow_policy Policy to use in case an overflow has been detected.
-   * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  HashMapBackend(size_t num_partitions = 16, size_t allocation_rate = 256L * 1024L * 1024L,
-                 size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L,
-                 size_t overflow_margin = std::numeric_limits<size_t>::max(),
-                 DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
-                 double overflow_resolution_target = 0.8);
+  HashMapBackend(const HashMapBackendParams& params);
 
   bool is_shared() const override final { return false; }
 
   const char* get_name() const override { return "HashMapBackend"; }
-
-  size_t capacity(const std::string& table_name) const override {
-    const size_t part_cap = this->overflow_margin_;
-    const size_t total_cap = part_cap * num_partitions_;
-    return (total_cap > part_cap) ? total_cap : part_cap;
-  }
 
   size_t size(const std::string& table_name) const override;
 
@@ -129,9 +119,6 @@ class HashMapBackend final : public VolatileBackend<Key> {
     Partition(const size_t index, const uint32_t value_size)
         : index{index}, value_size{value_size} {}
   };
-
-  const size_t num_partitions_;
-  const size_t allocation_rate_;
 
   // Actual data.
   std::unordered_map<std::string, std::vector<Partition>> tables_;

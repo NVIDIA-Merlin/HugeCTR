@@ -349,8 +349,13 @@ params = hugectr.inference.VolatileDatabaseParams(
   allocation_rate = 268435456,  # 256 MiB
   shared_memory_size = 17179869184,  # 16 GiB
   shared_memory_name = "hctr_mp_hash_map_database",
-  max_get_batch_size = 10000,
-  max_set_batch_size = 10000,
+  max_get_batch_size = 65536,
+  max_set_batch_size = 65536,
+  enable_tls = False,
+  tls_ca_certificate = "cacertbundle.crt",
+  tls_client_certificate = "client_cert.pem",
+  tls_client_key = "client_key.pem",
+  tls_server_name_identification = "redis.localhost",
   overflow_margin = int,
   overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>,
   overflow_resolution_target = 0.8,
@@ -376,8 +381,13 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
   "allocation_rate": 268435456,  // 256 MiB
   "shared_memory_size": 17179869184,  // 16 GiB
   "shared_memory_name": "hctr_mp_hash_map_database",
-  "max_get_batch_size": 10000,
-  "max_set_batch_size": 10000,
+  "max_get_batch_size": 65536,
+  "max_set_batch_size": 65536,
+  "enable_tls": false,
+  "tls_ca_certificate": "cacertbundle.crt",
+  "tls_client_certificate": "client_cert.pem",
+  "tls_client_key": "client_key.pem",
+  "tls_server_name_identification": "redis.localhost",
   "overflow_margin": 10000000,
   "overflow_policy": "evict_oldest",
   "overflow_resolution_target": 0.8,
@@ -440,8 +450,18 @@ The default value is `8`.
 Mass lookup and insert requests to distributed endpoints are chunked into batches.
 For maximum performance, these two parameters should be large.
 However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
-By default, both parameters are set to `10000`.
+By default, both parameters are set to `65536`.
 With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+
+* `enable_tls`: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is `False` (=disable TLS/SSL). Enabling encryption may slighly increase latency and decrease the overall throughput when communicating with the Redis cluster.
+
+* `tls_ca_certificate`: String, allows you specify the filesystem path to the certificate(s) of the CA for TLS/SSL secured connnections. If the provided path denotes a directory, all valid certificates in the directory will be considered. Default value: `cacertbundle.crt`.
+
+* `tls_client_certificate`: String, filesystem path of the client certificate to use for TLS/SSL secured connnections. Default value: `client_cert.pem`.
+
+* `tls_client_key`: String, file system path of the private key to use for TLS/SSL secured connnections. Default value: `client_key.pem`.
+
+* `tls_server_name_identification`: String, SNI used by the server. Can be different from the actual connection address. Default value: `redis.localhost`.
 
 #### Overflow Parameters
 
@@ -518,8 +538,8 @@ params = hugectr.inference.PersistentDatabaseParams(
   path = "/tmp/rocksdb",
   num_threads = 16,
   read_only = False,
-  max_get_batch_size = 10000,
-  max_set_batch_size = 10000,
+  max_get_batch_size = 65536,
+  max_set_batch_size = 65536,
   update_filters = ["filter-0", "filter-1", ... ]
 )
 ```
@@ -534,8 +554,8 @@ The following JSON shows a sample configuration for the `persistent_db` key in a
   "path": "/tmp/rocksdb",
   "num_threads": 16,
   "read_only": false,
-  "max_get_batch_size": 10000,
-  "max_set_batch_size": 10000,
+  "max_get_batch_size": 65536,
+  "max_set_batch_size": 65536,
   "update_filters": [".+"]
 }
 ```
