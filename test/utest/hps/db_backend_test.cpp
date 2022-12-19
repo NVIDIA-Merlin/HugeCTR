@@ -33,26 +33,36 @@
 using namespace HugeCTR;
 namespace {
 
+template <typename T>
+std::unique_ptr<DatabaseBackendBase<T>> make_db(DatabaseType_t database_type) {
+  switch (database_type) {
+    case DatabaseType_t::ParallelHashMap: {
+      HashMapBackendParams params;
+      params.num_partitions = 16;
+      return std::make_unique<HashMapBackend<T>>(params);
+    } break;
+
+    case DatabaseType_t::RedisCluster: {
+      RedisClusterBackendParams params;
+      params.address = "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002";
+      return std::make_unique<RedisClusterBackend<T>>(params);
+    } break;
+
+    case DatabaseType_t::RocksDB: {
+      RocksDBBackendParams params;
+      params.path = "/hugectr/Test_Data/rockdb";
+      return std::make_unique<RocksDBBackend<T>>(params);
+    } break;
+
+    default:
+      HCTR_DIE("Unsupported database type!");
+      return nullptr;
+  }
+}
+
 template <typename Key>
 void db_backend_multi_evict_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackend<Key>> db;
-  switch (database_type) {
-    case DatabaseType_t::ParallelHashMap:
-      db = std::make_unique<HashMapBackend<Key>>(16);
-      break;
-    case DatabaseType_t::MultiProcessHashMap:
-      db = std::make_unique<MultiProcessHashMapBackend<Key>>(16);
-      break;
-    case DatabaseType_t::RedisCluster:
-      db = std::make_unique<RedisClusterBackend<Key>>(
-          "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002");
-      break;
-    case DatabaseType_t::RocksDB:
-      db = std::make_unique<RocksDBBackend<Key>>("/hugectr/Test_Data/rockdb");
-      break;
-    default:
-      break;
-  }
+  std::unique_ptr<DatabaseBackendBase<Key>> db = make_db<Key>(database_type);
 
   size_t num_tables[3];
 
@@ -120,21 +130,7 @@ namespace {
 
 template <typename Key>
 void db_backend_dump_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackend<Key>> db;
-  switch (database_type) {
-    case DatabaseType_t::ParallelHashMap:
-      db = std::make_unique<HashMapBackend<Key>>(16);
-      break;
-    case DatabaseType_t::RedisCluster:
-      db = std::make_unique<RedisClusterBackend<Key>>(
-          "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002");
-      break;
-    case DatabaseType_t::RocksDB:
-      db = std::make_unique<RocksDBBackend<Key>>("/hugectr/Test_Data/rockdb");
-      break;
-    default:
-      break;
-  }
+  std::unique_ptr<DatabaseBackendBase<Key>> db = make_db<Key>(database_type);
 
   // Populate a dummy table.
   const std::string tag0 = HierParameterServerBase::make_tag_name("mdl", "tbl0");
@@ -199,7 +195,7 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   // Special check. See if we can load a hashmap dump into RocksDB.
   if (database_type == DatabaseType_t::RocksDB) {
     {
-      auto db2 = std::make_unique<HashMapBackend<Key>>(16);
+      auto db2 = make_db<Key>(DatabaseType_t::HashMap);
       db2->load_dump(tag1, "tbl0.bin");
       db2->dump(tag1, "tbl2.sst");
     }

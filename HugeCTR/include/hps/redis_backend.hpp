@@ -27,6 +27,31 @@ namespace HugeCTR {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wconversion"
 
+struct RedisClusterBackendParams final : public VolatileBackendParams {
+  std::string address{"127.0.0.1:7000"};  // The host or IP address(es) of the Redis cluster.
+                                          // Multiple addresses should be comma-separated.
+
+  std::string user_name{"default"};  // Redis username.
+  std::string password;              // Plaintext password of the user.
+
+  size_t num_node_connections{5};  // Maximum number of simultaneous connections that are formed
+                                   // with the same redis server node.
+
+  bool enable_tls{
+      false};  // If true, connections formed with server nodes will be secured using SSL/TLS.
+  std::string ca_certificate{
+      "cacertbundle.crt"};  // Path to a file or directory containing certificates of trusted CAs.
+  std::string client_certificate{"client_cert.pem"};  // Certificate to use for this client.
+  std::string client_key{"client_key.pem"};           // Private key to use for this client.
+  std::string server_name_identification{
+      "redis.localhost"};  // SNI to request (can deviate from connection address).
+
+  bool refresh_time_after_fetch{
+      false};  // This will refresh `t` after each fetch. Must be switched on for the eviction
+               // policy `EvictOldest` to work. Requires a round trip with each node, which adds a
+               // lot of overhead. So, carefully choose if you need it.
+};
+
 /**
  * \p DatabaseBackend implementation that connects to a Redis to store/retrieve information (i.e.
  * distributed storage).
@@ -34,39 +59,17 @@ namespace HugeCTR {
  * @tparam Key The data-type that is used for keys in this database.
  */
 template <typename Key>
-class RedisClusterBackend final : public VolatileBackend<Key> {
+class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBackendParams> {
  public:
-  using Base = VolatileBackend<Key>;
+  using Base = VolatileBackend<Key, RedisClusterBackendParams>;
 
   RedisClusterBackend() = delete;
   DISALLOW_COPY_AND_MOVE(RedisClusterBackend);
 
   /**
    * @brief Construct a new RedisClusterBackend object.
-   *
-   * @param address The host or IP address(es) of the Redis cluster. Multiple addresses should be
-   * comma-separated.
-   * @param password Password to submit upon successful connection.
-   * @param num_partitions Number of Redis separate storage partitions. For achieving the best
-   * performance, this should be signficantly higher than the number of cluster nodes! We use
-   * modulo-N to assign partitions. Hence, you must not change this value after writing the first
-   * data to a table.
-   * @param max_get_batch_size Maximum number of key/value pairs that can participate in a reading
-   * databse transaction.
-   * @param max_set_batch_size Maximum number of key/value pairs that can participate in a writing
-   * databse transaction.
-   * @param overflow_margin Margin at which further inserts will trigger overflow handling.
-   * @param overflow_policy Policy to use in case an overflow has been detected.
-   * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  RedisClusterBackend(
-      const std::string& address, const std::string& user_name = "default",
-      const std::string& password = "", size_t num_partitions = 8, size_t num_node_connections = 5,
-      size_t max_get_batch_size = 64L * 1024L, size_t max_set_batch_size = 64L * 1024L,
-      bool refresh_time_after_fetch = false,
-      size_t overflow_margin = std::numeric_limits<size_t>::max(),
-      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
-      double overflow_resolution_target = 0.8);
+  RedisClusterBackend(const RedisClusterBackendParams& params);
 
   virtual ~RedisClusterBackend();
 
@@ -76,12 +79,6 @@ class RedisClusterBackend final : public VolatileBackend<Key> {
 
   size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
-
-  size_t capacity(const std::string& table_name) const override {
-    const size_t part_cap = this->overflow_margin_;
-    const size_t total_cap = part_cap * num_partitions_;
-    return (total_cap > part_cap) ? total_cap : part_cap;
-  }
 
   size_t size(const std::string& table_name) const override;
 
@@ -137,12 +134,10 @@ class RedisClusterBackend final : public VolatileBackend<Key> {
               time_t time);
 
  protected:
-  const bool refresh_time_after_fetch_;
-
-  // Do not change this vector, after inserting data for the first time!
-  const size_t num_partitions_;
-
   std::unique_ptr<sw::redis::RedisCluster> redis_;
+
+  // Worker used to update timestamps and carry out overflow handling.
+  mutable ThreadPool background_worker_{"redis bg worker", 1};
 };
 
 // TODO: Remove me!

@@ -112,38 +112,32 @@ namespace HugeCTR {
 
 template <typename Key>
 MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
-    const size_t num_partitions, const size_t allocation_rate, const size_t sm_size,
-    const std::string& sm_name, const std::chrono::nanoseconds& heart_beat_frequency,
-    const bool auto_remove, const size_t max_get_batch_size, const size_t max_set_batch_size,
-    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
-    const double overflow_resolution_target)
-    : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
-           overflow_resolution_target),
-      num_partitions_{num_partitions},
-      allocation_rate_{allocation_rate},
-      sm_name_{sm_name},
-      sm_segment_(boost::interprocess::open_or_create, sm_name.c_str(), sm_size),
+    const MultiProcessHashMapBackendParams& params)
+    : Base(params),
+      sm_segment_(boost::interprocess::open_or_create, params.shared_memory_name.c_str(),
+                  params.shared_memory_size),
       sm_char_allocator_{sm_segment_.get_allocator<char>()},
       sm_page_allocator_{sm_segment_.get_allocator<Page>()},
       sm_partition_allocator_{sm_segment_.get_allocator<Partition>()} {
   sm_ = sm_segment_.find_or_construct<SharedMemory>("sm")(
-      overflow_margin, overflow_policy, overflow_resolution_target, heart_beat_frequency,
-      auto_remove, sm_segment_);
+      params.overflow_margin, params.overflow_policy, params.overflow_resolution_target,
+      params.heart_beat_frequency, params.auto_remove, sm_segment_);
   HCTR_CHECK(sm_);
-  HCTR_CHECK(sm_->overflow_margin == overflow_margin);
-  HCTR_CHECK(sm_->overflow_policy == overflow_policy);
-  HCTR_CHECK(sm_->overflow_resolution_target == overflow_resolution_target);
-  HCTR_CHECK(sm_->heart_beat_frequency == heart_beat_frequency);
-  HCTR_CHECK(sm_->auto_remove == auto_remove);
+  HCTR_CHECK(sm_->overflow_margin == params.overflow_margin);
+  HCTR_CHECK(sm_->overflow_policy == params.overflow_policy);
+  HCTR_CHECK(sm_->overflow_resolution_target == params.overflow_resolution_target);
+  HCTR_CHECK(sm_->heart_beat_frequency == params.heart_beat_frequency);
+  HCTR_CHECK(sm_->auto_remove == params.auto_remove);
 
-  HCTR_LOG_S(INFO, WORLD) << "Connecting to shared memory '" << sm_name_ << "'..." << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "Connecting to shared memory '" << params.shared_memory_name << "'..."
+                          << std::endl;
 
   // Ensure exclusive access.
   const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Sanity checks.
   const std::filesystem::space_info& si = std::filesystem::space("/dev/shm");
-  HCTR_LOG_S(INFO, WORLD) << "Connected to shared memory '" << sm_name_
+  HCTR_LOG_S(INFO, WORLD) << "Connected to shared memory '" << params.shared_memory_name
                           << "'; OS total = " << si.capacity << " bytes, OS available = " << si.free
                           << " bytes, HCTR allocated = " << sm_segment_.get_size()
                           << " bytes, HCTR free = " << sm_segment_.get_free_memory() << " bytes"
@@ -159,7 +153,7 @@ MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
                                << std::endl;
   }
 
-  if (si.free < allocation_rate_) {
+  if (si.free < params.allocation_rate) {
     HCTR_LOG_S(WARNING, WORLD)
         << "Shared memory is (almost) full. Any further SHM allocation will definitely fail!"
         << std::endl;
@@ -183,7 +177,8 @@ bool MultiProcessHashMapBackend<Key>::is_process_connected_() const {
 
 template <typename Key>
 MultiProcessHashMapBackend<Key>::~MultiProcessHashMapBackend() {
-  HCTR_LOG_S(INFO, WORLD) << "Disconnecting from shared memory '" << sm_name_ << "'." << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "Disconnecting from shared memory '"
+                          << this->params_.shared_memory_name << "'." << std::endl;
 
   // Ensure exclusive access.
   const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
@@ -194,17 +189,11 @@ MultiProcessHashMapBackend<Key>::~MultiProcessHashMapBackend() {
 
   // Destroy SHM, if this was the last process and auto_remove is enabled.
   if (sm_->auto_remove && !is_process_connected_()) {
-    HCTR_LOG_S(INFO, WORLD) << "Detached last process from shared memory '" << sm_name_
-                            << "'. Auto remove in progress..." << std::endl;
-    boost::interprocess::shared_memory_object::remove(sm_name_.c_str());
+    HCTR_LOG_S(INFO, WORLD) << "Detached last process from shared memory '"
+                            << this->params_.shared_memory_name << "'. Auto remove in progress..."
+                            << std::endl;
+    boost::interprocess::shared_memory_object::remove(this->params_.shared_memory_name.c_str());
   }
-}
-
-template <typename Key>
-size_t MultiProcessHashMapBackend<Key>::capacity(const std::string& table_name) const {
-  const size_t part_cap = this->overflow_margin_;
-  const size_t total_cap = part_cap * num_partitions_;
-  return (total_cap > part_cap) ? total_cap : part_cap;
 }
 
 template <typename Key>
@@ -245,6 +234,7 @@ size_t MultiProcessHashMapBackend<Key>::contains(
     case 0: {
       // Nothing to do ;-).
     } break;
+
     case 1: {
       // Check time budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
@@ -260,6 +250,7 @@ size_t MultiProcessHashMapBackend<Key>::contains(
       const Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
       HCTR_HASH_MAP_BACKEND_CONTAINS_(*keys);
     } break;
+
     default: {
       // Precalc constants.
       const Key* keys_end = &keys[num_keys];
@@ -281,7 +272,7 @@ size_t MultiProcessHashMapBackend<Key>::contains(
           }
 
           // Query next batch.
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
           }
@@ -326,7 +317,7 @@ size_t MultiProcessHashMapBackend<Key>::contains(
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++k;
                     break;
                   }
@@ -368,14 +359,14 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
           .first;
   SharedVector<Partition>& parts = tables_it->second;
   if (parts.empty()) {
-    HCTR_CHECK(value_size > 0 && value_size <= allocation_rate_);
+    HCTR_CHECK(value_size > 0 && value_size <= this->params_.allocation_rate);
 
-    parts.reserve(num_partitions_);
-    for (size_t i = 0; i < num_partitions_; i++) {
-      parts.emplace_back(i, value_size, allocation_rate_, sm_segment_);
+    parts.reserve(this->params_.num_partitions);
+    for (size_t i = 0; i < this->params_.num_partitions; ++i) {
+      parts.emplace_back(i, value_size, this->params_.allocation_rate, sm_segment_);
     }
   } else {
-    HCTR_CHECK(parts.size() == num_partitions_);
+    HCTR_CHECK(parts.size() == this->params_.num_partitions);
   }
 
   size_t num_inserts = 0;
@@ -384,12 +375,13 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
       HCTR_CHECK(part.value_size == value_size);
 
       // Check overflow condition.
-      if (part.entries.size() >= this->overflow_margin_) {
+      if (part.entries.size() >= this->params_.overflow_margin) {
         resolve_overflow_(table_name, part);
       }
 
@@ -397,6 +389,7 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
       const time_t now = std::time(nullptr);
       HCTR_HASH_MAP_BACKEND_INSERT_(*keys, values);
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_pairs];
@@ -408,14 +401,14 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
         // Step through batch-by-batch.
         for (const Key* k = keys; k != keys_end;) {
           // Check overflow condition.
-          if (part.entries.size() >= this->overflow_margin_) {
+          if (part.entries.size() >= this->params_.overflow_margin) {
             resolve_overflow_(table_name, part);
           }
 
           // Perform insertion.
           const time_t now = std::time(nullptr);
 
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
           }
@@ -426,7 +419,7 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
         for (Partition& part : parts) {
           tasks.emplace_back(ThreadPool::get().submit([&]() {
@@ -438,7 +431,7 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
             size_t num_batches = 0;
             for (const Key* k = keys; k != keys_end; num_batches++) {
               // Check overflow condition.
-              if (part.entries.size() >= this->overflow_margin_) {
+              if (part.entries.size() >= this->params_.overflow_margin) {
                 resolve_overflow_(table_name, part);
               }
 
@@ -449,7 +442,7 @@ bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
-                  if (++batch_size >= this->max_set_batch_size_) {
+                  if (++batch_size >= this->params_.max_set_batch_size) {
                     ++k;
                     break;
                   }
@@ -500,6 +493,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
     case 0: {
       // Nothing to do ;-).
     } break;
+
     case 1: {
       // Check time budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
@@ -518,6 +512,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
 
       HCTR_HASH_MAP_BACKEND_FETCH_(*keys, 0);
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_keys];
@@ -545,7 +540,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
           const size_t prev_hit_count = hit_count;
           const time_t now = std::time(nullptr);
 
-          const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
           }
@@ -596,7 +591,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++k;
                     break;
                   }
@@ -650,6 +645,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
     case 0: {
       // Nothing to do ;-).
     } break;
+
     case 1: {
       // Check time budget.
       const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
@@ -670,6 +666,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
       const time_t now = std::time(nullptr);
       HCTR_HASH_MAP_BACKEND_FETCH_(k, *indices);
     } break;
+
     default: {
       // Precalc constants.
       const size_t* const indices_end = &indices[num_indices];
@@ -697,7 +694,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
           const size_t prev_hit_count = hit_count;
           const time_t now = std::time(nullptr);
 
-          const size_t* const batch_end = std::min(&i[this->max_get_batch_size_], indices_end);
+          const size_t* const batch_end =
+              std::min(&i[this->params_.max_get_batch_size], indices_end);
           for (; i != batch_end; i++) {
             HCTR_HASH_MAP_BACKEND_FETCH_(keys[*i], *i);
           }
@@ -749,7 +747,7 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
                 const Key& k = keys[*i];
                 if (HCTR_KEY_TO_DB_PART_INDEX(k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
-                  if (++batch_size >= this->max_get_batch_size_) {
+                  if (++batch_size >= this->params_.max_get_batch_size) {
                     ++i;
                     break;
                   }
@@ -820,10 +818,12 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
     case 0: {
       // Nothing to do ;-).
     } break;
+
     case 1: {
       Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
       HCTR_HASH_MAP_BACKEND_EVICT_(*keys);
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_keys];
@@ -837,7 +837,7 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
           const size_t prev_hit_count = hit_count;
 
           // Step through batch 1 by 1 and delete.
-          const Key* const batch_end = std::min(&k[this->max_set_batch_size_], keys_end);
+          const Key* const batch_end = std::min(&k[this->params_.max_set_batch_size], keys_end);
           for (; k != batch_end; k++) {
             HCTR_HASH_MAP_BACKEND_EVICT_(*k);
           }
@@ -867,7 +867,7 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
               for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_EVICT_(*k);
-                  if (++batch_size >= this->max_set_batch_size_) {
+                  if (++batch_size >= this->params_.max_set_batch_size) {
                     ++k;
                     break;
                   }
@@ -974,13 +974,13 @@ template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& table_name,
                                                           Partition& part) {
   // Return if no overflow.
-  if (part.entries.size() > this->overflow_margin_) {
+  if (part.entries.size() > this->params_.overflow_margin) {
     return 0;
   }
 
   size_t hit_count = 0;
 
-  switch (this->overflow_policy_) {
+  switch (this->params_.overflow_policy) {
     case DatabaseOverflowPolicy_t::EvictOldest: {
       // Fetch keys and insert times.
       std::vector<std::pair<Key, time_t>> kt;
@@ -995,21 +995,23 @@ size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& tab
 
       // Call erase, until we reached the target amount.
       for (auto kt_it = kt.begin(); kt_it != kt.end();) {
-        const auto& batch_end = std::min(kt_it + this->max_set_batch_size_, kt.end());
+        const auto& batch_end = std::min(kt_it + this->params_.max_set_batch_size, kt.end());
 
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << '/'
                                  << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->overflow_margin_ << "): Attempting to evict "
-                                 << (batch_end - kt_it) << " OLDEST key/value pairs!" << std::endl;
+                                 << " > " << this->params_.overflow_margin
+                                 << "): Attempting to evict " << (batch_end - kt_it)
+                                 << " OLDEST key/value pairs!" << std::endl;
 
         for (; kt_it != batch_end; kt_it++) {
           HCTR_HASH_MAP_BACKEND_EVICT_(kt_it->first);
         }
-        if (part.entries.size() <= this->overflow_resolution_target_) {
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
           break;
         }
       }
     } break;
+
     case DatabaseOverflowPolicy_t::EvictRandom: {
       // Fetch all keys.
       std::vector<Key> k;
@@ -1026,28 +1028,31 @@ size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& tab
 
       // Delete items.
       for (auto k_it = k.begin(); k_it != k.end();) {
-        const auto& batch_end = std::min(k_it + this->max_set_batch_size_, k.end());
+        const auto& batch_end = std::min(k_it + this->params_.max_set_batch_size, k.end());
 
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << "/"
                                  << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->overflow_margin_ << "): Attempting to evict "
-                                 << (batch_end - k_it) << " RANDOM key/value pairs!" << std::endl;
+                                 << " > " << this->params_.overflow_margin
+                                 << "): Attempting to evict " << (batch_end - k_it)
+                                 << " RANDOM key/value pairs!" << std::endl;
 
         // Call erase, until we reached the target amount.
         for (; k_it != batch_end; k_it++) {
           HCTR_HASH_MAP_BACKEND_EVICT_(*k_it);
         }
-        if (part.entries.size() <= this->overflow_resolution_target_) {
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
           break;
         }
       }
     } break;
+
     default: {
       HCTR_LOG_S(WARNING, WORLD)
           << get_name() << " backend; Partition " << table_name << "/" << part.index
-          << " is overflowing (size = " << part.entries.size() << " > " << this->overflow_margin_
+          << " is overflowing (size = " << part.entries.size() << " > "
+          << this->params_.overflow_margin
           << "): Overflow cannot be resolved. No implementation for selected policy (="
-          << this->overflow_policy_ << ")!" << std::endl;
+          << this->params_.overflow_policy << ")!" << std::endl;
     } break;
   }
 

@@ -99,33 +99,57 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
         break;  // No volatile database.
 
       case DatabaseType_t::HashMap:
-      case DatabaseType_t::ParallelHashMap:
+      case DatabaseType_t::ParallelHashMap: {
         HCTR_LOG_S(INFO, WORLD) << "Creating HashMap CPU database backend..." << std::endl;
-        volatile_db_ = std::make_unique<HashMapBackend<TypeHashKey>>(
-            conf.num_partitions, conf.allocation_rate, conf.max_get_batch_size,
-            conf.max_set_batch_size, conf.overflow_margin, conf.overflow_policy,
-            conf.overflow_resolution_target);
-        break;
+        HashMapBackendParams params{
+            conf.max_get_batch_size, conf.max_set_batch_size, conf.num_partitions,
+            conf.overflow_margin,    conf.overflow_policy,    conf.overflow_resolution_target,
+            conf.allocation_rate,
+        };
+        volatile_db_ = std::make_unique<HashMapBackend<TypeHashKey>>(params);
+      } break;
 
-      case DatabaseType_t::MultiProcessHashMap:
+      case DatabaseType_t::MultiProcessHashMap: {
         HCTR_LOG_S(INFO, WORLD) << "Creating Multi-Process HashMap CPU database backend..."
                                 << std::endl;
-        volatile_db_ = std::make_unique<MultiProcessHashMapBackend<TypeHashKey>>(
-            conf.num_partitions, conf.allocation_rate, conf.shared_memory_size,
-            conf.shared_memory_name, std::chrono::milliseconds{100},  // heart_beat_frequency
-            true,                                                     // auto_remove
-            conf.max_get_batch_size, conf.max_set_batch_size, conf.overflow_margin,
-            conf.overflow_policy, conf.overflow_resolution_target);
-        break;
+        MultiProcessHashMapBackendParams params{
+            conf.max_get_batch_size,
+            conf.max_set_batch_size,
+            conf.num_partitions,
+            conf.overflow_margin,
+            conf.overflow_policy,
+            conf.overflow_resolution_target,
+            conf.allocation_rate,
+            conf.shared_memory_size,
+            conf.shared_memory_name,
+            std::chrono::milliseconds{100},  // heart_beat_frequency
+            true,                            // auto_remove
+        };
+        volatile_db_ = std::make_unique<MultiProcessHashMapBackend<TypeHashKey>>(params);
+      } break;
 
-      case DatabaseType_t::RedisCluster:
+      case DatabaseType_t::RedisCluster: {
         HCTR_LOG_S(INFO, WORLD) << "Creating RedisCluster backend..." << std::endl;
-        volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(
-            conf.address, conf.user_name, conf.password, conf.num_partitions,
-            conf.num_node_connections, conf.max_get_batch_size, conf.max_set_batch_size,
-            conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
-            conf.overflow_resolution_target);
-        break;
+        RedisClusterBackendParams params{
+            conf.max_get_batch_size,
+            conf.max_set_batch_size,
+            conf.num_partitions,
+            conf.overflow_margin,
+            conf.overflow_policy,
+            conf.overflow_resolution_target,
+            conf.address,
+            conf.user_name,
+            conf.password,
+            conf.num_node_connections,
+            conf.enable_tls,
+            conf.tls_ca_certificate,
+            conf.tls_client_certificate,
+            conf.tls_client_key,
+            conf.tls_server_name_identification,
+            conf.refresh_time_after_fetch,
+        };
+        volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(params);
+      } break;
 
       default:
         HCTR_DIE("Selected backend (volatile_db.type = %d) is not supported!", conf.type);
@@ -146,12 +170,16 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
     switch (conf.type) {
       case DatabaseType_t::Disabled:
         break;  // No persistent database.
-      case DatabaseType_t::RocksDB:
-        HCTR_LOG(INFO, WORLD, "Creating RocksDB backend...\n");
-        persistent_db_ = std::make_unique<RocksDBBackend<TypeHashKey>>(
-            conf.path, conf.num_threads, conf.read_only, conf.max_get_batch_size,
-            conf.max_set_batch_size);
-        break;
+
+      case DatabaseType_t::RocksDB: {
+        HCTR_LOG_S(INFO, WORLD) << "Creating RocksDB backend..." << std::endl;
+        RocksDBBackendParams params{
+            conf.max_get_batch_size, conf.max_set_batch_size, conf.path,
+            conf.num_threads,        conf.read_only,
+        };
+        persistent_db_ = std::make_unique<RocksDBBackend<TypeHashKey>>(params);
+      } break;
+
       default:
         HCTR_DIE("Selected backend (persistent_db.type = %d) is not supported!", conf.type);
         break;
@@ -184,6 +212,9 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
 
 template <typename TypeHashKey>
 HierParameterServer<TypeHashKey>::~HierParameterServer() {
+  // Await all pending volatile database transactions.
+  volatile_db_async_inserter_.await_idle();
+
   for (auto it = model_cache_map_.begin(); it != model_cache_map_.end(); it++) {
     for (auto& v : it->second) {
       v.second->finalize();
@@ -195,7 +226,8 @@ HierParameterServer<TypeHashKey>::~HierParameterServer() {
 template <typename TypeHashKey>
 void HierParameterServer<TypeHashKey>::update_database_per_model(
     const InferenceParams& inference_params) {
-  IModelLoader* rawreader = ModelLoader<TypeHashKey, float>::CreateLoader(DBTableDumpFormat_t::Raw);
+  IModelLoader* rawreader =
+      ModelLoader<TypeHashKey, float>::CreateLoader(DatabaseTableDumpFormat_t::Raw);
   // Create input file stream to read the embedding file
   for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
     if (ps_config_.embedding_vec_size_[inference_params.model_name].size() !=
@@ -223,11 +255,11 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
               : static_cast<size_t>(
                     volatile_db_cache_rate_ * static_cast<double>(volatile_capacity) + 0.5);
 
+      volatile_db_async_inserter_.await_idle();
       HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount,
                                       reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()),
                                       reinterpret_cast<const char*>(rawreader->getvectors()),
                                       embedding_size * sizeof(float)));
-      volatile_db_->synchronize();
       HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << volatile_cache_amount
                               << " / " << num_key << " embeddings in volatile database ("
                               << volatile_db_->get_name()
@@ -321,7 +353,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
   HCTR_LOG(DEBUG, WORLD, "Real-time subscribers created!\n");
 
-  auto insert_fn = [&](DatabaseBackend<TypeHashKey>* const db, const std::string& tag,
+  auto insert_fn = [&](DatabaseBackendBase<TypeHashKey>* const db, const std::string& tag,
                        const size_t num_pairs, const TypeHashKey* keys, const char* values,
                        const size_t value_size) -> bool {
     HCTR_LOG(DEBUG, WORLD,
@@ -356,7 +388,8 @@ template <typename TypeHashKey>
 void HierParameterServer<TypeHashKey>::init_ec(
     InferenceParams& inference_params,
     std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map) {
-  IModelLoader* rawreader = ModelLoader<TypeHashKey, float>::CreateLoader(DBTableDumpFormat_t::Raw);
+  IModelLoader* rawreader =
+      ModelLoader<TypeHashKey, float>::CreateLoader(DatabaseTableDumpFormat_t::Raw);
 
   for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
     rawreader->load(inference_params.embedding_table_names[j],
@@ -614,13 +647,19 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
       HCTR_LOG_S(DEBUG, WORLD) << "Attempting to migrate " << keys_to_elevate->size()
                                << " embeddings from " << persistent_db_->get_name() << " to "
                                << volatile_db_->get_name() << '.' << std::endl;
-      volatile_db_->insert_async(tag_name, keys_to_elevate, values_to_elevate, expected_value_size);
+      HCTR_CHECK(keys_to_elevate->size() * expected_value_size == values_to_elevate->size());
+
+      volatile_db_async_inserter_.submit(
+          [this, tag_name, keys_to_elevate, values_to_elevate, expected_value_size]() {
+            volatile_db_->insert(tag_name, keys_to_elevate->size(), keys_to_elevate->data(),
+                                 values_to_elevate->data(), expected_value_size);
+          });
     }
   } else {
     // If any database.
-    DatabaseBackend<TypeHashKey>* const db =
-        volatile_db_ ? static_cast<DatabaseBackend<TypeHashKey>*>(volatile_db_.get())
-                     : static_cast<DatabaseBackend<TypeHashKey>*>(persistent_db_.get());
+    DatabaseBackendBase<TypeHashKey>* const db =
+        volatile_db_ ? static_cast<DatabaseBackendBase<TypeHashKey>*>(volatile_db_.get())
+                     : static_cast<DatabaseBackendBase<TypeHashKey>*>(persistent_db_.get());
     if (db) {
       // Do a sequential lookup in the volatile DB, but fill gaps with a default value.
       hit_count += db->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),

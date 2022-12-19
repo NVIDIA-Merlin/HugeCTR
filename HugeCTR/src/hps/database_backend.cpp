@@ -27,21 +27,21 @@
 namespace HugeCTR {
 
 template <typename Key>
-DatabaseBackend<Key>::DatabaseBackend(size_t max_get_batch_size, size_t max_set_batch_size)
-    : max_get_batch_size_{max_get_batch_size}, max_set_batch_size_{max_set_batch_size} {}
+DatabaseBackendBase<Key>::DatabaseBackendBase(size_t max_set_batch_size)
+    : max_set_batch_size_{max_set_batch_size} {}
 
 template <typename Key>
-size_t DatabaseBackend<Key>::contains(const std::string& table_name, const size_t num_keys,
-                                      const Key* keys,
-                                      const std::chrono::nanoseconds& time_budget) const {
+size_t DatabaseBackendBase<Key>::contains(const std::string& table_name, const size_t num_keys,
+                                          const Key* keys,
+                                          const std::chrono::nanoseconds& time_budget) const {
   return 0;
 }
 
 template <typename Key>
-size_t DatabaseBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
-                                   const Key* const keys, const DatabaseHitCallback& on_hit,
-                                   const DatabaseMissCallback& on_miss,
-                                   const std::chrono::nanoseconds& time_budget) {
+size_t DatabaseBackendBase<Key>::fetch(const std::string& table_name, const size_t num_keys,
+                                       const Key* const keys, const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   for (size_t i = 0; i < num_keys; i++) {
     on_miss(i);
   }
@@ -49,11 +49,11 @@ size_t DatabaseBackend<Key>::fetch(const std::string& table_name, const size_t n
 }
 
 template <typename Key>
-size_t DatabaseBackend<Key>::fetch(const std::string& table_name, const size_t num_indices,
-                                   const size_t* indices, const Key* const keys,
-                                   const DatabaseHitCallback& on_hit,
-                                   const DatabaseMissCallback& on_miss,
-                                   const std::chrono::nanoseconds& time_budget) {
+size_t DatabaseBackendBase<Key>::fetch(const std::string& table_name, const size_t num_indices,
+                                       const size_t* indices, const Key* const keys,
+                                       const DatabaseHitCallback& on_hit,
+                                       const DatabaseMissCallback& on_miss,
+                                       const std::chrono::nanoseconds& time_budget) {
   const size_t* const indices_end = &indices[num_indices];
   for (; indices != indices_end; indices++) {
     on_miss(*indices);
@@ -62,7 +62,7 @@ size_t DatabaseBackend<Key>::fetch(const std::string& table_name, const size_t n
 }
 
 template <typename Key>
-size_t DatabaseBackend<Key>::evict(const std::vector<std::string>& table_names) {
+size_t DatabaseBackendBase<Key>::evict(const std::vector<std::string>& table_names) {
   size_t n = 0;
   for (const std::string& table_name : table_names) {
     n += evict(table_name);
@@ -71,26 +71,26 @@ size_t DatabaseBackend<Key>::evict(const std::vector<std::string>& table_names) 
 }
 
 template <typename Key>
-void DatabaseBackend<Key>::dump(const std::string& table_name, const std::string& path,
-                                DBTableDumpFormat_t format) {
+void DatabaseBackendBase<Key>::dump(const std::string& table_name, const std::string& path,
+                                    DatabaseTableDumpFormat_t format) {
   // Resolve format if none specificed.
-  if (format == DBTableDumpFormat_t::Automatic) {
+  if (format == DatabaseTableDumpFormat_t::Automatic) {
     const std::string ext = std::filesystem::path(path).extension();
     if (ext == ".bin") {
-      format = DBTableDumpFormat_t::Raw;
+      format = DatabaseTableDumpFormat_t::Raw;
     } else if (ext == ".sst") {
-      format = DBTableDumpFormat_t::SST;
+      format = DatabaseTableDumpFormat_t::SST;
     } else {
       HCTR_DIE("Unsupported file extension!");
     }
   }
 
   switch (format) {
-    case DBTableDumpFormat_t::Raw: {
-      std::ofstream file{path, std::ios::binary};
+    case DatabaseTableDumpFormat_t::Raw: {
+      std::ofstream file(path, std::ios::binary);
 
       // Write header.
-      const char magic[] = "bin";
+      static constexpr char magic[] = {'b', 'i', 'n', '\0'};
       file.write(magic, sizeof(magic));
 
       const uint32_t version = 1;
@@ -102,7 +102,8 @@ void DatabaseBackend<Key>::dump(const std::string& table_name, const std::string
       // Write data.
       dump_bin(table_name, file);
     } break;
-    case DBTableDumpFormat_t::SST: {
+
+    case DatabaseTableDumpFormat_t::SST: {
       rocksdb::Options options;
       rocksdb::EnvOptions env_options;
       rocksdb::SstFileWriter file(env_options, options);
@@ -113,6 +114,7 @@ void DatabaseBackend<Key>::dump(const std::string& table_name, const std::string
 
       HCTR_ROCKSDB_CHECK(file.Finish());
     } break;
+
     default: {
       HCTR_DIE("Unsupported DB table dump format!");
     } break;
@@ -120,7 +122,7 @@ void DatabaseBackend<Key>::dump(const std::string& table_name, const std::string
 }
 
 template <typename Key>
-void DatabaseBackend<Key>::load_dump(const std::string& table_name, const std::string& path) {
+void DatabaseBackendBase<Key>::load_dump(const std::string& table_name, const std::string& path) {
   const std::string ext = std::filesystem::path(path).extension();
   if (ext == ".bin") {
     load_dump_bin(table_name, path);
@@ -132,7 +134,8 @@ void DatabaseBackend<Key>::load_dump(const std::string& table_name, const std::s
 }
 
 template <typename Key>
-void DatabaseBackend<Key>::load_dump_bin(const std::string& table_name, const std::string& path) {
+void DatabaseBackendBase<Key>::load_dump_bin(const std::string& table_name,
+                                             const std::string& path) {
   std::ifstream file{path, std::ios::binary};
   HCTR_CHECK(file.is_open());
 
@@ -194,7 +197,8 @@ void DatabaseBackend<Key>::load_dump_bin(const std::string& table_name, const st
 }
 
 template <typename Key>
-void DatabaseBackend<Key>::load_dump_sst(const std::string& table_name, const std::string& path) {
+void DatabaseBackendBase<Key>::load_dump_sst(const std::string& table_name,
+                                             const std::string& path) {
   rocksdb::Options options;
   rocksdb::SstFileReader file{options};
   HCTR_ROCKSDB_CHECK(file.Open(path));
@@ -211,8 +215,7 @@ void DatabaseBackend<Key>::load_dump_sst(const std::string& table_name, const st
     // Parse key.
     const rocksdb::Slice& k_view = it->key();
     HCTR_CHECK(k_view.size() == sizeof(Key));
-    const Key k = *reinterpret_cast<const Key*>(k_view.data());
-    keys.emplace_back(k);
+    keys.emplace_back(*reinterpret_cast<const Key*>(k_view.data()));
 
     // Parse value.
     const rocksdb::Slice& v_view = it->value();
@@ -239,8 +242,8 @@ void DatabaseBackend<Key>::load_dump_sst(const std::string& table_name, const st
   }
 }
 
-template class DatabaseBackend<unsigned int>;
-template class DatabaseBackend<long long>;
+template class DatabaseBackendBase<unsigned int>;
+template class DatabaseBackendBase<long long>;
 
 DatabaseBackendError::DatabaseBackendError(const std::string& backend, const size_t partition,
                                            const std::string& what)
@@ -251,43 +254,5 @@ std::string DatabaseBackendError::to_string() const {
   os << backend_ << " DB Backend error (partition = " << partition_ << "): " << what_;
   return os.str();
 }
-
-template <typename Key>
-VolatileBackend<Key>::VolatileBackend(const size_t max_get_batch_size,
-                                      const size_t max_set_batch_size, const size_t overflow_margin,
-                                      const DatabaseOverflowPolicy_t overflow_policy,
-                                      const double overflow_resolution_target)
-    : Base(max_get_batch_size, max_set_batch_size),
-      overflow_margin_(overflow_margin),
-      overflow_policy_(overflow_policy),
-      overflow_resolution_target_(hctr_safe_cast<size_t>(
-          static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5)) {
-  HCTR_CHECK(overflow_resolution_target_ <= overflow_margin_);
-}
-
-template <typename Key>
-std::future<void> VolatileBackend<Key>::insert_async(
-    const std::string& table_name, const std::shared_ptr<std::vector<Key>>& keys,
-    const std::shared_ptr<std::vector<char>>& values, size_t value_size) {
-  HCTR_CHECK(keys->size() * value_size == values->size());
-  return background_worker_.submit([this, table_name, keys, values, value_size]() {
-    this->insert(table_name, keys->size(), keys->data(), values->data(), value_size);
-  });
-}
-
-template <typename Key>
-void VolatileBackend<Key>::synchronize() {
-  background_worker_.await_idle();
-}
-
-template class VolatileBackend<unsigned int>;
-template class VolatileBackend<long long>;
-
-template <typename Key>
-PersistentBackend<Key>::PersistentBackend(size_t max_get_batch_size, size_t max_set_batch_size)
-    : Base(max_get_batch_size, max_set_batch_size) {}
-
-template class PersistentBackend<unsigned int>;
-template class PersistentBackend<long long>;
 
 }  // namespace HugeCTR

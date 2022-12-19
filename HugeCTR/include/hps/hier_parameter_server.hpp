@@ -67,16 +67,21 @@ class HierParameterServer : public HierParameterServerBase {
  private:
   // Parameter server configuration
   parameter_server_config ps_config_;
+
   // Database layers for multi-tier cache/lookup.
-  std::unique_ptr<VolatileBackend<TypeHashKey>> volatile_db_;
+  std::unique_ptr<DatabaseBackendBase<TypeHashKey>> volatile_db_;
   bool volatile_db_initialize_after_startup_;
   double volatile_db_cache_rate_;
   bool volatile_db_cache_missed_embeddings_;
-  std::unique_ptr<PersistentBackend<TypeHashKey>> persistent_db_;
+  mutable ThreadPool volatile_db_async_inserter_{"vdb inserter", 1};
+
+  std::unique_ptr<DatabaseBackendBase<TypeHashKey>> persistent_db_;
   bool persistent_db_initialize_after_startup_;
+
   // Realtime data ingestion.
   std::unique_ptr<MessageSource<TypeHashKey>> volatile_db_source_;
   std::unique_ptr<MessageSource<TypeHashKey>> persistent_db_source_;
+
   // Buffer pool that manages workspace and refreshspace of embedding caches
   std::shared_ptr<ManagerPool> buffer_pool_;
   // Configurations for memory pool

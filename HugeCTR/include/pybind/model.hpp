@@ -537,7 +537,7 @@ class Model {
   std::shared_ptr<OptParamsPy> opt_params_py_;
   std::shared_ptr<EmbeddingTrainingCacheParams> etc_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
-  std::shared_ptr<MessageSink<long long>> message_sink_;
+  std::shared_ptr<MessageSinkBase<long long>> message_sink_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 

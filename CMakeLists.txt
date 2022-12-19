@@ -196,8 +196,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
   ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
-  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/no_tls
   ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
+  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/tls
   ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
   ${PROJECT_SOURCE_DIR}/third_party/librdkafka/src
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
