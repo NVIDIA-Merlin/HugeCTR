@@ -23,33 +23,36 @@
 
 namespace HugeCTR {
 
+struct KafkaMessageSinkParams : public MessageSinkParams {
+  std::string brokers = "localhost";  // The host-address of the Kafka broker to use.
+  size_t num_partitions =
+      8;  // Groups data into N partitions; this is equivalent to the number of key groups to use.
+          // We use consistent partitioning to distributed updates to these.
+  size_t send_buffer_size =
+      256 * 1024;  // The maximum message size to send. Hence, this value should must be in [16 +
+                   // value_size, message.max.bytes of the broker - 1024].
+  size_t num_send_buffers = 1024;  // Maximum number of send buffers.
+  bool await_connection =
+      false;  // Awaits a handshake with the broker by attempting to queue an empty message.
+};
+
 /**
  * \p MessageSink implementation for Kafka message queues.
  *
  * @tparam Key Data-type to be used for keys in this message queue.
  */
 template <typename Key>
-class KafkaMessageSink final : public MessageSink<Key> {
+class KafkaMessageSink final : public MessageSink<Key, KafkaMessageSinkParams> {
  public:
-  DISALLOW_COPY_AND_MOVE(KafkaMessageSink);
-  using Base = MessageSink<Key>;
+  using Base = MessageSink<Key, KafkaMessageSinkParams>;
 
   KafkaMessageSink() = delete;
+  DISALLOW_COPY_AND_MOVE(KafkaMessageSink);
 
   /**
    * Construct a new \p KafkaMessageSink object.
-   *
-   * @param brokers The host-address of the Kafka broker to use.
-   * @param num_key_groups Number of key groups to use.
-   * @param send_buffer_size The maximum message size to send. Hence, this value should must be in
-   * [16 + value_size, message.max.bytes of the broker - 1024].
-   * @param num_send_buffers Maximum number of send buffers.
-   * @param await_connection Awaits a handshake with the broker by attempting to queue an empty
-   * message.
    */
-  KafkaMessageSink(const std::string& brokers, size_t num_key_groups = 8,
-                   size_t send_buffer_size = 256 * 1024, size_t num_send_buffers = 1024,
-                   bool await_connection = false);
+  KafkaMessageSink(const KafkaMessageSinkParams& params);
 
   virtual ~KafkaMessageSink();
 
@@ -95,11 +98,7 @@ class KafkaMessageSink final : public MessageSink<Key> {
 
   std::unordered_map<std::string, rd_kafka_topic_t*> topics_;
 
-  const size_t num_partitions_;
-
   // Preallocated buffers to speed up sending.
-  const size_t send_buffer_size_;
-  const size_t num_send_buffers_;
   std::vector<char> send_buffer_memory_;
   std::vector<char*> send_buffers_;
   mutable std::mutex send_buffer_barrier_;

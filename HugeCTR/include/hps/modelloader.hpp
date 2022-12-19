@@ -113,15 +113,15 @@ class RawModelLoader : public IModelLoader {
 template <typename TKey, typename TValue>
 class ModelLoader {
  public:
-  static IModelLoader* CreateLoader(DBTableDumpFormat_t type) {
+  static IModelLoader* CreateLoader(DatabaseTableDumpFormat_t type) {
     switch (type) {
-      case DBTableDumpFormat_t::Raw:
+      case DatabaseTableDumpFormat_t::Raw:
         return new RawModelLoader<TKey, TValue>();
         break;
       // TBD: The load_dump logic implemented in the data backend can be encapsulated as another
       // model reader for sst/bin files, So as to facilitate the reuse by components, such as
       // embedding cache
-      case DBTableDumpFormat_t::SST:
+      case DatabaseTableDumpFormat_t::SST:
         return nullptr;
         break;
       default:

@@ -39,6 +39,9 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          shared_memory_size == p.shared_memory_size && shared_memory_name == p.shared_memory_name &&
          num_node_connections == p.num_node_connections &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         enable_tls == p.enable_tls && tls_ca_certificate == p.tls_ca_certificate &&
+         tls_client_certificate == p.tls_client_certificate && tls_client_key == p.tls_client_key &&
+         tls_server_name_identification == p.tls_server_name_identification &&
          // Overflow handling related.
          refresh_time_after_fetch == p.refresh_time_after_fetch &&
          overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
@@ -78,13 +81,20 @@ bool UpdateSourceParams::operator==(const UpdateSourceParams& p) const {
 }
 bool UpdateSourceParams::operator!=(const UpdateSourceParams& p) const { return !operator==(p); }
 
+VolatileDatabaseParams::VolatileDatabaseParams() {
+  num_partitions =
+      std::min(num_partitions, static_cast<size_t>(std::thread::hardware_concurrency()));
+}
+
 VolatileDatabaseParams::VolatileDatabaseParams(
     const DatabaseType_t type,
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
     const size_t num_partitions, const size_t allocation_rate, const size_t shared_memory_size,
     const std::string& shared_memory_name, const size_t num_node_connections,
-    const size_t max_get_batch_size, const size_t max_set_batch_size,
+    const size_t max_get_batch_size, const size_t max_set_batch_size, const bool enable_tls,
+    const std::string& tls_ca_certificate, const std::string& tls_client_certificate,
+    const std::string& tls_client_key, const std::string& tls_server_name_identification,
     // Overflow handling related.
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
@@ -93,29 +103,37 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     const bool cache_missed_embeddings,
     // Real-time update mechanism related.
     const std::vector<std::string>& update_filters)
-    : type(type),
+    : type{type},
       // Backend specific.
-      address(address),
-      user_name(user_name),
-      password(password),
-      num_partitions(num_partitions),
-      allocation_rate(allocation_rate),
+      address{address},
+      user_name{user_name},
+      password{password},
+      num_partitions{num_partitions},
+      allocation_rate{allocation_rate},
       shared_memory_size{shared_memory_size},
       shared_memory_name{shared_memory_name},
-      num_node_connections(num_node_connections),
-      max_get_batch_size(max_get_batch_size),
-      max_set_batch_size(max_set_batch_size),
+      num_node_connections{num_node_connections},
+      max_get_batch_size{max_get_batch_size},
+      max_set_batch_size{max_set_batch_size},
+      enable_tls{enable_tls},
+      tls_ca_certificate{tls_ca_certificate},
+      tls_client_certificate{tls_client_certificate},
+      tls_client_key{tls_client_key},
+      tls_server_name_identification{tls_server_name_identification},
       // Overflow handling related.
-      refresh_time_after_fetch(refresh_time_after_fetch),
-      overflow_margin(overflow_margin),
-      overflow_policy(overflow_policy),
-      overflow_resolution_target(overflow_resolution_target),
+      refresh_time_after_fetch{refresh_time_after_fetch},
+      overflow_margin{overflow_margin},
+      overflow_policy{overflow_policy},
+      overflow_resolution_target{overflow_resolution_target},
       // Caching behavior related.
       initialize_after_startup{initialize_after_startup},
-      initial_cache_rate(initial_cache_rate),
-      cache_missed_embeddings(cache_missed_embeddings),
+      initial_cache_rate{initial_cache_rate},
+      cache_missed_embeddings{cache_missed_embeddings},
       // Real-time update mechanism related.
-      update_filters(update_filters) {}
+      update_filters{update_filters} {}
+
+PersistentDatabaseParams::PersistentDatabaseParams()
+    : path{std::filesystem::temp_directory_path() / "rocksdb"} {}
 
 PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
                                                    // Backend specific.
@@ -251,50 +269,40 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     const nlohmann::json& update_source = get_json(hps_config, "update_source");
     auto& params = update_source_params;
 
-    params.type = get_hps_updatesource_type(update_source, "type");
+    params.type = get_hps_updatesource_type(update_source, "type", params.type);
 
     // Backend specific.
-    params.brokers =
-        get_value_from_json_soft<std::string>(update_source, "brokers", "127.0.0.1:9092");
-
-    params.metadata_refresh_interval_ms =
-        get_value_from_json_soft<size_t>(update_source, "metadata_refresh_interval_ms", 30'000);
-
+    params.brokers = get_value_from_json_soft(update_source, "brokers", params.brokers);
+    params.metadata_refresh_interval_ms = get_value_from_json_soft(
+        update_source, "metadata_refresh_interval_ms", params.metadata_refresh_interval_ms);
     params.receive_buffer_size =
-        get_value_from_json_soft<size_t>(update_source, "receive_buffer_size", 256 * 1024);
-
+        get_value_from_json_soft(update_source, "receive_buffer_size", params.receive_buffer_size);
     params.poll_timeout_ms =
-        get_value_from_json_soft<size_t>(update_source, "poll_timeout_ms", 500);
-
+        get_value_from_json_soft(update_source, "poll_timeout_ms", params.poll_timeout_ms);
     params.max_batch_size =
-        get_value_from_json_soft<size_t>(update_source, "max_batch_size", 8 * 1024);
-
+        get_value_from_json_soft(update_source, "max_batch_size", params.max_batch_size);
     params.failure_backoff_ms =
-        get_value_from_json_soft<size_t>(update_source, "failure_backoff_ms", 50);
-
+        get_value_from_json_soft(update_source, "failure_backoff_ms", params.failure_backoff_ms);
     params.max_commit_interval =
-        get_value_from_json_soft<size_t>(update_source, "max_commit_interval", 32);
+        get_value_from_json_soft(update_source, "max_commit_interval", params.max_commit_interval);
   }
+
   // Persistent database parameters.
   PersistentDatabaseParams persistent_db_params;
   if (hps_config.find("persistent_db") != hps_config.end()) {
     const nlohmann::json& persistent_db = get_json(hps_config, "persistent_db");
     auto& params = persistent_db_params;
-    params.type = get_hps_database_type(persistent_db, "type");
+    params.type = get_hps_database_type(persistent_db, "type", params.type);
 
     // Backend specific.
-    params.path = get_value_from_json_soft<std::string>(
-        persistent_db, "path", std::filesystem::temp_directory_path() / "rocksdb");
-
-    params.num_threads = get_value_from_json_soft<size_t>(persistent_db, "num_threads", 16);
-
-    params.read_only = get_value_from_json_soft<bool>(persistent_db, "read_only", false);
+    params.path = get_value_from_json_soft(persistent_db, "path", params.path);
+    params.num_threads = get_value_from_json_soft(persistent_db, "num_threads", params.num_threads);
+    params.read_only = get_value_from_json_soft(persistent_db, "read_only", params.read_only);
 
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 64L * 1024L);
-
+        get_value_from_json_soft(persistent_db, "max_get_batch_size", params.max_get_batch_size);
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 64L * 1024L);
+        get_value_from_json_soft(persistent_db, "max_set_batch_size", params.max_set_batch_size);
 
     if (persistent_db.find("update_filters") != persistent_db.end()) {
       params.update_filters.clear();
@@ -304,65 +312,67 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
       }
     }
   }
+
   // Volatile database parameters.
-  HugeCTR::VolatileDatabaseParams volatile_db_params;
+  VolatileDatabaseParams volatile_db_params;
   if (hps_config.find("volatile_db") != hps_config.end()) {
     const nlohmann::json& volatile_db = get_json(hps_config, "volatile_db");
     auto& params = volatile_db_params;
-    params.type = get_hps_database_type(volatile_db, "type");
+    // TODO: This is a minor beauty issue. Default in the struct should be changed to `Disabled`
+    // (compatibility?).
+    params.type = get_hps_database_type(volatile_db, "type", DatabaseType_t::Disabled);
 
     // Backend specific.
-    params.address =
-        get_value_from_json_soft<std::string>(volatile_db, "address", "127.0.0.1:7000");
+    params.address = get_value_from_json_soft(volatile_db, "address", params.address);
+    params.user_name = get_value_from_json_soft(volatile_db, "user_name", params.user_name);
+    params.password = get_value_from_json_soft(volatile_db, "password", params.password);
 
-    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "user_name", "default");
-
-    params.password = get_value_from_json_soft<std::string>(volatile_db, "password", "");
-
-    params.num_partitions = get_value_from_json_soft<size_t>(
-        volatile_db, "num_partitions", std::min(16u, std::thread::hardware_concurrency()));
+    params.num_partitions =
+        get_value_from_json_soft(volatile_db, "num_partitions", params.num_partitions);
 
     params.allocation_rate =
-        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256L * 1024L * 1024L);
+        get_value_from_json_soft(volatile_db, "allocation_rate", params.allocation_rate);
 
-    params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
-                                                                 16L * 1024L * 1024L * 1024L);
-
-    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
-                                                             "hctr_mp_hash_map_database");
-
-    params.max_get_batch_size = get_value_from_json_soft<size_t>(volatile_db, "shared_memory_size",
-                                                                 16L * 1024L * 1024L * 1024L);
-
-    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "shared_memory_name",
-                                                             "hctr_mp_hash_map_database");
+    params.shared_memory_size =
+        get_value_from_json_soft(volatile_db, "shared_memory_size", params.shared_memory_size);
+    params.shared_memory_name =
+        get_value_from_json_soft(volatile_db, "shared_memory_name", params.shared_memory_name);
 
     params.num_node_connections =
-        get_value_from_json_soft<size_t>(volatile_db, "num_node_connections", 5);
+        get_value_from_json_soft(volatile_db, "num_node_connections", params.num_node_connections);
 
     params.max_get_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 64L * 1024L);
-
+        get_value_from_json_soft(volatile_db, "max_get_batch_size", params.max_get_batch_size);
     params.max_set_batch_size =
-        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 64L * 1024L);
+        get_value_from_json_soft(volatile_db, "max_set_batch_size", params.max_set_batch_size);
+
+    params.enable_tls = get_value_from_json_soft(volatile_db, "enable_tls", params.enable_tls);
+    params.tls_ca_certificate =
+        get_value_from_json_soft(volatile_db, "tls_ca_certificate", params.tls_ca_certificate);
+    params.tls_client_certificate = get_value_from_json_soft(volatile_db, "tls_client_certificate",
+                                                             params.tls_client_certificate);
+    params.tls_client_key =
+        get_value_from_json_soft(volatile_db, "tls_client_key", params.tls_client_key);
+    params.tls_server_name_identification = get_value_from_json_soft(
+        volatile_db, "tls_server_name_identification", params.tls_server_name_identification);
 
     // Overflow handling related.
-    params.refresh_time_after_fetch =
-        get_value_from_json_soft<bool>(volatile_db, "refresh_time_after_fetch", false);
+    params.refresh_time_after_fetch = get_value_from_json_soft(
+        volatile_db, "refresh_time_after_fetch", params.refresh_time_after_fetch);
 
-    params.overflow_margin = get_value_from_json_soft<size_t>(volatile_db, "overflow_margin",
-                                                              std::numeric_limits<size_t>::max());
-    params.overflow_policy = get_hps_overflow_policy(volatile_db, "overflow_policy");
-
-    params.overflow_resolution_target =
-        get_value_from_json_soft<double>(volatile_db, "overflow_resolution_target", 0.8);
+    params.overflow_margin =
+        get_value_from_json_soft(volatile_db, "overflow_margin", params.overflow_margin);
+    params.overflow_policy =
+        get_hps_overflow_policy(volatile_db, "overflow_policy", params.overflow_policy);
+    params.overflow_resolution_target = get_value_from_json_soft(
+        volatile_db, "overflow_resolution_target", params.overflow_resolution_target);
 
     // Caching behavior related.
     params.initial_cache_rate =
-        get_value_from_json_soft<double>(volatile_db, "initial_cache_rate", 1.0);
+        get_value_from_json_soft(volatile_db, "initial_cache_rate", params.initial_cache_rate);
 
-    params.cache_missed_embeddings =
-        get_value_from_json_soft<bool>(volatile_db, "cache_missed_embeddings", false);
+    params.cache_missed_embeddings = get_value_from_json_soft(
+        volatile_db, "cache_missed_embeddings", params.cache_missed_embeddings);
 
     // Real-time update mechanism related.
     if (volatile_db.find("update_filters") != volatile_db.end()) {
@@ -377,6 +387,7 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
   this->volatile_db = volatile_db_params;
   this->persistent_db = persistent_db_params;
   this->update_source = update_source_params;
+
   // Search for all model configuration
   const nlohmann::json& models = get_json(hps_config, "models");
   HCTR_CHECK_HINT(models.size() > 0,
@@ -659,36 +670,37 @@ parameter_server_config::parameter_server_config(
   this->inference_params_array = inference_params_array;
 }
 
-HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key) {
+DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string& key,
+                                     const DatabaseType_t default_value) {
   if (json.find(key) == json.end()) {
-    return HugeCTR::DatabaseType_t::Disabled;
+    return default_value;
   }
   std::string tmp = get_value_from_json<std::string>(json, key);
-  HugeCTR::DatabaseType_t enum_value;
+  DatabaseType_t enum_value;
   std::unordered_set<const char*> names;
 
-  enum_value = HugeCTR::DatabaseType_t::Disabled;
+  enum_value = DatabaseType_t::Disabled;
   names = {hctr_enum_to_c_str(enum_value), "disable", "none"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseType_t::HashMap;
+  enum_value = DatabaseType_t::HashMap;
   names = {hctr_enum_to_c_str(enum_value), "hashmap", "hash", "map"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseType_t::ParallelHashMap;
+  enum_value = DatabaseType_t::ParallelHashMap;
   names = {hctr_enum_to_c_str(enum_value), "parallel_hashmap", "parallel_hash", "parallel_map"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseType_t::MultiProcessHashMap;
+  enum_value = DatabaseType_t::MultiProcessHashMap;
   names = {hctr_enum_to_c_str(enum_value), "multi_process_hashmap", "multi_process_hash",
            "multi_process_map"};
   for (const char* name : names)
@@ -696,72 +708,73 @@ HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const 
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseType_t::RedisCluster;
+  enum_value = DatabaseType_t::RedisCluster;
   names = {hctr_enum_to_c_str(enum_value), "redis"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseType_t::RocksDB;
+  enum_value = DatabaseType_t::RocksDB;
   names = {hctr_enum_to_c_str(enum_value), "rocksdb", "rocks"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  return HugeCTR::DatabaseType_t::Disabled;
+  return default_value;
 }
 
-UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key) {
+UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string& key,
+                                             const UpdateSourceType_t default_value) {
   if (json.find(key) == json.end()) {
-    return HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+    return default_value;
   }
   std::string tmp = get_value_from_json<std::string>(json, key);
-  HugeCTR::UpdateSourceType_t enum_value;
+  UpdateSourceType_t enum_value;
   std::unordered_set<const char*> names;
 
-  enum_value = HugeCTR::UpdateSourceType_t::Null;
+  enum_value = UpdateSourceType_t::Null;
   names = {hctr_enum_to_c_str(enum_value), "none"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+  enum_value = UpdateSourceType_t::KafkaMessageQueue;
   names = {hctr_enum_to_c_str(enum_value), "kafka_mq", "kafka"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  return HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+  return default_value;
 }
 
-DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json,
-                                                 const std::string key) {
+DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string& key,
+                                                 const DatabaseOverflowPolicy_t default_value) {
   if (json.find(key) == json.end()) {
-    return HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
+    return default_value;
   }
   std::string tmp = get_value_from_json<std::string>(json, key);
-  HugeCTR::DatabaseOverflowPolicy_t enum_value;
+  DatabaseOverflowPolicy_t enum_value;
   std::unordered_set<const char*> names;
 
-  enum_value = HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
+  enum_value = DatabaseOverflowPolicy_t::EvictOldest;
   names = {hctr_enum_to_c_str(enum_value), "oldest"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = HugeCTR::DatabaseOverflowPolicy_t::EvictRandom;
+  enum_value = DatabaseOverflowPolicy_t::EvictRandom;
   names = {hctr_enum_to_c_str(enum_value), "random"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  return HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
+  return default_value;
 }
 
 }  // namespace HugeCTR
