@@ -20,23 +20,20 @@
 
 namespace HugeCTR {
 
+struct MessageSinkParams {};
+
 /**
  * Each instance represents an emitter link to a theoretically infinitely sized message queue..
  *
  * @tparam Key Data-type to be used for keys in this message queue.
  */
 template <typename Key>
-class MessageSink {
+class MessageSinkBase {
  public:
-  DISALLOW_COPY_AND_MOVE(MessageSink);
+  MessageSinkBase() = default;
+  DISALLOW_COPY_AND_MOVE(MessageSinkBase);
 
-  MessageSink() = default;
-
-  virtual ~MessageSink() = default;
-
-  size_t num_posts() const { return num_posts_; }
-  size_t num_pairs_posted() const { return num_pairs_posted_; }
-  size_t num_flushes() const { return num_flushes_; }
+  virtual ~MessageSinkBase() = default;
 
   /**
    * Emit one or more key/value pairs to the queue.
@@ -55,10 +52,29 @@ class MessageSink {
    */
   virtual void flush();
 
+  size_t num_posts() const { return num_posts_; }
+  size_t num_pairs_posted() const { return num_pairs_posted_; }
+  size_t num_flushes() const { return num_flushes_; }
+
  private:
   size_t num_posts_ = 0;
   size_t num_pairs_posted_ = 0;
   size_t num_flushes_ = 0;
+};
+
+template <typename Key, typename Params>
+class MessageSink : public MessageSinkBase<Key> {
+ public:
+  using Base = MessageSinkBase<Key>;
+
+  MessageSink() = delete;
+  DISALLOW_COPY_AND_MOVE(MessageSink);
+  MessageSink(const Params& params) : params_{params} {}
+
+  virtual ~MessageSink() = default;
+
+ protected:
+  const Params params_;
 };
 
 #define HCTR_MESSAGE_SOURCE_CALLBACK \

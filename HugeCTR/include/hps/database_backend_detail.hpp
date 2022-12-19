@@ -40,9 +40,9 @@ inline uint64_t rrxmrrxmsx_0(uint64_t x) {
 }
 
 #ifdef HCTR_KEY_TO_DB_PART_INDEX
-#error "HCTR_KEY_TO_DB_PART_INDEX is already defined. This could lead to unpredictable behavior!"
+#error HCTR_KEY_TO_DB_PART_INDEX is already defined. This could lead to unpredictable behavior!
 #else
-#define HCTR_KEY_TO_DB_PART_INDEX(KEY) (rrxmrrxmsx_0(KEY) % num_partitions_)
+#define HCTR_KEY_TO_DB_PART_INDEX(KEY) (rrxmrrxmsx_0(KEY) % this->params_.num_partitions)
 #endif
 
 }  // namespace HugeCTR

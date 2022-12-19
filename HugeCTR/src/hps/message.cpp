@@ -19,21 +19,19 @@
 namespace HugeCTR {
 
 template <typename Key>
-void MessageSink<Key>::post(const std::string& tag, const size_t num_pairs, const Key* const keys,
-                            const char* const values, const uint32_t value_size) {
+void MessageSinkBase<Key>::post(const std::string& tag, const size_t num_pairs,
+                                const Key* const keys, const char* const values,
+                                const uint32_t value_size) {
   num_posts_++;
   num_pairs_posted_ += num_pairs;
 }
 
 template <typename Key>
-void MessageSink<Key>::flush() {
+void MessageSinkBase<Key>::flush() {
   num_flushes_++;
 }
 
-template class MessageSink<unsigned int>;
-template class MessageSink<long long>;
-
-template class MessageSource<unsigned int>;
-template class MessageSource<long long>;
+template class MessageSinkBase<unsigned int>;
+template class MessageSinkBase<long long>;
 
 }  // namespace HugeCTR

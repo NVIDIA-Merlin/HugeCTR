@@ -34,6 +34,8 @@ namespace HugeCTR {
 inline std::string make_hkey(const std::string& table_name, const size_t partition,
                              const char suffix) {
   std::ostringstream os;
+  // These curly brackets (`{` and `}`) are not a design choice. Instead, this will trigger Redis to
+  // align node allocations for 'v' and 't'.
   os << "hps_et{" << table_name << "/p" << partition << '}' << suffix;
   return os.str();
 }
@@ -50,39 +52,47 @@ inline std::string make_hkey(const std::string& table_name, const size_t partiti
 #endif
 
 template <typename Key>
-RedisClusterBackend<Key>::RedisClusterBackend(
-    const std::string& address, const std::string& user_name, const std::string& password,
-    const size_t num_partitions, const size_t num_node_connections, const size_t max_get_batch_size,
-    const size_t max_set_batch_size, const bool refresh_time_after_fetch,
-    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
-    const double overflow_resolution_target)
-    : Base(max_get_batch_size, max_set_batch_size, overflow_margin, overflow_policy,
-           overflow_resolution_target),
-      refresh_time_after_fetch_{refresh_time_after_fetch},
-      // Can switch to std::range in C++20.
-      num_partitions_{num_partitions} {
-  HCTR_CHECK(num_node_connections > 0);
-  HCTR_CHECK(num_partitions_ >= num_node_connections);
+RedisClusterBackend<Key>::RedisClusterBackend(const RedisClusterBackendParams& params)
+    : Base(params) {
+  HCTR_CHECK(params.num_node_connections > 0);
+  HCTR_CHECK(params.num_partitions >= params.num_node_connections);
 
   // Put together cluster configuration.
   sw::redis::ConnectionOptions options;
 
-  const std::string::size_type comma_pos = address.find(',');
-  const std::string host = comma_pos == std::string::npos ? address : address.substr(0, comma_pos);
+  {
+    std::string host = params.address;
 
-  const std::string::size_type colon_pos = host.find(':');
-  if (colon_pos == std::string::npos) {
-    options.host = host;
-  } else {
-    options.host = host.substr(0, colon_pos);
-    options.port = std::stoi(host.substr(colon_pos + 1));
+    const std::string::size_type comma_pos = host.find(',');
+    if (comma_pos != std::string::npos) {
+      host = host.substr(0, comma_pos);
+    }
+
+    const std::string::size_type colon_pos = host.find(':');
+    if (colon_pos == std::string::npos) {
+      options.host = host;
+    } else {
+      options.host = host.substr(0, colon_pos);
+      options.port = std::stoi(host.substr(colon_pos + 1));
+    }
   }
-  options.user = user_name;
-  options.password = password;
+  options.user = params.user_name;
+  options.password = params.password;
   options.keep_alive = true;
 
+  // Enable TLS/SSL support.
+  options.tls.enabled = params.enable_tls;
+  if (std::filesystem::is_directory(params.ca_certificate)) {
+    options.tls.cacertdir = params.ca_certificate;
+  } else {
+    options.tls.cacert = params.ca_certificate;
+  }
+  options.tls.cert = params.client_certificate;
+  options.tls.key = params.client_key;
+  options.tls.sni = params.server_name_identification;
+
   sw::redis::ConnectionPoolOptions pool_options;
-  pool_options.size = num_node_connections;
+  pool_options.size = params.num_node_connections;
 
   // Connect to cluster.
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Connecting via " << options.host << ':'
@@ -94,7 +104,7 @@ template <typename Key>
 RedisClusterBackend<Key>::~RedisClusterBackend() {
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Awaiting background worker to conclude..."
                           << std::endl;
-  this->background_worker_.await_idle();
+  background_worker_.await_idle();
 
   HCTR_LOG_S(INFO, WORLD) << get_name() << ": Disconnecting..." << std::endl;
   redis_.reset();
@@ -104,7 +114,7 @@ template <typename Key>
 size_t RedisClusterBackend<Key>::size(const std::string& table_name) const {
   size_t num_pairs;
 
-  if (num_partitions_ == 1) {
+  if (this->params_.num_partitions == 1) {
     // Precalc constants.
     static constexpr size_t part = 0;
     HCTR_REDIS_VALUE_HKEY();
@@ -119,9 +129,9 @@ size_t RedisClusterBackend<Key>::size(const std::string& table_name) const {
 
     // Process partitions.
     std::vector<std::future<void>> tasks;
-    tasks.reserve(num_partitions_);
+    tasks.reserve(this->params_.num_partitions);
 
-    for (size_t part = 0; part < num_partitions_; part++) {
+    for (size_t part = 0; part < this->params_.num_partitions; ++part) {
       tasks.emplace_back(ThreadPool::get().submit([&, part]() {
         try {
           HCTR_REDIS_VALUE_HKEY();
@@ -152,6 +162,7 @@ size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const s
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       // Precalc constants.
       const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
@@ -175,11 +186,12 @@ size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const s
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_keys];
 
-      if (num_partitions_ == 1) {
+      if (this->params_.num_partitions == 1) {
         // Precalc constants.
         static constexpr size_t part = 0;
         HCTR_REDIS_VALUE_HKEY();
@@ -202,7 +214,7 @@ size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const s
             size_t batch_size = 0;
             for (; k != keys_end; k++) {
               pipe.hexists(hkey_v, {reinterpret_cast<const char*>(k), sizeof(Key)});
-              if (++batch_size >= this->max_get_batch_size_) {
+              if (++batch_size >= this->params_.max_get_batch_size) {
                 ++k;
                 break;
               }
@@ -233,9 +245,9 @@ size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const s
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
-        for (size_t part = 0; part < num_partitions_; part++) {
+        for (size_t part = 0; part < this->params_.num_partitions; ++part) {
           tasks.emplace_back(ThreadPool::get().submit([&, part]() {
             size_t hit_count = 0;
 
@@ -267,7 +279,7 @@ size_t RedisClusterBackend<Key>::contains(const std::string& table_name, const s
                 for (; k != keys_end; k++) {
                   if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
                     pipe.hexists(hkey_v, {reinterpret_cast<const char*>(k), sizeof(Key)});
-                    if (++batch_size >= this->max_get_batch_size_) {
+                    if (++batch_size >= this->params_.max_get_batch_size) {
                       ++k;
                       break;
                     }
@@ -321,6 +333,7 @@ bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       // Precalc constants.
       const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
@@ -345,11 +358,12 @@ bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_pairs];
 
-      if (num_partitions_ == 1) {
+      if (this->params_.num_partitions == 1) {
         // Precalc constants.
         static constexpr size_t part = 0;
         HCTR_REDIS_VALUE_HKEY();
@@ -375,7 +389,7 @@ bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_
                   std::piecewise_construct,
                   std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
                   std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
-              if (t_views.size() >= this->max_set_batch_size_) {
+              if (t_views.size() >= this->params_.max_set_batch_size) {
                 ++k;
                 break;
               }
@@ -406,9 +420,9 @@ bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
-        for (size_t part = 0; part < num_partitions_; part++) {
+        for (size_t part = 0; part < this->params_.num_partitions; ++part) {
           tasks.emplace_back(ThreadPool::get().submit([&, part]() {
             size_t num_inserts = 0;
 
@@ -437,7 +451,7 @@ bool RedisClusterBackend<Key>::insert(const std::string& table_name, const size_
                         std::piecewise_construct,
                         std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(Key)),
                         std::forward_as_tuple(reinterpret_cast<const char*>(&now), sizeof(time_t)));
-                    if (t_views.size() >= this->max_set_batch_size_) {
+                    if (t_views.size() >= this->params_.max_set_batch_size) {
                       ++k;
                       break;
                     }
@@ -494,6 +508,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       // Precalc constants.
       const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
@@ -520,11 +535,11 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
           hit_count++;
 
           // Queue timestamp refresh.
-          if (this->refresh_time_after_fetch_) {
+          if (this->params_.refresh_time_after_fetch) {
             const Key k = *keys;
             const time_t now = std::time(nullptr);
 
-            this->background_worker_.submit([this, table_name, part, k, now]() {
+            background_worker_.submit([this, table_name, part, k, now]() {
               HCTR_REDIS_TIME_HKEY();
               touch_(hkey_t, k, now);
             });
@@ -536,11 +551,12 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_keys];
 
-      if (num_partitions_ == 1) {
+      if (this->params_.num_partitions == 1) {
         // Precalc constants.
         constexpr size_t part = 0;
         HCTR_REDIS_VALUE_HKEY();
@@ -567,7 +583,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
 
             // Prepare query.
             size_t idx = k - keys;
-            const Key* const batch_end = std::min(&k[this->max_get_batch_size_], keys_end);
+            const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
             k_views.clear();
             k_views.reserve(batch_end - k);
             for (; k != batch_end; k++) {
@@ -585,7 +601,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                 on_hit(idx, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                 hit_count++;
 
-                if (this->refresh_time_after_fetch_) {
+                if (this->params_.refresh_time_after_fetch) {
                   if (!touched_keys) {
                     touched_keys = std::make_shared<std::vector<Key>>();
                   }
@@ -601,7 +617,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
             if (touched_keys && !touched_keys->empty()) {
               const time_t now = std::time(nullptr);
 
-              this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+              background_worker_.submit([this, table_name, part, touched_keys, now]() {
                 HCTR_REDIS_TIME_HKEY();
                 touch_(hkey_t, touched_keys, now);
               });
@@ -621,9 +637,9 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
-        for (size_t part = 0; part < num_partitions_; part++) {
+        for (size_t part = 0; part < this->params_.num_partitions; ++part) {
           tasks.emplace_back(ThreadPool::get().submit([&, part]() {
             size_t hit_count = 0;
 
@@ -662,7 +678,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                   if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
                     idx.emplace_back(k - keys);
                     k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
-                    if (k_views.size() >= this->max_get_batch_size_) {
+                    if (k_views.size() >= this->params_.max_get_batch_size) {
                       ++k;
                       break;
                     }
@@ -684,7 +700,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                     on_hit(*idx_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                     hit_count++;
 
-                    if (this->refresh_time_after_fetch_) {
+                    if (this->params_.refresh_time_after_fetch) {
                       if (!touched_keys) {
                         touched_keys = std::make_shared<std::vector<Key>>();
                       }
@@ -701,7 +717,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                 if (touched_keys && !touched_keys->empty()) {
                   const time_t now = std::time(nullptr);
 
-                  this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                  background_worker_.submit([this, table_name, part, touched_keys, now]() {
                     HCTR_REDIS_TIME_HKEY();
                     touch_(hkey_t, touched_keys, now);
                   });
@@ -749,6 +765,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       // Precalc constants.
       const Key k = keys[*indices];
@@ -776,10 +793,10 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
           hit_count++;
 
           // Queue timestamp refresh.
-          if (this->refresh_time_after_fetch_) {
+          if (this->params_.refresh_time_after_fetch) {
             const time_t now = std::time(nullptr);
 
-            this->background_worker_.submit([this, table_name, part, k, now]() {
+            background_worker_.submit([this, table_name, part, k, now]() {
               HCTR_REDIS_TIME_HKEY();
               touch_(hkey_t, k, now);
             });
@@ -791,11 +808,12 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
+
     default: {
       // Precalc constants.
       const size_t* const indices_end = &indices[num_indices];
 
-      if (num_partitions_ == 1) {
+      if (this->params_.num_partitions == 1) {
         // Precalc constants.
         constexpr size_t part = 0;
         HCTR_REDIS_VALUE_HKEY();
@@ -823,10 +841,11 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
             // Prepare query.
             k_views.clear();
             const size_t* const batch_beg = i;
-            const size_t* const batch_end = std::min(&i[this->max_get_batch_size_], indices_end);
+            const size_t* const batch_end =
+                std::min(&i[this->params_.max_get_batch_size], indices_end);
             for (; i != batch_end; i++) {
               k_views.emplace_back(reinterpret_cast<const char*>(&keys[*i]), sizeof(Key));
-              if (k_views.size() >= this->max_get_batch_size_) {
+              if (k_views.size() >= this->params_.max_get_batch_size) {
                 ++i;
                 break;
               }
@@ -847,7 +866,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                 on_hit(*i, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                 hit_count++;
 
-                if (this->refresh_time_after_fetch_) {
+                if (this->params_.refresh_time_after_fetch) {
                   if (!touched_keys) {
                     touched_keys = std::make_shared<std::vector<Key>>();
                   }
@@ -864,7 +883,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
             if (touched_keys && !touched_keys->empty()) {
               const time_t now = std::time(nullptr);
 
-              this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+              background_worker_.submit([this, table_name, part, touched_keys, now]() {
                 HCTR_REDIS_TIME_HKEY();
                 touch_(hkey_t, touched_keys, now);
               });
@@ -884,9 +903,9 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
-        for (size_t part = 0; part < num_partitions_; part++) {
+        for (size_t part = 0; part < this->params_.num_partitions; ++part) {
           tasks.emplace_back(ThreadPool::get().submit([&, part]() {
             size_t hit_count = 0;
 
@@ -927,7 +946,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                   if (HCTR_KEY_TO_DB_PART_INDEX(k) == part) {
                     idx.emplace_back(*i);
                     k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(Key));
-                    if (k_views.size() >= this->max_get_batch_size_) {
+                    if (k_views.size() >= this->params_.max_get_batch_size) {
                       ++i;
                       break;
                     }
@@ -949,7 +968,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                     on_hit(*idx_it, v_opt->data(), static_cast<uint32_t>(v_opt->size()));
                     hit_count++;
 
-                    if (this->refresh_time_after_fetch_) {
+                    if (this->params_.refresh_time_after_fetch) {
                       if (!touched_keys) {
                         touched_keys = std::make_shared<std::vector<Key>>();
                       }
@@ -966,7 +985,7 @@ size_t RedisClusterBackend<Key>::fetch(const std::string& table_name, const size
                 if (touched_keys && !touched_keys->empty()) {
                   const time_t now = std::time(nullptr);
 
-                  this->background_worker_.submit([this, table_name, part, touched_keys, now]() {
+                  background_worker_.submit([this, table_name, part, touched_keys, now]() {
                     HCTR_REDIS_TIME_HKEY();
                     touch_(hkey_t, touched_keys, now);
                   });
@@ -1003,7 +1022,7 @@ template <typename Key>
 size_t RedisClusterBackend<Key>::evict(const std::string& table_name) {
   size_t approx_num_keys;
 
-  if (num_partitions_ == 1) {
+  if (this->params_.num_partitions == 1) {
     static constexpr size_t part = 0;
 
     // Precalc constants.
@@ -1026,9 +1045,9 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name) {
 
     // Process partitions.
     std::vector<std::future<void>> tasks;
-    tasks.reserve(num_partitions_);
+    tasks.reserve(this->params_.num_partitions);
 
-    for (size_t part = 0; part < num_partitions_; part++) {
+    for (size_t part = 0; part < this->params_.num_partitions; ++part) {
       tasks.emplace_back(ThreadPool::get().submit([&, part]() {
         // Precalc constants.
         HCTR_REDIS_VALUE_HKEY();
@@ -1073,6 +1092,7 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size
     case 0: {
       // Do nothing ;-).
     } break;
+
     case 1: {
       // Precalc constants.
       const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
@@ -1094,12 +1114,12 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size
         throw DatabaseBackendError(get_name(), part, e.what());
       }
     } break;
+
     default: {
       // Precalc constants.
       const Key* const keys_end = &keys[num_keys];
 
-      if (num_partitions_ == 1) {
-        // Precalc constants.
+      if (this->params_.num_partitions == 1) {
         static constexpr size_t part = 0;
         HCTR_REDIS_VALUE_HKEY();
         HCTR_REDIS_TIME_HKEY();
@@ -1110,7 +1130,7 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size
           size_t num_batches = 0;
           for (const Key* k = keys; k != keys_end; num_batches++) {
             // Gather batch.
-            const Key* const batch_end = std::min(&k[this->max_set_batch_size_], keys_end);
+            const Key* const batch_end = std::min(&k[this->params_.max_set_batch_size], keys_end);
             k_views.reserve(batch_end - k);
             k_views.clear();
             for (; k != batch_end; k++) {
@@ -1141,9 +1161,9 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size
 
         // Process partitions.
         std::vector<std::future<void>> tasks;
-        tasks.reserve(num_partitions_);
+        tasks.reserve(this->params_.num_partitions);
 
-        for (size_t part = 0; part < num_partitions_; part++) {
+        for (size_t part = 0; part < this->params_.num_partitions; ++part) {
           tasks.emplace_back(ThreadPool::get().submit([&, part]() {
             size_t hit_count = 0;
 
@@ -1161,7 +1181,7 @@ size_t RedisClusterBackend<Key>::evict(const std::string& table_name, const size
                 for (; k != keys_end; k++) {
                   if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part) {
                     k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(Key));
-                    if (k_views.size() >= this->max_set_batch_size_) {
+                    if (k_views.size() >= this->params_.max_set_batch_size) {
                       ++k;
                       break;
                     }
@@ -1244,7 +1264,7 @@ template <typename Key>
 std::vector<Key> RedisClusterBackend<Key>::keys(const std::string& table_name) {
   std::vector<Key> k;
 
-  if (num_partitions_ == 1) {
+  if (this->params_.num_partitions == 1) {
     static constexpr size_t part = 0;
     HCTR_REDIS_TIME_HKEY();
 
@@ -1266,9 +1286,9 @@ std::vector<Key> RedisClusterBackend<Key>::keys(const std::string& table_name) {
 
     // Process partitions.
     std::vector<std::future<void>> tasks;
-    tasks.reserve(num_partitions_);
+    tasks.reserve(this->params_.num_partitions);
 
-    for (size_t part = 0; part < num_partitions_; ++part) {
+    for (size_t part = 0; part < this->params_.num_partitions; ++part) {
       tasks.emplace_back(ThreadPool::get().submit([&, part]() {
         HCTR_REDIS_TIME_HKEY();
 
@@ -1307,12 +1327,12 @@ void RedisClusterBackend<Key>::dump_bin(const std::string& table_name, std::ofst
   }
 
   // We just implement this as repeating queries.
-  std::vector<std::string> v_views(this->max_get_batch_size_);
+  std::vector<std::string> v_views(this->params_.max_get_batch_size);
   std::atomic<uint32_t> first_value_size{0};
 
   for (auto k_it = k.begin(); k_it != k.end();) {
     // Read batch values.
-    const auto batch_end = std::min(k_it + this->max_get_batch_size_, k.end());
+    const auto batch_end = std::min(k_it + this->params_.max_get_batch_size, k.end());
     fetch(
         table_name, batch_end - k_it, &*k_it,
         [&](const size_t index, const char* const value, const size_t value_size) {
@@ -1350,11 +1370,11 @@ void RedisClusterBackend<Key>::dump_sst(const std::string& table_name,
   std::sort(k.begin(), k.end());
 
   // We just implement this as repeating queries.
-  std::vector<std::string> v_views(this->max_get_batch_size_);
+  std::vector<std::string> v_views(this->params_.max_get_batch_size);
 
   for (auto k_it = k.begin(); k_it != k.end();) {
     // Read batch values.
-    const auto batch_end = std::min(k_it + this->max_get_batch_size_, k.end());
+    const auto batch_end = std::min(k_it + this->params_.max_get_batch_size, k.end());
     fetch(
         table_name, batch_end - k_it, &*k_it,
         [&](const size_t index, const char* const value, const size_t value_size) {
@@ -1380,15 +1400,16 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
                                                            const std::string& hkey_t) {
   // Check overflow condition.
   size_t part_size = redis_->hlen(hkey_t);
-  if (part_size <= this->overflow_margin_) {
+  if (part_size <= this->params_.overflow_margin) {
     return;
   }
   HCTR_LOG_S(TRACE, WORLD) << get_name() << " partition " << hkey_v
                            << " is overflowing (size = " << part_size << " > "
-                           << this->overflow_margin_ << "). Attempting to resolve..." << std::endl;
+                           << this->params_.overflow_margin << "). Attempting to resolve..."
+                           << std::endl;
 
   // Select overflow resolution policy.
-  switch (this->overflow_policy_) {
+  switch (this->params_.overflow_policy) {
     case DatabaseOverflowPolicy_t::EvictOldest: {
       // Fetch keys and insert times.
       std::vector<std::pair<Key, time_t>> kt;
@@ -1400,7 +1421,7 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
 
         // Sanity check.
         part_size = kt_views.size();
-        if (part_size <= this->overflow_resolution_target_) {
+        if (part_size <= this->overflow_resolution_margin_) {
           return;
         }
 
@@ -1418,11 +1439,11 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
 
       // Delete pairs in batches until overflow condition is no longer fulfilled.
       std::vector<std::string_view> k_views;
-      k_views.reserve(this->max_set_batch_size_);
+      k_views.reserve(this->params_.max_set_batch_size);
 
       for (auto kt_it = kt.begin(); kt_it != kt.end();) {
         // Collect a batch.
-        const auto batch_end = std::min(kt_it + this->max_set_batch_size_, kt.end());
+        const auto batch_end = std::min(kt_it + this->params_.max_set_batch_size, kt.end());
         k_views.clear();
         for (; kt_it != batch_end; ++kt_it) {
           k_views.emplace_back(reinterpret_cast<const char*>(&kt_it->first), sizeof(Key));
@@ -1440,11 +1461,12 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
 
         // Overflow resolved?
         part_size = redis_->hlen(hkey_t);
-        if (part_size <= this->overflow_resolution_target_) {
+        if (part_size <= this->overflow_resolution_margin_) {
           break;
         }
       }
     } break;
+
     case DatabaseOverflowPolicy_t::EvictRandom: {
       // Fetch all keys in partition.
       std::vector<std::string> k_views;
@@ -1453,7 +1475,7 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
 
       // Sanity check.
       part_size = k_views.size();
-      if (part_size <= this->overflow_resolution_target_) {
+      if (part_size <= this->overflow_resolution_margin_) {
         return;
       }
 
@@ -1468,7 +1490,7 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
       // Delete keys.
       const auto k_end = k_views.end();
       for (auto k_it = k_views.begin(); k_it != k_end;) {
-        const auto batch_end = std::min(k_it + this->max_set_batch_size_, k_end);
+        const auto batch_end = std::min(k_it + this->params_.max_set_batch_size, k_end);
 
         // Perform deletion.
         HCTR_LOG_S(TRACE, WORLD) << get_name() << " partition " << hkey_v
@@ -1482,19 +1504,20 @@ void RedisClusterBackend<Key>::check_and_resolve_overflow_(const size_t part,
 
         // Overflow resolved?
         part_size = redis_->hlen(hkey_t);
-        if (part_size <= this->overflow_resolution_target_) {
+        if (part_size <= this->overflow_resolution_margin_) {
           break;
         }
 
         k_it = batch_end;
       }
     } break;
+
     default: {
       HCTR_LOG_S(WARNING, WORLD) << "Redis partition " << hkey_v << " (size = " << part_size
                                  << "), surpasses specified maximum size (="
-                                 << this->overflow_margin_
+                                 << this->params_.overflow_margin
                                  << "), but no compatible overflow policy (="
-                                 << this->overflow_policy_ << ") was selected!" << std::endl;
+                                 << this->params_.overflow_policy << ") was selected!" << std::endl;
       return;
     } break;
   }
