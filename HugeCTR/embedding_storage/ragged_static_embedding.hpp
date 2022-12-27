@@ -17,9 +17,15 @@
 
 #include <core/registry.hpp>
 #include <embedding_storage/embedding_table.hpp>
-
+#include <variant>
 namespace embedding {
 using HugeCTR::CudaDeviceContext;
+
+struct AdaGradOptBuffer {
+  Tensor opt_accum_tensor;
+};
+
+using OptBuffer = std::variant<AdaGradOptBuffer>;
 
 class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   std::shared_ptr<CoreResourceManager> core_;
@@ -42,6 +48,7 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   Tensor local_ev_size_list_;   // num_local_id_space
 
   HugeCTR::OptParams opt_param_;
+  OptBuffer opt_buffer_;
 
  public:
   RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,

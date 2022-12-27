@@ -16,7 +16,6 @@
 #include <curand_kernel.h>
 
 #include <core/registry.hpp>
-#include <cub/cub.cuh>
 #include <data_simulator.hpp>
 #include <embedding/view.hpp>
 #include <embedding_storage/ragged_static_embedding.hpp>
@@ -76,6 +75,27 @@ __global__ void sgd_update_grad_kernel(const uint32_t *ev_offset, size_t num_ev,
     for (uint32_t i = start; i < end; ++i) {
       float gi = grad_ev[i] / scaler;
       grad_ev[i] = (-lr * gi);
+    }
+  }
+}
+
+template <typename acc_t, typename emb_t>
+__global__ void ada_grad_update_grad_kernel(const uint32_t *ev_offsets, uint32_t num_ev, float lr,
+                                            acc_t *v, float epsilon, float scaler, emb_t *g) {
+  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num_ev;
+       tid += blockDim.x * gridDim.x) {
+    uint32_t start = ev_offsets[tid];
+    uint32_t end = ev_offsets[tid + 1];
+
+    for (uint32_t i = start; i < end; ++i) {
+      float gi = HugeCTR::TypeConvertFunc<float, emb_t>::convert(g[i]);
+      gi = gi / scaler;
+      float vi = HugeCTR::TypeConvertFunc<float, acc_t>::convert(v[i]);
+      vi = vi + gi * gi;
+
+      gi = -lr * gi / (sqrtf(vi) + epsilon);
+      g[i] = HugeCTR::TypeConvertFunc<emb_t, float>::convert(gi);
+      v[i] = HugeCTR::TypeConvertFunc<acc_t, float>::convert(vi);
     }
   }
 }
@@ -203,6 +223,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
 
   auto key_type = ebc_param.key_type;
   auto index_type = ebc_param.index_type;
+  auto emb_type = ebc_param.emb_type;
 
   DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
     DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(index_type.type(), index_t, [&] {
@@ -291,6 +312,15 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
       num_key_per_table_offset_.copy_from(h_num_key_per_table_offset);
       emb_table_ev_offset_.copy_from(h_emb_table_ev_offset_);
       local_ev_size_list_.copy_from(h_local_ev_sizes_);
+      if (opt_param.optimizer == HugeCTR::Optimizer_t::AdaGrad) {
+        DISPATCH_FLOAT_AND_HALF_FUNCTION(emb_type.type(), emb_t, [&] {
+          auto accum_tensor = buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, emb_type);
+          buffer_ptr->allocate();
+          HCTR_LIB_THROW(cudaMemset(accum_tensor.get(), 0, accum_tensor.nbytes()));
+          opt_buffer_ = AdaGradOptBuffer{accum_tensor};
+        });
+      }
+
       for (size_t i = 0; i < h_table_ids_.size(); i++) {
         int table_id = h_table_ids_[i];
         std::function<void(const curandGenerator_t &)> init_table_functor;
@@ -394,19 +424,38 @@ void RaggedStaticEmbeddingTable::update(const Tensor &keys, size_t num_keys,
         sgd_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
             wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr, opt_param_.scaler,
             wgrad.get<float>());
-      } else {
-        HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "optimizer not implemented");
-      }
-
-      {
-        constexpr int block_size = 256;
-        int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
         update_kernel<<<grid_size, block_size, 0, stream>>>(
             keys.get<key_t>(), num_keys, num_unique_key_per_table_offset.get<uint32_t>(),
             num_table_offset, wgrad.get<float>(), wgrad_idx_offset.get<uint32_t>(),
             table_id_list.get<int>(), table_ids_.get<int>(), table_ids_.get_num_elements(),
             keys_.get<key_t>(), num_key_per_table_offset_.get<index_t>(), emb_table_.get<float>(),
             emb_table_ev_offset_.get<uint64_t>(), local_ev_size_list_.get<int>());
+      } else if (opt_param_.optimizer == HugeCTR::Optimizer_t::AdaGrad) {
+        auto adagrad_opt_buffer = std::get_if<AdaGradOptBuffer>(&opt_buffer_);
+        HCTR_CHECK_HINT(adagrad_opt_buffer != nullptr, "Adagrad Opt Buffer not initialized.");
+        DISPATCH_FLOAT_AND_HALF_FUNCTION(
+            adagrad_opt_buffer->opt_accum_tensor.dtype().type(), acc_t, [&] {
+              DISPATCH_FLOAT_AND_HALF_FUNCTION(wgrad.dtype().type(), emb_t, [&] {
+                // update kernel
+                constexpr int block_size = 256;
+                int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+
+                ada_grad_update_grad_kernel<acc_t, emb_t><<<grid_size, block_size, 0, stream>>>(
+                    wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+                    adagrad_opt_buffer->opt_accum_tensor.get<acc_t>(),
+                    opt_param_.hyperparams.adagrad.epsilon, opt_param_.scaler, wgrad.get<emb_t>());
+
+                update_kernel<<<grid_size, block_size, 0, stream>>>(
+                    keys.get<key_t>(), num_keys, num_unique_key_per_table_offset.get<uint32_t>(),
+                    num_table_offset, wgrad.get<emb_t>(), wgrad_idx_offset.get<uint32_t>(),
+                    table_id_list.get<int>(), table_ids_.get<int>(), table_ids_.get_num_elements(),
+                    keys_.get<key_t>(), num_key_per_table_offset_.get<index_t>(),
+                    emb_table_.get<float>(), emb_table_ev_offset_.get<uint64_t>(),
+                    local_ev_size_list_.get<int>());
+              });
+            });
+      } else {
+        HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "optimizer not implemented");
       }
     });
   });

@@ -409,16 +409,26 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
 
 TEST(dynamic_embedding_table, optimzer) {
   // Self test.
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic_CPU", HugeCTR::Optimizer_t::SGD, 10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic_CPU", HugeCTR::Optimizer_t::SGD,
+                                                    10);
 
   // DET vs. CPU mock implementation.
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::SGD, 10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::MomentumSGD,
-                                                   10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Nesterov,
-                                                   10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::AdaGrad, 10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::RMSProp, 10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Adam, 10);
-  test_embedding_table_optimizer<int64_t, int32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Ftrl, 10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::SGD, 10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::MomentumSGD,
+                                                    10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Nesterov,
+                                                    10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::AdaGrad,
+                                                    10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::RMSProp,
+                                                    10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Adam, 10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic", HugeCTR::Optimizer_t::Ftrl, 10);
+}
+
+TEST(static_embedding_table, optimizer) {
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "RaggedStatic", HugeCTR::Optimizer_t::SGD,
+                                                    10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "RaggedStatic",
+                                                    HugeCTR::Optimizer_t::AdaGrad, 10);
 }
