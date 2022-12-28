@@ -1,6 +1,6 @@
 """
  Copyright (c) 2021, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 """
 
 import os
+import sys
 from tensorflow.python.framework import load_library
 from tensorflow import __version__ as tf_version
 
@@ -36,6 +37,8 @@ def in_tensorflow2():
 lib_name = r"libhierarchical_parameter_server.so"
 install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "lib"))
 paths = [r"/usr/local/lib", install_path]
+syspath = [spath + "/hierarchical_parameter_server/lib" for spath in sys.path]
+paths.extend(syspath)
 
 lib_file = None
 for path in paths:

@@ -184,7 +184,8 @@ def train(args):
         inputs = [sparse_keys, dense_features]
         _, loss = strategy.run(_train_step, args=(inputs, labels))
         print("-" * 20, "Step {}, loss: {}".format(i, loss), "-" * 20)
-    atexit.register(strategy._extended._collective_ops._pool.close)
+    # TODO:  TF API below is changed and need investigation, comment out temporarily
+    # atexit.register(strategy._extended._collective_ops._pool.close)
     return model
 
 
@@ -294,7 +295,8 @@ def train_with_pretrained_embeddings(args):
         inputs = [sparse_keys, dense_features]
         _, loss = strategy.run(_train_step, args=(inputs, labels))
         print("-" * 20, "Step {}, loss: {}".format(i, loss), "-" * 20)
-    atexit.register(strategy._extended._collective_ops._pool.close)
+    # TODO:  TF API below is changed and need investigation, comment out temporarily
+    # atexit.register(strategy._extended._collective_ops._pool.close)
     return model
 
 

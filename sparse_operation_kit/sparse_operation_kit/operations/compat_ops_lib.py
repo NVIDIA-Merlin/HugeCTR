@@ -16,11 +16,13 @@
 
 from tensorflow.python.framework import load_library
 import os
+import sys
 
 lib_name = r"libsparse_operation_kit_compat_ops.so"
-
 install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib"))
 paths = [r"/usr/local/lib", install_path]
+syspath = [spath + "/sparse_operation_kit/lib" for spath in sys.path]
+paths.extend(syspath)
 
 lib_file = None
 for path in paths:
