@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#pragma once
-#include "absl/base/options.h"
-#undef ABSL_OPTION_USE_STD_STRING_VIEW
-#define ABSL_OPTION_USE_STD_STRING_VIEW 0
+// TODO: The configurations are not needed anymore in merlin-base:22.12
+// #pragma once
+// #include "absl/base/options.h"
+// #undef ABSL_OPTION_USE_STD_STRING_VIEW
+// #define ABSL_OPTION_USE_STD_STRING_VIEW 0
