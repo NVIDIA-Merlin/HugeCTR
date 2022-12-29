@@ -469,8 +469,13 @@ The assignment of which nodes update specific partition can change at runtime.</
   <span class="n">allocation_rate</span> <span class="o">=</span> <span class="mi">268435456</span><span class="p">,</span>  <span class="c1"># 256 MiB</span>
   <span class="n">shared_memory_size</span> <span class="o">=</span> <span class="mi">17179869184</span><span class="p">,</span>  <span class="c1"># 16 GiB</span>
   <span class="n">shared_memory_name</span> <span class="o">=</span> <span class="s2">&quot;hctr_mp_hash_map_database&quot;</span><span class="p">,</span>
-  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
+  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
+  <span class="n">enable_tls</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+  <span class="n">tls_ca_certificate</span> <span class="o">=</span> <span class="s2">&quot;cacertbundle.crt&quot;</span><span class="p">,</span>
+  <span class="n">tls_client_certificate</span> <span class="o">=</span> <span class="s2">&quot;client_cert.pem&quot;</span><span class="p">,</span>
+  <span class="n">tls_client_key</span> <span class="o">=</span> <span class="s2">&quot;client_key.pem&quot;</span><span class="p">,</span>
+  <span class="n">tls_server_name_identification</span> <span class="o">=</span> <span class="s2">&quot;redis.localhost&quot;</span><span class="p">,</span>
   <span class="n">overflow_margin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span>
   <span class="n">overflow_policy</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseOverflowPolicy_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
   <span class="n">overflow_resolution_target</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
@@ -495,8 +500,13 @@ The assignment of which nodes update specific partition can change at runtime.</
 <span class="w">  </span><span class="nt">&quot;allocation_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">268435456</span><span class="p">,</span><span class="w">  </span><span class="c1">// 256 MiB</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;shared_memory_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17179869184</span><span class="p">,</span><span class="w">  </span><span class="c1">// 16 GiB</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;shared_memory_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hctr_mp_hash_map_database&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;enable_tls&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;tls_ca_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cacertbundle.crt&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;tls_client_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_cert.pem&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;tls_client_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_key.pem&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;tls_server_name_identification&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis.localhost&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;overflow_margin&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;overflow_policy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;evict_oldest&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;overflow_resolution_target&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"></span>
@@ -557,8 +567,13 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 Mass lookup and insert requests to distributed endpoints are chunked into batches.
 For maximum performance, these two parameters should be large.
 However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
-By default, both parameters are set to <code class="docutils literal notranslate"><span class="pre">10000</span></code>.
+By default, both parameters are set to <code class="docutils literal notranslate"><span class="pre">65536</span></code>.
 With high-performance networking and endpoint hardware, try setting the values to <code class="docutils literal notranslate"><span class="pre">1000000</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_tls</span></code>: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is <code class="docutils literal notranslate"><span class="pre">False</span></code> (=disable TLS/SSL). Enabling encryption may slighly increase latency and decrease the overall throughput when communicating with the Redis cluster.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tls_ca_certificate</span></code>: String, allows you specify the filesystem path to the certificate(s) of the CA for TLS/SSL secured connnections. If the provided path denotes a directory, all valid certificates in the directory will be considered. Default value: <code class="docutils literal notranslate"><span class="pre">cacertbundle.crt</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tls_client_certificate</span></code>: String, filesystem path of the client certificate to use for TLS/SSL secured connnections. Default value: <code class="docutils literal notranslate"><span class="pre">client_cert.pem</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tls_client_key</span></code>: String, file system path of the private key to use for TLS/SSL secured connnections. Default value: <code class="docutils literal notranslate"><span class="pre">client_key.pem</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tls_server_name_identification</span></code>: String, SNI used by the server. Can be different from the actual connection address. Default value: <code class="docutils literal notranslate"><span class="pre">redis.localhost</span></code>.</p></li>
 </ul>
 </div>
 <div class="section" id="overflow-parameters">
@@ -632,8 +647,8 @@ As a result, some configuration parameters can vary according to the specificati
   <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span>
   <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
   <span class="n">read_only</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
+  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
   <span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;filter-0&quot;</span><span class="p">,</span> <span class="s2">&quot;filter-1&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
@@ -647,8 +662,8 @@ As a result, some configuration parameters can vary according to the specificati
 <span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;read_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
 <span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span><span class="w"></span>
 <span class="p">}</span><span class="w"></span>
 </pre></div>
