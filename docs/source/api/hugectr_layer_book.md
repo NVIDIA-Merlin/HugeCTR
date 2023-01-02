@@ -313,12 +313,35 @@ model.add(
 ### MultiCross Layer
 
 The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.
+There are two versions of cross network which are invented in [DCN v1](https://arxiv.org/abs/1708.05123) and [DCN v2](https://arxiv.org/abs/2008.13535) respectively.
 
-**Note**: This layer doesn’t currently support Mixed Precision mode.
+Suppose the dimension of features to be interacted is $n$, the mathematical formulas of feature crossing for those two versions are:
+
+DCN v1
+: $$
+  x_{l+1}=x_{0}x^{T}_{l}w_{l}+b_l+x_l
+  $$
+
+  where $ w_l, b_l \in \mathbb{R}^{n\times1}$ are learnable parameter, $x_{l},x_0$ are input and $x_{l+1}$ is output.
+
+DCN 2
+: $$
+  x_{l+1}=x_{0}\odot (\mathbf{W}_{l} x_{l}+b_l )+x_l
+  $$
+
+  where $ \odot $ represents elementwise dot, $\mathbf{W}_l \in \mathbb{R}^{n\times n}, b_l \in \mathbb{R}^{n\times 1 }$ are learnable parameter, $x_{l},x_0$ are input and $x_{l+1}$ is output.
+
+  To decrease the computation complexity, $\mathbf{W}_l$ can be approximately factorized into multiplication of two lower rank matrices $\mathbf{U} \in \mathbb{R}^{n \times k}, \mathbf{V} \in \mathbb{R}^{k \times n}$,  where $k$ is a so-called projection dimension.
+  Correspondingly the formula evolves and can be expressed as follows:
+
+  $$
+  x_{l+1}=x_{0}\odot (\mathbf{U}_{l} \mathbf{V}_{l} x_{l}+b_l )+x_l
+  $$
 
 Parameters:
 
-* `num_layers`: Integer, number of cross layers in the cross network. It should be set as a positive number if you want to use the cross network. The default value is 0.
+* `num_layers`: Integer, number of cross layers in the cross network. It should be set as a positive number if you want to use the cross network. The default value is `0`.
+* `projection_dim`: Integer, the projection dimension for DCN v2. If you specify `0`, the layer degrades to DCN v1. The default value is `0`.
 * `weight_init_type`: Specifies how to initialize the weight array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
 * `bias_init_type`: Specifies how to initialize the bias array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
 
@@ -332,7 +355,8 @@ Example:
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiCross,
                             bottom_names = ["slice11"],
                             top_names = ["multicross1"],
-                            num_layers=6))
+                            num_layers=6,
+                            projection_dim=512))
 ```
 
 ### FmOrder2 Layer

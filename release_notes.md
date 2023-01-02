@@ -1,5 +1,87 @@
 # Release Notes
 
+## What's New in Version 4.3
+
+  ```{important}
+  In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.3`.
+  Afterward, the library will use calendar versioning only, such as `v23.01`.
+  ```
+
++ **Support for BERT and Variants**:
+This release includes support for BERT in HugeCTR.
+The documentation includes updates to the [MultiHeadAttention](https://nvidia-merlin.github.io/HugeCTR/v4.3/api/hugectr_layer_book.html#multiheadattention-layer) layer and adds documentation for the [SequenceMask](https://nvidia-merlin.github.io/HugeCTR/v4.3/api/hugectr_layer_book.html#sequencemask-layer) layer.
+For more information, refer to the [samples/bst](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.3/samples/bst) directory of the repository in GitHub.
+
++ **HPS Plugin for TensorFlow integration with TensorFlow-TensorRT (TF-TRT)**:
+This release includes plugin support for integration with TensorFlow-TensorRT.
+For sample code, refer to the [Deploy SavedModel using HPS with Triton TensorFlow Backend](https://nvidia-merlin.github.io/HugeCTR/v4.3/hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.html) notebook.
+
++ **Deep & Cross Network Layer version 2 Support**:
+This release includes support for Deep & Cross Network version 2.
+For conceptual information, refer to <https://arxiv.org/abs/2008.13535>.
+The documentation for the [MultiCross Layer](https://nvidia-merlin.github.io/HugeCTR/v4.3/api/hugectr_layer_book.html#multicross-layer) is updated.
+
++ **Enhancements to Hierarchical Parameter Server**:
+  + RedisClusterBackend now supports TLS/SSL communication.
+    For sample code, refer to the [Hierarchical Parameter Server Demo](https://nvidia-merlin.github.io/HugeCTR/v4.3/notebooks/hps_demo.html) notebook.
+    The notebook is updated with step-by-step instructions to show you how to setup HPS to use Redis with (and without) encryption.
+    The [Volatile Database Parameters](https://nvidia-merlin.github.io/HugeCTR/v4.3/hugectr_parameter_server.html#volatile-database-parameters) documentation for HPS is updated with the `enable_tls`, `tls_ca_certificate`, `tls_client_certificate`, `tls_client_key`, and `tls_server_name_identification` parameters.
+  + MultiProcessHashMapBackend includes a bug fix that prevented configuring the shared memory size when using JSON file-based configuration.
+  + On-device input keys are supported now so that an extra host-to-device copy is removed to improve performance.
+  + A dependency on the XX-Hash library is removed.
+    The library is no longer used by HugeCTR.
+  + Added the static table support to the embedding cache.
+    The static table is suitable when the embedding table can be placed entirely in GPU memory.
+    In this case, the static table is more than three times faster than the embedding cache lookup.
+    The static table does not support embedding updates.
+
++ **Support for New Optimizers**:
+  + Added support for SGD, Momentum SGD, Nesterov Momentum, AdaGrad, RMS-Prop, Adam and FTRL optimizers for dynamic embedding table (DET).
+    For sample code, refer to the `test_embedding_table_optimizer.cpp` file in the [test/utest/embedding_collection/](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.3/test/utest/embedding_collection) directory of the repository on GitHub.
+  + Added support for the FTRL optimizer for dense networks.
+
++ **Data Reading from S3 for Offline Inference**:
+In addition to reading during training, HugeCTR now supports reading data from remote file systems such as HDFS and S3 during offline inference by using the DataSourceParams API.
+The [HugeCTR Training and Inference with Remote File System Example](https://nvidia-merlin.github.io/HugeCTR/v4.3/notebooks/training_and_inference_with_remote_filesystem.html) is updated to demonstrate the new functionality.
+
++ **Documentation Enhancements**:
+  + The set up [instructions for running the example notebooks](https://nvidia-merlin.github.io/HugeCTR/v4.3/notebooks/index.html) are revised for clarity.
+  + The example notebooks are also updated to show using a data preprocessing script that simplifies the user experience.
+  + Documentation for the [MLP Layer](https://nvidia-merlin.github.io/HugeCTR/v4.3/api/hugectr_layer_book.html#mlp-layer) is new.
+  + Several 2022 talks and blogs are added to the [HugeCTR Talks and Blogs](https://nvidia-merlin.github.io/HugeCTR/v4.3/hugectr_talks_blogs.html) page.
+
++ **Issues Fixed**:
+  + The original CUDA device with NUMA bind before a call to some HugeCTR APIs is recovered correctly now.
+    This issue sometimes lead to a problem when you mixed calls to HugeCTR and other CUDA enabled libraries.
+  + Fixed the occasional CUDA kernel launch failure of embedding when installed HugeCTR with macro DEBUG.
+  + Fixed an SOK build error that was related to TensorFlow v2.1.0 and higher.
+    The issue was that the C++ API and C++ standard were updated to use C++17.
+  + Fixed a CUDA 12 related compilation error.
+
++ **Known Issues**:
+  + HugeCTR can lead to a runtime error if client code calls the RMM `rmm::mr::set_current_device_resource()` method or  `rmm::mr::set_current_device_resource()` method.
+    The error is due to the Parquet data reader in HugeCTR also calling `rmm::mr::set_current_device_resource()`.
+    As a result, the device becomes visible to other libraries in the same process.
+    Refer to GitHub [issue #356](https://github.com/NVIDIA-Merlin/HugeCTR/issues/356) for more information.
+    As a workaround, you can set environment variable `HCTR_RMM_SETTABLE` to `0` to prevent HugeCTR from setting a custom RMM device resource, if you know that `rmm::mr::set_current_device_resource()` is called by client code other than HugeCTR.
+    But be cautious because the setting can reduce the performance of Parquet reading.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue #243](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
+
+
 ## What's New in Version 4.2
 
   ```{important}
@@ -593,7 +675,7 @@ The default log format now includes milliseconds.
     	+ The parquet data reader no longer incorrectly parses the index of categorical features when multiple embedded tables are being used.
     	+ The HPS Redis Backend overflow is now invoked during single insertions.
 
-+ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#groupdenselayer).
++ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html#groupdenselayer).
 
 + **Global Fixes**:
    + A warning message now appears when attempting to launch a multi-process job before importing the mpi.
@@ -611,7 +693,7 @@ The default log format now includes milliseconds.
     + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues.
 
 + **Sparse Operation Kit (SOK) Enhancements**:
-    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/main/get_started/get_started.html#tensorflow-1-15).
+    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15).
     + **Dedicated CUDA Stream**: A dedicated CUDA stream is now used for SOK’s Ops, so this may help to eliminate kernel interleaving.
     + **New pip Installation Option**: SOK can now be installed using the `pip install SparseOperationKit` command. See more in our [instructions](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation)). With this install option, root access to compile SOK is no longer required and python scripts don't need to be copied.
     + **Visible Device Configuration Support**：`tf.config.set_visible_device` can now be used to set visible GPUs for each process. `CUDA_VISIBLE_DEVICES` can also be used. When `tf.distribute.Strategy` is used, the `tf.config.set_visible_device` argument shouldn't be set.
