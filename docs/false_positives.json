@@ -86,3 +86,11 @@
   "uri": "https://github.com/triton-inference-server/server/blob/main/docs/user_guide/custom_operations.md#tensorflow",
   "info": "Anchor 'tensorflow' not found"
 }
+{                                                                                                                                                                       
+  "filename": "hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb",                                                                                           
+  "lineno": 170004,                                                                                                                                                     
+  "status": "broken",                                                                                                                                                   
+  "code": 0,                                                                                                                                                            
+  "uri": "https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_configuration.md#auto-generated-model-configuration",                       
+  "info": "Anchor 'auto-generated-model-configuration' not found"                                                                                                       
+} 
