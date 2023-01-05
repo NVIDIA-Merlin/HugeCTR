@@ -61,13 +61,13 @@ execute_process (
 message(STATUS "COPY_CUCO_HASH_MAP=${COPY_CUCO_HASH_MAP}")
 
 include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../core/adapter
+    $ENV{DeepRecWorkdir}/addons/sparse_operation_kit/core/adapter/
     ${CMAKE_CURRENT_SOURCE_DIR}/external/
     ${CMAKE_CURRENT_SOURCE_DIR}/external/third_party/dense_hash_map
     ${CMAKE_CURRENT_SOURCE_DIR}/external/third_party/leveldb/include
 )
 
-list(APPEND files ${CMAKE_CURRENT_SOURCE_DIR}/../../../core/adapter/lookup_adapter.cpp)
+list(APPEND files $ENV{DeepRecWorkdir}/addons/sparse_operation_kit/core/adapter/lookup_adapter.cpp)
 endif()
 
 add_library(sok_experiment SHARED ${files})

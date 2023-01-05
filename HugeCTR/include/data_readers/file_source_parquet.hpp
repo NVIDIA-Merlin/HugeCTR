@@ -25,7 +25,6 @@
 #include <cudf/copying.hpp>
 #include <cudf/io/parquet.hpp>
 #include <fstream>
-#include <rmm/mr/device/device_memory_resource.hpp>
 #include <utils.hpp>
 #include <vector>
 
@@ -36,6 +35,7 @@
 #include "io/file_loader.hpp"
 
 namespace HugeCTR {
+
 using namespace cudf;
 namespace cudf_io = cudf::io;
 class ParquetFileSource : public Source {
@@ -212,7 +212,6 @@ class ParquetFileSource : public Source {
         HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       }
     }
-    // RMMContext rmm_context(mr);
     cudf_io::table_with_metadata x;
     bool use_cache = false;
     if (!use_cache) {
