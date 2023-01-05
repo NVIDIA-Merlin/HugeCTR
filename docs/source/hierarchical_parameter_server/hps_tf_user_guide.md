@@ -93,7 +93,7 @@ $ python3 -c "import hierarchical_parameter_server as hps"
 
 ## Example Notebooks
 
-We provide a collection of examples as [Jupyter Notebooks](notebooks/index.md) that cover the following topics:
+We provide a collection of examples as [Jupyter Notebooks](../hps_tf/notebooks) that cover the following topics:
 
 * Basic workflow of HPS deployment for TensorFlow models
 * Migrating from SOK training to HPS inference

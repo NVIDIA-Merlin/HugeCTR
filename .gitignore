@@ -53,3 +53,8 @@ docs/source/sparse_operation_kit/
 docs/source/notebooks
 docs/source/hierarchical_parameter_server/notebooks
 docs/source/release_notes.md
+
+docs/source/hps_tf/notebooks
+hps_tf/_skbuild
+hps_tf/dist/
+hps_tf/merlin_hps.egg-info/
