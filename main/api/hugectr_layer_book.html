@@ -21,6 +21,8 @@
         <script >let toggleOpenOnPrint = 'true';</script>
         <script src="../_static/togglebutton.js"></script>
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -425,11 +427,33 @@ Input and Output Shapes:</p></li>
 </div>
 <div class="section" id="multicross-layer">
 <h3>MultiCross Layer<a class="headerlink" href="#multicross-layer" title="Permalink to this headline"></a></h3>
-<p>The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.</p>
-<p><strong>Note</strong>: This layer doesn’t currently support Mixed Precision mode.</p>
+<p>The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.
+There are two versions of cross network which are invented in <a class="reference external" href="https://arxiv.org/abs/1708.05123">DCN v1</a> and <a class="reference external" href="https://arxiv.org/abs/2008.13535">DCN v2</a> respectively.</p>
+<p>Suppose the dimension of features to be interacted is <span class="math notranslate nohighlight">\(n\)</span>, the mathematical formulas of feature crossing for those two versions are:</p>
+<dl class="simple myst">
+<dt>DCN v1</dt><dd><div class="math notranslate nohighlight">
+\[
+  x_{l+1}=x_{0}x^{T}_{l}w_{l}+b_l+x_l
+  \]</div>
+<p>where <span class="math notranslate nohighlight">\( w_l, b_l \in \mathbb{R}^{n\times1}\)</span> are learnable parameter, <span class="math notranslate nohighlight">\(x_{l},x_0\)</span> are input and <span class="math notranslate nohighlight">\(x_{l+1}\)</span> is output.</p>
+</dd>
+<dt>DCN 2</dt><dd><div class="math notranslate nohighlight">
+\[
+  x_{l+1}=x_{0}\odot (\mathbf{W}_{l} x_{l}+b_l )+x_l
+  \]</div>
+<p>where <span class="math notranslate nohighlight">\( \odot \)</span> represents elementwise dot, <span class="math notranslate nohighlight">\(\mathbf{W}_l \in \mathbb{R}^{n\times n}, b_l \in \mathbb{R}^{n\times 1 }\)</span> are learnable parameter, <span class="math notranslate nohighlight">\(x_{l},x_0\)</span> are input and <span class="math notranslate nohighlight">\(x_{l+1}\)</span> is output.</p>
+<p>To decrease the computation complexity, <span class="math notranslate nohighlight">\(\mathbf{W}_l\)</span> can be approximately factorized into multiplication of two lower rank matrices <span class="math notranslate nohighlight">\(\mathbf{U} \in \mathbb{R}^{n \times k}, \mathbf{V} \in \mathbb{R}^{k \times n}\)</span>,  where <span class="math notranslate nohighlight">\(k\)</span> is a so-called projection dimension.
+Correspondingly the formula evolves and can be expressed as follows:</p>
+<div class="math notranslate nohighlight">
+\[
+  x_{l+1}=x_{0}\odot (\mathbf{U}_{l} \mathbf{V}_{l} x_{l}+b_l )+x_l
+  \]</div>
+</dd>
+</dl>
 <p>Parameters:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_layers</span></code>: Integer, number of cross layers in the cross network. It should be set as a positive number if you want to use the cross network. The default value is 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_layers</span></code>: Integer, number of cross layers in the cross network. It should be set as a positive number if you want to use the cross network. The default value is <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">projection_dim</span></code>: Integer, the projection dimension for DCN v2. If you specify <code class="docutils literal notranslate"><span class="pre">0</span></code>, the layer degrades to DCN v1. The default value is <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">weight_init_type</span></code>: Specifies how to initialize the weight array. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bias_init_type</span></code>: Specifies how to initialize the bias array. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
 </ul>
@@ -442,7 +466,8 @@ Input and Output Shapes:</p></li>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MultiCross</span><span class="p">,</span>
                             <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;slice11&quot;</span><span class="p">],</span>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;multicross1&quot;</span><span class="p">],</span>
-                            <span class="n">num_layers</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span>
+                            <span class="n">num_layers</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+                            <span class="n">projection_dim</span><span class="o">=</span><span class="mi">512</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
