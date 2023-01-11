@@ -56,6 +56,18 @@ You can install SOK using the following command:
 pip install sparse_operation_kit
 ```
 
+### Pre-requisites ###
+CUDA Version:>= 11.2
+
+TF2 Version:2.6.0~2.10.0
+
+TF1 Version:1.15
+
+Cmake Version:>= 3.18
+
+GCC Version:>=9.3.0
+
+
 ### Building SOK from source ###
 You can also build the SOK module from souce code. Here are the steps to follow: <br>
 + **Download the source code**
