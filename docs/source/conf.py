@@ -102,6 +102,7 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
     "notebooks/prototype_indices.ipynb",
+    "hierarchical_parameter_server/hps_tf_benchmark.md",
 ]
 
 
