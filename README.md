@@ -4,12 +4,12 @@
 [![LICENSE](https://img.shields.io/github/license/NVIDIA-Merlin/HugeCTR)](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html)
 
-HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For more information, refer to [HugeCTR User Guide](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html).
+HugeCTR is a GPU-accelerated recommender framework designed for training and inference of large deep learning models. 
 
 Design Goals:
-* **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
-* **Efficient**: HugeCTR provides the essentials so that you can efficiently train your CTR model.
-* **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
+* **Fast**: HugeCTR performs outstandingly in recommendation [benchmarks](https://nvidia-merlin.github.io/HugeCTR/main/performance.html) including MLPerf.
+* **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR with plenty of [documents](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html), [notebooks](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/notebooks) and [samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/samples).
+* **Domain Specific**: HugeCTR provides the [essentials](https://github.com/NVIDIA-Merlin/HugeCTR#core-features), so that you can efficiently deploy your recommender models with very large embedding.
 
 ## Table of Contents
 * [Core Features](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html)
