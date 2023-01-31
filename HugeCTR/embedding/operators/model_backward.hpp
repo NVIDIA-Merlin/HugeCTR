@@ -45,6 +45,13 @@ class ModelBackward {
                const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
                size_t num_unique_key, const Tensor &corrdinate_key,
                const Tensor &coordinate_wgrad_dst_idx, const Tensor &d_local_ev_size_offset,
+               int batch_size, int max_ev_size, size_t num_model_key, Tensor *grad_ev,
+               const Tensor &coordinate_sp_weight);
+
+  void compute(const TensorList &model_comm_buffer, const Tensor &unique_key_ev_size_offset,
+               const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
+               size_t num_unique_key, const Tensor &corrdinate_key,
+               const Tensor &coordinate_wgrad_dst_idx, const Tensor &d_local_ev_size_offset,
                int batch_size, int max_ev_size, size_t num_model_key, Tensor *grad_ev);
 };
 

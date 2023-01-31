@@ -57,12 +57,99 @@ void ModelBackward::compute(const TensorList& model_comm_buffer, const Tensor& u
                             const Tensor& sorted_bucket_id_offset, size_t num_unique_key,
                             const Tensor& corrdinate_key, const Tensor& coordinate_wgrad_dst_idx,
                             const Tensor& d_local_ev_size_offset, int batch_size, int max_ev_size,
+                            size_t num_model_key, Tensor* grad_ev,
+                            const Tensor& coordinate_sp_weight) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+  auto stream = core_->get_local_gpu()->get_stream();
+  int batch_size_per_gpu = batch_size / num_gpus_;
+
+  cudaMemsetAsync(grad_ev_.get(), 0, grad_ev_.nbytes(), stream);
+  DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
+    const uint32_t* unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
+    const emb_t** model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
+    const int* local_ev_offset_list_ptr = d_local_ev_size_offset.get<int>();
+    const uint32_t* corrdinate_key_ptr = corrdinate_key.get<uint32_t>();
+    const float* corrdinate_sp_weight_ptr = coordinate_sp_weight.get<float>();
+    const uint32_t* sorted_bucket_id_list_ptr = sorted_bucket_id_list.get<uint32_t>();
+    const uint32_t* coordinate_wgrad_dst_idx_ptr = coordinate_wgrad_dst_idx.get<uint32_t>();
+    auto partial_grad_ev_ptr = partial_grad_ev_.get<float>();
+    auto partial_key_ptr = partial_key_.get<uint32_t>();
+    auto partial_ev_length_ptr = partial_ev_length_.get<int32_t>();
+    auto partial_dst_offset_array_ptr = partial_dst_offset_array_.get<uint32_t>();
+    float* grad_ev_ptr = grad_ev_.get<float>();
+
+    auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_weight<emb_t, float>(
+        num_model_key, [=] __device__(int i) { return corrdinate_key_ptr[i]; },
+        [=] __device__(int i) {
+          uint32_t src_index = sorted_bucket_id_list_ptr[i];
+          int embedding_id = src_index / batch_size;
+          return local_ev_offset_list_ptr[embedding_id + 1] -
+                 local_ev_offset_list_ptr[embedding_id];
+        },
+        [=] __device__(int i) {
+          auto tmp_index = coordinate_wgrad_dst_idx_ptr[i];
+          return unique_dst_idx_ptr[tmp_index + 1] - unique_dst_idx_ptr[tmp_index];
+        },
+        [=] __device__(int i) { return coordinate_wgrad_dst_idx_ptr[i]; },
+
+        [=] __device__(int i) {
+          uint32_t src_index = sorted_bucket_id_list_ptr[i];
+          int embedding_id = src_index / batch_size;
+          int batch_id = src_index % batch_size;
+          int gpu_id = batch_id / batch_size_per_gpu;
+          int local_batch_id = batch_id % batch_size_per_gpu;
+          int ev_size =
+              local_ev_offset_list_ptr[embedding_id + 1] - local_ev_offset_list_ptr[embedding_id];
+          return model_comm_buffer_ptr[gpu_id] +
+                 batch_size_per_gpu * local_ev_offset_list_ptr[embedding_id] +
+                 local_batch_id * ev_size;
+        },
+
+        [=] __device__(int i) {
+          auto tmp_index = coordinate_wgrad_dst_idx_ptr[i];
+          return grad_ev_ptr + unique_dst_idx_ptr[tmp_index];
+        },
+        [=] __device__(int i) { return corrdinate_sp_weight_ptr[i]; });
+
+    auto multi_to_one_desc_second_stage = make_MultiToOne_reduce_weight<float, float>(
+        num_model_key, [=] __device__(int i) { return partial_key_ptr[i]; },
+        [=] __device__(int i) { return partial_ev_length_ptr[i]; },
+        [=] __device__(int i) {
+          auto tmp_index = partial_dst_offset_array_ptr[i];
+          return unique_dst_idx_ptr[tmp_index + 1] - unique_dst_idx_ptr[tmp_index];
+        },
+        [=] __device__(int i) { return 1; },
+
+        [=] __device__(int i) { return partial_grad_ev_ptr + i * max_ev_size; },
+
+        [=] __device__(int i) {
+          auto tmp_index = partial_dst_offset_array_ptr[i];
+          return grad_ev_ptr + unique_dst_idx_ptr[tmp_index];
+        },
+        [=] __device__(int i) { return 1.0; });
+
+    multi_to_one_reduce_weight(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
+                               (float*)partial_grad_ev_.get(), (uint32_t*)partial_key_.get(),
+                               (int*)partial_ev_length_.get(),
+                               (uint32_t*)partial_dst_offset_array_.get(), num_sms_, max_ev_size,
+                               stream);
+  });
+
+  *grad_ev = grad_ev_;
+}
+
+void ModelBackward::compute(const TensorList& model_comm_buffer, const Tensor& unique_dst_idx,
+                            const Tensor& sorted_bucket_id_list,
+                            const Tensor& sorted_bucket_id_offset, size_t num_unique_key,
+                            const Tensor& corrdinate_key, const Tensor& coordinate_wgrad_dst_idx,
+                            const Tensor& d_local_ev_size_offset, int batch_size, int max_ev_size,
                             size_t num_model_key, Tensor* grad_ev) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / num_gpus_;
 
   cudaMemsetAsync(grad_ev_.get(), 0, grad_ev_.nbytes(), stream);
+
   DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
     const uint32_t* unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
     const emb_t** model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();

@@ -28,6 +28,12 @@ namespace swizzle_key {
 
 void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const std::vector<Tensor> &keys, const std::vector<Tensor> &row_lengths,
+                            const std::vector<Tensor> &sp_weights,
+                            Tensor &key_all_gather_send_buffer,
+                            Tensor &row_lengths_all_gather_send_buffer, bool use_sp_weight,
+                            Tensor &sp_weight_all_gather_send_buffer);
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const std::vector<Tensor> &keys, const std::vector<Tensor> &row_lengths,
                             Tensor &key_all_gather_send_buffer,
                             Tensor &row_lengths_all_gather_send_buffer);
 }  // namespace swizzle_key
@@ -36,6 +42,20 @@ namespace model_forward {
 
 std::vector<size_t> get_model_comm_buffer_size(const UniformModelParallelEmbeddingMeta &meta,
                                                int num_gpus, int batch_size);
+
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const UniformModelParallelEmbeddingMeta &meta, int global_gpu_id,
+                            const Tensor &key_all_gather_recv_buffer,
+                            const Tensor &row_lengths_all_gather_recv_buffer,
+                            const Tensor &sp_weights_all_gather_recv_buffer, bool use_sp_weight,
+                            ILookup *emb_storage, std::vector<Tensor> &emb_vec_model_buffer,
+                            int64_t *num_model_key, int64_t *num_model_offsets,
+                            Tensor *ret_model_key, Tensor *ret_model_offset, Tensor *ret_sp_weight);
+
+void copy_model_keys_and_offsets(std::shared_ptr<CoreResourceManager> core, const Tensor &model_key,
+                                 const Tensor &model_offset, const Tensor &model_sp_weight,
+                                 bool use_sp_weight, Tensor &tf_model_key, Tensor &tf_model_offsets,
+                                 Tensor &tf_sp_weight);
 
 void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const UniformModelParallelEmbeddingMeta &meta,
@@ -55,6 +75,11 @@ namespace network_forward {
 void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const UniformModelParallelEmbeddingMeta &meta,
                             const std::vector<Tensor> &emb_vec_network_buffer,
+                            const std::vector<Tensor> &row_lengths, bool use_sp_weight,
+                            const Tensor &sp_sum, std::vector<Tensor> &forward_emb_vec);
+void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                            const UniformModelParallelEmbeddingMeta &meta,
+                            const std::vector<Tensor> &emb_vec_network_buffer,
                             const std::vector<Tensor> &row_lengths,
                             std::vector<Tensor> &forward_emb_vec);
 }  // namespace network_forward
@@ -64,10 +89,25 @@ namespace network_backward {
 void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                       const UniformModelParallelEmbeddingMeta &meta,
                       const std::vector<Tensor> &top_grad, const std::vector<Tensor> &row_lengths,
+                      std::vector<Tensor> &emb_vec_network_buffer, bool use_sp_weight,
+                      const Tensor &sp_sum);
+
+void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                      const UniformModelParallelEmbeddingMeta &meta,
+                      const std::vector<Tensor> &top_grad, const std::vector<Tensor> &row_lengths,
                       std::vector<Tensor> &emb_vec_network_buffer);
 }  // namespace network_backward
 
 namespace model_backward {
+
+void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
+                             const UniformModelParallelEmbeddingMeta &meta,
+                             const std::vector<Tensor> &emb_vec_model_buffer,
+                             const Tensor &model_key, const Tensor &model_offsets,
+                             bool use_sp_weight, const Tensor &model_sp_weight,
+                             std::vector<int> *num_unique_key_per_table,
+                             std::vector<int> *table_id_list, Tensor *ret_continous_unique_key,
+                             Tensor *ret_continous_emb_vec);
 
 void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                              const UniformModelParallelEmbeddingMeta &meta,

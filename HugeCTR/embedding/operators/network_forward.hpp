@@ -48,6 +48,14 @@ class NetworkForward {
                const Tensor& network_gpu_ids, const Tensor& network_offsets,
                const Tensor& network_dst_lookup_ids, const TensorList& network_ev_sizes,
                const TensorList& network_ev_offsets, TensorList& output_buffer,
+               const Tensor& d_ev_size_offset, int batch_size, int max_ev_size,
+               const Tensor& sp_weight_sum);
+
+  void compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
+               const TensorList& network_comm_buffer, const Tensor& network_ids,
+               const Tensor& network_gpu_ids, const Tensor& network_offsets,
+               const Tensor& network_dst_lookup_ids, const TensorList& network_ev_sizes,
+               const TensorList& network_ev_offsets, TensorList& output_buffer,
                const Tensor& d_ev_size_offset, int batch_size, int max_ev_size);
 };
 

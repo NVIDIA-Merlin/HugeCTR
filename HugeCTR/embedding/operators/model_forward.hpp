@@ -51,5 +51,8 @@ class ModelForward {
   void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
                const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
                int batch_size, int max_ev_size);
+  void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
+               const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
+               int batch_size, int max_ev_size, const Tensor &sp_weight);
 };
 }  // namespace embedding

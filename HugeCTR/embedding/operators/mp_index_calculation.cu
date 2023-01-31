@@ -264,6 +264,8 @@ ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager
   model_key_ = buffer_ptr_->reserve({universal_batch_size_ * local_hotness_sum_}, device, key_type);
   model_idx_offsets_ = buffer_ptr_->reserve({universal_batch_size_ * num_local_embedding_ + 1},
                                             device, TensorScalarType::UInt32);
+  model_sp_weight_ = buffer_ptr_->reserve({universal_batch_size_ * local_hotness_sum_}, device,
+                                          TensorScalarType::Float32);
   num_key_in_bucket_for_combiner_ = buffer_ptr_->reserve(
       {universal_batch_size_ * num_local_embedding_}, device, TensorScalarType::UInt32);
   num_model_key_ = buffer_ptr_->reserve({1}, DeviceType::CPU, TensorScalarType::Size_t);
@@ -284,6 +286,13 @@ ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager
     });
     d_temp_select_storage_ = buffer_ptr_->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
+
+  size_t temp_bytes = 0;
+  cub::DeviceSelect::Flagged(nullptr, temp_bytes, (size_t*)nullptr, (char*)nullptr,
+                             (size_t*)nullptr, (size_t*)nullptr,
+                             universal_batch_size * hotness_list_sum_);
+  d_temp_select_weight_storage_ =
+      buffer_ptr_->reserve({temp_bytes}, device, TensorScalarType::Void);
   buffer_ptr_->allocate();
 }
 
@@ -342,6 +351,73 @@ void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_rang
   *model_idx_offsets = model_idx_offsets_;
   *num_model_key = *(num_model_key_.get<size_t>());
 }
+void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
+                                    const Tensor& d_local_embedding_list,
+                                    const Tensor& d_local_shard_id_list,
+                                    const Tensor& d_local_num_shards_list, int batch_size,
+                                    Tensor* model_key, Tensor* model_idx_offsets,
+                                    size_t* num_model_key, const Tensor& reorder_sp_weight,
+                                    Tensor* model_sp_weight) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+
+  *(num_model_key_.get<size_t>()) = 0;
+  if (num_local_embedding_ > 0) {
+    DISPATCH_INTEGRAL_FUNCTION(key.dtype().type(), key_t, [&] {
+      DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
+        auto stream = core_->get_local_gpu()->get_stream();
+
+        HCTR_LIB_THROW(cudaMemsetAsync(model_key_.get(), 0, model_key_.nbytes(), stream));
+        HCTR_LIB_THROW(
+            cudaMemsetAsync(model_idx_offsets_.get(), 0, model_idx_offsets_.nbytes(), stream));
+        HCTR_LIB_THROW(cudaMemsetAsync(flag_.get(), 0, flag_.nbytes(), stream));
+
+        key_t* model_key_ptr = model_key_.get<key_t>();
+        uint32_t* model_idx_offsets_ptr = model_idx_offsets_.get<uint32_t>();
+        size_t* num_model_key_ptr = num_model_key_.get<size_t>();
+        char* flag_ptr = flag_.get<char>();
+        const key_t* key_ptr = key.get<key_t>();
+        const offset_t* bucket_range_ptr = bucket_range.get<offset_t>();
+        const int* local_embedding_list_ptr = d_local_embedding_list.get<int>();
+        const int* local_shard_id_ptr = d_local_shard_id_list.get<int>();
+        const int* local_num_shards_ptr = d_local_num_shards_list.get<int>();
+
+        // in cub implementation, the flag must be 0 or 1. See
+        // https://github.com/NVIDIA/cub/issues/235 we can fuse thie memset with next kernel
+        int thread_cnt = 128;
+        int block_cnt = (batch_size * num_local_embedding_ - 1) / thread_cnt + 1;
+        index_calculation_kernel<<<block_cnt, thread_cnt, 0, stream>>>(
+            key_ptr, bucket_range_ptr, local_embedding_list_ptr, local_shard_id_ptr,
+            local_num_shards_ptr, batch_size, num_local_embedding_, model_idx_offsets_ptr,
+            flag_ptr);
+
+        size_t d_temp_scan_storage_nbytes = d_temp_scan_storage_.nbytes();
+        cub::DeviceScan::InclusiveSum(d_temp_scan_storage_.get(), d_temp_scan_storage_nbytes,
+                                      model_idx_offsets_ptr, model_idx_offsets_ptr,
+                                      batch_size * num_local_embedding_ + 1, stream);
+
+        size_t d_temp_select_storage_nbytes = d_temp_select_storage_.nbytes();
+        cub::DeviceSelect::Flagged(d_temp_select_storage_.get(), d_temp_select_storage_nbytes,
+                                   key_ptr, flag_ptr, model_key_ptr, num_model_key_ptr, num_key,
+                                   stream);
+        DISPATCH_FLOAT_AND_HALF_FUNCTION(reorder_sp_weight.dtype().type(), dtype_t, [&] {
+          const dtype_t* reorder_sp_weight_ptr = reorder_sp_weight.get<dtype_t>();
+          dtype_t* model_sp_weight_ptr = model_sp_weight_.get<dtype_t>();
+          size_t d_temp_select_weight_storage_nbytes = d_temp_select_weight_storage_.nbytes();
+
+          cub::DeviceSelect::Flagged(d_temp_select_weight_storage_.get(),
+                                     d_temp_select_weight_storage_nbytes, reorder_sp_weight_ptr,
+                                     flag_ptr, model_sp_weight_ptr, num_model_key_ptr, num_key,
+                                     stream);
+        });
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      });
+    });
+  }
+  *model_sp_weight = model_sp_weight_;
+  *model_key = model_key_;
+  *model_idx_offsets = model_idx_offsets_;
+  *num_model_key = *(num_model_key_.get<size_t>());
+}
 
 ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
     std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
@@ -389,6 +465,7 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
                                         TensorScalarType::UInt32);
   sorted_bucket_id_list_ = buffer_ptr->reserve({universal_batch_size, local_hotness_sum}, device,
                                                TensorScalarType::UInt32);
+
   sorted_bucket_id_offset_ = buffer_ptr->reserve({1 + universal_batch_size * local_hotness_sum},
                                                  device, TensorScalarType::UInt32);
   unique_id_space_offset_ =
@@ -406,6 +483,20 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
                                     universal_batch_size * local_hotness_sum, 0, sort_end_bit_);
     d_temp_sort_storage_ = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
+
+  {
+    size_t temp_bytes = 0;
+    cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (size_t*)nullptr, (size_t*)nullptr,
+                                    (size_t*)nullptr, (size_t*)nullptr,
+                                    universal_batch_size * local_hotness_sum, 0, sort_end_bit_);
+    d_temp_sort_sp_weight_storage_ =
+        buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
+    d_temp_sort_sp_weight_key_ = buffer_ptr->reserve({universal_batch_size * local_hotness_sum},
+                                                     device, TensorScalarType::UInt32);
+    sorted_sp_weight_list_ = buffer_ptr->reserve({universal_batch_size * local_hotness_sum}, device,
+                                                 TensorScalarType::Float32);
+  }
+
   {
     size_t temp_bytes = 0;
     cub::DeviceRunLengthEncode::Encode(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
@@ -437,6 +528,149 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
   }
   std::partial_sum(h_hash_offset.begin(), h_hash_offset.end(), h_hash_offset.begin());
   hash_offset_.copy_from(h_hash_offset);
+}
+
+void ModelBackwardIndexCalculation::compute(
+    const Tensor& model_key, size_t num_model_key, const Tensor& model_offset,
+    const Tensor& id_space_offset, const Tensor& id_space_list, int batch_size, Tensor* unique_key,
+    size_t* num_unique_key, Tensor* unique_dst_idx, Tensor* sorted_bucket_id_list,
+    Tensor* sorted_bucket_id_offset, Tensor* unique_id_space_list, Tensor* unique_id_space_offset,
+    Tensor* coordinate_key, Tensor* coordinate_wgrad_dst_idx, const Tensor& model_sp_weight,
+    Tensor* coordinate_sp_weight) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+  int batch_size_per_gpu = batch_size / num_gpus_;
+
+  DISPATCH_INTEGRAL_FUNCTION(model_key.dtype().type(), key_t, [&] {
+    auto stream = core_->get_local_gpu()->get_stream();
+
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(bucket_id_list_.get<uint32_t>(), 0, bucket_id_list_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(sorted_local_index_.get<uint32_t>(), 0,
+                                   sorted_local_index_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(unique_local_index_.get<uint32_t>(), 0,
+                                   unique_local_index_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(unique_key_.get<key_t>(), 0, unique_key_.nbytes(), stream));
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(unique_dst_idx_.get<uint32_t>(), 0, unique_dst_idx_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(coordinate_wgrad_dst_idx_.get<uint32_t>(), 0,
+                                   coordinate_wgrad_dst_idx_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_list_.get<uint32_t>(), 0,
+                                   sorted_bucket_id_list_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_offset_.get<uint32_t>(), 0,
+                                   sorted_bucket_id_offset_.nbytes(), stream));
+    // TODO:: need to fix  a flexsible type
+    HCTR_LIB_THROW(cudaMemsetAsync(sorted_sp_weight_list_.get<float>(), 0,
+                                   sorted_sp_weight_list_.nbytes(), stream));
+    if (num_local_embedding_ > 0 && num_model_key > 0ul) {
+      {
+        // this can be fused with sort pair in 4th code
+        int block_size = 256;
+        int grid_size = (batch_size * num_local_embedding_ - 1) / block_size + 1;
+        expand_bucket_id_kernel<<<grid_size, block_size, 0, stream>>>(
+            model_offset.get<uint32_t>(), bucket_id_list_.get<uint32_t>(), batch_size,
+            num_local_embedding_, batch_size_per_gpu);
+      }
+      {
+        int num_hash_key = hash_keys_.get_num_elements();
+        constexpr int block_size = 256;
+        int grid_size = (num_hash_key - 1) / block_size + 1;
+        initialize_hash_key<<<grid_size, block_size, 0, stream>>>(hash_keys_.get<key_t>(),
+                                                                  num_hash_key);
+      }
+      {
+        constexpr int block_size = 256;
+        int grid_size = (num_model_key - 1) / block_size + 1;
+        get_unique_index_kernel<<<grid_size, block_size, 0, stream>>>(
+            model_key.get<key_t>(), num_model_key, id_space_offset.get<uint32_t>(),
+            id_space_list.get<int>(), num_local_embedding_, unique_id_space_list_.get<int>(),
+            unique_id_space_list_.get_num_elements(), hash_offset_.get<uint32_t>(),
+            hash_keys_.get<key_t>(), local_index_.get<uint32_t>());
+      }
+      {
+        DISPATCH_FLOAT_AND_HALF_FUNCTION(model_sp_weight.dtype().type(), dtype_t, [&] {
+          size_t nbytes = d_temp_sort_sp_weight_storage_.nbytes();
+          cub::DeviceRadixSort::SortPairs(
+              d_temp_sort_sp_weight_storage_.get(), nbytes, local_index_.get<uint32_t>(),
+              d_temp_sort_sp_weight_key_.get<uint32_t>(), model_sp_weight.get<dtype_t>(),
+              sorted_sp_weight_list_.get<dtype_t>(), num_model_key, 0, sort_end_bit_, stream);
+        });
+      }
+      {
+        size_t nbytes = d_temp_sort_storage_.nbytes();
+        cub::DeviceRadixSort::SortPairs(
+            d_temp_sort_storage_.get(), nbytes, local_index_.get<uint32_t>(),
+            sorted_local_index_.get<uint32_t>(), bucket_id_list_.get<uint32_t>(),
+            sorted_bucket_id_list_.get<uint32_t>(), num_model_key, 0, sort_end_bit_, stream);
+      }
+      {
+        size_t nbytes = d_temp_run_length_encode_storage_.nbytes();
+        cub::DeviceRunLengthEncode::Encode(
+            d_temp_run_length_encode_storage_.get(), nbytes, sorted_local_index_.get<uint32_t>(),
+            unique_local_index_.get<uint32_t>(), sorted_bucket_id_offset_.get<uint32_t>() + 1,
+            num_unique_key_.get<size_t>(), num_model_key, stream);
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));  // to sync num_unique_key to host
+      }
+      int num_unique_table = unique_id_space_list_.get_num_elements();
+      {
+        constexpr int block_size = 256;
+        int grid_size = (num_model_key - 1) / block_size + 1;
+        extract_wgrad_dst_idx_kernel<<<grid_size, block_size, 0, stream>>>(
+            sorted_local_index_.get<uint32_t>(), num_model_key,
+            coordinate_wgrad_dst_idx_.get<uint32_t>());
+      }
+      {
+        constexpr int block_size = 256;
+        int num_unique_key_host = *num_unique_key_.get<size_t>();
+        int grid_size = (num_unique_key_host - 1) / block_size + 1;
+        convert_hash_index_to_key_kernel<<<grid_size, block_size, 0, stream>>>(
+            unique_local_index_.get<uint32_t>(), num_unique_key_host, hash_keys_.get<key_t>(),
+            unique_key_.get<key_t>());
+        extract_wgrad_ev_dst_idx_kernel<<<grid_size, block_size, 0, stream>>>(
+            hash_offset_.get<uint32_t>(), num_unique_table, unique_local_index_.get<uint32_t>(),
+            num_unique_key_host, unique_id_space_ev_size_list_.get<int>(),
+            unique_dst_idx_.get<uint32_t>());
+      }
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      {
+        int num_unique_id_space = static_cast<int>(unique_id_space_list_.get_num_elements());
+        count_unique_key_kernel<<<num_unique_id_space, 32, 0, stream>>>(
+            hash_keys_.get<key_t>(), hash_offset_.get<uint32_t>(), num_unique_id_space,
+            unique_id_space_offset_.get<uint32_t>());
+
+        HCTR_LIB_THROW(cudaPeekAtLastError());
+      }
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      {
+        size_t nbytes = d_temp_scan_encode_storage_.nbytes();
+        cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
+                                      unique_id_space_offset_.get<uint32_t>(),
+                                      unique_id_space_offset_.get<uint32_t>(),
+                                      unique_id_space_offset_.get_num_elements(), stream);
+        cub::DeviceScan::InclusiveSum(
+            d_temp_scan_encode_storage_.get(), nbytes, unique_dst_idx_.get<uint32_t>(),
+            unique_dst_idx_.get<uint32_t>(), unique_dst_idx_.get_num_elements(), stream);
+        cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
+                                      coordinate_wgrad_dst_idx_.get<uint32_t>(),
+                                      coordinate_wgrad_dst_idx_.get<uint32_t>(),
+                                      coordinate_wgrad_dst_idx_.get_num_elements(), stream);
+        cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
+                                      sorted_bucket_id_offset_.get<uint32_t>(),
+                                      sorted_bucket_id_offset_.get<uint32_t>(),
+                                      sorted_bucket_id_offset_.get_num_elements(), stream);
+      }
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    }
+  });
+  *unique_key = unique_key_;
+  *num_unique_key = *num_unique_key_.get<size_t>();
+  *unique_dst_idx = unique_dst_idx_;
+  *sorted_bucket_id_list = sorted_bucket_id_list_;
+  *sorted_bucket_id_offset = sorted_bucket_id_offset_;
+  *unique_id_space_list = unique_id_space_list_;
+  *unique_id_space_offset = unique_id_space_offset_;
+  *coordinate_key = sorted_local_index_;
+  *coordinate_wgrad_dst_idx = coordinate_wgrad_dst_idx_;
+  *coordinate_sp_weight = sorted_sp_weight_list_;
 }
 
 void ModelBackwardIndexCalculation::compute(

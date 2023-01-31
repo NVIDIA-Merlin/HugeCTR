@@ -39,23 +39,35 @@ if __name__ == "__main__":
     batch_size = 65536
     iters = 100
     initial_vals = [13, 17]
+    gpus = [0, min(1, hvd.size() - 1)]
 
     # sok variables
-    sok_vars = [
-        sok.DynamicVariable(dimension=cols[i], initializer=str(initial_vals[i]))
-        for i in range(len(cols))
-    ]
-    local_indices = []
-    for row in rows:
-        local_size = row // hvd.size()
-        if hvd.rank() < row % hvd.size():
-            local_size += 1
-        indices = np.arange(local_size) * hvd.size() + hvd.rank()
-        indices = tf.convert_to_tensor(indices, dtype=tf.int64)
-        local_indices.append(indices)
+    sok_vars = []
+    if len(gpus) >= 2:
+        for i in range(len(cols)):
+            v = sok.DynamicVariable(
+                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:%d" % gpus[i]
+            )
+            sok_vars.append(v)
+    else:
+        for i in range(len(cols)):
+            v = sok.DynamicVariable(
+                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:0"
+            )
+            sok_vars.append(v)
 
+    local_indices = []
+    for i, row in enumerate(rows):
+        if hvd.rank() == gpus[i]:
+            indices = np.arange(row)
+            indices = tf.convert_to_tensor(indices, dtype=tf.int64)
+            local_indices.append(indices)
+        else:
+            local_indices.append(None)
     # indices
+    # sp_weights
     total_indices = []
+    total_sp_weights = []
     for i in range(len(rows)):
         offsets = np.random.randint(1, hotness[i] + 1, iters * batch_size)
         offsets = tf.convert_to_tensor(offsets, dtype=tf.int64)
@@ -63,22 +75,29 @@ if __name__ == "__main__":
         values = np.random.randint(0, rows[i], tf.reduce_sum(offsets))
         values = tf.convert_to_tensor(values, dtype=tf.int64)
         values = hvd.broadcast(values, root_rank=0)
+        sp_weights = np.random.randn(tf.reduce_sum(offsets))
+        sp_weights = tf.convert_to_tensor(sp_weights, dtype=tf.float32)
+        sp_weights = hvd.broadcast(sp_weights, root_rank=0)
         total_indices.append(tf.RaggedTensor.from_row_lengths(values, offsets))
+        total_sp_weights.append(tf.RaggedTensor.from_row_lengths(sp_weights, offsets))
+
     left = batch_size // hvd.size() * hvd.rank()
     right = batch_size // hvd.size() * (hvd.rank() + 1)
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
-    sok_optimizer = sok.SGD(lr=1.0)
+    sok_optimizer = sok.OptimizerWrapper(optimizer)
 
-    def step(params, indices):
+    def step(params, indices, sp_weights):
         with tf.GradientTape() as tape:
-            embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
+            embeddings = sok.lookup_sparse(
+                params, indices, sp_weights=sp_weights, combiners=combiners
+            )
             loss = 0
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        sok_optimizer.apply_gradients(zip(grads, params))
+        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -90,23 +109,31 @@ if __name__ == "__main__":
         ts.append(time.time() - t)
         t = time.time()
         indices = []
+        iter_sp_weights = []
         for j in range(len(total_indices)):
             indices.append(total_indices[j][i * batch_size + left : i * batch_size + right])
-        loss = step(sok_vars, indices)
+            iter_sp_weights.append(
+                total_sp_weights[j][i * batch_size + left : i * batch_size + right]
+            )
+
+        loss = step(sok_vars, indices, iter_sp_weights)
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("loss:", loss)
     out1 = []
     for i in range(len(sok_vars)):
-        out1.append(tf.nn.embedding_lookup(sok_vars[i], local_indices[i]))
+        if hvd.rank() == gpus[i]:
+            out1.append(tf.nn.embedding_lookup(sok_vars[i], local_indices[i]))
+        else:
+            out1.append(None)
 
     @tf.function
-    def step2(params, indices):
+    def step2(params, indices, sp_weights):
         with tf.GradientTape() as tape:
             loss = 0
             for i in range(len(params)):
                 embedding = tf.nn.embedding_lookup_sparse(
-                    params[i], indices[i], None, combiner=combiners[i]
+                    params[i], indices[i], sp_weights[i], combiner=combiners[i]
                 )
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
@@ -122,23 +149,31 @@ if __name__ == "__main__":
     loss2 = []
     for i in range(iters):
         indices = []
+        iter_sp_weights = []
         for j in range(len(total_indices)):
             indices.append(
                 total_indices[j][i * batch_size + left : i * batch_size + right].to_sparse()
             )
-        loss = step2(tf_vars, indices)
+            iter_sp_weights.append(
+                total_sp_weights[j][i * batch_size + left : i * batch_size + right].to_sparse()
+            )
+        loss = step2(tf_vars, indices, iter_sp_weights)
         loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("tf loss:", loss)
     out2 = []
     for i, v in enumerate(tf_vars):
-        out2.append(tf.nn.embedding_lookup(v, local_indices[i]))
+        if hvd.rank() == gpus[i]:
+            out2.append(v)
+        else:
+            out2.append(None)
 
     # Check results
     diff = 0
     for i in range(len(out1)):
-        length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-        diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
+        if hvd.rank() == gpus[i]:
+            length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
+            diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
     assert diff < 1e-6
 

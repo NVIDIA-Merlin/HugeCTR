@@ -55,7 +55,9 @@ if __name__ == "__main__":
         local_indices.append(indices)
 
     # indices
+    # sp_weights
     total_indices = []
+    total_sp_weights = []
     for i in range(len(rows)):
         offsets = np.random.randint(1, hotness[i] + 1, iters * batch_size)
         offsets = tf.convert_to_tensor(offsets, dtype=tf.int64)
@@ -63,22 +65,26 @@ if __name__ == "__main__":
         values = np.random.randint(0, rows[i], tf.reduce_sum(offsets))
         values = tf.convert_to_tensor(values, dtype=tf.int64)
         values = hvd.broadcast(values, root_rank=0)
+        sp_weights = np.random.randn(tf.reduce_sum(offsets))
+        sp_weights = tf.convert_to_tensor(sp_weights, dtype=tf.float32)
+        sp_weights = hvd.broadcast(sp_weights, root_rank=0)
         total_indices.append(tf.RaggedTensor.from_row_lengths(values, offsets))
-    left = batch_size // hvd.size() * hvd.rank()
-    right = batch_size // hvd.size() * (hvd.rank() + 1)
+        total_sp_weights.append(tf.RaggedTensor.from_row_lengths(sp_weights, offsets))
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
     sok_optimizer = sok.SGD(lr=1.0)
 
-    def step(params, indices):
+    def step(params, indices, sp_weights):
         with tf.GradientTape() as tape:
-            embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
+            embeddings = sok.lookup_sparse(
+                params, indices, sp_weights=sp_weights, combiners=combiners
+            )
             loss = 0
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        sok_optimizer.apply_gradients(zip(grads, params))
+        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -90,8 +96,14 @@ if __name__ == "__main__":
         ts.append(time.time() - t)
         t = time.time()
         indices = []
+        iter_sp_weights = []
         for j in range(len(total_indices)):
             indices.append(total_indices[j][i * batch_size + left : i * batch_size + right])
+            iter_sp_weights.append(
+                total_sp_weights[j][i * batch_size + left : i * batch_size + right]
+            )
+        loss = step(sok_vars, indices, iter_sp_weights)
+
         loss = step(sok_vars, indices)
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
@@ -101,12 +113,12 @@ if __name__ == "__main__":
         out1.append(tf.nn.embedding_lookup(sok_vars[i], local_indices[i]))
 
     @tf.function
-    def step2(params, indices):
+    def step2(params, indices, sp_weights):
         with tf.GradientTape() as tape:
             loss = 0
             for i in range(len(params)):
                 embedding = tf.nn.embedding_lookup_sparse(
-                    params[i], indices[i], None, combiner=combiners[i]
+                    params[i], indices[i], sp_weights[i], combiner=combiners[i]
                 )
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
@@ -122,9 +134,13 @@ if __name__ == "__main__":
     loss2 = []
     for i in range(iters):
         indices = []
+        iter_sp_weights = []
         for j in range(len(total_indices)):
             indices.append(
                 total_indices[j][i * batch_size + left : i * batch_size + right].to_sparse()
+            )
+            iter_sp_weights.append(
+                total_sp_weights[j][i * batch_size + left : i * batch_size + right].to_sparse()
             )
         loss = step2(tf_vars, indices)
         loss2.append(loss)
