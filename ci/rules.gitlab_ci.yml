@@ -36,6 +36,7 @@
   - "test/**/*"
   - "third_party/**/*"
   - "tools/**/*"
+  - "sbin/**/*"
   - "CMakelists.txt"
   - ".gitlab-ci.yml"
   - ".clang-format"
