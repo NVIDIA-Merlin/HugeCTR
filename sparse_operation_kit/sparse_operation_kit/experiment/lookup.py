@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 from itertools import chain
 import tensorflow as tf
 from tensorflow.python.framework import ops
@@ -102,13 +103,20 @@ def all2all_dense_embedding(param, indices):
     return ex_embeddings
 
 
-def _preprocessing_forward(*args, **kwargs):
+def _preprocessing_forward(keys, row_lengths, sp_weight_value, *args, **kwargs):
     """
     This function should not be used by user directly.
     """
-    name = kwargs.pop("name") if "name" in kwargs else "PreprocessingForward"
-    with ops.name_scope(name) as name:
-        return raw_ops.preprocessing_forward(*args, **kwargs)
+    if len(sp_weight_value) == 0:
+        name = kwargs.pop("name") if "name" in kwargs else "PreprocessingForward"
+        with ops.name_scope(name) as name:
+            return raw_ops.preprocessing_forward(keys, row_lengths, *args, **kwargs)
+    else:
+        name = kwargs.pop("name") if "name" in kwargs else "PreprocessingForwardWithWeight"
+        with ops.name_scope(name) as name:
+            return raw_ops.preprocessing_forward_with_weight(
+                keys, row_lengths, sp_weight_value, *args, **kwargs
+            )
 
 
 def _hotness_calculate(*args, **kwargs):
@@ -151,6 +159,7 @@ def _LookupBackward(op, *top_grads):
         "num_ranks",
         "id_in_local_rank",
         "Toffsets",
+        "use_sp_weight",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -159,9 +168,9 @@ def _LookupBackward(op, *top_grads):
     num_gpus = op.get_attr("num_gpus")
     num_lookups = op.get_attr("num_lookups")
     top_grads = top_grads[:num_gpus]
-    other_data = op.outputs[num_gpus:]
-    hotness = op.inputs[num_lookups + 2 :]
-    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    other_data = op.outputs[num_gpus : num_gpus + 3]
+    hotness = op.inputs[num_lookups + 2]
+    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -186,6 +195,7 @@ def _LookupDynamicBackward(op, *top_grads):
         "num_ranks",
         "id_in_local_rank",
         "Toffsets",
+        "use_sp_weight",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -194,9 +204,9 @@ def _LookupDynamicBackward(op, *top_grads):
     num_gpus = op.get_attr("num_gpus")
     num_lookups = op.get_attr("num_lookups")
     top_grads = top_grads[:num_gpus]
-    other_data = op.outputs[num_gpus:]
-    hotness = op.inputs[num_lookups + 2 :]
-    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    other_data = op.outputs[num_gpus : num_gpus + 3]
+    hotness = op.inputs[num_lookups + 2]
+    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -223,6 +233,7 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
         "num_ranks",
         "id_in_local_rank",
         "Toffsets",
+        "use_sp_weight",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -231,9 +242,12 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
     num_gpus = op.get_attr("num_gpus")
     num_lookups = op.get_attr("num_lookups")
     top_grads = top_grads[:num_gpus]
-    other_data = op.outputs[num_gpus:]
-    hotness = op.inputs[num_lookups + 2 :]
-    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    other_data = op.outputs[num_gpus : num_gpus + 2]
+    hotness = op.inputs[num_lookups + 2]
+    sp_weight = op.inputs[num_lookups + 3]
+    indices, values, _ = raw_ops.lookup_backward(
+        top_grads, *other_data, hotness, sp_weight, **kwargs
+    )
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -266,6 +280,7 @@ def _PostprocessingBackward(op, *top_grads):
         "id_in_local_rank",
         "num_gpus",
         "Tindices",
+        "use_sp_weight"
         # "Toffsets",
     ]
     kwargs = {}
@@ -275,10 +290,13 @@ def _PostprocessingBackward(op, *top_grads):
     num_lookups = op.get_attr("num_lookups")
     num_gpus = op.get_attr("num_gpus")
     top_grads = top_grads[:num_lookups]
-    row_lengths = op.inputs[num_gpus:-1]
-    hotness = op.inputs[num_gpus + num_lookups :]
+    row_lengths = op.inputs[num_gpus : num_gpus + num_lookups]
+    hotness = op.inputs[num_gpus + num_lookups]
+    sp_sum = op.inputs[num_gpus + num_lookups + 1]
     other_data = op.outputs[num_lookups:]
-    grads = raw_ops.postprocessing_backward(top_grads, other_data, row_lengths, hotness, **kwargs)
+    grads = raw_ops.postprocessing_backward(
+        top_grads, other_data, row_lengths, hotness, sp_sum, **kwargs
+    )
     return grads + [None] * (len(op.inputs) - len(grads))
 
 
@@ -289,7 +307,7 @@ def to_list(any_obj):
         return any_obj
 
 
-def lookup_sparse(params, sp_ids, combiners):
+def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
     """
     Abbreviated as ``sok.experiment.lookup_sparse``.
 
@@ -306,8 +324,12 @@ def lookup_sparse(params, sp_ids, combiners):
             a list or tuple of trainable *sok.Variable*.
     sp_ids: list, tuple
             a list or tuple of tf.SparseTensor or tf.RaggedTensor.
-    combiners: list, tuple
-            a list or tuple of string to specify the combiner of each lookup.
+    sp_weights: list tuple,optional
+            a list or tuple of tf.SparseTensor or tf.RaggedTensor(float / double weights).
+            if don't specify , indicate all weights should be taken to be 1.
+    combiners: list, tuple,optional
+            a list or tuple of string to specify the combiner of each lookup,for now only suupport "mean" "sum".
+            if don't specify , indicate all elements(numbero of elements is same with number of sok.Variables) in combiners will should be set to be mean.
 
     Returns
     -------
@@ -353,11 +375,26 @@ def lookup_sparse(params, sp_ids, combiners):
         print(embeddings[1])
     """
     # `is_list` determines whether to return a list or a tensor in the end
-    is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple)
+    #
+    is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple) or isinstance(sp_weights, tuple)
 
     params = to_list(params)
     sp_ids = to_list(sp_ids)
-    combiners = to_list(combiners)
+    num_tables = len(params)
+
+    # check combiners
+    if combiners == None:
+        combiners_numpy = np.chararray(num_tables, itemsize=4)
+        combiners_numpy[:] = "mean"
+        combiners = combiners_numpy.tolist()
+    else:
+        combiners = to_list(combiners)
+    if sp_weights == None:
+        sp_weights = [] * len(params)
+    else:
+        if len(sp_ids) != len(sp_weights):
+            raise RuntimeError("sp_ids length is not equal sp_weights")
+        sp_weights = to_list(sp_weights)
 
     shard, dimensions = [], []
     for param in params:
@@ -377,11 +414,26 @@ def lookup_sparse(params, sp_ids, combiners):
 
     keys = []
     row_lengths = []
-    for sp_id in sp_ids:
+    sp_weight_value = []
+    use_sp_weight = False if len(sp_weights) == 0 else True
+    for index in range(len(sp_ids)):
+        sp_id = sp_ids[index]
         if isinstance(sp_id, tf.SparseTensor):
             sp_id = tf.RaggedTensor.from_sparse(sp_id)
         keys.append(sp_id.values)
-        row_lengths.append(sp_id.row_lengths())
+        id_row_length = sp_id.row_lengths()
+        row_lengths.append(id_row_length)
+        if len(sp_weights) > 0:
+            sp_weight = sp_weights[index]
+            if isinstance(sp_weight, tf.SparseTensor):
+                sp_weight = tf.RaggedTensor.from_sparse(sp_weight)
+            weight_row_length = sp_weight.row_lengths()
+            is_same = weight_row_length.shape == id_row_length.shape
+            is_same = is_same and tf.math.reduce_all(id_row_length == weight_row_length).numpy()
+            if not is_same:
+                raise RuntimeError("sp_id and sp_weight should be have same shape.")
+            sp_weight_value.append(sp_weight.values)
+
     hotness_kwargs = {
         "num_lookups": len(params),
     }
@@ -393,29 +445,46 @@ def lookup_sparse(params, sp_ids, combiners):
         "rank": rank(),
         "num_ranks": num_ranks(),
         "id_in_local_rank": id_in_rank(),
+        "use_sp_weight": use_sp_weight,
     }
+    sp_sum = []
+
+    for i in range(len(sp_weight_value)):
+        sp_sum.append(tf.reduce_sum(sp_weights[i], 1))
+    if use_sp_weight:
+        sp_sum = tf.concat(sp_sum, 0)
 
     # Step1
-    key_send_buffer, row_length_send_buffer = _preprocessing_forward(
-        keys, row_lengths, num_gpus=num_gpus(), **kwargs
+    key_send_buffer, row_length_send_buffer, sp_weight_send_buffer = _preprocessing_forward(
+        keys, row_lengths, sp_weight_value, num_gpus=num_gpus(), **kwargs
     )
 
     # Step2
     if num_gpus() > 1:
         key_recv_buffer = allgather(key_send_buffer)
         row_length_recv_buffer = allgather(row_length_send_buffer)
+        if use_sp_weight:
+            sp_weight_recv_buffer = allgather(sp_weight_send_buffer)
+        else:
+            sp_weight_recv_buffer = sp_weight_send_buffer
     else:
         key_recv_buffer = key_send_buffer
         row_length_recv_buffer = row_length_send_buffer
+        sp_weight_recv_buffer = sp_weight_send_buffer
 
     hotness = _hotness_calculate(row_length_recv_buffer, num_gpus=num_gpus(), **hotness_kwargs)
     # Step3
     if isinstance(params[0], DynamicVariable) and key_recv_buffer.dtype != params[0].key_type:
         key_recv_buffer = tf.cast(key_recv_buffer, params[0].key_type)
-    emb_vec_buffer, _, _ = _lookup_forward(
-        params, key_recv_buffer, row_length_recv_buffer, hotness, num_gpus=num_gpus(), **kwargs
+    emb_vec_buffer, _, _, _ = _lookup_forward(
+        params,
+        key_recv_buffer,
+        row_length_recv_buffer,
+        hotness,
+        sp_weight_recv_buffer,
+        num_gpus=num_gpus(),
+        **kwargs
     )
-
     # Step4
     if num_gpus() > 1:
         splits = []
@@ -430,7 +499,7 @@ def lookup_sparse(params, sp_ids, combiners):
 
     # Step5
     emb_vec, _ = _postprocessing_forward(
-        emb_vec_buffer, row_lengths, hotness, Tindices=keys[0].dtype, **kwargs
+        emb_vec_buffer, row_lengths, hotness, sp_sum, Tindices=keys[0].dtype, **kwargs
     )
 
     if not is_list:

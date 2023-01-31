@@ -36,6 +36,7 @@ class ModelIndexCalculation {
   int hotness_list_sum_;
   int universal_batch_size_;
   Tensor model_key_;
+  Tensor model_sp_weight_;
   Tensor model_idx_offsets_;
   Tensor num_key_in_bucket_for_combiner_;
   Tensor num_model_key_;
@@ -43,6 +44,7 @@ class ModelIndexCalculation {
 
   Tensor d_temp_scan_storage_;
   Tensor d_temp_select_storage_;
+  Tensor d_temp_select_weight_storage_;
 
  public:
   ModelIndexCalculation() = default;
@@ -55,6 +57,12 @@ class ModelIndexCalculation {
                const Tensor& d_local_embedding_list, const Tensor& d_local_shard_id_list,
                const Tensor& d_local_num_shards_list, int batch_size, Tensor* model_key,
                Tensor* model_idx_offsets, size_t* num_model_key);
+
+  void compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
+               const Tensor& d_local_embedding_list, const Tensor& d_local_shard_id_list,
+               const Tensor& d_local_num_shards_list, int batch_size, Tensor* model_key,
+               Tensor* model_idx_offsets, size_t* num_model_key, const Tensor& reorder_sp_weight,
+               Tensor* model_sp_weight);
 };
 
 class ModelBackwardIndexCalculation {
@@ -85,6 +93,9 @@ class ModelBackwardIndexCalculation {
   Tensor unique_id_space_ev_size_list_;
 
   Tensor d_temp_sort_storage_;
+  Tensor d_temp_sort_sp_weight_storage_;
+  Tensor d_temp_sort_sp_weight_key_;
+  Tensor sorted_sp_weight_list_;
   Tensor d_temp_run_length_encode_storage_;
   Tensor d_temp_scan_encode_storage_;
 
@@ -98,6 +109,13 @@ class ModelBackwardIndexCalculation {
                                 const std::vector<int>& h_local_ev_size_list,
                                 int universal_batch_size, DataType key_type);
 
+  void compute(const Tensor& model_key, size_t num_model_key, const Tensor& model_offset,
+               const Tensor& id_space_offset, const Tensor& id_space_list, int batch_size,
+               Tensor* unique_key, size_t* num_unique_key, Tensor* unique_dst_idx,
+               Tensor* sorted_bucket_id_list, Tensor* sorted_bucket_id_offset,
+               Tensor* unique_id_space_list, Tensor* unique_id_space_offset, Tensor* coordinate_key,
+               Tensor* coordinate_wgrad_dst_idx, const Tensor& model_sp_weight,
+               Tensor* coordinate_sp_weight);
   void compute(const Tensor& model_key, size_t num_model_key, const Tensor& model_offset,
                const Tensor& id_space_offset, const Tensor& id_space_list, int batch_size,
                Tensor* unique_key, size_t* num_unique_key, Tensor* unique_dst_idx,

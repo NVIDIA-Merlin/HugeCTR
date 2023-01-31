@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     def step(params, indices):
         with tf.GradientTape() as tape:
-            embeddings = sok.lookup_sparse(params, indices, combiners)
+            embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
             loss = 0
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
