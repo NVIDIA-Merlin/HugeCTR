@@ -118,6 +118,15 @@ build_train_single_node_with_s3:
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
+build_train_single_node_with_gcs:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_ALL}
+    DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_GCS}
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+
 build_train_multi_node:
   extends: .build_hugectr
   variables:
@@ -852,6 +861,20 @@ s3_backend_test:
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
+# GCS backend_test
+gcs_backend_test:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node_with_gcs
+  variables:
+    GPFSFOLDER: $LOGDIR/gcs_backend_test
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED_WITH_GCS
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/gcs/gcs_backend_test.sub
 
 # NVT regression
 e2e_nvt_regression_test:

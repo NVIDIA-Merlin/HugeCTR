@@ -16,16 +16,16 @@ set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB_RECURSE huge_ctr_hps_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
-# list(REMOVE_ITEM huge_ctr_hps_src "../io/hadoop_filesystem.cpp")
-
 list(APPEND huge_ctr_hps_src 
   "../utils.cu"
   "../base/debug/logger.cpp"
   "../base/debug/cuda_debugging.cu"
-  "../io/filesystem.cpp"
-  "../io/hadoop_filesystem.cpp"
-  "../io/local_filesystem.cpp"
   "../thread_pool.cpp"
+  "../io/filesystem.cpp"
+  "../io/local_filesystem.cpp"
+  "../io/hadoop_filesystem.cpp"
+  "../io/s3_filesystem.cpp"
+  "../io/gcs_filesystem.cpp"
 )
 
 set(CMAKE_CXX_STANDARD 17)
@@ -36,6 +36,22 @@ if(ENABLE_HDFS)
     huge_ctr_hps
     PUBLIC
       ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
+  )
+endif()
+
+if(ENABLE_S3)
+  target_link_libraries(
+    huge_ctr_hps
+    PUBLIC
+      ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so # from Hugectr
+  )
+endif()
+
+if(ENABLE_GCS)
+  target_link_libraries(
+    huge_ctr_hps
+    PUBLIC
+      ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so
   )
 endif()
 

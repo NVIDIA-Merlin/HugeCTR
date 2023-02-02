@@ -71,6 +71,7 @@ void CommonPybind(pybind11::module& m) {
       .value("Local", HugeCTR::FileSystemType_t::Local)
       .value("HDFS", HugeCTR::FileSystemType_t::HDFS)
       .value("S3", HugeCTR::FileSystemType_t::S3)
+      .value("GCS", HugeCTR::FileSystemType_t::GCS)
       .value("Other", HugeCTR::FileSystemType_t::Other)
       .export_values();
   pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")

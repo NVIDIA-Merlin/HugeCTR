@@ -75,7 +75,8 @@ class FileSystem {
    * @param path Remote path of the file to write into.
    * @param data The data stream to write.
    * @param data_size The size of the data stream.
-   * @param overwrite Whether to overwrite or append.
+   * @param overwrite Whether to overwrite or append. For AWS S3 and GCS file system, files will
+   * always be overwritten instead of appended because of the immutability feature.
    * @return Number of successfully written bytes.
    */
   virtual int write(const std::string& path, const void* data, size_t data_size,
