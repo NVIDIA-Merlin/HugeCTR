@@ -186,7 +186,7 @@ This file is exported after model training and is used for the initialization of
 This parameter has no default value and you must specify a value.
 
 * `sparse_model_files`: List[str], the sparse model files to load for inference.
-This parameter has no default value and you must specify a value.
+This parameter has no default value and you must specify a value. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 * `device_id`: Integer, is scheduled to be deprecated and replaced by `devicelist`.
 

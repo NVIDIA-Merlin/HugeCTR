@@ -1,0 +1,7 @@
+#!/bin/bash
+cp ${GCS_ACCESS_FILE} ./gcs_credential
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="./gcs_credential:/hugectr/gcs_credential" bash -cx "\
+      export GOOGLE_APPLICATION_CREDENTIALS=/hugectr/gcs_credential && \
+      cd /workdir/build/bin && \
+      ./gcs_backend_test"

@@ -281,7 +281,7 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
+* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, AWS S3, Google Cloud Storage or others) for data reading.
 * `async_param`: AsyncParam, the parameters for async raw data reader. Please find more information in the `AsyncParam` section in this document.
 
 ### Dataset formats
@@ -642,7 +642,7 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 
 * `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is 10000.
 
-* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
+* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 **Please note that dumping models to remote file system when enabled MPI is not supported yet.**
 
 ***
@@ -694,7 +694,7 @@ hugectr.Model.load_dense_weights()
 This method load the dense weights from the saved dense model file.
 
 **Arguments**
-* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
+* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 ***
 
@@ -707,7 +707,7 @@ hugectr.Model.load_dense_optimizer_states()
 This method load the dense optimizer states from the saved dense optimizer states file.
 
 **Arguments**
-* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
+* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 ***
 
@@ -722,7 +722,7 @@ This method load the sparse weights from the saved sparse embedding files.
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
+* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 Implementation Ⅱ
 
@@ -764,7 +764,7 @@ This method load the sparse optimizer states from the saved sparse optimizer sta
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
+* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 Implementation Ⅱ
 
@@ -1091,7 +1091,7 @@ The stored sparse model can be used for both the later training and inference ca
 Note that the key, slot id, and embedding vector are stored in the sparse model in the same sequence, so both the nth slot id in `slot_id` file and the nth embedding vector in the `emb_vector` file are mapped to the nth key in the `key` file.
 
 **Arguments**
-* `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). **Please note that dumping models to remote file system when enabled MPI is not supported yet.**
+* `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.**Please note that dumping models to remote file system when enabled MPI is not supported yet.**
 
 * `iter`: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. The default value is 0.
 
@@ -1377,8 +1377,8 @@ hugectr.data.DataSourceParams()
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
-* `source`: `hugect.FileSystemType_t`, can be `Local` or `HDFS` or `S3`, specifying the file system. Default is `hugectr.FileSystemType_t.Local`.
+* `source`: `hugect.FileSystemType_t`, can be `Local` or `HDFS` or `S3` or `GCS`, specifying the file system. Default is `hugectr.FileSystemType_t.Local`.
 
-* `server`: String, the IP address of your file system. For Hadoop cluster(`HDFS`), it is your namenode. For AWS `S3`, it is the region. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 'localhost'. 
+* `server`: String, the IP address of your file system. For Hadoop cluster(`HDFS`), it is your namenode. For AWS `S3`, it is the region. For `GCS`, it is the endpoint override (please put `storage.googleapis.com` if you are using the default GCS endpoint). Will be ignored if `source` is `FileSystemType_t.Local`. Default is 'localhost'. 
 
-* `port`:  Integer, the port to listen from your Hadoop server. Will be ignored if `source` is `FileSystemType_t.Local` or `FileSystemType_t.S3`. Default is 9000.
+* `port`:  Integer, the port to listen from your Hadoop server. Will be ignored if `source` is `FileSystemType_t.Local` or `FileSystemType_t.S3` or `FileSystemType_t.GCS`. Default is 9000.

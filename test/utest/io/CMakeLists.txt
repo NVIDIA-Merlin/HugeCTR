@@ -44,3 +44,12 @@ if (ENABLE_S3 AND NOT DISABLE_CUDF)
   target_compile_features(s3_backend_test PUBLIC cxx_std_17)
   target_link_libraries(s3_backend_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
 endif()
+
+if (ENABLE_GCS AND NOT DISABLE_CUDF)
+  file(GLOB gcs_backend_test_src
+    gcs_backend_test.cpp
+  )
+  add_executable(gcs_backend_test ${gcs_backend_test_src})
+  target_compile_features(gcs_backend_test PUBLIC cxx_std_17)
+  target_link_libraries(gcs_backend_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
+endif()

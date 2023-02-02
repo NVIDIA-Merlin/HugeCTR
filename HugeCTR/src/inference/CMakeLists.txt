@@ -87,6 +87,7 @@ file(GLOB huge_ctr_inference_src
   ../io/hadoop_filesystem.cpp
   ../io/s3_filesystem.cpp
   ../io/local_filesystem.cpp
+  ../io/gcs_filesystem.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)
@@ -105,6 +106,14 @@ if(ENABLE_S3)
     huge_ctr_inference
     PUBLIC
       ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so # from Hugectr
+  )
+endif()
+
+if(ENABLE_GCS)
+  target_link_libraries(
+    huge_ctr_inference
+    PUBLIC
+      ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so
   )
 endif()
 
