@@ -40,12 +40,21 @@ class LookupManager final {
   void init(parameter_server_config& ps_config, const pluginType_t plugin_type,
             const int32_t global_batch_size, const int32_t num_replicas_in_sync);
 
+  // TODO: remove this method
   void forward(const std::string& model_name, const int32_t table_id,
                const int32_t global_replica_id, const size_t num_keys, const size_t emb_vec_size,
                const void* values_ptr, void* emb_vector_ptr);
 
-  void check(parameter_server_config& ps_config, const int32_t global_batch_size,
-             const int32_t num_replicas_in_sync) const;
+  void forward(const std::string& model_name, const int32_t table_id,
+               const int32_t global_replica_id, const size_t num_keys, const size_t emb_vec_size,
+               const void* values_ptr, void* emb_vector_ptr, bool i64_input_tensor,
+               cudaStream_t context_stream);
+
+  void init_check(parameter_server_config& ps_config, const int32_t global_batch_size,
+                  const int32_t num_replicas_in_sync) const;
+
+  void forward_check(const std::string& model_name, int32_t table_id, int32_t global_replica_id,
+                     size_t num_keys, size_t emb_vec_size, bool i64_input_tensor) const;
 
  private:
   LookupManager();

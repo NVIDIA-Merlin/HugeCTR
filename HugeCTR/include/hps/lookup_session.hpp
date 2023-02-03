@@ -32,6 +32,8 @@ class LookupSession : public LookupSessionBase {
                       const std::vector<size_t>& num_keys_per_table);
   virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
                                   size_t table_id);
+  virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
+                                  size_t table_id, cudaStream_t stream);
   virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                   const std::vector<float*>& d_vectors_per_table,
                                   const std::vector<size_t>& num_keys_per_table);

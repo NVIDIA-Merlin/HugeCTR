@@ -101,6 +101,11 @@ class InferenceSessionPy : public InferenceSession {
 };
 
 void InferenceSessionPy::initialize() {
+  HCTR_LOG(
+      WARNING, ROOT,
+      "InferenceSession is not suitable for multi-GPU offline inference. Please use "
+      "InferenceModel: "
+      "https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inferencemodel\n");
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   HCTR_LIB_THROW(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *
                                                    inference_parser_.dense_dim * sizeof(float)));
@@ -529,7 +534,7 @@ void InferencePybind(pybind11::module& m) {
                           const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
                           const float, const float, const std::vector<size_t>&,
                           const std::vector<size_t>&, const std::vector<std::string>&,
-                          const std::string&, const size_t, const size_t, const std::string&,
+                          const std::string&, const size_t, const size_t, const std::string&, bool,
                           bool>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
@@ -557,7 +562,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("embedding_table_names") = std::vector<std::string>{""},
            pybind11::arg("network_file") = "", pybind11::arg("label_dim") = 1,
            pybind11::arg("slot_num") = 10, pybind11::arg("non_trainable_params_file") = "",
-           pybind11::arg("use_static_table") = false);
+           pybind11::arg("use_static_table") = false, pybind11::arg("use_context_stream") = true);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));

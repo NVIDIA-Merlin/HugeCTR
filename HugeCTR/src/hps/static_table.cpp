@@ -142,7 +142,6 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
   static_tables_[table_id]->Query(
       static_cast<TypeHashKey*>(workspace_handler.d_embeddingcolumns_[table_id]), num_keys,
       d_vectors, stream);
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template <typename TypeHashKey>
