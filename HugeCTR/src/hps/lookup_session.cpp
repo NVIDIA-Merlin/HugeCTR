@@ -95,6 +95,16 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
                            << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
 }
 
+// Specify the CUDA stream for HPS lookup. This medthod will be used by HPS plugins for TensorFlow
+// and TensorRT
+void LookupSession::lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
+                                       size_t table_id, cudaStream_t stream) {
+  CudaDeviceContext context(inference_params_.device_id);
+  // embedding_cache lookup
+  embedding_cache_->lookup_from_device(table_id, d_vectors, d_keys, num_keys,
+                                       inference_params_.hit_rate_threshold, stream);
+}
+
 void LookupSession::lookup_from_device(const void* const d_keys, float* const d_vectors,
                                        const size_t num_keys, const size_t table_id) {
   const auto begin = std::chrono::high_resolution_clock::now();

@@ -28,7 +28,7 @@ args["global_batch_size"] = 1024
 args["max_vocabulary_size_per_table_per_model"] = {"foo": [30000], "bar": [50000, 2000]}
 
 hps_config = {
-    "supportlonglong": True,
+    "supportlonglong": False,
     "models": [
         {
             "model": "foo",
@@ -103,7 +103,7 @@ def _generate_embedding_tables():
     return embedding_tables
 
 
-def _generate_dense_keys(num_samples, vocabulary_range, max_nnz, key_dtype=np.int64):
+def _generate_dense_keys(num_samples, vocabulary_range, max_nnz, key_dtype=np.int32):
     dense_keys = list()
     dense_keys = np.random.randint(
         low=vocabulary_range[0],
@@ -114,7 +114,7 @@ def _generate_dense_keys(num_samples, vocabulary_range, max_nnz, key_dtype=np.in
     return dense_keys
 
 
-def _generate_sparse_keys(num_samples, vocabulary_range, max_nnz, key_dtype=np.int64):
+def _generate_sparse_keys(num_samples, vocabulary_range, max_nnz, key_dtype=np.int32):
     indices = []
     values = []
     for i in range(num_samples):

@@ -4,10 +4,11 @@ srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash 
     cd /workdir/hps_tf/test/unit && \
     pytest && \
     cd /workdir/hps_tf/test/integration && \
-    pytest test_naive_dnn_hps.py && \
-    pytest test_multi_table_sparse_input_hps.py && \
-    pytest test_lazy_initialization_hps.py && \
-    pytest test_multi_gpu_hps.py"
+    pytest test_naive_dnn_hps.py -s && \
+    pytest test_multi_table_sparse_input_hps.py -s && \
+    pytest test_lazy_initialization_hps.py -s && \
+    pytest test_multi_gpu_hps.py -s && \
+    pytest test_tf_context_stream.py -s"
 
 # Add workaround due to the known issue of tensorflow
 sleep 10
@@ -20,10 +21,11 @@ if [ ${EXITCODE} -eq 6 ]&&[ ${CI_JOB_NAME}=="hps_tf" ]; then
                 cd /workdir/hps_tf/test/unit && \
                 pytest && \
                 cd /workdir/hps_tf/test/integration && \
-                pytest test_naive_dnn_hps.py && \
-                pytest test_multi_table_sparse_input_hps.py && \
-                pytest test_lazy_initialization_hps.py && \
-                pytest test_multi_gpu_hps.py"
+                pytest test_naive_dnn_hps.py -s && \
+                pytest test_multi_table_sparse_input_hps.py -s && \
+                pytest test_lazy_initialization_hps.py -s && \
+                pytest test_multi_gpu_hps.py -s && \
+                pytest test_tf_context_stream.py -s"
        # Get the last job step exit code as job exit code.
        sed -i 's/sort -r -u | head -1/tail -1/g' ${JOBSCRIPTSDIR}/mlperf-ci/jobexitcode.sh
        echo "Rerun job finished!";

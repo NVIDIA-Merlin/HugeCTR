@@ -106,7 +106,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         Parameters
         ----------
         sp_ids:
-            N x M ``SparseTensor`` of ``int64`` IDs where N is typically batch size
+            N x M ``SparseTensor`` of ``int32`` or ``int64`` IDs where N is typically batch size
             and M is arbitrary.
         sp_weights:
             Either a ``SparseTensor`` of float or double weights, or ``None`` to
@@ -130,7 +130,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
 
         Returns
         -------
-        emb_vector: ``tf.Tensor`` of int32
+        emb_vector: ``tf.Tensor`` of float32
             A dense tensor representing the combined embeddings for the
             sparse IDs. For each row in the dense tensor represented by ``sp_ids``, the op
             looks up the embeddings for all IDs in that row, multiplies them by the
@@ -180,9 +180,6 @@ class SparseLookupLayer(tf.keras.layers.Layer):
 
         if not isinstance(sp_ids, sparse_tensor.SparseTensor):
             raise TypeError(f"sp_ids must be SparseTensor, got {type(sp_ids)}")
-
-        if sp_ids.values.dtype is not tf.int64:
-            raise TypeError(f"sp_ids.values must be tf.int64, got {sp_ids.values.dtype}")
 
         ignore_weights = sp_weights is None
         if not ignore_weights:

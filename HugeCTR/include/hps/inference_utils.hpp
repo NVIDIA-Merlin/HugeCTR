@@ -259,6 +259,8 @@ struct InferenceParams {
   size_t slot_num;
   std::string non_trainable_params_file;
   bool use_static_table;
+  // Whether to use context stream for HPS TensorFlow/TensorRT plugins
+  bool use_context_stream;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -282,7 +284,8 @@ struct InferenceParams {
                   const std::vector<size_t>& embedding_vecsize_per_table = {128},
                   const std::vector<std::string>& embedding_table_names = {""},
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
-                  const std::string& non_trainable_params_file = "", bool use_static_table = false);
+                  const std::string& non_trainable_params_file = "", bool use_static_table = false,
+                  bool use_context_stream = true);
 };
 
 struct parameter_server_config {

@@ -38,11 +38,7 @@ class Lookup : public OpKernel {
   }
 
   void Compute(OpKernelContext *ctx) override {
-    // This stream synchronization is needed since HPS embedding lookup currently does not use the
-    // CUDA stream in the TF context, in case that there are some ops/kernels processing the device
-    // keys on this stream before HPS embedding lookup
     cudaStream_t gpu_stream = AsGpuStreamValue(ctx->op_device_context()->stream());
-    HCTR_LIB_THROW(cudaStreamSynchronize(gpu_stream));
 
     Tensor const *status_tensor = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("init_status", &status_tensor));
@@ -70,8 +66,10 @@ class Lookup : public OpKernel {
       size_t emb_vec_size = static_cast<size_t>(emb_vector_tensor->shape().dim_sizes().back());
       const void *values_ptr = values_tensor->data();
       void *emb_vector_ptr = emb_vector_tensor->data();
+      bool i64_input_tensor = DT_INT64 == values_tensor->dtype();
       Facade::instance()->forward(model_name_.c_str(), table_id_, global_replica_id_value, num_keys,
-                                  emb_vec_size, values_ptr, emb_vector_ptr);
+                                  emb_vec_size, values_ptr, emb_vector_ptr, i64_input_tensor,
+                                  gpu_stream);
     } catch (std::exception const &error) {
       ctx->SetStatus(errors::Aborted(error.what()));
       return;
