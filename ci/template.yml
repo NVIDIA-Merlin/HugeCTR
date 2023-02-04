@@ -148,9 +148,17 @@ stages:
     - if [[ "$BUILD_HUGECTR_BACKEND" == 1 ]]; then
         echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hugectr_performance_test && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
       fi
+    - if [[ "$BUILD_HPS_BACKEND" == 1 ]]; then
+        echo "RUN git clone --branch $HUGECTR_BACKEND_VER https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend/hps_backend && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
+        echo "RUN ln -s /usr/local/hugectr/backends/hps /opt/tritonserver/backends/hps" >> ${JOB_DOCKERFILE};
+      fi
     - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
+        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
+        echo "RUN mkdir /workdir/hps_trt/build && cd /workdir/hps_trt/build && cmake ${TRT_CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - echo "RUN rm /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}

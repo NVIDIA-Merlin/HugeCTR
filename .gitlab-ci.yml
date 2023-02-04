@@ -173,6 +173,42 @@ build_hps_tf_plugin:
     DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
     BUILD_TF_PLUGIN: 1
 
+build_hugectr_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_ALL}
+    DST_IMAGE: $HUGECTR_TRT_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
+build_tf_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_SOK_TF2}
+    DST_IMAGE: $TF_TRT_IMAGE_VERSIONED
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
+build_pytorch_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_PYTORCH}
+    DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
 ## Stage: test
 # unit test
 utests:
@@ -797,6 +833,46 @@ sparse_operation_kit-TF1:
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
+
+#Test jobs for hps_trt plugin
+hps_trt_in_hugectr:
+  extends: .cluster_test_job
+  needs:
+    - build_hugectr_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/hugectr_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $HUGECTR_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_hugectr.sub
+
+hps_trt_in_tf:
+  extends: .cluster_test_job
+  needs:
+    - build_tf_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/tf_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_tf.sub
+
+hps_trt_in_pytorch:
+  extends: .cluster_test_job
+  needs:
+    - build_pytorch_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/pytorch_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_pytorch.sub
 
 inference_benchmark:
   extends: .cluster_test_job_daily
