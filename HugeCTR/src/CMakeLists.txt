@@ -45,6 +45,7 @@ file(
     )
 
 list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
+list(REMOVE_ITEM huge_ctr_src "inference_benchmark/metrics.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
