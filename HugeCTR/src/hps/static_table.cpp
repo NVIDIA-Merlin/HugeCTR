@@ -49,6 +49,9 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
   cache_config_.cuda_dev_id_ = inference_params.device_id;
   cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
 
+  // initialize the profiler
+  ec_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::EC);
+
   if (ps_config.embedding_vec_size_.find(inference_params.model_name) ==
           ps_config.embedding_vec_size_.end() ||
       ps_config.emb_table_name_.find(inference_params.model_name) ==
@@ -95,18 +98,26 @@ void StaticTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const v
                                       size_t num_keys, float hit_rate_threshold,
                                       cudaStream_t stream) {
   MemoryBlock* memory_block = nullptr;
+  BaseUnit* start = profiler::start();
   while (memory_block == nullptr) {
     memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
         cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
   }
+  ec_profiler_->end(start,
+                    "Apply for workspace from the memory pool for Static Embedding Cache Lookup");
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   CudaDeviceContext dev_restorer;
   HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
   // Copy the keys to device
+  start = profiler::start();
   HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], h_keys,
                                  num_keys * sizeof(TypeHashKey), cudaMemcpyHostToDevice, stream));
+  ec_profiler_->end(start, "Copy the input to workspace of Static Embedding Cache");
+  start = profiler::start();
   lookup_from_device(table_id, d_vectors, memory_block, num_keys, stream);
   parameter_server_->free_buffer(memory_block);
+  ec_profiler_->end(start, "Lookup the embedding keys from Static Embedding Cache",
+                    ProfilerType_t::Timeliness, stream);
 }
 
 template <typename TypeHashKey>
@@ -114,18 +125,24 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
                                                   const void* d_keys, size_t num_keys,
                                                   float hit_rate_threshold, cudaStream_t stream) {
   MemoryBlock* memory_block = nullptr;
+  BaseUnit* start = profiler::start();
   while (memory_block == nullptr) {
     memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
         cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
   }
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
+  ec_profiler_->end(start,
+                    "Apply for workspace from the memory pool for Static Embedding Cache Lookup");
 
   CudaDeviceContext dev_restorer;
   HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
-
+  start = profiler::start();
   HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
                                  num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice, stream));
+  ec_profiler_->end(start, "Copy the input to workspace of Static Embedding Cache");
+  start = profiler::start();
   lookup_from_device(table_id, d_vectors, memory_block, num_keys, stream);
+  ec_profiler_->end(start, "Lookup the embedding keys from Static Embedding Cache");
   parameter_server_->free_buffer(memory_block);
 }
 

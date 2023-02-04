@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <inference_benchmark/profiler.hpp>
 #include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>

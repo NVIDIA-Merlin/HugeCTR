@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <hps/hash_map_backend.hpp>
@@ -186,6 +187,9 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
     }
     persistent_db_initialize_after_startup_ = conf.initialize_after_startup;
   }
+
+  // initialize the profiler
+  hps_profiler = std::make_unique<profiler>(ProfilerTarget_t::HPSBACKEND);
 
   // Load embeddings for each embedding table from each model
   for (size_t i = 0; i < inference_params_array.size(); i++) {
@@ -410,8 +414,9 @@ void HierParameterServer<TypeHashKey>::init_ec(
 
       if (!inference_params.use_static_table) {
         // initilize the embedding cache for each table
-        const size_t stride_set = floor(cache_config.num_set_in_cache_[j] *
-                                        cache_config.cache_refresh_percentage_per_iteration);
+        const size_t stride_set =
+            std::max(1.0f, floor(cache_config.num_set_in_cache_[j] *
+                                 cache_config.cache_refresh_percentage_per_iteration));
         size_t length = SLAB_SIZE * SET_ASSOCIATIVITY * stride_set;
         size_t num_iteration = 0;
         for (size_t idx_set = 0; idx_set + stride_set < cache_config.num_set_in_cache_[j];
@@ -547,6 +552,11 @@ void HierParameterServer<TypeHashKey>::parse_hps_configuraion(
 }
 
 template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::profiler_print() {
+  hps_profiler->print();
+}
+
+template <typename TypeHashKey>
 void* HierParameterServer<TypeHashKey>::apply_buffer(const std::string& model_name, int device_id,
                                                      CACHE_SPACE_TYPE cache_type) {
   return buffer_pool_->AllocBuffer(model_name, device_id, cache_type);
@@ -566,6 +576,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     return;
   }
   const auto start_time = std::chrono::high_resolution_clock::now();
+  BaseUnit* start = profiler::start();
   const auto time_budget = std::chrono::nanoseconds::max();
 
   const auto& model_id = ps_config_.find_model_id(model_name);
@@ -608,9 +619,10 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
       missing.push_back(index);
     };
 
+    start = profiler::start();
     hit_count += volatile_db_->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
                                      check_and_copy, record_missing, time_budget);
-
+    hps_profiler->end(start, "Lookup the embedding key from VDB");
     HCTR_LOG_S(TRACE, WORLD) << volatile_db_->get_name() << ": " << hit_count << " hits, "
                              << missing.size() << " missing!" << std::endl;
 
@@ -630,14 +642,18 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
 
         std::lock_guard<std::mutex> lock(resource_guard);
         keys_to_elevate->emplace_back(reinterpret_cast<const TypeHashKey*>(h_keys)[index]);
+        start = profiler::start();
         values_to_elevate->insert(values_to_elevate->end(), value, &value[value_size]);
+        hps_profiler->end(start, "Insert the missing embedding key into the VDB");
       };
     }
 
+    start = profiler::start();
     // Do a sparse lookup in the persisent DB, to fill gaps and set others to default.
     hit_count += persistent_db_->fetch(tag_name, missing.size(), missing.data(),
                                        reinterpret_cast<const TypeHashKey*>(h_keys), check_and_copy,
                                        fill_default, time_budget);
+    hps_profiler->end(start, "Lookup the embedding key from the PDB");
 
     HCTR_LOG_S(TRACE, WORLD) << persistent_db_->get_name() << ": " << hit_count << " hits, "
                              << (length - hit_count) << " missing!" << std::endl;
@@ -649,10 +665,13 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
                                << volatile_db_->get_name() << '.' << std::endl;
       HCTR_CHECK(keys_to_elevate->size() * expected_value_size == values_to_elevate->size());
 
+      start = profiler::start();
       volatile_db_async_inserter_.submit(
-          [this, tag_name, keys_to_elevate, values_to_elevate, expected_value_size]() {
+          [this, tag_name, keys_to_elevate, values_to_elevate, expected_value_size, start]() {
             volatile_db_->insert(tag_name, keys_to_elevate->size(), keys_to_elevate->data(),
                                  values_to_elevate->data(), expected_value_size);
+            hps_profiler->end(
+                start, "Insert the missing embedding key from the PDB into the VDB asynchronously");
           });
     }
   } else {
@@ -661,9 +680,11 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
         volatile_db_ ? static_cast<DatabaseBackendBase<TypeHashKey>*>(volatile_db_.get())
                      : static_cast<DatabaseBackendBase<TypeHashKey>*>(persistent_db_.get());
     if (db) {
+      start = profiler::start();
       // Do a sequential lookup in the volatile DB, but fill gaps with a default value.
       hit_count += db->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
                              check_and_copy, fill_default, time_budget);
+      hps_profiler->end(start, "Lookup the embedding key from default HPS database Backend");
 
       HCTR_LOG_S(TRACE, WORLD) << db->get_name() << ": " << hit_count << " hits, "
                                << (length - hit_count) << " missing!" << std::endl;
@@ -686,7 +707,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
 template <typename TypeHashKey>
 void HierParameterServer<TypeHashKey>::refresh_embedding_cache(const std::string& model_name,
                                                                const int device_id) {
-  HCTR_LOG(INFO, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n",
+  HCTR_LOG(TRACE, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n",
            model_name.c_str(), device_id);
   HugeCTR::Timer timer_refresh;
 
@@ -733,8 +754,8 @@ void HierParameterServer<TypeHashKey>::refresh_embedding_cache(const std::string
                                      cudaMemcpyDeviceToHost, streams[i]));
       HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
       timer.stop();
-      HCTR_LOG_S(INFO, ROOT) << "Embedding Cache dumping the number of " << stride_set
-                             << " sets takes: " << timer.elapsedSeconds() << "s" << std::endl;
+      HCTR_LOG_S(TRACE, ROOT) << "Embedding Cache dumping the number of " << stride_set
+                              << " sets takes: " << timer.elapsedSeconds() << "s" << std::endl;
       timer.start();
       this->lookup(
           reinterpret_cast<const TypeHashKey*>(refreshspace_handler.h_refresh_embeddingcolumns_),
@@ -745,25 +766,25 @@ void HierParameterServer<TypeHashKey>::refresh_embedding_cache(const std::string
           cudaMemcpyHostToDevice, streams[i]));
       HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
       timer.stop();
-      HCTR_LOG_S(INFO, ROOT) << "Parameter Server looking up the number of "
-                             << *refreshspace_handler.h_length_
-                             << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
+      HCTR_LOG_S(TRACE, ROOT) << "Parameter Server looking up the number of "
+                              << *refreshspace_handler.h_length_
+                              << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
       timer.start();
       embedding_cache->refresh(
           static_cast<int>(i), refreshspace_handler.d_refresh_embeddingcolumns_,
           refreshspace_handler.d_refresh_emb_vec_, *refreshspace_handler.h_length_, streams[i]);
       timer.stop();
-      HCTR_LOG_S(INFO, ROOT) << "Embedding Cache refreshing the number of "
-                             << *refreshspace_handler.h_length_
-                             << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
+      HCTR_LOG_S(TRACE, ROOT) << "Embedding Cache refreshing the number of "
+                              << *refreshspace_handler.h_length_
+                              << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
       HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
     }
   }
   // apply the memory block for embedding cache refresh workspace
   this->free_buffer(memory_block);
   timer_refresh.stop();
-  HCTR_LOG_S(INFO, ROOT) << "The total Time of embedding cache refresh is : "
-                         << timer_refresh.elapsedSeconds() << "s" << std::endl;
+  HCTR_LOG_S(TRACE, ROOT) << "The total Time of embedding cache refresh is : "
+                          << timer_refresh.elapsedSeconds() << "s" << std::endl;
 }
 
 template <typename TypeHashKey>

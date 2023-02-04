@@ -60,6 +60,10 @@ class StaticTable : public EmbeddingCacheBase,
   }
   virtual int get_device_id() override { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() override { return cache_config_.use_gpu_embedding_cache_; }
+  virtual void profiler_print() { ec_profiler_->print(); };
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
+    ec_profiler_->set_config(interation, warmup, enable_bench);
+  };
 
  private:
   using Cache = gpu_cache::static_table<TypeHashKey>;
@@ -85,6 +89,9 @@ class StaticTable : public EmbeddingCacheBase,
 
   // The cache configuration
   embedding_cache_config cache_config_;
+
+  // benchmark profiler
+  std::unique_ptr<profiler> ec_profiler_;
 };
 
 }  // namespace HugeCTR

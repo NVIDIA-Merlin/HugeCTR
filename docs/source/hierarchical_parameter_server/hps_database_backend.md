@@ -151,6 +151,7 @@ params = hugectr.inference.InferenceParams(
   persistent_db = <persistent-database-configuration>,
   update_source = <update-source-parameters>,
   maxnum_des_feature_per_sample = 26,
+  use_static_table = False,
   refresh_delay = 0.0,
   refresh_interval = 0.0,
   maxnum_catfeature_query_per_table_per_sample = [int-1, int-2, ...],
@@ -195,6 +196,10 @@ When set to `True`, the embedding vector look up goes to the GPU embedding cache
 Otherwise, the look up attempts to use the CPU HPS database backend directly.
 The default value is `True`.
 
+* `use_static_table`: Boolean, whether to enable the features of a static GPU embedding table.
+The static embedding table means that the embedding table does not require the embedding cache to perform dynamic insertion operations, when set to `True`, the embedding vector look up goes to the GPU embedding cache. but only needs to perform lookup/query operations on embedding keys. The complete embedding can be stored in a dense buffer for index query.
+The default value is `False`.
+
 * `cache_size_percentage`: Float, the percentage of cached embeddings on the GPU, relative to all the embedding tables on the CPU.
 The default value is `0.2`.
 
@@ -235,7 +240,7 @@ The default value is `16`.
 To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
 For example, if you specify `cache_refresh_percentage_per_iteration = 0.2`, the entire GPU embedding cache is refreshed during 5 iterations.
 Specify a smaller value if model updates occur at a high-frequency or you have a large volume of incremental model updates.
-The default value is `0.1`.
+The default value is `0.0`.
 
 * `deployed_devices`: List[Integer], specifies a list of the device IDs of your GPUs.
 The offline inference is executed concurrently on the specified GPUs.
@@ -319,6 +324,7 @@ The following JSON shows a sample configuration for the `models` key in a parame
     "refresh_interval":0,
     "hit_rate_threshold":0.9,
     "gpucacheper":0.1,
+    "use_static_table": false,
     "gpucache":true,
     "cache_refresh_percentage_per_iteration": 0.2,
     "label_dim": 1,

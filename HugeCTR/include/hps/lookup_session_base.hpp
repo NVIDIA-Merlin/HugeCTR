@@ -43,6 +43,8 @@ class LookupSessionBase {
   static std::shared_ptr<LookupSessionBase> create(
       const InferenceParams& inference_params,
       const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) = 0;
+  virtual void profiler_print() = 0;
 };
 
 }  // namespace HugeCTR

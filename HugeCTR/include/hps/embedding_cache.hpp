@@ -65,6 +65,10 @@ class EmbeddingCache : public EmbeddingCacheBase,
   virtual const std::vector<cudaStream_t>& get_insert_streams() { return insert_streams_; }
   virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() { return cache_config_.use_gpu_embedding_cache_; }
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
+    ec_profiler_->set_config(interation, warmup, enable_bench);
+  };
+  virtual void profiler_print() { ec_profiler_->print(); };
 
  private:
   static const size_t BLOCK_SIZE_ = 64;
@@ -98,6 +102,9 @@ class EmbeddingCache : public EmbeddingCacheBase,
 
   // mutex for insert_streams_
   std::mutex stream_mutex_;
+
+  // benchmark profiler
+  std::unique_ptr<profiler> ec_profiler_;
 };
 
 }  // namespace HugeCTR
