@@ -4,6 +4,7 @@ variables:
   IMAGE_SOK_TF2: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf2
   IMAGE_SOK_TF1: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf1
   IMAGE_OPTIMIZED: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_optimized
+  IMAGE_PYTORCH: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_pytorch
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
@@ -34,6 +35,9 @@ variables:
   SOK_IMAGE_VERSIONED_TF2: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf2_${CI_PIPELINE_ID}"
   SOK_IMAGE_VERSIONED_TF1: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf1_${CI_PIPELINE_ID}"
   TF_PLUGIN_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:tf_plugin.${CI_PIPELINE_ID}
+  HUGECTR_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:hugectr_trt_plugin.${CI_PIPELINE_ID}
+  TF_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:tf_trt_plugin.${CI_PIPELINE_ID}
+  PYTORCH_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:pytorch_trt_plugin.${CI_PIPELINE_ID}
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}
   RD_CI_JOB_TOKEN: gitlab-ci-token:${CI_JOB_TOKEN}@
   EXTRA_DOCKER_RUN_ARGS: "--label RUNNER_ID=${RUNNER_ID}"

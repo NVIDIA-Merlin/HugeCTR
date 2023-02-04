@@ -11,7 +11,7 @@ subtrees:
       - file: hierarchical_parameter_server/index.md
         title: Hierarchical Parameter Server
         entries:
-          - file: hugectr_parameter_server.md
+          - file: hierarchical_parameter_server/hps_database_backend.md
             title: HPS Database Backend
           - file: hierarchical_parameter_server/hps_tf_user_guide.md
             title: HPS Plugin for TensorFlow
@@ -24,7 +24,18 @@ subtrees:
                   - file: hps_tf/notebooks/hps_pretrained_model_training_demo.ipynb
                   - file: hps_tf/notebooks/sok_to_hps_dlrm_demo.ipynb
                   - file: hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
-              - file: hierarchical_parameter_server/api/index.rst
+              - file: hierarchical_parameter_server/hps_tf_api/index.rst
+                title: API Documentation
+          - file: hierarchical_parameter_server/hps_trt_user_guide.md
+            title: HPS Plugin for TensorRT
+            entries:
+              - file: hps_trt/notebooks/index.md
+                title: Notebooks
+                entries:
+                  - file: hps_trt/notebooks/demo_for_tf_trained_model.ipynb
+                  - file: hps_trt/notebooks/demo_for_pytorch_trained_model.ipynb
+                  - file: hps_trt/notebooks/demo_for_hugectr_trained_model.ipynb
+              - file: hierarchical_parameter_server/hps_trt_api/index.rst
                 title: API Documentation
       - file: sparse_operation_kit.md
         title: Sparse Operation Kit

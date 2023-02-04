@@ -91,7 +91,7 @@ If the volatile memory resources&mdash;the CPU memory database and distributed d
 The HugeCTR HPS database backend and iterative update can be configured using three separate configuration objects.
 The `VolatileDatabaseParams` and `PersistentDatabaseParams` objects are used to configure the database backends of each HPS database backend instance.
 If you want iterative or online model updating, you must also provide the `UpdateSourceParams` object to link the HPS database backend instance with your Kafka deployment.
-These objects are part of the [hugectr.inference](./api/python_interface.md#inference-api) Python package.
+These objects are part of the [hugectr.inference](../api/python_interface.md#inference-api) Python package.
 
 If you deploy HugeCTR as a backend for NVIDIA [Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
 
@@ -288,6 +288,11 @@ Specify the number of feature fields (the number of slots).
 The specified value determines the pre-allocated memory size on the host and device.
 The default value is `10`.
 
+* `use_static_table`: Boolean, whether to use static table to store embeddings on GPU.
+The default value is `False`.
+
+* `use_context_stream`: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Plugin for TensorRT](hps_trt_user_guide.md).
+The default value is `True`.
 
 #### Parameter Server Configuration: Models
 
@@ -317,7 +322,9 @@ The following JSON shows a sample configuration for the `models` key in a parame
     "gpucache":true,
     "cache_refresh_percentage_per_iteration": 0.2,
     "label_dim": 1,
-    "slot_num":10
+    "slot_num":10,
+    "use_static_table": false,
+    "use_context_stream": false
   }
 ]
 ```

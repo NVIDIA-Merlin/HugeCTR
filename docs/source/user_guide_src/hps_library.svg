@@ -13,12 +13,19 @@
 	.st7{fill:none;stroke:#FFFFFF;stroke-width:3;stroke-miterlimit:10;}
 </style>
 <g>
-	<line class="st0" x1="808.3" y1="369.8" x2="808.3" y2="278.5"/>
+	<line class="st0" x1="808.3" y1="369.8" x2="808.3" y2="247.6"/>
 	<g>
 		<g>
 			<polyline class="st0" points="808.3,278.5 399.9,278.5 399.9,247.6 			"/>
 			<g>
 				<polygon class="st1" points="409.9,250.5 399.9,233.2 389.9,250.5 				"/>
+			</g>
+		</g>
+	</g>
+	<g>
+		<g>
+			<g>
+				<polygon class="st1" points="818.3,250.5   808.6,233.2   798.3,250.5"/>
 			</g>
 		</g>
 	</g>
@@ -31,13 +38,20 @@
 		</g>
 	</g>
 </g>
-<rect x="29.4" y="27.3" class="st1" width="740.9" height="175"/>
-<rect x="848.1" y="27.3" class="st1" width="739" height="175"/>
+<rect x="40" y="27.3" class="st1" width="420" height="175"/>
+<rect x="522" y="27.3" class="st1" width="410" height="175"/>
+<rect x="1000" y="27.3" class="st1" width="580" height="175"/>
 <g>
-	<text transform="matrix(1 0 0 1 301.1514 104.4492)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Plugin </tspan><tspan x="-29.7" y="43.2" class="st3 st4 st5">for TensorFlow</tspan></text>
+	<text transform="matrix(1 0 0 1 144 104.4492)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Plugin </tspan><tspan x="-29.7" y="43.2" class="st3 st4 st5">for TensorFlow</tspan></text>
 </g>
 <g>
-	<text transform="matrix(1 0 0 1 1098.5638 103.0175)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Backend </tspan><tspan x="-108.2" y="43.2" class="st3 st4 st5">for Triton Inference Server</tspan></text>
+	<text transform="matrix(1 0 0 1 626 104.4492)" class="st2">
+      <tspan x="0" y="0" class="st3 st4 st5">HPS Plugin </tspan>
+      <tspan x="-20" y="43.2" class="st3 st4 st5">for TensorRT</tspan>
+    </text>
+</g>
+<g>
+	<text transform="matrix(1 0 0 1 1150 103.0175)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Backend </tspan><tspan x="-108.2" y="43.2" class="st3 st4 st5">for Triton Inference Server</tspan></text>
 </g>
 <rect x="29.4" y="370" class="st6" width="1557.6" height="352.6"/>
 <rect x="67.3" y="509.8" class="st7" width="703.1" height="175"/>

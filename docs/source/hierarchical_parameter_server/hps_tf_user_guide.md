@@ -37,7 +37,7 @@ The HPS plugin for TensorFlow mitigates these challenges and helps in the follow
 
 * Make the lookup service subscribable through custom TensorFlow layers, enabling transfer learning with large embedding tables.
 
-<img src="hps_user_guide_src/memory_hierarchy.png" width="1080px" align="center"/>
+<img src="hps_tf_user_guide_src/memory_hierarchy.png" width="1080px" align="center"/>
 
 <div align=center>Fig. 1: HPS Memory Hierarchy </div>
 
@@ -47,7 +47,7 @@ The HPS plugin for TensorFlow mitigates these challenges and helps in the follow
 
 The workflow of leveraging HPS for deployment of TensorFlow models is illustrated in Fig. 2.
 
-<img src="hps_user_guide_src/workflow.png" width="1080px" align="center"/>
+<img src="hps_tf_user_guide_src/workflow.png" width="1080px" align="center"/>
 
 <div align=center>Fig. 2: Workflow of deploying TF models with HPS </div>
 

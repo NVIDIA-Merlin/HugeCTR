@@ -281,7 +281,8 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, AWS S3, Google Cloud Storage or others) for data reading.
+* `data_source_params`: [DataSourceParams()](python_interface.md#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, AWS S3, Google Cloud Storage or others) for data reading.
+
 * `async_param`: AsyncParam, the parameters for async raw data reader. Please find more information in the `AsyncParam` section in this document.
 
 ### Dataset formats
@@ -1191,7 +1192,7 @@ hugectr.inference.InferenceParams()
 
 `InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceModel` instance.
 
-Refer to the [HPS Configuration](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration) documentation for the parameters.
+Refer to the [HPS Configuration](../hierarchical_parameter_server/hps_database_backend.md#configuration) documentation for the parameters.
 
 ### InferenceModel
 
@@ -1201,7 +1202,7 @@ Refer to the [HPS Configuration](https://nvidia-merlin.github.io/HugeCTR/master/
 hugectr.inference.InferenceModel()
 ```
 
-`InferenceModel` is a collection of inference sessions deployed on multiple GPUs, which can leverage [Hierarchical Parameter Server](../hugectr_parameter_server.md) and enable concurrent execution. The construction of `InferenceModel` requires a model configuration file and an `InferenceParams` instance.
+`InferenceModel` is a collection of inference sessions deployed on multiple GPUs, which can leverage [Hierarchical Parameter Server Database Backend](../hierarchical_parameter_server/hps_database_backend.md) and enable concurrent execution. The construction of `InferenceModel` requires a model configuration file and an `InferenceParams` instance.
 
 **Arguments**
 * `model_config_path`: String, the inference model configuration file (which can be derived from `Model.graph_to_json`). There is NO default value and it should be specified by users.
@@ -1228,7 +1229,7 @@ The `predict` method of InferenceModel makes predictions based on the dataset of
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
+* `data_source_params`: [DataSourceParams()](python_interface.md#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
 ***
 
 #### evaluate method
@@ -1250,7 +1251,7 @@ The `evaluate` method of InferenceModel does evaluations based on the dataset of
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
+* `data_source_params`: [DataSourceParams()](python_interface.md#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
 ***
 
 #### check_out_tensor method

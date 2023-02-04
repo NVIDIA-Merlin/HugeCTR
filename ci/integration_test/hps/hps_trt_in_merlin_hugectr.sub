@@ -1,0 +1,8 @@
+#!/bin/bash
+
+srun --ntasks=1 --container-image="${CONT}" bash -cx " \
+    cd /workdir/hps_trt/test/unit && \
+    pytest test_hps.py -s && \
+    cd /workdir/hps_trt/test/integration && \
+    pytest test_for_hugectr_train.py -s && \
+    pytest test_for_hugectr.py -s"

@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
   pybind11_sources
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.2
+  GIT_TAG        master
 )
 FetchContent_GetProperties(pybind11_sources)
 
@@ -109,5 +109,5 @@ set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
 add_library(hugectr MODULE pybind/module_main.cpp)
-target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)
+target_link_libraries(hugectr PUBLIC pybind11::module python3.8 ${CUDA_LIBRARIES} huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")
