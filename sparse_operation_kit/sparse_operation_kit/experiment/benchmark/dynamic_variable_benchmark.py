@@ -24,7 +24,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=8192)
     parser.add_argument("--key_space", type=int, default=1024 * 1024)

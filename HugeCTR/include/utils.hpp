@@ -254,6 +254,8 @@ class CudaCPUDeviceContext {
     char pci_id[pci_id_len];
 
     device_id_to_numa_node_.clear();
+    numa_node_to_device_ids_.clear();
+
     auto cpu_mask = numa_allocate_cpumask();
 
     auto select_node = [](const bitmask* nvml_cpus) -> int {
@@ -279,6 +281,12 @@ class CudaCPUDeviceContext {
         device_id_to_numa_node_[device_id] = node;
         log << "  GPU " << device_id << " -> "
             << " node " << node << std::endl;
+
+        if (numa_node_to_device_ids_.count(node) == 0) {
+          numa_node_to_device_ids_[node] = std::vector<int>{device_id};
+        } else {
+          numa_node_to_device_ids_[node].push_back(device_id);
+        }
       }
     }
 
@@ -289,6 +297,7 @@ class CudaCPUDeviceContext {
 
  public:
   static std::unordered_map<int, int> device_id_to_numa_node_;
+  static std::unordered_map<int, std::vector<int>> numa_node_to_device_ids_;
 };
 
 /**

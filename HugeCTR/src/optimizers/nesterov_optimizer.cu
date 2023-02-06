@@ -24,13 +24,13 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void nesterov_update_kernel(int len, float* weight, T* accum, const T* wgrad, float lr,
-                                       float mu, float scaler) {
+__global__ void nesterov_update_kernel(int len, float* weight, float* accum, const T* wgrad,
+                                       float lr, float mu, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
-    float accum_old = TypeConvertFunc<float, T>::convert(accum[i]);
+    float accum_old = accum[i];
     float accum_new = mu * accum_old - lr * TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    accum[i] = TypeConvertFunc<T, float>::convert(accum_new);
+    accum[i] = accum_new;
     weight[i] += (-mu * accum_old + (1.f + mu) * accum_new);
   }
 }
@@ -39,7 +39,7 @@ __global__ void nesterov_update_kernel(int len, float* weight, T* accum, const T
 
 template <typename T>
 NesterovOptimizer<T>::NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                        const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                        const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                                         const std::shared_ptr<GPUResource>& gpu_resource,
                                         float learning_rate, float momentum_factor, float scaler)
     : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
@@ -66,7 +66,7 @@ void NesterovOptimizer<T>::update() {
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
   float* weight = weight_main_.get_ptr();
-  T* accum = accum_.get_ptr();
+  float* accum = accum_.get_ptr();
   T* wgrad = wgrad_.get_ptr();
   nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
       len, weight, accum, wgrad, lr_, mu_, scaler_);

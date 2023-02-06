@@ -1,6 +1,8 @@
 build
 debug_build
 release_build
+cmake-build-release-docker
+
 docs/html
 docs/latex
 .cache

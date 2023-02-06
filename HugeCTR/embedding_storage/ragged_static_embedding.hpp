@@ -61,9 +61,8 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
               size_t num_id_space_offset, const Tensor &id_space,
               TensorList &embedding_vec) override;
 
-  void update(const Tensor &keys, size_t num_keys, const Tensor &num_unique_key_per_table_offset,
-              size_t num_table_offset, const Tensor &table_id_list, Tensor &wgrad,
-              const Tensor &wgrad_idx_offset) override;
+  void update(const Tensor &unique_keys, const Tensor &num_unique_keys, const Tensor &table_ids,
+              const Tensor &ev_start_indices, const Tensor &wgrad) override;
 
   void assign(const Tensor &unique_key, size_t num_unique_key,
               const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,

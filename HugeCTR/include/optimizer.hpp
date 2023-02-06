@@ -199,7 +199,7 @@ class Optimizer {
                                            const Tensor2<float>& weight_main,
                                            const Tensor2<__half>& weight_main_half,
                                            const Tensor2<T>& wgrad, const float scaler,
-                                           const std::shared_ptr<BufferBlock2<T>>& opt_buff,
+                                           const std::shared_ptr<BufferBlock2<float>>& opt_buff,
                                            const std::shared_ptr<GPUResource>& gpu_resource,
                                            bool use_mixed_precision);
 

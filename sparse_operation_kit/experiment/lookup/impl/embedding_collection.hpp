@@ -78,6 +78,7 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
   
   return std::unique_ptr<::embedding::EmbeddingCollectionParam>( new ::embedding::EmbeddingCollectionParam(
     num_lookups,
+    {},
     num_lookups,
     lookup_params,
     shard_matrix,
@@ -87,7 +88,9 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
     ::HugeCTR::TensorScalarTypeFunc<int32_t>::get_type(),
     ::HugeCTR::TensorScalarTypeFunc<OffsetType>::get_type(),
     ::HugeCTR::TensorScalarTypeFunc<DType>::get_type(),
-    ::embedding::EmbeddingLayout::FeatureMajor
+    ::embedding::EmbeddingLayout::FeatureMajor,
+    ::embedding::EmbeddingLayout::FeatureMajor,
+    false
   ));
 }
 }  // namespace sok

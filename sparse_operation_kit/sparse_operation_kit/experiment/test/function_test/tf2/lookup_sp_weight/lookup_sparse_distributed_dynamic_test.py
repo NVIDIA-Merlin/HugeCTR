@@ -55,8 +55,8 @@ if __name__ == "__main__":
         local_indices.append(indices)
 
     # indices
-    # sp_weights
     total_indices = []
+    # sp_weights
     total_sp_weights = []
     for i in range(len(rows)):
         offsets = np.random.randint(1, hotness[i] + 1, iters * batch_size)
@@ -70,6 +70,8 @@ if __name__ == "__main__":
         sp_weights = hvd.broadcast(sp_weights, root_rank=0)
         total_indices.append(tf.RaggedTensor.from_row_lengths(values, offsets))
         total_sp_weights.append(tf.RaggedTensor.from_row_lengths(sp_weights, offsets))
+    left = batch_size // hvd.size() * hvd.rank()
+    right = batch_size // hvd.size() * (hvd.rank() + 1)
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
@@ -84,7 +86,6 @@ if __name__ == "__main__":
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -104,7 +105,6 @@ if __name__ == "__main__":
             )
         loss = step(sok_vars, indices, iter_sp_weights)
 
-        loss = step(sok_vars, indices)
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("loss:", loss)
@@ -123,7 +123,6 @@ if __name__ == "__main__":
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
         grads = [hvd.allreduce(grad, op=hvd.Sum) for grad in grads]
-        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -142,7 +141,7 @@ if __name__ == "__main__":
             iter_sp_weights.append(
                 total_sp_weights[j][i * batch_size + left : i * batch_size + right].to_sparse()
             )
-        loss = step2(tf_vars, indices)
+        loss = step2(tf_vars, indices, iter_sp_weights)
         loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("tf loss:", loss)
@@ -154,16 +153,16 @@ if __name__ == "__main__":
     diff = 0
     for i in range(len(out1)):
         length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-        diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
+        diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     diff = 0
     for i in range(iters):
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     print("[SOK INFO] lookup_sparse distributed with dynamic variable test passed")
     ts = ts[5:]

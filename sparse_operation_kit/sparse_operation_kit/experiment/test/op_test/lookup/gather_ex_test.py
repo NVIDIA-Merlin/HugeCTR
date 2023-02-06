@@ -32,7 +32,6 @@ def test():
 
 
 if __name__ == "__main__":
-
     op_name = "gather_ex"
     if not hasattr(sok.raw_ops, op_name):
         raise RuntimeError("There is no op called " + op_name)

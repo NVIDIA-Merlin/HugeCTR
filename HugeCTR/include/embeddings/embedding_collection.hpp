@@ -17,8 +17,8 @@
 #pragma once
 #include "HugeCTR/include/optimizer.hpp"
 #include "embedding/common.hpp"
+#include "embedding/data_distributor/data_distributor.hpp"
 #include "embedding/embedding.hpp"
-#include "embedding/operators/transpose_input.hpp"
 #include "embedding_storage/embedding_table.hpp"
 
 namespace HugeCTR {
@@ -72,8 +72,20 @@ class EmbeddingCollectionConfig {
   std::vector<ShardStrategy> shard_strategy_;
   std::vector<std::vector<std::string>> shard_matrix_;
 
+  embedding::EmbeddingLayout outptu_layout_;
+  bool indices_only_;
+
   // if we need more configuration about EmbeddingCollection
-  EmbeddingCollectionConfig() {}
+  EmbeddingCollectionConfig(const std::string &output_layout_str, bool indices_only)
+      : indices_only_(indices_only) {
+    if (output_layout_str == "feature_major") {
+      outptu_layout_ = embedding::EmbeddingLayout::FeatureMajor;
+    } else if (output_layout_str == "batch_major") {
+      outptu_layout_ = embedding::EmbeddingLayout::BatchMajor;
+    } else {
+      HCTR_OWN_THROW(Error_t::WrongInput, output_layout_str + " is not supported.");
+    }
+  }
 
   void embedding_lookup(const EmbeddingTableConfig &emb_table_config,
                         const std::string &bottom_name, const std::string &top_name,
@@ -122,8 +134,8 @@ inline TableNameToIDDict create_table_name_to_id_dict_from_ebc_config(
     const EmbeddingCollectionConfig &config) {
   TableNameToIDDict table_name_to_id_dict;
   int table_id = 0;
-  for (auto &config : config.emb_table_config_list_) {
-    table_name_to_id_dict[config.name] = table_id;
+  for (auto &c : config.emb_table_config_list_) {
+    table_name_to_id_dict[c.name] = table_id;
     table_id += 1;
   }
   return table_name_to_id_dict;
@@ -229,18 +241,10 @@ inline std::vector<embedding::GroupedEmbeddingParam> create_grouped_embedding_pa
 namespace embedding {
 
 class EmbeddingCollection {
-  std::vector<std::unique_ptr<PreprocessInput>> preprocess_inputs_;
-  std::vector<std::unique_ptr<PreprocessInput>> eval_preprocess_inputs_;
-  std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_;
-  std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> eval_embeddings_;
+  std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_, eval_embeddings_;
 
-  std::vector<std::vector<core::Tensor>> unique_key_list_;
-  std::vector<std::vector<size_t>> num_unique_key_list_;
-  std::vector<std::vector<core::Tensor>> num_unique_key_per_table_offset_list_;
-  std::vector<std::vector<size_t>> num_table_offset_list_;  // num_table_offset = num_table + 1
-  std::vector<std::vector<core::Tensor>> wgrad_list_;
-  std::vector<std::vector<core::Tensor>> wgrad_idx_offset_list_;
-  std::vector<std::vector<core::Tensor>> table_id_list_list_;
+  std::vector<std::vector<EmbeddingOutputAttr>> embedding_output_attrs;
+  std::vector<std::vector<Wgrad>> wgrad_list_;
 
  public:
   // Fix:load and dump use these , put it on public temporary
@@ -256,10 +260,11 @@ class EmbeddingCollection {
                       const EmbeddingCollectionParam &eval_ebc_param,
                       const std::vector<EmbeddingTableParam> &emb_table_param_list);
 
-  void forward_per_gpu(bool is_train, int gpu_id, const Tensor &key, const Tensor &bucket_range,
-                       size_t num_keys, Tensor &output_buffer);
+  void forward_per_gpu(bool is_train, int gpu_id, const HugeCTR::DataDistributor::Result &input,
+                       Tensor &output_buffer, int batch_size);
 
-  void backward_per_gpu(int gpu_id, const Tensor &top_grad, bool allreduce);
+  void backward_per_gpu(int gpu_id, const HugeCTR::DataDistributor::Result &input,
+                        const Tensor &top_grad, int batch_size);
 
   void update_per_gpu(int gpu_id);
 

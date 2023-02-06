@@ -26,10 +26,9 @@ class IGroupedEmbeddingTable : public ILookup {
  public:
   virtual ~IGroupedEmbeddingTable() = default;
 
-  virtual void update(const Tensor &unique_key, size_t num_unique_key,
-                      const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
-                      const Tensor &table_id_list, Tensor &wgrad,
-                      const Tensor &wgrad_idx_offset) = 0;
+  virtual void update(const Tensor &unique_keys, const Tensor &num_unique_keys,
+                      const Tensor &table_ids, const Tensor &ev_start_indices,
+                      const Tensor &wgrad) = 0;
 
   virtual void assign(const Tensor &unique_key, size_t num_unique_key,
                       const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,

@@ -26,7 +26,7 @@ from nvtabular.ops import (
     get_embedding_sizes,
 )
 
-#%load_ext memory_profiler
+# %load_ext memory_profiler
 
 import logging
 
@@ -66,7 +66,6 @@ def bytesto(bytes, to, bsize=1024):
 
 # process the data with NVTabular
 def process_NVT(args):
-
     if args.feature_cross_list:
         feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
         for pair in feature_pairs:
@@ -136,7 +135,6 @@ def process_NVT(args):
     ]
 
     for input, temp_output in train_valid_paths:
-
         ddf = dask_cudf.read_csv(
             input, sep="\t", names=LABEL_COLUMNS + CONTINUOUS_COLUMNS + CATEGORICAL_COLUMNS
         )
@@ -419,7 +417,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
 
     process_NVT(args)

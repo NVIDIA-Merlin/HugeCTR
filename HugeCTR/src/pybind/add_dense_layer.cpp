@@ -1622,7 +1622,7 @@ void Model::add_dense_layer_internal(
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         layers.emplace_back(new MultiCrossLayer<__half>(
             weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor, out_tensor,
-            gpu_resource, num_layers, projection_dim, initializer_types));
+            gpu_resource, num_layers, projection_dim, initializer_types, enable_tf32_compute));
       } else {
         Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
@@ -1630,7 +1630,7 @@ void Model::add_dense_layer_internal(
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         layers.emplace_back(new MultiCrossLayer<float>(
             weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor, out_tensor,
-            gpu_resource, num_layers, projection_dim, initializer_types));
+            gpu_resource, num_layers, projection_dim, initializer_types, enable_tf32_compute));
       }
       break;
     }

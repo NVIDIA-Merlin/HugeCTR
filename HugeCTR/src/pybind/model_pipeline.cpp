@@ -30,9 +30,18 @@ namespace HugeCTR {
 void Model::create_train_network_pipeline() {
   graph_.train_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
+  auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
+
   for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext context(gpu_resource->get_device_id());
+
+    auto BNET_input_ready_wait = std::make_shared<StreamContextScheduleable>([=] {
+      auto stream = gpu_resource->get_stream();
+      scheduled_reader->stream_wait_dense_tensors(
+          stream, local_id,
+          solver_.use_cuda_graph && !scheduled_reader->current_batch_incomplete());
+    });
 
     auto network_forward_and_backward = std::make_shared<StreamContextScheduleable>([=] {
       long long current_batchsize_per_device =
@@ -44,17 +53,32 @@ void Model::create_train_network_pipeline() {
       if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
     });
 
-    graph_.train_pipeline_[local_id] =
-        Pipeline{"default", gpu_resource, {network_forward_and_backward, async_mlp_syncback}};
+    std::vector<std::shared_ptr<Scheduleable>> scheduleable_list;
+    if (scheduled_reader) {
+      scheduleable_list = {BNET_input_ready_wait, network_forward_and_backward, async_mlp_syncback};
+    } else {
+      scheduleable_list = {network_forward_and_backward, async_mlp_syncback};
+    }
+
+    graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
   }
 }
 
 void Model::create_eval_network_pipeline() {
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
+  auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(evaluate_data_reader_.get());
+
   for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext context(gpu_resource->get_device_id());
+
+    auto BNET_input_ready_wait = std::make_shared<StreamContextScheduleable>([=] {
+      auto stream = gpu_resource->get_stream();
+      scheduled_reader->stream_wait_dense_tensors(
+          stream, local_id,
+          solver_.use_cuda_graph && !scheduled_reader->current_batch_incomplete());
+    });
 
     auto network_eval = std::make_shared<StreamContextScheduleable>([=] {
       long long current_batchsize_per_device =
@@ -70,8 +94,14 @@ void Model::create_eval_network_pipeline() {
       }
     });
 
-    graph_.evaluate_pipeline_[local_id] =
-        Pipeline{"default", gpu_resource, {network_eval, cal_metrics}};
+    std::vector<std::shared_ptr<Scheduleable>> scheduleable_list;
+    if (scheduled_reader) {
+      scheduleable_list = {BNET_input_ready_wait, network_eval, cal_metrics};
+    } else {
+      scheduleable_list = {network_eval, cal_metrics};
+    }
+
+    graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
   }
 }
 

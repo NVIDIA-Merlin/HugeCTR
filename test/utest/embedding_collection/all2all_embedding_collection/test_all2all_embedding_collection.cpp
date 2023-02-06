@@ -56,6 +56,7 @@ void all2all_embedding_collection_test() {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   int num_gpus = static_cast<int>(device_list.size());
   EmbeddingCollectionParam ebc_param{num_table,
+                                     table_max_vocabulary_size_list,
                                      num_lookup,
                                      lookup_params,
                                      shard_matrix,
@@ -65,7 +66,9 @@ void all2all_embedding_collection_test() {
                                      HugeCTR::TensorScalarTypeFunc<index_t>::get_type(),
                                      HugeCTR::TensorScalarTypeFunc<offset_t>::get_type(),
                                      HugeCTR::TensorScalarTypeFunc<emb_t>::get_type(),
-                                     EmbeddingLayout::FeatureMajor};
+                                     EmbeddingLayout::FeatureMajor,
+                                     EmbeddingLayout::FeatureMajor,
+                                     false};
 
   HugeCTR::OptParams opt_param;
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
@@ -258,7 +261,7 @@ void all2all_embedding_collection_test() {
       int64_t num_model_key, num_model_offsets;
       Tensor ret_model_key, ret_model_offset;
       tf::model_forward::sparse_forward_per_gpu(
-          core_list[gpu_id], meta_list[gpu_id], key_all_gather_recv_buffer,
+          core_list[gpu_id], ebc_param, meta_list[gpu_id], key_all_gather_recv_buffer,
           row_lengths_all_gather_recv_buffer, ebc_table_list[gpu_id].get(), emb_vec_model_buffer,
           &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
 
@@ -374,9 +377,9 @@ void all2all_embedding_collection_test() {
       std::vector<int> num_unique_key_per_table, unique_id_space_list;
       Tensor ret_continous_unique_key, ret_continous_emb_vec;
       tf::model_backward::sparse_backward_per_gpu(
-          core_list[gpu_id], meta_list[gpu_id], emb_vec_model_buffer, model_key, model_offsets,
-          &num_unique_key_per_table, &unique_id_space_list, &ret_continous_unique_key,
-          &ret_continous_emb_vec);
+          core_list[gpu_id], ebc_param, meta_list[gpu_id], emb_vec_model_buffer, model_key,
+          model_offsets, &num_unique_key_per_table, &unique_id_space_list,
+          &ret_continous_unique_key, &ret_continous_emb_vec);
 
       std::vector<Tensor> unique_key, grad_emb_vec;
       auto allocate_grad = [&] {

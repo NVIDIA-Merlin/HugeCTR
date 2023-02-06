@@ -135,12 +135,10 @@ void Network::download_opt_states_to_host(std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
 
-  size_t dst_size_in_byte =
-      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
+  size_t dst_size_in_byte = opt_tensor_.get_size_in_bytes();
   std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
 
-  void* src =
-      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  void* src = (void*)opt_tensor_.get_ptr();
   HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
   auto fs = FileSystemBuilder::build_unique_by_path(write_path);
@@ -253,11 +251,9 @@ void Network::upload_params_to_device(float* params) {
 void Network::upload_opt_states_to_device(char* h_opt_states) {
   CudaDeviceContext context(get_device_id());
 
-  size_t src_size_in_byte =
-      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
+  size_t src_size_in_byte = opt_tensor_.get_size_in_bytes();
 
-  void* dst =
-      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  void* dst = (void*)opt_tensor_.get_ptr();
 
   HCTR_LIB_THROW(cudaMemcpy(dst, h_opt_states, src_size_in_byte, cudaMemcpyHostToDevice));
 

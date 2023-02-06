@@ -214,6 +214,22 @@ struct AsyncParam {
   int io_alignment;
   bool shuffle;
   Alignment_t aligned_type;
+  bool multi_hot_reader;  // defult is false
+  bool is_dense_float;    // defult is false. Used only by MLPerf by far
+
+  AsyncParam(int num_threads, int num_batches_per_thread, int max_num_requests_per_thread,
+             int io_depth, int io_alignment, bool shuffle, Alignment_t aligned_type,
+             bool multi_hot_reader,  // defult is false
+             bool is_dense_float)
+      : num_threads(num_threads),
+        num_batches_per_thread(num_batches_per_thread),
+        max_num_requests_per_thread(max_num_requests_per_thread),
+        io_depth(io_depth),
+        io_alignment(io_alignment),
+        shuffle(shuffle),
+        aligned_type(aligned_type),
+        multi_hot_reader(multi_hot_reader),  // defult is false
+        is_dense_float(is_dense_float) {}
 };
 
 struct HybridEmbeddingParam {

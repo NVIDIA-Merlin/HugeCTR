@@ -22,8 +22,8 @@
 #include <unordered_set>
 
 #include "HugeCTR/embedding/view.hpp"
+#include "embedding_collection_utils.hpp"
 #include "embedding_table_cpu.hpp"
-
 using namespace embedding;
 
 struct DataParallelEmbeddingMetaCPU {
@@ -212,10 +212,12 @@ class DataParallelEmbeddingCPU {
       }
     }
 
+    std::vector<std::unordered_map<key_t, std::vector<std::vector<float>>>> local_reduce_grad;
+    local_reduce_grad.resize(grad_info.size());
     for (int i = 0; i < metas_[gpu_id].num_lookup; ++i) {
       int table_id = metas_[gpu_id].table_ids[i];
       ASSERT_TRUE(table_id < static_cast<int>(grad_info.size()));
-      auto &wgrad_dict = grad_info[table_id];
+      auto &wgrad_dict = local_reduce_grad[table_id];
       int ev_size = metas_[gpu_id].ev_sizes[i];
       int ev_offset = metas_[gpu_id].ev_offsets[i];
 
@@ -228,16 +230,35 @@ class DataParallelEmbeddingCPU {
                                   ev_size};
         for (uint32_t r = 0; r < end - start; ++r) {
           key_t k = selected_keys_[gpu_id][r + start];
-          if (wgrad_dict.find(k) == wgrad_dict.end()) {
-            for (int e = 0; e < float_ev.size(); ++e) {
-              wgrad_dict[k].push_back(float_ev[e]);
-            }
-            continue;
-          }
-          ASSERT_EQ(wgrad_dict[k].size(), float_ev.size());
+          std::vector<float> evs;
           for (int e = 0; e < float_ev.size(); ++e) {
-            wgrad_dict[k][e] += float_ev[e];
+            evs.push_back(HugeCTR::TypeConvert<float, emb_t>::convert(float_ev[e]));
           }
+          ASSERT_EQ(evs.size(), ev_size);
+          wgrad_dict[k].push_back(evs);
+        }
+      }
+    }
+
+    for (size_t table_id = 0; table_id < local_reduce_grad.size(); ++table_id) {
+      auto &table_grad = local_reduce_grad[table_id];
+      for (auto &[k, evs] : table_grad) {
+        HCTR_CHECK(evs.size() >= 1);
+        int ev_size = evs[0].size();
+        std::vector<float> ev_sum;
+        for (int e = 0; e < ev_size; ++e) {
+          std::vector<float> arr;
+          for (size_t i = 0; i < evs.size(); ++i) {
+            arr.push_back(evs[i][e]);
+          }
+          float summation = kahanSum(arr);
+          ev_sum.push_back(summation);
+        }
+        if (grad_info[table_id].find(k) == grad_info[table_id].end()) {
+          grad_info[table_id][k].assign(ev_size, 0);
+        }
+        for (int e = 0; e < ev_size; ++e) {
+          grad_info[table_id][k][e] += ev_sum[e];
         }
       }
     }

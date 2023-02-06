@@ -25,35 +25,84 @@
 
 namespace embedding {
 
+struct UniformDataParallelEmbeddingMeta {
+  mutable std::vector<int> h_hotness_list_;
+  mutable int num_hotness_;
+  mutable std::vector<int> h_local_hotness_list_;
+  mutable int num_local_hotness_;
+
+  int num_lookup_;
+  std::vector<int> h_ev_size_list_;
+  int max_ev_size_;
+  std::vector<int> h_ev_size_offset_;
+  Tensor d_ev_size_offset_;
+
+  std::vector<char> h_combiner_list_;
+  Tensor d_combiner_list_;
+
+  int num_local_lookup_;
+
+  std::vector<char> h_local_combiner_list_;
+
+  std::vector<int> h_local_lookup_id_list_;
+  Tensor d_local_lookup_id_list_;
+
+  std::vector<int> h_local_ev_size_list_;
+  Tensor d_local_ev_size_list_;
+
+  std::vector<int> h_local_table_id_list_;
+  Tensor d_local_table_id_list_;
+
+  WgradAttr wgrad_attr;
+
+  std::vector<int> h_table_id_to_global_start_indices;
+  Tensor table_id_to_global_start_indices;
+  Tensor table_id_to_allreduce_buffer_start_indices;
+
+  KernelParams kernel_params;
+
+  UniformDataParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
+                                   const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
+
+  void update_mutable_meta(std::shared_ptr<CoreResourceManager> core,
+                           const EmbeddingCollectionParam &ebc_param, size_t grouped_id) const;
+};
+
 class UniformDPEmbedding : public IGroupedEmbeddingOp {
   std::shared_ptr<CoreResourceManager> core_;
   UniformDataParallelEmbeddingMeta meta_;
 
-  DPIndexCalculation index_calculation_;
-  DPLocalReduceIndexCalculation dp_local_reduce_index_calculation_;
+  ReductionIndices reduction_indices_;
+  DPLocalReduceIndexCalculation local_reduce_index_calculation_;
+  LocalReduce local_reduce_;
+  Wgrad local_reduce_indices_;
+
   CompressOffset compress_offset_;
   DPModelForward dp_model_forward_;
   AverageCombiner average_combiner_;
 
-  DPLocalReduce dp_local_reduce_;
   NcclAllReduceInplaceComm allreduce_comm_;
 
   TensorList embedding_vec_;
-  int batch_size_;
-  Tensor keys_;
-  size_t num_keys_;
-  Tensor bucket_range_;
+
+  void backward_per_gpu_for_indices_only(const EmbeddingInput &embedding_input,
+                                         const embedding::EmbeddingOutput &top_grad,
+                                         embedding::Wgrad &wgrad, int batch_size);
+
+  void backward_per_gpu_for_dynamic_table(const EmbeddingInput &embedding_input,
+                                          const embedding::EmbeddingOutput &top_grad,
+                                          embedding::Wgrad &wgrad, int batch_size);
 
  public:
   UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core,
                      const EmbeddingCollectionParam &params, size_t grouped_id);
 
-  void forward_per_gpu(const Tensor &keys, const Tensor &bucket_range, size_t num_keys,
-                       ILookup *embedding_table, Tensor &output_buffer, int batch_size) override;
+  void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+                       EmbeddingOutput &embedding_output, int batch_size) override;
 
-  void backward_per_gpu(const Tensor &top_grad, bool do_allreduce, Tensor *unique_key,
-                        size_t *num_unique_key, Tensor *num_unique_key_per_table_offset,
-                        size_t *num_table_offset, Tensor *table_id_list, Tensor *wgrad,
-                        Tensor *wgrad_idx_offset) override;
+  void backward_per_gpu(const EmbeddingInput &embedding_input, const EmbeddingOutput &top_grad,
+                        Wgrad &wgrad, int batch_size) override;
+
+  const WgradAttr &get_wgrad_attr() const override { return meta_.wgrad_attr; }
 };
 }  // namespace embedding

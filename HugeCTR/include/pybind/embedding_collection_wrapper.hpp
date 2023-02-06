@@ -36,7 +36,8 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::EmbeddingCollectionConfig,
                    std::shared_ptr<HugeCTR::EmbeddingCollectionConfig>>(m,
                                                                         "EmbeddingCollectionConfig")
-      .def(pybind11::init())
+      .def(pybind11::init<const std::string &, bool>(),
+           pybind11::arg("output_layout") = "feature_major", pybind11::arg("indices_only") = false)
       .def("embedding_lookup", &HugeCTR::EmbeddingCollectionConfig::embedding_lookup,
            pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))

@@ -24,13 +24,13 @@ class IGroupedEmbeddingOp {
  public:
   virtual ~IGroupedEmbeddingOp() = default;
 
-  virtual void forward_per_gpu(const Tensor &keys, const Tensor &bucket_range, size_t num_keys,
-                               ILookup *embedding_table, Tensor &output_buffer, int batch_size) = 0;
+  virtual void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+                               EmbeddingOutput &embedding_output, int batch_size) = 0;
 
-  virtual void backward_per_gpu(const Tensor &top_grad, bool do_allreduce, Tensor *unique_key,
-                                size_t *num_unique_key, Tensor *num_unique_key_per_table_offset,
-                                size_t *num_table_offset, Tensor *table_id_list, Tensor *wgrad,
-                                Tensor *wgrad_idx_offset) = 0;
+  virtual void backward_per_gpu(const EmbeddingInput &embedding_input,
+                                const EmbeddingOutput &top_grad, Wgrad &wgrad, int batch_size) = 0;
+
+  virtual const WgradAttr &get_wgrad_attr() const = 0;
 };
 
 std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(

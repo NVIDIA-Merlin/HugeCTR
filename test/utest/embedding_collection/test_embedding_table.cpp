@@ -52,7 +52,12 @@ void test_embedding_table(int device_id, int table_type) {
   auto key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
   auto index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
 
+  std::vector<int> table_id_to_vocabulary_size;
+  for (auto& p : table_param_list) {
+    table_id_to_vocabulary_size.push_back(p.max_vocabulary_size);
+  }
   EmbeddingCollectionParam ebc_param{static_cast<int>(table_param_list.size()),
+                                     table_id_to_vocabulary_size,
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,
@@ -62,7 +67,9 @@ void test_embedding_table(int device_id, int table_type) {
                                      index_type,
                                      HugeCTR::TensorScalarTypeFunc<uint32_t>::get_type(),
                                      HugeCTR::TensorScalarTypeFunc<float>::get_type(),
-                                     EmbeddingLayout::BatchMajor};
+                                     EmbeddingLayout::BatchMajor,
+                                     EmbeddingLayout::FeatureMajor,
+                                     false};
 
   IGroupedEmbeddingTable* embedding_table;
   if (table_type == 0) {

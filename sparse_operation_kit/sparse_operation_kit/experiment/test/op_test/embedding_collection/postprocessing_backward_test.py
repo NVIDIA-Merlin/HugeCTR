@@ -67,7 +67,6 @@ def test():
 
 
 if __name__ == "__main__":
-
     op_name = "postprocessing_backward"
     if not hasattr(sok.raw_ops, op_name):
         raise RuntimeError("There is no op called " + op_name)

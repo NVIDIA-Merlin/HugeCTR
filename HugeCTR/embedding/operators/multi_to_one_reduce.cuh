@@ -420,8 +420,8 @@ __global__ void multi_to_one_reduce_vec4_weight(CopyDesc copy_desc, DST_T* parti
   return;
 }
 
-void get_kernel_config(int device_sms, int* grid_size, int* block_size, int max_ev_length,
-                       size_t embedding_vector_num) {
+inline void get_kernel_config(int device_sms, int* grid_size, int* block_size, int max_ev_length,
+                              size_t embedding_vector_num) {
   int tmp_grid_size;
   int tmp_block_size = BLOCK_SIZE;
   if (max_ev_length <= 256) {
@@ -514,6 +514,41 @@ void multi_to_one_reduce(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2, DST_T* part
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
                    "HugeCTR does not support emb vector size >= 1024");
   }
+}
+
+template <typename CopyDesc1>
+void multi_to_one_reduce(CopyDesc1 multi_to_one_desc_first_stage,
+                         const ReductionIndices& reduction_indices,
+                         const KernelParams& kernel_params,
+                         PartialReduceResult& partial_reduce_result, Wgrad& wgrad, int max_ev_size,
+                         cudaStream_t stream) {
+  auto partial_grad_ev_ptr = partial_reduce_result.partial_wgrad.get<float>();
+  auto partial_key_ptr = partial_reduce_result.partial_keys.get<uint32_t>();
+  auto partial_ev_length_ptr = partial_reduce_result.partial_ev_length.get<int32_t>();
+  auto partial_dst_offset_array_ptr =
+      partial_reduce_result.partial_dst_offset_array.get<uint32_t>();
+
+  const int* table_ids_ptr = wgrad.table_ids.get<int>();
+  const int* table_id_to_ev_size_ptr = wgrad.attr.table_id_to_ev_size.get<int>();
+  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.get<uint32_t>();
+  float* dst_ptr = wgrad.data.get<float>();
+
+  auto multi_to_one_desc_second_stage = make_MultiToOne_reduce<float, float>(
+      reduction_indices.num_elements, [=] __device__(int i) { return partial_key_ptr[i]; },
+      [=] __device__(int i) { return partial_ev_length_ptr[i]; },
+      [=] __device__(int i) { return partial_ev_length_ptr[i]; },
+      [=] __device__(int i) { return 1; },
+
+      [=] __device__(int i) { return partial_grad_ev_ptr + i * max_ev_size; },
+
+      [=] __device__(int i) {
+        auto tmp_index = partial_dst_offset_array_ptr[i];
+        return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+      });
+
+  multi_to_one_reduce(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
+                      partial_grad_ev_ptr, partial_key_ptr, partial_ev_length_ptr,
+                      partial_dst_offset_array_ptr, kernel_params.num_sms, max_ev_size, stream);
 }
 
 template <typename CopyDesc1, typename CopyDesc2, typename DST_T, int kWarpSize = 32>

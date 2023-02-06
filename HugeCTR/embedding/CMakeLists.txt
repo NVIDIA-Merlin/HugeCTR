@@ -23,6 +23,8 @@ file(GLOB embedding_src
 *.cu
 operators/*.cpp
 operators/*.cu
+data_distributor/*.cpp
+data_distributor/*.cu
 )
 
 add_library(embedding SHARED ${embedding_src})

@@ -40,7 +40,7 @@ class FtrlOptimizer : public Optimizer {
    * @param lambda2 lambda2 in FTRL paper
    */
   FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta = 0.0f, float lambda1 = 0.0f, float lambda2 = 0.0f, float scaler = 1.f);
   /*Initialization:
@@ -73,8 +73,8 @@ class FtrlOptimizer : public Optimizer {
   // named as in ftrl paper Ad Click Prediction: a View from the Trenches
   // except alpha is lr_ in class Optimizer
   Tensor2<T> wgrad_;
-  Tensor2<T> z_;
-  Tensor2<T> n_;
+  Tensor2<float> z_;
+  Tensor2<float> n_;
   // uint64_t t_;
   const float beta_;
   const float lambda1_;

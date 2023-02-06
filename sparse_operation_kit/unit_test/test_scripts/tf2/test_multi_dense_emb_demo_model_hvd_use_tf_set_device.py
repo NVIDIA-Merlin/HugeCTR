@@ -127,7 +127,6 @@ def test_sok_multi_dense_emb(args):
             emb_opt.apply_gradients(zip(emb_grads, emb_var), experimental_aggregate_gradients=False)
 
         with tf.control_dependencies(emb_grads):
-
             grads = [hvd.allreduce(grad) for grad in grads]
             dense_opt.apply_gradients(zip(grads, other_var))
 
