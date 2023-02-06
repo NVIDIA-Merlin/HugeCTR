@@ -96,7 +96,7 @@ HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed rec
 
 Try out our [hugectr_wdl_prediction.ipynb Notebook](../notebooks/hugectr_wdl_prediction.ipynb). For more information, refer to [Distributed Deployment](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server).
 
-For more information about Hierrachical Parameter Server, see the details for [HPS Backend](https://github.com/triton-inference-server/hugectr_backend/blob/main/hps_backend/docs/architecture.md) and [HPS Database Backend](hugectr_parameter_server.md).
+For more information about Hierrachical Parameter Server, see the details for [HPS Backend](https://github.com/triton-inference-server/hugectr_backend/blob/main/hps_backend/docs/architecture.md) and [HPS Database Backend](hierarchical_parameter_server/hps_database_backend.md).
 
 ## Sparse Operation Kit
 

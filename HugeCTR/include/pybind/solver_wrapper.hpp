@@ -39,10 +39,10 @@ std::unique_ptr<Solver> CreateSolver(
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
   }
-  if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
+  /*if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Scaler of mixed precision training should be either 128/256/512/1024");
-  }
+  }*/
 
   std::unique_ptr<Solver> solver(new Solver());
   solver->model_name = model_name;

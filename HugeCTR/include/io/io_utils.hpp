@@ -18,6 +18,7 @@
 
 #include <base/debug/logger.hpp>
 #include <fstream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -65,9 +66,15 @@ class IOUtils {
   static bool is_local_path(const std::string& path) { return get_path_scheme(path) == ""; }
 
   static bool is_valid_s3_https_url(const std::string& url) {
-    // TODO: add the correct logic when enable aws s3
+    std::regex pattern_a("^https:\\/\\/s3\\.([^/]+)\\.amazonaws\\.com\\/([\\w\\W]+)");
+    std::regex pattern_b("^https:\\/\\/([^/]+)\\.s3\\.([^/]+)\\.amazonaws\\.com\\/*([\\w\\W]+)*");
+    return regex_match(url, pattern_a) || regex_match(url, pattern_b);
+  }
 
-    return true;
+  static bool is_valid_gcs_https_url(const std::string& url) {
+    std::regex pattern_a("^https:\\/\\/storage.googleapis.com\\/*([\\w\\W]+)*");
+    std::regex pattern_b("^https:\\/\\/storage.cloud.google.com\\/*([\\w\\W]+)*");
+    return regex_match(url, pattern_a) || regex_match(url, pattern_b);
   }
 };
 }  // namespace HugeCTR

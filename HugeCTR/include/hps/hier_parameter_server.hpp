@@ -63,6 +63,10 @@ class HierParameterServer : public HierParameterServerBase {
                                       cudaStream_t stream);
   virtual void parse_hps_configuraion(const std::string& hps_json_config_file);
   virtual std::map<std::string, InferenceParams> get_hps_model_configuration_map();
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
+    hps_profiler->set_config(interation, warmup, enable_bench);
+  };
+  virtual void profiler_print();
 
  private:
   // Parameter server configuration
@@ -91,6 +95,8 @@ class HierParameterServer : public HierParameterServerBase {
   std::map<std::string, std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>>> model_cache_map_;
   // model configuration of all models deployed on HPS, e.g., {"dcn": dcn_inferenceParamesStruct}
   std::map<std::string, InferenceParams> inference_params_map_;
+  // benchmark profiler
+  std::unique_ptr<profiler> hps_profiler;
 };
 
 }  // namespace HugeCTR

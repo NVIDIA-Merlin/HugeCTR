@@ -255,9 +255,7 @@ std::unique_ptr<DataSimulator> MLPLayer<T>::get_uniform_initializer(const int in
   int i = index / 2;
   size_t bottom_dim =
       i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
-  size_t top_dim = train_tensors_[i].get_dimensions()[1];
-
-  float limit = 1.0f / ((0 == index % 2 ? bottom_dim : 0) + top_dim);
+  float limit = sqrt(1.0f / (bottom_dim));
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
 
@@ -267,41 +265,28 @@ std::unique_ptr<DataSimulator> MLPLayer<T>::get_xavier_uniform_initializer(const
   size_t bottom_dim =
       i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
   size_t top_dim = train_tensors_[i].get_dimensions()[1];
-
-  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
-                                                    data_simu::Distribution_t::Uniform,
-                                                    0 == index % 2 ? bottom_dim : 0, top_dim);
+  // fan_avg for weight
+  // fan_out for bias
+  auto fan_mode = i % 2 ? data_simu::Mode_t::Fan_out : data_simu::Mode_t::Fan_avg;
+  return std::make_unique<VarianceScalingSimulator>(
+      1.f, fan_mode, data_simu::Distribution_t::Uniform, bottom_dim, top_dim);
 }
-
 template <typename T>
 std::unique_ptr<DataSimulator> MLPLayer<T>::get_xavier_norm_initializer(const int index) {
   int i = index / 2;
   size_t bottom_dim =
       i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
   size_t top_dim = train_tensors_[i].get_dimensions()[1];
-
-  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
-                                                    data_simu::Distribution_t::Norm,
-                                                    0 == index % 2 ? bottom_dim : 0, top_dim);
+  // fan_avg for weight
+  // fan_out for bias
+  auto fan_mode = i % 2 ? data_simu::Mode_t::Fan_out : data_simu::Mode_t::Fan_avg;
+  return std::make_unique<VarianceScalingSimulator>(1.f, fan_mode, data_simu::Distribution_t::Norm,
+                                                    bottom_dim, top_dim);
 }
 
 template <typename T>
 std::unique_ptr<DataSimulator> MLPLayer<T>::get_default_initializer(const int index) {
-  int i = index / 2;
-  size_t bottom_dim =
-      i == 0 ? bottom_tensors_[0].get_dimensions()[1] : train_tensors_[i - 1].get_dimensions()[1];
-  size_t top_dim = train_tensors_[i].get_dimensions()[1];
-
-  std::unique_ptr<DataSimulator> simu(nullptr);
-  if (0 == index % 2) {
-    simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
-                                            data_simu::Distribution_t::Norm, bottom_dim, top_dim));
-  } else {
-    float stddev = sqrt(1.f / top_dim);
-    simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
-  }
-
-  return simu;
+  return this->get_uniform_initializer(index);
 }
 
 }  // namespace HugeCTR

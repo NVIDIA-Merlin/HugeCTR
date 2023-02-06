@@ -91,11 +91,11 @@ class LookupLayer(tf.keras.layers.Layer):
         Parameters
         ----------
         inputs:
-                Keys are stored in Tensor. The data type must be ``tf.int64``.
+                Keys are stored in Tensor. The supported data types are ``tf.int32`` and ``tf.int64``.
 
         Returns
         -------
-        emb_vector: ``tf.Tensor`` of int32
+        emb_vector: ``tf.Tensor`` of float32
                 the embedding vectors for the input keys. Its shape is
                 *inputs.get_shape() + emb_vec_size*.
         """

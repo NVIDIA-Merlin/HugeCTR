@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
   pybind11_sources
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.2
+  GIT_TAG        master
 )
 FetchContent_GetProperties(pybind11_sources)
 
@@ -45,6 +45,7 @@ file(
     )
 
 list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
+list(REMOVE_ITEM huge_ctr_src "inference_benchmark/metrics.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
@@ -59,6 +60,11 @@ endif()
 if(ENABLE_S3)
   target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so)
   target_link_libraries(huge_ctr_static PUBLIC ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so)
+endif()
+
+if(ENABLE_GCS)
+  target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so)
+  target_link_libraries(huge_ctr_static PUBLIC ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so)
 endif()
 
 if(MPI_FOUND)
@@ -104,5 +110,5 @@ set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
 add_library(hugectr MODULE pybind/module_main.cpp)
-target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)
+target_link_libraries(hugectr PUBLIC pybind11::module python3.8 ${CUDA_LIBRARIES} huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")

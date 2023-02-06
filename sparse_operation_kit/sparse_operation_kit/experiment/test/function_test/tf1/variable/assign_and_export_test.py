@@ -21,7 +21,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.Session(config=config)

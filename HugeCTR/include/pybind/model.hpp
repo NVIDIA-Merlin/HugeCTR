@@ -33,6 +33,7 @@
 #include <utility>
 #include <utils.hpp>
 
+#include "HugeCTR/embedding/data_distributor/data_distributor.hpp"
 #include "embedding_storage/weight_io/parameter_IO.hpp"
 #include "embeddings/embedding_collection.hpp"
 #include "pipeline.hpp"
@@ -598,6 +599,9 @@ class Model {
   std::vector<size_t*> evaluate_ebc_num_keys_list_;
   std::vector<core::Tensor> evaluate_ebc_sparse_weight_list_;
 
+  std::vector<DataDistributor::Result> train_ddl_output_;
+  std::vector<DataDistributor::Result> evaluate_ddl_output_;
+
   std::vector<core::Tensor> train_ebc_outptut_;
   std::vector<core::Tensor> evaluate_ebc_outptut_;
 
@@ -621,6 +625,8 @@ class Model {
   HugeCTR::Timer timer_log;
   std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
   std::set<std::string> embedding_dependent_tensors_;
+
+  std::shared_ptr<DataDistributor> train_data_distributor_, eval_data_distributor_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);

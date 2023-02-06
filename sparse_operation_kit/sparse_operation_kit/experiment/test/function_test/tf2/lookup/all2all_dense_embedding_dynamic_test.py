@@ -23,7 +23,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     # initialize
     hvd.init()
     gpus = tf.config.experimental.list_physical_devices("GPU")

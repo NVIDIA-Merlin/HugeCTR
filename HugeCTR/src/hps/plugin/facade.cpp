@@ -44,4 +44,11 @@ void Facade::forward(const char* model_name, int32_t table_id, int32_t global_re
                            emb_vec_size, d_keys, d_vectors);
 }
 
+void Facade::forward(const char* model_name, int32_t table_id, int32_t global_replica_id,
+                     size_t num_keys, size_t emb_vec_size, const void* d_keys, void* d_vectors,
+                     bool i64_input_tensor, cudaStream_t context_stream) {
+  lookup_manager_->forward(std::string(model_name), table_id, global_replica_id, num_keys,
+                           emb_vec_size, d_keys, d_vectors, i64_input_tensor, context_stream);
+}
+
 }  // namespace HierarchicalParameterServer

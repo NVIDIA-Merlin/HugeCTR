@@ -114,6 +114,19 @@ std::vector<size_t> DynamicEmbeddingTable::remap_id_space(const Tensor &id_space
   return idsl_cpu;
 }
 
+std::vector<size_t> DynamicEmbeddingTable::remap_id_space(const std::vector<int> &idsl_cpu) {
+  std::vector<size_t> local_idsl_cpu;
+  for (size_t i = 0; i < idsl_cpu.size(); ++i) {
+    size_t id_space = static_cast<size_t>(idsl_cpu[i]);
+    HCTR_CHECK_HINT(
+        global_to_local_id_space_map_.find(id_space) != global_to_local_id_space_map_.end(),
+        "DynamicEmbeddingTable remap id space failed.");
+    size_t local_id_space = global_to_local_id_space_map_.at(id_space);
+    local_idsl_cpu.push_back(local_id_space);
+  }
+  return local_idsl_cpu;
+}
+
 void DynamicEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
                                    const Tensor &id_space_offset, size_t num_id_space_offset,
                                    const Tensor &id_space_list, TensorList &emb_vec) {
@@ -144,145 +157,155 @@ void DynamicEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
   }
 }
 
-void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
-                                   const Tensor &num_unique_key_per_table_offset,
-                                   size_t num_table_offset, const Tensor &table_id_list,
-                                   Tensor &wgrad, const Tensor &wgrad_idx_offset) {
+void DynamicEmbeddingTable::update(const Tensor &unique_keys, const Tensor &num_unique_keys,
+                                   const Tensor &table_ids, const Tensor &ev_start_indices,
+                                   const Tensor &wgrad) {
   CudaDeviceContext context(core_->get_device_id());
+
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-  HCTR_ASSERT(keys.dtype() == key_type_);
+  HCTR_ASSERT(unique_keys.dtype() == key_type_);
+  HCTR_ASSERT(num_unique_keys.dtype().type() == TensorScalarType::Size_t);
+  HCTR_ASSERT(table_ids.dtype().type() == TensorScalarType::Int32);
   HCTR_ASSERT(wgrad.dtype().type() == TensorScalarType::Float32);
 
-  const auto mapped_id_space_list = remap_id_space(table_id_list, stream);
-  std::vector<size_t> id_space_offset_cpu;
-  DISPATCH_INTEGRAL_FUNCTION(num_unique_key_per_table_offset.dtype().type(), index_t, [&] {
-    const auto id_space_offset_cpu_tensor =
-        num_unique_key_per_table_offset.to(core_, DeviceType::CPU, stream);
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  size_t num_unique_keys_cpu;
+  HCTR_LIB_THROW(cudaMemcpyAsync(&num_unique_keys_cpu, num_unique_keys.get(),
+                                 num_unique_keys.nbytes(), cudaMemcpyDeviceToHost, stream));
+  std::vector<int> table_ids_cpu = table_ids.to_vector<int>(stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-    for (int i = 0; i < id_space_offset_cpu_tensor.get_num_elements(); ++i) {
-      size_t offset = static_cast<size_t>(id_space_offset_cpu_tensor.get<index_t>()[i]);
-      id_space_offset_cpu.push_back(offset);
+  if (num_unique_keys_cpu > 0ul) {
+    std::vector<int> unique_table_ids_cpu;
+    std::vector<size_t> table_range_cpu;
+
+    for (size_t i = 0; i < num_unique_keys_cpu; ++i) {
+      if (i == 0 || table_ids_cpu[i] != table_ids_cpu[i - 1]) {
+        unique_table_ids_cpu.push_back(table_ids_cpu[i]);
+        table_range_cpu.push_back(i);
+      }
     }
-  });
+    table_range_cpu.push_back(num_unique_keys_cpu);
 
-  // Request exclusive access to avoid update race.
-  const std::lock_guard lock(write_mutex_);
+    const auto mapped_unique_table_ids = remap_id_space(unique_table_ids_cpu);
+    size_t num_table = mapped_unique_table_ids.size();
+    // Request exclusive access to avoid update race.
+    const std::lock_guard lock(write_mutex_);
 
-  if (num_keys > 0) {
-    DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
+    // FIXME: use another buffer
+    float *wgrad_ptr = const_cast<float *>(wgrad.get<float>());
+    DISPATCH_INTEGRAL_FUNCTION(unique_keys.dtype().type(), key_t, [&] {
       switch (opt_param_.optimizer) {
         case HugeCTR::Optimizer_t::Ftrl: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           auto table = cast_table<key_t, float>(table_);
-          table->lookup_unsafe(keys.get<key_t>(), weight_view_->get<float>(), num_keys,
-                               mapped_id_space_list.data(), id_space_offset_cpu.data(),
-                               num_table_offset - 1, stream);
+          table->lookup_unsafe(unique_keys.get<key_t>(), weight_view_->get<float>(),
+                               num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                               table_range_cpu.data(), num_table, stream);
 
           const float lambda2_plus_beta_div_lr = opt_param_.hyperparams.ftrl.lambda2 +
                                                  opt_param_.hyperparams.ftrl.beta / opt_param_.lr;
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           ftrl_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
               opt_param_.hyperparams.ftrl.lambda1, lambda2_plus_beta_div_lr,
               opt_state_view_->get<float>(), weight_view_->get<float>(), opt_param_.scaler,
-              wgrad.get<float>());
+              wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::Adam: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           ++opt_param_.hyperparams.adam.times;
           const float lr_scaled_bias = opt_param_.lr * opt_param_.hyperparams.adam.bias();
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           adam_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, lr_scaled_bias,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, lr_scaled_bias,
               opt_param_.hyperparams.adam.beta1, opt_param_.hyperparams.adam.beta2,
               opt_state_view_->get<float>(), opt_param_.hyperparams.adam.epsilon, opt_param_.scaler,
-              wgrad.get<float>());
+              wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::RMSProp: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           rms_prop_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
               opt_param_.hyperparams.rmsprop.beta, opt_state_view_->get<float>(),
-              opt_param_.hyperparams.rmsprop.epsilon, opt_param_.scaler, wgrad.get<float>());
+              opt_param_.hyperparams.rmsprop.epsilon, opt_param_.scaler, wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::AdaGrad: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           ada_grad_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
               opt_state_view_->get<float>(), opt_param_.hyperparams.adagrad.epsilon,
-              opt_param_.scaler, wgrad.get<float>());
+              opt_param_.scaler, wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::MomentumSGD: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           momentum_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
               opt_param_.hyperparams.momentum.factor, opt_state_view_->get<float>(),
-              opt_param_.scaler, wgrad.get<float>());
+              opt_param_.scaler, wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::Nesterov: {
           auto table_opt_states = cast_table<key_t, float>(table_opt_states_);
-          table_opt_states->lookup_unsafe(keys.get<key_t>(), opt_state_view_->get<float>(),
-                                          num_keys, mapped_id_space_list.data(),
-                                          id_space_offset_cpu.data(), num_table_offset - 1, stream);
+          table_opt_states->lookup_unsafe(unique_keys.get<key_t>(), opt_state_view_->get<float>(),
+                                          num_unique_keys_cpu, mapped_unique_table_ids.data(),
+                                          table_range_cpu.data(), num_table, stream);
 
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           nesterov_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr,
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
               opt_param_.hyperparams.nesterov.mu, opt_state_view_->get<float>(), opt_param_.scaler,
-              wgrad.get<float>());
+              wgrad_ptr);
         } break;
 
         case HugeCTR::Optimizer_t::SGD: {
           constexpr int block_size = 256;
-          const int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
+          const int grid_size = (static_cast<int64_t>(num_unique_keys_cpu) - 1) / block_size + 1;
 
           sgd_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr, opt_param_.scaler,
-              wgrad.get<float>());
+              ev_start_indices.get<uint32_t>(), num_unique_keys_cpu, opt_param_.lr,
+              opt_param_.scaler, wgrad_ptr);
         } break;
 
         default:
@@ -293,9 +316,8 @@ void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
       // `scatter_add` automatically handles the offsets in `grad_ev_offset` using
       // the embedding vector dimensions given at construction.
       auto table = cast_table<key_t, float>(table_);
-      table->scatter_add(keys.get<key_t>(), wgrad.get<float>(), num_keys,
-                         mapped_id_space_list.data(), id_space_offset_cpu.data(),
-                         num_table_offset - 1, stream);
+      table->scatter_add(unique_keys.get<key_t>(), wgrad.get<float>(), num_unique_keys_cpu,
+                         mapped_unique_table_ids.data(), table_range_cpu.data(), num_table, stream);
       HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     });
   }

@@ -24,16 +24,16 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* wgrad,
+__global__ void adam_update_kernel(int len, float* weight, float* m, float* v, const T* wgrad,
                                    float alpha_t, float beta1, float beta2, float epsilon,
                                    float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    float mi = beta1 * TypeConvertFunc<float, T>::convert(m[i]) + (1.f - beta1) * gi;
-    float vi = beta2 * TypeConvertFunc<float, T>::convert(v[i]) + (1.f - beta2) * gi * gi;
-    m[i] = TypeConvertFunc<T, float>::convert(mi);
-    v[i] = TypeConvertFunc<T, float>::convert(vi);
+    float mi = beta1 * m[i] + (1.f - beta1) * gi;
+    float vi = beta2 * v[i] + (1.f - beta2) * gi * gi;
+    m[i] = mi;
+    v[i] = vi;
     weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
   }
 }
@@ -42,7 +42,7 @@ __global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* 
 
 template <typename T>
 AdamOptimizer<T>::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                 float learning_rate, float beta1, float beta2, float epsilon,
                                 float scaler)
@@ -80,8 +80,8 @@ void AdamOptimizer<T>::update() {
 
   float* weight = weight_main_.get_ptr();
 
-  T* m = m_.get_ptr();
-  T* v = v_.get_ptr();
+  float* m = m_.get_ptr();
+  float* v = v_.get_ptr();
   const T* wgrad = wgrad_.get_ptr();
   adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
       len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);

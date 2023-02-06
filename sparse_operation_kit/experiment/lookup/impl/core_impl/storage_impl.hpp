@@ -67,6 +67,8 @@ constexpr size_t MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 1024lu;
 
 class TFStorageImpl final : public IStorageImpl {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(TFStorageImpl);
+
   TFStorageImpl(Allocator *allocator = nullptr)
       : allocated_(false), on_gpu_(true), gpu_id_(0), cpu_id_(0), total_size_(0), ptr_(nullptr) {
     gpu_option_.set_allow_growth(true);
@@ -87,8 +89,6 @@ class TFStorageImpl final : public IStorageImpl {
       LOG(FATAL) << "Invalid Device type: " << device.type();
     }
   }
-
-  DISALLOW_COPY_AND_MOVE(TFStorageImpl)
 
   ~TFStorageImpl() {
     if (allocated_) {
@@ -229,10 +229,10 @@ class TFStorageWrapper final : public core::IStorageImpl {
   size_t total_size_in_bytes_;
 
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(TFStorageWrapper);
+
   TFStorageWrapper(void *ptr, size_t total_size_in_bytes)
       : ptr_(ptr), total_size_in_bytes_(total_size_in_bytes) {}
-
-  DISALLOW_COPY_AND_MOVE(TFStorageWrapper)
 
   void *get_ptr() override { return ptr_; }
 

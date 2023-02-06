@@ -23,23 +23,23 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void ada_grad_update_kernel(int len, float* weight, const T* wgrad, T* sum, float lr,
+__global__ void ada_grad_update_kernel(int len, float* weight, const T* wgrad, float* sum, float lr,
                                        const float epsilon, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    float accum_ = TypeConvertFunc<float, T>::convert(__ldg(&sum[i]));
+    float accum_ = sum[i];
     accum_ += gi * gi;
     float std_ = epsilon + sqrtf(accum_);
     weight[i] -= lr * gi / std_;
-    sum[i] = TypeConvertFunc<T, float>::convert(accum_);
+    sum[i] = accum_;
   }
 }
 }  // namespace
 
 template <typename T>
 AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                      const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                      const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                                       const std::shared_ptr<GPUResource>& gpu_resource,
                                       float learning_rate, float initial_accu_value, float epsilon,
                                       float scaler)

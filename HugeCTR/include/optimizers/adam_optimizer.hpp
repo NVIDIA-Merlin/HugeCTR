@@ -39,7 +39,7 @@ class AdamOptimizer : public Optimizer {
    * @param epsilon epsilon in Adam paper
    */
   AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
 
@@ -55,8 +55,8 @@ class AdamOptimizer : public Optimizer {
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
   Tensor2<T> wgrad_;
-  Tensor2<T> m_;
-  Tensor2<T> v_;
+  Tensor2<float> m_;
+  Tensor2<float> v_;
   uint64_t t_;
   const float beta1_;
   const float beta2_;

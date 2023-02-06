@@ -35,7 +35,7 @@ class NesterovOptimizer : public Optimizer {
    * @param momentum_factor the momentum factor
    */
   NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                    const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                    const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                     const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                     float momentum_factor, float scaler = 1.f);
 
@@ -49,8 +49,8 @@ class NesterovOptimizer : public Optimizer {
 
  private:
   Tensor2<T> wgrad_;
-  Tensor2<T> accum_;  // accumulation
-  const float mu_;    // momentum factor
+  Tensor2<float> accum_;  // accumulation
+  const float mu_;        // momentum factor
 };
 
 }  // namespace HugeCTR

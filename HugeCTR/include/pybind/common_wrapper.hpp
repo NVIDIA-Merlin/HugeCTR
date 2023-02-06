@@ -71,6 +71,7 @@ void CommonPybind(pybind11::module& m) {
       .value("Local", HugeCTR::FileSystemType_t::Local)
       .value("HDFS", HugeCTR::FileSystemType_t::HDFS)
       .value("S3", HugeCTR::FileSystemType_t::S3)
+      .value("GCS", HugeCTR::FileSystemType_t::GCS)
       .value("Other", HugeCTR::FileSystemType_t::Other)
       .export_values();
   pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")
@@ -146,11 +147,17 @@ void CommonPybind(pybind11::module& m) {
       .def(pybind11::init<const std::string&, const int, bool, int>(), pybind11::arg("top_name"),
            pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"),
            pybind11::arg("slot_num"));
+  pybind11::enum_<HugeCTR::Alignment_t>(m, "Alignment_t")
+      .value("Auto", HugeCTR::Alignment_t::Auto)
+      .value("Non", HugeCTR::Alignment_t::None)
+      .export_values();
   pybind11::class_<HugeCTR::AsyncParam>(m, "AsyncParam")
-      .def(pybind11::init<int, int, int, int, int, bool, Alignment_t>(),
+      .def(pybind11::init<int, int, int, int, int, bool, Alignment_t, bool, bool>(),
            pybind11::arg("num_threads"), pybind11::arg("num_batches_per_thread"),
-           pybind11::arg("max_num_requests_per_thread"), pybind11::arg("io_depth"),
-           pybind11::arg("io_alignment"), pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
+           pybind11::arg("max_num_requests_per_thread") = 0, pybind11::arg("io_depth") = 0,
+           pybind11::arg("io_alignment") = 0, pybind11::arg("shuffle"),
+           pybind11::arg("aligned_type") = Alignment_t::None,
+           pybind11::arg("multi_hot_reader") = false, pybind11::arg("is_dense_float") = false);
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
       .def(pybind11::init<size_t, int64_t, double, double, double, double,
                           hybrid_embedding::CommunicationType,
@@ -193,10 +200,6 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::Regularizer_t>(m, "Regularizer_t")
       .value("L1", HugeCTR::Regularizer_t::L1)
       .value("L2", HugeCTR::Regularizer_t::L2)
-      .export_values();
-  pybind11::enum_<HugeCTR::Alignment_t>(m, "Alignment_t")
-      .value("Auto", HugeCTR::Alignment_t::Auto)
-      .value("Non", HugeCTR::Alignment_t::None)
       .export_values();
   pybind11::enum_<HugeCTR::metrics::RawType>(m, "MetricsRawType")
       .value("Loss", HugeCTR::metrics::RawType::Loss)
@@ -257,10 +260,12 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::DatabaseType_t::RocksDB)
       .export_values();
   pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
-             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictRandom),
              HugeCTR::DatabaseOverflowPolicy_t::EvictRandom)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
       .export_values();
   pybind11::enum_<HugeCTR::UpdateSourceType_t>(m, "UpdateSourceType_t")
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::Null),

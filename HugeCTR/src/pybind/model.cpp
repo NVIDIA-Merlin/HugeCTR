@@ -20,6 +20,7 @@
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
+#include <data_readers/multi_hot/async_data_reader.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
 #include <fstream>
 #include <iomanip>
@@ -28,6 +29,8 @@
 #include <sstream>
 
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
+
+using namespace HugeCTR::MultiHot;
 
 namespace HugeCTR {
 
@@ -759,7 +762,133 @@ core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_ten
   return core::Tensor(t_impl);
 }
 
+template <typename T>
+core::Tensor convert_sparse_tensor_to_core_tensor(HugeCTR::SparseTensor<T> sparse_tensor,
+                                                  core::Device device) {
+  auto native_tensor = sparse_tensor.get_value_tensor();
+  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
+      native_tensor.get_ptr(), native_tensor.get_size_in_bytes());
+  std::vector<size_t> shape = {*sparse_tensor.get_nnz_ptr()};
+  auto t_impl = std::make_shared<core::TensorImpl>(storage, 0, shape, device,
+                                                   HugeCTR::TensorScalarTypeFunc<T>::get_type());
+  return core::Tensor(t_impl);
+}
+
+template <typename T>
+std::vector<core::Tensor> convert_sparse_tensors_to_core_tensors(
+    std::vector<HugeCTR::SparseTensor<T>> sparse_tensors, core::Device device) {
+  std::vector<core::Tensor> core_tensors;
+  for (auto& t : sparse_tensors) {
+    core_tensors.push_back(convert_sparse_tensor_to_core_tensor(t, device));
+  }
+  return core_tensors;
+}
+
+std::vector<core::Tensor> current_sparse_tensors_to_core_tensors(HugeCTR::IDataReader* reader,
+                                                                 int gpu_id) {
+  if (auto typed_reader = dynamic_cast<AsyncDataReader<uint32_t>*>(reader)) {
+    return convert_sparse_tensors_to_core_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], core::DeviceType::GPU);
+  } else if (auto typed_reader = dynamic_cast<AsyncDataReader<long long>*>(reader)) {
+    return convert_sparse_tensors_to_core_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], core::DeviceType::GPU);
+  } else {
+    throw std::runtime_error("Unknown type of AsyncDataReader");
+  }
+}
+
 }  // namespace core_helper
+
+template <typename emb_t>
+void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manager_,
+                                size_t batch_size_per_gpu,
+                                const EmbeddingCollectionConfig& ebc_config,
+                                const embedding::EmbeddingCollectionParam& ebc_param,
+                                std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
+                                std::vector<core::Tensor>& ebc_output) {
+  int num_local_gpus = resource_manager_->get_local_gpu_count();
+  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+    CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+
+    auto buff = GeneralBuffer2<CudaAllocator>::create();
+    auto block_buffer = buff->create_block<emb_t>();
+    std::vector<std::string> top_name_list;
+    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+      const embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+      std::string top_name = ebc_config.top_names_[lookup_id];
+
+      size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                                ? lookup_param.max_hotness * lookup_param.ev_size
+                                : lookup_param.ev_size;
+
+      Tensor2<emb_t> emb_output;
+      block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &emb_output);
+      if (ebc_param.output_layout_ == embedding::EmbeddingLayout::FeatureMajor) {
+        tensor_entries_list_[local_gpu_id].push_back({top_name, emb_output.shrink()});
+      } else {
+        top_name_list.push_back(top_name);
+      }
+    }
+    buff->allocate();
+    auto continous_emb_output = block_buffer->as_tensor();
+    continous_emb_output.reset_shape(
+        {batch_size_per_gpu, continous_emb_output.get_num_elements() / batch_size_per_gpu});
+    ebc_output.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_emb_output,
+                                                                           core::DeviceType::GPU));
+    if (ebc_param.output_layout_ == embedding::EmbeddingLayout::BatchMajor) {
+      // a WAR since interaction layout only support 3d output
+      const auto ebc_3d_batch_major_output = std::getenv("HUGECTR_EBC_3D_BATCH_MAJOR_OUTPUT");
+      if (nullptr != ebc_3d_batch_major_output && 1 == std::atoi(ebc_3d_batch_major_output)) {
+        int concate_out_dims = continous_emb_output.get_num_elements();
+        HCTR_CHECK_HINT(concate_out_dims % ebc_param.num_lookup == 0,
+                        "Can not split batch major output to 3d");
+        continous_emb_output.reset_shape(
+            {batch_size_per_gpu, static_cast<size_t>(ebc_param.num_lookup),
+             concate_out_dims / batch_size_per_gpu / ebc_param.num_lookup});
+      }
+      // Use rules to generate a single name for batch-major output
+      std::string concat_top_name = join(top_name_list, ",");
+      tensor_entries_list_[local_gpu_id].push_back(
+          {concat_top_name, continous_emb_output.shrink()});
+    }
+  }
+}
+
+template void allocate_ebc_output_helper<__half>(
+    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
+    const EmbeddingCollectionConfig& ebc_config,
+    const embedding::EmbeddingCollectionParam& ebc_param,
+    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
+    std::vector<core::Tensor>& ebc_output);
+
+template void allocate_ebc_output_helper<float>(
+    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
+    const EmbeddingCollectionConfig& ebc_config,
+    const embedding::EmbeddingCollectionParam& ebc_param,
+    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
+    std::vector<core::Tensor>& ebc_output);
+
+std::vector<int> get_table_id_to_vocabulary_size(
+    const std::vector<embedding::EmbeddingTableParam>& table_params, bool indices_only) {
+  // indices only need to initialize table offset
+  if (!indices_only) {
+    return {};
+  }
+
+  // 2. init table_id_to_vocabulary_size and check if there is dynamic table
+  std::vector<int> table_id_to_vocabulary_size;
+  std::transform(table_params.begin(), table_params.end(),
+                 std::back_inserter(table_id_to_vocabulary_size),
+                 [](const embedding::EmbeddingTableParam& table_param) {
+                   return table_param.max_vocabulary_size;
+                 });
+
+  std::for_each(table_id_to_vocabulary_size.begin(), table_id_to_vocabulary_size.end(),
+                [](int vocabulary_size) {
+                  HCTR_CHECK_HINT(vocabulary_size > 0, "vocabuary_size should > 0.");
+                });
+  return table_id_to_vocabulary_size;
+}
 
 void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   TableNameToIDDict table_name_to_id_dict =
@@ -774,7 +903,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
-  int num_table = ebc_config.emb_table_config_list_.size();
   int num_lookup = ebc_config.lookup_configs_.size();
   core::DataType key_type =
       solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
@@ -784,7 +912,10 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
       solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
   core::DataType emb_type =
       solver_.use_mixed_precision ? TensorScalarType::Float16 : TensorScalarType::Float32;
-  embedding::EmbeddingLayout input_layout_ = embedding::EmbeddingLayout::BatchMajor;
+  embedding::EmbeddingLayout input_layout_ =
+      reader_params_.data_reader_type == DataReaderType_t::RawAsync
+          ? embedding::EmbeddingLayout::FeatureMajor
+          : embedding::EmbeddingLayout::BatchMajor;
 
   std::vector<std::string> bottom_name_list;
   std::vector<std::string> top_name_list;
@@ -795,10 +926,16 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     top_name_list.push_back(top_name);
   }
 
+  std::string bottom_name = join(bottom_name_list, ",");
+  deactivate_tensor(tensor_active_, bottom_name);
+
+  layer_info_.push_back("EmbeddingCollection" + std::to_string(ebc_list_.size()));
+  input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
+
   auto lookup_params = create_lookup_params_from_ebc_config(table_name_to_id_dict, ebc_config);
   for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-    auto bottom_name = ebc_config.bottom_names_[lookup_id];
-    lookup_params[lookup_id].max_hotness = hotness_map_[bottom_name];
+    auto b_name = ebc_config.bottom_names_[lookup_id];
+    lookup_params[lookup_id].max_hotness = hotness_map_[b_name];
   }
 
   auto shard_matrix = create_shard_matrix_from_ebc_config(table_name_to_id_dict, ebc_config);
@@ -806,28 +943,45 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   auto grouped_emb_params =
       create_grouped_embedding_param_from_ebc_config(table_name_to_id_dict, ebc_config);
 
-  embedding::EmbeddingCollectionParam ebc_param{
-      num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params, solver_.batchsize,
-      key_type,  index_type, offset_type,   emb_type,     input_layout_};
-
-  embedding::EmbeddingCollectionParam eval_ebc_param{
-      num_table,    num_lookup,         lookup_params,
-      shard_matrix, grouped_emb_params, solver_.batchsize_eval,
-      key_type,     index_type,         offset_type,
-      emb_type,     input_layout_};
-
-  std::string bottom_name = join(bottom_name_list, ",");
-  deactivate_tensor(tensor_active_, bottom_name);
-
-  layer_info_.push_back("EmbeddingCollection" + std::to_string(ebc_list_.size()));
-  input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
-
+  int num_table = ebc_config.emb_table_config_list_.size();
   auto emb_table_list = create_table_params_from_ebc_config(table_name_to_id_dict, ebc_config);
   for (auto& p : emb_table_list) {
     if (p.opt_param.optimizer == Optimizer_t::NOT_INITIALIZED) {
       p.opt_param = opt_params_;
     }
   }
+
+  std::vector<int> table_id_to_vocabulary_size =
+      get_table_id_to_vocabulary_size(emb_table_list, ebc_config.indices_only_);
+  embedding::EmbeddingCollectionParam ebc_param{num_table,
+                                                table_id_to_vocabulary_size,
+                                                num_lookup,
+                                                lookup_params,
+                                                shard_matrix,
+                                                grouped_emb_params,
+                                                solver_.batchsize,
+                                                key_type,
+                                                index_type,
+                                                offset_type,
+                                                emb_type,
+                                                input_layout_,
+                                                ebc_config.outptu_layout_,
+                                                ebc_config.indices_only_};
+
+  embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
+                                                     table_id_to_vocabulary_size,
+                                                     num_lookup,
+                                                     lookup_params,
+                                                     shard_matrix,
+                                                     grouped_emb_params,
+                                                     solver_.batchsize_eval,
+                                                     key_type,
+                                                     index_type,
+                                                     offset_type,
+                                                     emb_type,
+                                                     input_layout_,
+                                                     ebc_config.outptu_layout_,
+                                                     ebc_config.indices_only_};
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 
@@ -870,97 +1024,88 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
           evaluate_sparse_tensors[local_gpu_id].get_nnz_ptr().get());
     }
   };
-  if (solver_.i64_input_key) {
-    prepare_ebc_input(sparse_input_map_64_);
-  } else {
-    prepare_ebc_input(sparse_input_map_32_);
+
+  if (reader_params_.data_reader_type != DataReaderType_t::RawAsync) {
+    if (solver_.i64_input_key) {
+      prepare_ebc_input(sparse_input_map_64_);
+    } else {
+      prepare_ebc_input(sparse_input_map_32_);
+    }
   }
 
   // allocate output buffer
   size_t batch_size_per_gpu = solver_.batchsize / num_total_gpus;
   size_t eval_batch_size_per_gpu = solver_.batchsize_eval / num_total_gpus;
   if (solver_.use_mixed_precision) {
-    using emb_t = __half;
-    for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-      CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+    allocate_ebc_output_helper<__half>(resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
+                                       train_tensor_entries_list_, train_ebc_outptut_);
+    allocate_ebc_output_helper<__half>(resource_manager_, eval_batch_size_per_gpu, ebc_config,
+                                       ebc_param, evaluate_tensor_entries_list_,
+                                       evaluate_ebc_outptut_);
+  } else {
+    allocate_ebc_output_helper<float>(resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
+                                      train_tensor_entries_list_, train_ebc_outptut_);
+    allocate_ebc_output_helper<float>(resource_manager_, eval_batch_size_per_gpu, ebc_config,
+                                      ebc_param, evaluate_tensor_entries_list_,
+                                      evaluate_ebc_outptut_);
+  }
 
-      auto buff = GeneralBuffer2<CudaAllocator>::create();
-      auto train_block_buffer = buff->create_block<emb_t>();
-      auto evaluate_block_buffer = buff->create_block<emb_t>();
-      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-        std::string top_name = ebc_config.top_names_[lookup_id];
+  // activate_ebc_output_tensor
+  if (ebc_param.output_layout_ == embedding::EmbeddingLayout::FeatureMajor) {
+    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+      embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+      std::string top_name = ebc_config.top_names_[lookup_id];
+      int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                             ? lookup_param.max_hotness * lookup_param.ev_size
+                             : lookup_param.ev_size;
 
-        size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
-                                  ? lookup_param.max_hotness * lookup_param.ev_size
-                                  : lookup_param.ev_size;
-
-        Tensor2<emb_t> train_emb_output;
-        train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
-        train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
-
-        Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, 1, emb_out_dims},
-                                       &evaluate_emb_output);
-        evaluate_tensor_entries_list_[local_gpu_id].push_back(
-            {top_name, evaluate_emb_output.shrink()});
-      }
-      buff->allocate();
-      auto continous_train_emb_output = train_block_buffer->as_tensor();
-      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
-          continous_train_emb_output, core::DeviceType::GPU));
-
-      auto continous_evaluate_emb_output = evaluate_block_buffer->as_tensor();
-      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
-          continous_evaluate_emb_output, core::DeviceType::GPU));
+      activate_tensor(tensor_active_, top_name);
+      tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
     }
   } else {
-    using emb_t = float;
-    for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-      CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+    std::vector<std::string> top_name_list;
+    int concate_out_dims = 0;
+    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+      embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+      std::string top_name = ebc_config.top_names_[lookup_id];
+      top_name_list.push_back(top_name);
 
-      auto buff = GeneralBuffer2<CudaAllocator>::create();
-      auto train_block_buffer = buff->create_block<emb_t>();
-      auto evaluate_block_buffer = buff->create_block<emb_t>();
-      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        auto& lookup_param = ebc_param.lookup_params[lookup_id];
-        std::string top_name = ebc_config.top_names_[lookup_id];
+      int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                             ? lookup_param.max_hotness * lookup_param.ev_size
+                             : lookup_param.ev_size;
+      concate_out_dims += emb_out_dims;
+    }
 
-        size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
-                                  ? lookup_param.max_hotness * lookup_param.ev_size
-                                  : lookup_param.ev_size;
+    std::string concat_top_name = join(top_name_list, ",");
+    activate_tensor(tensor_active_, concat_top_name);
 
-        Tensor2<emb_t> train_emb_output;
-        train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
-        train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
-
-        Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, 1, emb_out_dims},
-                                       &evaluate_emb_output);
-        evaluate_tensor_entries_list_[local_gpu_id].push_back(
-            {top_name, evaluate_emb_output.shrink()});
-      }
-      buff->allocate();
-      auto continous_train_emb_output = train_block_buffer->as_tensor();
-      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
-          continous_train_emb_output, core::DeviceType::GPU));
-
-      auto continous_evaluate_emb_output = evaluate_block_buffer->as_tensor();
-      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
-          continous_evaluate_emb_output, core::DeviceType::GPU));
+    // a WAR since interaction layout only support 3d output
+    const auto ebc_3d_batch_major_output = std::getenv("HUGECTR_EBC_3D_BATCH_MAJOR_OUTPUT");
+    if (nullptr != ebc_3d_batch_major_output && 1 == std::atoi(ebc_3d_batch_major_output)) {
+      HCTR_CHECK_HINT(concate_out_dims % ebc_param.num_lookup == 0,
+                      "Can not split batch major output to 3d");
+      tensor_shape_info_raw_.insert(
+          {concat_top_name,
+           {solver_.batchsize, ebc_param.num_lookup, concate_out_dims / ebc_param.num_lookup}});
+    } else {
+      tensor_shape_info_raw_.insert({concat_top_name, {solver_.batchsize, concate_out_dims}});
     }
   }
 
-  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-    embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-    std::string top_name = ebc_config.top_names_[lookup_id];
-    int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
-                           ? lookup_param.max_hotness * lookup_param.ev_size
-                           : lookup_param.ev_size;
-
-    activate_tensor(tensor_active_, top_name);
-    tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
+  train_ddl_output_.clear();
+  evaluate_ddl_output_.clear();
+  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+    train_ddl_output_.push_back(
+        allocate_output_for_data_distributor(core_list[local_gpu_id], ebc_param));
+    evaluate_ddl_output_.push_back(
+        allocate_output_for_data_distributor(core_list[local_gpu_id], eval_ebc_param));
   }
+
+  // create data distributors
+  train_data_distributor_ = std::make_shared<DataDistributor>(
+      solver_.batchsize, key_type, resource_manager_, core_list, ebc_param);
+  eval_data_distributor_ = std::make_shared<DataDistributor>(
+      solver_.batchsize_eval, key_type, resource_manager_, core_list, eval_ebc_param);
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
@@ -1122,7 +1267,7 @@ void Model::compile() {
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
           opt_params_, train_weight_buff_list_[i]->as_tensor(),
           train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
-          solver_.scaler, opt_buff_half_list_[i], resource_manager_->get_local_gpu(i),
+          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
           solver_.use_mixed_precision));
     } else {
       networks_[i]->optimizer_ = std::move(
@@ -1220,58 +1365,99 @@ void Model::compile() {
     }
   }
 
-  auto train_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(train_data_reader_.get());
-  auto eval_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(evaluate_data_reader_.get());
-  auto init_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(init_data_reader_.get());
+  size_t embed_wgrad_size = 0;
+  if (!reader_params_.async_param.multi_hot_reader) {
+    auto train_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(train_data_reader_.get());
+    auto eval_data_reader_ar_i64 =
+        dynamic_cast<AsyncReader<long long>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(init_data_reader_.get());
 
-  auto train_data_reader_ar_i32 =
-      dynamic_cast<AsyncReader<unsigned int>*>(train_data_reader_.get());
-  auto eval_data_reader_ar_i32 =
-      dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
-  auto init_data_reader_ar_i32 = dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
-  // FIXME:
-  // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
-  // since we need to initialize the Frequent & Infrequent indices with those exact buffers.
-  // Otherwise we allocate two copies (one in AsyncReader and the other in HSE) which will cause us
-  // to OOM. We need to refactor the Frequent/Infrequent Embedding and IndicesView classes to
-  // not require the sparse tensor buffers on construction.
-  for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
-    if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-      if (solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
-        if (solver_.train_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
+    auto train_data_reader_ar_i32 =
+        dynamic_cast<AsyncReader<unsigned int>*>(train_data_reader_.get());
+    auto eval_data_reader_ar_i32 =
+        dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i32 =
+        dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
+
+    // FIXME:
+    // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
+    // since we need to initialize the Frequent & Infrequent indices with those exact buffers.
+    // Otherwise we allocate two copies (one in AsyncReader and the other in HSE) which will cause
+    // us to OOM. We need to refactor the Frequent/Infrequent Embedding and IndicesView classes to
+    // not require the sparse tensor buffers on construction.
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+        if (solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
+          }
+        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
+          }
+        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
+          }
+        } else {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
+          }
         }
-        if (solver_.eval_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
-        }
-      } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
-        if (solver_.train_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
-        }
-        if (solver_.eval_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
-        }
-      } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
-        if (solver_.train_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
-        }
-        if (solver_.eval_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
-        }
-      } else {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
-        if (solver_.train_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
-        }
-        if (solver_.eval_inter_iteration_overlap) {
-          hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
+      }
+    }
+
+    if (init_data_reader_ar_i32) {
+      init_data_reader_ar_i32->start();
+      init_data_reader_ar_i32->read_a_batch_to_device();
+    }
+    if (init_data_reader_ar_i64) {
+      init_data_reader_ar_i64->start();
+      init_data_reader_ar_i64->read_a_batch_to_device();
+    }
+
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+        if (solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
+                                       embed_wgrad_size);
         }
       }
     }
@@ -1291,42 +1477,6 @@ void Model::compile() {
   if (solver_.perf_logging) {
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
-  }
-
-  if (init_data_reader_ar_i32) {
-    init_data_reader_ar_i32->start();
-    init_data_reader_ar_i32->read_a_batch_to_device();
-  }
-  if (init_data_reader_ar_i64) {
-    init_data_reader_ar_i64->start();
-    init_data_reader_ar_i64->read_a_batch_to_device();
-  }
-
-  size_t embed_wgrad_size = 0;
-  for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
-    if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-      if (solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
-        hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
-                                     embed_wgrad_size);
-      } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
-        hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
-                                     embed_wgrad_size);
-      } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
-        hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
-                                     embed_wgrad_size);
-      } else {
-        auto hybrid_embedding =
-            dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
-        hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
-                                     embed_wgrad_size);
-      }
-    }
   }
 
   if (solver_.perf_logging) {
@@ -2136,7 +2286,7 @@ bool Model::train(bool is_first_batch) {
     // a file list source, set "num_workers" to a dvisior
     // of the number of data files in the file list. We
     // will look into some alternatives in the long term.
-    if (is_scheduled_datareader()) {
+    if (is_scheduled_datareader() and is_scheduled_embedding()) {
       graph_scheduler_->trickling();
     }
     long long current_batchsize = 0;
@@ -2167,17 +2317,28 @@ bool Model::train(bool is_first_batch) {
     } else {
       auto ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
+          if (is_scheduled_datareader()) {
+            auto sparse_dp_tensors =
+                core_helper::current_sparse_tensors_to_core_tensors(train_data_reader_.get(), id);
+            train_data_distributor_->distribute(id, sparse_dp_tensors, {}, train_ddl_output_[id],
+                                                train_data_reader_->get_full_batchsize());
+
+          } else {
+            train_data_distributor_->distribute(
+                id, train_ebc_key_list_[id], train_ebc_bucket_range_list_[id],
+                train_ddl_output_[id], train_data_reader_->get_full_batchsize());
+          }
           for (auto& ebc : ebc_list_) {
-            ebc->forward_per_gpu(true, id, train_ebc_key_list_[id],
-                                 train_ebc_bucket_range_list_[id], *train_ebc_num_keys_list_[id],
-                                 train_ebc_outptut_[id]);
+            ebc->forward_per_gpu(true, id, train_ddl_output_[id], train_ebc_outptut_[id],
+                                 train_data_reader_->get_full_batchsize());
           }
         }
       };
       auto ebc_backward = [&](int id) {
         if (solver_.use_embedding_collection) {
           for (auto& ebc : ebc_list_) {
-            ebc->backward_per_gpu(id, train_ebc_outptut_[id], true);
+            ebc->backward_per_gpu(id, train_ddl_output_[id], train_ebc_outptut_[id],
+                                  train_data_reader_->get_full_batchsize());
           }
         }
       };
@@ -2248,14 +2409,9 @@ bool Model::eval(bool is_first_batch) {
       this->copy_weights_for_evaluation();
     }
 
-    long long current_batchsize = 0;
-    while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < evaluate_data_reader_->get_full_batchsize()) &&
-           solver_.drop_incomplete_batch) {
-      HCTR_LOG_S(INFO, ROOT) << "eval drop incomplete batch. batchsize:" << current_batchsize
-                             << std::endl;
-      evaluate_data_reader_->ready_to_collect();
-    }
+    long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release();
+    assert(current_batchsize > 0 && "Received batch of size 0");
+
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
@@ -2278,10 +2434,19 @@ bool Model::eval(bool is_first_batch) {
 
       auto eval_ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
+          if (is_scheduled_datareader()) {
+            auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core_tensors(
+                evaluate_data_reader_.get(), id);
+            eval_data_distributor_->distribute(id, sparse_dp_tensors, {}, evaluate_ddl_output_[id],
+                                               current_eval_batchsize_);
+          } else {
+            eval_data_distributor_->distribute(id, evaluate_ebc_key_list_[id],
+                                               evaluate_ebc_bucket_range_list_[id],
+                                               evaluate_ddl_output_[id], current_eval_batchsize_);
+          }
           for (auto& ebc : ebc_list_) {
-            ebc->forward_per_gpu(false, id, evaluate_ebc_key_list_[id],
-                                 evaluate_ebc_bucket_range_list_[id],
-                                 *evaluate_ebc_num_keys_list_[id], evaluate_ebc_outptut_[id]);
+            ebc->forward_per_gpu(false, id, evaluate_ddl_output_[id], evaluate_ebc_outptut_[id],
+                                 evaluate_data_reader_->get_full_batchsize());
           }
         }
       };

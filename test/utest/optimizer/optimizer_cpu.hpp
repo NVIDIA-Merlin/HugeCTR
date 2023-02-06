@@ -23,11 +23,11 @@ class AdaGradCPU {
   void update() {
     for (int i = 0; i < len_; ++i) {
       float gi = TypeConvert<float, T>::convert(g_[i]) / scaler_;
-      float c_sum = TypeConvert<float, T>::convert(sum_[i]);
+      float c_sum = sum_[i];
       c_sum += gi * gi;
       float std_ = epsilon_ + sqrt(c_sum);
       w_[i] -= lr_ * gi / std_;
-      sum_[i] = TypeConvert<T, float>::convert(c_sum);
+      sum_[i] = c_sum;
     }
   }
 
@@ -35,7 +35,7 @@ class AdaGradCPU {
   // named as in Algorithm 1 from Adam paper (arXiv:1609.04747)
   float* w_;
   const T* g_;
-  std::vector<T> sum_;
+  std::vector<float> sum_;
   const int len_;
   const float lr_;
   const float epsilon_;
@@ -67,10 +67,10 @@ class AdamCPU {
 
     for (int i = 0; i < len_; ++i) {
       float gi = TypeConvert<float, T>::convert(g_[i]);
-      float mi = beta1_ * TypeConvert<float, T>::convert(m_[i]) + (1 - beta1_) * gi;
-      float vi = beta2_ * TypeConvert<float, T>::convert(v_[i]) + (1 - beta2_) * gi * gi;
-      m_[i] = TypeConvert<T, float>::convert(mi);
-      v_[i] = TypeConvert<T, float>::convert(vi);
+      float mi = beta1_ * m_[i] + (1 - beta1_) * gi;
+      float vi = beta2_ * v_[i] + (1 - beta2_) * gi * gi;
+      m_[i] = mi;
+      v_[i] = vi;
       w_[i] -= alpha_t * mi / (sqrt(vi) + epsilon_) / scaler_;
     }
   }
@@ -79,8 +79,8 @@ class AdamCPU {
   // named as in Algorithm 1 from Adam paper (arXiv:1609.04747)
   float* w_;
   const T* g_;
-  std::vector<T> m_;
-  std::vector<T> v_;
+  std::vector<float> m_;
+  std::vector<float> v_;
   const int len_;
   uint64_t t_;
   const float lr_;
@@ -111,14 +111,12 @@ class FtrlCPU {
   void update() {
     for (int i = 0; i < len_; ++i) {
       float gi = TypeConvert<float, T>::convert(g_[i]) / scaler_;
-      float ni_new = TypeConvert<float, T>::convert(n_[i]) + gi * gi;
-      float zi = TypeConvert<float, T>::convert(z_[i]) + gi +
-                 (sqrt(TypeConvert<float, T>::convert(n_[i])) - sqrt(ni_new)) *
-                     TypeConvert<float, T>::convert(w_[i]) / alpha_;
+      float ni_new = n_[i] + gi * gi;
+      float zi = z_[i] + gi + (sqrt(n_[i]) - sqrt(ni_new)) * w_[i] / alpha_;
       float x = lambda1_ * (1.0f - 2.0f * signbit(zi)) - zi;
       float y = sqrt(ni_new) / alpha_ + lambda2_ + beta_ / alpha_;
-      n_[i] = TypeConvert<T, float>::convert(ni_new);
-      z_[i] = TypeConvert<T, float>::convert(zi);
+      n_[i] = ni_new;
+      z_[i] = zi;
       w_[i] = x / y * signbit(lambda1_ - abs(zi));
     }
   }
@@ -128,8 +126,8 @@ class FtrlCPU {
   // except alpha is lr_
   float* w_;
   const T* g_;
-  std::vector<T> z_;
-  std::vector<T> n_;
+  std::vector<float> z_;
+  std::vector<float> n_;
   const int len_;
 
   const float lr_;
@@ -150,9 +148,8 @@ class MomentumSGDCPU {
 
   void update() {
     for (int i = 0; i < len_; ++i) {
-      float acc = mu_ * TypeConvert<float, T>::convert(accum_[i]) -
-                  lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
-      accum_[i] = TypeConvert<T, float>::convert(acc);
+      float acc = mu_ * accum_[i] - lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
+      accum_[i] = acc;
       w_[i] += acc;
     }
   }
@@ -160,7 +157,7 @@ class MomentumSGDCPU {
  private:
   float* w_;
   const T* g_;
-  std::vector<T> accum_;
+  std::vector<float> accum_;
   const int len_;
   const float lr_;
   const float mu_;
@@ -176,9 +173,9 @@ class NesterovCPU {
 
   void update() {
     for (int i = 0; i < len_; ++i) {
-      float accum_old = TypeConvert<float, T>::convert(accum_[i]);
+      float accum_old = accum_[i];
       float accum_new = mu_ * accum_old - lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
-      accum_[i] = TypeConvert<T, float>::convert(accum_new);
+      accum_[i] = accum_new;
       w_[i] += (-mu_ * accum_old + (1 + mu_) * accum_new);
     }
   }
@@ -186,7 +183,7 @@ class NesterovCPU {
  private:
   float* w_;
   const T* g_;
-  std::vector<T> accum_;
+  std::vector<float> accum_;
   const int len_;
   const float lr_;
   const float mu_;

@@ -65,6 +65,8 @@ class HierParameterServerBase {
                                       cudaStream_t stream) = 0;
   virtual void parse_hps_configuraion(const std::string& hps_json_config_file) = 0;
   virtual std::map<std::string, InferenceParams> get_hps_model_configuration_map() = 0;
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) = 0;
+  virtual void profiler_print() = 0;
 };
 
 }  // namespace HugeCTR

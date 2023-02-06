@@ -18,6 +18,7 @@ from sparse_operation_kit.core.embedding_layer_handle import GraphKeys
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 
+
 # TODO: make it inherit from trackable???
 class Saver(object):
     """

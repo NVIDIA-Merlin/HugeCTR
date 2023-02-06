@@ -17,9 +17,9 @@ CAT_COLUMNS = (
 LABEL = ["LABEL"]
 COLUMNS = CAT_COLUMNS + ["LABEL"]
 
+
 # Processing using NVT
 def process(args):
-
     train_path = os.path.abspath("../din_data/train")
     test_path = os.path.abspath("../din_data/valid")
 
@@ -99,7 +99,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
 
     process(args)

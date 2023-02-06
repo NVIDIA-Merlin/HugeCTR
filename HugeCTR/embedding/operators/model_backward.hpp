@@ -20,53 +20,36 @@
 
 namespace embedding {
 
-class ModelBackward {
-  std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
-  int num_local_embedding_;
-  int num_sms_;
-  int max_ev_size_;
+struct ReductionIndices;
+struct ModelCommBuffer;
 
-  Tensor grad_ev_;
-  Tensor partial_grad_ev_;
-  Tensor partial_key_;
-  Tensor partial_ev_length_;
-  Tensor partial_dst_offset_array_;
+struct PartialReduceResult {
+  Tensor partial_wgrad;
+  Tensor partial_keys;
+  Tensor partial_ev_length;
+  Tensor partial_dst_offset_array;
 
- public:
-  ModelBackward() = default;
-
-  ModelBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
-                const std::vector<int> &h_local_hotness_list,
-                const std::vector<int> &h_local_ev_size_list, int universal_batch_size,
-                int max_ev_size, int num_sms);
-
-  void compute(const TensorList &model_comm_buffer, const Tensor &unique_key_ev_size_offset,
-               const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
-               size_t num_unique_key, const Tensor &corrdinate_key,
-               const Tensor &coordinate_wgrad_dst_idx, const Tensor &d_local_ev_size_offset,
-               int batch_size, int max_ev_size, size_t num_model_key, Tensor *grad_ev);
+  Tensor partial_wgrad_new;
+  Tensor partial_ev_length_new;
+  Tensor partial_dst_id_array_new;
+  size_t max_input_num;
 };
 
-class DPLocalReduce {
+class LocalReduce {
+ private:
   std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
-  int num_local_embedding_;
-  int max_ev_size_;
-
-  Tensor grad_ev_;
+  KernelParams kernel_params_;
+  PartialReduceResult partial_reduce_result_;
 
  public:
-  DPLocalReduce() = default;
+  void init(std::shared_ptr<CoreResourceManager> core, const KernelParams &kernel_params,
+            int max_ev_size, size_t max_input_num);
 
-  DPLocalReduce(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
-                const std::vector<int> &h_local_hotness_list,
-                const std::vector<int> &h_local_ev_size_list, int universal_batch_size);
+  void local_reduce(const ReductionIndices &reduction_indices, const ModelCommBuffer &src_buffer,
+                    Wgrad &wgrad, int batch_size);
 
-  void compute(const Tensor &top_grad, const Tensor &unique_dst_idx,
-               const Tensor &sorted_bucket_id_list, const Tensor &sorted_bucket_id_offset,
-               size_t num_unique_key, const Tensor &d_ev_size_offset, int batch_size,
-               int max_ev_size, Tensor *grad_ev);
+  void local_reduce(const ReductionIndices &reduction_indices, const EmbeddingOutput &src_buffer,
+                    Wgrad &wgrad, const Tensor &local_lookup_ids, int num_lookup,
+                    int num_global_lookup, int batch_size);
 };
-
 }  // namespace embedding

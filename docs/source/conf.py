@@ -184,6 +184,7 @@ copydirs_additional_dirs = [
     "../../notebooks",
     "../../release_notes.md",
     "../../hps_tf/notebooks",
+    "../../hps_trt/notebooks",    
 ]
 copydirs_file_rename = {
     "README.md": "index.md",

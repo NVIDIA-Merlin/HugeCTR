@@ -22,6 +22,7 @@ namespace HugeCTR {
 #ifndef NUMA_NODE_MAP
 #define NUMA_NODE_MAP
 std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
+std::unordered_map<int, std::vector<int>> CudaCPUDeviceContext::numa_node_to_device_ids_;
 #endif
 
 template <typename TIN, typename TOUT>

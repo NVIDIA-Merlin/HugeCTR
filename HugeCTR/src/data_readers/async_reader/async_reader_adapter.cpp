@@ -43,6 +43,12 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
   dense_dim_ = dense_dim_align8;
   sparse_dim_ = sparse_dim;
 
+  // const std::vector<FileSource>& data_files,
+  //                 const std::shared_ptr<ResourceManager>& resource_manager,
+  //                 size_t batch_size,
+  //                 size_t num_threads_per_file,
+  //                 size_t num_batches_per_thread
+
   reader_impl_ = std::make_unique<AsyncReaderImpl>(
       fname, batch_size_bytes, resource_manager.get(), num_threads, num_batches_per_thread,
       io_block_size, io_depth, io_alignment, shuffle, wait_for_gpu_idle);

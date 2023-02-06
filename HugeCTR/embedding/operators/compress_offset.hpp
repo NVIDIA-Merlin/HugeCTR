@@ -54,8 +54,13 @@ class AverageCombiner {
   AverageCombiner(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
                   const std::vector<int> &ev_size_list, int universal_batch_size);
 
-  void compute(const Tensor &bucket_range, const Tensor &src_emb_vec,
-               const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
-               const Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
+  void compute_feature_major(const Tensor &bucket_range, const Tensor &src_emb_vec,
+                             const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
+                             const Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
+
+  void compute_batch_major(const Tensor &bucket_range, const Tensor &src_emb_vec,
+                           const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
+                           const Tensor &d_ev_size_offset, int batch_size, int max_ev_size,
+                           int num_lookup);
 };
 }  // namespace embedding

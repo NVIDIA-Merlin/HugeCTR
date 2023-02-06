@@ -33,6 +33,8 @@ class LookupSessionBase {
                       const std::vector<size_t>& num_keys_per_table) = 0;
   virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
                                   size_t table_id) = 0;
+  virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
+                                  size_t table_id, cudaStream_t stream) = 0;
   virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                   const std::vector<float*>& d_vectors_per_table,
                                   const std::vector<size_t>& num_keys_per_table) = 0;
@@ -41,6 +43,8 @@ class LookupSessionBase {
   static std::shared_ptr<LookupSessionBase> create(
       const InferenceParams& inference_params,
       const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) = 0;
+  virtual void profiler_print() = 0;
 };
 
 }  // namespace HugeCTR

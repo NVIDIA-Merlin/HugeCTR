@@ -23,7 +23,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     hvd.init()
 
     config = tf.compat.v1.ConfigProto()

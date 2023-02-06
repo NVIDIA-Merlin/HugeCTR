@@ -20,7 +20,7 @@ the HPS library, and the subcomponents of the library.
 
 <div style="text-align:center"><figcaption>Fig. 1: HPS Library and subcomponents</figcaption></div>
 
-[HPS Database Backend](../hugectr_parameter_server.md)
+[HPS Database Backend](hps_database_backend.md)
 :  Provides a three-level storage architecture.
    The first and highest performing level is GPU memory and is followed by CPU memory.
    The third layer can be high-speed local SSDs with or without a distributed database.
@@ -28,6 +28,9 @@ the HPS library, and the subcomponents of the library.
 
 [HPS plugin for TensorFlow](hps_tf_user_guide.md)
 :  Provides high-performance, scalability, and low-latency access to embedding tables for deep learning models that have large embedding tables in TensorFlow.
+
+[HPS plugin for TensorRT](hps_trt_user_guide.md)
+:  Provides a unified solution to build and deploy HPS-integrated TensorRT engines for models trained with different frameworks.
 
 [HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend)
 :  The backend for Triton Inference Server is an inference deployment framework that integrates HPS for end-to-end inference on Triton.

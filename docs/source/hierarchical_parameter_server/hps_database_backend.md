@@ -91,7 +91,7 @@ If the volatile memory resources&mdash;the CPU memory database and distributed d
 The HugeCTR HPS database backend and iterative update can be configured using three separate configuration objects.
 The `VolatileDatabaseParams` and `PersistentDatabaseParams` objects are used to configure the database backends of each HPS database backend instance.
 If you want iterative or online model updating, you must also provide the `UpdateSourceParams` object to link the HPS database backend instance with your Kafka deployment.
-These objects are part of the [hugectr.inference](./api/python_interface.md#inference-api) Python package.
+These objects are part of the [hugectr.inference](../api/python_interface.md#inference-api) Python package.
 
 If you deploy HugeCTR as a backend for NVIDIA [Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
 
@@ -151,6 +151,7 @@ params = hugectr.inference.InferenceParams(
   persistent_db = <persistent-database-configuration>,
   update_source = <update-source-parameters>,
   maxnum_des_feature_per_sample = 26,
+  use_static_table = False,
   refresh_delay = 0.0,
   refresh_interval = 0.0,
   maxnum_catfeature_query_per_table_per_sample = [int-1, int-2, ...],
@@ -186,7 +187,7 @@ This file is exported after model training and is used for the initialization of
 This parameter has no default value and you must specify a value.
 
 * `sparse_model_files`: List[str], the sparse model files to load for inference.
-This parameter has no default value and you must specify a value.
+This parameter has no default value and you must specify a value. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 
 * `device_id`: Integer, is scheduled to be deprecated and replaced by `devicelist`.
 
@@ -194,6 +195,10 @@ This parameter has no default value and you must specify a value.
 When set to `True`, the embedding vector look up goes to the GPU embedding cache.
 Otherwise, the look up attempts to use the CPU HPS database backend directly.
 The default value is `True`.
+
+* `use_static_table`: Boolean, whether to enable the features of a static GPU embedding table.
+The static embedding table means that the embedding table does not require the embedding cache to perform dynamic insertion operations, when set to `True`, the embedding vector look up goes to the GPU embedding cache. but only needs to perform lookup/query operations on embedding keys. The complete embedding can be stored in a dense buffer for index query.
+The default value is `False`.
 
 * `cache_size_percentage`: Float, the percentage of cached embeddings on the GPU, relative to all the embedding tables on the CPU.
 The default value is `0.2`.
@@ -235,7 +240,7 @@ The default value is `16`.
 To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
 For example, if you specify `cache_refresh_percentage_per_iteration = 0.2`, the entire GPU embedding cache is refreshed during 5 iterations.
 Specify a smaller value if model updates occur at a high-frequency or you have a large volume of incremental model updates.
-The default value is `0.1`.
+The default value is `0.0`.
 
 * `deployed_devices`: List[Integer], specifies a list of the device IDs of your GPUs.
 The offline inference is executed concurrently on the specified GPUs.
@@ -288,6 +293,11 @@ Specify the number of feature fields (the number of slots).
 The specified value determines the pre-allocated memory size on the host and device.
 The default value is `10`.
 
+* `use_static_table`: Boolean, whether to use static table to store embeddings on GPU.
+The default value is `False`.
+
+* `use_context_stream`: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Plugin for TensorRT](hps_trt_user_guide.md).
+The default value is `True`.
 
 #### Parameter Server Configuration: Models
 
@@ -314,10 +324,13 @@ The following JSON shows a sample configuration for the `models` key in a parame
     "refresh_interval":0,
     "hit_rate_threshold":0.9,
     "gpucacheper":0.1,
+    "use_static_table": false,
     "gpucache":true,
     "cache_refresh_percentage_per_iteration": 0.2,
     "label_dim": 1,
-    "slot_num":10
+    "slot_num":10,
+    "use_static_table": false,
+    "use_context_stream": false
   }
 ]
 ```
@@ -349,8 +362,7 @@ params = hugectr.inference.VolatileDatabaseParams(
   allocation_rate = 268435456,  # 256 MiB
   shared_memory_size = 17179869184,  # 16 GiB
   shared_memory_name = "hctr_mp_hash_map_database",
-  max_get_batch_size = 65536,
-  max_set_batch_size = 65536,
+  max_batch_size = 65536,
   enable_tls = False,
   tls_ca_certificate = "cacertbundle.crt",
   tls_client_certificate = "client_cert.pem",
@@ -361,7 +373,6 @@ params = hugectr.inference.VolatileDatabaseParams(
   overflow_resolution_target = 0.8,
   initialize_after_startup = True,
   initial_cache_rate = 1.0,
-  refresh_time_after_fetch = False,
   cache_missed_embeddings = False,
   update_filters = ["filter-0", "filter-1", ...]
 )
@@ -381,15 +392,14 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
   "allocation_rate": 268435456,  // 256 MiB
   "shared_memory_size": 17179869184,  // 16 GiB
   "shared_memory_name": "hctr_mp_hash_map_database",
-  "max_get_batch_size": 65536,
-  "max_set_batch_size": 65536,
+  "max_batch_size": 65536,
   "enable_tls": false,
   "tls_ca_certificate": "cacertbundle.crt",
   "tls_client_certificate": "client_cert.pem",
   "tls_client_key": "client_key.pem",
   "tls_server_name_identification": "redis.localhost",
   "overflow_margin": 10000000,
-  "overflow_policy": "evict_oldest",
+  "overflow_policy": "evict_random",
   "overflow_resolution_target": 0.8,
   "initialize_after_startup": true,
   "initial_cache_rate": 1.0,
@@ -446,12 +456,9 @@ However, each partition incurs a small processing overhead so do not specify a v
 A typical value that retains high performance and provides good cluster utilization is 2-5x the number of machines in your Redis cluster.
 The default value is `8`.
 
-* `max_get_batch_size` and `max_set_batch_size`: Integer, specifies optimization parameters.
-Mass lookup and insert requests to distributed endpoints are chunked into batches.
-For maximum performance, these two parameters should be large.
-However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
-By default, both parameters are set to `65536`.
-With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+* `max_batch_size`: Integer, specifies optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into `max_batch_size`-sized batches. For maximum performance, this parameters should be large. However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help. The default value is `65536`. With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+
+  *Note: when using the Redis backend (`type = "redis_cluster"`) is used in conjunction with certain open source versions of Redis, setting a maximum batch size above `262143` (2^18 - 1) can lead to obscure errors and, therefore, should be avoided.*
 
 * `enable_tls`: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is `False` (=disable TLS/SSL). Enabling encryption may slighly increase latency and decrease the overall throughput when communicating with the Redis cluster.
 
@@ -478,14 +485,13 @@ The default value is `2^64 - 1` and indicates no limit.
   When you use a CPU memory database in conjunction with a persistent database, the ideal value for `overflow_margin` can vary.
   In practice, a value in the range `[1000000, 100000000]` provides reliable performance and throughput.
 
-* `overflow_policy`: specifies how to respond to an overflow condition.
+* `overflow_policy`: specifies how to respond to an overflow condition (i.e., which embeddings should be pruned first). Pruning is conducted per-partition in `max_batch_size`-sized batches until the respective partition contains at most `overflow_margin * overflow_resolution_target` embeddings.
 Specify one of the following:
-  * `evict_oldest`: Prune embeddings starting from the oldest embedding
-  until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings. This policy implements the least-recently used (LRU) algorithm.
-  * `evict_random`: Prune embeddings at random until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings.
-
-  Unlike `evict_oldest`, the `evict_random` policy does not require a comparison of timestamps and can be faster.
-  However, `evict_oldest` is likely to deliver better performance over time because the policy evicts embeddings based on the frequency of their use.
+  * `evict_random` *(default)*: Embeddings for pruning are chosen at random.
+  * `evict_least_used`: Prune the least-frequently used (LFU) embeddings. This is a best effort. For performance reasons, we implement different algorithms. Identical behavior across backends is not guaranteed.
+  * `evict_oldest`: Prune the least-recently used (LRU) embeddings.
+  
+  Unlike `evict_least_used` and `evict_oldest`, the `evict_random` policy does not require complicated comparisons and can be faster. However, `evict_least_used` and `evict_oldest` are likely to deliver better performance over time because these policies evict embeddings based on the access statistics.
 
 * `overflow_resolution_target`: Double, specifies the fraction of the embeddings to keep when embeddings must be evicted.
 Specify a value between `0` and `1`, but not exactly `0` or `1`.
@@ -500,12 +506,6 @@ HugeCTR attempts to cache the specified fraction of the dataset immediately upon
 For example, a value of `0.5` causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
 The default value is `1.0`.
 
-* `refresh_time_after_fetch`: Boolean, when set to `True`, the timestamp for an embedding is updated after the embedding is accessed.
-The timestamp update can be performed asynchronously and experience some delay.
-Some algorithms for overflow and eviction take time into account.
-To evaluate the affected embeddings, HugeCTR records the time when an embedding is overwritten.
-The default value is `False` and this setting is sufficient when you train a model and embeddings are frequently replaced.
-However, when you deploy HugeCTR only for inference, such as with Triton Inference Server, the default setting might lead to suboptimal eviction patterns.
 
 #### Common Volatile Database Parameters
 
@@ -538,8 +538,7 @@ params = hugectr.inference.PersistentDatabaseParams(
   path = "/tmp/rocksdb",
   num_threads = 16,
   read_only = False,
-  max_get_batch_size = 65536,
-  max_set_batch_size = 65536,
+  max_batch_size = 65536,
   update_filters = ["filter-0", "filter-1", ... ]
 )
 ```
@@ -554,8 +553,7 @@ The following JSON shows a sample configuration for the `persistent_db` key in a
   "path": "/tmp/rocksdb",
   "num_threads": 16,
   "read_only": false,
-  "max_get_batch_size": 65536,
-  "max_set_batch_size": 65536,
+  "max_batch_size": 65536,
   "update_filters": [".+"]
 }
 ```
@@ -564,29 +562,23 @@ The following JSON shows a sample configuration for the `persistent_db` key in a
 
 * `type`: specifies the persistent datatabase implementation.
 Specify one of the following:
-  * `disabled`: Prevents the use of a persistent database.
-  This is the default value.
+  * `disabled` *(default)*: Prevents the use of a persistent database.
   * `rocks_db`: Create or connect to a RocksDB database.
 
-* `path` String, specifies the directory on each machine where the RocksDB database can be found.
+* `path`: String, specifies the directory on each machine where the RocksDB database can be found.
 If the directory does not contain a RocksDB database, HugeCTR creates a database for you.
 Be aware that this behavior can overwrite files that are stored in the directory.
 For best results, make sure that `path` specifies an existing RocksDB database or an empty directory.
 The default value is `/tmp/rocksdb`.
 
-* `num_threads` Int, specifies the number of threads for the RocksDB driver.
+* `num_threads`: Integer, specifies the number of threads for the RocksDB driver.
 The default value is `16`.
 
-* `read_only`, Bool, when set to `True`, the database is opened in read-only mode.
+* `read_only`: Bool, when set to `True`, the database is opened in read-only mode.
 Read-only mode is suitable for use with inference if the model is static and the database is shared by multiple machines, such as with NFS.
 The default value is `False`.
 
-* `max_get_batch_size` and `max_set_batch_size`, Int, specifies the batch size for lookup and insert requests.
-Mass lookup and insert requests to RocksDB are chunked into batches.
-For maximum performance these parameters should be large.
-However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance.
-The default value for both parameters is `10000`.
-With high-performance hardware, you can attempt to set these parameters to `1000000`.
+* `max_batch_size`: Integer, specifies the batch size for lookup and insert requests. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance this parameter should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance. The default value is `65536`. With high-performance hardware, you can attempt to set these parameters to `1000000`.
 
 * `update_filters`: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
 The default value is `["^hps_.+$"]` and processes updates for all HPS models because the filter matches all HPS model names.

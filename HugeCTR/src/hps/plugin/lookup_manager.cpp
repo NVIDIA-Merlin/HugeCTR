@@ -29,17 +29,27 @@ LookupManager::LookupManager() : initialized_{false} {}
 void LookupManager::init(parameter_server_config& ps_config, pluginType_t plugin_type,
                          int32_t global_batch_size, int32_t num_replicas_in_sync) {
   initialized_ = true;
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
   for (auto& inference_params : ps_config.inference_params_array) {
-    HCTR_CHECK_HINT(inference_params.use_gpu_embedding_cache,
-                    "use_gpu_embedding_cache must be true for HPS plugin.");
+    if (!inference_params.use_gpu_embedding_cache) {
+      HCTR_LOG_S(ERROR, WORLD) << "use_gpu_embedding_cache must be true for HPS plugin."
+                               << std::endl;
+      return;
+    }
+    HCTR_LOG_S(INFO, WORLD) << "HPS plugin uses context stream for model "
+                            << inference_params.model_name << ": "
+                            << b2s(inference_params.use_context_stream) << std::endl;
   }
   // Check for different plugin types
   if (plugin_type == pluginType_t::TENSORFLOW) {
-    check(ps_config, global_batch_size, num_replicas_in_sync);
+    init_check(ps_config, global_batch_size, num_replicas_in_sync);
   } else if (plugin_type == pluginType_t::TENSORRT) {
     for (auto& inference_params : ps_config.inference_params_array) {
-      HCTR_CHECK_HINT(!inference_params.i64_input_key,
-                      "i64_input_key must be false for HPS TensorRT plugin.");
+      if (inference_params.i64_input_key) {
+        HCTR_LOG_S(ERROR, WORLD) << "i64_input_key must be false for HPS TensorRT plugin."
+                                 << std::endl;
+        return;
+      }
     }
   }
 
@@ -64,6 +74,80 @@ void LookupManager::init(parameter_server_config& ps_config, pluginType_t plugin
 void LookupManager::forward(const std::string& model_name, int32_t table_id,
                             int32_t global_replica_id, size_t num_keys, size_t emb_vec_size,
                             const void* values_ptr, void* emb_vector_ptr) {
+  forward_check(model_name, table_id, global_replica_id, num_keys, emb_vec_size, false);
+  auto lookup_session =
+      lookup_session_map_.find(model_name)->second.find(global_replica_id)->second;
+  lookup_session->lookup_from_device(values_ptr, reinterpret_cast<float*>(emb_vector_ptr), num_keys,
+                                     table_id);
+}
+
+void LookupManager::forward(const std::string& model_name, int32_t table_id,
+                            int32_t global_replica_id, size_t num_keys, size_t emb_vec_size,
+                            const void* values_ptr, void* emb_vector_ptr, bool i64_input_tensor,
+                            cudaStream_t context_stream) {
+  forward_check(model_name, table_id, global_replica_id, num_keys, emb_vec_size, i64_input_tensor);
+  auto lookup_session =
+      lookup_session_map_.find(model_name)->second.find(global_replica_id)->second;
+  auto inference_params = lookup_session->get_inference_params();
+  if (inference_params.use_context_stream) {
+    lookup_session->lookup_from_device(values_ptr, reinterpret_cast<float*>(emb_vector_ptr),
+                                       num_keys, table_id, context_stream);
+  } else {
+    HCTR_LIB_THROW(cudaStreamSynchronize(context_stream));
+    lookup_session->lookup_from_device(values_ptr, reinterpret_cast<float*>(emb_vector_ptr),
+                                       num_keys, table_id);
+  }
+}
+
+void LookupManager::init_check(parameter_server_config& ps_config, int32_t global_batch_size,
+                               const int32_t num_replicas_in_sync) const {
+  if (global_batch_size <= 0) {
+    HCTR_LOG_S(ERROR, WORLD) << "global_batch_size must be > 0." << std::endl;
+    return;
+  }
+  if (num_replicas_in_sync <= 0) {
+    HCTR_LOG_S(ERROR, WORLD) << "num_replicas_in_sync must be > 0." << std::endl;
+    return;
+  }
+  if (global_batch_size % num_replicas_in_sync != 0) {
+    HCTR_LOG_S(ERROR, WORLD) << "global_batch_size must be divisible by num_replicas_in_sync."
+                             << std::endl;
+    return;
+  }
+  size_t local_batch_size = global_batch_size / num_replicas_in_sync;
+
+  for (auto& inference_params : ps_config.inference_params_array) {
+    sort(inference_params.deployed_devices.begin(), inference_params.deployed_devices.end());
+    auto check = [](const std::vector<int>& vec) {
+      for (size_t i{0}; i < vec.size(); ++i) {
+        if (vec[i] != i) return false;
+      }
+      return true;
+    };
+    if (inference_params.deployed_devices.size() != num_replicas_in_sync) {
+      HCTR_LOG_S(ERROR, WORLD)
+          << "inference_params.deployed_devices.size() must be equal to num_replicas_in_sync."
+          << std::endl;
+      return;
+    }
+    if (!check(inference_params.deployed_devices)) {
+      HCTR_LOG_S(ERROR, WORLD) << "inference_params.deployed_devices should contain exactly from 0 "
+                                  "to num_replicas_in_sync-1."
+                               << std::endl;
+      return;
+    }
+    if (local_batch_size > inference_params.max_batchsize) {
+      HCTR_LOG_S(ERROR, WORLD) << "global_batch_size / num_replicas_in_sync must be <= "
+                                  "max_batchsize configured in ps_config.json."
+                               << std::endl;
+      return;
+    }
+  }
+}
+
+void LookupManager::forward_check(const std::string& model_name, int32_t table_id,
+                                  int32_t global_replica_id, size_t num_keys, size_t emb_vec_size,
+                                  bool i64_input_tensor) const {
   if (!initialized_) {
     HCTR_LOG_S(ERROR, WORLD) << "HPS must be initialized before execution" << std::endl;
     return;
@@ -104,37 +188,10 @@ void LookupManager::forward(const std::string& model_name, int32_t table_id,
                              << inference_params.embedding_vecsize_per_table[table_id] << std::endl;
     return;
   }
-  lookup_session->lookup_from_device(values_ptr, reinterpret_cast<float*>(emb_vector_ptr), num_keys,
-                                     table_id);
-}
-
-void LookupManager::check(parameter_server_config& ps_config, int32_t global_batch_size,
-                          const int32_t num_replicas_in_sync) const {
-  HCTR_CHECK_HINT(global_batch_size > 0, "global_batch_size must be > 0.");
-  HCTR_CHECK_HINT(num_replicas_in_sync > 0, "num_replicas_in_sync must be > 0.");
-  HCTR_CHECK_HINT(global_batch_size % num_replicas_in_sync == 0,
-                  "global_batch_size must be divisible by num_replicas_in_sync.");
-  size_t local_batch_size = global_batch_size / num_replicas_in_sync;
-
-  for (auto& inference_params : ps_config.inference_params_array) {
-    sort(inference_params.deployed_devices.begin(), inference_params.deployed_devices.end());
-    auto check = [](const std::vector<int>& vec) {
-      for (size_t i{0}; i < vec.size(); ++i) {
-        if (vec[i] != i) return false;
-      }
-      return true;
-    };
-    HCTR_CHECK_HINT(inference_params.i64_input_key,
-                    "i64_input_key must be true for HPS TensorFlow plugin.");
-    HCTR_CHECK_HINT(
-        inference_params.deployed_devices.size() == num_replicas_in_sync,
-        "inference_params.deployed_devices.size() must be equal to num_replicas_in_sync.");
-    HCTR_CHECK_HINT(check(inference_params.deployed_devices),
-                    "inference_params.deployed_devices should contain exactly from 0 to "
-                    "num_replicas_in_sync-1.");
-    HCTR_CHECK_HINT(local_batch_size <= inference_params.max_batchsize,
-                    "global_batch_size / num_replicas_in_sync must be <= max_batchsize configured "
-                    "in ps_config.json.");
+  if (i64_input_tensor != inference_params.i64_input_key) {
+    HCTR_LOG_S(ERROR, WORLD) << "Input tensor dtype should be consistent with HPS configuration"
+                             << std::endl;
+    return;
   }
 }
 

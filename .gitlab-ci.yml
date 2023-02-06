@@ -118,6 +118,15 @@ build_train_single_node_with_s3:
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
+build_train_single_node_with_gcs:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_ALL}
+    DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_GCS}
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+
 build_train_multi_node:
   extends: .build_hugectr
   variables:
@@ -131,8 +140,6 @@ build_train_inference:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
 
 ### Stage: test
 build_inference:
@@ -140,8 +147,6 @@ build_inference:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $INFER_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
     BUILD_HUGECTR_BACKEND: 1
     TRITON_BRANCH: r21.06
 
@@ -168,6 +173,42 @@ build_hps_tf_plugin:
     DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
     BUILD_TF_PLUGIN: 1
 
+build_hugectr_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_ALL}
+    DST_IMAGE: $HUGECTR_TRT_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
+build_tf_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_SOK_TF2}
+    DST_IMAGE: $TF_TRT_IMAGE_VERSIONED
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
+build_pytorch_hps_trt_plugin:
+  extends: .build_hugectr
+  variables:
+    FROM_IMAGE: ${IMAGE_PYTORCH}
+    DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
+    BUILD_TRT_PLUGIN: 1
+    TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
+    TRITON_BRANCH: r22.11
+
 ## Stage: test
 # unit test
 utests:
@@ -180,7 +221,7 @@ utests:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
+    WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest.sub
 
@@ -793,6 +834,46 @@ sparse_operation_kit-TF1:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 
+#Test jobs for hps_trt plugin
+hps_trt_in_hugectr:
+  extends: .cluster_test_job
+  needs:
+    - build_hugectr_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/hugectr_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $HUGECTR_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_hugectr.sub
+
+hps_trt_in_tf:
+  extends: .cluster_test_job
+  needs:
+    - build_tf_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/tf_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_tf.sub
+
+hps_trt_in_pytorch:
+  extends: .cluster_test_job
+  needs:
+    - build_pytorch_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/pytorch_hps_trt
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_pytorch.sub
+
 inference_benchmark:
   extends: .cluster_test_job_daily
   needs:
@@ -852,6 +933,20 @@ s3_backend_test:
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
+# GCS backend_test
+gcs_backend_test:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node_with_gcs
+  variables:
+    GPFSFOLDER: $LOGDIR/gcs_backend_test
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED_WITH_GCS
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/gcs/gcs_backend_test.sub
 
 # NVT regression
 e2e_nvt_regression_test:

@@ -11,7 +11,6 @@ import os
 
 class dcn_model_reader:
     def __init__(self, gpus: list, batchsize: int, file_list: str) -> None:
-
         self.solver = hugectr.CreateSolver(
             max_eval_batches=300,
             batchsize_eval=batchsize,

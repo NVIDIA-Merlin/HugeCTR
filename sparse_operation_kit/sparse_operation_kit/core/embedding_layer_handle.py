@@ -92,7 +92,6 @@ class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
         self._nnz_per_slot = nnz_per_slot
 
         with ops.init_scope():
-
             if hasattr(self._embedding_variable, "values"):
                 emb_var_handle = self._embedding_variable.values[0].emb_handle
                 emb_var_name = self._embedding_variable.values[0].m_var_name

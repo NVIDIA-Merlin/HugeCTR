@@ -17,6 +17,7 @@
 
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
+#include "index_calculation.hpp"
 
 namespace embedding {
 using core::CoreResourceManager;
@@ -28,81 +29,87 @@ using core::Tensor;
 using core::TensorList;
 using core::TensorScalarType;
 
-class DPIndexCalculation {
-  std::shared_ptr<CoreResourceManager> core_;
+struct DPKeySelector {
+  int num_lookup_before_filter;
+  Tensor lookup_ids;
+  int num_lookup_after_filter;
 
- public:
-  DPIndexCalculation() = default;
+  int gpu_id;
+  int num_gpus;
 
-  DPIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_gpus,
-                     int num_local_embedding, int local_hotness_sum, int hotness_sum,
-                     int universal_batch_size, DataType key_type, DataType offset_type);
-
-  void compute(const Tensor& key, const Tensor& bucket_range, size_t num_keys,
-               const Tensor& d_local_embedding_list, int batch_size, Tensor* ret_dp_key,
-               Tensor* ret_dp_offset, size_t* num_dp_key, Tensor* dp_dst);
-
- private:
-  int num_gpus_;
-  int num_local_embedding_;
-  int universal_batch_size_;
-  int universal_batch_size_per_gpu_;
-  int local_hotness_sum_;
-  int hotness_sum_;
-  DataType key_type_;
-  DataType offset_type_;
-
-  Tensor num_dp_key_;
-  Tensor flag_;
-
-  Tensor d_temp_storage_category_;
-  Tensor d_temp_storage_offset_;
-
-  // outputs
-  Tensor dp_key_;
-  Tensor dp_offset_;
-  Tensor dp_dst_;
+  int max_num_keys_before_filter;
+  int max_num_keys_after_filter;
 };
 
-class DPLocalReduceIndexCalculation {
+using DPIndexCalculation = IndexCalculation<DPKeySelector>;
+
+struct DenseAllreduceIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
+  LocalReduceIndexCalculation local_reduce_index_calculation_;
+  IndicesSort indices_sort_;
+  CalDstIds cal_dst_ids_;
+  SegmentdUnique segmented_unique_;
 
-  int num_local_embedding_;
-  int num_embedding_;
+  void cal_for_sparse_indices(const EmbeddingInput& embedding_input,
+                              const Tensor& table_id_to_allreduce_buffer_start_indices,
+                              const Tensor& ev_start_indices_in_allreduce_buffer,
+                              ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
+};
 
-  Tensor segment_start_offsets_;
-  Tensor segment_end_offsets_;
-  Tensor dp_keys_;
-  Tensor dp_bucket_id_;
-  Tensor sorted_dp_keys_;
-  Tensor sorted_dp_bucket_id_;
+struct BroadcastResult {
+  Tensor h_table_range_;
+  Tensor allgather_table_range_;
+  Tensor reordered_allgather_table_range_;
+  Tensor h_reordered_allgather_table_range_;
+  Tensor allgather_unique_keys_;
+};
 
-  Tensor unique_dp_keys_;
-  Tensor unique_dp_keys_indices_;
-  Tensor num_unique_key_;
-  Tensor sorted_bucket_id_list_;
-  Tensor num_sorted_bucket_id_;
-  Tensor unique_dst_idx_;
-  Tensor sorted_bucket_id_offset_;
-  Tensor unique_id_space_offset_;
+template <typename key_t>
+struct TableEntry {
+  key_t key;
+  uint32_t value;
+};
 
-  Tensor d_temp_segmented_sort_storage_;
-  Tensor d_temp_if_storage_;
-  Tensor d_temp_select_bucket_id_storage_;
-  Tensor d_scan_storage_;
+struct HashTable {
+  Tensor hash_table_;
+  Tensor d_temp_scan_table_range_storage_;
+};
 
- public:
-  DPLocalReduceIndexCalculation() = default;
+struct SparseAllreduceCalEVStartIndicesTempStorage {
+  Tensor mask_unique_keys_in_allgather_unique_keys_;
+  Tensor d_temp_select_temp_storage_;
+  Tensor d_temp_scan_ev_start_indices_storage_;
+  Tensor unique_idx_;
+  Tensor d_temp_scan_unique_idx_temp_storage_;
+};
 
-  DPLocalReduceIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_embedding_,
-                                int num_local_embedding,
-                                const std::vector<int>& h_local_hotness_list,
-                                int universal_batch_size, DataType key_type);
+struct SparseAllreduceCalEVStartIndicesStorage {
+  BroadcastResult broadcast_result_;
+  HashTable hash_table_;
+  SparseAllreduceCalEVStartIndicesTempStorage temp_storage_;
 
-  void compute(const Tensor& key, size_t num_key, const Tensor& bucket_range,
-               const Tensor& d_local_embedding_list, const Tensor& id_space_list,
-               const Tensor& d_ev_size_list, int batch_size, Tensor* unique_key,
-               size_t* num_unique_key, Tensor* unique_dst_idx, Tensor* sorted_bucket_id_list,
-               Tensor* sorted_bucket_id_offset, Tensor* unique_id_space_offset);
+  SparseAllreduceCalEVStartIndicesStorage() = default;
+
+  SparseAllreduceCalEVStartIndicesStorage(std::shared_ptr<CoreResourceManager> core, int num_table,
+                                          int local_hotness_sum, int batch_size, DataType key_type);
+};
+
+struct SparseAllreduceIndexCalculation {
+  std::shared_ptr<CoreResourceManager> core_;
+  LocalReduceIndexCalculation local_reduce_index_calculation_;
+  SegmentedSortDevice segmented_sort_device_;
+  CalDstIds cal_dst_ids_;
+  SegmentdUnique segmented_unique_;
+
+  SparseAllreduceCalEVStartIndicesStorage cal_ev_start_indices_storage_;
+
+  void cal_for_sparse_input(const EmbeddingInput& embedding_input,
+                            ReductionIndices& reduction_indices, Wgrad& local_reduce_wgrad,
+                            Wgrad& allreduce_wgrad, int batch_size);
+};
+
+struct DPLocalReduceIndexCalculation {
+  SparseAllreduceIndexCalculation sparse_allreduce_index_calculation;
+  DenseAllreduceIndexCalculation dense_allreduce_index_calculation;
 };
 }  // namespace embedding

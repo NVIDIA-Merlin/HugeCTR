@@ -34,9 +34,9 @@ using namespace HugeCTR;
 namespace {
 
 template <typename T>
-std::unique_ptr<DatabaseBackendBase<T>> make_db(DatabaseType_t database_type) {
+std::unique_ptr<DatabaseBackendBase<T>> make_db(const DatabaseType_t database_type) {
   switch (database_type) {
-    case DatabaseType_t::ParallelHashMap: {
+    case DatabaseType_t::HashMap: {
       HashMapBackendParams params;
       params.num_partitions = 16;
       return std::make_unique<HashMapBackend<T>>(params);
@@ -61,35 +61,89 @@ std::unique_ptr<DatabaseBackendBase<T>> make_db(DatabaseType_t database_type) {
 }
 
 template <typename Key>
-void db_backend_multi_evict_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackendBase<Key>> db = make_db<Key>(database_type);
+void db_backend_insert_fetch_test(const DatabaseType_t database_type) {
+  std::unique_ptr<DatabaseBackendBase<Key>> db{make_db<Key>(database_type)};
+
+  const std::string& tag{HierParameterServerBase::make_tag_name("insert_fetch", "test")};
+
+  // Insert some KV pairs (single + vector mode).
+  {
+    std::vector<Key> keys(10);
+    std::vector<double> values(keys.size());
+
+    Key k{0};
+    for (; k < 50; ++k) {
+      keys[0] = k;
+      values[0] = k * k;
+      db->insert(tag, 1, keys.data(), reinterpret_cast<char*>(values.data()), sizeof(double),
+                 sizeof(double));
+    }
+
+    while (k < 100) {
+      for (size_t i{0}; i < keys.size(); ++i, ++k) {
+        keys[i] = k;
+        values[i] = k * k;
+      }
+      db->insert(tag, keys.size(), keys.data(), reinterpret_cast<char*>(values.data()),
+                 sizeof(double), sizeof(double));
+    }
+  }
+
+  // Try to fetch values (single + vector mode).
+  {
+    std::vector<Key> keys{3, 41, 69, 16, 99, 0, 22, 5, 40};
+    std::vector<double> values(keys.size());
+
+    for (const Key& k : keys) {
+      keys[0] = k;
+      db->fetch(tag, 1, keys.data(), reinterpret_cast<char*>(values.data()), sizeof(double),
+                [&](size_t index) { FAIL(); });
+      EXPECT_DOUBLE_EQ(values[0], k * k);
+    }
+
+    std::vector<double> expected_values;
+    expected_values.reserve(keys.size());
+    std::transform(keys.begin(), keys.end(), std::back_inserter(expected_values),
+                   [](const Key k) -> double { return k * k; });
+
+    db->fetch(tag, keys.size(), keys.data(), reinterpret_cast<char*>(values.data()), sizeof(double),
+              [&](size_t index) { FAIL(); });
+    for (size_t i{0}; i < values.size(); ++i) {
+      EXPECT_DOUBLE_EQ(values[i], expected_values[i]);
+    }
+  }
+}
+
+template <typename Key>
+void db_backend_multi_evict_test(const DatabaseType_t database_type) {
+  std::unique_ptr<DatabaseBackendBase<Key>> db{make_db<Key>(database_type)};
 
   size_t num_tables[3];
 
   // Insert a couple of model parameters.
-  for (size_t i = 0; i < 3; i++) {
+  for (size_t i{0}; i < 3; ++i) {
     std::ostringstream mdl;
     mdl << "mdl" << i;
 
-    for (size_t j = 0; j < 3; j++) {
+    for (size_t j{0}; j < 3; ++j) {
       std::ostringstream tbl;
       tbl << "tbl" << j;
 
-      const std::string& tag = HierParameterServerBase::make_tag_name(mdl.str(), tbl.str());
-      for (Key k = 0; k < 50; k++) {
-        const double kk = k * k;
-        db->insert(tag, 1, &k, reinterpret_cast<const char*>(&kk), sizeof(double));
+      const std::string& tag{HierParameterServerBase::make_tag_name(mdl.str(), tbl.str())};
+      for (Key k{0}; k < 50; ++k) {
+        const double kk{static_cast<double>(k * k)};
+        db->insert(tag, 1, &k, reinterpret_cast<const char*>(&kk), sizeof(double), sizeof(double));
       }
     }
     num_tables[i] = 3;
   }
 
   // Checks number of tables.
-  for (size_t i = 0; i < 3; i++) {
+  for (size_t i{0}; i < 3; ++i) {
     std::ostringstream mdl;
     mdl << "mdl" << i;
 
-    const std::vector<std::string>& tables = db->find_tables(mdl.str());
+    const std::vector<std::string>& tables{db->find_tables(mdl.str())};
     for (const auto& table : tables) {
       std::cout << "Found table " << table << std::endl;
     }
@@ -98,51 +152,37 @@ void db_backend_multi_evict_test(DatabaseType_t database_type) {
 
   // Delete 2nd table.
   {
-    const std::vector<std::string>& tables = db->find_tables("mdl1");
+    const std::vector<std::string>& tables{db->find_tables("mdl1")};
     db->evict(tables);
     num_tables[1] = 0;
   }
 
   // Checks number of tables.
-  for (size_t i = 0; i < 3; i++) {
+  for (size_t i{0}; i < 3; ++i) {
     std::ostringstream mdl;
     mdl << "mdl" << i;
 
-    const std::vector<std::string>& tables = db->find_tables(mdl.str());
+    const std::vector<std::string>& tables{db->find_tables(mdl.str())};
     std::cout << "[ " << i << " ] Found table " << tables.size() << std::endl;
     EXPECT_EQ(tables.size(), num_tables[i]);
   }
 }
 
-}  // namespace
-
-TEST(db_backend_multi_evict, HashMap) {
-  db_backend_multi_evict_test<long long>(DatabaseType_t::ParallelHashMap);
-}
-TEST(db_backend_multi_evict, Redis) {
-  db_backend_multi_evict_test<long long>(DatabaseType_t::RedisCluster);
-}
-TEST(db_backend_multi_evict, Rocksdb) {
-  db_backend_multi_evict_test<long long>(DatabaseType_t::RocksDB);
-}
-
-namespace {
-
 template <typename Key>
 void db_backend_dump_test(DatabaseType_t database_type) {
-  std::unique_ptr<DatabaseBackendBase<Key>> db = make_db<Key>(database_type);
+  std::unique_ptr<DatabaseBackendBase<Key>> db{make_db<Key>(database_type)};
 
   // Populate a dummy table.
-  const std::string tag0 = HierParameterServerBase::make_tag_name("mdl", "tbl0");
+  const std::string tag0{HierParameterServerBase::make_tag_name("mdl", "tbl0")};
   {
     std::vector<Key> keys;
     std::vector<double> values;
-    for (Key k = 0; k < 10; k++) {
+    for (Key k{0}; k < 10; ++k) {
       keys.push_back(k);
       values.push_back(std::cos(static_cast<double>(k)));
     }
     db->insert(tag0, keys.size(), keys.data(), reinterpret_cast<const char*>(values.data()),
-               sizeof(double));
+               sizeof(double), sizeof(double));
   }
 
   // Dump to disk as bin and sst.
@@ -151,42 +191,30 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   db->evict(tag0);
 
   // Reload binary dump.
-  const std::string tag1 = HierParameterServerBase::make_tag_name("mdl", "tbl1");
+  const std::string& tag1{HierParameterServerBase::make_tag_name("mdl", "tbl1")};
   db->load_dump(tag1, "tbl0.bin");
   std::cout << "tbl1 size " << db->size(tag1) << std::endl;
 
-  for (Key k = 0; k < 10; k++) {
+  for (Key k{0}; k < 10; ++k) {
     // std::cout << "key " << k << std::endl;
     double v;
-    db->fetch(
-        tag1, 1, &k,
-        [&](size_t index, const char* value, size_t value_size) {
-          HCTR_CHECK(index == 0);
-          v = *reinterpret_cast<const double*>(value);
-          // std::cout << k << " : " << v << std::endl;
-        },
-        [&](size_t index) { FAIL(); }, std::chrono::nanoseconds::max());
+    db->fetch(tag1, 1, &k, reinterpret_cast<char*>(&v), sizeof(double),
+              [&](size_t index) { FAIL(); });
 
     EXPECT_EQ(v, std::cos(static_cast<double>(k)));
   }
   db->evict(tag1);
 
   // Reload binary sst dump.
-  const std::string tag2 = HierParameterServerBase::make_tag_name("mdl", "tbl2");
+  const std::string& tag2{HierParameterServerBase::make_tag_name("mdl", "tbl2")};
   db->load_dump(tag2, "tbl0.sst");
   std::cout << "tbl2 size " << db->size(tag2) << std::endl;
 
-  for (Key k = 0; k < 10; k++) {
+  for (Key k{0}; k < 10; ++k) {
     // std::cout << "key " << k << std::endl;
     double v;
-    db->fetch(
-        tag2, 1, &k,
-        [&](size_t index, const char* value, size_t value_size) {
-          HCTR_CHECK(index == 0);
-          v = *reinterpret_cast<const double*>(value);
-          // std::cout << k << " : " << v << std::endl;
-        },
-        [&](size_t index) { FAIL(); }, std::chrono::nanoseconds::max());
+    db->fetch(tag2, 1, &k, reinterpret_cast<char*>(&v), sizeof(double),
+              [&](size_t index) { FAIL(); });
 
     EXPECT_EQ(v, std::cos(static_cast<double>(k)));
   }
@@ -195,26 +223,20 @@ void db_backend_dump_test(DatabaseType_t database_type) {
   // Special check. See if we can load a hashmap dump into RocksDB.
   if (database_type == DatabaseType_t::RocksDB) {
     {
-      auto db2 = make_db<Key>(DatabaseType_t::HashMap);
+      auto db2{make_db<Key>(DatabaseType_t::HashMap)};
       db2->load_dump(tag1, "tbl0.bin");
       db2->dump(tag1, "tbl2.sst");
     }
 
-    const std::string tag3 = HierParameterServerBase::make_tag_name("mdl", "tbl2");
+    const std::string& tag3{HierParameterServerBase::make_tag_name("mdl", "tbl2")};
     db->load_dump(tag3, "tbl2.sst");
     std::cout << "tag3 size " << db->size(tag3) << std::endl;
 
-    for (Key k = 0; k < 10; k++) {
+    for (Key k{0}; k < 10; ++k) {
       // std::cout << "key " << k << std::endl;
       double v;
-      db->fetch(
-          tag3, 1, &k,
-          [&](size_t index, const char* value, size_t value_size) {
-            HCTR_CHECK(index == 0);
-            v = *reinterpret_cast<const double*>(value);
-            // std::cout << k << " : " << v << std::endl;
-          },
-          [&](size_t index) { FAIL(); }, std::chrono::nanoseconds::max());
+      db->fetch(tag3, 1, &k, reinterpret_cast<char*>(&v), sizeof(double),
+                [&](size_t index) { FAIL(); });
 
       EXPECT_EQ(v, std::cos(static_cast<double>(k)));
     }
@@ -224,9 +246,27 @@ void db_backend_dump_test(DatabaseType_t database_type) {
 
 }  // namespace
 
-TEST(db_backend_dump_load, HashMap) {
-  db_backend_dump_test<long long>(DatabaseType_t::ParallelHashMap);
+TEST(db_backend_insert_fetch_test, HashMap) {
+  db_backend_insert_fetch_test<long long>(DatabaseType_t::HashMap);
 }
+TEST(db_backend_insert_fetch_test, Redis) {
+  db_backend_insert_fetch_test<long long>(DatabaseType_t::RedisCluster);
+}
+TEST(db_backend_insert_fetch_test, Rocksdb) {
+  db_backend_insert_fetch_test<long long>(DatabaseType_t::RocksDB);
+}
+
+TEST(db_backend_multi_evict, HashMap) {
+  db_backend_multi_evict_test<long long>(DatabaseType_t::HashMap);
+}
+TEST(db_backend_multi_evict, Redis) {
+  db_backend_multi_evict_test<long long>(DatabaseType_t::RedisCluster);
+}
+TEST(db_backend_multi_evict, Rocksdb) {
+  db_backend_multi_evict_test<long long>(DatabaseType_t::RocksDB);
+}
+
+TEST(db_backend_dump_load, HashMap) { db_backend_dump_test<long long>(DatabaseType_t::HashMap); }
 TEST(db_backend_dump_load, RedisCluster) {
   db_backend_dump_test<long long>(DatabaseType_t::RedisCluster);
 }

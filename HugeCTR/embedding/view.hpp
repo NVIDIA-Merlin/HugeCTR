@@ -27,7 +27,7 @@ HOST_DEVICE_INLINE int binary_search_index_lower_bound(const T *const arr, int n
   int start = 0;
   int end = num;
   while (start < end) {
-    int middle = (start + end) / 2;
+    int middle = start + (end - start) / 2;
     T value = arr[middle];
     if (value <= target) {
       start = middle + 1;
@@ -42,7 +42,7 @@ HOST_DEVICE_INLINE bool binary_search_index(const int *arr, int num, int target)
   int start = 0;
   int end = num;
   while (start < end) {
-    int middle = (start + end) / 2;
+    int middle = start + (end - start) / 2;
     int value = arr[middle];
     if (value == target) {
       return true;

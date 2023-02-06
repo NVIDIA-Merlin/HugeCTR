@@ -38,7 +38,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("slot_size_array") = std::vector<long long>(),
            pybind11::arg("data_source_params") = new DataSourceParams(),
            pybind11::arg("async_param") =
-               AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None})
+               AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None, false, false})
       .def(pybind11::init<DataReaderType_t, std::vector<std::string>, std::vector<std::string>,
                           std::string, Check_t, int, long long, long long, bool, bool, int,
                           std::vector<long long> &, const DataSourceParams &, const AsyncParam &>(),
@@ -51,7 +51,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("slot_size_array") = std::vector<long long>(),
            pybind11::arg("data_source_params") = new DataSourceParams(),
            pybind11::arg("async_param") =
-               AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None});
+               AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None, false, false});
   pybind11::class_<HugeCTR::Input, std::shared_ptr<HugeCTR::Input>>(m, "Input")
       .def(pybind11::init<int, std::string, int, std::string,
                           std::vector<DataReaderSparseParam> &>(),

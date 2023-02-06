@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <inference_benchmark/profiler.hpp>
 #include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
@@ -41,8 +42,9 @@ enum class DatabaseType_t {
   RocksDB,
 };
 enum class DatabaseOverflowPolicy_t {
-  EvictOldest,
   EvictRandom,
+  EvictLeastUsed,
+  EvictOldest,
 };
 enum class UpdateSourceType_t {
   Null,
@@ -71,10 +73,12 @@ constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
 constexpr const char* hctr_enum_to_c_str(const DatabaseOverflowPolicy_t value) {
   // Remark: Dependent functions assume lower-case, and underscore separated.
   switch (value) {
-    case DatabaseOverflowPolicy_t::EvictOldest:
-      return "evict_oldest";
     case DatabaseOverflowPolicy_t::EvictRandom:
       return "evict_random";
+    case DatabaseOverflowPolicy_t::EvictLeastUsed:
+      return "evict_least_used";
+    case DatabaseOverflowPolicy_t::EvictOldest:
+      return "evict_oldest";
     default:
       return "<unknown DatabaseOverflowPolicy_t value>";
   }
@@ -123,8 +127,7 @@ struct VolatileDatabaseParams {
   std::string shared_memory_name{
       "hctr_mp_hash_map_database"};  // Name of the shared memory (only for Multi-Process hashmap).
   size_t num_node_connections{5};    // Only used with Redis backend.
-  size_t max_get_batch_size{64L * 1024};
-  size_t max_set_batch_size{64L * 1024};
+  size_t max_batch_size{64L * 1024};
 
   bool enable_tls{false};
   std::string tls_ca_certificate{"cacertbundle.crt"};
@@ -133,9 +136,8 @@ struct VolatileDatabaseParams {
   std::string tls_server_name_identification{"redis.localhost"};
 
   // Overflow handling related.
-  bool refresh_time_after_fetch{false};
   size_t overflow_margin{std::numeric_limits<size_t>::max()};
-  DatabaseOverflowPolicy_t overflow_policy{DatabaseOverflowPolicy_t::EvictOldest};
+  DatabaseOverflowPolicy_t overflow_policy{DatabaseOverflowPolicy_t::EvictRandom};
   double overflow_resolution_target{0.8};
 
   // Caching behavior related.
@@ -147,22 +149,24 @@ struct VolatileDatabaseParams {
   std::vector<std::string> update_filters{{"^hps_.+$"}};  // Should be a regex for Kafka.
 
   VolatileDatabaseParams();
-  VolatileDatabaseParams(
-      DatabaseType_t type,
-      // Backend specific.
-      const std::string& address, const std::string& user_name, const std::string& password,
-      size_t num_partitions, size_t allocation_rate, size_t shared_memory_size,
-      const std::string& shared_memory_name, size_t num_node_connections, size_t max_get_batch_size,
-      size_t max_set_batch_size, bool enable_tls, const std::string& tls_ca_certificate,
-      const std::string& tls_client_certificate, const std::string& tls_client_key,
-      const std::string& tls_server_name_identification,
-      // Overflow handling related.
-      bool refresh_time_after_fetch, size_t overflow_margin,
-      DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target,
-      // Caching behavior related.
-      bool initialize_after_startup, double initial_cache_rate, bool cache_missed_embeddings,
-      // Real-time update mechanism related.
-      const std::vector<std::string>& update_filters);
+  VolatileDatabaseParams(DatabaseType_t type,
+                         // Backend specific.
+                         const std::string& address, const std::string& user_name,
+                         const std::string& password, size_t num_partitions, size_t allocation_rate,
+                         size_t shared_memory_size, const std::string& shared_memory_name,
+                         size_t num_node_connections, size_t max_batch_size, bool enable_tls,
+                         const std::string& tls_ca_certificate,
+                         const std::string& tls_client_certificate,
+                         const std::string& tls_client_key,
+                         const std::string& tls_server_name_identification,
+                         // Overflow handling related.
+                         size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
+                         double overflow_resolution_target,
+                         // Caching behavior related.
+                         bool initialize_after_startup, double initial_cache_rate,
+                         bool cache_missed_embeddings,
+                         // Real-time update mechanism related.
+                         const std::vector<std::string>& update_filters);
 
   bool operator==(const VolatileDatabaseParams& p) const;
   bool operator!=(const VolatileDatabaseParams& p) const;
@@ -175,8 +179,7 @@ struct PersistentDatabaseParams {
   std::string path;
   size_t num_threads{16};  // 16 = Default for RocksDB.
   bool read_only{false};
-  size_t max_get_batch_size{64L * 1024};
-  size_t max_set_batch_size{64L * 1024};
+  size_t max_batch_size{64L * 1024};
 
   // Caching behavior related.
   bool initialize_after_startup{true};
@@ -188,7 +191,7 @@ struct PersistentDatabaseParams {
   PersistentDatabaseParams(DatabaseType_t type,
                            // Backend specific.
                            const std::string& path, size_t num_threads, bool read_only,
-                           size_t max_get_batch_size, size_t max_set_batch_size,
+                           size_t max_batch_size,
                            // Caching behavior related.
                            bool initialize_after_startup,
                            // Real-time update mechanism related.
@@ -259,6 +262,8 @@ struct InferenceParams {
   size_t slot_num;
   std::string non_trainable_params_file;
   bool use_static_table;
+  // Whether to use context stream for HPS TensorFlow/TensorRT plugins
+  bool use_context_stream;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -282,7 +287,8 @@ struct InferenceParams {
                   const std::vector<size_t>& embedding_vecsize_per_table = {128},
                   const std::vector<std::string>& embedding_table_names = {""},
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
-                  const std::string& non_trainable_params_file = "", bool use_static_table = false);
+                  const std::string& non_trainable_params_file = "", bool use_static_table = false,
+                  bool use_context_stream = true);
 };
 
 struct parameter_server_config {

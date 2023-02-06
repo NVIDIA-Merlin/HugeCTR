@@ -24,13 +24,13 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void momentum_sgd_update_kernel(int len, float* weight, T* momentum, const T* wgrad,
+__global__ void momentum_sgd_update_kernel(int len, float* weight, float* momentum, const T* wgrad,
                                            float lr, float momentum_factor, float scaler) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < len) {
-    float mv = momentum_factor * TypeConvertFunc<float, T>::convert(momentum[idx]) -
+    float mv = momentum_factor * momentum[idx] -
                lr * TypeConvertFunc<float, T>::convert(wgrad[idx]) / scaler;
-    momentum[idx] = TypeConvertFunc<T, float>::convert(mv);
+    momentum[idx] = mv;
     weight[idx] += mv;
   }
   return;
@@ -39,7 +39,7 @@ __global__ void momentum_sgd_update_kernel(int len, float* weight, T* momentum, 
 }  // namespace
 template <typename T>
 MomentumSGDOptimizer<T>::MomentumSGDOptimizer(const Tensor2<float>& weight, const Tensor2<T>& wgrad,
-                                              const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                              const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                                               const std::shared_ptr<GPUResource>& gpu_resource,
                                               float learning_rate, float momentum_factor,
                                               float scaler)
@@ -68,7 +68,7 @@ void MomentumSGDOptimizer<T>::update() {
 
   float* weight = weight_main_.get_ptr();
 
-  T* momentum = momentum_.get_ptr();
+  float* momentum = momentum_.get_ptr();
   T* wgrad = wgrad_.get_ptr();
   momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
       len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);

@@ -23,7 +23,7 @@ stages:
     - docker pull python:3.8-alpine;
     - docker run -d --rm --name python_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} -w /src python:3.8-alpine sleep infinity
     - docker cp $(pwd) python_${CI_PIPELINE_ID}:/src
-    - docker exec python_${CI_PIPELINE_ID} sh -c 'pip install black && pwd && ls -all . '
+    - docker exec python_${CI_PIPELINE_ID} sh -c 'pip install black==22.12.0 && pwd && ls -all . '
     - docker exec python_${CI_PIPELINE_ID} sh -c "black --line-length 100 --check --diff --color --extend-exclude \"$EXCLUDE\" ./hugectr"
   after_script:
     - docker stop python_${CI_PIPELINE_ID}
@@ -130,8 +130,12 @@ stages:
     - echo "WORKDIR /workdir" >> ${JOB_DOCKERFILE}
     - echo "RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE}
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
+    # Install inference of target branch to overwrite the one in merlin-base
+    - if [[ "$CI_JOB_NAME" != "build_sok_tf1" ]]; then
+        echo "RUN cd /workdir && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DENABLE_INFERENCE=ON .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+      fi
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
-        echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir && rm -rf build && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_SOK" == 1 ]]; then
         echo "RUN cd /workdir/sparse_operation_kit/ && python setup.py install" >> ${JOB_DOCKERFILE};
@@ -144,11 +148,19 @@ stages:
         echo "RUN cd /workdir/onnx_converter && python3 setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_HUGECTR_BACKEND" == 1 ]]; then
-        echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hugectr_performance_test && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
+        echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hps-perf-study-updates-matthias && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_HPS_BACKEND" == 1 ]]; then
+        echo "RUN git clone --branch $HUGECTR_BACKEND_VER https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend/hps_backend && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
+        echo "RUN ln -s /usr/local/hugectr/backends/hps /opt/tritonserver/backends/hps" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
+        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
+        echo "RUN mkdir /workdir/hps_trt/build && cd /workdir/hps_trt/build && cmake ${TRT_CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - echo "RUN rm /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}
@@ -225,6 +237,7 @@ stages:
   variables:
     CI_SLURM_PARTITION: "a100-pcie-40gb-product,a100-pcie-80gb-product"
     CI_SLURM_ACCOUNT: "cag"
+    CI_SCHEDULER_TYPE: docker
     WALLTIME:      "02:00:00"
   tags:
   - computelab_generic

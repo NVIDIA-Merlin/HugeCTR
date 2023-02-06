@@ -32,16 +32,23 @@ class LookupSession : public LookupSessionBase {
                       const std::vector<size_t>& num_keys_per_table);
   virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
                                   size_t table_id);
+  virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
+                                  size_t table_id, cudaStream_t stream);
   virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                   const std::vector<float*>& d_vectors_per_table,
                                   const std::vector<size_t>& num_keys_per_table);
 
   virtual const InferenceParams get_inference_params() const override { return inference_params_; }
+  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
+    ls_profiler_->set_config(interation, warmup, enable_bench);
+  };
+  virtual void profiler_print() { ls_profiler_->print(); };
 
  private:
   std::vector<cudaStream_t> lookup_streams_;
   std::shared_ptr<EmbeddingCacheBase> embedding_cache_;
   InferenceParams inference_params_;
+  std::unique_ptr<profiler> ls_profiler_;
 };
 
 }  // namespace HugeCTR

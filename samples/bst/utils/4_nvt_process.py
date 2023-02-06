@@ -35,6 +35,7 @@ DENSE_COLUMNS = ["SLEN"]
 LABEL = ["LABEL"]
 COLUMNS = CAT_COLUMNS + ["LABEL"]
 
+
 # Initialize RMM pool on ALL workers
 def setup_rmm_pool(client, pool_size):
     client.run(rmm.reinitialize, pool_allocator=True, initial_pool_size=pool_size)
@@ -43,7 +44,6 @@ def setup_rmm_pool(client, pool_size):
 
 # Processing using NVT
 def process(args):
-
     train_path = os.path.abspath("../bst_data/train")
     test_path = os.path.abspath("../bst_data/valid")
 
@@ -245,7 +245,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
 
     process(args)

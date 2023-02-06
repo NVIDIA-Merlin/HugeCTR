@@ -1,6 +1,8 @@
 build
 debug_build
 release_build
+cmake-build-release-docker
+
 docs/html
 docs/latex
 .cache
@@ -55,6 +57,7 @@ docs/source/hierarchical_parameter_server/notebooks
 docs/source/release_notes.md
 
 docs/source/hps_tf/notebooks
+docs/source/hps_trt/notebooks/
 hps_tf/_skbuild
 hps_tf/dist/
 hps_tf/merlin_hps.egg-info/

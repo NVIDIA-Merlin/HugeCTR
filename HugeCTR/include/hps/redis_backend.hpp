@@ -45,11 +45,6 @@ struct RedisClusterBackendParams final : public VolatileBackendParams {
   std::string client_key{"client_key.pem"};           // Private key to use for this client.
   std::string server_name_identification{
       "redis.localhost"};  // SNI to request (can deviate from connection address).
-
-  bool refresh_time_after_fetch{
-      false};  // This will refresh `t` after each fetch. Must be switched on for the eviction
-               // policy `EvictOldest` to work. Requires a round trip with each node, which adds a
-               // lot of overhead. So, carefully choose if you need it.
 };
 
 /**
@@ -63,8 +58,9 @@ class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBacken
  public:
   using Base = VolatileBackend<Key, RedisClusterBackendParams>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(RedisClusterBackend);
+
   RedisClusterBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(RedisClusterBackend);
 
   /**
    * @brief Construct a new RedisClusterBackend object.
@@ -82,15 +78,15 @@ class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBacken
 
   size_t size(const std::string& table_name) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
-              size_t value_size) override;
+  size_t insert(const std::string& table_name, size_t num_pairs, const Key* keys,
+                const char* values, uint32_t value_size, size_t value_stride) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys, char* values,
+               size_t value_stride, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const Key* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, char* values, size_t value_stride,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
@@ -100,38 +96,54 @@ class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBacken
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
-  std::vector<Key> keys(const std::string& table_name);
+  std::vector<Key> keys(const std::string& table_name) const;
 
-  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+  uint32_t value_size_for(const std::string& table_name) const;
 
-  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+  size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
+
+  size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
  protected:
   /**
-   * Called internally. Checks for overflow and initiate overflow handling in case a partition
-   * overflow is detected.
+   * Called internally during `insert` if insertion causes an overflow situation.
    */
-  void check_and_resolve_overflow_(size_t part, const std::string& hkey_v,
-                                   const std::string& hkey_t);
+  void resolve_overflow_(const std::string& table_name, size_t part_index, size_t part_size);
 
   /**
-   * Called internally to reset a single timestamp.
+   * Called asynchronously by the `background_worker_` to refresh the metadata of certain entries.
    *
-   * @param hkey_t Time partition key (not checked. Assumed to be correct!).
-   * @param key The key for which to refresh the timestamp.
-   * @param time The time to fill in.
+   * @param table_name Name of the affected table.
+   * @param part_index Index of the part that is affected.
+   * @param keys The keys which need a refresh.
+   * @param amount Relative amount to add to LFU counters.
    */
-  void touch_(const std::string& hkey_t, const Key& key, time_t time);
+  void refresh_metadata_lfu_inc_(const std::string& table_name, size_t part_index,
+                                 const std::vector<Key>& keys, long long amount);
+  /**
+   * Called asynchronously by the `background_worker_` to refresh the metadata of certain entries.
+   *
+   * @param table_name Name of the affected table.
+   * @param part_index Index of the part that is affected.
+   * @param keys The keys which need a refresh.
+   * @param amount Absolute amount to assign to LFU counters.
+   */
+  void refresh_metadata_lfu_set_(const std::string& table_name, size_t part_index,
+                                 const std::vector<Key>& keys, long long amount);
 
   /**
-   * Called internally to reset many timestamps.
+   * Called asynchronously by the `background_worker_` to refresh the metadata of certain entries.
    *
-   * @param hkey_t Time partition key (not checked. Assumed to be correct!).
-   * @param keys The keys for which to refresh the timestamp.
-   * @param time The time to fill in.
+   * @param table_name Name of the affected table.
+   * @param part_index Index of the part that is affected.
+   * @param keys The keys which need a refresh.
+   * @param time Unix timestamp value to fill in.
    */
-  void touch_(const std::string& hkey_t, const std::shared_ptr<std::vector<Key>>& keys,
-              time_t time);
+  void refresh_metadata_lru_(const std::string& table_name, size_t part_index,
+                             const std::vector<Key>& keys, time_t time);
+
+  void queue_metadata_refresh_(const std::string& table_name, size_t part_index,
+                               std::shared_ptr<std::vector<Key>>&& keys);
 
  protected:
   std::unique_ptr<sw::redis::RedisCluster> redis_;

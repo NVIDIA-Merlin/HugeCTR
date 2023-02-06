@@ -38,7 +38,6 @@ namespace HugeCTR {
  * not exist.
  */
 using DatabaseMissCallback = std::function<void(size_t)>;
-using DatabaseHitCallback = std::function<void(size_t, const char*, uint32_t)>;
 
 enum class DatabaseTableDumpFormat_t {
   Automatic = 0,  // Try to deduce the storage format from the provided path.
@@ -55,9 +54,11 @@ enum class DatabaseTableDumpFormat_t {
 template <typename Key>
 class DatabaseBackendBase {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(DatabaseBackendBase);
+
   DatabaseBackendBase() = delete;
-  DatabaseBackendBase(size_t max_set_batch_size);
-  DISALLOW_COPY_AND_MOVE(DatabaseBackendBase);
+
+  DatabaseBackendBase(size_t max_batch_size);
 
   virtual ~DatabaseBackendBase() = default;
 
@@ -114,10 +115,11 @@ class DatabaseBackendBase {
    * @param values Pointer to the values.
    * @param value_size The size of each value in bytes.
    *
-   * @return True if operation was successful.
+   * @return Estimated number of actually inserted keys. num_pairs - this value represents the
+   * number of update values. Not reliable for all backends.
    */
-  virtual bool insert(const std::string& table_name, size_t num_pairs, const Key* keys,
-                      const char* values, size_t value_size) = 0;
+  virtual size_t insert(const std::string& table_name, size_t num_pairs, const Key* keys,
+                        const char* values, uint32_t value_size, size_t value_stride) = 0;
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database (direct
@@ -137,9 +139,10 @@ class DatabaseBackendBase {
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
-  virtual size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
-                       const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
-                       const std::chrono::nanoseconds& time_budget) = 0;
+  virtual size_t fetch(
+      const std::string& table_name, size_t num_keys, const Key* keys, char* values,
+      size_t value_stride, const DatabaseMissCallback& on_miss,
+      const std::chrono::nanoseconds& time_budget = std::chrono::nanoseconds::zero());
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database. This variant
@@ -162,10 +165,10 @@ class DatabaseBackendBase {
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
-  virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-                       const Key* keys, const DatabaseHitCallback& on_hit,
-                       const DatabaseMissCallback& on_miss,
-                       const std::chrono::nanoseconds& time_budget) = 0;
+  virtual size_t fetch(
+      const std::string& table_name, size_t num_indices, const size_t* indices, const Key* keys,
+      char* values, size_t value_stride, const DatabaseMissCallback& on_miss,
+      const std::chrono::nanoseconds& time_budget = std::chrono::nanoseconds::zero());
 
   /**
    * Attempt to remove a table and all associated values from the underlying database.
@@ -214,12 +217,12 @@ class DatabaseBackendBase {
    * @param path File system path under which the dumped data should be stored.
    * @param format Dump format.
    */
-  void dump(const std::string& table_name, const std::string& path,
-            DatabaseTableDumpFormat_t format = DatabaseTableDumpFormat_t::Automatic);
+  size_t dump(const std::string& table_name, const std::string& path,
+              DatabaseTableDumpFormat_t format = DatabaseTableDumpFormat_t::Automatic);
 
-  virtual void dump_bin(const std::string& table_name, std::ofstream& file) = 0;
+  virtual size_t dump_bin(const std::string& table_name, std::ofstream& file) = 0;
 
-  virtual void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) = 0;
+  virtual size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) = 0;
 
   /**
    * Loads the contents of a dump file into a table.
@@ -227,20 +230,19 @@ class DatabaseBackendBase {
    * @param table_name The destination table into which to insert the data.
    * @param path File system path under which the dumped data should be stored.
    */
-  virtual void load_dump(const std::string& table_name, const std::string& path);
+  virtual size_t load_dump(const std::string& table_name, const std::string& path);
 
-  virtual void load_dump_bin(const std::string& table_name, const std::string& path);
+  virtual size_t load_dump_bin(const std::string& table_name, const std::string& path);
 
-  virtual void load_dump_sst(const std::string& table_name, const std::string& path);
+  virtual size_t load_dump_sst(const std::string& table_name, const std::string& path);
 
  private:
-  const size_t max_set_batch_size_;  // Temporary, until find a better solution.
+  const size_t max_batch_size_;  // Temporary, until find a better solution.
 };
 
 struct DatabaseBackendParams {
-  size_t max_get_batch_size{64L * 1024};  // Maximum number of key/value pairs per read transaction.
-  size_t max_set_batch_size{64L *
-                            1024};  // Maximum number of key/value pairs per write transaction.
+  size_t max_batch_size{64L *
+                        1024};  // Maximum number of key/value pairs per read/write transaction.
 };
 
 template <typename Key, typename Params>
@@ -248,9 +250,11 @@ class DatabaseBackend : public DatabaseBackendBase<Key> {
  public:
   using Base = DatabaseBackendBase<Key>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(DatabaseBackend);
+
   DatabaseBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(DatabaseBackend);
-  DatabaseBackend(const Params& params) : Base(params.max_set_batch_size), params_{params} {}
+
+  DatabaseBackend(const Params& params) : Base(params.max_batch_size), params_{params} {}
 
   virtual ~DatabaseBackend() = default;
 
@@ -278,9 +282,9 @@ class DatabaseBackendError : std::exception {
   virtual std::string to_string() const;
 
  private:
-  std::string backend_;
-  size_t partition_;
-  std::string what_;
+  const std::string backend_;
+  const size_t partition_;
+  const std::string what_;
 };
 
 struct VolatileBackendParams : public DatabaseBackendParams {
@@ -294,7 +298,7 @@ struct VolatileBackendParams : public DatabaseBackendParams {
   size_t overflow_margin{std::numeric_limits<size_t>::max()};  // Margin at which further inserts
                                                                // will trigger overflow handling.
   DatabaseOverflowPolicy_t overflow_policy{
-      DatabaseOverflowPolicy_t::EvictOldest};  // Policy to use in case an overflow has been
+      DatabaseOverflowPolicy_t::EvictRandom};  // Policy to use in case an overflow has been
                                                // detected.
   double overflow_resolution_target{0.8};  // Target margin after applying overflow handling policy.
 
@@ -311,8 +315,10 @@ class VolatileBackend : public DatabaseBackend<Key, Params> {
  public:
   using Base = DatabaseBackend<Key, Params>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(VolatileBackend);
+
   VolatileBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(VolatileBackend);
+
   VolatileBackend(const Params& params)
       : Base(params), overflow_resolution_margin_{params.overflow_resolution_margin()} {}
 
@@ -335,8 +341,10 @@ class PersistentBackend : public DatabaseBackend<Key, Params> {
  public:
   using Base = DatabaseBackend<Key, Params>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(PersistentBackend);
+
   PersistentBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(PersistentBackend);
+
   PersistentBackend(const Params& params) : Base(params) {}
 
   virtual ~PersistentBackend() = default;
@@ -345,16 +353,6 @@ class PersistentBackend : public DatabaseBackend<Key, Params> {
     return std::numeric_limits<size_t>::max();
   }
 };
-
-#ifdef HCTR_ROCKSDB_CHECK
-#error HCTR_ROCKSDB_CHECK is already defined. This could lead to unpredictable behavior!
-#else
-#define HCTR_ROCKSDB_CHECK(EXPR)                                                  \
-  do {                                                                            \
-    const rocksdb::Status status = (EXPR);                                        \
-    HCTR_CHECK_HINT(status.ok(), "RocksDB error: %s", status.ToString().c_str()); \
-  } while (0)
-#endif
 
 // TODO: Remove me!
 #pragma GCC diagnostic pop

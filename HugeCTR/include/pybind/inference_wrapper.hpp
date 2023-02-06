@@ -101,6 +101,11 @@ class InferenceSessionPy : public InferenceSession {
 };
 
 void InferenceSessionPy::initialize() {
+  HCTR_LOG(
+      WARNING, ROOT,
+      "InferenceSession is not suitable for multi-GPU offline inference. Please use "
+      "InferenceModel: "
+      "https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inferencemodel\n");
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   HCTR_LIB_THROW(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *
                                                    inference_parser_.dense_dim * sizeof(float)));
@@ -444,51 +449,49 @@ void InferencePybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::VolatileDatabaseParams,
                    std::shared_ptr<HugeCTR::VolatileDatabaseParams>>(infer,
                                                                      "VolatileDatabaseParams")
-      .def(pybind11::init<DatabaseType_t,
-                          // Backend specific.
-                          const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, const std::string&, size_t, size_t, size_t, bool,
-                          const std::string&, const std::string&, const std::string&,
-                          const std::string&,
-                          // Overflow handling related.
-                          bool, size_t, DatabaseOverflowPolicy_t, double,
-                          // Caching behavior related.
-                          bool, double, bool,
-                          // Real-time update mechanism related.
-                          const std::vector<std::string>&>(),
-           pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
-           // Backend specific.
-           pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
-           pybind11::arg("password") = "",
-           pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
-           pybind11::arg("allocation_rate") = 256L * 1024L * 1024L,
-           pybind11::arg("shared_memory_size") = 16L * 1024L * 1024L * 1024L,
-           pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
-           pybind11::arg("num_node_connections") = 5,
-           pybind11::arg("max_get_batch_size") = 64L * 1024L,
-           pybind11::arg("max_set_batch_size") = 64L * 1024L, pybind11::arg("enable_tls") = false,
-           pybind11::arg("tls_ca_certificate") = "cacertbundle.crt",
-           pybind11::arg("tls_client_certificate") = "client_cert.pem",
-           pybind11::arg("tls_client_key") = "client_key.pem",
-           pybind11::arg("tls_server_name_identification") = "redis.localhost",
-           // Overflow handling related.
-           pybind11::arg("refresh_time_after_fetch") = false,
-           pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
-           pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
-           pybind11::arg("overflow_resolution_target") = 0.8,
-           // Caching behavior related.
-           pybind11::arg("initialize_after_startup") = true,
-           pybind11::arg("initial_cache_rate") = 1.0,
-           pybind11::arg("cache_missed_embeddings") = false,
-           // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
+      .def(
+          pybind11::init<DatabaseType_t,
+                         // Backend specific.
+                         const std::string&, const std::string&, const std::string&, size_t, size_t,
+                         size_t, const std::string&, size_t, size_t, bool, const std::string&,
+                         const std::string&, const std::string&, const std::string&,
+                         // Overflow handling related.
+                         size_t, DatabaseOverflowPolicy_t, double,
+                         // Caching behavior related.
+                         bool, double, bool,
+                         // Real-time update mechanism related.
+                         const std::vector<std::string>&>(),
+          pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
+          // Backend specific.
+          pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
+          pybind11::arg("password") = "",
+          pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
+          pybind11::arg("allocation_rate") = 256L * 1024L * 1024L,
+          pybind11::arg("shared_memory_size") = 16L * 1024L * 1024L * 1024L,
+          pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
+          pybind11::arg("num_node_connections") = 5, pybind11::arg("max_batch_size") = 64L * 1024L,
+          pybind11::arg("enable_tls") = false,
+          pybind11::arg("tls_ca_certificate") = "cacertbundle.crt",
+          pybind11::arg("tls_client_certificate") = "client_cert.pem",
+          pybind11::arg("tls_client_key") = "client_key.pem",
+          pybind11::arg("tls_server_name_identification") = "redis.localhost",
+          // Overflow handling related.
+          pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
+          pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictRandom,
+          pybind11::arg("overflow_resolution_target") = 0.8,
+          // Caching behavior related.
+          pybind11::arg("initialize_after_startup") = true,
+          pybind11::arg("initial_cache_rate") = 1.0,
+          pybind11::arg("cache_missed_embeddings") = false,
+          // Real-time update mechanism related.
+          pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 
   pybind11::class_<HugeCTR::PersistentDatabaseParams,
                    std::shared_ptr<HugeCTR::PersistentDatabaseParams>>(infer,
                                                                        "PersistentDatabaseParams")
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
-                          const std::string&, size_t, bool, size_t, size_t,
+                          const std::string&, size_t, bool, size_t,
                           // Caching behavior related.
                           bool,
                           // Real-time update mechanism related.
@@ -497,8 +500,7 @@ void InferencePybind(pybind11::module& m) {
            // Backend specific.
            pybind11::arg("path") = (std::filesystem::temp_directory_path() / "rocksdb").string(),
            pybind11::arg("num_threads") = 16, pybind11::arg("read_only") = false,
-           pybind11::arg("max_get_batch_size") = 64L * 1024L,
-           pybind11::arg("max_set_batch_size") = 64L * 1024L,
+           pybind11::arg("max_batch_size") = 64L * 1024L,
            // Caching behavior related.
            pybind11::arg("initialize_after_startup") = true,
            // Real-time update mechanism related.
@@ -529,7 +531,7 @@ void InferencePybind(pybind11::module& m) {
                           const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
                           const float, const float, const std::vector<size_t>&,
                           const std::vector<size_t>&, const std::vector<std::string>&,
-                          const std::string&, const size_t, const size_t, const std::string&,
+                          const std::string&, const size_t, const size_t, const std::string&, bool,
                           bool>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
@@ -557,7 +559,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("embedding_table_names") = std::vector<std::string>{""},
            pybind11::arg("network_file") = "", pybind11::arg("label_dim") = 1,
            pybind11::arg("slot_num") = 10, pybind11::arg("non_trainable_params_file") = "",
-           pybind11::arg("use_static_table") = false);
+           pybind11::arg("use_static_table") = false, pybind11::arg("use_context_stream") = true);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));

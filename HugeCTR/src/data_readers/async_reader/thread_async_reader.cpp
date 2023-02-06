@@ -203,6 +203,7 @@ void ThreadAsyncReader::try_submit_io(size_t batch_id, int io_id) {
 
 void ThreadAsyncReader::wait_io() {
   timespec timeout = {0, 10'000l};
+
   io_event events[max_num_blocks_per_batch_];
   int num_completed =
       io_getevents(ioctx_, max_num_blocks_per_batch_, max_num_blocks_per_batch_, events, &timeout);
