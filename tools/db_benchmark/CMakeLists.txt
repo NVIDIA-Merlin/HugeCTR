@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,12 +13,13 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
-if(NOT DISABLE_CUDF)
-    add_subdirectory(criteo_script)
-    add_subdirectory(raw_script)
-    add_subdirectory(criteo_script_legacy)
-    add_subdirectory(dlrm_script)
-    add_subdirectory(io_benchmark)
-    add_subdirectory(db_benchmark)
-endif()
+cmake_minimum_required(VERSION 3.10)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mavx2")
+
+add_executable(db_bench main.cpp)
+target_compile_features(db_bench PUBLIC cxx_std_17)
+target_link_libraries(db_bench PUBLIC huge_ctr_static rocksdb redis++ rdkafka)

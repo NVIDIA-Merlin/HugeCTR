@@ -41,6 +41,8 @@ using tensorflow::OpKernelContext;
 
 class GPUResource final : public GPUResourceBase {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(GPUResource);
+
   GPUResource(OpKernelContext *ctx) : ctx_(ctx), current_stream_name_("default") {
     DeviceContext *dc = ctx->op_device_context();
     if (!dc) {
@@ -61,8 +63,6 @@ class GPUResource final : public GPUResourceBase {
     }
     stream_map_[current_stream_name_] = *stream;
   }
-
-  DISALLOW_COPY_AND_MOVE(GPUResource)
 
   void set_stream(const std::string &name) override { current_stream_name_ = name; }
 

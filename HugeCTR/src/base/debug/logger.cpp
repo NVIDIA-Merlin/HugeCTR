@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <string.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -38,11 +39,16 @@
 
 namespace HugeCTR {
 
-thread_local std::string THREAD_NAME;
+thread_local char THREAD_NAME[32];
 
-const std::string& hctr_get_thread_name() { return THREAD_NAME; }
+bool hctr_has_thread_name() { return THREAD_NAME[0] != '\0'; }
 
-void hctr_set_thread_name(const std::string& name) { THREAD_NAME = name; }
+const char* hctr_get_thread_name() { return THREAD_NAME; }
+
+void hctr_set_thread_name(const char* const name) {
+  std::strncpy(THREAD_NAME, name, sizeof(THREAD_NAME) - 1);
+  THREAD_NAME[sizeof(THREAD_NAME) - 1] = '\0';
+}
 
 void Logger::print_exception(const std::exception& e, int depth) {
   Logger::get().log(LOG_ERROR_LEVEL, true, false, "%d. %s\n", depth, e.what());
@@ -55,11 +61,15 @@ void Logger::print_exception(const std::exception& e, int depth) {
 }
 
 Logger& Logger::get() {
-  static std::unique_ptr<Logger> instance;
-  static std::once_flag once_flag;
-
-  std::call_once(once_flag, []() { instance.reset(new Logger()); });
-  return *instance;
+  // That is sufficient in C++-11 and later. See also
+  // https://en.cppreference.com/w/cpp/language/storage_duration#Static_local_variables
+  // or
+  // https://stackoverflow.com/questions/8102125/is-local-static-variable-initialization-thread-safe-in-c11
+  // or
+  // https://stackoverflow.com/questions/1270927/are-function-static-variables-thread-safe-in-gcc/1270948
+  // .
+  static Logger instance;
+  return instance;
 }
 
 Logger::~Logger() {
@@ -77,61 +87,68 @@ Logger::~Logger() {
 }
 
 void Logger::log(const int level, bool per_rank, bool with_prefix, const char* format, ...) const {
-  if (level == LOG_SILENCE_LEVEL || level > max_level_) {
+  if (!can_log_at(level, per_rank)) {
     return;
   }
 
-  if (rank_ == 0 || per_rank) {
-    std::ostringstream os;
-    if (with_prefix) {
-      write_log_prefix(os, level);
-    }
-    os << format;
-    const std::string& new_format = os.str();
+  char prefix[MAX_PREFIX_LENGTH];
+  write_log_prefix(with_prefix, prefix, level);
 
-    if (log_to_std_) {
-      va_list args;
-      va_start(args, format);
-      FILE* const file = log_std_.at(level);
-      vfprintf(file, new_format.c_str(), args);
-      va_end(args);
-      fflush(file);
-    }
+  if (log_to_std_) {
+    std::va_list args;
+    va_start(args, format);
 
-    if (log_to_file_) {
-      va_list args;
-      va_start(args, format);
-      FILE* const file = log_file_.at(level);
-      vfprintf(file, new_format.c_str(), args);
-      va_end(args);
-      fflush(file);
-    }
+    FILE* const file = log_std_.at(level);
+    std::fputs(prefix, file);
+    std::vfprintf(file, format, args);
+    std::fflush(file);
+
+    va_end(args);
+  }
+
+  if (log_to_file_) {
+    std::va_list args;
+    va_start(args, format);
+
+    FILE* const file = log_file_.at(level);
+    std::fputs(prefix, file);
+    std::vfprintf(file, format, args);
+    std::fflush(file);
+
+    va_end(args);
   }
 }
 
 Logger::DeferredEntry::~DeferredEntry() {
-  if (logger_) {
-    if (logger_->log_to_std_) {
-      FILE* const file = logger_->log_std_.at(level_);
-      fputs(os_.str().c_str(), file);
-      fflush(file);
-    }
+  if (!logger_) {
+    return;
+  }
 
-    if (logger_->log_to_file_) {
-      FILE* const file = logger_->log_file_.at(level_);
-      fputs(os_.str().c_str(), file);
-      fflush(file);
-    }
+  char prefix[Logger::MAX_PREFIX_LENGTH];
+  logger_->write_log_prefix(with_prefix_, prefix, level_);
+
+  const std::string& content = os_.str();
+
+  if (logger_->log_to_std_) {
+    FILE* const file = logger_->log_std_.at(level_);
+    std::fputs(prefix, file);
+    std::fputs(content.c_str(), file);
+    std::fflush(file);
+  }
+
+  if (logger_->log_to_file_) {
+    FILE* const file = logger_->log_file_.at(level_);
+    std::fputs(prefix, file);
+    std::fputs(content.c_str(), file);
+    std::fflush(file);
   }
 }
 
 Logger::DeferredEntry Logger::log(const int level, bool per_rank, bool with_prefix) const {
-  if (level == LOG_SILENCE_LEVEL || level > max_level_) {
-    return {nullptr, level, per_rank, false};
-  } else if (rank_ == 0 || per_rank) {
-    return {this, level, per_rank, with_prefix};
+  if (can_log_at(level, per_rank)) {
+    return {this, level, with_prefix};
   } else {
-    return {nullptr, level, per_rank, false};
+    return {nullptr, level, false};
   }
 }
 
@@ -141,13 +158,13 @@ void Logger::abort(const SrcLoc& loc, const char* const format, ...) const {
     {
       va_list args;
       va_start(args, format);
-      hint.resize(vsnprintf(nullptr, 0, format, args) + 1);
+      hint.resize(std::vsnprintf(nullptr, 0, format, args) + 1);
       va_end(args);
     }
     {
       va_list args;
       va_start(args, format);
-      vsprintf(hint.data(), format, args);
+      std::vsprintf(hint.data(), format, args);
       va_end(args);
     }
     log(-1, true, true,
@@ -176,15 +193,13 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
   std::throw_with_nested(internal_runtime_error(error_type, os.str()));
 }
 
-int Logger::get_rank() { return rank_; }
-
 #ifdef HCTR_LEVEL_MAP_
 #error HCTR_LEVEL_MAP_ already defined!
 #else
 #define HCTR_LEVEL_MAP_(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
 #endif
 
-Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
+Logger::Logger() {
   hctr_set_thread_name("main");
 
 #ifdef ENABLE_MPI
@@ -198,7 +213,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   const char* const max_level_str = std::getenv("HUGECTR_LOG_LEVEL");
   if (max_level_str != nullptr && max_level_str[0] != '\0') {
     int max_level;
-    if (sscanf(max_level_str, "%d", &max_level) == 1) {
+    if (std::sscanf(max_level_str, "%d", &max_level) == 1) {
       max_level_ = max_level;
     }
   }
@@ -206,7 +221,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   const char* const log_to_file_str = std::getenv("HUGECTR_LOG_TO_FILE");
   if (log_to_file_str != nullptr && log_to_file_str[0] != '\0') {
     int log_to_file_val = 0;
-    if (sscanf(log_to_file_str, "%d", &log_to_file_val) == 1) {
+    if (std::sscanf(log_to_file_str, "%d", &log_to_file_val) == 1) {
       log_to_std_ = log_to_file_val < 2;
       log_to_file_ = log_to_file_val > 0;
     }
@@ -225,9 +240,9 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
         std::string level_name = level_name_[level];
         std::transform(level_name.begin(), level_name.end(), level_name.begin(),
                        [](unsigned char ch) { return std::tolower(ch); });
-        std::string log_fname = "hctr_" + std::to_string(getpid()) + "_" + std::to_string(rank_) +
-                                "_" + level_name + ".log";
-        log_file_[level] = fopen(log_fname.c_str(), "w");
+        std::ostringstream log_fname;
+        log_fname << "hctr_" << getpid() << '_' << rank_ << '_' << level_name << ".log";
+        log_file_[level] = std::fopen(log_fname.str().c_str(), "w");
       } else {
         log_file_[LOG_SILENCE_LEVEL] = nullptr;
       }
@@ -243,9 +258,21 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   }
 }
 
-void Logger::write_log_prefix(std::ostringstream& os, const int level) const {
-  // Base & time
-  os << "[HCTR][";
+size_t Logger::write_log_prefix(const bool with_prefix, char (&buffer)[Logger::MAX_PREFIX_LENGTH],
+                                const int level) const {
+  if (!with_prefix) {
+    buffer[0] = '\0';
+    return 0;
+  }
+
+  // "[HCTR][08:00:57.622][WARNING][RK0][redis background thread]: " << typical
+  // "[HCTR][08:00:57.622][LV2147483647][RK2147483647][1234567890123456789012345678901]: " << worst
+  //  ^         ^         ^         ^         ^         ^         ^         ^         ^         ^
+  //            1         2         3         4         5         6         7         8         9
+  //  0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+  char* p = buffer;
+
+  // HCTR prefix + Time.
   {
     struct timeval now;
     gettimeofday(&now, nullptr);
@@ -254,36 +281,33 @@ void Logger::write_log_prefix(std::ostringstream& os, const int level) const {
 
     // %H:%M:%S = [00-23]:[00-59]:[00-60] == e.g., 23:59:60 = 8 bytes + 1 zero terminate.
     // (60 = for second-time-shift years)
-    char buffer[8 + 1];
-    std::strftime(buffer, sizeof(buffer), "%T", &now_local);
-    os << buffer << '.' << std::setfill('0') << std::setw(3) << now.tv_usec / 1000;
+    p += std::strftime(p, sizeof(buffer), "[HCTR][%T", &now_local);
+    p += std::sprintf(p, ".%03ld][", now.tv_usec / 1000);
   }
 
   // Level
-  os << "][";
   {
     const auto& level_it = level_name_.find(level);
     if (level_it != level_name_.end()) {
-      os << level_it->second;
+      const size_t n = level_it->second.size();
+      level_it->second.copy(p, n);
+      p += n;
     } else {
-      os << "LEVEL" << level;
+      p += std::sprintf(p, "LV%d", level);
     }
   }
 
-  // Rank
-  os << "][RK" << rank_;
-
-  // Thread
-  os << "][";
-  const std::string& thread_name = hctr_get_thread_name();
-  if (thread_name.empty()) {
+  // Assign thread name if not already set.
+  if (!hctr_has_thread_name()) {
+    std::ostringstream os;
     os << "tid #" << std::this_thread::get_id();
-  } else {
-    os << thread_name;
+    hctr_set_thread_name(os.str());
   }
 
-  // Prompt & return.
-  os << "]: ";
+  // Thread + Rank + Prompt
+  p += std::sprintf(p, "][RK%d][%s]: ", rank_, hctr_get_thread_name());
+
+  return p - buffer;
 }
 
 }  // namespace HugeCTR
