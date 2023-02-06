@@ -18,6 +18,7 @@
 #include <parallel_hashmap/phmap.h>
 
 #include <condition_variable>
+#include <core/memory.hpp>
 #include <deque>
 #include <functional>
 #include <hps/database_backend.hpp>
@@ -49,8 +50,9 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
  public:
   using Base = VolatileBackend<Key, HashMapBackendParams>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(HashMapBackend);
+
   HashMapBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(HashMapBackend);
 
   /**
    * Construct a new parallelized HashMapBackend object.
@@ -66,15 +68,15 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
   size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
-              size_t value_size) override;
+  size_t insert(const std::string& table_name, size_t num_pairs, const Key* keys,
+                const char* values, uint32_t value_size, size_t value_stride) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys, char* values,
+               size_t value_stride, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const Key* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, char* values, size_t value_stride,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
@@ -84,50 +86,62 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
-  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+  size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
 
-  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+  size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
  protected:
-  // Key metrics.
-  static constexpr size_t key_size = sizeof(Key);
+#if 1
+  // Better performance on most systems.
+  using CharAllocator = AlignedAllocator<char>;
+  static constexpr size_t value_page_alignment{CharAllocator::alignment};
+#else
+  using CharAllocator = std::allocator<char>;
+  // __STDCPP_DEFAULT_NEW_ALIGNMENT__ is actually 16 with current GCC. But we use sizeof(char) here
+  // which equates to have no padding.
+  static constexpr size_t value_page_alignment{sizeof(char)};
+#endif
+  static_assert(value_page_alignment > 0);
+
+  using ValuePage = std::vector<char, CharAllocator>;
+  using ValuePtr = char*;
 
   // Data-structure that will be associated with every key.
   struct Payload final {
-    time_t last_access;
-    char value[1];
+    union {
+      time_t last_access;
+      uint64_t access_count;
+    };
+    ValuePtr value;
   };
-  static constexpr size_t meta_size = sizeof(Payload) - sizeof(char[1]);
-  static_assert(meta_size >= sizeof(time_t));
-  using PayloadPtr = Payload*;
-  using Entry = std::pair<const Key, PayloadPtr>;
-
-  using Page = std::vector<char>;
+  using Entry = std::pair<const Key, Payload>;
 
   struct Partition final {
-    const size_t index;
     const uint32_t value_size;
+    const size_t allocation_rate;
 
     // Pooled payload storage.
-    std::vector<Page> payload_pages;
-    std::vector<PayloadPtr> payload_slots;
+    std::vector<ValuePage> value_pages;
+    std::vector<ValuePtr> value_slots;
 
     // Key -> Payload map.
-    phmap::flat_hash_map<Key, PayloadPtr> entries;
+    phmap::flat_hash_map<Key, Payload> entries;
 
     Partition() = delete;
-    Partition(const size_t index, const uint32_t value_size)
-        : index{index}, value_size{value_size} {}
+
+    Partition(const uint32_t value_size, const HashMapBackendParams& params)
+        : value_size{value_size}, allocation_rate{params.allocation_rate} {}
   };
 
   // Actual data.
+  CharAllocator char_allocator_;
   std::unordered_map<std::string, std::vector<Partition>> tables_;
 
   // Access control.
   mutable std::shared_mutex read_write_guard_;
 
   // Overflow resolution.
-  size_t resolve_overflow_(const std::string& table_name, Partition& part);
+  size_t resolve_overflow_(const std::string& table_name, size_t part_index, Partition& part);
 };
 
 // TODO: Remove me!

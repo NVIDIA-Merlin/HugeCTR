@@ -110,6 +110,7 @@
 #include <nccl.h>
 #include <nvml.h>
 
+#include <core/macro.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -175,12 +176,18 @@ enum class Error_t {
 
 #define HCTR_LOG_S(NAME, TYPE) HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
 
-#define HCTR_PRINT(NAME, ...) \
-  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false, __VA_ARGS__)
-#define HCTR_PRINT_AT(LEVEL, ...) \
-  HugeCTR::Logger::get().log(LEVEL, LOG_RANK_ROOT, false, __VA_ARGS__)
+#define HCTR_LOG_C(NAME, TYPE, ...)                                          \
+  do {                                                                       \
+    const HugeCTR::Logger& logger = HugeCTR::Logger::get();                  \
+    if (logger.can_log_at(LOG_LEVEL(NAME), LOG_RANK(TYPE))) {                \
+      logger.log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true).append(__VA_ARGS__); \
+    }                                                                        \
+  } while (0)
 
-// #define HCTR_PRINT_S(NAME) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false)
+#define HCTR_PRINT(NAME, ...) \
+  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(ROOT), false, __VA_ARGS__)
+#define HCTR_PRINT_AT(LEVEL, ...) \
+  HugeCTR::Logger::get().log(LEVEL, LOG_RANK(ROOT), false, __VA_ARGS__)
 
 struct SrcLoc {
   const char* file;
@@ -405,20 +412,20 @@ class Logger final {
  public:
   class DeferredEntry final {
    public:
-    inline DeferredEntry(const Logger* logger, const int level, const bool per_rank,
-                         const bool with_prefix)
-        : logger_{logger}, level_{level}, per_rank_{per_rank}, with_prefix_{with_prefix} {
-      if (with_prefix) {
-        logger_->write_log_prefix(os_, level_);
-      }
-    }
+    HCTR_DISALLOW_COPY_AND_MOVE(DeferredEntry);
+
+    inline DeferredEntry(const Logger* logger, const int level, const bool with_prefix)
+        : logger_{logger}, level_{level}, with_prefix_{with_prefix} {}
 
     ~DeferredEntry();
 
-    DeferredEntry(const DeferredEntry&) = delete;
-    DeferredEntry(const DeferredEntry&&) = delete;
-    DeferredEntry& operator=(const DeferredEntry&) = delete;
-    DeferredEntry&& operator=(const DeferredEntry&&) = delete;
+    template <typename... Args>
+    inline DeferredEntry& append(Args&&... args) {
+      if (logger_) {
+        (os_ << ... << args);
+      }
+      return *this;
+    }
 
     template <typename T>
     inline DeferredEntry& operator<<(const T& value) {
@@ -437,61 +444,65 @@ class Logger final {
 
    private:
     const Logger* logger_;
-    int level_;
-    bool per_rank_;
-    bool with_prefix_;
+    const int level_;
+    const bool with_prefix_;
     std::ostringstream os_;
   };
 
+  static constexpr size_t MAX_PREFIX_LENGTH = 96;
+
   static void print_exception(const std::exception& e, int depth);
+
   static Logger& get();
+
+  HCTR_DISALLOW_COPY_AND_MOVE(Logger);
+
   ~Logger();
+
+  inline bool can_log_at(const int level, const bool per_rank) const {
+    return level != LOG_LEVEL(SILENCE) && level <= max_level_ && (rank_ == 0 || per_rank);
+  }
+
   void log(int level, bool per_rank, bool with_prefix, const char* format, ...) const;
+
   DeferredEntry log(int level, bool per_rank, bool with_prefix) const;
+
   void abort(const SrcLoc& loc, const char* format = nullptr, ...) const;
+
   template <typename Condition>
   void check_lazy(const Condition& condition, const SrcLoc& loc) {
     if (condition() == false) {
       abort(loc);
     }
   }
+
   void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
-  int get_rank();
+
+  inline int get_rank() const { return rank_; }
 
  private:
   Logger();
-  Logger(const Logger&) = delete;
-  Logger(const Logger&&) = delete;
-  Logger& operator=(const Logger&) = delete;
-  Logger& operator=(const Logger&&) = delete;
 
   FILE* get_file_stream(int level);
-  void write_log_prefix(std::ostringstream& os, int level) const;
 
-  int rank_;
-  int max_level_;
-  bool log_to_std_;
-  bool log_to_file_;
+  size_t write_log_prefix(bool with_prefix, char (&buffer)[Logger::MAX_PREFIX_LENGTH],
+                          int level) const;
+
+ private:
+  int rank_{0};
+  int max_level_{DEFAULT_LOG_LEVEL};
+  bool log_to_std_{true};
+  bool log_to_file_{false};
   std::map<int, FILE*> log_std_;
   std::map<int, FILE*> log_file_;
   std::map<int, std::string> level_name_;
 };
 
-// TODO: Make fully templated and find better location for this?
-template <typename TTarget>
-inline static TTarget hctr_safe_cast(const size_t value) {
-  HCTR_CHECK(static_cast<TTarget>(value) <= std::numeric_limits<TTarget>::max());
-  return static_cast<TTarget>(value);
+bool hctr_has_thread_name();
+const char* hctr_get_thread_name();
+void hctr_set_thread_name(const char* name);
+inline void hctr_set_thread_name(const std::string& name) {
+  return hctr_set_thread_name(name.c_str());
 }
-
-template <typename TTarget>
-inline static TTarget hctr_safe_cast(const double value) {
-  HCTR_CHECK(value >= std::numeric_limits<TTarget>::lowest() &&
-             value <= std::numeric_limits<TTarget>::max());
-  return static_cast<TTarget>(value);
-}
-
-const std::string& hctr_get_thread_name();
-void hctr_set_thread_name(const std::string& name);
 
 }  // namespace HugeCTR

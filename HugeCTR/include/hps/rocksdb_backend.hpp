@@ -20,6 +20,7 @@
 
 #include <filesystem>
 #include <hps/database_backend.hpp>
+#include <hps/database_backend_detail.hpp>
 #include <unordered_map>
 
 namespace HugeCTR {
@@ -47,8 +48,9 @@ class RocksDBBackend final : public PersistentBackend<Key, RocksDBBackendParams>
  public:
   using Base = PersistentBackend<Key, RocksDBBackendParams>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(RocksDBBackend);
+
   RocksDBBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(RocksDBBackend);
 
   /**
    * @brief Construct a new RocksDBBackend object.
@@ -66,15 +68,15 @@ class RocksDBBackend final : public PersistentBackend<Key, RocksDBBackendParams>
   size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
-              size_t value_size) override;
+  size_t insert(const std::string& table_name, size_t num_pairs, const Key* keys,
+                const char* values, uint32_t value_size, size_t value_stride) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys, char* values,
+               size_t value_stride, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const Key* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, char* values, size_t value_stride,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
@@ -84,19 +86,37 @@ class RocksDBBackend final : public PersistentBackend<Key, RocksDBBackendParams>
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
-  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+  size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
 
-  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+  size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
-  void load_dump_sst(const std::string& table_name, const std::string& path) override;
+  size_t load_dump_sst(const std::string& table_name, const std::string& path) override;
 
  protected:
-  rocksdb::DB* db_;
+  inline rocksdb::ColumnFamilyHandle* get_column_handle_(const std::string& table_name) const {
+    const auto& it{column_handles_.find(table_name)};
+    return it != column_handles_.end() ? it->second : nullptr;
+  }
+
+  inline rocksdb::ColumnFamilyHandle* get_or_create_column_handle_(const std::string& table_name) {
+    const auto& it{column_handles_.find(table_name)};
+    if (it != column_handles_.end()) {
+      return it->second;
+    }
+
+    rocksdb::ColumnFamilyHandle* ch;
+    HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options_, table_name, &ch));
+    column_handles_.emplace(table_name, ch);
+    return ch;
+  }
+
+  std::unique_ptr<rocksdb::DB> db_;
   std::unordered_map<std::string, rocksdb::ColumnFamilyHandle*> column_handles_;
 
   rocksdb::ColumnFamilyOptions column_family_options_;
   rocksdb::ReadOptions read_options_;
   rocksdb::WriteOptions write_options_;
+  rocksdb::IngestExternalFileOptions ingest_file_options_;
 };
 
 // TODO: Remove me!

@@ -362,8 +362,7 @@ params = hugectr.inference.VolatileDatabaseParams(
   allocation_rate = 268435456,  # 256 MiB
   shared_memory_size = 17179869184,  # 16 GiB
   shared_memory_name = "hctr_mp_hash_map_database",
-  max_get_batch_size = 65536,
-  max_set_batch_size = 65536,
+  max_batch_size = 65536,
   enable_tls = False,
   tls_ca_certificate = "cacertbundle.crt",
   tls_client_certificate = "client_cert.pem",
@@ -374,7 +373,6 @@ params = hugectr.inference.VolatileDatabaseParams(
   overflow_resolution_target = 0.8,
   initialize_after_startup = True,
   initial_cache_rate = 1.0,
-  refresh_time_after_fetch = False,
   cache_missed_embeddings = False,
   update_filters = ["filter-0", "filter-1", ...]
 )
@@ -394,15 +392,14 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
   "allocation_rate": 268435456,  // 256 MiB
   "shared_memory_size": 17179869184,  // 16 GiB
   "shared_memory_name": "hctr_mp_hash_map_database",
-  "max_get_batch_size": 65536,
-  "max_set_batch_size": 65536,
+  "max_batch_size": 65536,
   "enable_tls": false,
   "tls_ca_certificate": "cacertbundle.crt",
   "tls_client_certificate": "client_cert.pem",
   "tls_client_key": "client_key.pem",
   "tls_server_name_identification": "redis.localhost",
   "overflow_margin": 10000000,
-  "overflow_policy": "evict_oldest",
+  "overflow_policy": "evict_random",
   "overflow_resolution_target": 0.8,
   "initialize_after_startup": true,
   "initial_cache_rate": 1.0,
@@ -459,12 +456,9 @@ However, each partition incurs a small processing overhead so do not specify a v
 A typical value that retains high performance and provides good cluster utilization is 2-5x the number of machines in your Redis cluster.
 The default value is `8`.
 
-* `max_get_batch_size` and `max_set_batch_size`: Integer, specifies optimization parameters.
-Mass lookup and insert requests to distributed endpoints are chunked into batches.
-For maximum performance, these two parameters should be large.
-However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
-By default, both parameters are set to `65536`.
-With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+* `max_batch_size`: Integer, specifies optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into `max_batch_size`-sized batches. For maximum performance, this parameters should be large. However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help. The default value is `65536`. With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+
+  *Note: when using the Redis backend (`type = "redis_cluster"`) is used in conjunction with certain open source versions of Redis, setting a maximum batch size above `262143` (2^18 - 1) can lead to obscure errors and, therefore, should be avoided.*
 
 * `enable_tls`: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is `False` (=disable TLS/SSL). Enabling encryption may slighly increase latency and decrease the overall throughput when communicating with the Redis cluster.
 
@@ -491,14 +485,13 @@ The default value is `2^64 - 1` and indicates no limit.
   When you use a CPU memory database in conjunction with a persistent database, the ideal value for `overflow_margin` can vary.
   In practice, a value in the range `[1000000, 100000000]` provides reliable performance and throughput.
 
-* `overflow_policy`: specifies how to respond to an overflow condition.
+* `overflow_policy`: specifies how to respond to an overflow condition (i.e., which embeddings should be pruned first). Pruning is conducted per-partition in `max_batch_size`-sized batches until the respective partition contains at most `overflow_margin * overflow_resolution_target` embeddings.
 Specify one of the following:
-  * `evict_oldest`: Prune embeddings starting from the oldest embedding
-  until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings. This policy implements the least-recently used (LRU) algorithm.
-  * `evict_random`: Prune embeddings at random until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings.
-
-  Unlike `evict_oldest`, the `evict_random` policy does not require a comparison of timestamps and can be faster.
-  However, `evict_oldest` is likely to deliver better performance over time because the policy evicts embeddings based on the frequency of their use.
+  * `evict_random` *(default)*: Embeddings for pruning are chosen at random.
+  * `evict_least_used`: Prune the least-frequently used (LFU) embeddings. This is a best effort. For performance reasons, we implement different algorithms. Identical behavior across backends is not guaranteed.
+  * `evict_oldest`: Prune the least-recently used (LRU) embeddings.
+  
+  Unlike `evict_least_used` and `evict_oldest`, the `evict_random` policy does not require complicated comparisons and can be faster. However, `evict_least_used` and `evict_oldest` are likely to deliver better performance over time because these policies evict embeddings based on the access statistics.
 
 * `overflow_resolution_target`: Double, specifies the fraction of the embeddings to keep when embeddings must be evicted.
 Specify a value between `0` and `1`, but not exactly `0` or `1`.
@@ -513,12 +506,6 @@ HugeCTR attempts to cache the specified fraction of the dataset immediately upon
 For example, a value of `0.5` causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
 The default value is `1.0`.
 
-* `refresh_time_after_fetch`: Boolean, when set to `True`, the timestamp for an embedding is updated after the embedding is accessed.
-The timestamp update can be performed asynchronously and experience some delay.
-Some algorithms for overflow and eviction take time into account.
-To evaluate the affected embeddings, HugeCTR records the time when an embedding is overwritten.
-The default value is `False` and this setting is sufficient when you train a model and embeddings are frequently replaced.
-However, when you deploy HugeCTR only for inference, such as with Triton Inference Server, the default setting might lead to suboptimal eviction patterns.
 
 #### Common Volatile Database Parameters
 
@@ -551,8 +538,7 @@ params = hugectr.inference.PersistentDatabaseParams(
   path = "/tmp/rocksdb",
   num_threads = 16,
   read_only = False,
-  max_get_batch_size = 65536,
-  max_set_batch_size = 65536,
+  max_batch_size = 65536,
   update_filters = ["filter-0", "filter-1", ... ]
 )
 ```
@@ -567,8 +553,7 @@ The following JSON shows a sample configuration for the `persistent_db` key in a
   "path": "/tmp/rocksdb",
   "num_threads": 16,
   "read_only": false,
-  "max_get_batch_size": 65536,
-  "max_set_batch_size": 65536,
+  "max_batch_size": 65536,
   "update_filters": [".+"]
 }
 ```
@@ -577,29 +562,23 @@ The following JSON shows a sample configuration for the `persistent_db` key in a
 
 * `type`: specifies the persistent datatabase implementation.
 Specify one of the following:
-  * `disabled`: Prevents the use of a persistent database.
-  This is the default value.
+  * `disabled` *(default)*: Prevents the use of a persistent database.
   * `rocks_db`: Create or connect to a RocksDB database.
 
-* `path` String, specifies the directory on each machine where the RocksDB database can be found.
+* `path`: String, specifies the directory on each machine where the RocksDB database can be found.
 If the directory does not contain a RocksDB database, HugeCTR creates a database for you.
 Be aware that this behavior can overwrite files that are stored in the directory.
 For best results, make sure that `path` specifies an existing RocksDB database or an empty directory.
 The default value is `/tmp/rocksdb`.
 
-* `num_threads` Int, specifies the number of threads for the RocksDB driver.
+* `num_threads`: Integer, specifies the number of threads for the RocksDB driver.
 The default value is `16`.
 
-* `read_only`, Bool, when set to `True`, the database is opened in read-only mode.
+* `read_only`: Bool, when set to `True`, the database is opened in read-only mode.
 Read-only mode is suitable for use with inference if the model is static and the database is shared by multiple machines, such as with NFS.
 The default value is `False`.
 
-* `max_get_batch_size` and `max_set_batch_size`, Int, specifies the batch size for lookup and insert requests.
-Mass lookup and insert requests to RocksDB are chunked into batches.
-For maximum performance these parameters should be large.
-However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance.
-The default value for both parameters is `10000`.
-With high-performance hardware, you can attempt to set these parameters to `1000000`.
+* `max_batch_size`: Integer, specifies the batch size for lookup and insert requests. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance this parameter should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance. The default value is `65536`. With high-performance hardware, you can attempt to set these parameters to `1000000`.
 
 * `update_filters`: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
 The default value is `["^hps_.+$"]` and processes updates for all HPS models because the filter matches all HPS model names.

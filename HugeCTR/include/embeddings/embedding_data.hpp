@@ -50,6 +50,8 @@ class EmbeddingData {
 
   bool is_trainable_{true};
 
+  HCTR_DISALLOW_COPY_AND_MOVE(EmbeddingData);
+
   size_t get_batch_size_per_gpu(bool is_train) const {
     return embedding_params_.get_batch_size(is_train) / resource_manager_->get_global_gpu_count();
   }
@@ -256,10 +258,6 @@ class EmbeddingData {
     }
     return;
   }
-  /**
-   * The declaration for indicating that there is no default copy construtor in this class.
-   */
-  DISALLOW_COPY_AND_MOVE(EmbeddingData)
 };
 
 #define USE_EMBEDDING_DATA_FUNCTION(embedding_data)                                          \

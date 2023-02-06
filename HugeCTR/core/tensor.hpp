@@ -27,6 +27,7 @@ copy function. signature
 #include "core.hpp"
 #include "datatype.hpp"
 #include "device.hpp"
+#include "macro.hpp"
 #include "shape.hpp"
 
 namespace core {
@@ -49,11 +50,11 @@ class TensorImpl {
   TensorMeta tensor_meta_;
 
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(TensorImpl);
+
   TensorImpl(Storage storage, int64_t storage_offset, const Shape &shape, Device device,
              DataType dtype)
       : storage_(storage), storage_offset_(storage_offset), tensor_meta_(shape, device, dtype) {}
-
-  DISALLOW_COPY_AND_MOVE(TensorImpl)
 
   void *get_ptr() const {
     return static_cast<void *>(static_cast<char *>(storage_->get_ptr()) + storage_offset_);

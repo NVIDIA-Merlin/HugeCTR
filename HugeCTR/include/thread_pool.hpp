@@ -31,9 +31,12 @@ namespace HugeCTR {
 
 class ThreadPool final {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(ThreadPool);
+
   ThreadPool(const std::string& name);
+
   ThreadPool(const std::string& name, size_t num_workers);
-  DISALLOW_COPY(ThreadPool);
+
   virtual ~ThreadPool();
 
   inline const std::string& name() const { return name_; }

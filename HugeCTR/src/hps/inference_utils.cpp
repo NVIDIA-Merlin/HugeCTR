@@ -37,13 +37,11 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          address == p.address && user_name == p.user_name && password == p.password &&
          num_partitions == p.num_partitions && allocation_rate == p.allocation_rate &&
          shared_memory_size == p.shared_memory_size && shared_memory_name == p.shared_memory_name &&
-         num_node_connections == p.num_node_connections &&
-         max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         num_node_connections == p.num_node_connections && max_batch_size == p.max_batch_size &&
          enable_tls == p.enable_tls && tls_ca_certificate == p.tls_ca_certificate &&
          tls_client_certificate == p.tls_client_certificate && tls_client_key == p.tls_client_key &&
          tls_server_name_identification == p.tls_server_name_identification &&
          // Overflow handling related.
-         refresh_time_after_fetch == p.refresh_time_after_fetch &&
          overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
          overflow_resolution_target == p.overflow_resolution_target &&
          // Caching behavior related.
@@ -61,7 +59,7 @@ bool PersistentDatabaseParams::operator==(const PersistentDatabaseParams& p) con
   return type == p.type &&
          // Backend specific.
          path == p.path && num_threads == p.num_threads && read_only == p.read_only &&
-         max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         max_batch_size == p.max_batch_size &&
          // Caching behavior related.
          initialize_after_startup == p.initialize_after_startup &&
          // Real-time update mechanism related.
@@ -92,12 +90,12 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     const std::string& address, const std::string& user_name, const std::string& password,
     const size_t num_partitions, const size_t allocation_rate, const size_t shared_memory_size,
     const std::string& shared_memory_name, const size_t num_node_connections,
-    const size_t max_get_batch_size, const size_t max_set_batch_size, const bool enable_tls,
-    const std::string& tls_ca_certificate, const std::string& tls_client_certificate,
-    const std::string& tls_client_key, const std::string& tls_server_name_identification,
+    const size_t max_batch_size, const bool enable_tls, const std::string& tls_ca_certificate,
+    const std::string& tls_client_certificate, const std::string& tls_client_key,
+    const std::string& tls_server_name_identification,
     // Overflow handling related.
-    const bool refresh_time_after_fetch, const size_t overflow_margin,
-    const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
+    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
+    const double overflow_resolution_target,
     // Caching behavior related.
     const bool initialize_after_startup, const double initial_cache_rate,
     const bool cache_missed_embeddings,
@@ -113,15 +111,13 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       shared_memory_size{shared_memory_size},
       shared_memory_name{shared_memory_name},
       num_node_connections{num_node_connections},
-      max_get_batch_size{max_get_batch_size},
-      max_set_batch_size{max_set_batch_size},
+      max_batch_size{max_batch_size},
       enable_tls{enable_tls},
       tls_ca_certificate{tls_ca_certificate},
       tls_client_certificate{tls_client_certificate},
       tls_client_key{tls_client_key},
       tls_server_name_identification{tls_server_name_identification},
       // Overflow handling related.
-      refresh_time_after_fetch{refresh_time_after_fetch},
       overflow_margin{overflow_margin},
       overflow_policy{overflow_policy},
       overflow_resolution_target{overflow_resolution_target},
@@ -139,8 +135,7 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
                                                    // Backend specific.
                                                    const std::string& path,
                                                    const size_t num_threads, const bool read_only,
-                                                   const size_t max_get_batch_size,
-                                                   const size_t max_set_batch_size,
+                                                   const size_t max_batch_size,
                                                    // Caching behavior related.
                                                    const bool initialize_after_startup,
                                                    // Real-time update mechanism related.
@@ -150,8 +145,7 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
       path(path),
       num_threads(num_threads),
       read_only(read_only),
-      max_get_batch_size(max_get_batch_size),
-      max_set_batch_size(max_set_batch_size),
+      max_batch_size(max_batch_size),
       // Caching behavior related.
       initialize_after_startup{initialize_after_startup},
       // Real-time update mechanism related.
@@ -300,10 +294,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.num_threads = get_value_from_json_soft(persistent_db, "num_threads", params.num_threads);
     params.read_only = get_value_from_json_soft(persistent_db, "read_only", params.read_only);
 
-    params.max_get_batch_size =
-        get_value_from_json_soft(persistent_db, "max_get_batch_size", params.max_get_batch_size);
-    params.max_set_batch_size =
-        get_value_from_json_soft(persistent_db, "max_set_batch_size", params.max_set_batch_size);
+    params.max_batch_size =
+        get_value_from_json_soft(persistent_db, "max_batch_size", params.max_batch_size);
 
     if (persistent_db.find("update_filters") != persistent_db.end()) {
       params.update_filters.clear();
@@ -342,10 +334,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.num_node_connections =
         get_value_from_json_soft(volatile_db, "num_node_connections", params.num_node_connections);
 
-    params.max_get_batch_size =
-        get_value_from_json_soft(volatile_db, "max_get_batch_size", params.max_get_batch_size);
-    params.max_set_batch_size =
-        get_value_from_json_soft(volatile_db, "max_set_batch_size", params.max_set_batch_size);
+    params.max_batch_size =
+        get_value_from_json_soft(volatile_db, "max_batch_size", params.max_batch_size);
 
     params.enable_tls = get_value_from_json_soft(volatile_db, "enable_tls", params.enable_tls);
     params.tls_ca_certificate =
@@ -358,9 +348,6 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
         volatile_db, "tls_server_name_identification", params.tls_server_name_identification);
 
     // Overflow handling related.
-    params.refresh_time_after_fetch = get_value_from_json_soft(
-        volatile_db, "refresh_time_after_fetch", params.refresh_time_after_fetch);
-
     params.overflow_margin =
         get_value_from_json_soft(volatile_db, "overflow_margin", params.overflow_margin);
     params.overflow_policy =
@@ -764,15 +751,22 @@ DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, con
   DatabaseOverflowPolicy_t enum_value;
   std::unordered_set<const char*> names;
 
-  enum_value = DatabaseOverflowPolicy_t::EvictOldest;
-  names = {hctr_enum_to_c_str(enum_value), "oldest"};
+  enum_value = DatabaseOverflowPolicy_t::EvictRandom;
+  names = {hctr_enum_to_c_str(enum_value), "random"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;
     }
 
-  enum_value = DatabaseOverflowPolicy_t::EvictRandom;
-  names = {hctr_enum_to_c_str(enum_value), "random"};
+  enum_value = DatabaseOverflowPolicy_t::EvictLeastUsed;
+  names = {hctr_enum_to_c_str(enum_value), "least_used"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = DatabaseOverflowPolicy_t::EvictOldest;
+  names = {hctr_enum_to_c_str(enum_value), "oldest"};
   for (const char* name : names)
     if (tmp == name) {
       return enum_value;

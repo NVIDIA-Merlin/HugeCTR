@@ -46,8 +46,9 @@ class KafkaMessageSink final : public MessageSink<Key, KafkaMessageSinkParams> {
  public:
   using Base = MessageSink<Key, KafkaMessageSinkParams>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(KafkaMessageSink);
+
   KafkaMessageSink() = delete;
-  DISALLOW_COPY_AND_MOVE(KafkaMessageSink);
 
   /**
    * Construct a new \p KafkaMessageSink object.
@@ -139,8 +140,9 @@ class KafkaMessageSink final : public MessageSink<Key, KafkaMessageSinkParams> {
 template <typename Key>
 class KafkaMessageSource final : public MessageSource<Key> {
  public:
-  DISALLOW_COPY_AND_MOVE(KafkaMessageSource);
   using Base = MessageSource<Key>;
+
+  HCTR_DISALLOW_COPY_AND_MOVE(KafkaMessageSource);
 
   /**
    * Construct a new KafkaMessageSource object.

@@ -49,8 +49,10 @@ class MultiProcessHashMapBackend final
  public:
   using Base = VolatileBackend<Key, MultiProcessHashMapBackendParams>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(MultiProcessHashMapBackend);
+
   MultiProcessHashMapBackend() = delete;
-  DISALLOW_COPY_AND_MOVE(MultiProcessHashMapBackend);
+
   MultiProcessHashMapBackend(const MultiProcessHashMapBackendParams& params);
 
   virtual ~MultiProcessHashMapBackend();
@@ -64,15 +66,15 @@ class MultiProcessHashMapBackend final
   size_t contains(const std::string& table_name, size_t num_keys, const Key* keys,
                   const std::chrono::nanoseconds& time_budget) const override;
 
-  bool insert(const std::string& table_name, size_t num_pairs, const Key* keys, const char* values,
-              size_t value_size) override;
+  size_t insert(const std::string& table_name, size_t num_pairs, const Key* keys,
+                const char* values, uint32_t value_size, size_t value_stride) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+  size_t fetch(const std::string& table_name, size_t num_keys, const Key* keys, char* values,
+               size_t value_stride, const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const Key* keys, const DatabaseHitCallback& on_hit,
+               const Key* keys, char* values, size_t value_stride,
                const DatabaseMissCallback& on_miss,
                const std::chrono::nanoseconds& time_budget) override;
 
@@ -82,21 +84,11 @@ class MultiProcessHashMapBackend final
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
-  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+  size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
 
-  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+  size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
  protected:
-  // Data-structure that will be associated with every key.
-  struct Payload final {
-    time_t last_access;
-    char value[1];
-  };
-  static constexpr size_t meta_size = sizeof(Payload) - sizeof(char[1]);
-  static_assert(meta_size >= sizeof(time_t));
-  using PayloadPtr = boost::interprocess::offset_ptr<Payload>;
-  using Entry = std::pair<const Key, PayloadPtr>;
-
   using Segment = boost::interprocess::managed_shared_memory;
   template <typename T>
   using SegmentAllocator = boost::interprocess::allocator<T, Segment::segment_manager>;
@@ -106,8 +98,6 @@ class MultiProcessHashMapBackend final
   template <typename T>
   using SharedVector = boost::interprocess::vector<T, SegmentAllocator<T>>;
 
-  using Page = SharedVector<char>;
-
   template <typename K, typename V>
   using SharedMap = boost::unordered_map<K, V, boost::hash<K>, std::equal_to<K>,
                                          SegmentAllocator<std::pair<const K, V>>>;
@@ -116,36 +106,54 @@ class MultiProcessHashMapBackend final
   using SharedFlatMap =
       boost::interprocess::flat_map<K, V, std::less<K>, SegmentAllocator<std::pair<const K, V>>>;
 
+ protected:
+  static constexpr size_t value_page_alignment{1};
+
+  using ValuePage = SharedVector<char>;
+  using ValuePtr = boost::interprocess::offset_ptr<char>;
+
+  // Data-structure that will be associated with every key.
+  struct Payload final {
+    union {
+      time_t last_access;
+      uint64_t access_count;
+    };
+    ValuePtr value;
+  };
+  using Entry = std::pair<const Key, Payload>;
+
   struct Partition final {
-    size_t index;
     uint32_t value_size;
     size_t allocation_rate;
+    size_t overflow_margin;
+    DatabaseOverflowPolicy_t overflow_policy;
+    double overflow_resolution_target;
 
     // Pooled payload storage.
-    SharedVector<Page> payload_pages;
-    SharedVector<PayloadPtr> payload_slots;
+    SharedVector<ValuePage> value_pages;
+    SharedVector<ValuePtr> value_slots;
 
     // Key -> Payload map.
-    SharedFlatMap<Key, PayloadPtr> entries;
+    SharedFlatMap<Key, Payload> entries;
 
     Partition() = delete;
-    Partition(const size_t index, const uint32_t value_size, const size_t allocation_rate,
+
+    Partition(const uint32_t value_size, const MultiProcessHashMapBackendParams& params,
               Segment& segment)
-        : index{index},
-          value_size{value_size},
-          allocation_rate{allocation_rate},
-          payload_pages(segment.get_allocator<Page>()),
-          payload_slots(segment.get_allocator<PayloadPtr>()),
+        : value_size{value_size},
+          allocation_rate{params.allocation_rate},
+          overflow_margin{params.overflow_margin},
+          overflow_policy{params.overflow_policy},
+          overflow_resolution_target{params.overflow_resolution_target},
+          value_pages(segment.get_allocator<ValuePage>()),
+          value_slots(segment.get_allocator<ValuePtr>()),
           entries(segment.get_allocator<Entry>()) {}
   };
 
   struct SharedMemory final {
-    const size_t overflow_margin;
-    const DatabaseOverflowPolicy_t overflow_policy;
-    const double overflow_resolution_target;
     const std::chrono::nanoseconds heart_beat_frequency;
     const bool auto_remove;
-    std::atomic<uint64_t> heart_beat;
+    volatile std::atomic<uint64_t> heart_beat;
 
     // Access control.
     boost::interprocess::interprocess_sharable_mutex read_write_guard;
@@ -153,25 +161,22 @@ class MultiProcessHashMapBackend final
     // Actual data.
     SharedMap<SharedString, SharedVector<Partition>> tables;
 
+    HCTR_DISALLOW_COPY_AND_MOVE(SharedMemory);
+
     SharedMemory() = delete;
-    DISALLOW_COPY_AND_MOVE(SharedMemory);
-    SharedMemory(const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
-                 const double overflow_resolution_target,
-                 const std::chrono::nanoseconds& heart_beat_frequency, const bool& auto_remove,
+
+    SharedMemory(const std::chrono::nanoseconds& heart_beat_frequency, const bool& auto_remove,
                  Segment& segment)
-        : overflow_margin{overflow_margin},
-          overflow_policy{overflow_policy},
-          overflow_resolution_target{overflow_resolution_target},
-          heart_beat_frequency{heart_beat_frequency},
+        : heart_beat_frequency{heart_beat_frequency},
           auto_remove{auto_remove},
           heart_beat{0},
           tables(segment.get_allocator<std::pair<const SharedString, SharedVector<Partition>>>()) {}
   };
 
   Segment sm_segment_;
-  SegmentAllocator<char> sm_char_allocator_;
-  SegmentAllocator<Page> sm_page_allocator_;
-  SegmentAllocator<Partition> sm_partition_allocator_;
+  SegmentAllocator<char> char_allocator_;
+  SegmentAllocator<ValuePage> value_page_allocator_;
+  SegmentAllocator<Partition> partition_allocator_;
   SharedMemory* sm_;
 
   // Heart beat system.
@@ -180,7 +185,7 @@ class MultiProcessHashMapBackend final
   bool is_process_connected_() const;
 
   // Overflow resolution.
-  size_t resolve_overflow_(const std::string& table_name, Partition& part);
+  size_t resolve_overflow_(const std::string& table_name, size_t part_index, Partition& part);
 };
 
 // TODO: Remove me!

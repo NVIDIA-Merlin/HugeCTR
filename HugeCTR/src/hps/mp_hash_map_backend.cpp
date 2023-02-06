@@ -18,7 +18,7 @@
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/sharable_lock.hpp>
 #include <boost/utility/string_view.hpp>
-#include <hps/database_backend_detail.hpp>
+#include <hps/hash_map_backend_detail.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/mp_hash_map_backend.hpp>
 #include <random>
@@ -28,104 +28,18 @@
 
 namespace HugeCTR {
 
-#ifdef HCTR_HASH_MAP_BACKEND_CONTAINS_
-#error HCTR_HASH_MAP_BACKEND_CONTAINS_ already defined. Potential naming conflict!
-#else
-#define HCTR_HASH_MAP_BACKEND_CONTAINS_(KEY) \
-  hit_count += part.entries.find((KEY)) != part.entries.end()
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_INSERT_
-#error HCTR_HASH_MAP_BACKEND_INSERT_ already defined. Potential naming conflict!
-#else
-#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                                   \
-  do {                                                                                   \
-    const auto& res = part.entries.try_emplace((KEY));                                   \
-    Entry& entry = *res.first;                                                           \
-                                                                                         \
-    /* If new insertion. */                                                              \
-    if (res.second) {                                                                    \
-      /* If no free space, allocate another buffer, and fill pointer queue. */           \
-      if (part.payload_slots.empty()) {                                                  \
-        const size_t payload_size = meta_size + value_size;                              \
-        const size_t num_payloads = part.allocation_rate / payload_size;                 \
-        HCTR_CHECK(num_payloads > 0);                                                    \
-                                                                                         \
-        /* Get more memory. */                                                           \
-        part.payload_pages.emplace_back(num_payloads* payload_size, sm_char_allocator_); \
-        Page& page = part.payload_pages.back();                                          \
-                                                                                         \
-        /* Stock up slot references. */                                                  \
-        part.payload_slots.reserve(num_payloads);                                        \
-        for (auto nxt = page.end(); nxt != page.begin();) {                              \
-          nxt -= payload_size;                                                           \
-          part.payload_slots.emplace_back(reinterpret_cast<Payload*>(&*nxt));            \
-        }                                                                                \
-      }                                                                                  \
-                                                                                         \
-      /* Fetch pointer. */                                                               \
-      entry.second = part.payload_slots.back();                                          \
-      part.payload_slots.pop_back();                                                     \
-    }                                                                                    \
-                                                                                         \
-    entry.second->last_access = now;                                                     \
-    std::copy_n((VALUES_PTR), value_size, entry.second->value);                          \
-    num_inserts++;                                                                       \
-  } while (0)
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_FETCH_
-#error HCTR_HASH_MAP_BACKEND_FETCH_ already defined. Potential naming conflict!
-#else
-#define HCTR_HASH_MAP_BACKEND_FETCH_(KEY, INDEX)                                             \
-  do {                                                                                       \
-    const auto& it = part.entries.find((KEY));                                               \
-    if (it != part.entries.end()) {                                                          \
-      const PayloadPtr& payload = it->second;                                                \
-                                                                                             \
-      /* Race-conditions here are deliberately ignored because insignificant in practice. */ \
-      payload->last_access = now;                                                            \
-      on_hit((INDEX), payload->value, part.value_size);                                      \
-      hit_count++;                                                                           \
-    } else {                                                                                 \
-      on_miss((INDEX));                                                                      \
-    }                                                                                        \
-  } while (0)
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_EVICT_
-#error HCTR_HASH_MAP_BACKEND_EVICT_ already defined. Potential naming conflict!
-#else
-#define HCTR_HASH_MAP_BACKEND_EVICT_(KEY)       \
-  do {                                          \
-    const auto& it = part.entries.find((KEY));  \
-    if (it != part.entries.end()) {             \
-      const PayloadPtr& payload = it->second;   \
-                                                \
-      /* Stash pointer and erase item. */       \
-      part.payload_slots.emplace_back(payload); \
-      part.entries.erase(it);                   \
-      hit_count++;                              \
-    }                                           \
-  } while (0)
-#endif
-
 template <typename Key>
 MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
     const MultiProcessHashMapBackendParams& params)
     : Base(params),
       sm_segment_(boost::interprocess::open_or_create, params.shared_memory_name.c_str(),
                   params.shared_memory_size),
-      sm_char_allocator_{sm_segment_.get_allocator<char>()},
-      sm_page_allocator_{sm_segment_.get_allocator<Page>()},
-      sm_partition_allocator_{sm_segment_.get_allocator<Partition>()} {
-  sm_ = sm_segment_.find_or_construct<SharedMemory>("sm")(
-      params.overflow_margin, params.overflow_policy, params.overflow_resolution_target,
-      params.heart_beat_frequency, params.auto_remove, sm_segment_);
+      char_allocator_{sm_segment_.get_allocator<char>()},
+      value_page_allocator_{sm_segment_.get_allocator<ValuePage>()},
+      partition_allocator_{sm_segment_.get_allocator<Partition>()},
+      sm_{sm_segment_.find_or_construct<SharedMemory>("sm")(params.heart_beat_frequency,
+                                                            params.auto_remove, sm_segment_)} {
   HCTR_CHECK(sm_);
-  HCTR_CHECK(sm_->overflow_margin == params.overflow_margin);
-  HCTR_CHECK(sm_->overflow_policy == params.overflow_policy);
-  HCTR_CHECK(sm_->overflow_resolution_target == params.overflow_resolution_target);
   HCTR_CHECK(sm_->heart_beat_frequency == params.heart_beat_frequency);
   HCTR_CHECK(sm_->auto_remove == params.auto_remove);
 
@@ -170,7 +84,7 @@ MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
 
 template <typename Key>
 bool MultiProcessHashMapBackend<Key>::is_process_connected_() const {
-  const uint64_t old_heart_beat = sm_->heart_beat;
+  const uint64_t old_heart_beat{sm_->heart_beat};
   std::this_thread::sleep_for(sm_->heart_beat_frequency * 5);
   return sm_->heart_beat != old_heart_beat;
 }
@@ -201,579 +115,356 @@ size_t MultiProcessHashMapBackend<Key>::size(const std::string& table_name) cons
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
     return 0;
   }
+  const SharedVector<Partition>& parts{tables_it->second};
 
-  size_t num_keys = 0;
-  for (const Partition& part : tables_it->second) {
-    num_keys += part.entries.size();
-  }
-  return num_keys;
+  return std::accumulate(parts.begin(), parts.end(), UINT64_C(0),
+                         [](const size_t a, const Partition& b) { return a + b.entries.size(); });
 }
 
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::contains(
-    const std::string& table_name, size_t num_keys, const Key* keys,
+    const std::string& table_name, const size_t num_keys, const Key* const keys,
     const std::chrono::nanoseconds& time_budget) const {
-  const auto begin = std::chrono::high_resolution_clock::now();
+  const auto begin{std::chrono::high_resolution_clock::now()};
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
     return Base::contains(table_name, num_keys, keys, time_budget);
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts{tables_it->second};
 
-  size_t hit_count = 0;
-  size_t ign_count = 0;
+  const Key* const keys_end{&keys[num_keys]};
+  const size_t num_partitions{parts.size()};
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  switch (num_keys) {
-    case 0: {
-      // Nothing to do ;-).
-    } break;
+  size_t hit_count{0};
+  size_t skip_count{0};
 
-    case 1: {
-      // Check time budget.
-      const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-      if (elapsed >= time_budget) {
-        HCTR_LOG_S(WARNING, WORLD)
-            << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
+  if (num_keys == 0) {
+    // Do nothing ;-).
+  } else if (num_keys == 1 || num_partitions == 1) {
+    const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
+    const Partition& part{parts[part_index]};
 
-        ign_count++;
-        break;
+    // Step through keys batch-by-batch.
+    std::chrono::nanoseconds elapsed;
+    for (const Key* k{keys}; k != keys_end;) {
+      HCTR_HPS_DB_CHECK_TIME_BUDGET_(SEQUENTIAL_DIRECT, nullptr);
+
+      const size_t prev_hit_count{hit_count};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
+      HCTR_HPS_HASH_MAP_CONTAINS_(SEQUENTIAL_DIRECT);
+
+      HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                 ", batch ", (k - keys - 1) / max_batch_size, ": ", hit_count - prev_hit_count,
+                 " / ", batch_size, " hits. Time: ", elapsed.count(), " / ", time_budget.count(),
+                 " ns.\n");
+    }
+  } else {
+    std::atomic<size_t> joint_hit_count{0};
+    std::atomic<size_t> joint_skip_count{0};
+
+    HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
+      const Partition& part{parts[part_index]};
+
+      size_t hit_count{0};
+
+      // Step through keys batch-by-batch.
+      std::chrono::nanoseconds elapsed;
+      size_t num_batches{0};
+      for (const Key* k{keys}; k != keys_end; ++num_batches) {
+        HCTR_HPS_DB_CHECK_TIME_BUDGET_(PARALLEL_DIRECT, nullptr);
+
+        const size_t prev_hit_count{hit_count};
+        size_t batch_size{0};
+        HCTR_HPS_HASH_MAP_CONTAINS_(PARALLEL_DIRECT);
+
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   ", batch ", num_batches, ": ", hit_count - prev_hit_count, " / ", batch_size,
+                   " hits. Time: ", elapsed.count(), " / ", time_budget.count(), " ns.\n");
       }
 
-      // Check partition.
-      const Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
-      HCTR_HASH_MAP_BACKEND_CONTAINS_(*keys);
-    } break;
+      joint_hit_count += hit_count;
+    });
 
-    default: {
-      // Precalc constants.
-      const Key* keys_end = &keys[num_keys];
-
-      if (parts.size() == 1) {
-        const Partition& part = parts.front();
-
-        // Traverse through keys.
-        size_t num_batches = 0;
-        for (const Key* k = keys; k != keys_end; num_batches++) {
-          // Check time budget.
-          const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-          if (elapsed >= time_budget) {
-            HCTR_LOG_S(WARNING, WORLD)
-                << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-            ign_count += keys_end - k;
-            break;
-          }
-
-          // Query next batch.
-          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
-          for (; k != batch_end; k++) {
-            HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
-          }
-
-          HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name
-                                   << ", partition " << part.index << ", batch " << num_batches
-                                   << ": " << hit_count << " hits. Time: " << elapsed.count()
-                                   << " / " << time_budget.count() << " ns." << std::endl;
-        }
-      } else {
-        std::atomic<size_t> joint_hit_count{0};
-        std::atomic<size_t> joint_ign_count{0};
-
-        // Process partitions.
-        std::vector<std::future<void>> tasks;
-        tasks.reserve(parts.size());
-
-        for (const Partition& part : parts) {
-          tasks.emplace_back(ThreadPool::get().submit([&]() {
-            size_t hit_count = 0;
-
-            size_t num_batches = 0;
-            for (const Key* k = keys; k != keys_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; k != keys_end; k++) {
-                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
-                break;
-              }
-
-              // Query next batch.
-              size_t batch_size = 0;
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                  HCTR_HASH_MAP_BACKEND_CONTAINS_(*k);
-                  if (++batch_size >= this->params_.max_get_batch_size) {
-                    ++k;
-                    break;
-                  }
-                }
-              }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Table " << table_name << ", partition " << part.index
-                  << ", batch " << num_batches << ": " << hit_count << " / " << batch_size
-                  << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
-                  << std::endl;
-            }
-
-            joint_hit_count += hit_count;
-          }));
-        }
-        ThreadPool::await(tasks.begin(), tasks.end());
-        hit_count += static_cast<size_t>(joint_hit_count);
-        ign_count += static_cast<size_t>(joint_ign_count);
-      }
-    } break;
+    hit_count += joint_hit_count;
+    skip_count += joint_skip_count;
   }
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
-                           << " / " << (num_keys - ign_count) << " hits, " << ign_count
-                           << " ignored." << std::endl;
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": ", hit_count, " / ",
+             num_keys - skip_count, " hits, ", skip_count, " skipped.\n");
   return hit_count;
 }
 
 template <typename Key>
-bool MultiProcessHashMapBackend<Key>::insert(const std::string& table_name, size_t num_pairs,
-                                             const Key* keys, const char* values,
-                                             size_t value_size) {
+size_t MultiProcessHashMapBackend<Key>::insert(const std::string& table_name,
+                                               const size_t num_pairs, const Key* const keys,
+                                               const char* const values, const uint32_t value_size,
+                                               const size_t value_stride) {
+  HCTR_CHECK(value_size <= value_stride);
+
   const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions, or create them, if they do not exist yet.
-  const auto& tables_it =
-      sm_->tables.try_emplace({table_name.c_str(), sm_char_allocator_}, sm_partition_allocator_)
-          .first;
-  SharedVector<Partition>& parts = tables_it->second;
+  const auto& tables_it{
+      sm_->tables.try_emplace({table_name.c_str(), char_allocator_}, partition_allocator_).first};
+  SharedVector<Partition>& parts{tables_it->second};
   if (parts.empty()) {
     HCTR_CHECK(value_size > 0 && value_size <= this->params_.allocation_rate);
 
     parts.reserve(this->params_.num_partitions);
-    for (size_t i = 0; i < this->params_.num_partitions; ++i) {
-      parts.emplace_back(i, value_size, this->params_.allocation_rate, sm_segment_);
+    while (parts.size() < this->params_.num_partitions) {
+      parts.emplace_back(value_size, this->params_, sm_segment_);
     }
-  } else {
-    HCTR_CHECK(parts.size() == this->params_.num_partitions);
   }
 
-  size_t num_inserts = 0;
+  const Key* const keys_end{&keys[num_pairs]};
+  const size_t num_partitions{parts.size()};
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  switch (num_pairs) {
-    case 0: {
-      // Do nothing ;-).
-    } break;
+  size_t num_inserts{0};
 
-    case 1: {
-      Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
-      HCTR_CHECK(part.value_size == value_size);
+  if (num_pairs == 0) {
+    // Do nothing ;-).
+  } else if (num_pairs == 1 || num_partitions == 1) {
+    const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
+    Partition& part{parts[part_index]};
+    HCTR_CHECK(part.value_size == value_size);
+    const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
+    // Step through batch-by-batch.
+    for (const Key* k{keys}; k != keys_end;) {
       // Check overflow condition.
-      if (part.entries.size() >= this->params_.overflow_margin) {
-        resolve_overflow_(table_name, part);
+      if (part.entries.size() >= part.overflow_margin) {
+        resolve_overflow_(table_name, part_index, part);
       }
 
       // Perform insertion.
-      const time_t now = std::time(nullptr);
-      HCTR_HASH_MAP_BACKEND_INSERT_(*keys, values);
-    } break;
+      const size_t prev_num_inserts{num_inserts};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
+      HCTR_HPS_HASH_MAP_INSERT_(SEQUENTIAL_DIRECT);
 
-    default: {
-      // Precalc constants.
-      const Key* const keys_end = &keys[num_pairs];
+      HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                 ", batch ", (k - keys - 1) / max_batch_size, ": Inserted ",
+                 num_inserts - prev_num_inserts, " + updated ",
+                 batch_size - num_inserts + prev_num_inserts, " = ", batch_size, " entries.\n");
+    }
+  } else {
+    std::atomic<size_t> joint_num_inserts{0};
 
-      if (parts.size() == 1) {
-        Partition& part = parts.front();
-        HCTR_CHECK(part.value_size == value_size);
+    HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
+      Partition& part{parts[part_index]};
+      HCTR_CHECK(part.value_size == value_size);
+      const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
-        // Step through batch-by-batch.
-        for (const Key* k = keys; k != keys_end;) {
-          // Check overflow condition.
-          if (part.entries.size() >= this->params_.overflow_margin) {
-            resolve_overflow_(table_name, part);
-          }
+      size_t num_inserts{0};
 
-          // Perform insertion.
-          const time_t now = std::time(nullptr);
-
-          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
-          for (; k != batch_end; k++) {
-            HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
-          }
+      // Step through batch-by-batch.
+      size_t num_batches{0};
+      for (const Key* k{keys}; k != keys_end; ++num_batches) {
+        // Check overflow condition.
+        if (part.entries.size() >= part.overflow_margin) {
+          resolve_overflow_(table_name, part_index, part);
         }
-      } else {
-        std::atomic<size_t> joint_num_inserts{0};
-        std::atomic<size_t> joint_ign_count{0};
 
-        // Process partitions.
-        std::vector<std::future<void>> tasks;
-        tasks.reserve(this->params_.num_partitions);
+        // Perform insertion.
+        const size_t prev_num_inserts{num_inserts};
+        size_t batch_size{0};
+        HCTR_HPS_HASH_MAP_INSERT_(PARALLEL_DIRECT);
 
-        for (Partition& part : parts) {
-          tasks.emplace_back(ThreadPool::get().submit([&]() {
-            HCTR_CHECK(part.value_size == value_size);
-
-            size_t num_inserts = 0;
-
-            // Step through batch-by-batch.
-            size_t num_batches = 0;
-            for (const Key* k = keys; k != keys_end; num_batches++) {
-              // Check overflow condition.
-              if (part.entries.size() >= this->params_.overflow_margin) {
-                resolve_overflow_(table_name, part);
-              }
-
-              // Perform insertion.
-              const time_t now = std::time(nullptr);
-
-              size_t batch_size = 0;
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                  HCTR_HASH_MAP_BACKEND_INSERT_(*k, &values[(k - keys) * value_size]);
-                  if (++batch_size >= this->params_.max_set_batch_size) {
-                    ++k;
-                    break;
-                  }
-                }
-              }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Table " << table_name << ", batch " << num_batches
-                  << ": Inserted " << batch_size << " entries." << std::endl;
-            }
-
-            joint_num_inserts += num_inserts;
-          }));
-        }
-        ThreadPool::await(tasks.begin(), tasks.end());
-        num_inserts += static_cast<size_t>(joint_num_inserts);
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   ", batch ", num_batches, ": Inserted ", num_inserts - prev_num_inserts,
+                   " + updated ", batch_size - num_inserts + prev_num_inserts, " = ", batch_size,
+                   " entries.\n");
       }
-    } break;
+
+      joint_num_inserts += num_inserts;
+    });
+
+    num_inserts += joint_num_inserts;
   }
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": Inserted "
-                           << num_inserts << " / " << num_pairs
-                           << " entries; free SM = " << sm_segment_.get_free_memory() << " bytes"
-                           << std::endl;
-  return true;
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": Inserted ", num_inserts,
+             " + updated ", num_pairs - num_inserts, " = ", num_pairs,
+             " entries; free SM = ", sm_segment_.get_free_memory(), " bytes.\n");
+  return num_inserts;
 }
 
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, const size_t num_keys,
-                                              const Key* const keys,
-                                              const DatabaseHitCallback& on_hit,
+                                              const Key* const keys, char* const values,
+                                              const size_t value_stride,
                                               const DatabaseMissCallback& on_miss,
                                               const std::chrono::nanoseconds& time_budget) {
-  const auto begin = std::chrono::high_resolution_clock::now();
+  const auto begin{std::chrono::high_resolution_clock::now()};
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
-    return Base::fetch(table_name, num_keys, keys, on_hit, on_miss, time_budget);
+    return Base::fetch(table_name, num_keys, keys, values, value_stride, on_miss, time_budget);
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  SharedVector<Partition>& parts{tables_it->second};
 
-  size_t hit_count = 0;
-  size_t ign_count = 0;
+  const Key* const keys_end{&keys[num_keys]};
+  const size_t num_partitions{parts.size()};
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  switch (num_keys) {
-    case 0: {
-      // Nothing to do ;-).
-    } break;
+  size_t miss_count{0};
+  size_t skip_count{0};
 
-    case 1: {
-      // Check time budget.
-      const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-      if (elapsed >= time_budget) {
-        HCTR_LOG_S(WARNING, WORLD)
-            << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
+  if (num_keys == 0) {
+    // Do nothing ;-).
+  } else if (num_keys == 1 || num_partitions == 1) {
+    const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
+    Partition& part{parts[part_index]};
+    HCTR_CHECK(part.value_size <= value_stride);
+    const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
-        on_miss(0);
-        ign_count++;
-        break;
+    // Step through input batch-by-batch.
+    std::chrono::nanoseconds elapsed;
+    for (const Key* k{keys}; k != keys_end;) {
+      HCTR_HPS_DB_CHECK_TIME_BUDGET_(SEQUENTIAL_DIRECT, on_miss);
+
+      const size_t prev_miss_count{miss_count};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
+      HCTR_HPS_HASH_MAP_FETCH_(SEQUENTIAL_DIRECT);
+
+      HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                 ", batch ", (k - keys - 1) / max_batch_size, ": ",
+                 batch_size - miss_count + prev_miss_count, " / ", batch_size,
+                 " hits. Time: ", elapsed.count(), " / ", time_budget.count(), " ns.\n");
+    }
+  } else {
+    std::atomic<size_t> joint_miss_count{0};
+    std::atomic<size_t> joint_skip_count{0};
+
+    HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
+      Partition& part{parts[part_index]};
+      HCTR_CHECK(part.value_size <= value_stride);
+      const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
+
+      size_t miss_count{0};
+
+      // Step through input batch-by-batch.
+      std::chrono::nanoseconds elapsed;
+      size_t num_batches{0};
+      for (const Key* k{keys}; k != keys_end; ++num_batches) {
+        HCTR_HPS_DB_CHECK_TIME_BUDGET_(PARALLEL_DIRECT, on_miss);
+
+        const size_t prev_miss_count{miss_count};
+        size_t batch_size{0};
+        HCTR_HPS_HASH_MAP_FETCH_(PARALLEL_DIRECT);
+
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   ", batch ", num_batches, ": ", batch_size - miss_count + prev_miss_count, " / ",
+                   batch_size, " hits. Time: ", elapsed.count(), " / ", time_budget.count(),
+                   " ns.\n");
       }
 
-      // Perform query.
-      const Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
-      const time_t now = std::time(nullptr);
+      joint_miss_count += miss_count;
+    });
 
-      HCTR_HASH_MAP_BACKEND_FETCH_(*keys, 0);
-    } break;
-
-    default: {
-      // Precalc constants.
-      const Key* const keys_end = &keys[num_keys];
-
-      if (parts.size() == 1) {
-        const Partition& part = parts.front();
-
-        // Step through batch-by-batch.
-        size_t num_batches = 0;
-        for (const Key* k = keys; k != keys_end; num_batches++) {
-          // Check time budget.
-          const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-          if (elapsed >= time_budget) {
-            HCTR_LOG_S(WARNING, WORLD)
-                << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-            for (; k != keys_end; k++) {
-              on_miss(k - keys);
-              ign_count++;
-            }
-            break;
-          }
-
-          // Perform a bunch of queries.
-          const size_t prev_hit_count = hit_count;
-          const time_t now = std::time(nullptr);
-
-          const Key* const batch_end = std::min(&k[this->params_.max_get_batch_size], keys_end);
-          for (; k != batch_end; k++) {
-            HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
-          }
-
-          HCTR_LOG_S(TRACE, WORLD)
-              << get_name() << " backend; Table " << table_name << ", partition " << part.index
-              << ", batch " << num_batches << ": " << hit_count - prev_hit_count
-              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
-              << std::endl;
-        }
-      } else {
-        std::atomic<size_t> joint_hit_count{0};
-        std::atomic<size_t> joint_ign_count{0};
-
-        // Spawn threads.
-        std::vector<std::future<void>> tasks;
-        tasks.reserve(parts.size());
-
-        for (const Partition& part : parts) {
-          tasks.emplace_back(ThreadPool::get().submit([&]() {
-            size_t hit_count = 0;
-
-            // Traverse through keys, and fetch them one by one.
-            size_t num_batches = 0;
-            for (const Key* k = keys; k != keys_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; k != keys_end; k++) {
-                  if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                    on_miss(k - keys);
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
-                break;
-              }
-
-              // Perform a bunch of queries.
-              const size_t prev_hit_count = hit_count;
-              const time_t now = std::time(nullptr);
-
-              size_t batch_size = 0;
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                  HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
-                  if (++batch_size >= this->params_.max_get_batch_size) {
-                    ++k;
-                    break;
-                  }
-                }
-              }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Table " << table_name << ", partition " << part.index
-                  << ", batch " << num_batches << ": " << (hit_count - prev_hit_count) << " / "
-                  << batch_size << " hits. Time: " << elapsed.count() << " / "
-                  << time_budget.count() << " ns." << std::endl;
-            }
-
-            joint_hit_count += hit_count;
-          }));
-        }
-        ThreadPool::await(tasks.begin(), tasks.end());
-        hit_count += static_cast<size_t>(joint_hit_count);
-        ign_count += static_cast<size_t>(joint_ign_count);
-      }
-    } break;
+    miss_count += joint_miss_count;
+    skip_count += joint_skip_count;
   }
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
-                           << " / " << (num_keys - ign_count) << " hits. Ignored: " << ign_count
-                           << '.' << std::endl;
+  const size_t hit_count{num_keys - skip_count - miss_count};
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": ", hit_count, " / ",
+             num_keys - skip_count, " hits; skipped ", skip_count, " keys.\n");
   return hit_count;
 }
 
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
                                               const size_t num_indices, const size_t* const indices,
-                                              const Key* const keys,
-                                              const DatabaseHitCallback& on_hit,
+                                              const Key* const keys, char* const values,
+                                              const size_t value_stride,
                                               const DatabaseMissCallback& on_miss,
                                               const std::chrono::nanoseconds& time_budget) {
-  const auto begin = std::chrono::high_resolution_clock::now();
+  const auto begin{std::chrono::high_resolution_clock::now()};
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
-    return Base::fetch(table_name, num_indices, indices, keys, on_hit, on_miss, time_budget);
+    return Base::fetch(table_name, num_indices, indices, keys, values, value_stride, on_miss,
+                       time_budget);
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  SharedVector<Partition>& parts{tables_it->second};
 
-  size_t hit_count = 0;
-  size_t ign_count = 0;
+  const size_t* const indices_end{&indices[num_indices]};
+  const size_t num_partitions{parts.size()};
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  switch (num_indices) {
-    case 0: {
-      // Nothing to do ;-).
-    } break;
+  size_t miss_count{0};
+  size_t skip_count{0};
 
-    case 1: {
-      // Check time budget.
-      const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-      if (elapsed >= time_budget) {
-        HCTR_LOG_S(WARNING, WORLD)
-            << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
+  if (num_indices == 0) {
+    // Do nothing ;-).
+  } else if (num_indices == 1 || num_partitions == 1) {
+    const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
+    Partition& part{parts[part_index]};
+    HCTR_CHECK(part.value_size <= value_stride);
+    const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
-        on_miss(*indices);
-        ign_count++;
-        break;
+    // Step through input batch-by-batch.
+    std::chrono::nanoseconds elapsed;
+    for (const size_t* i{indices}; i != indices_end;) {
+      HCTR_HPS_DB_CHECK_TIME_BUDGET_(SEQUENTIAL_INDIRECT, on_miss);
+
+      const size_t prev_miss_count{miss_count};
+      const size_t batch_size{std::min<size_t>(indices_end - i, max_batch_size)};
+      HCTR_HPS_HASH_MAP_FETCH_(SEQUENTIAL_INDIRECT);
+
+      HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                 ", batch ", (i - indices - 1) / max_batch_size, ": ",
+                 batch_size - miss_count + prev_miss_count, " / ", batch_size,
+                 " hits. Time: ", elapsed.count(), " / ", time_budget.count(), " ns.\n");
+    }
+  } else {
+    std::atomic<size_t> joint_miss_count{0};
+    std::atomic<size_t> joint_skip_count{0};
+
+    HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
+      Partition& part{parts[part_index]};
+      HCTR_CHECK(part.value_size <= value_stride);
+      const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
+
+      size_t miss_count{0};
+
+      // Step through input batch-by-batch.
+      std::chrono::nanoseconds elapsed;
+      size_t num_batches{0};
+      for (const size_t* i{indices}; i != indices_end; ++num_batches) {
+        HCTR_HPS_DB_CHECK_TIME_BUDGET_(PARALLEL_INDIRECT, on_miss);
+
+        const size_t prev_miss_count{miss_count};
+        size_t batch_size{0};
+        HCTR_HPS_HASH_MAP_FETCH_(PARALLEL_INDIRECT);
+
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   ", batch ", num_batches, ": ", batch_size - miss_count + prev_miss_count, " / ",
+                   batch_size, " hits. Time: ", elapsed.count(), " / ", time_budget.count(),
+                   " ns.\n");
       }
 
-      // Precalc constants.
-      const Key& k = keys[*indices];
-      const Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(k)];
+      joint_miss_count += miss_count;
+    });
 
-      // Perform query.
-      const time_t now = std::time(nullptr);
-      HCTR_HASH_MAP_BACKEND_FETCH_(k, *indices);
-    } break;
-
-    default: {
-      // Precalc constants.
-      const size_t* const indices_end = &indices[num_indices];
-
-      if (parts.size() == 1) {
-        const Partition& part = parts.front();
-
-        // Step through batch-by-batch.
-        size_t num_batches = 0;
-        for (const size_t* i = indices; i != indices_end; num_batches++) {
-          // Check time budget.
-          const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-          if (elapsed >= time_budget) {
-            HCTR_LOG_S(WARNING, WORLD)
-                << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-            for (; i != indices_end; i++) {
-              on_miss(*i);
-              ign_count++;
-            }
-            break;
-          }
-
-          // Perform a bunch of queries.
-          const size_t prev_hit_count = hit_count;
-          const time_t now = std::time(nullptr);
-
-          const size_t* const batch_end =
-              std::min(&i[this->params_.max_get_batch_size], indices_end);
-          for (; i != batch_end; i++) {
-            HCTR_HASH_MAP_BACKEND_FETCH_(keys[*i], *i);
-          }
-
-          HCTR_LOG_S(TRACE, WORLD)
-              << get_name() << " backend; Table " << table_name << ", partition " << part.index
-              << ", batch " << num_batches << ": " << hit_count - prev_hit_count
-              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
-              << std::endl;
-        }
-      } else {
-        std::atomic<size_t> joint_hit_count{0};
-        std::atomic<size_t> joint_ign_count{0};
-
-        // Process partitions.
-        std::vector<std::future<void>> tasks;
-        tasks.reserve(parts.size());
-
-        for (const Partition& part : parts) {
-          tasks.emplace_back(ThreadPool::get().submit([&]() {
-            size_t hit_count = 0;
-
-            // Traverse through keys batch-wise.
-            const size_t* i = indices;
-            for (size_t num_batches = 0; i != indices_end; num_batches++) {
-              // Check time budget.
-              const auto elapsed = std::chrono::high_resolution_clock::now() - begin;
-              if (elapsed >= time_budget) {
-                HCTR_LOG_S(WARNING, WORLD)
-                    << get_name() << " backend; Table " << table_name << ": Timeout!" << std::endl;
-
-                size_t ign_count = 0;
-                for (; i != indices_end; i++) {
-                  if (HCTR_KEY_TO_DB_PART_INDEX(keys[*i]) == part.index) {
-                    on_miss(*i);
-                    ign_count++;
-                  }
-                }
-                joint_ign_count += ign_count;
-                break;
-              }
-
-              // Step through batch 1 by 1 and fetch.
-              const size_t prev_hit_count = hit_count;
-              const time_t now = std::time(nullptr);
-
-              size_t batch_size = 0;
-              for (; i != indices_end; i++) {
-                const Key& k = keys[*i];
-                if (HCTR_KEY_TO_DB_PART_INDEX(k) == part.index) {
-                  HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
-                  if (++batch_size >= this->params_.max_get_batch_size) {
-                    ++i;
-                    break;
-                  }
-                }
-              }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Table " << table_name << ", partition " << part.index
-                  << ", batch " << num_batches << ": " << (hit_count - prev_hit_count) << " / "
-                  << batch_size << " hits. Time: " << elapsed.count() << " / "
-                  << time_budget.count() << " ns." << std::endl;
-
-              joint_hit_count += hit_count;
-            }
-          }));
-        }
-        ThreadPool::await(tasks.begin(), tasks.end());
-        hit_count += static_cast<size_t>(joint_hit_count);
-        ign_count += static_cast<size_t>(joint_ign_count);
-      }
-    } break;
+    miss_count += joint_miss_count;
+    skip_count += joint_skip_count;
   }
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
-                           << " / " << (num_indices - ign_count) << " hits. Ignored: " << ign_count
-                           << '.' << std::endl;
+  const size_t hit_count{num_indices - skip_count - miss_count};
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": ", hit_count, " / ",
+             num_indices - skip_count, " hits; skipped ", skip_count, " keys.\n");
   return hit_count;
 }
 
@@ -782,22 +473,22 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name) {
   const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
     return 0;
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts{tables_it->second};
 
   // Count items and erase.
-  size_t hit_count = 0;
+  size_t num_deletions{0};
   for (const Partition& part : parts) {
-    hit_count += part.entries.size();
+    num_deletions += part.entries.size();
   }
   sm_->tables.erase(tables_it);
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << " erased ("
-                           << hit_count << " pairs)." << std::endl;
-  return hit_count;
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": Erased ", num_deletions,
+             " entries.\n");
+  return num_deletions;
 }
 
 template <typename Key>
@@ -806,98 +497,69 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
   const boost::interprocess::scoped_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
     return 0;
   }
-  SharedVector<Partition>& parts = tables_it->second;
+  SharedVector<Partition>& parts{tables_it->second};
 
-  size_t hit_count = 0;
+  const Key* const keys_end{&keys[num_keys]};
+  const size_t num_partitions{parts.size()};
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  switch (num_keys) {
-    case 0: {
-      // Nothing to do ;-).
-    } break;
+  size_t num_deletions{0};
 
-    case 1: {
-      Partition& part = parts[HCTR_KEY_TO_DB_PART_INDEX(*keys)];
-      HCTR_HASH_MAP_BACKEND_EVICT_(*keys);
-    } break;
+  if (num_keys == 0) {
+    // Do nothing ;-).
+  } else if (num_keys == 1 || num_partitions == 1) {
+    const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
+    Partition& part{parts[part_index]};
 
-    default: {
-      // Precalc constants.
-      const Key* const keys_end = &keys[num_keys];
+    // Step through input batch-by-batch.
+    for (const Key* k{keys}; k != keys_end;) {
+      const size_t prev_num_deletions{num_deletions};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
+      HCTR_HPS_HASH_MAP_EVICT_(SEQUENTIAL_DIRECT);
 
-      if (parts.size() == 1) {
-        Partition& part = parts.front();
+      HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                 ", batch ", (k - keys - 1) / max_batch_size, ": Erased ",
+                 num_deletions - prev_num_deletions, " entries.\n");
+    }
+  } else {
+    std::atomic<size_t> joint_num_deletions{0};
 
-        // Traverse through keys batch-wise.
-        size_t num_batches = 0;
-        for (const Key* k = keys; k != keys_end; num_batches++) {
-          const size_t prev_hit_count = hit_count;
+    HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
+      Partition& part{parts[part_index]};
 
-          // Step through batch 1 by 1 and delete.
-          const Key* const batch_end = std::min(&k[this->params_.max_set_batch_size], keys_end);
-          for (; k != batch_end; k++) {
-            HCTR_HASH_MAP_BACKEND_EVICT_(*k);
-          }
+      size_t num_deletions{0};
 
-          HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << "/"
-                                   << part.index << ", batch " << num_batches << ": Erased "
-                                   << (hit_count - prev_hit_count) << " entries." << std::endl;
-        }
-      } else {
-        std::atomic<size_t> joint_hit_count{0};
+      // Step through input batch-by-batch.
+      size_t num_batches{0};
+      for (const Key* k{keys}; k != keys_end; ++num_batches) {
+        const size_t prev_num_deletions{num_deletions};
+        size_t batch_size{0};
+        HCTR_HPS_HASH_MAP_EVICT_(PARALLEL_DIRECT);
 
-        // Process partitions.
-        std::vector<std::future<void>> tasks;
-        tasks.reserve(parts.size());
-
-        for (Partition& part : parts) {
-          tasks.emplace_back(ThreadPool::get().submit([&]() {
-            size_t hit_count = 0;
-
-            // Traverse through keys, batch-by-batch.
-            size_t num_batches = 0;
-            for (const Key* k = keys; k != keys_end; num_batches++) {
-              const size_t prev_hit_count = hit_count;
-
-              // Step through batch 1 by 1 and delete.
-              size_t batch_size = 0;
-              for (; k != keys_end; k++) {
-                if (HCTR_KEY_TO_DB_PART_INDEX(*k) == part.index) {
-                  HCTR_HASH_MAP_BACKEND_EVICT_(*k);
-                  if (++batch_size >= this->params_.max_set_batch_size) {
-                    ++k;
-                    break;
-                  }
-                }
-              }
-
-              HCTR_LOG_S(TRACE, WORLD)
-                  << get_name() << " backend; Partition " << table_name << "/" << part.index
-                  << ", batch " << num_batches << ": Erased " << (hit_count - prev_hit_count)
-                  << " / " << batch_size << " entries." << std::endl;
-            }
-
-            joint_hit_count += hit_count;
-          }));
-        }
-        ThreadPool::await(tasks.begin(), tasks.end());
-        hit_count += static_cast<size_t>(joint_hit_count);
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   ", batch ", num_batches, ": Erased ", num_deletions - prev_num_deletions, " / ",
+                   batch_size, " entries.\n");
       }
-    } break;
+
+      joint_num_deletions += num_deletions;
+    });
+
+    num_deletions += joint_num_deletions;
   }
 
-  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ". " << hit_count
-                           << " / " << num_keys << " entries erased." << std::endl;
-  return hit_count;
+  HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Table ", table_name, ": Erased ", num_deletions,
+             " / ", num_keys, " entries.\n");
+  return num_deletions;
 }
 
 template <typename Key>
 std::vector<std::string> MultiProcessHashMapBackend<Key>::find_tables(
     const std::string& model_name) {
-  const std::string& tag_prefix = HierParameterServerBase::make_tag_name(model_name, "", false);
+  const std::string& tag_prefix{HierParameterServerBase::make_tag_name(model_name, "", false)};
 
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
@@ -911,134 +573,112 @@ std::vector<std::string> MultiProcessHashMapBackend<Key>::find_tables(
 }
 
 template <typename Key>
-void MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
+size_t MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name,
+                                                 std::ofstream& file) {
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
-    return;
+    return 0;
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts{tables_it->second};
 
   // Store value size.
-  const uint32_t value_size = parts.empty() ? 0 : parts[0].value_size;
+  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
   file.write(reinterpret_cast<const char*>(&value_size), sizeof(uint32_t));
 
   // Store values.
+  size_t num_entries{0};
+
   for (const Partition& part : parts) {
     for (const Entry& entry : part.entries) {
       file.write(reinterpret_cast<const char*>(&entry.first), sizeof(Key));
-      file.write(entry.second->value, value_size);
+      file.write(entry.second.value.get(), value_size);
     }
+    num_entries += part.entries.size();
   }
+
+  return num_entries;
 }
 
 template <typename Key>
-void MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
-                                               rocksdb::SstFileWriter& file) {
+size_t MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
+                                                 rocksdb::SstFileWriter& file) {
   const boost::interprocess::sharable_lock lock(sm_->read_write_guard);
 
   // Locate the partitions.
-  const auto& tables_it = sm_->tables.find({table_name.c_str(), sm_char_allocator_});
+  const auto& tables_it{sm_->tables.find({table_name.c_str(), char_allocator_})};
   if (tables_it == sm_->tables.end()) {
-    return;
+    return 0;
   }
-  const SharedVector<Partition>& parts = tables_it->second;
+  const SharedVector<Partition>& parts{tables_it->second};
 
   // Sort keys by value.
   std::vector<const Entry*> entries;
   entries.reserve(
-      std::accumulate(parts.begin(), parts.end(), 0,
+      std::accumulate(parts.begin(), parts.end(), UINT64_C(0),
                       [](const size_t a, const Partition& b) { return a + b.entries.size(); }));
   for (const Partition& part : parts) {
     for (const Entry& entry : part.entries) {
       entries.emplace_back(&entry);
     }
   }
+  // TODO: Copy or ref? Chose ref because low memory footprint, but has worse cache locality.
+  // Benchmark?
   std::sort(entries.begin(), entries.end(),
             [](const auto& a, const auto& b) { return a->first < b->first; });
 
   // Iterate over pairs and insert.
   rocksdb::Slice k_view{nullptr, sizeof(Key)};
-  rocksdb::Slice v_view{nullptr, parts.empty() ? 0 : parts[0].value_size};
+  rocksdb::Slice v_view{nullptr, parts.empty() ? 0 : parts.front().value_size};
 
   for (const Entry* const entry : entries) {
     k_view.data_ = reinterpret_cast<const char*>(&entry->first);
-    v_view.data_ = entry->second->value;
+    v_view.data_ = entry->second.value.get();
     HCTR_ROCKSDB_CHECK(file.Put(k_view, v_view));
   }
+
+  return entries.size();
 }
 
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& table_name,
+                                                          const size_t part_index,
                                                           Partition& part) {
-  // Return if no overflow.
-  if (part.entries.size() > this->params_.overflow_margin) {
-    return 0;
-  }
+  const size_t max_batch_size{this->params_.max_batch_size};
 
-  size_t hit_count = 0;
+  size_t num_deletions{0};
 
-  switch (this->params_.overflow_policy) {
-    case DatabaseOverflowPolicy_t::EvictOldest: {
-      // Fetch keys and insert times.
-      std::vector<std::pair<Key, time_t>> kt;
-      kt.reserve(part.entries.size());
-      for (const auto& entry : part.entries) {
-        kt.emplace_back(entry.first, entry.second->last_access);
-      }
-
-      // Sort by ascending by time.
-      std::sort(kt.begin(), kt.end(),
-                [](const auto& a, const auto& b) { return a.second < b.second; });
-
-      // Call erase, until we reached the target amount.
-      for (auto kt_it = kt.begin(); kt_it != kt.end();) {
-        const auto& batch_end = std::min(kt_it + this->params_.max_set_batch_size, kt.end());
-
-        HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << '/'
-                                 << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->params_.overflow_margin
-                                 << "): Attempting to evict " << (batch_end - kt_it)
-                                 << " OLDEST key/value pairs!" << std::endl;
-
-        for (; kt_it != batch_end; kt_it++) {
-          HCTR_HASH_MAP_BACKEND_EVICT_(kt_it->first);
-        }
-        if (part.entries.size() <= this->overflow_resolution_margin_) {
-          break;
-        }
-      }
-    } break;
-
+  switch (part.overflow_policy) {
     case DatabaseOverflowPolicy_t::EvictRandom: {
       // Fetch all keys.
-      std::vector<Key> k;
-      k.reserve(part.entries.size());
+      std::vector<Key> keys;
+      keys.reserve(part.entries.size());
       for (const auto& pair : part.entries) {
-        k.emplace_back(pair.first);
+        keys.emplace_back(pair.first);
       }
 
       // Shuffle the keys.
-      // TODO: This randomizer shoud fetch its seed from a central source.
-      std::random_device rd;
-      std::default_random_engine gen(rd());
-      std::shuffle(k.begin(), k.end(), gen);
+      {
+        // TODO: This randomizer shoud fetch its seed from a central source.
+        std::random_device rd;
+        std::default_random_engine gen(rd());
+        std::shuffle(keys.begin(), keys.end(), gen);
+      }
 
       // Delete items.
-      for (auto k_it = k.begin(); k_it != k.end();) {
-        const auto& batch_end = std::min(k_it + this->params_.max_set_batch_size, k.end());
+      for (auto k_it{keys.begin()}; k_it != keys.end();) {
+        const size_t batch_size{std::min<size_t>(keys.end() - k_it, max_batch_size)};
 
-        HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Partition " << table_name << "/"
-                                 << part.index << " is overflowing (size = " << part.entries.size()
-                                 << " > " << this->params_.overflow_margin
-                                 << "): Attempting to evict " << (batch_end - k_it)
-                                 << " RANDOM key/value pairs!" << std::endl;
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   " is overflowing (size = ", part.entries.size(), " > ", part.overflow_margin,
+                   "): Attempting to evict ", batch_size, " RANDOM key/value pairs!\n");
 
         // Call erase, until we reached the target amount.
-        for (; k_it != batch_end; k_it++) {
-          HCTR_HASH_MAP_BACKEND_EVICT_(*k_it);
+        for (const auto& batch_end{k_it + batch_size}; k_it != batch_end; ++k_it) {
+          const Key* const k{&*k_it};
+          HCTR_HPS_HASH_MAP_EVICT_K_();
         }
         if (part.entries.size() <= this->overflow_resolution_margin_) {
           break;
@@ -1046,44 +686,91 @@ size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& tab
       }
     } break;
 
-    default: {
-      HCTR_LOG_S(WARNING, WORLD)
-          << get_name() << " backend; Partition " << table_name << "/" << part.index
-          << " is overflowing (size = " << part.entries.size() << " > "
-          << this->params_.overflow_margin
-          << "): Overflow cannot be resolved. No implementation for selected policy (="
-          << this->params_.overflow_policy << ")!" << std::endl;
+    case DatabaseOverflowPolicy_t::EvictLeastUsed: {
+      // Fetch keys and access counts.
+      std::vector<std::pair<Key, uint64_t>> keys_metas;
+      keys_metas.reserve(part.entries.size());
+      for (const auto& entry : part.entries) {
+        keys_metas.emplace_back(entry.first, entry.second.access_count);
+      }
+
+      // Sort by ascending by number of accesses.
+      std::sort(keys_metas.begin(), keys_metas.end(),
+                [](const auto& km0, const auto& km1) { return km0.second < km1.second; });
+
+      // Call erase, until we reached the target amount.
+      auto km_it = keys_metas.begin();
+      while (km_it != keys_metas.end()) {
+        const size_t batch_size{std::min<size_t>(keys_metas.end() - km_it, max_batch_size)};
+
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   " is overflowing (size = ", part.entries.size(), " > ", part.overflow_margin,
+                   "): Attempting to evict ", batch_size, " LEAST USED key/value pairs!\n");
+
+        for (const auto& batch_end{km_it + batch_size}; km_it != batch_end; ++km_it) {
+          const Key* const k{&km_it->first};
+          HCTR_HPS_HASH_MAP_EVICT_K_();
+        }
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
+          break;
+        }
+      }
+
+      // To avoid exploding LFU numbers that would prevent any new values from entering a steady
+      // state, we do a normalization step on all existing values.
+      //
+      // 1) Since the conditions are again met, the next `km_it` value (if exists) points to the min
+      // count. We subtract that count to `0` normalize the access counts. This means, that assuming
+      // there is no fetch, the next value inserted has exactly the same chance to be evicted as the
+      // least used existing value.
+      //
+      // 2) If the distribution changes, some values may become less popular. To avoid that a once
+      // high value of a new less desired value prevents its eviction, we cut down all existing
+      // access counts by dividing them by 2.
+      //
+      if (km_it != keys_metas.end()) {
+        const uint64_t min_access_count{km_it->second};
+        for (; km_it != keys_metas.end(); ++km_it) {
+          km_it->second = (km_it->second - min_access_count) / 2;
+        }
+      }
+    } break;
+
+    case DatabaseOverflowPolicy_t::EvictOldest: {
+      // Fetch keys and insert times.
+      std::vector<std::pair<Key, time_t>> keys_metas;
+      keys_metas.reserve(part.entries.size());
+      for (const auto& entry : part.entries) {
+        keys_metas.emplace_back(entry.first, entry.second.last_access);
+      }
+
+      // Sort by ascending by time.
+      std::sort(keys_metas.begin(), keys_metas.end(),
+                [](const auto& km0, const auto& km1) { return km0.second < km1.second; });
+
+      // Call erase, until we reached the target amount.
+      for (auto km_it{keys_metas.begin()}; km_it != keys_metas.end();) {
+        const size_t batch_size{std::min<size_t>(keys_metas.end() - km_it, max_batch_size)};
+
+        HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
+                   " is overflowing (size = ", part.entries.size(), " > ", part.overflow_margin,
+                   "): Attempting to evict ", batch_size, " OLDEST key/value pairs!\n");
+
+        for (const auto& batch_end{km_it + batch_size}; km_it != batch_end; ++km_it) {
+          const Key* const k{&km_it->first};
+          HCTR_HPS_HASH_MAP_EVICT_K_();
+        }
+        if (part.entries.size() <= this->overflow_resolution_margin_) {
+          break;
+        }
+      }
     } break;
   }
 
-  return hit_count;
+  return num_deletions;
 }
 
 template class MultiProcessHashMapBackend<unsigned int>;
 template class MultiProcessHashMapBackend<long long>;
-
-#ifdef HCTR_HASH_MAP_BACKEND_CONTAINS_
-#undef HCTR_HASH_MAP_BACKEND_CONTAINS_
-#else
-#error HCTR_HASH_MAP_BACKEND_CONTAINS_ not defined. Sanity check!
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_INSERT_
-#undef HCTR_HASH_MAP_BACKEND_INSERT_
-#else
-#error HCTR_HASH_MAP_BACKEND_INSERT_ not defined. Sanity check!
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_FETCH_
-#undef HCTR_HASH_MAP_BACKEND_FETCH_
-#else
-#error HCTR_HASH_MAP_BACKEND_FETCH_ not defined. Sanity check!
-#endif
-
-#ifdef HCTR_HASH_MAP_BACKEND_EVICT_
-#undef HCTR_HASH_MAP_BACKEND_EVICT_
-#else
-#error HCTR_HASH_MAP_BACKEND_EVICT_ not defined. Sanity check!
-#endif
 
 }  // namespace HugeCTR

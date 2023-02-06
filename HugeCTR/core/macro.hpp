@@ -13,21 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #define CONCAT_IMPL(s1, s2) s1##s2
 #define CONCAT(s1, s2) CONCAT_IMPL(s1, s2)
 #define ANONYMOUS_VARIABLE(str) CONCAT(str, __LINE__)
 
-#define DISALLOW_COPY(ClassName)        \
+#ifdef HCTR_DISALLOW_COPY
+#error HCTR_DISALLOW_COPY is already defined. Something is odd. Did you forget/remove "#pragma once" somewhere?
+#else
+#define HCTR_DISALLOW_COPY(ClassName)   \
   ClassName(const ClassName&) = delete; \
-  ClassName& operator=(const ClassName&) = delete;
+  ClassName& operator=(const ClassName&) = delete
+#endif
 
-#define DISALLOW_MOVE(ClassName)   \
-  ClassName(ClassName&&) = delete; \
-  ClassName& operator=(ClassName&&) = delete;
+#ifdef HCTR_DISALLOW_MOVE
+#error HCTR_DISALLOW_MOVE is already defined. Something is odd. Did you forget/remove "#pragma once" somewhere?
+#else
+#define HCTR_DISALLOW_MOVE(ClassName) \
+  ClassName(ClassName&&) = delete;    \
+  ClassName& operator=(ClassName&&) = delete
+#endif
 
-#define DISALLOW_COPY_AND_MOVE(ClassName) \
-  DISALLOW_COPY(ClassName)                \
-  DISALLOW_MOVE(ClassName)
+#ifdef HCTR_DISALLOW_COPY_AND_MOVE
+#error HCTR_DISALLOW_COPY_AND_MOVE is already defined. Something is odd. Did you forget/remove "#pragma once" somewhere?
+#else
+#define HCTR_DISALLOW_COPY_AND_MOVE(ClassName) \
+  HCTR_DISALLOW_COPY(ClassName);               \
+  HCTR_DISALLOW_MOVE(ClassName)
+#endif
 
 #define HOST_INLINE __host__ __forceinline__
 #define DEVICE_INLINE __device__ __forceinline__

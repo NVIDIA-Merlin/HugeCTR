@@ -28,22 +28,22 @@ namespace HugeCTR {
 
 #ifdef HCTR_KAFKA_CHECK
 #error HCTR_KAFKA_CHECK already defined!
-#else
+#endif
 #define HCTR_KAFKA_CHECK(EXPR)                                                    \
   do {                                                                            \
     const auto& resp = (EXPR);                                                    \
     HCTR_CHECK_HINT(resp == RD_KAFKA_RESP_ERR_NO_ERROR, "Kafka %s error: '%s'\n", \
                     rd_kafka_err2name(resp), rd_kafka_err2str(resp));             \
   } while (0)
-#endif
 
 /**
  * Helper class for Kafka implementations to ensure proper cleanup.
  */
 class KafkaLifetimeService final {
  private:
+  HCTR_DISALLOW_COPY_AND_MOVE(KafkaLifetimeService);
+
   KafkaLifetimeService() { HCTR_LOG(DEBUG, WORLD, "Creating Kafka lifetime service.\n"); }
-  DISALLOW_COPY_AND_MOVE(KafkaLifetimeService);
 
  public:
   virtual ~KafkaLifetimeService() {
@@ -229,7 +229,8 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     blocking_produce(topic, payload, p_length, 0);
   } else if (num_pairs == 1) {
     // Determine the key partition.
-    const size_t part = HCTR_KEY_TO_DB_PART_INDEX(*keys);
+    const size_t num_partitions{this->params_.num_partitions};
+    const size_t part_index{HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
 
     // Request send buffer to hold the payload.
     char* const payload = acquire_send_buffer(value_size);
@@ -242,16 +243,17 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
     p_length += value_size;
 
     // Produce Kafka message.
-    blocking_produce(topic, payload, p_length, part);
+    blocking_produce(topic, payload, p_length, part_index);
   } else {
     const Key* const keys_end = &keys[num_pairs];
-    for (size_t part = 0; part < this->params_.num_partitions; ++part) {
+    const size_t num_partitions{this->params_.num_partitions};
+    for (size_t part_index = 0; part_index < num_partitions; ++part_index) {
       char* payload = nullptr;
       size_t p_length = 0;
 
       for (const Key* k = keys; k != keys_end; ++k) {
         // Only consider keys that belong to current group.
-        if (HCTR_KEY_TO_DB_PART_INDEX(*k) != part) {
+        if (HCTR_HPS_KEY_TO_PART_INDEX_(*k) != part_index) {
           continue;
         }
 
@@ -260,7 +262,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
           // Not enough space to hold another key-value pair.
           if (p_length + key_value_size > this->params_.send_buffer_size) {
             // Send current buffer.
-            blocking_produce(topic, payload, p_length, part);
+            blocking_produce(topic, payload, p_length, part_index);
 
             // Get new send buffer.
             payload = acquire_send_buffer(value_size);
@@ -281,7 +283,7 @@ void KafkaMessageSink<Key>::post(const std::string& tag, size_t num_pairs, const
 
       // Sent any unsent payload.
       if (payload) {
-        blocking_produce(topic, payload, p_length, part);
+        blocking_produce(topic, payload, p_length, part_index);
       }
     }
   }
@@ -806,11 +808,5 @@ void KafkaMessageSource<Key>::on_error(rd_kafka_resp_err_t err, const char* cons
 
 template class KafkaMessageSource<unsigned int>;
 template class KafkaMessageSource<long long>;
-
-#ifdef HCTR_KAFKA_CHECK
-#undef HCTR_KAFKA_CHECK
-#else
-#error "HCTR_KAFKA_CHECK not defined?!"
-#endif
 
 }  // namespace HugeCTR

@@ -260,10 +260,12 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::DatabaseType_t::RocksDB)
       .export_values();
   pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
-             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictRandom),
              HugeCTR::DatabaseOverflowPolicy_t::EvictRandom)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
       .export_values();
   pybind11::enum_<HugeCTR::UpdateSourceType_t>(m, "UpdateSourceType_t")
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::Null),

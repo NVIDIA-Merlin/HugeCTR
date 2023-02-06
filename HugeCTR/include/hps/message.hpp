@@ -30,8 +30,9 @@ struct MessageSinkParams {};
 template <typename Key>
 class MessageSinkBase {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(MessageSinkBase);
+
   MessageSinkBase() = default;
-  DISALLOW_COPY_AND_MOVE(MessageSinkBase);
 
   virtual ~MessageSinkBase() = default;
 
@@ -67,8 +68,10 @@ class MessageSink : public MessageSinkBase<Key> {
  public:
   using Base = MessageSinkBase<Key>;
 
+  HCTR_DISALLOW_COPY_AND_MOVE(MessageSink);
+
   MessageSink() = delete;
-  DISALLOW_COPY_AND_MOVE(MessageSink);
+
   MessageSink(const Params& params) : params_{params} {}
 
   virtual ~MessageSink() = default;
@@ -88,7 +91,7 @@ class MessageSink : public MessageSinkBase<Key> {
 template <typename Key>
 class MessageSource {
  public:
-  DISALLOW_COPY_AND_MOVE(MessageSource);
+  HCTR_DISALLOW_COPY_AND_MOVE(MessageSource);
 
   MessageSource() = default;
 

@@ -39,10 +39,10 @@ class HCTRStorageImpl final : public core::IStorageImpl {
   Allocator *allocator_;
 
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(HCTRStorageImpl);
+
   HCTRStorageImpl(Allocator *allocator)
       : ptr_(nullptr), total_size_in_bytes_(0), allocated_(false), allocator_(allocator) {}
-
-  DISALLOW_COPY_AND_MOVE(HCTRStorageImpl)
 
   ~HCTRStorageImpl() {
     if (allocated_) {
@@ -77,10 +77,10 @@ class NativeHCTRStorageWrapper final : public core::IStorageImpl {
   size_t total_size_in_bytes_;
 
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(NativeHCTRStorageWrapper);
+
   NativeHCTRStorageWrapper(void *ptr, size_t total_size_in_bytes)
       : ptr_(ptr), total_size_in_bytes_(total_size_in_bytes) {}
-
-  DISALLOW_COPY_AND_MOVE(NativeHCTRStorageWrapper)
 
   void *get_ptr() override { return ptr_; }
 
@@ -101,12 +101,12 @@ class GPUResource final : public core::GPUResourceBase {
   std::unordered_map<std::string, cudaStream_t> stream_map_;
 
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(GPUResource);
+
   GPUResource(int device_id, cudaStream_t default_stream)
       : device_id_(device_id), current_stream_name_("default") {
     stream_map_[current_stream_name_] = default_stream;
   }
-
-  DISALLOW_COPY_AND_MOVE(GPUResource)
 
   void set_stream(const std::string &name) override { current_stream_name_ = name; }
 
