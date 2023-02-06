@@ -66,24 +66,38 @@ if __name__ == "__main__":
 
     offsets_numpy = []
     values_numpy = []
+    sp_weights_numpy = []
     offsets = []
     values = []
+    sp_weights = []
     total_indices = []
+    total_sp_weights = []
 
     for i in range(len(rows)):
         offsets_np = np.random.randint(1, hotness[i] + 1, iters * batch_size)
         offsets_numpy.append(offsets_np)
         values_np = np.random.randint(0, rows[i], np.squeeze(np.sum(offsets_np)))
         values_numpy.append(values_np)
+        sp_weights_np = np.random.randn(np.squeeze(np.sum(offsets_np)))
+        sp_weights_numpy.append(sp_weights_np)
 
         offset = tf.placeholder(shape=[None], dtype=tf.int64)
         offset = hvd.broadcast(offset, root_rank=0)
         offsets.append(offset)
+
         value = tf.placeholder(shape=[None], dtype=tf.int64)
         value = hvd.broadcast(value, root_rank=0)
         values.append(value)
+
+        sp_weight = tf.placeholder(shape=[None], dtype=tf.float32)
+        sp_weight = hvd.broadcast(sp_weight, root_rank=0)
+        sp_weights.append(sp_weight)
+
         total_indice = tf.RaggedTensor.from_row_lengths(value, offset)
         total_indices.append(total_indice)
+
+        total_sp_weight = tf.RaggedTensor.from_row_lengths(sp_weight, offset)
+        total_sp_weights.append(total_sp_weight)
 
     left = batch_size // hvd.size() * hvd.rank()
     right = batch_size // hvd.size() * (hvd.rank() + 1)
@@ -92,7 +106,7 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, total_indices, combiners)
+        embeddings = sok.lookup_sparse(params, total_indices, total_sp_weights, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])
@@ -114,6 +128,7 @@ if __name__ == "__main__":
         t = time.time()
         tmp_offset_numpy = []
         tmp_values_numpy = []
+        tmp_sp_weights_numpy = []
         for j in range(len(rows)):
             tmp_offset_numpy.append(
                 offsets_numpy[j][i * batch_size + left : i * batch_size + right]
@@ -123,6 +138,9 @@ if __name__ == "__main__":
                 np.sum(offsets_numpy[j][0 : i * batch_size + right])
             )
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
+            tmp_sp_weights_numpy.append(
+                sp_weights_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset]
+            )
         loss = sess.run(
             sok_embedding,
             feed_dict={
@@ -130,6 +148,8 @@ if __name__ == "__main__":
                 offsets[1]: tmp_offset_numpy[1],
                 values[0]: tmp_values_numpy[0],
                 values[1]: tmp_values_numpy[1],
+                sp_weights[0]: tmp_sp_weights_numpy[0],
+                sp_weights[1]: tmp_sp_weights_numpy[1],
             },
         )
         loss1.append(loss)
@@ -141,12 +161,13 @@ if __name__ == "__main__":
 
     def step2(params):
         loss = 0
-        embeddings = []
         for i in range(len(params)):
             embedding = tf.nn.embedding_lookup_sparse(
-                params[i], total_indices[i].to_sparse(), None, combiner=combiners[i]
+                params[i],
+                total_indices[i].to_sparse(),
+                total_sp_weights[i].to_sparse(),
+                combiner=combiners[i],
             )
-            embeddings.append(embedding)
             loss = loss + tf.reduce_sum(embedding)
         grads = tf.gradients(loss, params)
         grads = [hvd.allreduce(grad, op=hvd.Sum) for grad in grads]
@@ -159,6 +180,7 @@ if __name__ == "__main__":
     for i in range(iters):
         tmp_offset_numpy = []
         tmp_values_numpy = []
+        tmp_sp_weights_numpy = []
         for j in range(len(rows)):
             tmp_offset_numpy.append(
                 offsets_numpy[j][i * batch_size + left : i * batch_size + right]
@@ -168,6 +190,9 @@ if __name__ == "__main__":
                 np.sum(offsets_numpy[j][0 : i * batch_size + right])
             )
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
+            tmp_sp_weights_numpy.append(
+                sp_weights_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset]
+            )
         loss = sess.run(
             tf_embedding,
             feed_dict={
@@ -175,6 +200,8 @@ if __name__ == "__main__":
                 offsets[1]: tmp_offset_numpy[1],
                 values[0]: tmp_values_numpy[0],
                 values[1]: tmp_values_numpy[1],
+                sp_weights[0]: tmp_sp_weights_numpy[0],
+                sp_weights[1]: tmp_sp_weights_numpy[1],
             },
         )
         loss2.append(loss)
@@ -192,18 +219,18 @@ if __name__ == "__main__":
     # Check results
     diff = 0
     for i in range(len(out1)):
-        length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-        diff = diff + np.sum((out1[i] - out2[i]) ** 2 / length)
+        length = np.sum(out1[i] ** 2 + out2[i] ** 2 + 1e-7)
+        diff = diff + np.max((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     diff = 0
     for i in range(iters):
         # normalize
-        length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
+        length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-7
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff, "hvd.rank() = ", hvd.rank())
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]

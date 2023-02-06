@@ -23,7 +23,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     # initialize
     hvd.init()
     config = tf.compat.v1.ConfigProto()
@@ -62,6 +61,7 @@ if __name__ == "__main__":
     weight = tf.placeholder(shape=(row, col), dtype=tf.float32)
 
     tf_var = tf.Variable(weight, use_resource=True)
+
     # graph with sok.all2all_dense_embedding
     def step(param, indices):
         embedding = sok.all2all_dense_embedding(param, indices)

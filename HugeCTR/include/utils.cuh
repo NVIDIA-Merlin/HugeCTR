@@ -20,6 +20,25 @@
 
 #include <common.hpp>
 
+#define CUDA_1D_KERNEL_LOOP(i, n)                                                                 \
+  for (int32_t i = blockIdx.x * blockDim.x + threadIdx.x, step = blockDim.x * gridDim.x; i < (n); \
+       i += step)
+
+#define CUDA_1D_KERNEL_LOOP_T(type, i, n)                                                      \
+  for (type i = blockIdx.x * blockDim.x + threadIdx.x, step = blockDim.x * gridDim.x; i < (n); \
+       i += step)
+
+// Overload CUDA atomic for other 64bit unsinged/signed integer type
+__forceinline__ __device__ int64_t atomicCAS(int64_t *address, int64_t compare, int64_t val) {
+  return (int64_t)atomicCAS((unsigned long long *)address, (unsigned long long)compare,
+                            (unsigned long long)val);
+}
+
+__forceinline__ __device__ uint64_t atomicCAS(uint64_t *address, uint64_t compare, uint64_t val) {
+  return (uint64_t)atomicCAS((unsigned long long *)address, (unsigned long long)compare,
+                             (unsigned long long)val);
+}
+
 namespace HugeCTR {
 
 template <typename T>

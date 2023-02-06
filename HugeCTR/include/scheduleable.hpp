@@ -40,6 +40,8 @@ class SchedulableDataReader : public IDataReader {
                                           bool from_graph) = 0;
   virtual void stream_wait_dense_tensors(cudaStream_t stream, int raw_device_id,
                                          bool from_graph) = 0;
+  virtual std::vector<TensorBag2> get_label_tensors() const = 0;
+  virtual std::vector<TensorBag2> get_dense_tensors() const = 0;
 };
 
 class SchedulableEmbeding : public IEmbedding {

@@ -131,7 +131,9 @@ stages:
     - echo "RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE}
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
     # Install inference of target branch to overwrite the one in merlin-base
-    - echo "RUN cd /workdir && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DENABLE_INFERENCE=ON .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+    - if [[ "$CI_JOB_NAME" != "build_sok_tf1" ]]; then
+        echo "RUN cd /workdir && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DENABLE_INFERENCE=ON .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+      fi
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
         echo "RUN cd /workdir && rm -rf build && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi

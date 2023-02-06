@@ -21,7 +21,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     dim = 128
     vocab_size = 1024 * 128
     batch = 8192

@@ -37,7 +37,7 @@ if __name__ == "__main__":
     hotness = [10, 3]
     combiners = ["mean", "sum"]
     batch_size = 128
-    iters = 1
+    iters = 100
 
     # initial value of embedding table
     weights = []
@@ -91,7 +91,7 @@ if __name__ == "__main__":
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        # optimizer.apply_gradients(zip(grads, params))
+        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -130,8 +130,6 @@ if __name__ == "__main__":
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
-    sp_sum = []
-
     loss2 = []
     tf_vars = [tf.Variable(w) for w in weights]
     for i in range(iters):
@@ -144,9 +142,6 @@ if __name__ == "__main__":
             iter_sp_weights.append(
                 total_sp_weights[j][i * batch_size + left : i * batch_size + right].to_sparse()
             )
-        sp_sum.append(
-            tf.reduce_sum(total_sp_weights[j][i * batch_size + left : i * batch_size + right], 1)
-        )
         loss = step2(tf_vars, indices, iter_sp_weights)
         loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
@@ -155,17 +150,13 @@ if __name__ == "__main__":
     for i, v in enumerate(tf_vars):
         out2.append(tf.nn.embedding_lookup(v, local_indices[i]))
 
-    print("out = ", out2)
-    print("sp_sum = ", sp_sum)
     # Check results
     diff = 0
     for i in range(len(out1)):
         length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-        # diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2 / length)
-        diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2)
-        print("i = ", i, "diff = ", diff)
+        diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-2
+    assert diff < 1e-4
 
     diff = 0
     for i in range(iters):
@@ -173,7 +164,7 @@ if __name__ == "__main__":
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-2
+    assert diff < 1e-4
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]

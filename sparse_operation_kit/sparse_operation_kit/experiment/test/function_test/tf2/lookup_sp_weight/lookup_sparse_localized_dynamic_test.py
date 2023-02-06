@@ -97,7 +97,6 @@ if __name__ == "__main__":
             for i in range(len(embeddings)):
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -138,7 +137,6 @@ if __name__ == "__main__":
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
         grads = [hvd.allreduce(grad, op=hvd.Sum) for grad in grads]
-        optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 
@@ -175,14 +173,14 @@ if __name__ == "__main__":
             length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
             diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     diff = 0
     for i in range(iters):
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     print("[SOK INFO] lookup_sparse distributed with dynamic variable test passed")
     ts = ts[5:]

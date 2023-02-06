@@ -37,7 +37,6 @@ key = [
 
 
 def hps_dlpack(model_name, embedding_file_list, data_file, enable_cache):
-
     batch_size = 1
     CATEGORICAL_COLUMNS = ["C1_C2", "C3_C4"] + [
         "C" + str(x) for x in range(1, 27)

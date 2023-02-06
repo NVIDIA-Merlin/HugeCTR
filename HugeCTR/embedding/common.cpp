@@ -15,7 +15,11 @@
  */
 #include "common.hpp"
 
+#include <cuda_runtime.h>
+
 #include "HugeCTR/include/utils.hpp"
+#include "core/registry.hpp"
+
 namespace embedding {
 
 std::ostream &operator<<(std::ostream &os, const Combiner &p) {
@@ -35,6 +39,20 @@ std::ostream &operator<<(std::ostream &os, const Combiner &p) {
   return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p) {
+  switch (p) {
+    case EmbeddingLayout::FeatureMajor:
+      os << "FeatureMajor";
+      break;
+    case EmbeddingLayout::BatchMajor:
+      os << "BatchMajor";
+      break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "EmbeddingLayout is not initialized");
+  }
+  return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   os << "lookup_id:" << p.lookup_id << ",";
   os << "table_id:" << p.table_id << ",";
@@ -44,376 +62,351 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   return os;
 }
 
-UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    size_t grouped_id)
-    : num_lookup_(ebc_param.num_lookup), h_ev_size_offset_{0}, h_local_ev_size_offset_{0} {
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
+std::vector<int> EmbeddingCollectionParam::get_table_id_to_global_start_indices() const {
+  if (this->table_id_to_vocabulary_size.empty()) return {};
+
+  std::vector<int> table_id_to_table_offsets{0};
+  std::partial_sum(table_id_to_vocabulary_size.begin(), table_id_to_vocabulary_size.end(),
+                   std::back_inserter(table_id_to_table_offsets));
+  return table_id_to_table_offsets;
+}
+
+void KernelParams::init() {
+  cudaDeviceProp device_prop;
+  cudaGetDeviceProperties(&device_prop, 0);
+  this->num_sms = device_prop.multiProcessorCount;
+}
+
+void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
+                               const EmbeddingCollectionParam &ebc_param) {
   const auto &lookup_params = ebc_param.lookup_params;
-  auto buffer_ptr = GetBuffer(core);
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
-  size_t num_gpus = core->get_global_gpu_count();
-  int gpu_id = core->get_global_gpu_id();
-
-  HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
-                  "shard matrix should contain num_gpus row.");
-
-  for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-    int table_id = lookup_params[lookup_id].table_id;
+  std::vector<int> h_id_to_ev_size;
+  std::vector<char> h_id_to_combiner;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     int ev_size = lookup_params[lookup_id].ev_size;
+    h_id_to_ev_size.push_back(ev_size);
+
     char combiner = static_cast<char>(lookup_params[lookup_id].combiner);
-
-    h_ev_size_list_.push_back(ev_size);
-    h_combiner_list_.push_back(combiner);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
-
-    if (ebc_param.shard_matrix[gpu_id][table_id] == 0) {
-      continue;
-    }
-
-    std::vector<int> shard_gpus;
-    for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-      if (ebc_param.shard_matrix[ggpu_id][table_id] == 1) {
-        shard_gpus.push_back(ggpu_id);
-      }
-    }
-    auto find_shard_id_iter = std::find(shard_gpus.begin(), shard_gpus.end(), gpu_id);
-    HCTR_CHECK_HINT(find_shard_id_iter != shard_gpus.end(),
-                    "ModelParallelEmbeddingMeta does not find shard id");
-    int shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
-
-    h_local_shard_id_list_.push_back(shard_id);
-    h_local_num_shards_list_.push_back(static_cast<int>(shard_gpus.size()));
-    h_local_table_id_list_.push_back(table_id);
-    h_local_lookup_id_list_.push_back(lookup_id);
-    h_local_ev_size_list_.push_back(ev_size);
-  }
-  std::partial_sum(h_ev_size_list_.begin(), h_ev_size_list_.end(),
-                   std::back_inserter(h_ev_size_offset_));
-  d_ev_size_offset_ =
-      buffer_ptr->reserve({h_ev_size_offset_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_ev_size_offset_.copy_from(h_ev_size_offset_);
-  max_ev_size_ = h_ev_size_list_.size() > 0
-                     ? *std::max_element(h_ev_size_list_.begin(), h_ev_size_list_.end())
-                     : 0;
-
-  // cudaDeviceProp device_prop;
-  // cudaGetDeviceProperties(&device_prop, 0);
-  // num_sms_ = device_prop.multiProcessorCount;
-  // FIX: cudaGetDeviceProperties get ,cost too much time, need remove it to the start of program ,
-  // not use per iteration,for now fix the num_sms_
-  num_sms_ = 108;
-
-  d_combiner_list_ =
-      buffer_ptr->reserve({h_combiner_list_.size()}, DeviceType::GPU, TensorScalarType::Char);
-  buffer_ptr->allocate();
-  d_combiner_list_.copy_from(h_combiner_list_);
-
-  num_local_lookup_ = static_cast<int>(h_local_table_id_list_.size());
-
-  d_local_shard_id_list_ = buffer_ptr->reserve({h_local_shard_id_list_.size()}, DeviceType::GPU,
-                                               TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_shard_id_list_.copy_from(h_local_shard_id_list_);
-
-  d_local_num_shards_list_ = buffer_ptr->reserve({h_local_num_shards_list_.size()}, DeviceType::GPU,
-                                                 TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_num_shards_list_.copy_from(h_local_num_shards_list_);
-
-  d_local_table_id_list_ = buffer_ptr->reserve({h_local_table_id_list_.size()}, DeviceType::GPU,
-                                               TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_table_id_list_.copy_from(h_local_table_id_list_);
-
-  d_local_lookup_id_list_ = buffer_ptr->reserve({h_local_lookup_id_list_.size()}, DeviceType::GPU,
-                                                TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_lookup_id_list_.copy_from(h_local_lookup_id_list_);
-
-  d_local_ev_size_list_ =
-      buffer_ptr->reserve({h_local_ev_size_list_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_ev_size_list_.copy_from(h_local_ev_size_list_);
-
-  std::partial_sum(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end(),
-                   std::back_inserter(h_local_ev_size_offset_));
-  d_local_ev_size_offset_ = buffer_ptr->reserve({h_local_ev_size_offset_.size()}, DeviceType::GPU,
-                                                TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_ev_size_offset_.copy_from(h_local_ev_size_offset_);
-
-  h_network_lookup_id_list_.clear();
-
-  h_global_lookup_id_list_.resize(num_gpus);
-  for (size_t ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-      int table_id = lookup_params[lookup_id].table_id;
-      if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-          group_params.table_ids.end()) {
-        continue;
-      }
-
-      if (ebc_param.shard_matrix[ggpu_id][table_id] == 0) {
-        continue;
-      }
-      h_global_lookup_id_list_[ggpu_id].push_back(lookup_id);
-    }
-  }
-  for (auto &vec : h_global_lookup_id_list_) {
-    h_network_lookup_id_list_.insert(h_network_lookup_id_list_.end(), vec.begin(), vec.end());
-  }
-  std::sort(h_network_lookup_id_list_.begin(), h_network_lookup_id_list_.end());
-  auto last = std::unique(h_network_lookup_id_list_.begin(), h_network_lookup_id_list_.end());
-  h_network_lookup_id_list_.erase(last, h_network_lookup_id_list_.end());
-  d_network_lookup_id_list_ = buffer_ptr->reserve({h_network_lookup_id_list_.size()},
-                                                  DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_network_lookup_id_list_.copy_from(h_network_lookup_id_list_);
-
-  for (int lookup_id : h_network_lookup_id_list_) {
-    h_network_combiner_list_.push_back(static_cast<char>(lookup_params[lookup_id].combiner));
+    h_id_to_combiner.push_back(combiner);
   }
 
-  h_network_ev_sizes_.resize(num_gpus);
-  h_network_ev_offsets_.resize(num_gpus);
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    h_network_ev_offsets_[ggpu_id].push_back(0);
-  }
-
-  std::vector<std::tuple<int, int, int>> h_network_buffer_meta_info;
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    int network_id = 0;
-    for (int lookup_id : h_global_lookup_id_list_[ggpu_id]) {
-      int ev_size = h_ev_size_list_[lookup_id];
-      h_network_ev_sizes_[ggpu_id].push_back(ev_size);
-      h_network_ev_offsets_[ggpu_id].push_back(ev_size);
-      h_network_buffer_meta_info.push_back({ggpu_id, network_id, lookup_id});
-      network_id += 1;
-    }
-  }
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    std::partial_sum(h_network_ev_offsets_[ggpu_id].begin(), h_network_ev_offsets_[ggpu_id].end(),
-                     h_network_ev_offsets_[ggpu_id].begin());
-  }
-
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    network_ev_size_list_.push_back(buffer_ptr->reserve({h_network_ev_sizes_[ggpu_id].size()},
-                                                        DeviceType::GPU, TensorScalarType::Int32));
-    network_ev_offset_list_.push_back(buffer_ptr->reserve(
-        {h_network_ev_offsets_[ggpu_id].size()}, DeviceType::GPU, TensorScalarType::Int32));
-  }
-  buffer_ptr->allocate();
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    network_ev_size_list_[ggpu_id].copy_from(h_network_ev_sizes_[ggpu_id]);
-    network_ev_offset_list_[ggpu_id].copy_from(h_network_ev_offsets_[ggpu_id]);
-  }
-  network_ev_sizes_ =
-      TensorList(core.get(), network_ev_size_list_, DeviceType::GPU, TensorScalarType::Int32);
-  network_ev_offsets_ =
-      TensorList(core.get(), network_ev_offset_list_, DeviceType::GPU, TensorScalarType::Int32);
-
-  std::sort(h_network_buffer_meta_info.begin(), h_network_buffer_meta_info.end(),
-            [](const auto &lhs, const auto &rhs) { return std::get<2>(lhs) <= std::get<2>(rhs); });
-
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto &meta_info = h_network_buffer_meta_info[i];
-    int network_gpu_id = std::get<0>(meta_info);
-    int network_id = std::get<1>(meta_info);
-    h_network_ids_.push_back(network_id);
-    h_network_gpu_ids_.push_back(network_gpu_id);
-  }
-  network_ids_ =
-      buffer_ptr->reserve({h_network_ids_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  network_ids_.copy_from(h_network_ids_);
-  network_gpu_ids_ =
-      buffer_ptr->reserve({h_network_gpu_ids_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  network_gpu_ids_.copy_from(h_network_gpu_ids_);
-
-  int network_offset = 0;
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto &meta_info = h_network_buffer_meta_info[i];
-    int lookup_id = std::get<2>(meta_info);
-    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
-      h_network_offsets_.push_back(network_offset);
-    }
-    network_offset += 1;
-  }
-  h_network_offsets_.push_back(network_offset);
-  network_offsets_ =
-      buffer_ptr->reserve({h_network_offsets_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  network_offsets_.copy_from(h_network_offsets_);
-
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto &meta_info = h_network_buffer_meta_info[i];
-    int lookup_id = std::get<2>(meta_info);
-    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
-      h_network_dst_lookup_ids_.push_back(lookup_id);
-    }
-  }
-  network_dst_lookup_ids_ = buffer_ptr->reserve({h_network_dst_lookup_ids_.size()}, DeviceType::GPU,
-                                                TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  network_dst_lookup_ids_.copy_from(h_network_dst_lookup_ids_);
-
-  update_mutable_meta(core, ebc_param, grouped_id);
-}
-
-void UniformModelParallelEmbeddingMeta::update_mutable_meta(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    size_t grouped_id) const {
-  h_hotness_list_.clear();
-  h_local_hotness_list_.clear();
+  std::vector<int> h_id_to_ev_start_indices{0};
+  std::partial_sum(h_id_to_ev_size.begin(), h_id_to_ev_size.end(),
+                   std::back_inserter(h_id_to_ev_start_indices));
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
-
-  size_t num_gpus = core->get_global_gpu_count();
-  int gpu_id = core->get_global_gpu_id();
-
-  HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
-                  "shard matrix should contain num_gpus row.");
-
-  for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-    int table_id = lookup_params[lookup_id].table_id;
-    int max_hotness = lookup_params[lookup_id].max_hotness;
-
-    h_hotness_list_.push_back(max_hotness);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
-
-    if (ebc_param.shard_matrix[gpu_id][table_id] == 0) {
-      continue;
-    }
-
-    h_local_hotness_list_.push_back(max_hotness);
-  }
-  num_local_hotness_ =
-      std::accumulate(h_local_hotness_list_.begin(), h_local_hotness_list_.end(), 0);
-  hotness_sum_ = std::accumulate(h_hotness_list_.begin(), h_hotness_list_.end(), 0);
-}
-
-UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    size_t grouped_id)
-    : num_lookup_(ebc_param.num_lookup), h_ev_size_offset_{0} {
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
-  const auto &lookup_params = ebc_param.lookup_params;
   auto buffer_ptr = GetBuffer(core);
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
-                  "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
+  this->id_to_ev_size =
+      buffer_ptr->reserve({h_id_to_ev_size.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  this->id_to_ev_start_indices = buffer_ptr->reserve({h_id_to_ev_start_indices.size()},
+                                                     DeviceType::GPU, TensorScalarType::Int32);
+  this->id_to_combiner =
+      buffer_ptr->reserve({h_id_to_combiner.size()}, DeviceType::GPU, TensorScalarType::Char);
+  buffer_ptr->allocate();
 
-  size_t num_gpus = core->get_global_gpu_count();
-  int gpu_id = core->get_global_gpu_id();
+  this->id_to_ev_size.copy_from(h_id_to_ev_size);
+  this->id_to_ev_start_indices.copy_from(h_id_to_ev_start_indices);
+  this->id_to_combiner.copy_from(h_id_to_combiner);
 
-  HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
-                  "shard matrix should contain num_gpus row.");
+  this->num_elements_per_sample = h_id_to_ev_start_indices.back();
 
-  for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-    int table_id = lookup_params[lookup_id].table_id;
-    int ev_size = lookup_params[lookup_id].ev_size;
-    char combiner = static_cast<char>(lookup_params[lookup_id].combiner);
+  this->layout = ebc_param.output_layout_;
+  this->max_ev_size = h_id_to_ev_size.size()
+                          ? *std::max_element(h_id_to_ev_size.begin(), h_id_to_ev_size.end())
+                          : 0;
+  this->is_ragged =
+      (h_id_to_ev_size.size() == 0)
+          ? false
+          : std::equal(h_id_to_ev_size.begin() + 1, h_id_to_ev_size.end(), h_id_to_ev_size.begin());
 
-    h_ev_size_list_.push_back(ev_size);
-    h_combiner_list_.push_back(combiner);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
-    HCTR_CHECK_HINT(ebc_param.shard_matrix[gpu_id][table_id] == 1,
-                    "dp table must be shared on all gpus");
-    h_local_combiner_list_.push_back(combiner);
-    h_local_lookup_id_list_.push_back(lookup_id);
-    h_local_ev_size_list_.push_back(ev_size);
-    h_local_table_id_list_.push_back(table_id);
+  bool is_aligned = true;
+  for (auto ev_size : h_id_to_ev_size) {
+    if (ev_size % 4 != 0) is_aligned = false;
   }
+  this->is_aligned = is_aligned;
 
-  max_ev_size_ = h_ev_size_list_.size() > 0
-                     ? *std::max_element(h_ev_size_list_.begin(), h_ev_size_list_.end())
-                     : 0;
-  std::partial_sum(h_ev_size_list_.begin(), h_ev_size_list_.end(),
-                   std::back_inserter(h_ev_size_offset_));
-  d_ev_size_offset_ =
-      buffer_ptr->reserve({h_ev_size_offset_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_ev_size_offset_.copy_from(h_ev_size_offset_);
-
-  d_combiner_list_ =
-      buffer_ptr->reserve({h_combiner_list_.size()}, DeviceType::GPU, TensorScalarType::Char);
-  buffer_ptr->allocate();
-  d_combiner_list_.copy_from(h_combiner_list_);
-
-  num_local_lookup_ = static_cast<int>(h_local_table_id_list_.size());
-
-  d_local_lookup_id_list_ = buffer_ptr->reserve({h_local_lookup_id_list_.size()}, DeviceType::GPU,
-                                                TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_lookup_id_list_.copy_from(h_local_lookup_id_list_);
-
-  d_local_ev_size_list_ =
-      buffer_ptr->reserve({h_local_ev_size_list_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_ev_size_list_.copy_from(h_local_ev_size_list_);
-
-  d_local_table_id_list_ = buffer_ptr->reserve({h_local_table_id_list_.size()}, DeviceType::GPU,
-                                               TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_table_id_list_.copy_from(h_local_table_id_list_);
-
-  update_mutable_meta(core, ebc_param, grouped_id);
+  this->type = ebc_param.emb_type;
 }
 
-void UniformDataParallelEmbeddingMeta::update_mutable_meta(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    size_t grouped_id) const {
-  h_hotness_list_.clear();
-  h_local_hotness_list_.clear();
+std::vector<int> get_lookup_id_table_id(const EmbeddingCollectionParam &ebc_param,
+                                        size_t grouped_id, int gpu_id) {
+  const auto &lookup_params = ebc_param.lookup_params;
+
+  std::vector<int> lookup_id_to_table_id;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
+
+    int table_id = lookup_params[lookup_id].table_id;
+    lookup_id_to_table_id.push_back(table_id);
+  }
+  return lookup_id_to_table_id;
+}
+
+std::vector<int> sort_lookup_ids(const std::vector<int> &lookup_id_to_table_id) {
+  int num_lookup = lookup_id_to_table_id.size();
+
+  std::vector<int> sorted_lookup_ids(num_lookup);
+  std::iota(sorted_lookup_ids.begin(), sorted_lookup_ids.end(), 0);
+  std::sort(sorted_lookup_ids.begin(), sorted_lookup_ids.end(),
+            [&](int l, int r) { return lookup_id_to_table_id[l] < lookup_id_to_table_id[r]; });
+
+  return sorted_lookup_ids;
+}
+
+std::vector<int> get_sorted_table_ids(const std::vector<int> &sorted_lookup_ids,
+                                      const std::vector<int> &lookup_id_to_table_id) {
+  std::vector<int> sorted_table_ids;
+  std::transform(sorted_lookup_ids.begin(), sorted_lookup_ids.end(),
+                 std::back_inserter(sorted_table_ids),
+                 [&](int idx) { return lookup_id_to_table_id[idx]; });
+
+  return sorted_table_ids;
+}
+
+std::vector<int> deduplicate_sorted_table_ids(const std::vector<int> &sorted_table_ids) {
+  std::vector<int> unique_table_ids{sorted_table_ids.begin(), sorted_table_ids.end()};
+  auto last = std::unique(unique_table_ids.begin(), unique_table_ids.end());
+  unique_table_ids.erase(last, unique_table_ids.end());
+  return unique_table_ids;
+}
+
+std::vector<int> get_table_id_to_ev_size(std::shared_ptr<CoreResourceManager> core,
+                                         const EmbeddingCollectionParam &ebc_param) {
+  const auto &lookup_params = ebc_param.lookup_params;
+
+  std::vector<int> h_table_id_to_ev_size;
+  h_table_id_to_ev_size.resize(ebc_param.num_table);
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    int table_id = lookup_params[lookup_id].table_id;
+    h_table_id_to_ev_size[table_id] = lookup_params[lookup_id].ev_size;
+  }
+  return h_table_id_to_ev_size;
+}
+
+void WgradAttr::init(std::shared_ptr<CoreResourceManager> core,
+                     const EmbeddingCollectionParam &ebc_param, size_t grouped_id) {
+  int gpu_id = core->get_global_gpu_id();
+  auto h_lookup_id_to_table_id = get_lookup_id_table_id(ebc_param, grouped_id, gpu_id);
+  auto h_sorted_lookup_ids = sort_lookup_ids(h_lookup_id_to_table_id);
+  auto h_sorted_table_ids = get_sorted_table_ids(h_sorted_lookup_ids, h_lookup_id_to_table_id);
+  this->h_sorted_unique_table_ids = deduplicate_sorted_table_ids(h_sorted_table_ids);
+  auto h_table_id_to_ev_size = get_table_id_to_ev_size(core, ebc_param);
+
+  this->num_table = static_cast<int>(this->h_sorted_unique_table_ids.size());
+  this->num_lookup = h_lookup_id_to_table_id.size();
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
-                  "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
+  auto buffer_ptr = GetBuffer(core);
+  this->lookup_id_to_table_ids = buffer_ptr->reserve({h_lookup_id_to_table_id.size()},
+                                                     DeviceType::GPU, TensorScalarType::Int32);
+  this->sorted_lookup_ids =
+      buffer_ptr->reserve({h_sorted_lookup_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  this->sorted_table_ids =
+      buffer_ptr->reserve({h_sorted_table_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  this->sorted_unique_table_ids = buffer_ptr->reserve({this->h_sorted_unique_table_ids.size()},
+                                                      DeviceType::GPU, TensorScalarType::Int32);
+  this->table_id_to_ev_size =
+      buffer_ptr->reserve({h_table_id_to_ev_size.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  buffer_ptr->allocate();
 
-  size_t num_gpus = core->get_global_gpu_count();
-  int gpu_id = core->get_global_gpu_id();
-
-  HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
-                  "shard matrix should contain num_gpus row.");
-
-  for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-    int table_id = lookup_params[lookup_id].table_id;
-    int max_hotness = lookup_params[lookup_id].max_hotness;
-
-    h_hotness_list_.push_back(max_hotness);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
-    HCTR_CHECK_HINT(ebc_param.shard_matrix[gpu_id][table_id] == 1,
-                    "dp table must be shared on all gpus");
-    h_local_hotness_list_.push_back(max_hotness);
-  }
-  num_hotness_ = std::accumulate(h_hotness_list_.begin(), h_hotness_list_.end(), 0);
-
-  num_local_hotness_ =
-      std::accumulate(h_local_hotness_list_.begin(), h_local_hotness_list_.end(), 0);
+  this->lookup_id_to_table_ids.copy_from(h_lookup_id_to_table_id);
+  this->sorted_lookup_ids.copy_from(h_sorted_lookup_ids);
+  this->sorted_table_ids.copy_from(h_sorted_table_ids);
+  this->sorted_unique_table_ids.copy_from(this->h_sorted_unique_table_ids);
+  this->table_id_to_ev_size.copy_from(h_table_id_to_ev_size);
 }
 
+std::vector<int> get_wgrad_max_num_keys(const EmbeddingCollectionParam &ebc_param,
+                                        size_t grouped_id, int gpu_id) {
+  const auto &lookup_params = ebc_param.lookup_params;
+
+  std::vector<int> local_max_hotness_list;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
+
+    int max_hotness = lookup_params[lookup_id].max_hotness;
+    local_max_hotness_list.push_back(max_hotness);
+  }
+  return local_max_hotness_list;
+}
+
+std::vector<int> get_wgrad_ev_size(const EmbeddingCollectionParam &ebc_param, size_t grouped_id,
+                                   int gpu_id) {
+  const auto &lookup_params = ebc_param.lookup_params;
+  std::vector<int> local_ev_size_list;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
+
+    int ev_size = lookup_params[lookup_id].ev_size;
+    local_ev_size_list.push_back(ev_size);
+  }
+  return local_ev_size_list;
+}
+
+std::vector<int> get_allreduce_buffer_num_keys(
+    const std::vector<int> &unique_table_ids, const std::vector<int> &table_id_to_vocabulary_size) {
+  std::vector<int> vocabulary_size_list;
+  for (auto table_id : unique_table_ids) {
+    vocabulary_size_list.push_back(table_id_to_vocabulary_size[table_id]);
+  }
+  return vocabulary_size_list;
+}
+
+WgradInitializer &WgradInitializer::init(Wgrad &other) {
+  this->wgrad = &other;
+  wgrad->attr = wgrad_attr;
+  return *this;
+}
+
+WgradInitializer &WgradInitializer::init_indices() {
+  int gpu_id = core->get_global_gpu_id();
+
+  auto local_max_hotness_list = get_wgrad_max_num_keys(ebc_param, grouped_id, gpu_id);
+  auto local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
+
+  int max_num_keys =
+      std::accumulate(local_max_hotness_list.begin(), local_max_hotness_list.end(), 0);
+
+  auto key_type = ebc_param.key_type;
+  int batch_size = ebc_param.universal_batch_size;
+
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  auto buffer_ptr = GetBuffer(core);
+  wgrad->unique_keys = buffer_ptr->reserve({batch_size * max_num_keys}, DeviceType::GPU, key_type);
+  wgrad->num_unique_keys = buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Size_t);
+  wgrad->table_ids =
+      buffer_ptr->reserve({batch_size * max_num_keys}, DeviceType::GPU, TensorScalarType::Int32);
+  wgrad->ev_start_indices = buffer_ptr->reserve({batch_size * max_num_keys + 1}, DeviceType::GPU,
+                                                TensorScalarType::UInt32);
+  wgrad->table_range =
+      buffer_ptr->reserve({wgrad_attr.num_table + 1}, DeviceType::GPU, TensorScalarType::UInt32);
+  buffer_ptr->allocate();
+  return *this;
+}
+
+WgradInitializer &WgradInitializer::init_data() {
+  int gpu_id = core->get_global_gpu_id();
+
+  auto local_max_hotness_list = get_wgrad_max_num_keys(ebc_param, grouped_id, gpu_id);
+  auto local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
+
+  int batch_size = ebc_param.universal_batch_size;
+
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  auto buffer_ptr = GetBuffer(core);
+  int max_buffer_size = 0;
+  for (size_t i = 0; i < local_max_hotness_list.size(); ++i) {
+    max_buffer_size += local_max_hotness_list[i] * local_ev_size_list[i];
+  }
+  max_buffer_size *= batch_size;
+  wgrad->data = buffer_ptr->reserve({max_buffer_size}, DeviceType::GPU, TensorScalarType::Float32);
+  buffer_ptr->allocate();
+  return *this;
+}
+
+AllreduceWgradInitializer &AllreduceWgradInitializer::init(Wgrad &other) {
+  HCTR_CHECK_HINT(
+      ebc_param.table_id_to_vocabulary_size.size() > 0 && ebc_param.indices_only_ &&
+          ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+              TablePlacementStrategy::DataParallel,
+      "allreduce buffer can only be initialized in indices_only and dataparallel embedding");
+  this->wgrad = &other;
+  wgrad->attr = wgrad_attr;
+  return *this;
+}
+
+AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
+  int gpu_id = core->get_global_gpu_id();
+
+  std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
+  std::vector<int> h_unique_table_ids;
+  wgrad_attr.sorted_unique_table_ids.to(&h_unique_table_ids);
+  std::vector<int> h_local_num_keys_list =
+      get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
+  auto key_type = ebc_param.key_type;
+
+  int max_num_keys = std::accumulate(h_local_num_keys_list.begin(), h_local_num_keys_list.end(), 0);
+
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  auto buffer_ptr = GetBuffer(core);
+  wgrad->unique_keys = buffer_ptr->reserve({max_num_keys}, DeviceType::GPU, key_type);
+  wgrad->num_unique_keys = buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Size_t);
+  wgrad->table_ids = buffer_ptr->reserve({max_num_keys}, DeviceType::GPU, TensorScalarType::Int32);
+  wgrad->ev_start_indices =
+      buffer_ptr->reserve({max_num_keys + 1}, DeviceType::GPU, TensorScalarType::UInt32);
+  wgrad->table_range = buffer_ptr->reserve({h_unique_table_ids.size() + 1}, DeviceType::GPU,
+                                           TensorScalarType::UInt32);
+  buffer_ptr->allocate();
+
+  // FIXME: move those initialization on GPU
+  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+    std::vector<key_t> h_unique_keys;
+    for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
+      int num_keys = h_local_num_keys_list[i];
+
+      std::vector<key_t> indices(num_keys);
+      std::iota(indices.begin(), indices.end(), 0);
+      h_unique_keys.insert(h_unique_keys.end(), indices.begin(), indices.end());
+    }
+    wgrad->unique_keys.copy_from(h_unique_keys);
+    std::vector<size_t> h_num_unqiue_keys{h_unique_keys.size()};
+    wgrad->num_unique_keys.copy_from(h_num_unqiue_keys);
+  });
+
+  std::vector<int> h_table_ids;
+  for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
+    h_table_ids.insert(h_table_ids.end(), h_local_num_keys_list[i], h_unique_table_ids[i]);
+  }
+  wgrad->table_ids.copy_from(h_table_ids);
+
+  {
+    std::vector<uint32_t> h_ev_start_indices;
+    uint32_t cnt = 0;
+    for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
+      int ev_size = h_local_ev_size_list[i];
+      int num_keys = h_local_num_keys_list[i];
+      for (int ik = 0; ik < num_keys; ++ik) {
+        h_ev_start_indices.push_back(cnt);
+        cnt += ev_size;
+      }
+    }
+    h_ev_start_indices.push_back(cnt);
+    wgrad->ev_start_indices.copy_from(h_ev_start_indices);
+  }
+
+  {
+    std::vector<uint32_t> h_table_range;
+    uint32_t cnt = 0;
+    for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
+      int num_keys = h_local_num_keys_list[i];
+      h_table_range.push_back(cnt);
+      cnt += num_keys;
+    }
+    h_table_range.push_back(cnt);
+    wgrad->table_range.copy_from(h_table_range);
+  }
+  return *this;
+}
+
+AllreduceWgradInitializer &AllreduceWgradInitializer::init_data() {
+  wgrad->attr = wgrad_attr;
+  int gpu_id = core->get_global_gpu_id();
+  std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
+  std::vector<int> h_unique_table_ids;
+  wgrad_attr.sorted_unique_table_ids.to(&h_unique_table_ids);
+  std::vector<int> h_local_num_keys_list =
+      get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
+
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  auto buffer_ptr = GetBuffer(core);
+
+  int max_buffer_size = 0;
+  for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
+    max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
+  }
+  wgrad->data = buffer_ptr->reserve({max_buffer_size}, DeviceType::GPU, TensorScalarType::Float32);
+  buffer_ptr->allocate();
+  return *this;
+}
 }  // namespace embedding

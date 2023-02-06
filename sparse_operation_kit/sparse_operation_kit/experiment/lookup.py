@@ -425,13 +425,15 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
         row_lengths.append(id_row_length)
         if len(sp_weights) > 0:
             sp_weight = sp_weights[index]
+
             if isinstance(sp_weight, tf.SparseTensor):
                 sp_weight = tf.RaggedTensor.from_sparse(sp_weight)
             weight_row_length = sp_weight.row_lengths()
-            is_same = weight_row_length.shape == id_row_length.shape
-            is_same = is_same and tf.math.reduce_all(id_row_length == weight_row_length).numpy()
-            if not is_same:
-                raise RuntimeError("sp_id and sp_weight should be have same shape.")
+            weight_row_length.shape.assert_is_compatible_with(id_row_length.shape)
+            # is_same = weight_row_length.shape == id_row_length.shape
+            # is_same = is_same and tf.math.reduce_all(id_row_length == weight_row_length).numpy()
+            # if not is_same:
+            #    raise RuntimeError("sp_id and sp_weight should be have same shape.")
             sp_weight_value.append(sp_weight.values)
 
     hotness_kwargs = {
@@ -447,12 +449,6 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
         "id_in_local_rank": id_in_rank(),
         "use_sp_weight": use_sp_weight,
     }
-    sp_sum = []
-
-    for i in range(len(sp_weight_value)):
-        sp_sum.append(tf.reduce_sum(sp_weights[i], 1))
-    if use_sp_weight:
-        sp_sum = tf.concat(sp_sum, 0)
 
     # Step1
     key_send_buffer, row_length_send_buffer, sp_weight_send_buffer = _preprocessing_forward(
@@ -485,6 +481,14 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
         num_gpus=num_gpus(),
         **kwargs
     )
+
+    sp_sum = []
+
+    for i in range(len(sp_weight_value)):
+        sp_sum.append(tf.reduce_sum(sp_weights[i], 1))
+    if use_sp_weight:
+        sp_sum = tf.concat(sp_sum, 0)
+
     # Step4
     if num_gpus() > 1:
         splits = []

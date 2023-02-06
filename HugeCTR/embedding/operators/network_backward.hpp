@@ -24,6 +24,8 @@ using core::Device;
 using core::Tensor;
 using core::TensorList;
 
+struct NetworkIndices;
+struct NetworkBuffer;
 class NetworkBackward {
   std::shared_ptr<CoreResourceManager> core_;
   int num_gpus_;
@@ -34,19 +36,9 @@ class NetworkBackward {
   NetworkBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
       : core_(core), num_gpus_(num_gpus) {}
 
-  void compute(const Tensor& bucket_range, const Tensor& d_combiner_list, const Tensor& top_grad,
-               const Tensor& network_ids, const Tensor& network_gpu_ids,
-               const Tensor& network_offsets, const Tensor& network_dst_lookup_ids,
-               const TensorList& network_ev_sizes, const TensorList& network_ev_offsets,
-               TensorList& network_comm_buffer, const Tensor& d_ev_size_offset, int batch_size,
-               int max_ev_size);
-
-  void compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
-               const TensorList& top_grad, const Tensor& network_ids, const Tensor& network_gpu_ids,
-               const Tensor& network_offsets, const Tensor& network_dst_lookup_ids,
-               const TensorList& network_ev_sizes, const TensorList& network_ev_offsets,
-               TensorList& network_comm_buffer, const Tensor& d_ev_size_offset, int batch_size,
-               int max_ev_size, const Tensor& sp_sum);
+  void compute(const Tensor& bucket_range, const EmbeddingOutput& top_grad,
+               const NetworkIndices& network_indices, NetworkBuffer& network_buffer,
+               int batch_size);
 
   void compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
                const TensorList& top_grad, const Tensor& network_ids, const Tensor& network_gpu_ids,

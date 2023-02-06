@@ -15,6 +15,7 @@
 
 cmake_minimum_required(VERSION 3.17)
 add_subdirectory(layers)
+add_subdirectory(data_distributor)
 add_subdirectory(data_reader)
 add_subdirectory(optimizer)
 add_subdirectory(loss)

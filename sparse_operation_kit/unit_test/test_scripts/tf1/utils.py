@@ -235,7 +235,6 @@ def generate_random_samples(
 
 
 def tf_dataset(keys, labels, batchsize, to_sparse_tensor=False, repeat=None, args=None):
-
     num_of_samples, slot_num, max_nnz = keys.shape
 
     def _convert_to_sparse(keys, labels):

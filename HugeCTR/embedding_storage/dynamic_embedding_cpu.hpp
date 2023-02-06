@@ -209,24 +209,38 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     throw std::runtime_error("Not implemented yet!");
   }
 
-  void update(const Tensor& keys, size_t num_keys, const Tensor& id_space_offsets,
-              size_t num_id_space_offsets, const Tensor& id_spaces, Tensor& wgrad,
-              const Tensor& wgrad_idx_offset) override {
+  void compress_table_ids(const std::vector<int>& table_ids, size_t num_table_ids,
+                          std::vector<int>* unique_table_ids, std::vector<uint32_t>* table_range) {
+    uint32_t cnt = 0;
+    for (size_t i = 0; i < num_table_ids; ++i) {
+      if (i == 0 || table_ids[i] != table_ids[i - 1]) {
+        unique_table_ids->push_back(table_ids[i]);
+        table_range->push_back(cnt);
+      }
+      cnt += 1;
+    }
+    table_range->push_back(cnt);
+  }
+
+  void update(const Tensor& unique_keys, const Tensor& num_unique_keys, const Tensor& table_ids,
+              const Tensor& ev_start_indices, const Tensor& wgrad) override {
     // Move to CPU.
-    auto k = keys.to_vector<Key>();
+    auto k = unique_keys.to_vector<Key>();
+    auto num_keys_vec = num_unique_keys.to_vector<size_t>();
+    HCTR_CHECK(num_keys_vec.size() == 1);
+    auto num_keys = num_keys_vec[0];
     HCTR_CHECK(num_keys <= k.size());
     k.resize(num_keys);
+    auto table_ids_vec = table_ids.to_vector<int>();
+    HCTR_CHECK(num_keys <= table_ids_vec.size());
 
-    auto is_off = id_space_offsets.to_vector<uint32_t>();
-    HCTR_CHECK(num_id_space_offsets <= is_off.size());
-    is_off.resize(num_id_space_offsets);
-
-    auto is = id_spaces.to_vector<int32_t>();
-    HCTR_CHECK(is.size() + 1 == is_off.size());
+    std::vector<int> is;
+    std::vector<uint32_t> is_off;
+    this->compress_table_ids(table_ids_vec, num_keys, &is, &is_off);
     remap_id_space(is);
 
     auto g = wgrad.to_vector<float>();
-    auto g_off = wgrad_idx_offset.to_vector<uint32_t>();
+    auto g_off = ev_start_indices.to_vector<uint32_t>();
     HCTR_CHECK(k.size() + 1 == g_off.size());
 
     // Request exclusive access to avoid update race.

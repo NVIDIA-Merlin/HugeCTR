@@ -29,7 +29,6 @@ if __name__ == "__main__":
     config.gpu_options.visible_device_list = str(hvd.local_rank())
     config.gpu_options.allow_growth = True
     sess = tf.compat.v1.Session(config=config)
-
     sok.init()
 
     rows = [65536 * 10, 65536]
@@ -39,23 +38,35 @@ if __name__ == "__main__":
     batch_size = 65536
     iters = 100
     initial_vals = [13, 17]
+    gpus = [0, min(1, hvd.size() - 1)]
 
     # sok variables
-    sok_vars = [
-        sok.DynamicVariable(dimension=cols[i], initializer=str(initial_vals[i]))
-        for i in range(len(cols))
-    ]
+    sok_vars = []
+    if len(gpus) >= 2:
+        for i in range(len(cols)):
+            v = sok.DynamicVariable(
+                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:%d" % gpus[i]
+            )
+            sok_vars.append(v)
+    else:
+        for i in range(len(cols)):
+            v = sok.DynamicVariable(
+                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:0"
+            )
+            sok_vars.append(v)
+
     local_indices = []
     local_indices_numpy = []
 
-    for row in rows:
-        local_size = row // hvd.size()
-        if hvd.rank() < row % hvd.size():
-            local_size += 1
-        indices_np = np.arange(local_size) * hvd.size() + hvd.rank()
-        local_indices_numpy.append(indices_np)
-        indices = tf.placeholder(shape=[None], dtype=tf.int64)
-        local_indices.append(indices)
+    for i, row in enumerate(rows):
+        if hvd.rank() == gpus[i]:
+            indices_np = np.arange(row)
+            local_indices_numpy.append(indices_np)
+            indices = tf.placeholder(shape=[None], dtype=tf.int64)
+            local_indices.append(indices)
+        else:
+            local_indices_numpy.append(None)
+            local_indices.append(None)
 
     # indices
     offsets_numpy = []
@@ -94,10 +105,10 @@ if __name__ == "__main__":
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
-    sok_optimizer = sok.SGD(lr=1.0)
+    sok_optimizer = sok.OptimizerWrapper(optimizer)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, total_indices, combiners)
+        embeddings = sok.lookup_sparse(params, total_indices, None, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])
@@ -111,9 +122,10 @@ if __name__ == "__main__":
     ts = []
     t = time.time()
 
-    sok_embedding = step(sok_vars)
     init_op = tf.compat.v1.global_variables_initializer()
     sess.run(init_op, feed_dict={weights[0]: weights_numpy[0], weights[1]: weights_numpy[1]})
+
+    sok_embedding = step(sok_vars)
     for i in range(iters):
         ts.append(time.time() - t)
         t = time.time()
@@ -137,16 +149,20 @@ if __name__ == "__main__":
                 values[1]: tmp_values_numpy[1],
             },
         )
+
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("loss:", loss)
     out1 = []
     for i in range(len(sok_vars)):
-        tmp_out = sess.run(
-            tf.nn.embedding_lookup(sok_vars[i], local_indices[i]),
-            feed_dict={local_indices[i]: local_indices_numpy[i]},
-        )
-        out1.append(tmp_out)
+        if hvd.rank() == gpus[i]:
+            tmp_out = sess.run(
+                tf.nn.embedding_lookup(sok_vars[i], local_indices[i]),
+                feed_dict={local_indices[i]: local_indices_numpy[i]},
+            )
+            out1.append(tmp_out)
+        else:
+            out1.append(None)
 
     def step2(params):
         loss = 0
@@ -162,7 +178,7 @@ if __name__ == "__main__":
         return loss
 
     loss2 = []
-    tf_embedding = (step2(tf_vars),)
+    tf_embedding = step2(tf_vars)
     for i in range(iters):
         tmp_offset_numpy = []
         tmp_values_numpy = []
@@ -185,22 +201,21 @@ if __name__ == "__main__":
             },
         )
 
-        loss2.append(loss[0])
+        loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("tf loss:", loss)
     out2 = []
     for i, v in enumerate(tf_vars):
-        tmp_out = sess.run(
-            tf.nn.embedding_lookup(tf_vars[i], local_indices[i]),
-            feed_dict={local_indices[i]: local_indices_numpy[i]},
-        )
-        out2.append(tmp_out)
-
+        if hvd.rank() == gpus[i]:
+            out2.append(v.eval(sess))
+        else:
+            out2.append(None)
     # Check results
     diff = 0
     for i in range(len(out1)):
-        length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-        diff = diff + np.sum((out1[i] - out2[i]) ** 2 / length)
+        if hvd.rank() == gpus[i]:
+            length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
+            diff = diff + np.sum((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
     assert diff < 1e-6
 

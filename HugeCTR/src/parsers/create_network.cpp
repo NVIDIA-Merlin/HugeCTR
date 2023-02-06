@@ -1640,7 +1640,7 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
 
       network->optimizer_ = std::move(Optimizer::Create(
           opt_param, train_weight_buff->as_tensor(), train_weight_buff_half->as_tensor(),
-          wgrad_buff_half->as_tensor(), scaler, opt_buff_half, gpu_resource, use_mixed_precision));
+          wgrad_buff_half->as_tensor(), scaler, opt_buff, gpu_resource, use_mixed_precision));
     } else {
       auto opt_param = get_optimizer_param(j_optimizer);
 

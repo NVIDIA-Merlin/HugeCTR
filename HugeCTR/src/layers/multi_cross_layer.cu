@@ -827,19 +827,11 @@ MultiCrossLayer<T>::MultiCrossLayer(
       {
         // dcnv2
         if (this->projection_dim_) {
-          //  Tensor2<T> U, V;
-          //  weight_buff->reserve(U_dim, &U);
-          //  weight_buff->reserve(V_dim, &V);
-          //  weights_.push_back(U);
-          //  weights_.push_back(V);
           this->set_weight(3 * i, U_dim);
           this->set_weight(3 * i + 1, V_dim);
           this->set_weight(3 * i + 2, bias_dim);
           // dcnv1
         } else {
-          //  Tensor2<T> tensor;
-          //  weight_buff->reserve(weight_dim, &tensor);
-          //  weights_.push_back(tensor);
           this->set_weight(2 * i, weight_dim);
           this->set_weight(2 * i + 1, bias_dim);
         }
@@ -847,11 +839,6 @@ MultiCrossLayer<T>::MultiCrossLayer(
       // setup weight gradient
       // dcnv2
       if (this->projection_dim_) {
-        //  Tensor2<T> U, V;
-        //  wgrad_buff->reserve(U_dim, &U);
-        //  wgrad_buff->reserve(V_dim, &V);
-        //  wgrad_.push_back(U);
-        //  wgrad_.push_back(V);
         this->set_wgrad(3 * i, U_dim);
         this->set_wgrad(3 * i + 1, V_dim);
         this->set_wgrad(3 * i + 2, bias_dim);
@@ -1142,26 +1129,40 @@ std::unique_ptr<DataSimulator> MultiCrossLayer<T>::get_default_initializer(const
   const Tensor2<T>& out_tensor = out_tensors_[0];
   float bottom_dim = in_tensor.get_dimensions()[1];
   float top_dim = out_tensor.get_dimensions()[1];
-
+  assert(bottom_dim == top_dim);
   std::unique_ptr<DataSimulator> simu(nullptr);
   int idx = -1;
   // each dcn2 layer has one more weight tensor (U and V)
-  // U V shares the same initializer
+  // U V shares the same initializer, U (bottom_dim, projection_dim), V (projection_dim, top_dim)
   if (this->projection_dim_) {
-    idx = index % 3 == 2 ? 1 : 0;
+    idx = index % 3;
+    // U;
+    if (0 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm, bottom_dim,
+                                              this->projection_dim_, false));
+    }
+    // V;
+    else if (1 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm,
+                                              this->projection_dim_, top_dim, false));
+    } else if (2 == idx) {
+      simu.reset(new ConstantDataSimulator(0.0f));
+    } else {
+      HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
+    }
   } else {
     idx = index % 2;
-  }
-  // weight
-  if (0 == idx) {
-    // aligned with pytorch: xavier_norm
-    simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
-                                            data_simu::Distribution_t::Norm, bottom_dim, top_dim));
-  } else if (1 == idx) {
-    // aligned with pytorch: zero
-    simu.reset(new ConstantDataSimulator(0.0f));
-  } else {
-    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1, 2}.");
+    if (0 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm, bottom_dim, top_dim,
+                                              false));
+    } else if (1 == idx) {
+      simu.reset(new ConstantDataSimulator(0.0f));
+    } else {
+      HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
+    }
   }
   return simu;
 }

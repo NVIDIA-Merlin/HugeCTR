@@ -37,6 +37,7 @@ project = "SparseOperationKit"
 copyright = "2022, NVIDIA"
 author = "NVIDIA"
 
+
 # version
 def _GetSOKVersion():
     _version_path = os.path.join(os.getcwd(), "../../sparse_operation_kit/core/")

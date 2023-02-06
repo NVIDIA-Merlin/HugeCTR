@@ -82,7 +82,7 @@ struct EmbeddingTableParam {
   HugeCTR::OptParams opt_param;
   InitParams init_param;
 
-  EmbeddingTableParam() {}
+  EmbeddingTableParam() = default;
 
   EmbeddingTableParam(int table_id, int max_vocabulary_size, int ev_size,
                       HugeCTR::OptParams opt_param, InitParams init_param) {

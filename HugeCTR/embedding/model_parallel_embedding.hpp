@@ -18,6 +18,7 @@
 #include "embedding.hpp"
 #include "operators/communication.hpp"
 #include "operators/compress_offset.hpp"
+#include "operators/index_calculation.hpp"
 #include "operators/model_backward.hpp"
 #include "operators/model_forward.hpp"
 #include "operators/mp_index_calculation.hpp"
@@ -26,47 +27,96 @@
 namespace embedding {
 using namespace core;
 
+struct UniformModelParallelEmbeddingMeta {
+  mutable std::vector<int> h_hotness_list_;
+  mutable int hotness_sum_;
+  mutable std::vector<int> h_local_hotness_list_;
+  mutable int num_local_hotness_;
+
+  int num_lookup_;
+
+  std::vector<int> h_ev_size_list_;
+  std::vector<int> h_ev_size_offset_;
+  Tensor d_ev_size_offset_;
+  int max_ev_size_;
+  int num_sms_;
+  KernelParams kernel_params;
+
+  std::vector<char> h_combiner_list_;
+  Tensor d_combiner_list_;
+
+  int num_local_lookup_;
+  std::vector<int> h_local_shard_id_list_;
+  Tensor d_local_shard_id_list_;
+
+  std::vector<int> h_local_num_shards_list_;
+  Tensor d_local_num_shards_list_;
+
+  std::vector<int> h_local_table_id_list_;
+  Tensor d_local_table_id_list_;
+
+  std::vector<int> h_local_lookup_id_list_;
+  Tensor d_local_lookup_id_list_;
+
+  std::vector<int> h_local_ev_size_list_;
+  Tensor d_local_ev_size_list_;
+
+  std::vector<int> h_local_ev_size_offset_;
+  Tensor d_local_ev_size_offset_;
+
+  ModelCommBufferAttr model_buffer_attr;
+
+  std::vector<std::vector<int>> h_global_lookup_id_list_;
+
+  NetworkIndices network_indices;
+  NetworkBufferAttr network_buffer_attr;
+
+  WgradAttr wgrad_attr;
+
+  std::vector<int> h_table_id_to_global_start_indices;
+  Tensor table_id_to_global_start_indices;
+
+  UniformModelParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
+                                    const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
+
+  void update_mutable_meta(std::shared_ptr<CoreResourceManager> core,
+                           const EmbeddingCollectionParam &ebc_param, size_t grouped_id) const;
+};
+
 class UniformModelParallelEmbedding : public IGroupedEmbeddingOp {
   std::shared_ptr<CoreResourceManager> core_;
   UniformModelParallelEmbeddingMeta meta_;
 
-  ModelIndexCalculation model_index_calculation_;
-  ModelBackwardIndexCalculation model_backward_index_calculation_;
+  ReductionIndices reduction_indices_;
+  MPLocalReduceIndexCalculation local_reduce_index_calculation_;
+  LocalReduce local_reduce_;
+
   CompressOffset compress_offset_;
   ModelForward model_forward_;
   NcclAll2AllComm all2all_comm_;
   NetworkForward network_forward_;
 
   NetworkBackward network_backward_;
-  ModelBackward model_backward_;
 
   TensorList embedding_vec_;
 
-  std::vector<Tensor> model_comm_buffer_list_;
-  TensorList model_comm_buffer_;
-  std::vector<Tensor> network_comm_buffer_list_;
-  TensorList network_comm_buffer_;
-
-  int batch_size_;
-  Tensor bucket_range_, num_key_per_lookup_offset_, model_key_, model_offsets_;
-  size_t num_model_key_;
+  ModelCommBuffer model_comm_buffer_;
+  NetworkBuffer network_buffer_;
 
   std::vector<size_t> get_model_comm_buffer_size(int universal_batch_size);
-  void init_model_comm_buffer(int universal_batch_size, DataType emb_type);
 
   std::vector<size_t> get_network_comm_buffer_size(int universal_batch_size);
-  void init_network_comm_buffer(int universal_batch_size, DataType emb_type);
 
  public:
   UniformModelParallelEmbedding(std::shared_ptr<CoreResourceManager> core,
                                 const EmbeddingCollectionParam &params, size_t grouped_id);
 
-  void forward_per_gpu(const Tensor &keys, const Tensor &bucket_range, size_t num_keys,
-                       ILookup *embedding_table, Tensor &output_buffer, int batch_size) override;
+  void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+                       EmbeddingOutput &embedding_output, int batch_size) override;
 
-  void backward_per_gpu(const Tensor &top_grad, bool do_allreduce, Tensor *unique_key,
-                        size_t *num_unique_key, Tensor *num_unique_key_per_table_offset,
-                        size_t *num_table_offset, Tensor *table_id_list, Tensor *wgrad,
-                        Tensor *wgrad_idx_offset) override;
+  void backward_per_gpu(const EmbeddingInput &embedding_input, const EmbeddingOutput &top_grad,
+                        Wgrad &wgrad, int batch_size) override;
+
+  const WgradAttr &get_wgrad_attr() const override { return meta_.wgrad_attr; }
 };
 }  // namespace embedding

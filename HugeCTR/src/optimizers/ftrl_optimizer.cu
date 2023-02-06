@@ -24,19 +24,18 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void ftrl_update_kernel(int len, float* weight, T* z, T* n, const T* wgrad, float alpha,
-                                   float beta, float lambda1, float lambda2, float scaler) {
+__global__ void ftrl_update_kernel(int len, float* weight, float* z, float* n, const T* wgrad,
+                                   float alpha, float beta, float lambda1, float lambda2,
+                                   float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    float ni_new = TypeConvertFunc<float, T>::convert(n[i]) + gi * gi;
-    float zi = TypeConvertFunc<float, T>::convert(z[i]) + gi +
-               (sqrt(TypeConvertFunc<float, T>::convert(n[i])) - sqrt(ni_new)) *
-                   TypeConvertFunc<float, T>::convert(weight[i]) / alpha;
+    float ni_new = n[i] + gi * gi;
+    float zi = z[i] + gi + (sqrt(n[i]) - sqrt(ni_new)) * weight[i] / alpha;
     float x = lambda1 * (1.0f - 2.0f * signbit(zi)) - zi;
     float y = sqrt(ni_new) / alpha + lambda2;
-    n[i] = TypeConvertFunc<T, float>::convert(ni_new);
-    z[i] = TypeConvertFunc<T, float>::convert(zi);
+    n[i] = ni_new;
+    z[i] = zi;
     weight[i] = x / y * signbit(lambda1 - abs(zi));
   }
 }
@@ -45,7 +44,7 @@ __global__ void ftrl_update_kernel(int len, float* weight, T* z, T* n, const T* 
 
 template <typename T>
 FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                 float learning_rate, float beta, float lambda1, float lambda2,
                                 float scaler)
@@ -81,8 +80,8 @@ void FtrlOptimizer<T>::update() {
 
   float* weight = weight_main_.get_ptr();
 
-  T* z = z_.get_ptr();
-  T* n = n_.get_ptr();
+  float* z = z_.get_ptr();
+  float* n = n_.get_ptr();
   const T* wgrad = wgrad_.get_ptr();
   ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
       len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);

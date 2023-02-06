@@ -14,13 +14,11 @@ args = parser.parse_args()
 
 
 def iter_arrays(fname, array_ndim=3, dim_dtype=np.int32, array_dtype=np.float32):
-
     with open(fname, "rb") as f:
         fsize = os.fstat(f.fileno()).st_size
 
         # while we haven't yet reached the end of the file...
         while f.tell() < fsize:
-
             # get the dimensions for this array
             dims = np.fromfile(f, dim_dtype, array_ndim)
 

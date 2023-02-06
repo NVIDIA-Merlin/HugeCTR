@@ -139,10 +139,7 @@ class Network {
    */
   size_t get_params_num() const { return train_weight_tensor_.get_num_elements(); }
 
-  size_t get_opt_states_size_in_byte() const {
-    return use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes()
-                                : opt_tensor_.get_size_in_bytes();
-  }
+  size_t get_opt_states_size_in_byte() const { return opt_tensor_.get_size_in_bytes(); }
 
   /**
    * Writting paramters to file.

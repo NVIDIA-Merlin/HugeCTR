@@ -62,7 +62,9 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
       {2, 2, Combiner::Average, 10, table_params[2].ev_size},
   };
 
+  bool indices_only = false;
   EmbeddingCollectionParam ebc_param{static_cast<int>(table_params.size()),
+                                     {10000, 20000, 4711},
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,
@@ -72,7 +74,9 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
                                      index_type,
                                      HugeCTR::TensorScalarTypeFunc<uint32_t>::get_type(),
                                      HugeCTR::TensorScalarTypeFunc<float>::get_type(),
-                                     EmbeddingLayout::BatchMajor};
+                                     EmbeddingLayout::BatchMajor,
+                                     EmbeddingLayout::FeatureMajor,
+                                     indices_only};
 
   // Implementation to test.
   std::unique_ptr<IGroupedEmbeddingTable> test_table;
@@ -284,8 +288,12 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
         2000, 4710,        // Table 1 [3 4]
         4710,              // Table 2 [5]
     };
-    const std::vector<uint32_t> id_space_offsets_vec{0, 3, 5, 6};
-    const std::vector<int32_t> id_spaces_vec{0, 1, 2};
+    const std::vector<size_t> num_keys_vec{keys_vec.size()};
+    const std::vector<int> table_ids_vec{
+        0, 0, 0,  // Table 0
+        1, 1,     // Table 1
+        2         // Table 2
+    };
 
     std::vector<float> grad_vec;
     std::vector<uint32_t> grad_idx_vec;
@@ -299,61 +307,54 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
     std::mt19937 update_generator_(seed_seq);
     std::normal_distribution<float> update_distribution_{0.0f, 0.01f};
 
-    for (size_t idx = 0; idx < id_spaces_vec.size(); ++idx) {
-      const int32_t id_space = id_spaces_vec[idx];
-      const uint32_t ev_size = table_params[id_space].ev_size;
+    float grad_value = 0.1f;
+    for (size_t off = 0; off < keys_vec.size(); ++off) {
+      const int table_id = table_ids_vec[off];
+      const uint32_t ev_size = table_params[table_id].ev_size;
 
-      const uint32_t off0 = id_space_offsets_vec[idx];
-      const uint32_t off1 = id_space_offsets_vec[idx + 1];
+      grad_idx_vec.emplace_back(grad_vec.size());
 
-      float grad_value = idx * 0.1f + 0.1f;
-
-      for (uint32_t off = off0; off < off1; ++off) {
-        grad_idx_vec.emplace_back(grad_vec.size());
-
-        if (print) {
-          std::cout << "key: " << std::noshowpos << id_space << '/' << std::setw(5) << keys_vec[off]
-                    << ", upd:";
-        }
-
-        grad_vec.reserve(grad_vec.size() + ev_size);
-        for (uint32_t i = 0; i < ev_size; ++i) {
-          float upd = grad_value + i * 0.01f;
-          upd = update_distribution_(update_generator_);
-          // upd = 0.2f;
-          grad_vec.emplace_back(upd);
-          if (print) {
-            std::cout << " " << std::fixed << std::showpos << std::setprecision(4) << upd;
-          }
-        }
-        if (print) {
-          std::cout << std::endl;
-        }
-
-        grad_value += 0.1f;
+      if (print) {
+        std::cout << "key: " << std::noshowpos << table_id << '/' << std::setw(5) << keys_vec[off]
+                  << ", upd:";
       }
+
+      grad_vec.reserve(grad_vec.size() + ev_size);
+      for (uint32_t i = 0; i < ev_size; ++i) {
+        float upd = grad_value + i * 0.01f;
+        upd = update_distribution_(update_generator_);
+        // upd = 0.2f;
+        grad_vec.emplace_back(upd);
+        if (print) {
+          std::cout << " " << std::fixed << std::showpos << std::setprecision(4) << upd;
+        }
+      }
+      if (print) {
+        std::cout << std::endl;
+      }
+
+      grad_value += 0.1f;
     }
     grad_idx_vec.emplace_back(grad_vec.size());
 
     // Get GPU memory.
     auto buffer_ptr = GetBuffer(core);
     auto keys_buf = buffer_ptr->reserve(keys_vec.size(), device, key_type);
-    auto id_space_offsets_buf =
-        buffer_ptr->reserve(id_space_offsets_vec.size(), device, TensorScalarType::UInt32);
-    auto id_spaces_buf = buffer_ptr->reserve(id_spaces_vec.size(), device, TensorScalarType::Int32);
+    auto num_keys_buf = buffer_ptr->reserve({1}, device, core::TensorScalarType::Size_t);
+    auto table_ids_buf =
+        buffer_ptr->reserve(table_ids_vec.size(), device, core::TensorScalarType::Int32);
     auto grad_buf = buffer_ptr->reserve(grad_vec.size(), device, TensorScalarType::Float32);
     auto grad_idx_buf = buffer_ptr->reserve(grad_idx_vec.size(), device, TensorScalarType::UInt32);
     buffer_ptr->allocate();
 
     keys_buf.copy_from(keys_vec);
-    id_space_offsets_buf.copy_from(id_space_offsets_vec);
-    id_spaces_buf.copy_from(id_spaces_vec);
+    num_keys_buf.copy_from(num_keys_vec);
+    table_ids_buf.copy_from(table_ids_vec);
     grad_buf.copy_from(grad_vec);
     grad_idx_buf.copy_from(grad_idx_vec);
 
     // Inject into optimizer.
-    table->update(keys_buf, keys_buf.get_num_elements(), id_space_offsets_buf,
-                  id_space_offsets_buf.get_num_elements(), id_spaces_buf, grad_buf, grad_idx_buf);
+    table->update(keys_buf, num_keys_buf, table_ids_buf, grad_idx_buf, grad_buf);
   };
 
   auto eval = [&](const std::vector<std::tuple<int32_t, Key, std::vector<float>>>& records0,
@@ -407,7 +408,7 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
   eval(test1, ref1);
 }
 
-TEST(dynamic_embedding_table, optimzer) {
+TEST(dynamic_embedding_table, optimizer) {
   // Self test.
   test_embedding_table_optimizer<int64_t, uint32_t>(0, "Dynamic_CPU", HugeCTR::Optimizer_t::SGD,
                                                     10);

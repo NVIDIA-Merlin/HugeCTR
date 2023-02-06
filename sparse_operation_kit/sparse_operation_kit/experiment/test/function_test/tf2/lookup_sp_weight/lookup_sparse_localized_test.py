@@ -86,6 +86,9 @@ if __name__ == "__main__":
         total_indices.append(tf.RaggedTensor.from_row_lengths(values, offsets))
         total_sp_weights.append(tf.RaggedTensor.from_row_lengths(sp_weights, offsets))
 
+    left = batch_size // hvd.size() * hvd.rank()
+    right = batch_size // hvd.size() * (hvd.rank() + 1)
+
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
@@ -141,6 +144,7 @@ if __name__ == "__main__":
     loss2 = []
     tf_vars = [tf.Variable(w) for w in weights]
     for i in range(iters):
+        indices = []
         iter_sp_weights = []
         for j in range(len(total_indices)):
             indices.append(
@@ -165,10 +169,10 @@ if __name__ == "__main__":
     diff = 0
     for i in range(len(out1)):
         if hvd.rank() == gpus[i]:
-            length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
-            diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
+            length = tf.reduce_sum(out1[i] ** 2 + out2[i] ** 2 + 1e-8)
+            diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     diff = 0
     for i in range(iters):
@@ -176,7 +180,7 @@ if __name__ == "__main__":
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-4
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]

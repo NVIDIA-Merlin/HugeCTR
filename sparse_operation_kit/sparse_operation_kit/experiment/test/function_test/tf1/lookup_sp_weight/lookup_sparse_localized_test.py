@@ -77,6 +77,7 @@ if __name__ == "__main__":
         offsets.append(offset)
         value = tf.placeholder(shape=[None], dtype=tf.int64)
         values.append(value)
+
         indice = tf.RaggedTensor.from_row_lengths(value, offset)
         indices.append(indice)
 
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, indices, combiners)
+        embeddings = sok.lookup_sparse(params, indices, None, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])

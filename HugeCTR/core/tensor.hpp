@@ -153,6 +153,8 @@ class Tensor final {
   bool match() const {
     return dtype().match<T>();
   }
+
+  bool empty() const { return tensor_ == nullptr; }
 };
 
 // Currenly this class trys to own the underlying data, because we use this class in the ILookup as

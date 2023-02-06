@@ -23,7 +23,6 @@
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "embedding_collection_cpu.hpp"
 
 using namespace embedding;
 
@@ -79,4 +78,29 @@ inline void assert_array_eq(size_t num, const std::vector<__half> &a, const std:
     max_error = std::max(max_error, error);
   }
   ASSERT_LE(max_error, threshold) << "max error:" << max_error << ",threshold:" << threshold;
+}
+
+inline float kahanSum(const std::vector<float> &fa) {
+  float sum = 0.0;
+
+  // Variable to store the error
+  float c = 0.0;
+
+  // Loop to iterate over the array
+  for (float f : fa) {
+    float y = f - c;
+    float t = sum + y;
+
+    // Algebraically, c is always 0
+    // when t is replaced by its
+    // value from the above expression.
+    // But, when there is a loss,
+    // the higher-order y is cancelled
+    // out by subtracting y from c and
+    // all that remains is the
+    // lower-order error in c
+    c = (t - sum) - y;
+    sum = t;
+  }
+  return sum;
 }

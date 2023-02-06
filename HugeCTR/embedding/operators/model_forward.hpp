@@ -31,28 +31,40 @@ class DPModelForward {
   DPModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_embedding,
                  int num_local_embedding);
 
-  void compute(const Tensor &bucket_range, const Tensor &d_combiner_list, const TensorList &dp_ev,
-               const Tensor &dp_offset, const Tensor &dp_dst, Tensor &output_buffer,
-               const Tensor &d_local_ev_size_list, const Tensor &d_ev_size_offset, int batch_size,
-               int max_ev_size) const;
+  void compute(const TensorList &lookup_res, const Tensor &dp_bucket_range,
+               const Tensor &local_lookup_ids, EmbeddingOutput &embedding_output,
+               int batch_size_per_gpu);
 };
 
-class ModelForward {
+struct ModelCommBufferAttr : public EVBufferAttr {
+  Tensor id_to_ev_size;
+  Tensor id_to_ev_start_indices;
+  int num_lookup;
+  int num_gpus;
+  int max_ev_elements;
+
+  void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
+            size_t grouped_id);
+};
+
+struct ModelCommBuffer {
+  std::vector<Tensor> data_list;
+  TensorList data;
+
+  ModelCommBufferAttr attr;
+
+  void init(std::shared_ptr<CoreResourceManager> core, const ModelCommBufferAttr &attr,
+            int batch_size);
+
+  void init_from_device_buffer(std::shared_ptr<CoreResourceManager> core,
+                               const std::vector<Tensor> &data_buffer_list,
+                               const ModelCommBufferAttr &attr);
+};
+
+struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
-  int num_local_embedding_;
 
- public:
-  ModelForward() = default;
-
-  ModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus,
-               const std::vector<int> &local_embedding_list);
-
-  void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
-               const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
-               int batch_size, int max_ev_size);
-  void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
-               const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
-               int batch_size, int max_ev_size, const Tensor &sp_weight);
+  void compute(const TensorList &mp_ev, const Tensor &bucket_range,
+               ModelCommBuffer &model_comm_buffer, int batch_size);
 };
 }  // namespace embedding
