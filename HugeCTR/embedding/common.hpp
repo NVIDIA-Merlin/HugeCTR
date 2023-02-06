@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <core/buffer.hpp>
 #include <map>
 #include <string>
 #include <vector>
-
-#include "HugeCTR/core/buffer.hpp"
 
 namespace embedding {
 using core::CoreResourceManager;

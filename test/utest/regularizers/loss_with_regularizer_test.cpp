@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
+#include <cublas_v2.h>
 #include <curand.h>
+#include <gtest/gtest.h>
 
 #include <cmath>
+#include <common.hpp>
 #include <cstdlib>
+#include <layers/fully_connected_layer.hpp>
+#include <loss.hpp>
+#include <regularizers/l1_regularizer.hpp>
+#include <regularizers/l2_regularizer.hpp>
+#include <regularizers/no_regularizer.hpp>
+#include <utest/test_utils.hpp>
 #include <utility>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/layers/fully_connected_layer.hpp"
-#include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/regularizers/l1_regularizer.hpp"
-#include "HugeCTR/include/regularizers/l2_regularizer.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
-#include "cublas_v2.h"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

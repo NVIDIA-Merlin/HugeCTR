@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "HugeCTR/embedding/common.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "generic_lookup.cuh"
-#include "network_backward.hpp"
-#include "network_forward.hpp"
+
+#include <embedding/common.hpp>
+#include <embedding/operators/generic_lookup.cuh>
+#include <embedding/operators/network_backward.hpp>
+#include <embedding/operators/network_forward.hpp>
+#include <utils.hpp>
+
 namespace embedding {
 
 using namespace core;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #ifdef ENABLE_S3
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
@@ -27,14 +28,12 @@
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #endif
-#include <sys/stat.h>
 
 #include <base/debug/logger.hpp>
 #include <fstream>
 #include <io/s3_filesystem.hpp>
 #include <io/s3_utils.hpp>
-
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
 

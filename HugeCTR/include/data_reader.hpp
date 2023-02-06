@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <atomic>
 #include <common.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
+#include <io/filesystem.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/io/filesystem.hpp"
 
 namespace HugeCTR {
 

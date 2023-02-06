@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
+
 #include <cstdio>
 #include <fstream>
 #include <functional>
+#include <general_buffer2.hpp>
+#include <metrics.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <sstream>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

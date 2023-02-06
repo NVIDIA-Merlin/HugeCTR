@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <utils.cuh>
+
 #define private public
 #define protected public
-#include "HugeCTR/include/embeddings/hybrid_sparse_embedding.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "hybrid_embedding/input_generator.hpp"
+#include <embeddings/hybrid_sparse_embedding.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
 
 using namespace HugeCTR;
 using namespace hybrid_embedding;

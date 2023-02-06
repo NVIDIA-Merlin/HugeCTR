@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <base/debug/logger.hpp>
+#include <core/macro.hpp>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
-
-#include "HugeCTR/core/macro.hpp"
-#include "HugeCTR/include/base/debug/logger.hpp"
 
 #define CASE_TYPE_USING_HINT(enum_type, type, HINT, ...) \
   case (enum_type): {                                    \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
-#include <fstream>
+#include <gtest/gtest.h>
 
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_readers/data_reader.hpp"
-#include "HugeCTR/include/data_readers/file_list.hpp"
-#include "HugeCTR/include/data_readers/parquet_data_reader_worker.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
+#include <data_generator.hpp>
+#include <data_readers/data_reader.hpp>
+#include <data_readers/file_list.hpp>
+#include <data_readers/parquet_data_reader_worker.hpp>
+#include <fstream>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utest/test_utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <cudf/column/column.hpp>

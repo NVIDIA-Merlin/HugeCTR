@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef HASH_FUNCTIONS_CUH
-#define HASH_FUNCTIONS_CUH
+#pragma once
 
 using hash_value_type = uint32_t;
 
@@ -117,5 +115,3 @@ struct MurmurHash3_32 {
 
 template <typename Key>
 using default_hash = MurmurHash3_32<Key>;
-
-#endif  // HASH_FUNCTIONS_CUH

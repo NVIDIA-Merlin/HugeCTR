@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <exception>
+#include <tensorflow/core/framework/op_kernel.h>
 
-#include "config.h"
-#include "hps/plugin/facade.hpp"
-#include "tensorflow/core/framework/op_kernel.h"
+#include <exception>
+#include <hps/plugin/facade.hpp>
+#include <hps_cc/config.hpp>
 
 namespace tensorflow {
 

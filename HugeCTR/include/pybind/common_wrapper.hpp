@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/include/collectives/all_reduce_comm.hpp>
-#include <HugeCTR/include/common.hpp>
-#include <HugeCTR/include/device_map.hpp>
-#include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
-#include <HugeCTR/include/hps/inference_utils.hpp>
-#include <HugeCTR/include/io/filesystem.hpp>
-#include <HugeCTR/include/metrics.hpp>
+#include <collectives/all_reduce_comm.hpp>
+#include <common.hpp>
+#include <device_map.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
+#include <hps/inference_utils.hpp>
+#include <io/filesystem.hpp>
+#include <metrics.hpp>
 
 namespace HugeCTR {
 

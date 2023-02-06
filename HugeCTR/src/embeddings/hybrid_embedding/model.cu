@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,15 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <common.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <iostream>
+#include <resource_manager.hpp>
+#include <tensor2.hpp>
+#include <utils.cuh>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
 

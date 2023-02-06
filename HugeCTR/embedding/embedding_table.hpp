@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "common.hpp"
+#include <embedding/common.hpp>
 
 namespace embedding {
 
@@ -27,4 +27,5 @@ class ILookup {
                       size_t num_table_offset, const Tensor &table_id_list,
                       TensorList &embedding_vec) = 0;
 };
+
 }  // namespace embedding

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <common.hpp>
 #include <hps/embedding_cache_base.hpp>
 #include <inference/inference_session_base.hpp>
@@ -22,13 +22,12 @@
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
+#include <pipeline.hpp>
 #include <string>
 #include <tensor2.hpp>
 #include <thread>
 #include <utility>
 #include <vector>
-
-#include "pipeline.hpp"
 
 namespace HugeCTR {
 

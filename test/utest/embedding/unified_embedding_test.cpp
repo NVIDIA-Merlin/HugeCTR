@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include "utest/embedding/unified_embedding.hpp"
-
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utest/embedding/unified_embedding.hpp>
 
 using namespace HugeCTR;
 using namespace unified_embedding_test;
@@ -218,6 +217,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
     }
   }
 }
+
 }  // namespace
 
 TEST(unified_embedding_test, test_distributed_embedding_train_multi_gpu_reference_check) {

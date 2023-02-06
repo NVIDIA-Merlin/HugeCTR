@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cub/cub.cuh>
 
-#include "../common.hpp"
-#include "../view.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "HugeCTR/include/utils.hpp"
-#include "dp_index_calculation.hpp"
-#include "index_calculation.hpp"
-#include "mp_index_calculation.hpp"
+#include <cub/cub.cuh>
+#include <embedding/common.hpp>
+#include <embedding/operators/dp_index_calculation.hpp>
+#include <embedding/operators/index_calculation.hpp>
+#include <embedding/operators/mp_index_calculation.hpp>
+#include <embedding/view.hpp>
+#include <utils.cuh>
+#include <utils.hpp>
 
 namespace embedding {
 

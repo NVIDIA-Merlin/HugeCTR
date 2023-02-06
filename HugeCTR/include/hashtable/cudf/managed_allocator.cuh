@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef MANAGED_ALLOCATOR_CUH
-#define MANAGED_ALLOCATOR_CUH
+#pragma once
 
 #include <base/debug/logger.hpp>
 using HugeCTR::Logger;
@@ -52,5 +50,3 @@ template <class T, class U>
 bool operator!=(const managed_allocator<T>&, const managed_allocator<U>&) {
   return false;
 }
-
-#endif

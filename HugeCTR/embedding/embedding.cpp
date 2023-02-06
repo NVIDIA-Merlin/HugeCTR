@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "embedding.hpp"
+#include <embedding/data_parallel_embedding.hpp>
+#include <embedding/embedding.hpp>
+#include <embedding/model_parallel_embedding.hpp>
 
-#include "data_parallel_embedding.hpp"
-#include "model_parallel_embedding.hpp"
 namespace embedding {
 
 std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
@@ -39,4 +39,5 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
   }
   return embeddings;
 }
+
 }  // namespace embedding

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
 #include <omp.h>
 
+#include <common.hpp>
 #include <cstdio>
+#include <data_readers/async_reader/async_reader.hpp>
+#include <data_readers/multi_hot/detail/data_reader_impl.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <general_buffer2.hpp>
 #include <iostream>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <sstream>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/data_readers/async_reader/async_reader.hpp"
-#include "HugeCTR/include/data_readers/multi_hot/detail/data_reader_impl.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "common.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

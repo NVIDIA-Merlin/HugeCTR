@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_readers/check_sum.hpp"
-#include "HugeCTR/include/data_readers/file_source.hpp"
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
+#include <common.hpp>
+#include <data_readers/check_sum.hpp>
+#include <data_readers/file_source.hpp>
 
 using namespace HugeCTR;
 

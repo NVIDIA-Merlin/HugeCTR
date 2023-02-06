@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <common.hpp>
 #include <cub/cub.cuh>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/select.cuh>
+#include <embeddings/hybrid_embedding/statistics.hpp>
 #include <iostream>
 #include <string>
+#include <tensor2.hpp>
+#include <utils.cuh>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/select.cuh"
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
 namespace hybrid_embedding {
@@ -407,6 +406,7 @@ void Statistics<dtype>::calculate_frequent_model_table_offsets(
 template class Statistics<uint32_t>;
 template class Statistics<long long>;
 template class Statistics<unsigned long>;
+
 }  // namespace hybrid_embedding
 
 }  // namespace HugeCTR

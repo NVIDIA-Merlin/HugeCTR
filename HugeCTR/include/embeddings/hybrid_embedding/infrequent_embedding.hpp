@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cuda_runtime.h>
 
+#include <common.hpp>
+#include <embeddings/hybrid_embedding/communication.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/hybrid_indices.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
+#include <gpu_resource.hpp>
 #include <memory>
+#include <tensor2.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/communication.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "hybrid_indices.hpp"
 
 namespace HugeCTR {
 

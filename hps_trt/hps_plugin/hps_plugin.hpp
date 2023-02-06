@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef TRT_HPS_PLUGIN_H
-#define TRT_HPS_PLUGIN_H
-
 #pragma once
+
+#include <NvInferPlugin.h>
 #include <cuda_runtime.h>
 #include <cudnn.h>
 
 #include <cstdlib>
 #include <cstring>
+#include <hps/plugin/facade.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "NvInferPlugin.h"
-#include "hps/plugin/facade.hpp"
 
 using namespace HierarchicalParameterServer;
 
@@ -138,5 +134,3 @@ class HpsPluginCreator : public IPluginCreator {
 }  // namespace plugin
 
 }  // namespace nvinfer1
-
-#endif  // TRT_HPS_PLUGIN_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/embedding/operators/compress_offset.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <core/hctr_impl/hctr_backend.hpp>
+#include <embedding/operators/compress_offset.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utils.hpp>
+
 using namespace embedding;
 
 TEST(test_compress_offset, test_compress_offset) {

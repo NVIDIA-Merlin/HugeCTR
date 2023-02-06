@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <embedding/embedding.hpp>
 #include <iterator>
 #include <numeric>
 #include <unordered_set>
+#include <utest/embedding_collection/data_parallel_embedding_cpu.hpp>
+#include <utest/embedding_collection/model_parallel_embedding_cpu.hpp>
+#include <utest/embedding_collection/reference_embedding.hpp>
 
-#include "HugeCTR/embedding/embedding.hpp"
-#include "data_parallel_embedding_cpu.hpp"
-#include "model_parallel_embedding_cpu.hpp"
-#include "reference_embedding.hpp"
 using namespace embedding;
 
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>

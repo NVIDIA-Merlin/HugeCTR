@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include "HugeCTR/core/registry.hpp"
-#include "HugeCTR/embedding/common.hpp"
+
+#include <core/registry.hpp>
+#include <embedding/common.hpp>
 
 namespace embedding {
 
@@ -34,4 +35,5 @@ class WeightedModelForward {
                const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
                int batch_size, int max_ev_size, const Tensor &sp_weight);
 };
+
 }  // namespace embedding

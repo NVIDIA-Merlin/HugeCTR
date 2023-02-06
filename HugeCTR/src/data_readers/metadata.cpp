@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "data_readers/metadata.hpp"
+#include <data_readers/metadata.hpp>
 // arrow::libparquet
 #ifdef ENABLE_ARROW_PARQUET
 #include <parquet/file_reader.h>
@@ -22,8 +22,7 @@
 #endif
 
 #include <iostream>
-
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
 // filename is xxxx/_metadata.json

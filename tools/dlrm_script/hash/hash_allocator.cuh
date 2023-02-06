@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef HASH_ALLOCATOR_CUH
-#define HASH_ALLOCATOR_CUH
+#pragma once
 
 #include <new>
 #include <rmm/mr/device/device_memory_resource.hpp>
@@ -77,5 +75,3 @@ template <class T, class U>
 bool operator!=(const default_allocator<T>&, const default_allocator<U>&) {
   return false;
 }
-
-#endif

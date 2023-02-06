@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,21 @@
  * limitations under the License.
  */
 
-#include <sys/time.h>
+#include <gtest/gtest.h>
+#include <nvToolsExt.h>
 
+#include <data_generator.hpp>
+#include <data_readers/data_reader.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <unordered_set>
-
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_readers/data_reader.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "gtest/gtest.h"
-#include "nvToolsExt.h"
-#include "utest/embedding/embedding_test_utils.hpp"
-#include "utest/embedding/sparse_embedding_hash_cpu.hpp"
-#include "utest/test_utils.h"
+#include <utest/embedding/embedding_test_utils.hpp>
+#include <utest/embedding/sparse_embedding_hash_cpu.hpp>
+#include <utest/test_utils.hpp>
 
 using namespace HugeCTR;
 using namespace embedding_test;

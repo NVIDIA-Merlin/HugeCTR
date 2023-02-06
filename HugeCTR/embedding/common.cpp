@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "common.hpp"
 
 #include <cuda_runtime.h>
 
-#include "HugeCTR/include/utils.hpp"
-#include "core/registry.hpp"
+#include <core/registry.hpp>
+#include <embedding/common.hpp>
+#include <utils.hpp>
 
 namespace embedding {
 

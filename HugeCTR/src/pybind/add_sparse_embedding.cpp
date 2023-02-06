@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp>
-#include <HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp>
-#include <HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 #include <loss.hpp>
 #include <optimizer.hpp>
 #include <pybind/model.hpp>

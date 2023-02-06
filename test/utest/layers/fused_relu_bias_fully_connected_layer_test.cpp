@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/fused_relu_bias_fully_connected_layer.hpp"
+#include <cublas_v2.h>
+#include <gtest/gtest.h>
 
 #include <cmath>
 #include <cstdlib>
+#include <layers/fused_relu_bias_fully_connected_layer.hpp>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "cublas_v2.h"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

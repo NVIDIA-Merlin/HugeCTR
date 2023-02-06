@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 #pragma once
-#include "common.hpp"
-#include "embedding.hpp"
-#include "operators/communication.hpp"
-#include "operators/compress_offset.hpp"
-#include "operators/index_calculation.hpp"
-#include "operators/model_backward.hpp"
-#include "operators/model_forward.hpp"
-#include "operators/mp_index_calculation.hpp"
-#include "operators/network_backward.hpp"
-#include "operators/network_forward.hpp"
+
+#include <embedding/common.hpp>
+#include <embedding/embedding.hpp>
+#include <embedding/operators/communication.hpp>
+#include <embedding/operators/compress_offset.hpp>
+#include <embedding/operators/index_calculation.hpp>
+#include <embedding/operators/model_backward.hpp>
+#include <embedding/operators/model_forward.hpp>
+#include <embedding/operators/mp_index_calculation.hpp>
+#include <embedding/operators/network_backward.hpp>
+#include <embedding/operators/network_forward.hpp>
+
 namespace embedding {
 using namespace core;
 
@@ -119,4 +121,5 @@ class UniformModelParallelEmbedding : public IGroupedEmbeddingOp {
 
   const WgradAttr &get_wgrad_attr() const override { return meta_.wgrad_attr; }
 };
+
 }  // namespace embedding

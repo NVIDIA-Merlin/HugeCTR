@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,35 +14,30 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/utils.hpp"
-// #include "cub/cub/device/device_radix_sort.cuh"
-// #include "cub/cub/device/device_scan.cuh"
-// #include "HugeCTR/include/ft_topk/ft_topk.cuh"
-
 #include <cuda.h>
 #include <cuda_profiler_api.h>
 #include <cuda_runtime_api.h>
+#include <gtest/gtest.h>
+#include <nvToolsExt.h>
 
 #include <algorithm>
 #include <common.hpp>
 #include <cuda_utils.cuh>
+#include <embeddings/hybrid_embedding/statistics.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
+#include <embeddings/sparse_embedding_functors.hpp>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <numeric>
 #include <random>
+#include <utest/embedding/embedding_test_utils.hpp>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
+#include <utest/test_utils.hpp>
 #include <utility>
+#include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "gtest/gtest.h"
-#include "nvToolsExt.h"
-#include "utest/embedding/embedding_test_utils.hpp"
-#include "utest/embedding/hybrid_embedding/input_generator.hpp"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 using namespace embedding_test;

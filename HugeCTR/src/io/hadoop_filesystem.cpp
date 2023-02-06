@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include "io/hadoop_filesystem.hpp"
-
 #include <base/debug/logger.hpp>
 #include <exception>
 #include <fstream>
+#include <io/hadoop_filesystem.hpp>
 #include <iostream>
-
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
+
 #ifdef ENABLE_HDFS
 void HdfsConfigs::set_buffer_size(int32_t buffer_size) { this->buffer_size = buffer_size; }
 
@@ -346,4 +345,5 @@ void HadoopFileSystem::batch_upload(const std::string& source_path,
   HCTR_LOG_S(INFO, WORLD) << "HDFS batch upload is complete!" << std::endl;
 }
 #endif
+
 }  // namespace HugeCTR

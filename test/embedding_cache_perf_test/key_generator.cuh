@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <curand.h>
 
+#include <base/debug/logger.hpp>
 #include <iostream>
 #include <random>
 #include <stdexcept>
 #include <vector>
-
-#include "HugeCTR/include/base/debug/logger.hpp"
 
 template <typename key_type>
 __global__ void gen_keys_kernel(key_type* lookup_keys, bool uniform, const float alpha,

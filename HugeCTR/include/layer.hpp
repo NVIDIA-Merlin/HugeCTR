@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
+#include <cpu_resource.hpp>
+#include <data_simulator.hpp>
 #include <fstream>
 #include <functional>
+#include <general_buffer2.hpp>
+#include <gpu_resource.hpp>
 #include <string>
 #include <vector>
 
-#include "HugeCTR/include/cpu_resource.hpp"
-#include "HugeCTR/include/data_simulator.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-
 namespace HugeCTR {
+
 /**
  * @brief
  * Definition of a basic layer class.
@@ -110,4 +109,5 @@ class Layer {
     return std::move(get_zero_initializer(index));
   }
 };
+
 }  // namespace HugeCTR

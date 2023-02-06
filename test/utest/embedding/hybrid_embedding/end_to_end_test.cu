@@ -1,19 +1,35 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <gtest/gtest.h>
+
+#include <general_buffer2.hpp>
 #include <map>
 #include <memory>
 #include <random>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <tensor2.hpp>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "gtest/gtest.h"
-#include "input_generator.hpp"
-#include "utest/test_utils.h"
 
 // all your base are belong to us
 #define private public
 #define protected public
-#include "HugeCTR/include/embeddings/hybrid_sparse_embedding.hpp"
+#include <embeddings/hybrid_sparse_embedding.hpp>
 
 using namespace HugeCTR;
 
@@ -226,24 +242,27 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     }
 
     if (embedding->embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
-      cudaMemcpy(embedding->infrequent_embeddings_single_node_[device]
-                     .infrequent_embedding_vectors_.get_ptr(),
-                 h_infrequent_embedding_vectors,
-                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+      HCTR_LIB_THROW(cudaMemcpy(embedding->infrequent_embeddings_single_node_[device]
+                                    .infrequent_embedding_vectors_.get_ptr(),
+                                h_infrequent_embedding_vectors,
+                                num_infrequent * embedding_vec_size * sizeof(float),
+                                cudaMemcpyHostToDevice));
     }
 
     if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-      cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_[device]
-                     .infrequent_embedding_vectors_.get_ptr(),
-                 h_infrequent_embedding_vectors,
-                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+      HCTR_LIB_THROW(cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_[device]
+                                    .infrequent_embedding_vectors_.get_ptr(),
+                                h_infrequent_embedding_vectors,
+                                num_infrequent * embedding_vec_size * sizeof(float),
+                                cudaMemcpyHostToDevice));
     }
 
     if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-      cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_hier_[device]
-                     .infrequent_embedding_vectors_.get_ptr(),
-                 h_infrequent_embedding_vectors,
-                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+      HCTR_LIB_THROW(cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+                                    .infrequent_embedding_vectors_.get_ptr(),
+                                h_infrequent_embedding_vectors,
+                                num_infrequent * embedding_vec_size * sizeof(float),
+                                cudaMemcpyHostToDevice));
     }
     // HCTR_LOG(INFO, WORLD, "gpu = %ld, num_infrequent = %ld, infrequent_embedding_vectors_ =
     // 0x%lx\n", device, num_infrequent,

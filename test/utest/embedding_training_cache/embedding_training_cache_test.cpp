@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#include "embedding_training_cache/embedding_training_cache.hpp"
-
 #include <gtest/gtest.h>
 
+#include <embedding_training_cache/embedding_training_cache.hpp>
+#include <embedding_training_cache/hmem_cache/hmem_cache.hpp>
 #include <iterator>
-
-#include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
-#include "etc_test_utils.hpp"
-#include "parser.hpp"
+#include <parser.hpp>
+#include <utest/embedding_training_cache/etc_test_utils.hpp>
 
 using namespace HugeCTR;
 using namespace etc_test;

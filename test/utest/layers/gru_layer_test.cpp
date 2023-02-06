@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/gru_layer.hpp"
-//#include "rnn_example/cudnn_rnn_v6.hpp"
-//#include "rnn_example/data.h"
 #include <cmath>
 #include <cstdlib>
+#include <data_simulator.hpp>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <layers/gru_layer.hpp>
 #include <random>
 #include <sstream>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/data_simulator.hpp"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

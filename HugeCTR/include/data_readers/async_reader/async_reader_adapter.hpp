@@ -1,15 +1,29 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <common.hpp>
 #include <data_readers/async_reader/async_reader.hpp>
 #include <data_readers/async_reader/async_reader_common.hpp>
 #include <data_readers/async_reader/split_label_dense_sparse.hpp>
+#include <embeddings/hybrid_embedding/indices_container.hpp>
+#include <graph_wrapper.hpp>
+#include <io/filesystem.hpp>
+#include <scheduleable.hpp>
 #include <tensor2.hpp>
-
-#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
-#include "HugeCTR/include/graph_wrapper.hpp"
-#include "HugeCTR/include/io/filesystem.hpp"
-#include "scheduleable.hpp"
 
 namespace HugeCTR {
 

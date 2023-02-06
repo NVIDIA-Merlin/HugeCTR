@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <vector>
 
-#include "embedding_table.hpp"
+#include <embedding/embedding_table.hpp>
+#include <vector>
 
 namespace embedding {
 
@@ -35,4 +35,5 @@ class IGroupedEmbeddingOp {
 
 std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
     std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param);
+
 }  // namespace embedding

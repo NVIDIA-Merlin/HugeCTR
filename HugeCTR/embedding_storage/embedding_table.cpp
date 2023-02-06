@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "embedding_table.hpp"
 
-#include <cassert>
+#include <embedding_storage/dynamic_embedding.hpp>
+#include <embedding_storage/embedding_table.hpp>
+#include <embedding_storage/ragged_static_embedding.hpp>
 
-#include "dynamic_embedding.hpp"
-#include "ragged_static_embedding.hpp"
 namespace embedding {
 std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_tables(
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager,

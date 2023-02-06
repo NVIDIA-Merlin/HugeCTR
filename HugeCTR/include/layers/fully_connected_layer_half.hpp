@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
+#include <cublas_v2.h>
 
 #include <functional>
 #include <layer.hpp>
+#include <layers/fully_connected_layer.hpp>
 #include <trainable_layer.hpp>
 #include <vector>
 
-#include "cublas_v2.h"
-#include "fully_connected_layer.hpp"
-
 namespace HugeCTR {
+
 /**
  * @brief
  * This class implements the fully connected layer.
@@ -104,4 +104,5 @@ class FullyConnectedLayer<__half> : public TrainableLayer<__half> {
   FullyConnectedLayer(const FullyConnectedLayer&) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 };
+
 }  // namespace HugeCTR

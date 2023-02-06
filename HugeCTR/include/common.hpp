@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <assert.h>
 #include <cublas_v2.h>
 #include <curand.h>
 #include <nvml.h>
@@ -35,9 +33,9 @@
 #include <vector>
 
 #ifdef ENABLE_MPI
-#include <limits.h>
+// #include <limits.h>
 #include <mpi.h>
-#include <stdint.h>
+// #include <stdint.h>
 
 #if SIZE_MAX == UCHAR_MAX
 #define MPI_SIZE_T MPI_UNSIGNED_CHAR

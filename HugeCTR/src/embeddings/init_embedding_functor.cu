@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_simulator.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <data_simulator.hpp>
+#include <embeddings/sparse_embedding_functors.hpp>
+#include <general_buffer2.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 

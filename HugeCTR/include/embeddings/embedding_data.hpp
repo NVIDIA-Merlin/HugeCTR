@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <embedding.hpp>
+#include <embeddings/sparse_embedding_functors.hpp>
 #include <general_buffer2.hpp>
 #include <resource_manager.hpp>
 #include <unordered_map>
+#include <utils.hpp>
 
-#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "HugeCTR/include/utils.hpp"
 namespace HugeCTR {
 
 template <typename TypeKey, typename TypeEmbeddingComp>
@@ -282,4 +282,5 @@ class EmbeddingData {
   const SparseEmbeddingHashParams& get_embedding_params() const override {                   \
     return embedding_data.embedding_params_;                                                 \
   }
+
 }  // namespace HugeCTR

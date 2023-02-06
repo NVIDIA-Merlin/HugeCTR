@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/reshape_layer.hpp"
+#include <gtest/gtest.h>
 
-#include <math.h>
-
+#include <layers/reshape_layer.hpp>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
 namespace {
+
 template <typename T>
 void reshape_test(std::vector<size_t>& dims_in, std::vector<size_t>& dims_out) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();

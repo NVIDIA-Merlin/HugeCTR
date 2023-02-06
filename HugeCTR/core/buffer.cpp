@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "buffer.hpp"
-
-#include "HugeCTR/include/utils.hpp"
-#include "core.hpp"
+#include <core/buffer.hpp>
+#include <core/core.hpp>
+#include <utils.hpp>
 
 namespace core {
 using HugeCTR::CudaDeviceContext;
@@ -91,4 +90,5 @@ void BufferImpl::allocate() {
   }
   storages_.clear();
 }
+
 }  // namespace core
