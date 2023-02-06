@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,19 @@
 
 #include <cublas_v2.h>
 #include <cuda_profiler_api.h>
-#include <sys/time.h>
+#include <gtest/gtest.h>
+#include <nvToolsExt.h>
 
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <layer.hpp>
+#include <layers/interaction_layer.hpp>
+#include <layers/mlp_layer.hpp>
 #include <string>
+#include <utest/test_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/layer.hpp"
-#include "HugeCTR/include/layers/interaction_layer.hpp"
-#include "HugeCTR/include/layers/mlp_layer.hpp"
-#include "gtest/gtest.h"
-#include "nvToolsExt.h"
-#include "utest/test_utils.h"
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"

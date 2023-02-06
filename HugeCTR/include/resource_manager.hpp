@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <collectives/all_reduce_comm.hpp>
 #include <collectives/ib_comm.hpp>
+#include <core/mpi_lifetime_service.hpp>
 #include <cpu_resource.hpp>
 #include <device_map.hpp>
 #include <gpu_resource.hpp>
 #include <resource_manager_base.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-#include "core/mpi_lifetime_service.hpp"
-
 namespace HugeCTR {
+
 /**
  * @brief Second-level ResourceManager interface
  *
@@ -62,4 +62,5 @@ class ResourceManager : public ResourceManagerBase {
   virtual void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) = 0;
   virtual AllReduceInPlaceComm* get_ar_comm() const = 0;
 };
+
 }  // namespace HugeCTR

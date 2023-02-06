@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <cuda_runtime_api.h>
 
 #include <memory>
 #include <numeric>
-
-#include "HugeCTR/include/tensor2.hpp"
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
@@ -266,7 +265,6 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   void *get_ptr() { return ptr_; }
   const void *get_ptr() const { return ptr_; }
   size_t get_size_in_bytes() { return total_size_in_bytes_; }
-
-};  // namespace HugeCTR
+};
 
 }  // namespace HugeCTR

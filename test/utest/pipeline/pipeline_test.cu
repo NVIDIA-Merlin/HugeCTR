@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@
 #include <cuda_profiler_api.h>
 #include <omp.h>
 
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/pipeline.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
-#include "utest/test_utils.h"
+#include <gpu_resource.hpp>
+#include <pipeline.hpp>
+#include <resource_manager.hpp>
+#include <utest/test_utils.hpp>
+
 using namespace HugeCTR;
 
 __global__ void setA(float *var, int count) {

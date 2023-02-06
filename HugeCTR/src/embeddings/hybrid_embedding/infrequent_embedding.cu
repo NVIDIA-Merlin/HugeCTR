@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,21 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <common.hpp>
 #include <cub/cub.cuh>
+#include <data_simulator.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/infrequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/update.cuh>
+#include <embeddings/hybrid_embedding/utils.cuh>
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <iostream>
+#include <shuffle/shuffle.cuh>
+#include <tensor2.hpp>
 #include <utility>
+#include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_simulator.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/update.cuh"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.cuh"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/shuffle/shuffle.cuh"
-#include "HugeCTR/include/tensor2.hpp"
-#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 

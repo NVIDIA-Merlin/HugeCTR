@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,19 @@
 #include <cuda_runtime.h>
 
 #include <collectives/all_reduce_comm.hpp>
+#include <common.hpp>
+#include <embedding.hpp>
+#include <embeddings/hybrid_embedding/calibration_data.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/frequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/indices_container.hpp>
+#include <embeddings/hybrid_embedding/infrequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/statistics.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
+#include <embeddings/hybrid_sparse_embedding.hpp>
+#include <tensor2.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/calibration_data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/frequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/embeddings/hybrid_sparse_embedding.hpp"
-#include "HugeCTR/include/tensor2.hpp"
 
 namespace HugeCTR {
 template <typename dtype, typename emtype>
@@ -817,4 +816,5 @@ template class HybridSparseEmbedding<uint32_t, __half>;
 template class HybridSparseEmbedding<uint32_t, float>;
 template class HybridSparseEmbedding<long long, __half>;
 template class HybridSparseEmbedding<long long, float>;
+
 }  // namespace HugeCTR

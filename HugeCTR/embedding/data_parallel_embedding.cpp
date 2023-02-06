@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "data_parallel_embedding.hpp"
 
-#include "HugeCTR/include/utils.hpp"
+#include <embedding/data_parallel_embedding.hpp>
+#include <utils.hpp>
+
 namespace embedding {
 
 UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
@@ -334,4 +335,5 @@ void UniformDPEmbedding::backward_per_gpu(const EmbeddingInput& embedding_input,
     backward_per_gpu_for_dynamic_table(embedding_input, top_grad, wgrad, batch_size);
   }
 }
+
 }  // namespace embedding

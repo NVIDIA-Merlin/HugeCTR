@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 // TODO: The configurations are not needed anymore in merlin-base:22.12
-// #pragma once
-// #include "absl/base/options.h"
+// #include <absl/base/options.h>
 // #undef ABSL_OPTION_USE_STD_STRING_VIEW
 // #define ABSL_OPTION_USE_STD_STRING_VIEW 0

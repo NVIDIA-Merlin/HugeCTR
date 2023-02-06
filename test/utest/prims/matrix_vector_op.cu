@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <test/prims/test_utils.h>
+#include <utest/prims/matrix_vector_op.h>
 
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/unary_op.cuh>
 #include <random/rng.cuh>
-
-#include "matrix_vector_op.h"
 
 namespace MLCommon {
 namespace LinAlg {

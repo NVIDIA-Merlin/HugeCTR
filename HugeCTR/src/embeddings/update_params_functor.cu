@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #include <thrust/sort.h>  // for implictly including cub headers
 
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <embeddings/hybrid_embedding/statistics.hpp>
+#include <embeddings/sparse_embedding_functors.hpp>
+#include <utils.cuh>
 
 #define max_size_top_categories 16
 #define num_samples_per_block 128

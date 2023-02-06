@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include <fcntl.h>
-#include <nvToolsExt.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
+#include <nvToolsExt.h>
+
+#include <common.hpp>
 #include <cudf/copying.hpp>
 #include <cudf/io/parquet.hpp>
+#include <data_readers/file_list.hpp>
+#include <data_readers/metadata.hpp>
+#include <data_readers/source.hpp>
 #include <fstream>
+#include <io/file_loader.hpp>
 #include <utils.hpp>
 #include <vector>
-
-#include "common.hpp"
-#include "data_readers/file_list.hpp"
-#include "data_readers/metadata.hpp"
-#include "data_readers/source.hpp"
-#include "io/file_loader.hpp"
 
 namespace HugeCTR {
 

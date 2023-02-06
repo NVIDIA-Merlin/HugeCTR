@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,20 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_generator.hpp"
-
-#include <sys/stat.h>
-
+#include <data_generator.hpp>
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <parser.hpp>
 #include <sstream>
 #include <unordered_set>
+#include <utils.hpp>
 #include <vector>
 
-#include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/utils.hpp"
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
+
 using namespace HugeCTR;
 using HugeCTR::Logger;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <common.hpp>
 #include <memory>
 
-#include "HugeCTR/include/common.hpp"
-
 namespace HugeCTR {
+
 class GPUBarrier {
  public:
   GPUBarrier(size_t num_gpus, const std::vector<int>& device_list, bool enforce_order = false);
@@ -42,4 +43,5 @@ class GPUBarrier {
   std::vector<int> dev_list_;
   bool enforce_order_;
 };
+
 }  // namespace HugeCTR

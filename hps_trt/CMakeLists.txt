@@ -49,12 +49,12 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.h
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.cuh
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.cpp
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.cc
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.cu
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.hpp
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.h
-    ${PROJECT_SOURCE_DIR}/hpsPlugin/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.h
+    ${PROJECT_SOURCE_DIR}/hps_plugin/*.cuh
   )
   set(clangformat_srcs ${HPS_PLUGIN_SRC})
   clangformat_setup("${clangformat_srcs}")
@@ -143,9 +143,9 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps hps)
 
 # building hps tensorrt plugin
 file(GLOB_RECURSE HPS_PLUGIN_SRC
-    ${CMAKE_SOURCE_DIR}/hpsPlugin/hpsPlugin.cpp
-    # ${CMAKE_SOURCE_DIR}/hpsPlugin/facade.cc
-    # ${CMAKE_SOURCE_DIR}/hpsPlugin/lookup_manager.cc
+    ${CMAKE_SOURCE_DIR}/hps_plugin/hps_plugin.cpp
+    # ${CMAKE_SOURCE_DIR}/hps_plugin/facade.cc
+    # ${CMAKE_SOURCE_DIR}/hps_plugin/lookup_manager.cc
 )
 add_library(hps_plugin MODULE ${HPS_PLUGIN_SRC})
 

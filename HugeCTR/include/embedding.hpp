@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <optimizer.hpp>
 #include <tensor2.hpp>
 #include <vector>
 
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 namespace HugeCTR {
+
 struct BufferBag;
 class IEmbedding {
  public:

@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef HELPER_FUNCTIONS_CUH
-#define HELPER_FUNCTIONS_CUH
+#pragma once
 
 #include <thrust/pair.h>
 
@@ -224,5 +222,3 @@ __host__ __device__ bool operator!=(const cycle_iterator_adapter<T>& lhs,
                                     const cycle_iterator_adapter<T>& rhs) {
   return !lhs.equal(rhs);
 }
-
-#endif  // HELPER_FUNCTIONS_CUH

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <utest/test_utils.h>
 
 #include <data_generator.hpp>
 #include <fstream>
@@ -25,10 +24,12 @@
 #include <hps/hier_parameter_server.hpp>
 #include <inference/embedding_feature_combiner.hpp>
 #include <inference/inference_session.hpp>
+#include <utest/test_utils.hpp>
 #include <utils.hpp>
 #include <vector>
 
 using namespace HugeCTR;
+
 namespace {
 
 const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  549431,

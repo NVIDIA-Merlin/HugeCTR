@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <cublasLt.h>
 #include <cublas_v2.h>
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
 
-#include "stream_event_manager.hpp"
-#include "utils.hpp"
+#include <stream_event_manager.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -113,4 +113,5 @@ class StreamContext {
   }
   ~StreamContext() { local_gpu_->set_stream(origin_stream_name_, 0); }
 };
+
 }  // namespace HugeCTR

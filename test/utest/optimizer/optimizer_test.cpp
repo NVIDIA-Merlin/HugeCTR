@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
-#include "HugeCTR/include/optimizers/adam_optimizer.hpp"
-#include "HugeCTR/include/optimizers/ftrl_optimizer.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
-#include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
-#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "gtest/gtest.h"
-#include "optimizer_cpu.hpp"
-#include "utest/test_utils.h"
+#include <gtest/gtest.h>
+
+#include <general_buffer2.hpp>
+#include <optimizers/adagrad_optimizer.hpp>
+#include <optimizers/adam_optimizer.hpp>
+#include <optimizers/ftrl_optimizer.hpp>
+#include <optimizers/momentum_sgd_optimizer.hpp>
+#include <optimizers/nesterov_optimizer.hpp>
+#include <optimizers/sgd_optimizer.hpp>
+#include <test/utest/optimizer/optimizer_cpu.hpp>
+#include <utest/test_utils.hpp>
+#include <utils.hpp>
+
 using namespace HugeCTR;
 
 namespace {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "HugeCTR/include/utils.hpp"
-#include "generic_lookup.cuh"
-#include "index_calculation.hpp"
-#include "model_backward.hpp"
-#include "model_forward.hpp"
-#include "multi_to_one_reduce.cuh"
-#include "multi_to_one_reduce_v2.cuh"
+
+#include <embedding/operators/generic_lookup.cuh>
+#include <embedding/operators/index_calculation.hpp>
+#include <embedding/operators/model_backward.hpp>
+#include <embedding/operators/model_forward.hpp>
+#include <embedding/operators/multi_to_one_reduce.cuh>
+#include <embedding/operators/multi_to_one_reduce_v2.cuh>
+#include <utils.cuh>
+#include <utils.hpp>
 
 namespace embedding {
 
@@ -249,4 +251,5 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
         partial_reduce_result_, batch_size_per_gpu, src_buffer.attr.max_ev_size, stream);
   }
 }
+
 }  // namespace embedding

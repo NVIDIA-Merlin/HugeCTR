@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cub/cub.cuh>
 
-#include "HugeCTR/include/utils.hpp"
-#include "all2all_embedding_collection.hpp"
-#include "data_distributor/data_distributor.hpp"
-#include "embeddings/embedding_collection.hpp"
+#include <cub/cub.cuh>
+#include <embedding/all2all_embedding_collection.hpp>
+#include <embedding/data_distributor/data_distributor.hpp>
+#include <embeddings/embedding_collection.hpp>
+#include <utils.hpp>
+
 namespace embedding {
 namespace tf {
 
@@ -538,6 +539,7 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
       meta.network_buffer_attr.id_to_ev_size, meta.network_buffer_attr.id_to_ev_start_indices,
       output_buffer, meta.d_ev_size_offset_, batch_size, meta.max_ev_size_);
 }
+
 }  // namespace network_forward
 
 namespace network_backward {
@@ -593,6 +595,7 @@ void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
       meta.network_buffer_attr.id_to_ev_start_indices, network_comm_buffer, meta.d_ev_size_offset_,
       batch_size, meta.max_ev_size_);
 }
+
 }  // namespace network_backward
 
 namespace model_backward {
@@ -735,6 +738,7 @@ void copy_backward_key_and_emb_vec(std::shared_ptr<CoreResourceManager> core,
     nbytes_emb_vec_offsets += emb_vec[i].nbytes();
   }
 }
+
 }  // namespace model_backward
 }  // namespace tf
 }  // namespace embedding

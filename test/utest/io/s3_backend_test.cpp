@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/io/s3_filesystem.hpp"
-#include "fstream"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
+#include <gtest/gtest.h>
+
+#include <fstream>
+#include <io/s3_filesystem.hpp>
+#include <utest/test_utils.hpp>
 
 using namespace HugeCTR;
+
 namespace {
 
 void s3_configs_test() {

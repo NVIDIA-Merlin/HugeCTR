@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include "HugeCTR/core/buffer.hpp"
-#include "HugeCTR/core/registry.hpp"
-#include "embedding/common.hpp"
+
+#include <core/buffer.hpp>
+#include <core/registry.hpp>
+#include <embedding/common.hpp>
 
 namespace embedding {
 
@@ -38,4 +38,5 @@ class PreprocessInput {
   void compute(const Tensor &key, const Tensor &bucket_range, Tensor *feature_major_key,
                Tensor *feature_major_bucket_range, int batch_size);
 };
+
 }  // namespace embedding

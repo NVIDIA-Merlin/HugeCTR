@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include "hpsPlugin.h"
+#include <NvInfer.h>
 
+#include <hps_trt/hps_plugin/hps_plugin.hpp>
+#include <hps_trt/hps_plugin/trt_plugin_utils.hpp>
 #include <utility>
-
-#include "NvInfer.h"
-#include "trt_plugin_utils.h"
 
 using namespace nvinfer1;
 using nvinfer1::plugin::HpsPlugin;

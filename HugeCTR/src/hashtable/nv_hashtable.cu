@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/hashtable/cudf/concurrent_unordered_map.cuh"
-#include "HugeCTR/include/hashtable/nv_hashtable.hpp"
-#include "thrust/pair.h"
+#include <thrust/pair.h>
+
+#include <hashtable/cudf/concurrent_unordered_map.cuh>
+#include <hashtable/nv_hashtable.hpp>
 
 namespace HugeCTR {
 

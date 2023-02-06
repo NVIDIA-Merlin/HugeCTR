@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,16 @@
  */
 
 #ifdef ENABLE_MPI
-#include <random>
+#include <gtest/gtest.h>
 
-#include "HugeCTR/include/collectives/ib_comm.hpp"
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
+#include <collectives/ib_comm.hpp>
+#include <common.hpp>
+#include <general_buffer2.hpp>
+#include <random>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <tensor2.hpp>
+#include <utest/test_utils.hpp>
+#include <utils.hpp>
 
 using namespace HugeCTR;
 

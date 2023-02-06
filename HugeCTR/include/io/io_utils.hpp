@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <base/debug/logger.hpp>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <regex>
 #include <string>
 #include <vector>
-
-#include "nlohmann/json.hpp"
 
 namespace HugeCTR {
 
@@ -77,4 +75,5 @@ class IOUtils {
     return regex_match(url, pattern_a) || regex_match(url, pattern_b);
   }
 };
+
 }  // namespace HugeCTR

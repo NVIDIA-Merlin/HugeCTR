@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #include <cuda_profiler_api.h>
 
-#include <HugeCTR/include/base/debug/logger.hpp>
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <algorithm>
+#include <base/debug/logger.hpp>
+#include <core/hctr_impl/hctr_backend.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
@@ -26,9 +26,8 @@
 #include <iomanip>
 #include <iterator>
 #include <pybind/model.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <sstream>
-
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 
 using namespace HugeCTR::MultiHot;
 

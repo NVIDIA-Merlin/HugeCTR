@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "HugeCTR/include/utils.hpp"
-#include "generic_lookup.cuh"
-#include "index_calculation.hpp"  // FIXME: to introduce ReductionIndices
-#include "model_backward.hpp"     // FIXME: to introduce PartialReduceResult
-#include "multi_to_one_reduce.cuh"
-#include "utils.cuh"
-#include "weighted_model_backward.hpp"
+
+#include <embedding/operators/generic_lookup.cuh>
+#include <embedding/operators/index_calculation.hpp>  // FIXME: to introduce ReductionIndices
+#include <embedding/operators/model_backward.hpp>     // FIXME: to introduce PartialReduceResult
+#include <embedding/operators/multi_to_one_reduce.cuh>
+#include <embedding/operators/weighted_model_backward.hpp>
+#include <utils.cuh>
+#include <utils.hpp>
 
 namespace embedding {
 

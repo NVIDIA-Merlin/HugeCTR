@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "HugeCTR/include/utils.hpp"
+#include <general_buffer2.hpp>
+#include <optimizers/momentum_sgd_optimizer.hpp>
+#include <utils.cuh>
+#include <utils.hpp>
 
 namespace HugeCTR {
 

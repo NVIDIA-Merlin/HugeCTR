@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/multi_cross_layer.hpp"
-
 #include <cuda_fp16.h>
-#include <math.h>
+#include <gtest/gtest.h>
 
+#include <data_simulator.hpp>
+#include <layers/multi_cross_layer.hpp>
 #include <memory>
 #include <numeric>
+#include <utest/test_utils.hpp>
 #include <vector>
 
-#include "HugeCTR/include/data_simulator.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 using namespace HugeCTR;
+
 template <typename T>
 class MultiCrossLayerTest {
  private:

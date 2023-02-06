@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <common.hpp>
 #include <data_readers/check_none.hpp>
 #include <data_readers/csr.hpp>
+#include <data_readers/data_reader_common.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <data_readers/mmap_source.hpp>
 #include <fstream>
+#include <tensor2.hpp>
 #include <vector>
-
-#include "data_readers/data_reader_common.hpp"
-#include "tensor2.hpp"
 
 namespace HugeCTR {
 

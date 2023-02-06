@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <utest/test_utils.h>
 
 #include <cpu/embedding_feature_combiner_cpu.hpp>
 #include <cpu/inference_session_cpu.hpp>
@@ -25,6 +24,7 @@
 #include <general_buffer2.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/inference_utils.hpp>
+#include <utest/test_utils.hpp>
 #include <utils.hpp>
 #include <vector>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,6 @@
 #include <linalg/reduce.cuh>
 #include <linalg/unary_op.cuh>
 #include <utils.hpp>
-
-#ifndef NDEBUG
-#include <iostream>
-#endif
 
 namespace HugeCTR {
 #define MAX_NUM_STRIDE 64

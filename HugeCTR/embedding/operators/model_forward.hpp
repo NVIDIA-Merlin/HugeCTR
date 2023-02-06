@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include "HugeCTR/core/registry.hpp"
-#include "HugeCTR/embedding/common.hpp"
+
+#include <core/registry.hpp>
+#include <embedding/common.hpp>
 
 namespace embedding {
 
@@ -67,4 +68,5 @@ struct ModelForward {
   void compute(const TensorList &mp_ev, const Tensor &bucket_range,
                ModelCommBuffer &model_comm_buffer, int batch_size);
 };
+
 }  // namespace embedding

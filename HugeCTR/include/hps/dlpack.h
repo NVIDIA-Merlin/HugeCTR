@@ -32,8 +32,7 @@
 #define DLPACK_DLL
 #endif
 
-#include <stddef.h>
-#include <stdint.h>
+#include <cstdint>
 
 #ifdef __cplusplus
 extern "C" {

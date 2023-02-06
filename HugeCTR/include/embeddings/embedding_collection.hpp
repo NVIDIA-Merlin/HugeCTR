@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include "HugeCTR/include/optimizer.hpp"
-#include "embedding/common.hpp"
-#include "embedding/data_distributor/data_distributor.hpp"
-#include "embedding/embedding.hpp"
-#include "embedding_storage/embedding_table.hpp"
+
+#include <embedding/common.hpp>
+#include <embedding/data_distributor/data_distributor.hpp>
+#include <embedding/embedding.hpp>
+#include <embedding/operators/transpose_input.hpp>
+#include <embedding_storage/embedding_table.hpp>
+#include <optimizer.hpp>
 
 namespace HugeCTR {
 

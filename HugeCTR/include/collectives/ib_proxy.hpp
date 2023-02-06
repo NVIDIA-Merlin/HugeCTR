@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #ifdef ENABLE_MPI
-#pragma once
 #include <api/sharp.h>
+#include <gdrapi.h>
 #include <infiniband/verbs.h>
 
 #include <boost/serialization/strong_typedef.hpp>
 #include <boost/variant.hpp>
 #include <common.hpp>
 #include <condition_variable>
-
-#include "gdrapi.h"
 
 #define PROXY_ASSERT(expr)                                                    \
   if (!(expr)) {                                                              \

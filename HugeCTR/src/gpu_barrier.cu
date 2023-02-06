@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 namespace HugeCTR {
 namespace gpu_barrier {
+
 __device__ __forceinline__ void sync_all_gpus_func(size_t** d_rem_barrier_flags, size_t my_local_id,
                                                    size_t ndevs) {
   size_t count = d_rem_barrier_flags[my_local_id][my_local_id];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #include <string.h>
 #include <sys/time.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <base/debug/logger.hpp>
 #include <chrono>
 #include <common.hpp>
+#include <core/mpi_lifetime_service.hpp>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -30,8 +30,6 @@
 #include <iostream>
 #include <string>
 #include <thread>
-
-#include "core/mpi_lifetime_service.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

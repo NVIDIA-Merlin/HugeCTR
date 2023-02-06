@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cuda_runtime.h>
-#include <stdint.h>
 
+#include <common.hpp>
 #include <cub/cub.cuh>
 #include <memory>
 #include <vector>
 
-#include "HugeCTR/include/common.hpp"
-
 namespace HugeCTR {
 namespace DeviceSelect {
 namespace detail {
+
 template <typename T, typename IndexType, typename SelectOp, int BlockSize = 1024>
 __global__ void pre_select_if(const T *d_input, unsigned short *d_offset, IndexType *d_block_sum,
                               size_t len, SelectOp op, T *d_num_selected_out = nullptr) {
@@ -83,6 +81,7 @@ __global__ void post_select_if(const T *d_input, const unsigned short *d_offset,
     *d_num_selected_out = d_block_offset[gridDim.x];
   }
 };
+
 }  // namespace detail
 
 template <typename T, typename IndexType, typename InputIteratorT, typename SelectOp>
@@ -121,5 +120,6 @@ void If(void *d_temp_storage, size_t &temp_storage_bytes, InputIteratorT input, 
   detail::post_select_if<<<gridDim, blocksize, 0, stream>>>(
       input_ptr, d_offset, d_block_sum, (size_t)num_items, Op, output, d_num_selected_out);
 }
+
 }  // namespace DeviceSelect
 }  // namespace HugeCTR

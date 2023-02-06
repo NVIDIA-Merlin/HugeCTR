@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#include "input_generator.hpp"
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <embeddings/hybrid_embedding/data.hpp>
 #include <numeric>
 #include <set>
-
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/tensor2.hpp"
+#include <tensor2.hpp>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
 
 namespace HugeCTR {
 
@@ -292,6 +290,7 @@ std::vector<size_t>& HybridEmbeddingInputGenerator<dtype>::get_table_sizes() {
 
 template class HybridEmbeddingInputGenerator<uint32_t>;
 template class HybridEmbeddingInputGenerator<long long>;
+
 }  // namespace hybrid_embedding
 
 }  // namespace HugeCTR

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/base/debug/logger.hpp"
-#include "HugeCTR/include/hps/inference_utils.hpp"
-#include "gpu_cache/include/nv_gpu_cache.hpp"
-#include "hps/unique_op/unique_op.hpp"
-#include "key_generator.cuh"
+#include <base/debug/logger.hpp>
+#include <embedding_cache_perf_test/key_generator.cuh>
+#include <gpu_cache/include/nv_gpu_cache.hpp>
+#include <hps/inference_utils.hpp>
+#include <hps/unique_op/unique_op.hpp>
 
 template <typename key_type = long long, typename value_type = float,
           typename index_type = uint64_t>

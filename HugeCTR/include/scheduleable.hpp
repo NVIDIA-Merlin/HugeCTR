@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include "data_reader.hpp"
-#include "embedding.hpp"
+
+#include <data_reader.hpp>
+#include <embedding.hpp>
+
 namespace HugeCTR {
 /**
  * @brief Data Reader that enables scheduling of various
@@ -60,4 +62,5 @@ class SchedulableEmbeding : public IEmbedding {
   virtual void infreq_network_backward(int i) = 0;
   virtual void infreq_model_backward(int i) = 0;
 };
+
 }  // namespace HugeCTR

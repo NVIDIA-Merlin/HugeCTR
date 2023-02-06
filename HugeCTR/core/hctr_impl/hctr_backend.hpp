@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <cuda_runtime.h>
 
+#include <core/buffer.hpp>
+#include <core/core.hpp>
+#include <core/hctr_impl/allocator.hpp>
+#include <resource_manager.hpp>
 #include <unordered_map>
-
-#include "../buffer.hpp"
-#include "../core.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
-#include "allocator.hpp"
 
 namespace hctr_internal {
 
@@ -171,4 +171,5 @@ class HCTRCoreResourceManager : public core::CoreResourceManager {
     return ext_->get_gpu_local_id_from_global_id(global_id);
   }
 };
+
 }  // namespace hctr_internal

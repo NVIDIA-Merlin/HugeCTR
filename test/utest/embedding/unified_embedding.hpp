@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include <cstring>
-#include <memory>
 
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "cpu_hashtable.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
+#include <gtest/gtest.h>
+
+#include <cstring>
+#include <data_generator.hpp>
+#include <embedding.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
+#include <embeddings/sparse_embedding_functors.hpp>
+#include <memory>
+#include <utest/embedding/cpu_hashtable.hpp>
+#include <utest/test_utils.hpp>
+#include <utils.hpp>
+
 using namespace HugeCTR;
 
 namespace unified_embedding_test {

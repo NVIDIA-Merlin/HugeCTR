@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include "io/local_filesystem.hpp"
-
 #include <base/debug/logger.hpp>
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <io/io_utils.hpp>
+#include <io/local_filesystem.hpp>
 #include <iostream>
 
-#include "io/io_utils.hpp"
-
 namespace HugeCTR {
+
 LocalFileSystem::LocalFileSystem() {}
 
 LocalFileSystem::~LocalFileSystem() {}

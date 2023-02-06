@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -25,14 +25,26 @@ if(CLANGFORMAT)
   include(ClangFormat)
 
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.hpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cu
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cuh
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.hpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cu
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cuh
-    ${PROJECT_SOURCE_DIR}/test/utest/*.hpp
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cpp
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cu
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cuh
+    ${PROJECT_SOURCE_DIR}/test/*.hpp
+    ${PROJECT_SOURCE_DIR}/test/*.cpp
+    ${PROJECT_SOURCE_DIR}/test/*.cu
+    ${PROJECT_SOURCE_DIR}/test/*.cuh
     ${PROJECT_SOURCE_DIR}/tools/*.hpp
     ${PROJECT_SOURCE_DIR}/tools/*.cpp
     ${PROJECT_SOURCE_DIR}/tools/*.cu

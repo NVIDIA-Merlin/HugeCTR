@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_readers/data_reader_worker_interface.hpp"
+
+#include <common.hpp>
+#include <data_readers/data_reader_worker_interface.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wreorder"
 #pragma GCC diagnostic push
@@ -30,19 +30,19 @@
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
 #include <cudf/types.hpp>
+#include <data_readers/file_source_parquet.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
+#include <data_readers/file_list.hpp>
+#include <data_readers/metadata.hpp>
+#include <data_readers/parquet_data_converter.hpp>
 
-#include "data_readers/file_source_parquet.hpp"
-#include "resource_managers/resource_manager_ext.hpp"
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic pop
-#include "data_readers/file_list.hpp"
-#include "data_readers/metadata.hpp"
-#include "data_readers/parquet_data_converter.hpp"
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif

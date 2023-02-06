@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <stddef.h>
 
-#include "../datatype.hpp"
-#include "../device.hpp"
-#include "HugeCTR/include/base/debug/logger.hpp"
+#include <base/debug/logger.hpp>
+#include <core/datatype.hpp>
+#include <core/device.hpp>
 
 namespace hctr_internal {
 using core::DataType;

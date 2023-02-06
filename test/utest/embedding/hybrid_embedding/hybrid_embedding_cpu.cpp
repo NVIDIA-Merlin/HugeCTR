@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "hybrid_embedding_cpu.hpp"
-
 #include <algorithm>
 #include <random>
+#include <utest/embedding/hybrid_embedding/hybrid_embedding_cpu.hpp>
 #include <utility>
 
 using namespace HugeCTR;
