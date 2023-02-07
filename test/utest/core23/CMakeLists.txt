@@ -1,5 +1,5 @@
-#
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# 
+# Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,22 +14,11 @@
 #
 
 cmake_minimum_required(VERSION 3.17)
-add_subdirectory(layers)
-add_subdirectory(data_distributor)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-add_subdirectory(embedding)
-add_subdirectory(embedding_training_cache)
-add_subdirectory(checker)
-add_subdirectory(prims)
-add_subdirectory(metrics)
-add_subdirectory(misc)
-add_subdirectory(core)
-add_subdirectory(embedding_collection)
-add_subdirectory(io)
-add_subdirectory(communication)
-add_subdirectory(pipeline)
-add_subdirectory(core23)
+
+file(GLOB_RECURSE core23_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
+
+add_executable(core23_test ${core23_test_src})
+target_compile_features(core23_test PUBLIC cxx_std_17)
+target_link_libraries(core23_test PUBLIC hugectr_core23 gtest gtest_main)
+set_target_properties(core23_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(core23_test PROPERTIES CUDA_ARCHITECTURES OFF)
