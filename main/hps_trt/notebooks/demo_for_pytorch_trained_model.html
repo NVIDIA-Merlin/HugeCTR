@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS TensorRT Plugin Demo for PyTorch Trained Model &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_trt/notebooks/demo_for_pytorch_trained_model.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="HPS TensorRT Plugin Demo for HugeCTR Trained Model" href="demo_for_hugectr_trained_model.html" />
+    <link rel="prev" title="HPS TensorRT Plugin Demo for TensorFlow Trained Model" href="demo_for_tf_trained_model.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_database_backend.html">HPS Database Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_user_guide.html">HPS Plugin for TensorFlow</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_user_guide.html">HPS Plugin for TensorRT</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="demo_for_tf_trained_model.html">HPS TensorRT Plugin Demo for TensorFlow Trained Model</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">HPS TensorRT Plugin Demo for PyTorch Trained Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="demo_for_hugectr_trained_model.html">HPS TensorRT Plugin Demo for HugeCTR Trained Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_api/index.html">API Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/hps_trt_user_guide.html">Hierarchical Parameter Server Plugin for TensorRT</a></li>
+          <li class="breadcrumb-item"><a href="index.html">HPS Plugin for TensorRT Notebooks</a></li>
+      <li class="breadcrumb-item active">HPS TensorRT Plugin Demo for PyTorch Trained Model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hps-tensorrt-plugin-demo-for-pytorch-trained-model">
+<h1>HPS TensorRT Plugin Demo for PyTorch Trained Model<a class="headerlink" href="#hps-tensorrt-plugin-demo-for-pytorch-trained-model" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>This notebook demonstrates how to build and deploy the HPS-integrated TensorRT engine for the model trained with PyTorch.</p>
+<p>For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="use-ngc">
+<h3>Use NGC<a class="headerlink" href="#use-ngc" title="Permalink to this headline"></a></h3>
+<p>The HPS TensorRT plugin is preinstalled in the 23.01 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-pytorch">Merlin PyTorch Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-pytorch:23.01</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+<span class="n">plugin_handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="configurations">
+<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this headline"></a></h2>
+<p>First of all we specify the required configurations, e.g., the arguments needed for generating the dataset, the model parameters and the paths to save the model. We will use DLRM model which has one embedding table, bottom MLP layers, interaction layer and top MLP layers. Please note that the input to the embedding layer will be a dense key tensor of int32.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="n">args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>                               <span class="c1"># the number of available GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">50</span>                             <span class="c1"># the number of training iteration</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">26</span>                             <span class="c1"># the number of feature fields in this embedding layer</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">128</span>                      <span class="c1"># the dimension of embedding vectors</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">13</span>                            <span class="c1"># the dimension of dense features</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1024</span>                  <span class="c1"># the globally batchsize for all GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">260000</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[[</span><span class="n">i</span><span class="o">*</span><span class="mi">10000</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">10000</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">26</span><span class="p">)]</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_pytorch.json&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_pytorch_sparse.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;onnx_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_pytorch.onnx&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;modified_onnx_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_pytorch_with_hps.onnx&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">])))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/dist-packages/tqdm/auto.py:22: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
+  from .autonotebook import tqdm as notebook_tqdm
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_random_samples</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">,</span> <span class="n">key_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]):</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">vocab_range</span> <span class="ow">in</span> <span class="n">vocabulary_range_per_slot</span><span class="p">:</span>
+        <span class="n">keys_per_slot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key_dtype</span><span class="p">)</span>
+        <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">keys_per_slot</span><span class="p">)</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">keys</span><span class="p">),</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">numerical_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">keys</span><span class="p">,</span> <span class="n">numerical_features</span><span class="p">,</span> <span class="n">labels</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="train-with-pytorch">
+<h2>Train with PyTorch<a class="headerlink" href="#train-with-pytorch" title="Permalink to this headline"></a></h2>
+<p>We define the model graph for training with native PyTorch layers, i.e., <code class="docutils literal notranslate"><span class="pre">torch.nn.Embedding</span></code>, <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code> and so on. We can then train the model and extract the trained weights of the embedding table.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="k">class</span> <span class="nc">MLP</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">arch</span><span class="p">,</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="n">out_activation</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MLP</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">arch</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_linear_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_relu_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            
+        <span class="n">idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arch</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">out_activation</span> <span class="o">==</span> <span class="s2">&quot;relu&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_linear_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_relu_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">out_activation</span> <span class="o">==</span> <span class="s2">&quot;sigmoid&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_linear_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">arch</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_relu_layer_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">idx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sigmoid</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    
+<span class="k">class</span> <span class="nc">SecondOrderFeatureInteraction</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SecondOrderFeatureInteraction</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">num_feas</span><span class="p">):</span>
+        <span class="n">dot_products</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_feas</span> <span class="o">*</span> <span class="n">num_feas</span><span class="p">))</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">i</span> <span class="o">*</span> <span class="n">num_feas</span> <span class="o">+</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_feas</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">j</span><span class="p">)])</span>
+        <span class="n">flat_interactions</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">dot_products</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">flat_interactions</span>    
+
+<span class="k">class</span> <span class="nc">DLRM</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">init_tensors</span><span class="p">,</span>
+                 <span class="n">embed_vec_size</span><span class="p">,</span>
+                 <span class="n">slot_num</span><span class="p">,</span>
+                 <span class="n">dense_dim</span><span class="p">,</span>
+                 <span class="n">arch_bot</span><span class="p">,</span>
+                 <span class="n">arch_top</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        
+        <span class="nb">super</span><span class="p">(</span><span class="n">DLRM</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">init_tensors</span><span class="p">,</span> <span class="n">freeze</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span> <span class="o">=</span> <span class="n">embed_vec_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="n">slot_num</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span> <span class="o">=</span> <span class="n">dense_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arch_bot</span> <span class="o">=</span> <span class="n">arch_bot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arch_top</span> <span class="o">=</span> <span class="n">arch_top</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">bot_mlp</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span><span class="p">]</span> <span class="o">+</span> <span class="n">arch_bot</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;bottom&quot;</span><span class="p">,</span> <span class="n">out_activation</span><span class="o">=</span><span class="s1">&#39;relu&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interaction_layer</span> <span class="o">=</span> <span class="n">SecondOrderFeatureInteraction</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interaction_out_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_mlp</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">interaction_out_dim</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">arch_bot</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">+</span> <span class="n">arch_top</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;top&quot;</span><span class="p">,</span> <span class="n">out_activation</span><span class="o">=</span><span class="s1">&#39;sigmoid&#39;</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+        <span class="n">categorical_features</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">numerical_features</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="n">embedding_vector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span><span class="p">(</span><span class="n">categorical_features</span><span class="p">)</span>
+        <span class="n">dense_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot_mlp</span><span class="p">(</span><span class="n">numerical_features</span><span class="p">)</span>
+        
+        <span class="n">concat_features</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">embedding_vector</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dense_x</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">arch_bot</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))],</span> <span class="mi">1</span><span class="p">)</span>
+        
+        <span class="n">Z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interaction_layer</span><span class="p">(</span><span class="n">concat_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dense_x</span><span class="p">,</span> <span class="n">Z</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_mlp</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">logit</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">init_tensors</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]))</span>
+    
+    <span class="n">model</span> <span class="o">=</span> <span class="n">DLRM</span><span class="p">(</span><span class="n">init_tensors</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">],</span>
+                <span class="n">arch_bot</span> <span class="o">=</span> <span class="p">[</span><span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">]],</span>
+                <span class="n">arch_top</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+    <span class="n">criterion</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">BCELoss</span><span class="p">()</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">)</span>
+    
+    <span class="n">keys</span><span class="p">,</span> <span class="n">numerical_features</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span>  <span class="o">*</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">])</span>
+    <span class="n">x0_iterator</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">keys</span><span class="p">),</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">drop_last</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="n">x1_iterator</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">numerical_features</span><span class="p">),</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">drop_last</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="n">y_iterator</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">drop_last</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">]):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="n">x0_iterator</span><span class="p">),</span> <span class="nb">next</span><span class="p">(</span><span class="n">x1_iterator</span><span class="p">)]</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">y_iterator</span><span class="p">)</span>
+        <span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">preds</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span> <span class="n">labels</span><span class="o">.</span><span class="n">squeeze</span><span class="p">())</span>
+        
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">, loss: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">loss</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">trained_model</span> <span class="o">=</span> <span class="n">train</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+<span class="n">embedding_weights</span> <span class="o">=</span> <span class="n">trained_model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()[</span><span class="s2">&quot;embedding.weight&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">embedding_weights</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>DLRM(
+  (embedding): Embedding(260000, 128)
+  (bot_mlp): MLP(
+    (mlp): Sequential(
+      (bottom_linear_layer_1): Linear(in_features=13, out_features=512, bias=True)
+      (bottom_relu_layer_1): ReLU(inplace=True)
+      (bottom_linear_layer_2): Linear(in_features=512, out_features=256, bias=True)
+      (bottom_relu_layer_2): ReLU(inplace=True)
+      (bottom_linear_layer_3): Linear(in_features=256, out_features=128, bias=True)
+      (bottom_relu_layer_3): ReLU(inplace=True)
+    )
+  )
+  (interaction_layer): SecondOrderFeatureInteraction()
+  (top_mlp): MLP(
+    (mlp): Sequential(
+      (top_linear_layer_1): Linear(in_features=479, out_features=1024, bias=True)
+      (top_relu_layer_1): ReLU(inplace=True)
+      (top_linear_layer_2): Linear(in_features=1024, out_features=1024, bias=True)
+      (top_relu_layer_2): ReLU(inplace=True)
+      (top_linear_layer_3): Linear(in_features=1024, out_features=512, bias=True)
+      (top_relu_layer_3): ReLU(inplace=True)
+      (top_linear_layer_4): Linear(in_features=512, out_features=256, bias=True)
+      (top_relu_layer_4): ReLU(inplace=True)
+      (top_linear_layer_5): Linear(in_features=256, out_features=1, bias=True)
+      (top_relu_layer_5): Sigmoid()
+    )
+  )
+)
+-------------------- Step 0, loss: 1.1652954816818237 --------------------
+-------------------- Step 1, loss: 1.7626148462295532 --------------------
+-------------------- Step 2, loss: 1.1845550537109375 --------------------
+-------------------- Step 3, loss: 0.7347715497016907 --------------------
+-------------------- Step 4, loss: 1.0786197185516357 --------------------
+-------------------- Step 5, loss: 0.9271171689033508 --------------------
+-------------------- Step 6, loss: 0.7060756683349609 --------------------
+-------------------- Step 7, loss: 0.7490934133529663 --------------------
+-------------------- Step 8, loss: 0.8274499773979187 --------------------
+-------------------- Step 9, loss: 0.7962949275970459 --------------------
+-------------------- Step 10, loss: 0.6947690844535828 --------------------
+-------------------- Step 11, loss: 0.7241608500480652 --------------------
+-------------------- Step 12, loss: 0.7649394869804382 --------------------
+-------------------- Step 13, loss: 0.7043794393539429 --------------------
+-------------------- Step 14, loss: 0.6948238611221313 --------------------
+-------------------- Step 15, loss: 0.7003152370452881 --------------------
+-------------------- Step 16, loss: 0.7330600619316101 --------------------
+-------------------- Step 17, loss: 0.711887001991272 --------------------
+-------------------- Step 18, loss: 0.6917610168457031 --------------------
+-------------------- Step 19, loss: 0.7227296233177185 --------------------
+-------------------- Step 20, loss: 0.7232402563095093 --------------------
+-------------------- Step 21, loss: 0.7025701999664307 --------------------
+-------------------- Step 22, loss: 0.6962350010871887 --------------------
+-------------------- Step 23, loss: 0.7100769281387329 --------------------
+-------------------- Step 24, loss: 0.7159318923950195 --------------------
+-------------------- Step 25, loss: 0.6963521242141724 --------------------
+-------------------- Step 26, loss: 0.7058508396148682 --------------------
+-------------------- Step 27, loss: 0.7144895792007446 --------------------
+-------------------- Step 28, loss: 0.7082542181015015 --------------------
+-------------------- Step 29, loss: 0.6955724954605103 --------------------
+-------------------- Step 30, loss: 0.6997341513633728 --------------------
+-------------------- Step 31, loss: 0.7167338132858276 --------------------
+-------------------- Step 32, loss: 0.6962475776672363 --------------------
+-------------------- Step 33, loss: 0.6955674290657043 --------------------
+-------------------- Step 34, loss: 0.7098587155342102 --------------------
+-------------------- Step 35, loss: 0.6992183327674866 --------------------
+-------------------- Step 36, loss: 0.6928209066390991 --------------------
+-------------------- Step 37, loss: 0.6933107972145081 --------------------
+-------------------- Step 38, loss: 0.697549045085907 --------------------
+-------------------- Step 39, loss: 0.6969214677810669 --------------------
+-------------------- Step 40, loss: 0.6935250163078308 --------------------
+-------------------- Step 41, loss: 0.6948344111442566 --------------------
+-------------------- Step 42, loss: 0.7015650868415833 --------------------
+-------------------- Step 43, loss: 0.6928752660751343 --------------------
+-------------------- Step 44, loss: 0.6936203837394714 --------------------
+-------------------- Step 45, loss: 0.6962599158287048 --------------------
+-------------------- Step 46, loss: 0.6941655278205872 --------------------
+-------------------- Step 47, loss: 0.6939643025398254 --------------------
+-------------------- Step 48, loss: 0.6933950185775757 --------------------
+-------------------- Step 49, loss: 0.6970551013946533 --------------------
+tensor([[1.0014, 1.0014, 1.0014,  ..., 1.0014, 1.0014, 1.0014],
+        [0.9997, 0.9997, 0.9997,  ..., 0.9997, 0.9997, 0.9997],
+        [0.9991, 0.9991, 0.9991,  ..., 0.9991, 0.9991, 0.9991],
+        ...,
+        [1.0004, 1.0004, 1.0005,  ..., 1.0004, 1.0004, 1.0004],
+        [1.0001, 1.0001, 1.0001,  ..., 1.0001, 1.0001, 1.0001],
+        [1.0002, 1.0002, 1.0002,  ..., 1.0002, 1.0002, 1.0002]])
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="build-the-hps-integrated-tensorrt-engine">
+<h2>Build the HPS-integrated TensorRT engine<a class="headerlink" href="#build-the-hps-integrated-tensorrt-engine" title="Permalink to this headline"></a></h2>
+<p>In order to use HPS in the inference stage, we need to convert the embedding weights to the formats required by HPS first and create JSON configuration file for HPS.</p>
+<p>Then we convert the PyTorch model to ONNX, and employ the ONNX GraphSurgoen tool to replace the native PyTorch embedding lookup layer with the placeholder of HPS TensorRT plugin layer.</p>
+<p>After that, we can build the TensorRT engine, which is comprised of the HPS TensorRT plugin layer and the dense network.</p>
+<div class="section" id="step1-prepare-sparse-model-and-json-configuration-file-for-hps">
+<h3>Step1: Prepare sparse model and JSON configuration file for HPS<a class="headerlink" href="#step1-prepare-sparse-model-and-json-configuration-file-for-hps" title="Permalink to this headline"></a></h3>
+<p>Please note that the storage format in the <code class="docutils literal notranslate"><span class="pre">dlrm_pytorch_sparse.model/key</span></code> file is int64, while the HPS TensorRT plugin currently only support int32 when loading the keys into memory. There is no overflow since the key value range is 0~260000.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">convert_to_sparse_model</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="p">,</span> <span class="n">embedding_table_path</span><span class="p">,</span> <span class="n">embedding_vec_size</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;mkdir -p </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/key&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">,</span> \
+        <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/emb_vector&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">vec_file</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="n">embeddings_weights</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">key_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="n">vec_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">embedding_vec_size</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">vec</span><span class="p">)</span>
+        <span class="n">key_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">key_struct</span><span class="p">)</span>
+        <span class="n">vec_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">vec_struct</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">convert_to_sparse_model</span><span class="p">(</span><span class="n">embedding_weights</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> dlrm_pytorch.json
+<span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dlrm_pytorch_sparse.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">26</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing dlrm_pytorch.json
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step2-convert-to-onnx-and-do-onnx-graph-surgery">
+<h3>Step2: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step2-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dummy_keys</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size&quot;</span><span class="p">],</span> <span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">dummy_numerical_features</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">onnx</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">trained_model</span><span class="p">,</span> 
+                  <span class="p">[</span><span class="n">dummy_keys</span><span class="p">,</span> <span class="n">dummy_numerical_features</span><span class="p">],</span>
+                  <span class="n">args</span><span class="p">[</span><span class="s2">&quot;onnx_path&quot;</span><span class="p">],</span> 
+                  <span class="n">verbose</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> 
+                  <span class="n">input_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;keys&quot;</span><span class="p">,</span> <span class="s2">&quot;numerical_features&quot;</span><span class="p">],</span> 
+                  <span class="n">output_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span> 
+                  <span class="n">dynamic_axes</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;keys&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="mi">0</span> <span class="p">:</span> <span class="s1">&#39;batch_size&#39;</span><span class="p">},</span> <span class="s1">&#39;numerical_features&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="mi">0</span> <span class="p">:</span> <span class="s1">&#39;batch_size&#39;</span><span class="p">}}</span>
+                 <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/tmp/ipykernel_52545/1281679600.py:35: TracerWarning: torch.tensor results are registered as constants in the trace. You can safely ignore this warning if you use this function to create tensors out of constant variables that would be the same every time you call this function. In any other case, this might cause the trace to be incorrect.
+  indices = torch.tensor([i * num_feas + j for j in range(1, num_feas) for i in range(j)])
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Exported graph: graph(%keys : Int(*, 26, strides=[26, 1], requires_grad=0, device=cpu),
+      %numerical_features : Float(*, 13, strides=[13, 1], requires_grad=0, device=cpu),
+      %embedding.weight : Float(260000, 128, strides=[128, 1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_1.weight : Float(512, 13, strides=[13, 1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_1.bias : Float(512, strides=[1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_2.weight : Float(256, 512, strides=[512, 1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_2.bias : Float(256, strides=[1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_3.weight : Float(128, 256, strides=[256, 1], requires_grad=1, device=cpu),
+      %bot_mlp.mlp.bottom_linear_layer_3.bias : Float(128, strides=[1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_1.weight : Float(1024, 479, strides=[479, 1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_1.bias : Float(1024, strides=[1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_2.weight : Float(1024, 1024, strides=[1024, 1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_2.bias : Float(1024, strides=[1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_3.weight : Float(512, 1024, strides=[1024, 1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_3.bias : Float(512, strides=[1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_4.weight : Float(256, 512, strides=[512, 1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_4.bias : Float(256, strides=[1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_5.weight : Float(1, 256, strides=[256, 1], requires_grad=1, device=cpu),
+      %top_mlp.mlp.top_linear_layer_5.bias : Float(1, strides=[1], requires_grad=1, device=cpu)):
+  %/embedding/Gather_output_0 : Float(*, 26, 128, strides=[3328, 128, 1], requires_grad=1, device=cpu) = onnx::Gather[onnx_name=&quot;/embedding/Gather&quot;](%embedding.weight, %keys), scope: __main__.DLRM::/torch.nn.modules.sparse.Embedding::embedding # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:2206:0
+  %/bot_mlp/mlp/bottom_linear_layer_1/Gemm_output_0 : Float(*, 512, strides=[512, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/bot_mlp/mlp/bottom_linear_layer_1/Gemm&quot;](%numerical_features, %bot_mlp.mlp.bottom_linear_layer_1.weight, %bot_mlp.mlp.bottom_linear_layer_1.bias), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::bottom_linear_layer_1 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/bot_mlp/mlp/bottom_relu_layer_1/Relu_output_0 : Float(*, 512, strides=[512, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/bot_mlp/mlp/bottom_relu_layer_1/Relu&quot;](%/bot_mlp/mlp/bottom_linear_layer_1/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::bottom_relu_layer_1 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/bot_mlp/mlp/bottom_linear_layer_2/Gemm_output_0 : Float(*, 256, strides=[256, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/bot_mlp/mlp/bottom_linear_layer_2/Gemm&quot;](%/bot_mlp/mlp/bottom_relu_layer_1/Relu_output_0, %bot_mlp.mlp.bottom_linear_layer_2.weight, %bot_mlp.mlp.bottom_linear_layer_2.bias), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::bottom_linear_layer_2 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/bot_mlp/mlp/bottom_relu_layer_2/Relu_output_0 : Float(*, 256, strides=[256, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/bot_mlp/mlp/bottom_relu_layer_2/Relu&quot;](%/bot_mlp/mlp/bottom_linear_layer_2/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::bottom_relu_layer_2 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/bot_mlp/mlp/bottom_linear_layer_3/Gemm_output_0 : Float(*, 128, strides=[128, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/bot_mlp/mlp/bottom_linear_layer_3/Gemm&quot;](%/bot_mlp/mlp/bottom_relu_layer_2/Relu_output_0, %bot_mlp.mlp.bottom_linear_layer_3.weight, %bot_mlp.mlp.bottom_linear_layer_3.bias), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::bottom_linear_layer_3 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/bot_mlp/mlp/bottom_relu_layer_3/Relu_output_0 : Float(*, 128, strides=[128, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/bot_mlp/mlp/bottom_relu_layer_3/Relu&quot;](%/bot_mlp/mlp/bottom_linear_layer_3/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::bot_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::bottom_relu_layer_3 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/Constant_output_0 : Long(3, strides=[1], device=cpu) = onnx::Constant[value=  -1    1  128 [ CPULongType{3} ], onnx_name=&quot;/Constant&quot;](), scope: __main__.DLRM:: # /tmp/ipykernel_52545/1281679600.py:70:0
+  %/Reshape_output_0 : Float(*, *, *, strides=[128, 128, 1], requires_grad=1, device=cpu) = onnx::Reshape[allowzero=0, onnx_name=&quot;/Reshape&quot;](%/bot_mlp/mlp/bottom_relu_layer_3/Relu_output_0, %/Constant_output_0), scope: __main__.DLRM:: # /tmp/ipykernel_52545/1281679600.py:70:0
+  %/Concat_output_0 : Float(*, *, 128, strides=[3456, 128, 1], requires_grad=1, device=cpu) = onnx::Concat[axis=1, onnx_name=&quot;/Concat&quot;](%/embedding/Gather_output_0, %/Reshape_output_0), scope: __main__.DLRM:: # /tmp/ipykernel_52545/1281679600.py:70:0
+  %/interaction_layer/Transpose_output_0 : Float(*, 128, *, strides=[3456, 1, 128], requires_grad=1, device=cpu) = onnx::Transpose[perm=[0, 2, 1], onnx_name=&quot;/interaction_layer/Transpose&quot;](%/Concat_output_0), scope: __main__.DLRM::/__main__.SecondOrderFeatureInteraction::interaction_layer # /tmp/ipykernel_52545/1281679600.py:34:0
+  %/interaction_layer/MatMul_output_0 : Float(*, *, *, strides=[729, 27, 1], requires_grad=1, device=cpu) = onnx::MatMul[onnx_name=&quot;/interaction_layer/MatMul&quot;](%/Concat_output_0, %/interaction_layer/Transpose_output_0), scope: __main__.DLRM::/__main__.SecondOrderFeatureInteraction::interaction_layer # /tmp/ipykernel_52545/1281679600.py:34:0
+  %/interaction_layer/Constant_output_0 : Long(2, strides=[1], device=cpu) = onnx::Constant[value=  -1  729 [ CPULongType{2} ], onnx_name=&quot;/interaction_layer/Constant&quot;](), scope: __main__.DLRM::/__main__.SecondOrderFeatureInteraction::interaction_layer # /tmp/ipykernel_52545/1281679600.py:34:0
+  %/interaction_layer/Reshape_output_0 : Float(*, *, strides=[729, 1], requires_grad=1, device=cpu) = onnx::Reshape[allowzero=0, onnx_name=&quot;/interaction_layer/Reshape&quot;](%/interaction_layer/MatMul_output_0, %/interaction_layer/Constant_output_0), scope: __main__.DLRM::/__main__.SecondOrderFeatureInteraction::interaction_layer # /tmp/ipykernel_52545/1281679600.py:34:0
+  %onnx::Gather_33 : Long(351, strides=[1], requires_grad=0, device=cpu) = onnx::Constant[value=&lt;Tensor&gt;]()
+  %/interaction_layer/Gather_output_0 : Float(*, 351, strides=[351, 1], requires_grad=1, device=cpu) = onnx::Gather[axis=1, onnx_name=&quot;/interaction_layer/Gather&quot;](%/interaction_layer/Reshape_output_0, %onnx::Gather_33), scope: __main__.DLRM::/__main__.SecondOrderFeatureInteraction::interaction_layer # /tmp/ipykernel_52545/1281679600.py:36:0
+  %/Concat_1_output_0 : Float(*, 479, strides=[479, 1], requires_grad=1, device=cpu) = onnx::Concat[axis=1, onnx_name=&quot;/Concat_1&quot;](%/bot_mlp/mlp/bottom_relu_layer_3/Relu_output_0, %/interaction_layer/Gather_output_0), scope: __main__.DLRM:: # /tmp/ipykernel_52545/1281679600.py:73:0
+  %/top_mlp/mlp/top_linear_layer_1/Gemm_output_0 : Float(*, 1024, strides=[1024, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/top_mlp/mlp/top_linear_layer_1/Gemm&quot;](%/Concat_1_output_0, %top_mlp.mlp.top_linear_layer_1.weight, %top_mlp.mlp.top_linear_layer_1.bias), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::top_linear_layer_1 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/top_mlp/mlp/top_relu_layer_1/Relu_output_0 : Float(*, 1024, strides=[1024, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/top_mlp/mlp/top_relu_layer_1/Relu&quot;](%/top_mlp/mlp/top_linear_layer_1/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::top_relu_layer_1 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/top_mlp/mlp/top_linear_layer_2/Gemm_output_0 : Float(*, 1024, strides=[1024, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/top_mlp/mlp/top_linear_layer_2/Gemm&quot;](%/top_mlp/mlp/top_relu_layer_1/Relu_output_0, %top_mlp.mlp.top_linear_layer_2.weight, %top_mlp.mlp.top_linear_layer_2.bias), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::top_linear_layer_2 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/top_mlp/mlp/top_relu_layer_2/Relu_output_0 : Float(*, 1024, strides=[1024, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/top_mlp/mlp/top_relu_layer_2/Relu&quot;](%/top_mlp/mlp/top_linear_layer_2/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::top_relu_layer_2 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/top_mlp/mlp/top_linear_layer_3/Gemm_output_0 : Float(*, 512, strides=[512, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/top_mlp/mlp/top_linear_layer_3/Gemm&quot;](%/top_mlp/mlp/top_relu_layer_2/Relu_output_0, %top_mlp.mlp.top_linear_layer_3.weight, %top_mlp.mlp.top_linear_layer_3.bias), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::top_linear_layer_3 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/top_mlp/mlp/top_relu_layer_3/Relu_output_0 : Float(*, 512, strides=[512, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/top_mlp/mlp/top_relu_layer_3/Relu&quot;](%/top_mlp/mlp/top_linear_layer_3/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::top_relu_layer_3 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/top_mlp/mlp/top_linear_layer_4/Gemm_output_0 : Float(*, 256, strides=[256, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/top_mlp/mlp/top_linear_layer_4/Gemm&quot;](%/top_mlp/mlp/top_relu_layer_3/Relu_output_0, %top_mlp.mlp.top_linear_layer_4.weight, %top_mlp.mlp.top_linear_layer_4.bias), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::top_linear_layer_4 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %/top_mlp/mlp/top_relu_layer_4/Relu_output_0 : Float(*, 256, strides=[256, 1], requires_grad=1, device=cpu) = onnx::Relu[onnx_name=&quot;/top_mlp/mlp/top_relu_layer_4/Relu&quot;](%/top_mlp/mlp/top_linear_layer_4/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.ReLU::top_relu_layer_4 # /usr/local/lib/python3.8/dist-packages/torch/nn/functional.py:1455:0
+  %/top_mlp/mlp/top_linear_layer_5/Gemm_output_0 : Float(*, 1, strides=[1, 1], requires_grad=1, device=cpu) = onnx::Gemm[alpha=1., beta=1., transB=1, onnx_name=&quot;/top_mlp/mlp/top_linear_layer_5/Gemm&quot;](%/top_mlp/mlp/top_relu_layer_4/Relu_output_0, %top_mlp.mlp.top_linear_layer_5.weight, %top_mlp.mlp.top_linear_layer_5.bias), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.linear.Linear::top_linear_layer_5 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py:114:0
+  %output : Float(*, 1, strides=[1, 1], requires_grad=1, device=cpu) = onnx::Sigmoid[onnx_name=&quot;/top_mlp/mlp/top_relu_layer_5/Sigmoid&quot;](%/top_mlp/mlp/top_linear_layer_5/Gemm_output_0), scope: __main__.DLRM::/__main__.MLP::top_mlp/torch.nn.modules.container.Sequential::mlp/torch.nn.modules.activation.Sigmoid::top_relu_layer_5 # /usr/local/lib/python3.8/dist-packages/torch/nn/modules/activation.py:294:0
+  return (%output)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ONNX graph surgery to insert HPS the TensorRT plugin placeholder</span>
+<span class="kn">import</span> <span class="nn">onnx_graphsurgeon</span> <span class="k">as</span> <span class="nn">gs</span>
+<span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span>  <span class="n">shape_inference</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">onnx</span>
+
+<span class="n">graph</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">import_onnx</span><span class="p">(</span><span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;dlrm_pytorch.onnx&quot;</span><span class="p">))</span>
+<span class="n">saved</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;/embedding/Gather&quot;</span><span class="p">:</span>
+        <span class="n">categorical_features</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>
+        <span class="n">hps_node</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="n">op</span><span class="o">=</span><span class="s2">&quot;HPS_TRT&quot;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm_pytorch.json</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;table_id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;emb_vec_size&quot;</span><span class="p">:</span> <span class="mi">128</span><span class="p">},</span> 
+                           <span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">categorical_features</span><span class="p">],</span> <span class="n">outputs</span><span class="o">=</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hps_node</span><span class="p">)</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">categorical_features</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;numerical_features&quot;</span><span class="p">:</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="n">graph</span><span class="o">.</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">saved</span>
+
+<span class="n">graph</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span><span class="o">.</span><span class="n">toposort</span><span class="p">()</span>
+<span class="n">onnx</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">export_onnx</span><span class="p">(</span><span class="n">graph</span><span class="p">),</span> <span class="s2">&quot;dlrm_pytorch_with_hps.onnx&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step3-build-the-tensorrt-engine">
+<h3>Step3: Build the TensorRT engine<a class="headerlink" href="#step3-build-the-tensorrt-engine" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># build the TensorRT engine based on dlrm_pytorch_with_hps.onnx</span>
+<span class="kn">import</span> <span class="nn">tensorrt</span> <span class="k">as</span> <span class="nn">trt</span>
+<span class="kn">import</span> <span class="nn">ctypes</span>
+
+<span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+<span class="n">handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+
+<span class="n">TRT_LOGGER</span> <span class="o">=</span> <span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">EXPLICIT_BATCH</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="nb">int</span><span class="p">)(</span><span class="n">trt</span><span class="o">.</span><span class="n">NetworkDefinitionCreationFlag</span><span class="o">.</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">build_engine_from_onnx</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">trt</span><span class="o">.</span><span class="n">Builder</span><span class="p">(</span><span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">builder</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_network</span><span class="p">(</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span> <span class="k">as</span> <span class="n">network</span><span class="p">,</span> <span class="n">trt</span><span class="o">.</span><span class="n">OnnxParser</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">parser</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_builder_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">builder_config</span><span class="p">:</span>        
+        <span class="n">model</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_optimization_profile</span><span class="p">()</span>        
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>    
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+        <span class="n">builder_config</span><span class="o">.</span><span class="n">add_optimization_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">build_serialized_network</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">builder_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">engine</span>
+
+<span class="n">serialized_engine</span> <span class="o">=</span> <span class="n">build_engine_from_onnx</span><span class="p">(</span><span class="s2">&quot;dlrm_pytorch_with_hps.onnx&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;dlrm_pytorch_with_hps.trt&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+    <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized_engine</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Succesfully build the TensorRT engine&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[01/03/2023-07:25:18] [TRT] [I] [MemUsageChange] Init CUDA: CPU +268, GPU +0, now: CPU 1035, GPU 497 (MiB)
+[01/03/2023-07:25:20] [TRT] [I] [MemUsageChange] Init builder kernel library: CPU +170, GPU +46, now: CPU 1259, GPU 543 (MiB)
+[01/03/2023-07:25:20] [TRT] [W] CUDA lazy loading is not enabled. Enabling it can significantly reduce device memory usage. See `CUDA_MODULE_LOADING` in https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars
+[01/03/2023-07:25:20] [TRT] [W] onnx2trt_utils.cpp:377: Your ONNX model has been generated with INT64 weights, while TensorRT does not natively support INT64. Attempting to cast down to INT32.
+[01/03/2023-07:25:20] [TRT] [I] No importer registered for op: HPS_TRT. Attempting to import as plugin.
+[01/03/2023-07:25:20] [TRT] [I] Searching for plugin: HPS_TRT, plugin_version: 1, plugin_namespace: 
+=====================================================HPS Parse====================================================
+[HCTR][07:25:20.652][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][07:25:20.652][INFO][RK0][main]: num_of_refresher_buffer_in_pool is not specified using default: 1
+[HCTR][07:25:20.652][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][07:25:20.652][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][07:25:20.652][INFO][RK0][main]: refresh_interval is not specified using default: 0
+[HCTR][07:25:20.652][INFO][RK0][main]: use_static_table is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][07:25:20.653][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][07:25:20.653][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][07:25:20.653][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][07:25:20.653][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][07:25:20.653][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][07:25:20.653][INFO][RK0][main]: Using Local file system backend.
+[HCTR][07:25:22.209][INFO][RK0][main]: Table: hps_et.dlrm.sparse_embedding0; cached 260000 / 260000 embeddings in volatile database (HashMapBackend); load: 260000 / 18446744073709551615 (0.00%).
+[HCTR][07:25:22.220][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][07:25:22.220][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][07:25:22.227][INFO][RK0][main]: Model name: dlrm
+[HCTR][07:25:22.227][INFO][RK0][main]: Max batch size: 1024
+[HCTR][07:25:22.227][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][07:25:22.227][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][07:25:22.227][INFO][RK0][main]: Use static table: False
+[HCTR][07:25:22.227][INFO][RK0][main]: Use I64 input key: False
+[HCTR][07:25:22.227][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][07:25:22.227][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][07:25:22.227][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][07:25:22.227][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][07:25:22.227][INFO][RK0][main]: The refresh percentage : 0.200000
+[HCTR][07:25:22.280][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][07:25:22.280][INFO][RK0][main]: Using Local file system backend.
+[HCTR][07:25:22.408][INFO][RK0][main]: EC initialization for model: &quot;dlrm&quot;, num_tables: 1
+[HCTR][07:25:22.408][INFO][RK0][main]: EC initialization on device: 0
+[HCTR][07:25:22.433][INFO][RK0][main]: Creating lookup session for dlrm on device: 0
+[01/03/2023-07:25:22] [TRT] [I] Successfully created plugin: HPS_TRT
+[01/03/2023-07:25:22] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +331, GPU +144, now: CPU 5771, GPU 933 (MiB)
+[01/03/2023-07:25:23] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +115, GPU +54, now: CPU 5886, GPU 987 (MiB)
+[01/03/2023-07:25:23] [TRT] [I] Local timing cache in use. Profiling results in this builder pass will not be stored.
+[01/03/2023-07:26:27] [TRT] [I] Total Activation Memory: 34103362048
+[01/03/2023-07:26:27] [TRT] [I] Detected 2 inputs and 1 output network tensors.
+[01/03/2023-07:26:27] [TRT] [I] Total Host Persistent Memory: 416
+[01/03/2023-07:26:27] [TRT] [I] Total Device Persistent Memory: 0
+[01/03/2023-07:26:27] [TRT] [I] Total Scratch Memory: 45142016
+[01/03/2023-07:26:27] [TRT] [I] [MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU 0 MiB, GPU 75 MiB
+[01/03/2023-07:26:27] [TRT] [I] [BlockAssignment] Started assigning block shifts. This will take 3 steps to complete.
+[01/03/2023-07:26:27] [TRT] [I] [BlockAssignment] Algorithm ShiftNTopDown took 0.011619ms to assign 3 blocks to 3 nodes requiring 58774016 bytes.
+[01/03/2023-07:26:27] [TRT] [I] Total Activation Memory: 58774016
+[01/03/2023-07:26:27] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +0, GPU +8, now: CPU 5933, GPU 1035 (MiB)
+[01/03/2023-07:26:27] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +0, GPU +8, now: CPU 5933, GPU 1043 (MiB)
+[01/03/2023-07:26:27] [TRT] [I] [MemUsageChange] TensorRT-managed allocation in building engine: CPU +0, GPU +32, now: CPU 0, GPU 32 (MiB)
+Succesfully build the TensorRT engine
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="deploy-hps-integrated-tensorrt-engine-on-triton">
+<h2>Deploy HPS-integrated TensorRT engine on Triton<a class="headerlink" href="#deploy-hps-integrated-tensorrt-engine-on-triton" title="Permalink to this headline"></a></h2>
+<p>In order to deploy the TensorRT engine with the Triton TensorRT backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p model_repo/dlrm_pytorch_with_hps/1
+<span class="o">!</span>mv dlrm_pytorch_with_hps.trt model_repo/dlrm_pytorch_with_hps/1
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> model_repo/dlrm_pytorch_with_hps/config.pbtxt
+
+<span class="n">platform</span><span class="p">:</span> <span class="s2">&quot;tensorrt_plan&quot;</span>
+<span class="n">default_model_filename</span><span class="p">:</span> <span class="s2">&quot;dlrm_pytorch_with_hps.trt&quot;</span>
+<span class="n">backend</span><span class="p">:</span> <span class="s2">&quot;tensorrt&quot;</span>
+<span class="n">max_batch_size</span><span class="p">:</span> <span class="mi">0</span>
+<span class="nb">input</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;categorical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_INT32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">26</span><span class="p">]</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;numerical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">13</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">output</span> <span class="p">[</span>
+  <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;output&quot;</span>
+      <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+      <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">instance_group</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">count</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">KIND_GPU</span>
+    <span class="n">gpus</span><span class="p">:[</span><span class="mi">0</span><span class="p">]</span>
+
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing model_repo/dlrm_pytorch_with_hps/config.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/dlrm_pytorch_with_hps
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span><span class=" -Color -Color-Bold -Color-Bold-Blue">model_repo/dlrm_pytorch_with_hps</span>
+├── <span class=" -Color -Color-Bold -Color-Bold-Blue">1</span>
+│   └── dlrm_pytorch_with_hps.trt
+└── config.pbtxt
+
+1 directory, 2 files
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can then launch the Triton inference server using the TensorRT backend. Please note that <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> is utilized to load the custom TensorRT plugin (i.e., HPS TensorRT plugin) into Triton.</p>
+<p>Note: <code class="docutils literal notranslate"><span class="pre">Since</span> <span class="pre">Background</span> <span class="pre">processes</span> <span class="pre">not</span> <span class="pre">supported</span> <span class="pre">by</span> <span class="pre">Jupyter,</span> <span class="pre">please</span> <span class="pre">launch</span> <span class="pre">the</span> <span class="pre">Triton</span> <span class="pre">Server</span> <span class="pre">according</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">command</span> <span class="pre">independently</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">background</span></code>.</p>
+<blockquote>
+<div><p><strong>LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so tritonserver –model-repository=/hugectr/hps_trt/notebooks/model_repo/ –load-model=dlrm_pytorch_with_hps –model-control-mode=explicit</strong></p>
+</div></blockquote>
+<p>If you successfully started tritonserver, you should see a log similar to following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+----------+--------------------------------+--------------------------------+
+<span class="p">|</span> Backend  <span class="p">|</span> Path                           <span class="p">|</span> Config                         <span class="p">|</span>
++----------+--------------------------------+--------------------------------+
+<span class="p">|</span> tensorrt <span class="p">|</span> /opt/tritonserver/backends/ten <span class="p">|</span> <span class="o">{</span><span class="s2">&quot;cmdline&quot;</span>:<span class="o">{</span><span class="s2">&quot;auto-complete-con |</span>
+<span class="s2">|          | sorrt/libtriton_tensorrt.so    | fig&quot;</span>:<span class="s2">&quot;true&quot;</span>,<span class="s2">&quot;min-compute-capab |</span>
+<span class="s2">|          |                                | ility&quot;</span>:<span class="s2">&quot;6.000000&quot;</span>,<span class="s2">&quot;backend-dir |</span>
+<span class="s2">|          |                                | ectory&quot;</span>:<span class="s2">&quot;/opt/tritonserver/bac |</span>
+<span class="s2">|          |                                | kends&quot;</span>,<span class="s2">&quot;default-max-batch-size |</span>
+<span class="s2">|          |                                | &quot;</span>:<span class="s2">&quot;4&quot;</span><span class="o">}}</span>                        <span class="p">|</span>
+<span class="p">|</span>          <span class="p">|</span>                                <span class="p">|</span>                                <span class="p">|</span>
++----------+--------------------------------+--------------------------------+
+
+
++-----------------------+---------+--------+
+<span class="p">|</span> Model                 <span class="p">|</span> Version <span class="p">|</span> Status <span class="p">|</span>
++-----------------------+---------+--------+
+<span class="p">|</span> dlrm_pytorch_with_hps <span class="p">|</span> <span class="m">1</span>       <span class="p">|</span> READY  <span class="p">|</span>
++-----------------------+---------+--------+
+</pre></div>
+</div>
+<p>We can then send the requests to the Triton inference server using the HTTP client.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tritonclient.http</span> <span class="k">as</span> <span class="nn">httpclient</span>
+<span class="kn">from</span> <span class="nn">tritonclient.utils</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1024</span>
+
+<span class="n">categorical_feature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">260000</span><span class="p">,</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span><span class="mi">26</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">numerical_feature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> 
+                          <span class="n">categorical_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                          <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)),</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span> 
+                          <span class="n">numerical_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                          <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)),</span>                          
+<span class="p">]</span>
+<span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">categorical_feature</span><span class="p">)</span>
+<span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">numerical_feature</span><span class="p">)</span>
+
+
+<span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferRequestedOutput</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">)</span>
+<span class="p">]</span>
+
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dlrm_pytorch_with_hps&quot;</span>
+
+<span class="k">with</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span>
+                            <span class="n">inputs</span><span class="p">,</span>
+                            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_response</span><span class="p">()</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prediction result is </span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">as_numpy</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">)))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Response details:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Prediction result is 
+[[0.5128022 ]
+ [0.51312006]
+ [0.51246136]
+ ...
+ [0.5129204 ]
+ [0.51302147]
+ [0.513144  ]]
+Response details:
+{&#39;model_name&#39;: &#39;dlrm_pytorch_with_hps&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;output&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [1024, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 4096}}]}
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demo_for_tf_trained_model.html" class="btn btn-neutral float-left" title="HPS TensorRT Plugin Demo for TensorFlow Trained Model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="demo_for_hugectr_trained_model.html" class="btn btn-neutral float-right" title="HPS TensorRT Plugin Demo for HugeCTR Trained Model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+      <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="../../../v4.2/index.html">v4.2</a></dd>
+      <dd><a href="../../../v4.3/index.html">v4.3</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="demo_for_pytorch_trained_model.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

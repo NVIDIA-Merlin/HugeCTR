@@ -105,7 +105,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" />
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-end-end-example-with-nvtabular">
 <h1>HugeCTR End-end Example with NVTabular<a class="headerlink" href="#hugectr-end-end-example-with-nvtabular" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -163,16 +186,7 @@
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--2022-11-11 09:06:02--  https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
-Resolving storage.googleapis.com (storage.googleapis.com)... 142.250.191.48, 142.251.46.208, 172.217.164.112, ...
-Connecting to storage.googleapis.com (storage.googleapis.com)|142.250.191.48|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 16309554343 (15G) [application/octet-stream]
-Saving to: ‘/hugectr_e2e/criteo/day_0.gz’
-
-day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s  
-
-2022-11-11 09:11:00 (52.2 MB/s) - ‘/hugectr_e2e/criteo/day_0.gz’ saved [16309554343/16309554343]
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ln: failed to create symbolic link &#39;/hugectr_e2e/criteo/day_0&#39;: File exists
 </pre></div>
 </div>
 </div>
@@ -276,22 +290,30 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-11-14 06:59:41,436 Using selector: EpollSelector
-2022-11-14 06:59:43,469 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,494 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,499 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,502 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,515 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,525 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,575 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2022-11-14 06:59:43,576 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-01-06 04:03:09,380 Using selector: EpollSelector
+2023-01-06 04:03:11,334 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,334 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,343 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,344 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,362 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,362 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,381 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,381 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,402 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,402 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,411 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,411 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,413 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,413 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,419 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,419 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
 </pre></div>
 </div>
 <div class="output text_html"><div>
     <div style="width: 24px; height: 24px; background-color: #e1e1e1; border: 3px solid #9D9D9D; border-radius: 5px; position: absolute;"> </div>
     <div style="margin-left: 48px;">
         <h3 style="margin-bottom: 0px;">Client</h3>
-        <p style="color: #9D9D9D; margin-bottom: 0px;">Client-ebccc26f-63e9-11ed-957d-54ab3adac0a5</p>
+        <p style="color: #9D9D9D; margin-bottom: 0px;">Client-0a63fe32-8d77-11ed-88dd-54ab3adac0a5</p>
         <table style="width: 100%; text-align: left;">
 
         <tr>
@@ -320,7 +342,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
     </div>
     <div style="margin-left: 48px;">
         <h3 style="margin-bottom: 0px; margin-top: 0px;">LocalCUDACluster</h3>
-        <p style="color: #9D9D9D; margin-bottom: 0px;">df3321b7</p>
+        <p style="color: #9D9D9D; margin-bottom: 0px;">46ea38f1</p>
         <table style="width: 100%; text-align: left;">
             <tr>
                 <td style="text-align: left;">
@@ -357,11 +379,11 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
         <div style="width: 24px; height: 24px; background-color: #FFF7E5; border: 3px solid #FF6132; border-radius: 5px; position: absolute;"> </div>
         <div style="margin-left: 48px;">
             <h3 style="margin-bottom: 0px;">Scheduler</h3>
-            <p style="color: #9D9D9D; margin-bottom: 0px;">Scheduler-46de49cf-ae86-402e-84bb-9fc2adfe2312</p>
+            <p style="color: #9D9D9D; margin-bottom: 0px;">Scheduler-5770dfa1-869c-4143-a327-dd59936a928a</p>
             <table style="width: 100%; text-align: left;">
                 <tr>
                     <td style="text-align: left;">
-                        <strong>Comm:</strong> tcp://127.0.0.1:45161
+                        <strong>Comm:</strong> tcp://127.0.0.1:44759
                     </td>
                     <td style="text-align: left;">
                         <strong>Workers:</strong> 8
@@ -403,7 +425,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:34845
+                            <strong>Comm: </strong> tcp://127.0.0.1:41549
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -411,7 +433,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:38849/status" target="_blank">http://127.0.0.1:38849/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:44715/status" target="_blank">http://127.0.0.1:44715/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -419,13 +441,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:38877
+                            <strong>Nanny: </strong> tcp://127.0.0.1:35427
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-wtrkwr6a
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-j9o6tjnq
                         </td>
                     </tr>
 
@@ -457,7 +479,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:45015
+                            <strong>Comm: </strong> tcp://127.0.0.1:33573
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -465,7 +487,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:34717/status" target="_blank">http://127.0.0.1:34717/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:36839/status" target="_blank">http://127.0.0.1:36839/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -473,13 +495,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:34283
+                            <strong>Nanny: </strong> tcp://127.0.0.1:43633
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-us31wdmj
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-g048l4_5
                         </td>
                     </tr>
 
@@ -511,7 +533,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:41503
+                            <strong>Comm: </strong> tcp://127.0.0.1:40435
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -519,7 +541,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:46523/status" target="_blank">http://127.0.0.1:46523/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:37093/status" target="_blank">http://127.0.0.1:37093/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -527,13 +549,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:36911
+                            <strong>Nanny: </strong> tcp://127.0.0.1:41905
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-cqwboboi
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-nb0yv_rz
                         </td>
                     </tr>
 
@@ -565,7 +587,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:42209
+                            <strong>Comm: </strong> tcp://127.0.0.1:41707
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -573,7 +595,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:36447/status" target="_blank">http://127.0.0.1:36447/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:37285/status" target="_blank">http://127.0.0.1:37285/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -581,13 +603,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:42605
+                            <strong>Nanny: </strong> tcp://127.0.0.1:43925
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-b3erpkz1
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-8vibnk55
                         </td>
                     </tr>
 
@@ -619,7 +641,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:44799
+                            <strong>Comm: </strong> tcp://127.0.0.1:40165
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -627,7 +649,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:44091/status" target="_blank">http://127.0.0.1:44091/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:46549/status" target="_blank">http://127.0.0.1:46549/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -635,13 +657,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:35839
+                            <strong>Nanny: </strong> tcp://127.0.0.1:40305
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-xr67lhyx
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-p9qwcklg
                         </td>
                     </tr>
 
@@ -673,7 +695,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:35535
+                            <strong>Comm: </strong> tcp://127.0.0.1:36597
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -681,7 +703,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:38173/status" target="_blank">http://127.0.0.1:38173/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:42895/status" target="_blank">http://127.0.0.1:42895/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -689,13 +711,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:41271
+                            <strong>Nanny: </strong> tcp://127.0.0.1:41439
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-q1rqghpw
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-y00valwq
                         </td>
                     </tr>
 
@@ -727,7 +749,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:37771
+                            <strong>Comm: </strong> tcp://127.0.0.1:45495
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -735,7 +757,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:32825/status" target="_blank">http://127.0.0.1:32825/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:44953/status" target="_blank">http://127.0.0.1:44953/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -743,13 +765,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:43015
+                            <strong>Nanny: </strong> tcp://127.0.0.1:37091
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-j8b27jww
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-4lj3i2cp
                         </td>
                     </tr>
 
@@ -781,7 +803,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                 <table style="width: 100%; text-align: left;">
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Comm: </strong> tcp://127.0.0.1:44523
+                            <strong>Comm: </strong> tcp://127.0.0.1:46123
                         </td>
                         <td style="text-align: left;">
                             <strong>Total threads: </strong> 1
@@ -789,7 +811,7 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:32877/status" target="_blank">http://127.0.0.1:32877/status</a>
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:40675/status" target="_blank">http://127.0.0.1:40675/status</a>
                         </td>
                         <td style="text-align: left;">
                             <strong>Memory: </strong> 62.97 GiB
@@ -797,13 +819,13 @@ day_0.gz            100%[===================&gt;]  15.19G  94.4MB/s    in 4m 58s
                     </tr>
                     <tr>
                         <td style="text-align: left;">
-                            <strong>Nanny: </strong> tcp://127.0.0.1:43101
+                            <strong>Nanny: </strong> tcp://127.0.0.1:36179
                         </td>
                         <td style="text-align: left;"></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: left;">
-                            <strong>Local directory: </strong> /jershi/hugectr/notebooks/dask-worker-space/worker-n0usu6qf
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-dvzzo2d1
                         </td>
                     </tr>
 
@@ -994,17 +1016,27 @@ Validation output data: /hugectr_e2e/criteo/val
 Training dataset: /hugectr_e2e/criteo/train/train.txt
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-11-14 07:03:35,978 Preprocessing
-2022-11-14 07:03:36,175 Train Datasets Preprocessing.....
-2022-11-14 07:03:41,211 Valid Datasets Preprocessing.....
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-01-06 04:03:19,407 Preprocessing
+2023-01-06 04:03:19,749 Train Datasets Preprocessing.....
+/usr/local/lib/python3.8/dist-packages/merlin/io/dataset.py:867: UserWarning: Only creating 5 files. Did not have enough partitions to create 8 files.
+  warnings.warn(
+2023-01-06 04:03:25,189 Valid Datasets Preprocessing.....
 </pre></div>
 </div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[1234907, 19683, 13780, 6867, 18490, 4, 6264, 1235, 50, 854680, 114026, 75736, 11, 2159, 7533, 61, 4, 919, 15, 1307783, 404742, 1105613, 87714, 9032, 77, 34, 1581605, 1093030]
 [1234907, 19683, 13780, 6867, 18490, 4, 6264, 1235, 50, 854680, 114026, 75736, 11, 2159, 7533, 61, 4, 919, 15, 1307783, 404742, 1105613, 87714, 9032, 77, 34, 1581605, 1093030]
 
 Dask-NVTabular Criteo Preprocessing Done!
-Runtime[s]         | 8.17225694656372
+Runtime[s]         | 11.454381227493286
 ======================================
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">client</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="n">cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1141,32 +1173,42 @@ Runtime[s]         | 8.17225694656372
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 4.0
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 4.2
 ====================================================Model Init=====================================================
-[HCTR][07:27:59.400][WARNING][RK0][main]: The model name is not specified when creating the solver.
-[HCTR][07:27:59.400][INFO][RK0][main]: Global seed is 2258624009
-[HCTR][07:27:59.403][INFO][RK0][main]: Device to NUMA mapping:
+[HCTR][04:03:34.493][WARNING][RK0][main]: The model name is not specified when creating the solver.
+[HCTR][04:03:34.493][INFO][RK0][main]: Global seed is 1268002110
+[HCTR][04:03:34.495][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
-[HCTR][07:28:01.312][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][07:28:01.312][INFO][RK0][main]: Start all2all warmup
-[HCTR][07:28:01.312][INFO][RK0][main]: End all2all warmup
-[HCTR][07:28:01.313][INFO][RK0][main]: Using All-reduce algorithm: NCCL
-[HCTR][07:28:01.313][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB
-[HCTR][07:28:01.314][INFO][RK0][main]: num of DataReader workers for train: 1
-[HCTR][07:28:01.314][INFO][RK0][main]: num of DataReader workers for eval: 1
-[HCTR][07:28:01.318][INFO][RK0][main]: Vocabulary size: 7946054
-[HCTR][07:28:01.318][INFO][RK0][main]: max_vocabulary_size_per_gpu_=6990506
-[HCTR][07:28:01.334][INFO][RK0][main]: max_vocabulary_size_per_gpu_=7372800
-[HCTR][07:28:01.341][INFO][RK0][main]: Graph analysis to resolve tensor dependency
+[HCTR][04:03:36.281][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][04:03:36.281][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.1804 
+[HCTR][04:03:36.281][INFO][RK0][main]: Start all2all warmup
+[HCTR][04:03:36.281][INFO][RK0][main]: End all2all warmup
+[HCTR][04:03:36.282][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][04:03:36.282][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB
+[HCTR][04:03:36.283][INFO][RK0][main]: num of DataReader workers for train: 1
+[HCTR][04:03:36.283][INFO][RK0][main]: num of DataReader workers for eval: 1
+[HCTR][04:03:36.283][DEBUG][RK0][main]: [device 0] allocating 0.0054 GB, available 29.9246 
+[HCTR][04:03:36.283][DEBUG][RK0][main]: [device 0] allocating 0.0054 GB, available 29.9187 
+[HCTR][04:03:36.284][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9187 
+[HCTR][04:03:36.284][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9187 
+[HCTR][04:03:36.284][INFO][RK0][main]: Vocabulary size: 7946054
+[HCTR][04:03:36.285][INFO][RK0][main]: max_vocabulary_size_per_gpu_=6990506
+[HCTR][04:03:36.298][DEBUG][RK0][main]: [device 0] allocating 0.0788 GB, available 29.5886 
+[HCTR][04:03:36.298][INFO][RK0][main]: max_vocabulary_size_per_gpu_=7372800
+[HCTR][04:03:36.305][DEBUG][RK0][main]: [device 0] allocating 1.3516 GB, available 28.1101 
+[HCTR][04:03:36.306][INFO][RK0][main]: Graph analysis to resolve tensor dependency
 ===================================================Model Compile===================================================
-[HCTR][07:28:09.781][INFO][RK0][main]: gpu0 start to init embedding
-[HCTR][07:28:09.782][INFO][RK0][main]: gpu0 init embedding done
-[HCTR][07:28:09.782][INFO][RK0][main]: gpu0 start to init embedding
-[HCTR][07:28:09.785][INFO][RK0][main]: gpu0 init embedding done
-[HCTR][07:28:09.787][INFO][RK0][main]: Starting AUC NCCL warm-up
-[HCTR][07:28:09.792][INFO][RK0][main]: Warm-up done
+[HCTR][04:03:36.308][DEBUG][RK0][main]: [device 0] allocating 0.2162 GB, available 27.8777 
+[HCTR][04:03:36.309][DEBUG][RK0][main]: [device 0] allocating 0.0056 GB, available 27.8718 
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][04:03:44.738][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][04:03:44.738][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 27.8718 
+[HCTR][04:03:44.740][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][04:03:44.744][INFO][RK0][main]: Warm-up done
 ===================================================Model Summary===================================================
-[HCTR][07:28:09.792][INFO][RK0][main]: Model structure on each GPU
+[HCTR][04:03:44.745][INFO][RK0][main]: Model structure on each GPU
 Label                                   Dense                         Sparse                        
 label                                   dense                          wide_data,deep_data           
 (2720,1)                                (2720,13)                               
@@ -1207,71 +1249,71 @@ BinaryCrossEntropyLoss                  add1                          loss
                                         label                                                                                     
 ------------------------------------------------------------------------------------------------------------------
 =====================================================Model Fit=====================================================
-[HCTR][07:28:09.792][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
-[HCTR][07:28:09.792][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
-[HCTR][07:28:09.792][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
-[HCTR][07:28:09.792][INFO][RK0][main]: Dense network trainable: True
-[HCTR][07:28:09.792][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
-[HCTR][07:28:09.792][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
-[HCTR][07:28:09.792][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
-[HCTR][07:28:09.792][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
-[HCTR][07:28:09.792][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
-[HCTR][07:28:09.792][INFO][RK0][main]: Training source file: /hugectr_e2e/criteo/train/_file_list.txt
-[HCTR][07:28:09.792][INFO][RK0][main]: Evaluation source file: /hugectr_e2e/criteo/val/_file_list.txt
-[HCTR][07:28:18.503][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 8.70626s Loss: 0.131954 lr:0.001
-[HCTR][07:28:27.274][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 8.76682s Loss: 0.135973 lr:0.001
-[HCTR][07:28:36.261][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 8.98195s Loss: 0.116014 lr:0.001
-[HCTR][07:28:45.385][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 9.12015s Loss: 0.100682 lr:0.001
-[HCTR][07:28:50.025][INFO][RK0][main]: Evaluation, AUC: 0.734929
-[HCTR][07:28:50.025][INFO][RK0][main]: Eval Time for 4000 iters: 4.6372s
-[HCTR][07:28:59.179][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 13.7896s Loss: 0.111253 lr:0.001
-[HCTR][07:29:08.355][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 9.17119s Loss: 0.11407 lr:0.001
-[HCTR][07:29:17.488][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 9.12885s Loss: 0.102613 lr:0.001
-[HCTR][07:29:26.636][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 9.14357s Loss: 0.0954151 lr:0.001
-[HCTR][07:29:31.243][INFO][RK0][main]: Evaluation, AUC: 0.709346
-[HCTR][07:29:31.243][INFO][RK0][main]: Eval Time for 4000 iters: 4.60503s
-[HCTR][07:29:40.356][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 13.7146s Loss: 0.0999723 lr:0.001
-[HCTR][07:29:49.485][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 9.12492s Loss: 0.0854849 lr:0.001
-[HCTR][07:29:58.601][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 9.112s Loss: 0.086353 lr:0.001
-[HCTR][07:30:07.736][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 9.13015s Loss: 0.0903414 lr:0.001
-[HCTR][07:30:12.334][INFO][RK0][main]: Evaluation, AUC: 0.694103
-[HCTR][07:30:12.334][INFO][RK0][main]: Eval Time for 4000 iters: 4.59641s
-[HCTR][07:30:21.455][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 13.7151s Loss: 0.0813873 lr:0.001
-[HCTR][07:30:30.579][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 9.11932s Loss: 0.0972778 lr:0.001
-[HCTR][07:30:39.711][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 9.12719s Loss: 0.0762291 lr:0.001
-[HCTR][07:30:48.820][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 9.10478s Loss: 0.092993 lr:0.001
-[HCTR][07:30:53.425][INFO][RK0][main]: Evaluation, AUC: 0.681651
-[HCTR][07:30:53.425][INFO][RK0][main]: Eval Time for 4000 iters: 4.60313s
-[HCTR][07:31:02.550][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 13.7253s Loss: 0.0736029 lr:0.001
-[HCTR][07:31:11.675][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 9.12101s Loss: 0.0938892 lr:0.001
-[HCTR][07:31:20.801][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 9.12153s Loss: 0.0925995 lr:0.001
-[HCTR][07:31:29.922][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 9.11565s Loss: 0.0869264 lr:0.001
-[HCTR][07:31:34.533][INFO][RK0][main]: Evaluation, AUC: 0.678614
-[HCTR][07:31:34.533][INFO][RK0][main]: Eval Time for 4000 iters: 4.61036s
-[HCTR][07:31:34.533][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:34.558][INFO][RK0][main]: Rank0: Write hash table to file
-[HCTR][07:31:34.575][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:34.731][INFO][RK0][main]: Rank0: Write hash table to file
-[HCTR][07:31:34.906][INFO][RK0][main]: Dumping sparse weights to files, successful
-[HCTR][07:31:34.922][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][07:31:34.922][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:34.937][INFO][RK0][main]: Done
-[HCTR][07:31:34.940][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][07:31:34.940][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:34.953][INFO][RK0][main]: Done
-[HCTR][07:31:35.221][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][07:31:35.221][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:35.443][INFO][RK0][main]: Done
-[HCTR][07:31:35.720][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][07:31:35.720][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:35.941][INFO][RK0][main]: Done
-[HCTR][07:31:35.953][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
-[HCTR][07:31:35.954][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:35.957][INFO][RK0][main]: Dumping dense weights to file, successful
-[HCTR][07:31:35.958][INFO][RK0][main]: Using Local file system backend.
-[HCTR][07:31:35.964][INFO][RK0][main]: Dumping dense optimizer states to file, successful
-[HCTR][07:31:45.076][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 215.28s.
-[HCTR][07:31:45.076][INFO][RK0][main]: Save the model graph to /hugectr_e2e/model/wdl.json successfully
+[HCTR][04:03:44.745][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
+[HCTR][04:03:44.745][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
+[HCTR][04:03:44.745][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
+[HCTR][04:03:44.745][INFO][RK0][main]: Dense network trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HCTR][04:03:44.745][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][04:03:44.745][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][04:03:44.745][INFO][RK0][main]: Training source file: /hugectr_e2e/criteo/train/_file_list.txt
+[HCTR][04:03:44.745][INFO][RK0][main]: Evaluation source file: /hugectr_e2e/criteo/val/_file_list.txt
+[HCTR][04:03:53.398][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 8.64913s Loss: 0.121202 lr:0.001
+[HCTR][04:04:02.135][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 8.73203s Loss: 0.119842 lr:0.001
+[HCTR][04:04:11.063][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 8.92374s Loss: 0.140827 lr:0.001
+[HCTR][04:04:20.136][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 9.06817s Loss: 0.112631 lr:0.001
+[HCTR][04:04:24.719][INFO][RK0][main]: Evaluation, AUC: 0.740936
+[HCTR][04:04:24.719][INFO][RK0][main]: Eval Time for 4000 iters: 4.58235s
+[HCTR][04:04:33.827][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 13.687s Loss: 0.0898167 lr:0.001
+[HCTR][04:04:42.918][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 9.0867s Loss: 0.0845359 lr:0.001
+[HCTR][04:04:52.021][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 9.09826s Loss: 0.103367 lr:0.001
+[HCTR][04:05:01.114][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 9.0885s Loss: 0.0986205 lr:0.001
+[HCTR][04:05:05.659][INFO][RK0][main]: Evaluation, AUC: 0.697036
+[HCTR][04:05:05.659][INFO][RK0][main]: Eval Time for 4000 iters: 4.5436s
+[HCTR][04:05:14.755][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 13.6362s Loss: 0.0968494 lr:0.001
+[HCTR][04:05:23.829][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 9.06979s Loss: 0.107726 lr:0.001
+[HCTR][04:05:32.906][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 9.07225s Loss: 0.0775421 lr:0.001
+[HCTR][04:05:42.011][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 9.10076s Loss: 0.0998987 lr:0.001
+[HCTR][04:05:46.553][INFO][RK0][main]: Evaluation, AUC: 0.695771
+[HCTR][04:05:46.554][INFO][RK0][main]: Eval Time for 4000 iters: 4.54159s
+[HCTR][04:05:55.651][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 13.636s Loss: 0.0899532 lr:0.001
+[HCTR][04:06:04.757][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 9.1015s Loss: 0.0869383 lr:0.001
+[HCTR][04:06:13.862][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 9.10059s Loss: 0.0718445 lr:0.001
+[HCTR][04:06:22.967][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 9.10076s Loss: 0.0784668 lr:0.001
+[HCTR][04:06:27.514][INFO][RK0][main]: Evaluation, AUC: 0.68094
+[HCTR][04:06:27.514][INFO][RK0][main]: Eval Time for 4000 iters: 4.54556s
+[HCTR][04:06:36.619][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 13.6469s Loss: 0.0711678 lr:0.001
+[HCTR][04:06:45.710][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 9.08659s Loss: 0.0941869 lr:0.001
+[HCTR][04:06:54.800][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 9.08513s Loss: 0.0780168 lr:0.001
+[HCTR][04:07:03.884][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 9.07991s Loss: 0.0978516 lr:0.001
+[HCTR][04:07:08.432][INFO][RK0][main]: Evaluation, AUC: 0.67476
+[HCTR][04:07:08.432][INFO][RK0][main]: Eval Time for 4000 iters: 4.54741s
+[HCTR][04:07:08.433][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.456][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][04:07:08.473][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.627][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][04:07:08.799][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][04:07:08.814][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:08.814][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.829][INFO][RK0][main]: Done
+[HCTR][04:07:08.832][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:08.832][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.845][INFO][RK0][main]: Done
+[HCTR][04:07:09.109][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:09.109][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.318][INFO][RK0][main]: Done
+[HCTR][04:07:09.597][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:09.597][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.808][INFO][RK0][main]: Done
+[HCTR][04:07:09.825][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][04:07:09.826][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.829][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][04:07:09.831][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.837][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][04:07:18.897][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 214.15s.
+[HCTR][04:07:18.897][INFO][RK0][main]: Save the model graph to /hugectr_e2e/model/wdl.json successfully
 </pre></div>
 </div>
 </div>
@@ -1281,81 +1323,97 @@ BinaryCrossEntropyLoss                  add1                          loss
 <h2>Load model to HPS and inference with HugeCTR<a class="headerlink" href="#load-model-to-hps-and-inference-with-hugectr" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-    
-<span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C1_C2&quot;</span><span class="p">,</span><span class="s2">&quot;C3_C4&quot;</span><span class="p">]</span><span class="o">+</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span>
-<span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
-<span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
-<span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">SLOT_SIZE_ARRAY</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">test_df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;val/part_0.parquet&quot;</span><span class="p">))[:</span><span class="mi">10</span><span class="p">]</span>
-<span class="n">config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
-<span class="n">row_ptrs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">21</span><span class="p">))</span><span class="o">+</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">261</span><span class="p">))</span>
-<span class="n">dense_features</span> <span class="o">=</span>  <span class="nb">list</span><span class="p">(</span><span class="n">test_df</span><span class="p">[</span><span class="n">CONTINUOUS_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
-<span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-<span class="n">embedding_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">((</span><span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">+</span><span class="n">shift</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceModel</span><span class="p">,</span> <span class="n">InferenceParams</span>
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">import</span> <span class="nn">os</span>
 
-<span class="c1"># create parameter server, embedding cache and inference session</span>
-<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">,</span>
-                            <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
-                            <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
-                            <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/_dense_20000.model&quot;</span><span class="p">),</span>
-                            <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/0_sparse_20000.model&quot;</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/1_sparse_20000.model&quot;</span><span class="p">)],</span>
-                            <span class="n">device_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-                            <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-                            <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
-                            <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-                            <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span>
-                            <span class="p">)</span>
-<span class="n">inference_session</span> <span class="o">=</span> <span class="n">CreateInferenceSession</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
-<span class="n">output</span> <span class="o">=</span> <span class="n">inference_session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dense_features</span><span class="p">,</span> <span class="n">embedding_columns</span><span class="p">,</span> <span class="n">row_ptrs</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;WDL multi-embedding table inference result is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+<span class="n">model_config</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">,</span>
+    <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/_dense_20000.model&quot;</span><span class="p">),</span>
+    <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/0_sparse_20000.model&quot;</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/1_sparse_20000.model&quot;</span><span class="p">)],</span>
+    <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span>
+<span class="n">inference_model</span> <span class="o">=</span> <span class="n">InferenceModel</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="mi">10</span><span class="p">,</span>
+    <span class="s2">&quot;/hugectr_e2e/criteo/val/_file_list.txt&quot;</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+    <span class="n">SLOT_SIZE_ARRAY</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][08:01:43.577][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-WDL multi-embedding table inference result is [0.016221938654780388, 0.08543526381254196, 3.26810294382085e-07, 0.02832142263650894, 0.06627560406923294, 0.0002603427565190941, 0.00022551437723450363, 0.02671617455780506, 0.0031104201916605234, 0.0017484374111518264]
-[HCTR][08:01:43.578][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
-[HCTR][08:01:43.578][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
-====================================================HPS Create====================================================
-[HCTR][08:01:43.578][INFO][RK0][main]: Creating HashMap CPU database backend...
-[HCTR][08:01:43.578][DEBUG][RK0][main]: Created blank database backend in local memory!
-[HCTR][08:01:43.578][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][08:01:43.578][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][08:01:43.578][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][08:01:43.578][INFO][RK0][main]: Using Local file system backend.
-[HCTR][08:01:44.508][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 2327936 / 2327936 embeddings in volatile database (HashMapBackend); load: 2327936 / 18446744073709551615 (0.00%).
-[HCTR][08:01:44.508][INFO][RK0][main]: Using Local file system backend.
-[HCTR][08:01:45.076][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 4169063 / 4169063 embeddings in volatile database (HashMapBackend); load: 4169063 / 18446744073709551615 (0.00%).
-[HCTR][08:01:45.083][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][08:01:45.083][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][08:01:45.088][INFO][RK0][main]: Model name: wdl
-[HCTR][08:01:45.088][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][08:01:45.088][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
-[HCTR][08:01:45.088][INFO][RK0][main]: Use I64 input key: True
-[HCTR][08:01:45.088][INFO][RK0][main]: Configured cache hit rate threshold: 0.900000
-[HCTR][08:01:45.088][INFO][RK0][main]: The size of thread pool: 80
-[HCTR][08:01:45.088][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][08:01:45.088][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][08:01:45.088][INFO][RK0][main]: The refresh percentage : 0.000000
-[HCTR][08:01:46.044][INFO][RK0][main]: Global seed is 1583686956
-[HCTR][08:01:46.047][INFO][RK0][main]: Device to NUMA mapping:
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][05:22:53.279][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][05:22:53.279][INFO][RK0][main]: Global seed is 2968606722
+[HCTR][05:22:53.279][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
-[HCTR][08:01:46.985][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][08:01:46.985][INFO][RK0][main]: Start all2all warmup
-[HCTR][08:01:46.985][INFO][RK0][main]: End all2all warmup
-[HCTR][08:01:46.986][INFO][RK0][main]: Model name: wdl
-[HCTR][08:01:46.986][INFO][RK0][main]: Use mixed precision: False
-[HCTR][08:01:46.986][INFO][RK0][main]: Use cuda graph: True
-[HCTR][08:01:46.986][INFO][RK0][main]: Max batchsize: 64
-[HCTR][08:01:46.986][INFO][RK0][main]: Use I64 input key: True
-[HCTR][08:01:46.986][INFO][RK0][main]: start create embedding for inference
-[HCTR][08:01:46.986][INFO][RK0][main]: sparse_input name wide_data
-[HCTR][08:01:46.986][INFO][RK0][main]: sparse_input name deep_data
-[HCTR][08:01:46.986][INFO][RK0][main]: create embedding for inference success
-[HCTR][08:01:46.987][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][05:22:53.317][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:22:53.317][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.8757 
+[HCTR][05:22:53.317][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:22:53.317][INFO][RK0][main]: End all2all warmup
+[HCTR][05:22:53.318][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][05:22:53.318][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][05:22:53.318][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][05:22:53.318][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][05:22:53.318][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][05:22:53.318][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][05:22:53.318][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:22:53.318][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:22:53.659][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 2327936 / 2327936 embeddings in volatile database (HashMapBackend); load: 2327936 / 18446744073709551615 (0.00%).
+[HCTR][05:22:53.659][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:22:54.219][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 4169063 / 4169063 embeddings in volatile database (HashMapBackend); load: 4169063 / 18446744073709551615 (0.00%).
+[HCTR][05:22:54.235][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][05:22:54.235][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][05:22:54.239][INFO][RK0][main]: Model name: wdl
+[HCTR][05:22:54.239][INFO][RK0][main]: Max batch size: 1024
+[HCTR][05:22:54.239][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][05:22:54.239][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][05:22:54.239][INFO][RK0][main]: Use static table: False
+[HCTR][05:22:54.239][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:22:54.239][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][05:22:54.239][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][05:22:54.246][INFO][RK0][main]: Model name: wdl
+[HCTR][05:22:54.246][INFO][RK0][main]: Use mixed precision: False
+[HCTR][05:22:54.246][INFO][RK0][main]: Use cuda graph: True
+[HCTR][05:22:54.247][INFO][RK0][main]: Max batchsize: 1024
+[HCTR][05:22:54.247][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:22:54.247][INFO][RK0][main]: start create embedding for inference
+[HCTR][05:22:54.247][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][05:22:54.247][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][05:22:54.247][INFO][RK0][main]: create embedding for inference success
+[HCTR][05:22:54.247][DEBUG][RK0][main]: [device 0] allocating 0.0049 GB, available 29.2468 
+[HCTR][05:22:54.248][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][05:22:54.248][DEBUG][RK0][main]: [device 0] allocating 0.0388 GB, available 29.2000 
+[HCTR][05:22:55.955][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 29.1960 
+[HCTR][05:22:56.325][INFO][RK0][main]: Create inference data reader on 1 GPU(s)
+[HCTR][05:22:56.325][INFO][RK0][main]: num of DataReader workers: 1
+[HCTR][05:22:56.325][DEBUG][RK0][main]: [device 0] allocating 0.0020 GB, available 29.9617 
+[HCTR][05:22:56.325][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9617 
+[HCTR][05:22:56.326][INFO][RK0][main]: Vocabulary size: 79460(10240, 1)
+[[2.0730977e-07]
+ [2.4348024e-05]
+ [4.8165547e-04]
+ ...
+ [1.3334073e-10]
+ [8.7153958e-03]
+ [2.7467359e-02]]
+54
+
+[HCTR][05:22:56.352][INFO][RK0][main]: Inference time for 10 batches: 0.02287
 </pre></div>
 </div>
 </div>

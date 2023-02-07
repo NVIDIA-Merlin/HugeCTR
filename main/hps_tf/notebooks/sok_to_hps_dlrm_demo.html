@@ -56,7 +56,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../../hugectr_parameter_server.html">HPS Database Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_database_backend.html">HPS Database Backend</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a></li>
@@ -66,9 +66,10 @@
 <li class="toctree-l4"><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html">Deploy SavedModel using HPS with Triton TensorFlow Backend</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/api/index.html">API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_api/index.html">API Documentation</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_user_guide.html">HPS Plugin for TensorRT</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
@@ -107,7 +108,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" />
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="sok-to-hps-dlrm-demo">
 <h1>SOK to HPS DLRM Demo<a class="headerlink" href="#sok-to-hps-dlrm-demo" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -336,7 +360,7 @@ $ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&
     <span class="n">embedding_saver</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Saver</span><span class="p">()</span>
     <span class="n">embedding_saver</span><span class="o">.</span><span class="n">load_embedding_values</span><span class="p">(</span><span class="n">dlrm</span><span class="o">.</span><span class="n">embedding_layer</span><span class="o">.</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="n">init_tensors</span><span class="p">)</span>
 
-    <span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">(</span><span class="n">from_logits</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">()</span>
 
     <span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
     <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>

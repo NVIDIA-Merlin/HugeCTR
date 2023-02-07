@@ -105,7 +105,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" />
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="introduction-to-the-hugectr-python-interface">
 <h1>Introduction to the HugeCTR Python Interface<a class="headerlink" href="#introduction-to-the-hugectr-python-interface" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -185,10 +208,10 @@ ln -s <span class="si">${</span><span class="nv">project_root</span><span class=
 <li><p>Dump the model graph to the JSON file.</p></li>
 <li><p>Fit the model, save the model weights and optimizer states implicitly.</p></li>
 </ol>
-<p>Please note that the training mode is determined by <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.CreateSolver</span></code>.
-If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the non-epoch mode training is adopted and the maximum iterations should be specified by <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.Model.fit</span></code>.
-If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the epoch-mode training is adopted and the number of epochs should be specified by <code class="docutils literal notranslate"><span class="pre">num_epochs</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.Model.fit</span></code>.</p>
-<p>The optimizer that is used to initialize the model applies to the weights of dense layers, while the optimizer for each sparse embedding layer can be specified independently within <code class="docutils literal notranslate"><span class="pre">hugectr.SparseEmbedding</span></code>.</p>
+<p>Please note that the training mode is determined by <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> within <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#createsolver-method">hugectr.CreateSolver</a>.
+If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the non-epoch mode training is adopted and the maximum iterations should be specified by <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> within <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#fit-method">hugectr.Model.fit</a>.
+If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the epoch-mode training is adopted and the number of epochs should be specified by <code class="docutils literal notranslate"><span class="pre">num_epochs</span></code> within <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#fit-method">hugectr.Model.fit</a>.</p>
+<p>The optimizer that is used to initialize the model applies to the weights of dense layers, while the optimizer for each sparse embedding layer can be specified independently within <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html#embedding-types-detail">hugectr.SparseEmbedding</a>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> dcn_train.py
@@ -404,9 +427,9 @@ BinaryCrossEntropyLoss                  fc3                           loss
 <p>We can continue our training based on the saved model graph, model weights, and optimizer states by performing the following with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
-<li><p>Construct the model graph from the saved JSON file.</p></li>
+<li><p>Construct the model graph from the saved JSON file, see Python API details <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#construct-from-json-method">here</a>.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
-<li><p>Load the model weights and optimizer states.</p></li>
+<li><p>Load the model weights and optimizer states, see Python API details <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#load-dense-weights-method">here</a>.</p></li>
 <li><p>Fit the model, save the model weights and optimizer states implicitly.</p></li>
 </ol>
 <div class="cell docutils container">
@@ -570,7 +593,7 @@ BinaryCrossEntropyLoss                  fc3                           loss
 </div>
 <div class="section" id="inference">
 <h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR inference is enabled by <code class="docutils literal notranslate"><span class="pre">hugectr.inference.InferenceSession.predict</span></code> method of InferenceSession.
+<p>The HugeCTR inference is enabled by <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#predict-method">hugectr.inference.InferenceSession.predict</a> method of InferenceSession.
 This method requires dense features, embedding columns, and row pointers of slots as the input and gives the prediction result as the output.
 We need to convert the Criteo data to inference format first.</p>
 <div class="cell docutils container">
@@ -584,7 +607,7 @@ We need to convert the Criteo data to inference format first.</p>
 <ol class="arabic simple">
 <li><p>Configure the inference related parameters.</p></li>
 <li><p>Create the inference session.</p></li>
-<li><p>Make inference with the <code class="docutils literal notranslate"><span class="pre">InferenceSession.predict</span></code> method.</p></li>
+<li><p>Make inference with the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#predict-method">hugectr.inference.InferenceSession.predict</a> method.</p></li>
 </ol>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -814,9 +837,9 @@ ln -s <span class="si">${</span><span class="nv">project_root</span><span class=
 <li><p>Load the sparse embedding layers from the saved JSON file.</p></li>
 <li><p>Add the dense layers on top of the loaded model graph.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
-<li><p>Load the sparse weights and freeze the sparse embedding layers.</p></li>
+<li><p>Load the sparse weights and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#freeze-embedding-method">freeze</a> the sparse embedding layers.</p></li>
 <li><p>Train the dense weights.</p></li>
-<li><p>Unfreeze the sparse embedding layers and freeze the dense layers, reset the learning rate scheduler with a small rate.</p></li>
+<li><p><a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#unfreeze-embedding-method">Unfreeze</a> the sparse embedding layers and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#freeze-dense-method">freeze</a> the dense layers, reset the learning rate scheduler with a small rate.</p></li>
 <li><p>Fine-tune the sparse weights.</p></li>
 </ol>
 <div class="cell docutils container">
@@ -890,7 +913,7 @@ ln -s <span class="si">${</span><span class="nv">project_root</span><span class=
 </div>
 <div class="section" id="load-pre-trained-embeddings">
 <h3>Load Pre-trained Embeddings<a class="headerlink" href="#load-pre-trained-embeddings" title="Permalink to this headline"></a></h3>
-<p>If you have the pre-trained embeddings in other formats, you can convert them to the HugeCTR sparse models and then load them to facilitate the training process. For the sake of simplicity and generality, we represent the pretrained embeddings with the dictionary of randomly initialized numpy arrays, of which the keys indicate the embedding keys and the array values embody the embedding values. It is worth mentioning that there are two embedding tables for the Wide&amp;Deep model, and here we only load the pre-trained embeddings for one table and freeze the corresponding embedding layer.</p>
+<p>If you have the pre-trained embeddings in other formats, you can convert them to the HugeCTR sparse models and then <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#load-sparse-weights-method">load</a> them to facilitate the training process. For the sake of simplicity and generality, we represent the pretrained embeddings with the dictionary of randomly initialized numpy arrays, of which the keys indicate the embedding keys and the array values embody the embedding values. It is worth mentioning that there are two embedding tables for the Wide&amp;Deep model, and here we only load the pre-trained embeddings for one table and freeze the corresponding embedding layer.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> wdl_load_pretrained.py

@@ -115,7 +115,7 @@
 <span class="kn">from</span> <span class="nn">hierarchical_parameter_server.core</span> <span class="kn">import</span> <span class="n">lookup_ops</span>
 
 
-<div class="viewcode-block" id="SparseLookupLayer"><a class="viewcode-back" href="../../../hierarchical_parameter_server/api/layers.html#hierarchical_parameter_server.SparseLookupLayer">[docs]</a><span class="k">class</span> <span class="nc">SparseLookupLayer</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+<div class="viewcode-block" id="SparseLookupLayer"><a class="viewcode-back" href="../../../hierarchical_parameter_server/hps_tf_api/layers.html#hierarchical_parameter_server.SparseLookupLayer">[docs]</a><span class="k">class</span> <span class="nc">SparseLookupLayer</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.</span>
 
@@ -183,7 +183,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ps_config_file</span> <span class="o">=</span> <span class="n">ps_config_file</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_batch_size</span> <span class="o">=</span> <span class="n">global_batch_size</span>
 
-<div class="viewcode-block" id="SparseLookupLayer.call"><a class="viewcode-back" href="../../../hierarchical_parameter_server/api/layers.html#hierarchical_parameter_server.SparseLookupLayer.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sp_ids</span><span class="p">,</span> <span class="n">sp_weights</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="SparseLookupLayer.call"><a class="viewcode-back" href="../../../hierarchical_parameter_server/hps_tf_api/layers.html#hierarchical_parameter_server.SparseLookupLayer.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sp_ids</span><span class="p">,</span> <span class="n">sp_weights</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Looks up embeddings for the given ids and weights from a list of tensors.</span>
 <span class="sd">        This op assumes that there is at least one ID for each row in the dense tensor</span>

@@ -105,7 +105,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" />
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-to-onnx-converter">
 <h1>HugeCTR to ONNX Converter<a class="headerlink" href="#hugectr-to-onnx-converter" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -396,7 +419,7 @@ Finish 2300 iterations with batchsize: 16384 in 67.90s
 </div>
 <div class="section" id="convert-to-onnx">
 <h3>Convert to ONNX<a class="headerlink" href="#convert-to-onnx" title="Permalink to this headline"></a></h3>
-<p>We can convert the trained HugeCTR model to ONNX with a call to <code class="docutils literal notranslate"><span class="pre">hugectr2onnx.converter.convert</span></code>. We can specify whether to convert the sparse embeddings via the flag <code class="docutils literal notranslate"><span class="pre">convert_embedding</span></code> and do not need to provide the sparse models if it is set as <code class="docutils literal notranslate"><span class="pre">False</span></code>. In this notebook, both dense and sparse parts of the HugeCTR model will be converted to ONNX, in order that we can check the correctness of the conversion more easily by comparing inference results based on HugeCTR and ONNX Runtime.</p>
+<p>We can convert the trained HugeCTR model to ONNX with a call to <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/onnx_converter#api-docs">hugectr2onnx.converter.convert</a>. We can specify whether to convert the sparse embeddings via the flag <code class="docutils literal notranslate"><span class="pre">convert_embedding</span></code> and do not need to provide the sparse models if it is set as <code class="docutils literal notranslate"><span class="pre">False</span></code>. In this notebook, both dense and sparse parts of the HugeCTR model will be converted to ONNX, in order that we can check the correctness of the conversion more easily by comparing inference results based on HugeCTR and ONNX Runtime.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr2onnx</span>

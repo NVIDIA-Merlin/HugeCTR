@@ -105,7 +105,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" />
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-demo">
 <h1>Hierarchical Parameter Server Demo<a class="headerlink" href="#hierarchical-parameter-server-demo" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -424,7 +447,7 @@ Skip sparse embedding layers in converted ONNX model
 <h2>Inference with HPS &amp; ONNX<a class="headerlink" href="#inference-with-hps-onnx" title="Permalink to this headline"></a></h2>
 <p>We will make inference by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
-<li><p>Configure the HPS hyperparameters.</p></li>
+<li><p>Configure the HPS hyperparameters. Please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_parameter_server.html#inference-parameters-and-embedding-cache-configuration">hps configuration</a> for detailed configurations.</p></li>
 <li><p>Initialize the HPS object, which is responsible for embedding table lookup.</p></li>
 <li><p>Loading the Parquet data.</p></li>
 <li><p>Make inference with the HPS object and the ONNX inference session of <code class="docutils literal notranslate"><span class="pre">hps_demo_without_embedding.onnx</span></code>.</p></li>
@@ -1760,7 +1783,6 @@ M: 8fdba8dc3f666d570291cd83ff14259e1513a904 127.0.0.1:7001
             <span class="n">address</span> <span class="o">=</span> <span class="s1">&#39;127.0.0.1:7000&#39;</span><span class="p">,</span>
             <span class="n">num_partitions</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span>
             <span class="n">num_node_connections</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-            <span class="n">refresh_time_after_fetch</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
        <span class="p">))</span>
 
 <span class="c1"># 2. Initialize the HPS object.</span>
@@ -2199,7 +2221,6 @@ M: c9b58fc19d25ae1ebaa0705a0f69ba40ddf7497d 127.0.0.1:7002
             <span class="n">tls_client_certificate</span> <span class="o">=</span> <span class="s1">&#39;test_certs/hugectr.crt&#39;</span><span class="p">,</span>
             <span class="n">tls_client_key</span> <span class="o">=</span> <span class="s1">&#39;test_certs/hugectr-private.pem&#39;</span><span class="p">,</span>
             <span class="n">tls_server_name_identification</span> <span class="o">=</span> <span class="s1">&#39;redis.localhost&#39;</span><span class="p">,</span>
-            <span class="n">refresh_time_after_fetch</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
        <span class="p">))</span>
 
 <span class="c1"># 2. Initialize the HPS object.</span>
