@@ -431,7 +431,7 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   std::vector<EmbeddingInput> embedding_inputs =
       HugeCTR::allocate_output_for_data_distributor(core, ebc_param);
-  HCTR_ASSERT(embedding_input.size() == 1);
+  HCTR_CHECK(embedding_inputs.size() == 1);
 
   auto &embedding_input = embedding_inputs[0];
   model_index_calculation_.filter_sparse_input(keys, bucket_range, embedding_input,

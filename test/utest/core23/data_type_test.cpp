@@ -21,7 +21,6 @@
 #include <core23/data_type.hpp>
 #include <functional>
 #include <unordered_set>
-#include <utest/test_utils.hpp>
 
 namespace {
 

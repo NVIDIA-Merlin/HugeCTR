@@ -21,7 +21,6 @@
 #include <core23/device.hpp>
 #include <functional>
 #include <unordered_set>
-#include <utest/test_utils.hpp>
 
 namespace {
 
