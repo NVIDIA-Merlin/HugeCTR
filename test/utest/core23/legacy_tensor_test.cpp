@@ -108,7 +108,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor1.data() == tensor3.data());
   EXPECT_TRUE(tensor1.data() != tensor4.data());
 
-  // 7. Create an emtpy Tensor and then overwrite it with the tensor0
+  // 8. Create an emtpy Tensor and then overwrite it with the tensor0
   Tensor tensor5;
   EXPECT_TRUE(tensor5.empty());
   EXPECT_THROW(tensor5.shape(), HugeCTR::internal_runtime_error);
@@ -121,6 +121,22 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_NO_THROW(tensor5.data_type());
   EXPECT_TRUE(tensor5.own_data());
   EXPECT_FALSE(tensor5.data() == nullptr);
+
+  // 7. Create a Tensor from shape, data_type, and params
+  Tensor tensor6({512, 256}, ScalarType::Float,
+                 tensor_params.buffer_channel(GetRandomBufferChannel()));
+  EXPECT_TRUE(tensor6.shape() == Shape({512, 256}));
+  EXPECT_FALSE(tensor6.shape() == tensor_params.shape());
+  EXPECT_TRUE(tensor6.data_type() == ScalarType::Float);
+  EXPECT_FALSE(tensor6.data_type() == tensor_params.data_type());
+  auto tensor6_data = tensor6.data();
+  tensor6 = tensor0;
+  EXPECT_FALSE(tensor6.shape() == Shape({512, 256}));
+  EXPECT_TRUE(tensor6.shape() == tensor_params.shape());
+  EXPECT_FALSE(tensor6.data_type() == ScalarType::Float);
+  EXPECT_TRUE(tensor6.data_type() == tensor_params.data_type());
+  EXPECT_FALSE(tensor6.data() == tensor6_data);
+  EXPECT_TRUE(tensor6.data() == tensor0.data());
 
   allocator->deallocate(data);
 }

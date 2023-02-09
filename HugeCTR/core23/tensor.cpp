@@ -28,7 +28,7 @@ Tensor::Tensor() : impl_(nullptr), data_(nullptr) {}
 Tensor::Tensor(TensorParams params) : impl_(std::make_shared<TensorImpl>(params)), data_(nullptr) {}
 
 Tensor::Tensor(const Shape& shape, DataType data_type, TensorParams params)
-    : Tensor(std::make_shared<TensorImpl>(params.shape(shape).data_type(data_type))) {}
+    : Tensor(params.shape(shape).data_type(data_type)) {}
 
 Tensor Tensor::reshape(const Shape& new_shape) {
   HCTR_THROW_IF(new_shape.size() != num_elements(), HugeCTR::Error_t::IllegalCall,
@@ -80,9 +80,13 @@ bool Tensor::is_unique() const { return own_data() && impl_.use_count() == 1; }
 
 bool Tensor::own_data() const { return impl_ && impl_->own_data(); }
 
-Tensor::Tensor(const std::shared_ptr<TensorImpl>& impl) : impl_(impl) {}
+Tensor::Tensor(const std::shared_ptr<TensorImpl>& impl) : impl_(impl), data_(nullptr) {}
 
-void Tensor::swap(Tensor& rhs) { std::swap(impl_, rhs.impl_); }
+void Tensor::swap(Tensor& rhs) {
+  std::swap(impl_, rhs.impl_);
+  std::swap(shape_or_, rhs.shape_or_);
+  std::swap(data_, rhs.data_);
+}
 
 }  // namespace core23
 
