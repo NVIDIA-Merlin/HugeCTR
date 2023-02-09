@@ -422,6 +422,20 @@ dlrm_ib_nvlink_8node:
     DGXNNODES: 8
     TEST_CMD: ./ci/integration_test/dlrm/ib_nvlink_8node.sub
 
+dlrm_dcnv2_benchmark_1node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_dcnv2_benchmark_1node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw_v3.0:/data_multihot
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dlrm/train_dcnv2_1node.sub
+
 wdl:
   extends: .cluster_test_job                                                     # test on selene needs to extend .cluster_test_job
   needs:
@@ -1022,6 +1036,21 @@ dlrm_14node_check:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_dlrm_14node.sub
+
+dlrm_dcnv2_1node_check:
+  # Push logs to gitlab
+  extends: .cluster_post_test_job
+  needs:
+    - dlrm_dcnv2_benchmark_1node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_dcnv2_1node_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/dlrm_dcnv2_benchmark_1node:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_dcnv2_dlrm_1node.sub
 
 # rm_logs:
 #   extends: .cluster_test_job

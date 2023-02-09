@@ -20,6 +20,10 @@ log_pattern = {
         "cmd_log": r"HugeCTR Version",
         "result_log": r"/ 58527 iterations with batchsize 71680 in (\d+\.?\d*)s. Average",
     },
+    "dlrm_dcnv2_1node": {
+        "cmd_log": r"python3 train_dcnv2.py",
+        "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average",
+    },
     "inference_benchmark": {
         "cmd_log": r"Server:",
         "result_log": r"Avg request latency: (\d+\.?\d*) usec",
@@ -69,7 +73,10 @@ def extract_result_from_log(job_name, log_path):
                     match = re.search(job_log_pattern["result_log"], line)
                     if match is None:
                         continue
-                    result = float(match.group(1))
+                    if job_name == "dlrm_dcnv2_1node":
+                        result = float(match.group(3))
+                    else:
+                        result = float(match.group(1))
                     results.append(result)
     return sum(results) / len(results) if len(results) > 0 else float("inf")
 
