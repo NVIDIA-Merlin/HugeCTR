@@ -36,15 +36,7 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
                   "The number of Tensors is inconsistent with the specified Shape");
 
     if (tensor_view_ptrs_ == nullptr) {
-      AllocatorParams allocator_params;
-      auto device = tensors_.begin()->device();
-      auto data_type = tensors_.begin()->data_type();
-      for (auto it = tensors_.begin()++; it != tensors_.end(); ++it) {
-        HCTR_THROW_IF(data_type != it->data_type(), HugeCTR::Error_t::IllegalCall,
-                      "Tensors with different data types cannot be included in the same "
-                      "TensorContainer");
-      }
-      allocator_ = std::move(GetAllocator(allocator_params, device));
+      allocator_ = create_allocator();
     }
 
     std::sort(tensors.begin(), tensors.end(), [](const Tensor& lhs, const Tensor& rhs) {
@@ -106,6 +98,18 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   Tensor at(int64_t t) const { return tensors_.at(t); }
 
  private:
+  std::unique_ptr<Allocator> create_allocator() {
+    AllocatorParams allocator_params;
+    auto device = tensors_.begin()->device();
+    auto data_type = tensors_.begin()->data_type();
+    for (auto it = tensors_.begin()++; it != tensors_.end(); ++it) {
+      HCTR_THROW_IF(data_type != it->data_type(), HugeCTR::Error_t::IllegalCall,
+                    "Tensors with different data types cannot be included in the same "
+                    "TensorContainer");
+    }
+    return GetAllocator(allocator_params, device);
+  }
+
   std::vector<Tensor> tensors_;
   Shape shape_;
   mutable TargetTensorView* tensor_view_ptrs_;

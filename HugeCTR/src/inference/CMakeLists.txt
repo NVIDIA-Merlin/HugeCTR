@@ -119,7 +119,7 @@ if(ENABLE_GCS)
   )
 endif()
 
-target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(huge_ctr_inference PUBLIC hugectr_core23 cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(huge_ctr_inference PUBLIC  numa )
 

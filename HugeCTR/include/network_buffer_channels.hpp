@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include <common.hpp>
-#include <core23/shape.hpp>
-#include <utest/regularizers/regularizer_test_common.hpp>
-#include <vector>
+#include <core23/buffer_channel_helpers.hpp>
 
-using namespace HugeCTR;
+namespace HugeCTR {
 
-TEST(l1_regularizer_layer, 32x64_64x1) {
-  test::regularizer_test_common(32, {{64, 1}}, 0.001, Regularizer_t::L1);
-}
+core23::BufferChannel GetBlobsBufferChannel();
 
-TEST(l1_regularizer_layer, 1024x64_64x256_256x1) {
-  test::regularizer_test_common(1024, {{64, 256}, {256, 1}}, 0.001, Regularizer_t::L1);
-}
+core23::BufferChannel GetWeightBufferChannel();
+
+core23::BufferChannel GetWeightHalfBufferChannel();
+
+core23::BufferChannel GetWgradBufferChannel();
+
+core23::BufferChannel GetWgradHalfBufferChannel();
+
+}  // namespace HugeCTR

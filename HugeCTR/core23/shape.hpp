@@ -29,10 +29,14 @@ class Shape : private std::vector<int64_t> {
   Shape() {}
   Shape(int64_t dims) : std::vector<int64_t>(dims, 0) {}
   Shape(std::initializer_list<int64_t> l) : std::vector<int64_t>(l) {}
-  bool valid() const { return !empty() && size() != 0; }
+  bool valid() const { return size() != 0; }
   int64_t dims() const { return std::vector<int64_t>::size(); }
-  int64_t size(int64_t dim) const { return at(dim); }
+  int64_t size(int64_t dim) const { return empty() ? 0 : at(dim); }
   int64_t size() const {
+    if (empty()) {
+      return 0;
+    }
+
     int64_t sum = 1;
     for (auto dim = 0; dim < dims(); dim++) {
       sum *= size(dim);

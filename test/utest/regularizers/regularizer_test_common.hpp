@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include <common.hpp>
 #include <core23/shape.hpp>
-#include <utest/regularizers/regularizer_test_common.hpp>
 #include <vector>
 
-using namespace HugeCTR;
+namespace HugeCTR {
 
-TEST(l1_regularizer_layer, 32x64_64x1) {
-  test::regularizer_test_common(32, {{64, 1}}, 0.001, Regularizer_t::L1);
-}
+namespace test {
 
-TEST(l1_regularizer_layer, 1024x64_64x256_256x1) {
-  test::regularizer_test_common(1024, {{64, 256}, {256, 1}}, 0.001, Regularizer_t::L1);
-}
+void regularizer_test_common(size_t batch_size, std::vector<core23::Shape> shapes, float lambda,
+                             Regularizer_t type);
+
+}  // namespace test
+
+}  // namespace HugeCTR

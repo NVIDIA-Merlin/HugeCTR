@@ -16,6 +16,7 @@
 #pragma once
 
 #include <common.hpp>
+#include <core23/tensor_container.hpp>
 #include <memory>
 #include <regularizer.hpp>
 #include <utils.hpp>
@@ -37,6 +38,17 @@ class L1Regularizer : public Regularizer<T> {
    */
   L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                 const int batch_size, const float lambda,
+                const std::shared_ptr<GPUResource>& gpu_resource);
+
+  /*
+   * Constructor of L1Regularizer
+   * @param weight_tensors TensorContainer of all the layers' weights
+   * @param wgrad_tensors TensorContainer of all the layers' wgrads
+   * @param batch_size Network batch size
+   * @param device_id Device to be used
+   */
+  L1Regularizer(std::vector<core23::Tensor> weight_tensors,
+                std::vector<core23::Tensor> wgrad_tensors, const int batch_size, const float lambda,
                 const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*

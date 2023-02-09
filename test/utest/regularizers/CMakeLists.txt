@@ -15,6 +15,7 @@
 
 cmake_minimum_required(VERSION 3.17)
 file(GLOB regularizers_test_src
+  regularizer_test_common.cpp
   loss_with_regularizer_test.cpp
   l1_regularizer_test.cpp
   l2_regularizer_test.cpp
@@ -24,3 +25,4 @@ add_executable(regularizers_test ${regularizers_test_src})
 target_compile_features(regularizers_test PUBLIC cxx_std_17)
 target_link_libraries(regularizers_test PUBLIC huge_ctr_static gtest gtest_main)
 target_link_libraries(regularizers_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
+target_link_libraries(regularizers_test PUBLIC hugectr_core23) 
