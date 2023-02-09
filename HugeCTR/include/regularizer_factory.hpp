@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+/* * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +12,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include <gtest/gtest.h>
+#pragma once
 
 #include <common.hpp>
-#include <core23/shape.hpp>
-#include <utest/regularizers/regularizer_test_common.hpp>
-#include <vector>
+#include <core23/tensor_container.hpp>
+#include <gpu_resource.hpp>
+#include <memory>
+#include <regularizer.hpp>
 
-using namespace HugeCTR;
+namespace HugeCTR {
 
-TEST(l1_regularizer_layer, 32x64_64x1) {
-  test::regularizer_test_common(32, {{64, 1}}, 0.001, Regularizer_t::L1);
-}
+template <typename T>
+std::shared_ptr<Regularizer<T>> create_regularizer(
+    bool use_regularizer, Regularizer_t regularizer_type, float lambda,
+    std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
+    const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
 
-TEST(l1_regularizer_layer, 1024x64_64x256_256x1) {
-  test::regularizer_test_common(1024, {{64, 256}, {256, 1}}, 0.001, Regularizer_t::L1);
-}
+}  // namespace HugeCTR

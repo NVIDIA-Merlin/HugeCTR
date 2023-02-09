@@ -40,6 +40,13 @@ L1Regularizer<T>::L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource), lambda_(lambda) {}
 
 template <typename T>
+L1Regularizer<T>::L1Regularizer(std::vector<core23::Tensor> weight_tensors,
+                                std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+                                const float lambda,
+                                const std::shared_ptr<GPUResource>& gpu_resource)
+    : Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, gpu_resource), lambda_(lambda) {}
+
+template <typename T>
 void L1Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements) {
   HCTR_LIB_THROW(
       cublasSasum(Regularizer<T>::get_gpu().get_cublas_handle(), num_elements, weight, 1, h_rterm));

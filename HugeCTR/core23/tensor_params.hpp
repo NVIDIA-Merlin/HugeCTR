@@ -80,6 +80,12 @@ class TensorParams final {
     return p;
   }
 
+  TensorParams buffer_channel(const BufferChannel& buffer_channel) const noexcept {
+    TensorParams p = *this;
+    p.buffer_params_.channel = buffer_channel;
+    return p;
+  }
+
   TensorParams stream(CUDAStream& stream) const noexcept {
     TensorParams p = *this;
     p.stream_ = stream;
@@ -97,6 +103,7 @@ class TensorParams final {
   Device device() const { return device_; }
   const AllocatorParams& allocator_params() const { return allocator_params_; }
   const BufferParams& buffer_params() const { return buffer_params_; }
+  const BufferChannel& buffer_channel() const { return buffer_params_.channel; }
   CUDAStream stream() const { return stream_; }
 
  private:

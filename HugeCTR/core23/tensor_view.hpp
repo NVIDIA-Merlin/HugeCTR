@@ -85,6 +85,7 @@ class TensorViewBase {
   HCTR_INLINE HCTR_HOST_DEVICE int64_t size(int64_t dim) const { return shape_[dim]; }
   HCTR_INLINE HCTR_HOST_DEVICE int64_t stride(int64_t dim) const { return strides_[dim]; }
   HCTR_INLINE HCTR_HOST_DEVICE int64_t offset(int64_t dim) const { return offsets_[dim]; }
+  HCTR_INLINE HCTR_HOST_DEVICE BuiltInType* data() const { return data_; }
 
  protected:
   BuiltInType* data_;
