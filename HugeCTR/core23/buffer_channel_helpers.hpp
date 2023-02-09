@@ -21,6 +21,7 @@
 namespace HugeCTR {
 namespace core23 {
 
+std::string GetRandomBufferChannelName();
 BufferChannel GetRandomBufferChannel();
 
 }  // namespace core23
