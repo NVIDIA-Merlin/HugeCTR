@@ -23,6 +23,25 @@
 .if-daily-schedule: &if-daily-schedule
   if: '$CI_PIPELINE_SOURCE == "schedule" && $DAILY == "1"'
 
+.if-use-dracorno-m2-partition: &if-use-dracorno-m2-partition
+  if: '$DRACORNO_PARTITION == "m2" && $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/'
+
+.if-use-dracorno-m3-partition: &if-use-dracorno-m3-partition
+  if: '$DRACORNO_PARTITION == "m3" && $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/'
+
+# Below is the conditions for child pipeline on dracorno
+.if-child-ci-action: &if-child-ci-actions
+  if: '$PARENT_SOURCE =~ /^(push|web|merge_request_event|trigger)$/'
+
+.if-merge-request-child: &if-merge-request-child
+  if: '$PARENT_SOURCE =~ /^(web|merge_request_event)$/'
+
+.if-push-to-mr-opened-child: &if-push-to-mr-opened-child
+  if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $PARENT_SOURCE == "push"'
+
+.if-daily-schedule-child: &if-daily-schedule-child
+  if: '$PARENT_SOURCE == "schedule" && $DAILY == "1"'
+
 ############
 # Changes  #
 ############
@@ -31,18 +50,34 @@
   - "ci/**/*"
   - "cmake/Modules/*"
   - "gpu_cache/**/*"
-  - "hierarchical_parameter_server/**/*"
+  - "hps_tf/**/*"
   - "onnx_converter/**/*"
   - "test/**/*"
   - "third_party/**/*"
   - "tools/**/*"
   - "sbin/**/*"
-  - "CMakelists.txt"
+  - "CMakeLists.txt"
   - ".gitlab-ci.yml"
   - ".clang-format"
   - ".pre-commit-config.yaml"
 
 .sok-source: &sok-source
+  - "sparse_operation_kit/**/*"
+
+.code-source: &code-source
+  - "HugeCTR/**/*"
+  - "ci/**/*"
+  - "cmake/Modules/*"
+  - "gpu_cache/**/*"
+  - "hps_tf/**/*"
+  - "onnx_converter/**/*"
+  - "test/**/*"
+  - "third_party/**/*"
+  - "tools/**/*"
+  - "CMakeLists.txt"
+  - ".gitlab-ci.yml"
+  - ".clang-format"
+  - ".pre-commit-config.yaml"
   - "sparse_operation_kit/**/*"
 
 .doc-source: &doc-source
@@ -104,6 +139,39 @@
       #when: always
     - when: never
 
+# Trigger rules for Dracorno
+.trigger:rules:dracorno:
+  rules:
+    # If push to a branch which has MR opened, ignore the branch pipeline
+    - <<: *if-use-dracorno-m2-partition
+      changes: *code-source
+      variables:
+        RUNNER_TAG: dracorno_ssh
+        SLURM_PARTITION: "batch_dgx1_m2,batch_short_dgx1_m2,batch_short_dgx2h_m2,backfill_dgx2h_m2"
+        DATA_PREFIX: /gpfs
+    - <<: *if-use-dracorno-m3-partition
+      changes: *code-source
+      variables:
+        RUNNER_TAG: dracornom03_ssh
+        SLURM_PARTITION: "batch_dgx1_m3,batch_short_dgx1_m3,batch_16gb_dgx1_m3,backfill_dgx1_m3"
+        DATA_PREFIX: /lustre
+    - when: never
+
+.trigger:rules:selene:
+  rules:
+    - <<: *if-merge-request
+      changes: *code-source
+    - <<: *if-new-image
+    - when: never
+
+.hugectr:rules:test_in_child:
+  rules:
+    # Use PARENT_SOURCE to check if MR or not
+    - <<: *if-merge-request-child
+      changes: *hugectr-source
+    - <<: *if-new-image
+    - when: never
+
 .sok:rules:sanity-test:
   rules:
     - <<: *if-merge-request
@@ -111,6 +179,14 @@
       #when: always
     - <<: *if-new-image
       #when: always
+    - when: never
+
+.sok:rules:test_in_child:
+  rules:
+    # Use PARENT_SOURCE to check if MR or not
+    - <<: *if-merge-request-child
+      changes: *sok-source
+    - <<: *if-new-image
     - when: never
 
 .default:rules:daily-test:
