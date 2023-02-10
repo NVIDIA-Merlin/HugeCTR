@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS TensorRT Plugin Demo for HugeCTR Trained Model &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_trt/notebooks/demo_for_hugectr_trained_model.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="HPS Plugin for TensorRT API" href="../../hierarchical_parameter_server/hps_trt_api/index.html" />
+    <link rel="prev" title="HPS TensorRT Plugin Demo for PyTorch Trained Model" href="demo_for_pytorch_trained_model.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_database_backend.html">HPS Database Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_user_guide.html">HPS Plugin for TensorFlow</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_user_guide.html">HPS Plugin for TensorRT</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="demo_for_tf_trained_model.html">HPS TensorRT Plugin Demo for TensorFlow Trained Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="demo_for_pytorch_trained_model.html">HPS TensorRT Plugin Demo for PyTorch Trained Model</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">HPS TensorRT Plugin Demo for HugeCTR Trained Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_api/index.html">API Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/hps_trt_user_guide.html">Hierarchical Parameter Server Plugin for TensorRT</a></li>
+          <li class="breadcrumb-item"><a href="index.html">HPS Plugin for TensorRT Notebooks</a></li>
+      <li class="breadcrumb-item active">HPS TensorRT Plugin Demo for HugeCTR Trained Model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hps-tensorrt-plugin-demo-for-hugectr-trained-model">
+<h1>HPS TensorRT Plugin Demo for HugeCTR Trained Model<a class="headerlink" href="#hps-tensorrt-plugin-demo-for-hugectr-trained-model" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>This notebook demonstrates how to build and deploy the HPS-integrated TensorRT engine for the model trained with HugeCTR.</p>
+<p>For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="use-ngc">
+<h3>Use NGC<a class="headerlink" href="#use-ngc" title="Permalink to this headline"></a></h3>
+<p>The HPS TensorRT plugin is preinstalled in the 23.01 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin HugeCTR Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:23.01</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+<span class="n">plugin_handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+<p>HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different file formats and different distributions. We will generate one-hot Parquet datasets with power-law distribution for this notebook:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">hugectr.tools</span> <span class="kn">import</span> <span class="n">DataGeneratorParams</span><span class="p">,</span> <span class="n">DataGenerator</span>
+
+<span class="n">data_generator_params</span> <span class="o">=</span> <span class="n">DataGeneratorParams</span><span class="p">(</span>
+  <span class="nb">format</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+  <span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span>
+  <span class="n">num_slot</span> <span class="o">=</span> <span class="mi">26</span><span class="p">,</span>
+  <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">nnz_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">26</span><span class="p">)],</span>
+  <span class="n">source</span> <span class="o">=</span> <span class="s2">&quot;./data_parquet/file_list.txt&quot;</span><span class="p">,</span>
+  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./data_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">26</span><span class="p">)],</span>
+  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+  <span class="n">dist_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Distribution_t</span><span class="o">.</span><span class="n">PowerLaw</span><span class="p">,</span>
+  <span class="n">power_law_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">PowerLaw_t</span><span class="o">.</span><span class="n">Short</span><span class="p">,</span>
+  <span class="n">num_files</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+  <span class="n">eval_num_files</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+  <span class="n">num_samples_per_file</span> <span class="o">=</span> <span class="mi">40960</span><span class="p">)</span>
+<span class="n">data_generator</span> <span class="o">=</span> <span class="n">DataGenerator</span><span class="p">(</span><span class="n">data_generator_params</span><span class="p">)</span>
+<span class="n">data_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][05:12:08.561][INFO][RK0][main]: Generate Parquet dataset
+[HCTR][05:12:08.561][INFO][RK0][main]: train data folder: ./data_parquet, eval data folder: ./data_parquet, slot_size_array: 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, nnz array: 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, #files for train: 16, #files for eval: 4, #samples per file: 40960, Use power law distribution: 1, alpha of power law: 1.3
+[HCTR][05:12:08.564][INFO][RK0][main]: ./data_parquet exist
+[HCTR][05:12:08.568][INFO][RK0][main]: ./data_parquet/train/gen_0.parquet
+[HCTR][05:12:10.204][INFO][RK0][main]: ./data_parquet/train/gen_1.parquet
+[HCTR][05:12:10.455][INFO][RK0][main]: ./data_parquet/train/gen_2.parquet
+[HCTR][05:12:10.709][INFO][RK0][main]: ./data_parquet/train/gen_3.parquet
+[HCTR][05:12:10.957][INFO][RK0][main]: ./data_parquet/train/gen_4.parquet
+[HCTR][05:12:11.196][INFO][RK0][main]: ./data_parquet/train/gen_5.parquet
+[HCTR][05:12:11.437][INFO][RK0][main]: ./data_parquet/train/gen_6.parquet
+[HCTR][05:12:11.681][INFO][RK0][main]: ./data_parquet/train/gen_7.parquet
+[HCTR][05:12:11.920][INFO][RK0][main]: ./data_parquet/train/gen_8.parquet
+[HCTR][05:12:12.171][INFO][RK0][main]: ./data_parquet/train/gen_9.parquet
+[HCTR][05:12:12.411][INFO][RK0][main]: ./data_parquet/train/gen_10.parquet
+[HCTR][05:12:12.650][INFO][RK0][main]: ./data_parquet/train/gen_11.parquet
+[HCTR][05:12:12.885][INFO][RK0][main]: ./data_parquet/train/gen_12.parquet
+[HCTR][05:12:13.120][INFO][RK0][main]: ./data_parquet/train/gen_13.parquet
+[HCTR][05:12:13.341][INFO][RK0][main]: ./data_parquet/train/gen_14.parquet
+[HCTR][05:12:13.577][INFO][RK0][main]: ./data_parquet/train/gen_15.parquet
+[HCTR][05:12:13.818][INFO][RK0][main]: ./data_parquet/file_list.txt done!
+[HCTR][05:12:13.827][INFO][RK0][main]: ./data_parquet/val/gen_0.parquet
+[HCTR][05:12:14.066][INFO][RK0][main]: ./data_parquet/val/gen_1.parquet
+[HCTR][05:12:14.299][INFO][RK0][main]: ./data_parquet/val/gen_2.parquet
+[HCTR][05:12:14.537][INFO][RK0][main]: ./data_parquet/val/gen_3.parquet
+[HCTR][05:12:14.751][INFO][RK0][main]: ./data_parquet/file_list_test.txt done!
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="train-with-hugectr">
+<h2>Train with HugeCTR<a class="headerlink" href="#train-with-hugectr" title="Permalink to this headline"></a></h2>
+<p>We can train a DLRM model with HugeCTR Python APIs. The trained sparse and dense model files will be saved separately. The model graph will be dumped into a JSON file.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> train.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+
+
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span>
+    <span class="n">model_name</span><span class="o">=</span><span class="s2">&quot;dlrm&quot;</span><span class="p">,</span>
+    <span class="n">max_eval_batches</span><span class="o">=</span><span class="mi">160</span><span class="p">,</span>
+    <span class="n">batchsize_eval</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">batchsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+    <span class="n">vvgpu</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+    <span class="n">repeat_dataset</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">use_mixed_precision</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">use_cuda_graph</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">scaler</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">i64_input_key</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span>
+    <span class="n">data_reader_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+    <span class="n">source</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./data_parquet/file_list.txt&quot;</span><span class="p">],</span>
+    <span class="n">eval_source</span><span class="o">=</span><span class="s2">&quot;./data_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+    <span class="n">slot_size_array</span><span class="o">=</span><span class="p">[</span><span class="mi">10000</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">26</span><span class="p">)],</span>
+    <span class="n">check_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span>
+    <span class="n">optimizer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
+    <span class="n">update_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
+    <span class="n">beta1</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>
+    <span class="n">beta2</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span>
+    <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span>
+        <span class="n">label_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">label_name</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
+        <span class="n">dense_dim</span><span class="o">=</span><span class="mi">13</span><span class="p">,</span>
+        <span class="n">dense_name</span><span class="o">=</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span>
+        <span class="n">data_reader_sparse_param_array</span><span class="o">=</span><span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;keys&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">26</span><span class="p">)],</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span>
+        <span class="n">embedding_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span>
+        <span class="n">workspace_size_per_gpu_in_mb</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+        <span class="n">embedding_vec_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+        <span class="n">combiner</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">sparse_embedding_name</span><span class="o">=</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+        <span class="n">bottom_name</span><span class="o">=</span><span class="s2">&quot;keys&quot;</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span>
+        <span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MLP</span><span class="p">,</span>
+        <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">],</span>
+        <span class="n">top_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp1&quot;</span><span class="p">],</span>
+        <span class="n">num_outputs</span><span class="o">=</span><span class="p">[</span><span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span>
+        <span class="n">act_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
+        <span class="n">use_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span>
+        <span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Interaction</span><span class="p">,</span>
+        <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp1&quot;</span><span class="p">,</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+        <span class="n">top_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span>
+        <span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MLP</span><span class="p">,</span>
+        <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">],</span>
+        <span class="n">top_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp2&quot;</span><span class="p">],</span>
+        <span class="n">num_outputs</span><span class="o">=</span><span class="p">[</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="n">use_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">activations</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
+            <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
+            <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
+            <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
+            <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span>
+        <span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+        <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp2&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+        <span class="n">top_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_graph.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">eval_interval</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot_prefix</span><span class="o">=</span><span class="s2">&quot;dlrm_hugectr&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing train.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 train.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--------------------------------------------------------------------------
+An error occurred while trying to map in the address of a function.
+  Function Name: cuIpcOpenMemHandle_v2
+  Error string:  /usr/lib/x86_64-linux-gnu/libcuda.so.1: undefined symbol: cuIpcOpenMemHandle_v2
+CUDA-aware support is disabled.
+--------------------------------------------------------------------------
+HugeCTR Version: 4.1
+====================================================Model Init=====================================================
+[HCTR][05:12:24.539][INFO][RK0][main]: Initialize model: dlrm
+[HCTR][05:12:24.539][INFO][RK0][main]: Global seed is 2950905596
+[HCTR][05:12:24.542][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][05:12:26.698][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:12:26.698][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:12:26.698][INFO][RK0][main]: End all2all warmup
+[HCTR][05:12:26.699][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][05:12:26.700][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB
+[HCTR][05:12:26.705][INFO][RK0][main]: num of DataReader workers for train: 1
+[HCTR][05:12:26.705][INFO][RK0][main]: num of DataReader workers for eval: 1
+[HCTR][05:12:26.782][INFO][RK0][main]: Vocabulary size: 260000
+[HCTR][05:12:26.782][INFO][RK0][main]: max_vocabulary_size_per_gpu_=3413333
+[HCTR][05:12:26.791][INFO][RK0][main]: Graph analysis to resolve tensor dependency
+[HCTR][05:12:26.795][INFO][RK0][main]: Save the model graph to dlrm_hugectr_graph.json successfully
+===================================================Model Compile===================================================
+[HCTR][05:12:27.772][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][05:12:27.781][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][05:12:27.783][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][05:12:27.785][INFO][RK0][main]: Warm-up done
+===================================================Model Summary===================================================
+[HCTR][05:12:27.785][INFO][RK0][main]: Model structure on each GPU
+Label                                   Dense                         Sparse                        
+label                                   numerical_features             keys                          
+(1024,1)                                (1024,13)                               
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+DistributedSlotSparseEmbeddingHash      keys                          sparse_embedding1             (1024,26,128)                 
+------------------------------------------------------------------------------------------------------------------
+MLP                                     numerical_features            mlp1                          (1024,128)                    
+------------------------------------------------------------------------------------------------------------------
+Interaction                             mlp1                          interaction1                  (1024,480)                    
+                                        sparse_embedding1                                                                         
+------------------------------------------------------------------------------------------------------------------
+MLP                                     interaction1                  mlp2                          (1024,1)                      
+------------------------------------------------------------------------------------------------------------------
+BinaryCrossEntropyLoss                  mlp2                          loss                                                        
+                                        label                                                                                     
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[HCTR][05:12:27.785][INFO][RK0][main]: Use non-epoch mode with number of iterations: 1200
+[HCTR][05:12:27.785][INFO][RK0][main]: Training batchsize: 1024, evaluation batchsize: 1024
+[HCTR][05:12:27.785][INFO][RK0][main]: Evaluation interval: 1000, snapshot interval: 1000
+[HCTR][05:12:27.785][INFO][RK0][main]: Dense network trainable: True
+[HCTR][05:12:27.785][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][05:12:27.785][INFO][RK0][main]: Use mixed precision: True, scaler: 1024.000000, use cuda graph: True
+[HCTR][05:12:27.785][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][05:12:27.785][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][05:12:27.785][INFO][RK0][main]: Training source file: ./data_parquet/file_list.txt
+[HCTR][05:12:27.785][INFO][RK0][main]: Evaluation source file: ./data_parquet/file_list_test.txt
+[HCTR][05:12:31.522][INFO][RK0][main]: Iter: 200 Time(200 iters): 3.72017s Loss: 0.693168 lr:0.001
+[HCTR][05:12:35.188][INFO][RK0][main]: Iter: 400 Time(200 iters): 3.64947s Loss: 0.694016 lr:0.001
+[HCTR][05:12:38.814][INFO][RK0][main]: Iter: 600 Time(200 iters): 3.60927s Loss: 0.69323 lr:0.001
+[HCTR][05:12:42.432][INFO][RK0][main]: Iter: 800 Time(200 iters): 3.60078s Loss: 0.693079 lr:0.001
+[HCTR][05:12:46.050][INFO][RK0][main]: Iter: 1000 Time(200 iters): 3.60162s Loss: 0.693134 lr:0.001
+[HCTR][05:12:46.206][INFO][RK0][main]: Evaluation, AUC: 0.498656
+[HCTR][05:12:46.206][INFO][RK0][main]: Eval Time for 160 iters: 0.156138s
+[HCTR][05:12:46.206][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:12:46.272][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][05:12:47.456][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][05:12:47.958][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:12:47.958][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:12:56.286][INFO][RK0][main]: Done
+[HCTR][05:12:56.840][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:12:56.840][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:13:06.514][INFO][RK0][main]: Done
+[HCTR][05:13:06.555][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][05:13:06.561][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:13:06.693][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][05:13:06.694][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:13:06.823][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][05:13:10.414][INFO][RK0][main]: Finish 1200 iterations with batchsize: 1024 in 42.63s.
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="build-the-hps-integrated-tensorrt-engine">
+<h2>Build the HPS-integrated TensorRT engine<a class="headerlink" href="#build-the-hps-integrated-tensorrt-engine" title="Permalink to this headline"></a></h2>
+<p>The sparse saved model <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr0_sparse_1000.model</span></code> is already in the format that HPS requires. In order to use HPS in the inference stage, we need to create JSON configuration file for HPS.</p>
+<p>Then we convert the dense saved model <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr_dense_1000.model</span></code> to ONNX using <code class="docutils literal notranslate"><span class="pre">hugectr2onnx</span></code>, and employ the ONNX GraphSurgoen tool to replace the input embedding vectors with with the placeholder of HPS TensorRT plugin layer.</p>
+<p>After that, we can build the TensorRT engine, which is comprised of the HPS TensorRT plugin layer and the dense network.</p>
+<div class="section" id="step1-prepare-json-configuration-file-for-hps">
+<h3>Step1: Prepare JSON configuration file for HPS<a class="headerlink" href="#step1-prepare-json-configuration-file-for-hps" title="Permalink to this headline"></a></h3>
+<p>Please note that the storage format in the <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr0_sparse_1000.model/key</span></code> file is int64, while the HPS TensorRT plugin only supports int32 when loading the keys into memory. There is no overflow since the key value range is 0~260000.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> dlrm_hugectr.json
+<span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dlrm_hugectr0_sparse_1000.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">26</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing dlrm_hugectr.json
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step2-convert-to-onnx-and-do-onnx-graph-surgery">
+<h3>Step2: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step2-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># hugectr2onnx</span>
+<span class="kn">import</span> <span class="nn">hugectr2onnx</span>
+<span class="n">hugectr2onnx</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">onnx_model_path</span> <span class="o">=</span> <span class="s2">&quot;dlrm_hugectr_dense.onnx&quot;</span><span class="p">,</span>
+                            <span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;dlrm_hugectr_graph.json&quot;</span><span class="p">,</span>
+                            <span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;dlrm_hugectr_dense_1000.model&quot;</span><span class="p">,</span>
+                            <span class="n">convert_embedding</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HUGECTR2ONNX][INFO]: Converting Data layer to ONNX
+Skip sparse embedding layers in converted ONNX model
+[HUGECTR2ONNX][INFO]: Converting DistributedSlotSparseEmbeddingHash layer to ONNX
+[HUGECTR2ONNX][INFO]: Converting MLP layer to ONNX
+[HUGECTR2ONNX][INFO]: Converting Interaction layer to ONNX
+[HUGECTR2ONNX][INFO]: Converting MLP layer to ONNX
+[HUGECTR2ONNX][INFO]: Converting Sigmoid layer to ONNX
+[HUGECTR2ONNX][INFO]: The model is checked!
+[HUGECTR2ONNX][INFO]: The model is saved at dlrm_hugectr_dense.onnx
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ONNX graph surgery to insert HPS the TensorRT plugin placeholder</span>
+<span class="kn">import</span> <span class="nn">onnx_graphsurgeon</span> <span class="k">as</span> <span class="nn">gs</span>
+<span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span>  <span class="n">shape_inference</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">onnx</span>
+
+<span class="n">graph</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">import_onnx</span><span class="p">(</span><span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_dense.onnx&quot;</span><span class="p">))</span>
+<span class="n">saved</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">:</span>
+        <span class="n">categorical_features</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;unknown_1&quot;</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="n">op</span><span class="o">=</span><span class="s2">&quot;HPS_TRT&quot;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm_hugectr.json</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;dlrm</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;table_id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;emb_vec_size&quot;</span><span class="p">:</span> <span class="mi">128</span><span class="p">},</span> <span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">categorical_features</span><span class="p">],</span> <span class="n">outputs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">categorical_features</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;numerical_features&quot;</span><span class="p">:</span>
+        <span class="n">i</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;unknown_2&quot;</span><span class="p">,</span> <span class="mi">13</span><span class="p">)</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+<span class="n">graph</span><span class="o">.</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">saved</span>
+
+<span class="n">graph</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span><span class="o">.</span><span class="n">toposort</span><span class="p">()</span>
+<span class="n">onnx</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">export_onnx</span><span class="p">(</span><span class="n">graph</span><span class="p">),</span> <span class="s2">&quot;dlrm_hugectr_with_hps.onnx&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step3-build-the-tensorrt-engine">
+<h3>Step3: Build the TensorRT engine<a class="headerlink" href="#step3-build-the-tensorrt-engine" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># build the TensorRT engine based on dlrm_with_hps.onnx</span>
+<span class="kn">import</span> <span class="nn">tensorrt</span> <span class="k">as</span> <span class="nn">trt</span>
+<span class="kn">import</span> <span class="nn">ctypes</span>
+
+<span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+<span class="n">handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+
+<span class="n">TRT_LOGGER</span> <span class="o">=</span> <span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">EXPLICIT_BATCH</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="nb">int</span><span class="p">)(</span><span class="n">trt</span><span class="o">.</span><span class="n">NetworkDefinitionCreationFlag</span><span class="o">.</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">build_engine_from_onnx</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">trt</span><span class="o">.</span><span class="n">Builder</span><span class="p">(</span><span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">builder</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_network</span><span class="p">(</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span> <span class="k">as</span> <span class="n">network</span><span class="p">,</span> <span class="n">trt</span><span class="o">.</span><span class="n">OnnxParser</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">parser</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_builder_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">builder_config</span><span class="p">:</span>        
+        <span class="n">model</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_optimization_profile</span><span class="p">()</span>        
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>    
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+        <span class="n">builder_config</span><span class="o">.</span><span class="n">add_optimization_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">build_serialized_network</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">builder_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">engine</span>
+
+<span class="n">serialized_engine</span> <span class="o">=</span> <span class="n">build_engine_from_onnx</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_with_hps.onnx&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_with_hps.trt&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+    <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized_engine</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Succesfully build the TensorRT engine&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[12/14/2022-05:13:31] [TRT] [I] [MemUsageChange] Init CUDA: CPU +262, GPU +0, now: CPU 1014, GPU 886 (MiB)
+[12/14/2022-05:13:33] [TRT] [I] [MemUsageChange] Init builder kernel library: CPU +170, GPU +46, now: CPU 1239, GPU 932 (MiB)
+[12/14/2022-05:13:33] [TRT] [W] CUDA lazy loading is not enabled. Enabling it can significantly reduce device memory usage. See `CUDA_MODULE_LOADING` in https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars
+[12/14/2022-05:13:33] [TRT] [W] onnx2trt_utils.cpp:377: Your ONNX model has been generated with INT64 weights, while TensorRT does not natively support INT64. Attempting to cast down to INT32.
+[12/14/2022-05:13:33] [TRT] [I] No importer registered for op: HPS_TRT. Attempting to import as plugin.
+[12/14/2022-05:13:33] [TRT] [I] Searching for plugin: HPS_TRT, plugin_version: 1, plugin_namespace: 
+=====================================================HPS Parse====================================================
+[HCTR][05:13:33.812][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][05:13:33.812][INFO][RK0][main]: num_of_refresher_buffer_in_pool is not specified using default: 1
+[HCTR][05:13:33.812][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][05:13:33.812][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][05:13:33.812][INFO][RK0][main]: refresh_interval is not specified using default: 0
+[HCTR][05:13:33.812][INFO][RK0][main]: use_static_table is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][05:13:33.813][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][05:13:33.813][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][05:13:33.813][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][05:13:33.813][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][05:13:33.813][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:13:33.813][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:13:36.189][INFO][RK0][main]: Table: hps_et.dlrm.sparse_embedding0; cached 239950 / 239950 embeddings in volatile database (HashMapBackend); load: 239950 / 18446744073709551615 (0.00%).
+[HCTR][05:13:36.196][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][05:13:36.196][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][05:13:36.205][INFO][RK0][main]: Model name: dlrm
+[HCTR][05:13:36.205][INFO][RK0][main]: Max batch size: 1024
+[HCTR][05:13:36.205][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][05:13:36.205][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][05:13:36.205][INFO][RK0][main]: Use static table: False
+[HCTR][05:13:36.205][INFO][RK0][main]: Use I64 input key: False
+[HCTR][05:13:36.205][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][05:13:36.205][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][05:13:36.205][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][05:13:36.205][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][05:13:36.205][INFO][RK0][main]: The refresh percentage : 0.200000
+[HCTR][05:13:36.270][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:13:36.270][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:13:36.419][INFO][RK0][main]: EC initialization for model: &quot;dlrm&quot;, num_tables: 1
+[HCTR][05:13:36.419][INFO][RK0][main]: EC initialization on device: 0
+[HCTR][05:13:36.440][INFO][RK0][main]: Creating lookup session for dlrm on device: 0
+[12/14/2022-05:13:36] [TRT] [I] Successfully created plugin: HPS_TRT
+[12/14/2022-05:13:37] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +335, GPU +146, now: CPU 5763, GPU 1314 (MiB)
+[12/14/2022-05:13:37] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +116, GPU +54, now: CPU 5879, GPU 1368 (MiB)
+[12/14/2022-05:13:37] [TRT] [I] Local timing cache in use. Profiling results in this builder pass will not be stored.
+[12/14/2022-05:13:37] [TRT] [W] Using kFASTER_DYNAMIC_SHAPES_0805 preview feature.
+[12/14/2022-05:13:52] [TRT] [I] Total Activation Memory: 34118830080
+[12/14/2022-05:13:52] [TRT] [I] Detected 2 inputs and 1 output network tensors.
+[12/14/2022-05:13:52] [TRT] [I] Total Host Persistent Memory: 20304
+[12/14/2022-05:13:52] [TRT] [I] Total Device Persistent Memory: 10752
+[12/14/2022-05:13:52] [TRT] [I] Total Scratch Memory: 32505856
+[12/14/2022-05:13:52] [TRT] [I] [MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU 16 MiB, GPU 4628 MiB
+[12/14/2022-05:13:52] [TRT] [I] [BlockAssignment] Started assigning block shifts. This will take 16 steps to complete.
+[12/14/2022-05:13:52] [TRT] [I] [BlockAssignment] Algorithm ShiftNTopDown took 0.09284ms to assign 4 blocks to 16 nodes requiring 48099840 bytes.
+[12/14/2022-05:13:52] [TRT] [I] Total Activation Memory: 48099840
+[12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +0, GPU +8, now: CPU 6321, GPU 1580 (MiB)
+[12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +1, GPU +10, now: CPU 6322, GPU 1590 (MiB)
+[12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] TensorRT-managed allocation in building engine: CPU +8, GPU +16, now: CPU 8, GPU 16 (MiB)
+Succesfully build the TensorRT engine
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="deploy-hps-integrated-tensorrt-engine-on-triton">
+<h2>Deploy HPS-integrated TensorRT engine on Triton<a class="headerlink" href="#deploy-hps-integrated-tensorrt-engine-on-triton" title="Permalink to this headline"></a></h2>
+<p>In order to deploy the TensorRT engine with the Triton TensorRT backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p model_repo/dlrm_hugectr_with_hps/1
+<span class="o">!</span>mv dlrm_hugectr_with_hps.trt model_repo/dlrm_hugectr_with_hps/1
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> model_repo/dlrm_hugectr_with_hps/config.pbtxt
+
+<span class="n">platform</span><span class="p">:</span> <span class="s2">&quot;tensorrt_plan&quot;</span>
+<span class="n">default_model_filename</span><span class="p">:</span> <span class="s2">&quot;dlrm_hugectr_with_hps.trt&quot;</span>
+<span class="n">backend</span><span class="p">:</span> <span class="s2">&quot;tensorrt&quot;</span>
+<span class="n">max_batch_size</span><span class="p">:</span> <span class="mi">0</span>
+<span class="nb">input</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;categorical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_INT32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">26</span><span class="p">]</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;numerical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">13</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">output</span> <span class="p">[</span>
+  <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;label&quot;</span>
+      <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+      <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">instance_group</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">count</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">KIND_GPU</span>
+    <span class="n">gpus</span><span class="p">:[</span><span class="mi">0</span><span class="p">]</span>
+
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing model_repo/dlrm_hugectr_with_hps/config.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/dlrm_hugectr_with_hps
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span><span class=" -Color -Color-Bold -Color-Bold-Blue">model_repo/dlrm_hugectr_with_hps</span>
+├── <span class=" -Color -Color-Bold -Color-Bold-Blue">1</span>
+│   └── dlrm_hugectr_with_hps.trt
+└── config.pbtxt
+
+1 directory, 2 files
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can then launch the Triton inference server using the TensorRT backend. Please note that <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> is utilized to load the custom TensorRT plugin (i.e., HPS TensorRT plugin) into Triton.</p>
+<p>Note: <code class="docutils literal notranslate"><span class="pre">Since</span> <span class="pre">Background</span> <span class="pre">processes</span> <span class="pre">not</span> <span class="pre">supported</span> <span class="pre">by</span> <span class="pre">Jupyter,</span> <span class="pre">please</span> <span class="pre">launch</span> <span class="pre">the</span> <span class="pre">Triton</span> <span class="pre">Server</span> <span class="pre">according</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">command</span> <span class="pre">independently</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">background</span></code>.</p>
+<blockquote>
+<div><p><strong>LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so tritonserver –model-repository=/hugectr/hps_trt/notebooks/model_repo/ –load-model=dlrm_hugectr_with_hps –model-control-mode=explicit</strong></p>
+</div></blockquote>
+<p>If you successfully started tritonserver, you should see a log similar to following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+----------+--------------------------------+--------------------------------+
+<span class="p">|</span> Backend  <span class="p">|</span> Path                           <span class="p">|</span> Config                         <span class="p">|</span>
++----------+--------------------------------+--------------------------------+
+<span class="p">|</span> tensorrt <span class="p">|</span> /opt/tritonserver/backends/ten <span class="p">|</span> <span class="o">{</span><span class="s2">&quot;cmdline&quot;</span>:<span class="o">{</span><span class="s2">&quot;auto-complete-con |</span>
+<span class="s2">|          | sorrt/libtriton_tensorrt.so    | fig&quot;</span>:<span class="s2">&quot;true&quot;</span>,<span class="s2">&quot;min-compute-capab |</span>
+<span class="s2">|          |                                | ility&quot;</span>:<span class="s2">&quot;6.000000&quot;</span>,<span class="s2">&quot;backend-dir |</span>
+<span class="s2">|          |                                | ectory&quot;</span>:<span class="s2">&quot;/opt/tritonserver/bac |</span>
+<span class="s2">|          |                                | kends&quot;</span>,<span class="s2">&quot;default-max-batch-size |</span>
+<span class="s2">|          |                                | &quot;</span>:<span class="s2">&quot;4&quot;</span><span class="o">}}</span>                        <span class="p">|</span>
+<span class="p">|</span>          <span class="p">|</span>                                <span class="p">|</span>                                <span class="p">|</span>
++----------+--------------------------------+--------------------------------+
+
++-----------------------+---------+--------+
+<span class="p">|</span> Model                 <span class="p">|</span> Version <span class="p">|</span> Status <span class="p">|</span>
++-----------------------+---------+--------+
+<span class="p">|</span> dlrm_hugectr_with_hps <span class="p">|</span> <span class="m">1</span>       <span class="p">|</span> READY  <span class="p">|</span>
++-----------------------+---------+--------+
+</pre></div>
+</div>
+<p>We can then send the requests to the Triton inference server using the HTTP client.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tritonclient.http</span> <span class="k">as</span> <span class="nn">httpclient</span>
+<span class="kn">from</span> <span class="nn">tritonclient.utils</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1024</span>
+
+<span class="n">categorical_feature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">260000</span><span class="p">,</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span><span class="mi">26</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">numerical_feature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> 
+                          <span class="n">categorical_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                          <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)),</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferInput</span><span class="p">(</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span> 
+                          <span class="n">numerical_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                          <span class="n">np_to_triton_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)),</span>                          
+<span class="p">]</span>
+<span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">categorical_feature</span><span class="p">)</span>
+<span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_data_from_numpy</span><span class="p">(</span><span class="n">numerical_feature</span><span class="p">)</span>
+
+
+<span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">httpclient</span><span class="o">.</span><span class="n">InferRequestedOutput</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+<span class="p">]</span>
+
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dlrm_hugectr_with_hps&quot;</span>
+
+<span class="k">with</span> <span class="n">httpclient</span><span class="o">.</span><span class="n">InferenceServerClient</span><span class="p">(</span><span class="s2">&quot;localhost:8000&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span>
+                            <span class="n">inputs</span><span class="p">,</span>
+                            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_response</span><span class="p">()</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prediction result is </span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">as_numpy</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Response details:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Prediction result is 
+[[1.        ]
+ [0.49642828]
+ [0.52846366]
+ ...
+ [0.99999994]
+ [0.9999992 ]
+ [0.9999905 ]]
+Response details:
+{&#39;model_name&#39;: &#39;dlrm_hugectr_with_hps&#39;, &#39;model_version&#39;: &#39;1&#39;, &#39;outputs&#39;: [{&#39;name&#39;: &#39;label&#39;, &#39;datatype&#39;: &#39;FP32&#39;, &#39;shape&#39;: [1024, 1], &#39;parameters&#39;: {&#39;binary_data_size&#39;: 4096}}]}
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demo_for_pytorch_trained_model.html" class="btn btn-neutral float-left" title="HPS TensorRT Plugin Demo for PyTorch Trained Model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../hierarchical_parameter_server/hps_trt_api/index.html" class="btn btn-neutral float-right" title="HPS Plugin for TensorRT API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.3.1
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+      <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="../../../v4.2/index.html">v4.2</a></dd>
+      <dd><a href="../../../v4.3/index.html">v4.3</a></dd>
+      <dd><a href="demo_for_hugectr_trained_model.html">v4.3.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/index.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
