@@ -1,0 +1,231 @@
+include:
+  - project: "dl/devops/gitlab-ci-slurm"
+    ref: master
+    file: "/.gitlab-ci.yml"
+  - /ci/common.yml
+  - /ci/template.yml
+  - /ci/rules.gitlab_ci.yml
+
+
+utests_layer_1:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/utests_layer_1
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
+    TEST_CMD: ./ci/utest/utest_layer_1.sub
+
+utests_layer_2:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/utests_layer_2
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
+    TEST_CMD: ./ci/utest/utest_layer_2.sub
+
+# Comment out due to OOM error on Dracorno
+#utests_embedding:
+#  extends: .dracorno_test_job
+#  needs:
+#    - pipeline: $PARENT_PIPELINE_ID
+#      job: build_train_single_node
+#  variables:
+#    GPFSFOLDER: $DRACO_LOGDIR/utests_embedding
+#    CONT: $TRAIN_IMAGE_VERSIONED
+#    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
+#    TEST_CMD: ./ci/utest/utest_embedding.sub
+
+utests_inference:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_inference
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/utests_inference
+    CONT: $TRAIN_INFER_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_inference.sub
+
+criteo:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/criteo
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+    TEST_CMD: ./ci/integration_test/criteo/criteo.sub
+
+dcn:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/dcn
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/dcn/dcn.sub
+
+# Comment out due to unknown hang
+#dcn_8gpu:
+#  extends: .dracorno_test_job
+#  needs:
+#    - pipeline: $PARENT_PIPELINE_ID
+#      job: build_train_single_node
+#  variables:
+#    GPFSFOLDER: $DRACO_LOGDIR/dcn_8gpu
+#    CONT: $TRAIN_IMAGE_VERSIONED
+#    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+#    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+#    TEST_CMD: ./ci/integration_test/dcn/dcn_8gpu.sub
+
+wdl:
+  extends: .dracorno_test_job                                                     # test on selene needs to extend .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/wdl                                                      # log dir, usually $LOGDIR + job name
+    CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}                                      # node num
+    TEST_CMD: ./ci/integration_test/wdl/wdl.sub 
+
+deepfm:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/deepfm
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/deepfm/deepfm.sub
+    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+
+mmoe:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/mmoe
+    #GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_MMOE_DATASET}:${MMOE_DATASET_MOUNT}
+    WALLTIME: "00:15:00"
+    TEST_CMD: ./ci/integration_test/mmoe/mmoe.sub
+
+inference_hps:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_inference
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/inference_hps
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
+    TEST_CMD: ./ci/integration_test/inference/inference_hps.sub
+
+din_single_node:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/din_single_node
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DIN_DATASET}:${DIN_DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/din/din.sub
+
+bst_single_node:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/bst_single_node
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_BST_DATASET}:${BST_DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/bst/bst.sub
+
+py_single_node:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/py_single_node
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+    TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
+
+hugectr2onnx:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/hugectr2onnx
+    #GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:/etc/workspace/new_criteo_kaggle,${DRACO_DIN_DATASET}:/etc/workspace/din,${DRACO_NCF_DATASET}:/etc/workspace/ncf_data
+    TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
+
+### Stage: test
+hierarchical_parameter_server:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_hps_tf_plugin
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/hierarchical_parameter_server
+    CONT: $TF_PLUGIN_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/hps/hps.sub
+
+s3_backend_test:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node_with_s3
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/s3_backend_test
+    CONT: $TRAIN_IMAGE_VERSIONED_WITH_S3
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
+#SOK ut tests
+sparse_operation_kit_ut-TF1:
+  extends:
+    - .dracorno_sok_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_sok_tf1
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/sparse_operation_kit-tf1
+    CONT: $SOK_IMAGE_VERSIONED_TF1
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/sok/sok_tf1_unit.sub
+
+sparse_operation_kit_ut-TF2:
+  extends:
+    - .dracorno_sok_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_sok_tf2
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/sparse_operation_kit-tf2
+    CONT: $SOK_IMAGE_VERSIONED_TF2
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/sok/sok_tf2_unit.sub

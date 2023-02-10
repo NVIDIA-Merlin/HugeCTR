@@ -209,12 +209,68 @@ build_pytorch_hps_trt_plugin:
     HUGECTR_BACKEND_VER: main
     TRITON_BRANCH: r22.11
 
+# Check Selene busy or not
+check_selene_idle:
+  extends: .trigger:rules:selene
+  stage: pre_test
+  tags:
+    - nvidia.com/cuda.driver.major=470
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker pull ${CONT}
+    - docker run -d --rm --name selene_idle_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
+    - docker exec selene_idle_${CI_PIPELINE_ID} bash -cx "python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA}"
+  after_script:
+    - docker stop selene_idle_${CI_PIPELINE_ID}
+  variables:
+    CONT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/emma:get_selene_status
+  allow_failure: false
+  timeout: 15 minutes
+
+check_selene_queued:
+  extends: .trigger:rules:dracorno
+  stage: pre_test
+  tags:
+    - nvidia.com/cuda.driver.major=470
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker pull ${CONT}
+    - docker run -d --rm --name selene_queued_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
+    - docker exec selene_queued_${CI_PIPELINE_ID} bash -cx "!(python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA})"
+  after_script:
+    - docker stop selene_queued_${CI_PIPELINE_ID}
+  variables:
+    CONT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/emma:get_selene_status
+  allow_failure: false
+  timeout: 15 minutes
+
+# Bridge jobs for trigger chold pipeline on selene or dracorno
+trigger_dracorno:
+  extends: .trigger:rules:dracorno
+  needs:
+    - check_selene_queued
+  stage:
+    test
+  trigger:
+    include:
+      - local: ci/dracorno/draco-ci.yml
+    strategy: depend
+  variables:
+    USE_CLUSTER: "dracorno"
+    PARENT_SOURCE: ${CI_PIPELINE_SOURCE}
+    PARENT_PIPELINE_ID: ${CI_PIPELINE_ID}
+    SLURM_PARTITION: "batch_dgx1_m2,batch_short_dgx1_m2,batch_short_dgx2h_m2,backfill_dgx2h_m2"
+    DATA_PREFIX: /gpfs
+    RUNNER_TAG: dracorno_ssh
+    SBATCH_OTHER_PARAMS: "--nv-meta ml-model.hugectr --gpus-per-node=8"
+
 ## Stage: test
 # unit test
 utests:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -229,6 +285,7 @@ utests_layer_1:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -243,6 +300,7 @@ utests_layer_2:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -257,6 +315,7 @@ utests_embedding:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests_embedding
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -271,6 +330,7 @@ utests_hybrid_e2e:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests_embedding
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -285,6 +345,7 @@ utests_inference:
   extends: .cluster_test_job
   needs:
     - build_train_inference
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/utests_inference
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -295,11 +356,11 @@ utests_inference:
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest_inference.sub
 
-# single node
 criteo:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/criteo
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -309,18 +370,6 @@ criteo:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/criteo/criteo.sub
-
-# criteo_dgx1:
-#   extends: .dlcluster_test_job
-#   script:
-#     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g
-#       --container-image $TRAIN_IMAGE_VERSIONED
-#       --container-mounts ${DATASET_CRITEO_DLGROUP}:${DATASET_MOUNT},$(pwd):${CI_PROJECT_DIR}
-#       bash -cx "
-#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib/ &&
-#       cd ${DATASET_MOUNT}/criteo &&
-#       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_8gpu.json &&
-#       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json"
 
 criteo_multi_node:
   extends: .cluster_test_job_daily
@@ -340,6 +389,7 @@ dcn:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/dcn
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -354,6 +404,7 @@ dcn_8gpu:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/dcn
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -368,6 +419,7 @@ dlrm_benchmark_1node:
   extends: .cluster_test_job
   needs:
     - build_train_multi_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/dlrm_benchmark_1node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -426,6 +478,7 @@ dlrm_dcnv2_benchmark_1node:
   extends: .cluster_test_job
   needs:
     - build_train_multi_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/dlrm_dcnv2_benchmark_1node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -440,6 +493,7 @@ wdl:
   extends: .cluster_test_job                                                     # test on selene needs to extend .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/wdl                                                      # log dir, usually $LOGDIR + job name
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
@@ -468,6 +522,7 @@ deepfm:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/deepfm
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -496,6 +551,7 @@ dlrm:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/dlrm
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -524,6 +580,7 @@ mmoe:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/mmoe
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -552,6 +609,7 @@ mlperf_generalization:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/mlperf_generalization
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -567,6 +625,7 @@ inference_session:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/inference_session
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -581,6 +640,7 @@ inference_hps:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/inference_hps
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -595,6 +655,7 @@ embedding_cache_perf:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/embedding_cache_perf
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -622,6 +683,7 @@ din_single_node:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/din_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -636,6 +698,7 @@ bst_single_node:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/bst_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -721,6 +784,7 @@ py_single_node:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/py_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -765,6 +829,7 @@ hugectr2onnx:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/hugectr2onnx
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -780,6 +845,7 @@ hierarchical_parameter_server:
   extends: .cluster_test_job
   needs:
     - build_hps_tf_plugin
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/hps_tf
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -790,12 +856,12 @@ hierarchical_parameter_server:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hps/hps.sub
 
-
 # embedding_plugin
 sparse_operation_kit_ut-TF2:
   extends: .sok_test_job
   needs:
     - build_sok_tf2
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/sparse_operation_kit
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -824,6 +890,7 @@ sparse_operation_kit_ut-TF1:
   extends: .sok_test_job
   needs:
     - build_sok_tf1
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/sparse_operation_kit
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -853,6 +920,7 @@ hps_trt_in_hugectr:
   extends: .cluster_test_job
   needs:
     - build_hugectr_hps_trt_plugin
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/hugectr_hps_trt
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -866,6 +934,7 @@ hps_trt_in_tf:
   extends: .cluster_test_job
   needs:
     - build_tf_hps_trt_plugin
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/tf_hps_trt
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -879,6 +948,7 @@ hps_trt_in_pytorch:
   extends: .cluster_test_job
   needs:
     - build_pytorch_hps_trt_plugin
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/pytorch_hps_trt
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -939,6 +1009,7 @@ s3_backend_test:
   extends: .cluster_test_job
   needs:
     - build_train_single_node_with_s3
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/s3_backend_test
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -953,6 +1024,7 @@ gcs_backend_test:
   extends: .cluster_test_job
   needs:
     - build_train_single_node_with_gcs
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/gcs_backend_test
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
@@ -1063,3 +1135,4 @@ dlrm_dcnv2_1node_check:
 #     WALLTIME: "00:15:00"
 #     DGXNNODES: 1
 #     TEST_CMD: ./ci/common/clean_logs.sub
+
