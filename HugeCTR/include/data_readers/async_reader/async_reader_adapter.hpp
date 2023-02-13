@@ -101,10 +101,11 @@ class AsyncReader : public SchedulableDataReader {
 #ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
                            const std::vector<long long> slot_offset,
-                           bool start_reading_from_beginning = true) override;
+                           bool start_reading_from_beginning = true,
+                           long long max_samples_per_group = 0, int label_dense_num = 0,
+                           int label_dense_dim = 0) override;
 #endif
   void set_source(std::string file_list = std::string()) override;
-
   ~AsyncReader();
 
  private:

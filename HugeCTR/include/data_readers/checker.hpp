@@ -39,7 +39,7 @@ class Checker {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  virtual Error_t next_source() = 0;
+  virtual Error_t next_source(long long expected_next_source_items) = 0;
 
   virtual bool is_open() noexcept { return src_.is_open(); }
 };

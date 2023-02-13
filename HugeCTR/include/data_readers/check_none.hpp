@@ -48,9 +48,9 @@ class CheckNone : public Checker {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  Error_t next_source() {
+  Error_t next_source(long long expected_next_source_items) {
     for (int i = MAX_TRY; i > 0; i--) {
-      Error_t flag_eof = Checker::src_.next_source();
+      Error_t flag_eof = Checker::src_.next_source(expected_next_source_items);
       if (flag_eof == Error_t::Success || flag_eof == Error_t::EndOfFile) {
         return flag_eof;
       }

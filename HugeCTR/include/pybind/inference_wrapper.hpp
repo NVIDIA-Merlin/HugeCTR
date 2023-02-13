@@ -599,13 +599,13 @@ void InferencePybind(pybind11::module& m) {
           [](HugeCTR::InferenceModel& self, size_t num_batches, const std::string& source,
              DataReaderType_t data_reader_type, Check_t check_type,
              const std::vector<long long>& slot_size_array,
-             const DataSourceParams& data_source_params) {
+             const DataSourceParams& data_source_params, bool read_file_seq) {
             auto& inference_params = self.get_inference_params();
             auto& inference_parser = self.get_inference_parser();
             float* pred_output = new float[num_batches * inference_params.max_batchsize *
                                            inference_parser.label_dim];
             self.predict(pred_output, num_batches, source, data_reader_type, check_type,
-                         slot_size_array, data_source_params);
+                         slot_size_array, data_source_params, read_file_seq);
             auto pred_output_capsule = pybind11::capsule(pred_output, [](void* v) {
               float* vv = reinterpret_cast<float*>(v);
               delete[] vv;
@@ -617,11 +617,13 @@ void InferencePybind(pybind11::module& m) {
           },
           pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>(),
-          pybind11::arg("data_source_params") = DataSourceParams())
+          pybind11::arg("data_source_params") = DataSourceParams(),
+          pybind11::arg("reading_file_sequentially") = true)
       .def("evaluate", &HugeCTR::InferenceModel::evaluate, pybind11::arg("num_batches"),
            pybind11::arg("source"), pybind11::arg("data_reader_type"), pybind11::arg("check_type"),
            pybind11::arg("slot_size_array") = std::vector<long long>(),
-           pybind11::arg("data_source_params") = DataSourceParams())
+           pybind11::arg("data_source_params") = DataSourceParams(),
+           pybind11::arg("reading_file_sequentially") = true)
       .def(
           "check_out_tensor",
           [](HugeCTR::InferenceModel& self, const std::string& tensor_name) {

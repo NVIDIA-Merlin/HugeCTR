@@ -43,7 +43,7 @@ class Source {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  virtual Error_t next_source() noexcept = 0;
+  virtual Error_t next_source(long long expected_next_source_items) noexcept = 0;
 
   virtual long long get_num_of_items_in_source() { return 0; }
 

@@ -28,13 +28,15 @@ namespace HugeCTR {
 struct FileStats {
   long long num_rows;
   FileStats(long long num_rows) : num_rows(num_rows) {}
-#ifdef ENABLE_ARROW_PARQUET
   long long num_groups;
   std::vector<long long> row_groups_offset;  //
-  FileStats(long long num_rows, long long num_groups, std::vector<long long> row_groups_offset)
-      : num_rows(num_rows), num_groups(num_groups), row_groups_offset(row_groups_offset) {}
-
-#endif
+  FileStats(long long num_rows, long long num_groups, std::vector<long long> row_groups_offset,
+            long long max_row_group)
+      : num_rows(num_rows),
+        num_groups(num_groups),
+        row_groups_offset(row_groups_offset),
+        max_row_group_(max_row_group) {}
+  long long max_row_group_;
 };
 
 struct Cols {
@@ -54,6 +56,8 @@ class Metadata {
   bool loaded_;
   long long num_rows_total_files_;
   std::vector<long long> rows_file_offset_;
+  // std::vector<long long> dense_dim_array_;  // read one sample and get it
+  long long max_row_group_;
 
  public:
   // ctor
@@ -64,10 +68,12 @@ class Metadata {
         file_stats_(),
         loaded_(false),
         num_rows_total_files_(0),
-        rows_file_offset_(){};
+        rows_file_offset_(),
+        max_row_group_(0){};
 
   // initialize everything
   void get_parquet_metadata(std::string file_name);
+  void reset_metadata(std::string file_name);
 
   std::vector<Cols> get_cat_names() { return this->cat_names_; }
   std::vector<Cols> get_cont_names() { return this->cont_names_; }
@@ -81,10 +87,15 @@ class Metadata {
       HCTR_LOG_S(ERROR, WORLD) << "getting file" << file_name << " stats error" << std::endl;
       HCTR_OWN_THROW(Error_t::BrokenFile, "failed to get file stats");
       throw;
+    } catch (const std::logic_error& rt_err) {
+      HCTR_LOG_S(ERROR, WORLD) << "getting file" << file_name << " stats out of range" << std::endl;
+      HCTR_OWN_THROW(Error_t::BrokenFile, "failed to get file stats");
+      throw;
     }
     return fs;
   }
   bool get_metadata_status() { return loaded_; };
+  long long get_max_row_group() { return max_row_group_; };
   long long get_num_rows_total_files() { return num_rows_total_files_; }
 };
 

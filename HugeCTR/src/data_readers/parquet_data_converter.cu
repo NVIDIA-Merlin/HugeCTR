@@ -99,6 +99,8 @@ __global__ void dense_data_converter_kernel_scalar_(int64_t *dense_data_column_p
 
           data[(local_id * label_dense_dim) + __mylaneid() + i] =
               smem_staging_ptr[(smem_row + j) * smem_pitch + __mylaneid()];
+          // printf("sample %d dense id %d val %.5f\n",local_id,__mylaneid() +
+          // i,smem_staging_ptr[(smem_row + j) * smem_pitch + __mylaneid()]);
         }
       }
     }
@@ -269,7 +271,7 @@ void __global__ value_kernel_without_shared_mem__(int64_t *row_offsets_src, int6
  * @param batch_end sample end to to load for local gpus
  * @param dense_data_buffers buffers to write output
  * @param dev_ptr_staging pointer to pinned memory for copying pointer address from h2d
- * @param rmm_resources Queue to hold reference to RMM allocations
+ * @param rmm_buffers Queue to hold reference to RMM allocations
  * @param mr Device memory resource for RMM allocations
  * @param task_stream Stream to allocate memory and launch kerenels
  */
@@ -278,16 +280,15 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr, cons
                                    int64_t *dense_dim_array_device_ptr, const int label_dense_dim,
                                    int batch_size, int batch_start, int batch_end,
                                    T *dense_data_buffers, int64_t *dev_ptr_staging,
-                                   std::deque<rmm::device_buffer> &rmm_resources,
+                                   std::deque<rmm::device_buffer> &rmm_buffers,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   int samples_to_interleaved = batch_size;
-
   if (!samples_to_interleaved) return;
   size_t size_of_col_ptrs = dense_column_data_ptr.size() * sizeof(T *);
   std::memcpy(dev_ptr_staging, dense_column_data_ptr.data(), size_of_col_ptrs);
 
-  rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
-  rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
+  rmm_buffers.emplace_back(size_of_col_ptrs, task_stream, mr);
+  rmm::device_buffer &dev_in_column_ptr = rmm_buffers.back();
   // fill empty sample dense features
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
@@ -331,7 +332,7 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr, cons
  * @param csr_value_buffers vector of device buffers to write csr values
  * @param csr_row_offset_buffers vector of device buffers to write csr row offset values
  * @param dev_ptr_staging pointer to pinned memory for copying pointer address from h2d
- * @param rmm_resources Queue to hold reference to RMM allocations
+ * @param rmm_buffers Queue to hold reference to RMM allocations
  * @param mr Device memory resource for RMM allocations
  * @param task_stream Stream to allocate memory and launch kerenels
  */
@@ -342,7 +343,7 @@ size_t convert_parquet_cat_columns(
     int view_offset, int num_params, int param_id, int max_nnz, int num_slots, int batch_size,
     int pid, const std::shared_ptr<ResourceManager> resource_manager,
     std::vector<void *> &csr_value_buffers, std::vector<void *> &csr_row_offset_buffers,
-    int64_t *dev_ptr_staging, T *dev_slot_offset_ptr, std::deque<rmm::device_buffer> &rmm_resources,
+    int64_t *dev_ptr_staging, T *dev_slot_offset_ptr, std::deque<rmm::device_buffer> &rmm_buffers,
     rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
@@ -351,8 +352,8 @@ size_t convert_parquet_cat_columns(
   std::memcpy(dev_ptr_staging, cat_column_data_ptr.data(), size_of_col_ptrs);
   pinned_staging_elements_used += cat_column_data_ptr.size();
 
-  rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
-  rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
+  rmm_buffers.emplace_back(size_of_col_ptrs, task_stream, mr);
+  rmm::device_buffer &dev_in_column_ptr = rmm_buffers.back();
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
 
@@ -363,8 +364,8 @@ size_t convert_parquet_cat_columns(
   std::memcpy(pinned_csr_offset_in_buffer, cat_column_row_offset_ptr.data(), size_of_col_ptrs);
   pinned_staging_elements_used += cat_column_row_offset_ptr.size();
 
-  rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
-  rmm::device_buffer &dev_csr_offset_in_buffer = rmm_resources.back();
+  rmm_buffers.emplace_back(size_of_col_ptrs, task_stream, mr);
+  rmm::device_buffer &dev_csr_offset_in_buffer = rmm_buffers.back();
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_offset_in_buffer.data(), pinned_csr_offset_in_buffer,
                                  size_of_col_ptrs, cudaMemcpyHostToDevice, task_stream));
 
@@ -377,8 +378,8 @@ size_t convert_parquet_cat_columns(
   }
   pinned_staging_elements_used += num_params;
 
-  rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
-  rmm::device_buffer &dev_csr_value_ptr = rmm_resources.back();
+  rmm_buffers.emplace_back(size_of_csr_pointers, task_stream, mr);
+  rmm::device_buffer &dev_csr_value_ptr = rmm_buffers.back();
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_value_ptr.data(), pinned_csr_val_out_buffer,
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
 
@@ -389,8 +390,8 @@ size_t convert_parquet_cat_columns(
   }
   pinned_staging_elements_used += num_params;
 
-  rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
-  rmm::device_buffer &dev_csr_row_offset_ptr = rmm_resources.back();
+  rmm_buffers.emplace_back(size_of_csr_pointers, task_stream, mr);
+  rmm::device_buffer &dev_csr_row_offset_ptr = rmm_buffers.back();
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_row_offset_ptr.data(), pinned_csr_row_offset_buffer,
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
   {
@@ -417,8 +418,8 @@ size_t convert_parquet_cat_columns(
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
         task_stream));
-    rmm_resources.emplace_back(temp_storage_bytes, task_stream, mr);
-    rmm::device_buffer &cub_tmp_storage = rmm_resources.back();
+    rmm_buffers.emplace_back(temp_storage_bytes, task_stream, mr);
+    rmm::device_buffer &cub_tmp_storage = rmm_buffers.back();
     HCTR_LIB_THROW(cub::DeviceScan::InclusiveSum(
         cub_tmp_storage.data(), temp_storage_bytes,
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
@@ -447,7 +448,7 @@ template void convert_parquet_dense_columns<float>(
     std::vector<float *> &dense_column_data_ptr, const int num_dense, int64_t *dense_dim_array_ptr,
     const int label_dense_dim, int batch_size, int batch_start, int batch_end,
     float *dense_data_buffers, int64_t *dev_ptr_staging,
-    std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
+    std::deque<rmm::device_buffer> &rmm_buffers, rmm::mr::device_memory_resource *mr,
     cudaStream_t task_stream);
 
 template size_t convert_parquet_cat_columns<long long int>(
@@ -456,7 +457,7 @@ template size_t convert_parquet_cat_columns<long long int>(
     int param_id, int nnz, int num_slots, int batch_size, int pid,
     const std::shared_ptr<ResourceManager> resource_manager, std::vector<void *> &csr_value_buffers,
     std::vector<void *> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
-    long long int *slot_offset, std::deque<rmm::device_buffer> &rmm_resources,
+    long long int *slot_offset, std::deque<rmm::device_buffer> &rmm_buffers,
     rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
 
 template size_t convert_parquet_cat_columns<unsigned int>(
@@ -465,7 +466,7 @@ template size_t convert_parquet_cat_columns<unsigned int>(
     int param_id, int nnz, int num_slots, int batch_size, int pid,
     const std::shared_ptr<ResourceManager> resource_manager, std::vector<void *> &csr_value_buffers,
     std::vector<void *> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
-    unsigned int *slot_offset, std::deque<rmm::device_buffer> &rmm_resources,
+    unsigned int *slot_offset, std::deque<rmm::device_buffer> &rmm_buffers,
     rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
 
 }  // namespace HugeCTR

@@ -445,7 +445,8 @@ struct create_datareader {
                   std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-                  const DataSourceParams& data_source_params);
+                  const DataSourceParams& data_source_params,
+                  bool reading_file_sequentially = false);
 };
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {

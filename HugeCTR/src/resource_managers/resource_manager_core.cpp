@@ -205,6 +205,10 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
   all2all_warmup();
 
   initialize_rmm_resources();
+  // int dev_id = 0;
+  // cudaGetDevice(&dev_id);
+  // HCTR_LOG(INFO, WORLD, "ResourceManagerCore ctor getCurrentDeviceId after rmm_init %d\n",
+  // dev_id);
 }
 ResourceManagerCore::~ResourceManagerCore() {
   if (original_device_resource_.empty()) {

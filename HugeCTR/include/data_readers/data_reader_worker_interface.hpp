@@ -26,19 +26,19 @@ class IDataReaderWorker {
  public:
   virtual void read_a_batch(){};
   virtual void skip_read(){};
-  void set_source(std::shared_ptr<Source> source) {
+  virtual void do_h2d(){};
+  virtual ~IDataReaderWorker(){};
+  virtual void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
       HCTR_OWN_THROW(
           Error_t::IllegalCall,
           "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
           "is not in the EOF state.");
     }
-    pre_set_source();
     source_ = source;
-    post_set_source();
   }
-  ~IDataReaderWorker(){};
-  IDataReaderWorker() : is_eof_(false) {}
+
+  virtual DataReaderType_t get_reader_type() = 0;
 
  protected:
   std::shared_ptr<Source> source_; /**< source: can be file or network */
@@ -47,13 +47,14 @@ class IDataReaderWorker {
   int worker_num_;
   std::shared_ptr<GPUResource> gpu_resource_;
 
-  bool is_eof_;
-  int *loop_flag_;
+  bool is_eof_{false};
+  const std::shared_ptr<std::atomic<bool>> &loop_flag_;
 
   std::shared_ptr<ThreadBuffer> buffer_;
 
   IDataReaderWorker(const int worker_id, const int worker_num,
-                    const std::shared_ptr<GPUResource> &gpu_resource, bool is_eof, int *loop_flag,
+                    const std::shared_ptr<GPUResource> &gpu_resource, bool is_eof,
+                    const std::shared_ptr<std::atomic<bool>> &loop_flag,
                     const std::shared_ptr<ThreadBuffer> &buff)
       : worker_id_(worker_id),
         worker_num_(worker_num),
@@ -67,12 +68,12 @@ class IDataReaderWorker {
     while (!buffer_->state.compare_exchange_weak(expected, BufferState::Writing)) {
       expected = BufferState::ReadyForWrite;
       usleep(2);
-      if (*loop_flag_ == 0) return false;  // in case main thread exit
+      if (!loop_flag_->load()) return false;  // in case main thread exit
     }
     return true;
   }
 
- private:
+ public:
   virtual void pre_set_source() {}
   virtual void post_set_source() {}
 };

@@ -99,18 +99,18 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
                              const std::string& source, const DataReaderType_t data_reader_type,
                              const Check_t check_type,
                              const std::vector<long long>& slot_size_array,
-                             const DataSourceParams& data_source_params) {
+                             const DataSourceParams& data_source_params, bool reading_file_seq) {
   reset_reader_tensor_list();
   if (inference_params_.i64_input_key) {
     create_datareader<long long>()(
         inference_params_, inference_parser_, data_reader_, resource_manager_, sparse_input_map_64_,
         reader_label_tensor_list_, reader_dense_tensor_list_, source, data_reader_type, check_type,
-        slot_size_array, true, data_source_params);  // repeat dataset
+        slot_size_array, true, data_source_params, reading_file_seq);  // repeat dataset
   } else {
     create_datareader<unsigned int>()(
         inference_params_, inference_parser_, data_reader_, resource_manager_, sparse_input_map_32_,
         reader_label_tensor_list_, reader_dense_tensor_list_, source, data_reader_type, check_type,
-        slot_size_array, true, data_source_params);  // repeat dataset
+        slot_size_array, true, data_source_params, reading_file_seq);  // repeat dataset
   }
   tqdm bar;
   timer_infer.start();
@@ -165,7 +165,7 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
 float InferenceModel::evaluate(const size_t num_batches, const std::string& source,
                                const DataReaderType_t data_reader_type, const Check_t check_type,
                                const std::vector<long long>& slot_size_array,
-                               const DataSourceParams& data_source_params) {
+                               const DataSourceParams& data_source_params, bool reading_file_seq) {
   auto print_class_aucs = [](const std::vector<float>& class_aucs) {
     if (class_aucs.size() > 1) {
       HCTR_LOG_S(INFO, ROOT) << "Evaluation, AUC: {";
@@ -188,12 +188,12 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
     create_datareader<long long>()(
         inference_params_, inference_parser_, data_reader_, resource_manager_, sparse_input_map_64_,
         reader_label_tensor_list_, reader_dense_tensor_list_, source, data_reader_type, check_type,
-        slot_size_array, true, data_source_params);  // repeat dataset
+        slot_size_array, true, data_source_params, reading_file_seq);  // repeat dataset
   } else {
     create_datareader<unsigned int>()(
         inference_params_, inference_parser_, data_reader_, resource_manager_, sparse_input_map_32_,
         reader_label_tensor_list_, reader_dense_tensor_list_, source, data_reader_type, check_type,
-        slot_size_array, true, data_source_params);  // repeat dataset
+        slot_size_array, true, data_source_params, reading_file_seq);  // repeat dataset
   }
 
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
