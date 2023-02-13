@@ -158,4 +158,149 @@ class MultiCrossLayer : public TrainableLayer<T> {
  private:
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 };
+
+template <typename T>
+struct Core23TempMultiCrossForwardFunctor {
+  Core23TempMultiCrossForwardFunctor() = default;
+  Core23TempMultiCrossForwardFunctor(const Core23TempMultiCrossForwardFunctor&) = delete;
+  Core23TempMultiCrossForwardFunctor& operator=(const Core23TempMultiCrossForwardFunctor&) = delete;
+
+  void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
+                  const core23::Tensor& input_tensor,
+                  const std::vector<core23::Tensor>& kernel_tensors,
+                  const std::vector<core23::Tensor>& bias_tensors,
+                  std::vector<core23::Tensor>& layer_output_tensors,
+                  std::vector<core23::Tensor>& layer_hidden_tensors, int num_layers) const;
+};
+template <typename T>
+struct Core23TempMultiCrossForwardFunctorv2 {
+  GemmFunctor<T> gemm_functor_;
+  Core23TempMultiCrossForwardFunctorv2() = default;
+  Core23TempMultiCrossForwardFunctorv2(const Core23TempMultiCrossForwardFunctorv2&) = delete;
+  Core23TempMultiCrossForwardFunctorv2& operator=(const Core23TempMultiCrossForwardFunctorv2&) =
+      delete;
+  void search_algorithm(T* bottom, T* top, T* kernel, int64_t batch_size, int64_t input_size,
+                        int64_t output_size, const CublasFusedFCLayerDesc<T>& cublas_layer_desc,
+                        cublasLtHandle_t cublaslt_handle, cudaStream_t stream);
+  void operator()(cudaStream_t stream, const core23::Tensor& input_tensor,
+                  const std::vector<core23::Tensor>& kernel_tensors,
+                  const std::vector<core23::Tensor>& bias_tensors,
+                  std::vector<core23::Tensor>& XU_tensors,
+                  std::vector<core23::Tensor>& layer_output_tensors,
+                  std::vector<core23::Tensor>& layer_hidden_tensors, int num_layers,
+                  const std::vector<CublasDesc<T>>& xu_descr_,
+                  const std::vector<CublasDesc<T>>& xuvb_descr_,
+                  const std::vector<CublasAlgo<T>>& xu_fprop_algo_,
+                  const std::vector<CublasAlgo<T>>& xuvb_fprop_algo_, cublasLtHandle_t = nullptr);
+};
+
+template <typename T>
+struct Core23TempMultiCrossBackwardFunctorv2 {
+  GemmFunctor<T> gemm_functor_;
+
+  Core23TempMultiCrossBackwardFunctorv2() = default;
+  Core23TempMultiCrossBackwardFunctorv2(const Core23TempMultiCrossBackwardFunctorv2&) = delete;
+  Core23TempMultiCrossBackwardFunctorv2& operator=(const Core23TempMultiCrossBackwardFunctorv2&) =
+      delete;
+  void operator()(cudaStream_t stream, const core23::Tensor& input_tensor,
+                  const std::vector<core23::Tensor>& kernel_tensors,
+                  const std::vector<core23::Tensor>& layer_output_tensors,
+                  const std::vector<core23::Tensor>& layer_hidden_tensors,
+                  const core23::Tensor& grad_tensor, core23::Tensor& output_tensor,
+                  std::vector<core23::Tensor>& kernel_output_tensors,
+                  std::vector<core23::Tensor>& bias_output_tensors,
+                  std::vector<core23::Tensor>& XU_tensors, core23::Tensor tmp_mat_tensors[],
+                  int num_layers, const std::vector<CublasDesc<T>>& xu_descr_,
+                  const std::vector<CublasDesc<T>>& xuvb_descr_,
+                  const std::vector<CublasDesc<T>>& du_descrs_bprop_,
+                  const std::vector<CublasDesc<T>>& dhidden_descrs_bprop_,
+                  const std::vector<CublasAlgo<T>>& xu_bprop_algo_,
+                  const std::vector<CublasAlgo<T>>& xuvb_bprop_algo_,
+                  const std::vector<CublasAlgo<T>>& du_bprop_algos_,
+                  const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_,
+                  cublasLtHandle_t = nullptr);
+};
+
+template <typename T>
+struct Core23TempMultiCrossBackwardFunctor {
+  Core23TempMultiCrossBackwardFunctor() = default;
+  Core23TempMultiCrossBackwardFunctor(const Core23TempMultiCrossBackwardFunctor&) = delete;
+  Core23TempMultiCrossBackwardFunctor& operator=(const Core23TempMultiCrossBackwardFunctor&) =
+      delete;
+
+  void operator()(cudaStream_t stream, const core23::Tensor& input_tensor,
+                  const std::vector<core23::Tensor>& kernel_tensors,
+                  const std::vector<core23::Tensor>& layer_output_tensors,
+                  const std::vector<core23::Tensor>& layer_hidden_tensors,
+                  const core23::Tensor& grad_tensor, core23::Tensor& output_tensor,
+                  std::vector<core23::Tensor>& kernel_output_tensors,
+                  std::vector<core23::Tensor>& bias_output_tensors, core23::Tensor& tmp_vec_tensor,
+                  core23::Tensor tmp_mat_tensors[], int num_layers) const;
+};
+
+template <typename T>
+class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
+ private:
+  const int num_layers_;
+  const int64_t projection_dim_;
+  std::vector<core23::Tensor> blob_tensors_;    /**< vector of internal blobs' tensors, intermediate
+                                   output of each    interaction layer: T_4 */
+  std::vector<core23::Tensor> hidden_tensors_;  // DCNv1: x_i * w ; DCNv2: x * x_i * w + b; T_7
+  std::vector<core23::Tensor> XU_tensors_;      // DCNv2:
+
+  core23::Tensor tmp_mat_tensors_[4];  //[h,w]
+  core23::Tensor tmp_vec_tensor_;      //[h,1]
+
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
+
+  std::vector<CublasDesc<T>> xu_descrs_fprop_;
+  std::vector<CublasDesc<T>> xuvb_descrs_fprop_;
+  std::vector<CublasDesc<T>> xu_descrs_bprop_;
+  std::vector<CublasDesc<T>> xuvb_descrs_bprop_;
+  std::vector<CublasDesc<T>> du_descrs_bprop_;
+  std::vector<CublasDesc<T>> dhidden_descrs_bprop_;
+
+  std::vector<CublasAlgo<T>> xu_fprop_algos_;
+  std::vector<CublasAlgo<T>> xuvb_fprop_algos_;
+  std::vector<CublasAlgo<T>> xu_bprop_algos_;
+  std::vector<CublasAlgo<T>> xuvb_bprop_algos_;
+  std::vector<CublasAlgo<T>> du_bprop_algos_;
+  std::vector<CublasAlgo<T>> dhidden_bprop_algos_;
+
+  Core23TempMultiCrossForwardFunctorv2<T> dcnv2_forward_functor_;
+  Core23TempMultiCrossBackwardFunctorv2<T> dcnv2_backward_functor_;
+  bool enable_tf32_compute_;
+
+ public:
+  /**
+   * forward pass
+   */
+  void fprop(bool is_train) final;
+  std::vector<core23::Tensor>& get_hidden_tensors() { return hidden_tensors_; };
+  std::vector<core23::Tensor>& get_weight_tensor() { return XU_tensors_; };
+  /**
+   * backward pass
+   */
+  void search_algorithm() override;
+  void bprop() final;
+  void initialize() override;
+  Core23TempMultiCrossLayer(
+      const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
+      const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim = 0,
+      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
+      bool enable_tf32_compute = false);
+  Core23TempMultiCrossLayer(const Core23TempMultiCrossLayer&) = delete;
+  Core23TempMultiCrossLayer& operator=(const Core23TempMultiCrossLayer&) = delete;
+
+ private:
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+};
+
 }  // namespace HugeCTR

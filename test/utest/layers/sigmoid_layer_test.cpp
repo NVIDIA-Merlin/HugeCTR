@@ -18,6 +18,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <core23/data_type_helpers.cuh>
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <functional>
 #include <layers/sigmoid_layer.hpp>
 #include <utest/test_utils.hpp>
@@ -60,57 +64,63 @@ void sigmoid_bprop_cpu(__half* d_bottom, const __half* d_top, const __half* bott
 }
 
 template <typename T>
-void sigmoid_test(size_t dim0, size_t dim1) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, dim1};
+void sigmoid_test(int64_t dim0, int64_t dim1) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  Tensor2<T> bottom_tensor;
-  buf->reserve(dims, &bottom_tensor);
-  Tensor2<T> top_tensor;
-  buf->reserve(dims, &top_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+
+  core23::Shape shape = {dim0, dim1};
+
+  core23::TensorParams tensor_params =
+      core23::TensorParams(shape)
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+
+  core23::Tensor bottom_tensor(tensor_params);
+  core23::Tensor top_tensor(tensor_params);
 
   SigmoidLayer<T> sigmoid_layer(bottom_tensor, top_tensor, test::get_default_gpu());
 
-  buf->allocate();
   sigmoid_layer.initialize();
 
-  const size_t len = dim0 * dim1;
+  const auto len = shape.size();
 
-  std::unique_ptr<T[]> h_bottom(new T[len]);
-  std::unique_ptr<T[]> h_top(new T[len]);
-  std::unique_ptr<T[]> d2h_top(new T[len]);
-  std::unique_ptr<T[]> h_bottom_grad(new T[len]);
-  std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
+  std::vector<T> h_bottom(len);
+  std::vector<T> h_top(len);
+  std::vector<T> d2h_top(len);
+  std::vector<T> h_bottom_grad(len);
+  std::vector<T> d2h_bottom_grad(len);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_bottom.get(), len);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
   // fprop
-
-  HCTR_LIB_THROW(
-      cudaMemcpy(bottom_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sigmoid_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(
-      cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(d2h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  sigmoid_cpu<T>(h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
+  sigmoid_cpu<T>(h_top.data(), h_bottom.data(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.data(), h_top.data(), len, eps));
 
   // bprop
-  simulator.fill(h_top.get(), len);
+  test::normal_sync_cpu(h_top.data(), h_top.size(), 0.f, 1.f, generator);
 
-  HCTR_LIB_THROW(
-      cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
+                    core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sigmoid_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
-                            cudaMemcpyDeviceToHost));
+  core23::copy_sync(d2h_bottom_grad.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
 
-  sigmoid_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
+  sigmoid_bprop_cpu<T>(h_bottom_grad.data(), h_top.data(), h_bottom.data(), len);
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(d2h_bottom_grad.data(), h_bottom_grad.data(), len, eps));
 }
 
 }  // namespace

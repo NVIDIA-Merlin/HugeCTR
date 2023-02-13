@@ -17,7 +17,7 @@
 
 #include <cudnn.h>
 
-#include <layer.hpp>
+#include <trainable_layer.hpp>
 
 namespace HugeCTR {
 
@@ -78,6 +78,80 @@ class GRULayer : public Layer {
   void *workSpace = NULL;
   void *reserveSpace = NULL;
   void *hx = NULL;
+
+  cudnnHandle_t cudnnHandle;
+  cudnnRNNDescriptor_t rnnDesc;
+  cudnnRNNDataDescriptor_t in_Desc;
+  cudnnRNNDataDescriptor_t out_Desc;
+  cudnnTensorDescriptor_t cDesc;
+  cudnnTensorDescriptor_t hDesc;
+  cudnnDropoutDescriptor_t dropoutDesc;
+  cudnnDataType_t data_type;
+
+  int dimHidden[3];
+  int strideHidden[3];
+  unsigned long long seed;
+  size_t stateSize;
+  void *states;
+  float dropout = 0;
+  size_t weightSpaceSize;
+  size_t seqLength_, miniBatch, embedding_vec_size_, m = 512;
+  int hiddenSize_;  // = 512; //half of the seqLength
+  int numLinearLayers;
+};
+
+/**
+ * GRU function (Interest Extractor Layer) as a derived class of Layer
+ */
+template <typename T>
+class Core23TempGRULayer : public Core23TempTrainableLayer<T> {
+  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
+
+  size_t workSpaceSize;
+  size_t reserveSpaceSize;
+  size_t inputTensorSize, outputTensorSize, hiddenTensorSize;
+
+  std::vector<core23::Tensor> &get_in_tensors(bool is_train) { return in_tensors_; }
+
+ public:
+  /**
+   * A method of implementing the forward pass of GRU
+   * @param stream CUDA stream where the foward propagation is executed
+   */
+  void fprop(bool is_train) final;
+  /**
+   * A method of implementing the backward pass of GRU
+   * @param stream CUDA stream where the backward propagation is executed
+   */
+  void bprop() final;
+
+  /**
+   * Ctor of Core23TempGRULayer.
+   * @param in_tensor the input tensor
+   * @param out_tensor the output tensor which has the same dim with in_tensor
+   * @param device_id the id of GPU where this layer belongs
+   */
+  Core23TempGRULayer(const core23::Tensor &in_tensor, const core23::Tensor &out_tensor,
+                     int64_t hiddenSize, int64_t batch_size, int64_t SeqLength,
+                     int64_t embedding_vec_size, const std::shared_ptr<GPUResource> &gpu_resource,
+                     std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+
+ private:
+  int *seqLengthArray = nullptr;
+  int *devSeqLengthArray = nullptr;
+  void *weightSpace = nullptr;
+  void *dweightSpace = nullptr;
+  void *workSpace = nullptr;
+  void *reserveSpace = nullptr;
+  void *hx = nullptr;
 
   cudnnHandle_t cudnnHandle;
   cudnnRNNDescriptor_t rnnDesc;

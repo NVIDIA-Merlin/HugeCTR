@@ -31,6 +31,8 @@ namespace HugeCTR {
 template <typename T>
 class ConcatLayer : public Layer {
  public:
+  ConcatLayer(const std::vector<core23::Tensor>& input_tensors, core23::Tensor& output_tensor,
+              const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of ConcatLayer.
    * @param in_tensors the vector of the input tensors

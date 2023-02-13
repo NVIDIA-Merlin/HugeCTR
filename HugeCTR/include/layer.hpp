@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <core23/tensor.hpp>
 #include <cpu_resource.hpp>
 #include <data_simulator.hpp>
 #include <fstream>
@@ -31,6 +32,10 @@ namespace HugeCTR {
  * Definition of a basic layer class.
  */
 class Layer {
+ protected:
+  std::vector<core23::Tensor> input_tensors_;
+  std::vector<core23::Tensor> output_tensors_;
+
  private:
   /*
    * Specify which GPU device will be executed on.
@@ -68,11 +73,19 @@ class Layer {
     return std::vector<TensorBag2>();
   }
 
+  virtual std::vector<core23::Tensor> Core23Tempget_tensors_for_non_trainable_params() {
+    return std::vector<core23::Tensor>();
+  }
+
   virtual void init_params(const curandGenerator_t& generator);
 
+  Layer(const std::vector<core23::Tensor>& input_tensors,
+        const std::vector<core23::Tensor>& output_tensor,
+        const std::shared_ptr<GPUResource>& gpu_resource,
+        std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   Layer(const std::shared_ptr<GPUResource>& gpu_resource,
         std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
-      : gpu_resource_(gpu_resource), initializer_types_(initializer_types) {}
+      : Layer({}, {}, gpu_resource, initializer_types) {}
   Layer(const Layer&) = delete;
   Layer& operator=(const Layer&) = delete;
   virtual ~Layer() = default;

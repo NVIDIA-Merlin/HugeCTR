@@ -172,11 +172,15 @@ void normal_async(Type* data, int64_t num_elements, const Type mean, const Type 
   static_assert(std::is_floating_point<Type>::value);
 
   generator.set_stream(stream);
+  int64_t even_length = num_elements / 2 * 2;
   if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
-    HCTR_LIB_THROW(curandGenerateNormal(generator(), data, num_elements, mean, stddev));
+    HCTR_LIB_THROW(curandGenerateNormal(generator(), data, even_length, mean, stddev));
   } else {
     static_assert(std::is_same<Type, double>::value);
-    HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), data, num_elements, mean, stddev));
+    HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), data, even_length, mean, stddev));
+  }
+  if (auto odd_length = num_elements - even_length) {
+    copy_async(data + even_length, data, odd_length, device, device, stream);
   }
 }
 

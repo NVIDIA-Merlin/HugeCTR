@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/reshape_layer.hpp>
 #include <memory>
 #include <utest/test_utils.hpp>
@@ -28,71 +30,75 @@ namespace {
 const float eps = 1e-5;
 
 template <typename T>
-void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
+void reshape_layer_test(int64_t batch_size, int64_t n_slot, int64_t vector_length,
                         std::vector<int> selected) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  int n_active_slot = selected.empty() ? n_slot : int(selected.size());
-  std::vector<size_t> in_dims = {batch_size, n_slot, vector_length};
-  std::vector<size_t> out_dims = {batch_size, n_active_slot * vector_length};
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  Tensor2<T> in_tensor;
-  buff->reserve(in_dims, &in_tensor);
-  Tensor2<T> out_tensor;
-  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, selected, test::get_default_gpu());
+  int n_active_slot = selected.empty() ? n_slot : static_cast<int64_t>(selected.size());
+  core23::Shape in_shape = {batch_size, n_slot, vector_length};
+  core23::Shape out_shape = {batch_size, n_active_slot * vector_length};
 
-  buff->allocate();
+  auto device = core23::Device::current();
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::CUDAStream stream(cudaStreamDefault, 0);
+
+  core23::Tensor bottom_tensor(tensor_params.shape(in_shape));
+  core23::Tensor top_tensor;
+  ReshapeLayer<T> reshape_layer(bottom_tensor, top_tensor, selected, test::get_default_gpu());
+
   reshape_layer.initialize();
 
   test::GaussianDataSimulator data_sim(0.0f, 1.0f);
 
-  std::vector<T> h_in;
-  h_in.resize(in_tensor.get_num_elements());
-
-  data_sim.fill(h_in.data(), h_in.size());
+  std::vector<T> h_bottom(bottom_tensor.num_elements());
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
   // fprop
-  std::vector<T> h_ref;
-  h_ref.resize(batch_size * n_active_slot * vector_length);
+  std::vector<T> h_ref(batch_size * n_active_slot * vector_length);
   if (selected.empty()) {
-    h_ref = h_in;
+    h_ref = h_bottom;
   } else {
-    for (size_t i = 0; i < batch_size; i++) {
+    for (int64_t i = 0; i < batch_size; i++) {
       for (int j = 0; j < n_active_slot; j++) {
-        for (size_t k = 0; k < vector_length; k++) {
+        for (int64_t k = 0; k < vector_length; k++) {
           int in_idx = i * (n_slot * vector_length) + selected[j] * vector_length + k;
           int out_idx = i * (n_active_slot * vector_length) + j * vector_length + k;
-          h_ref[out_idx] = h_in[in_idx];
+          h_ref[out_idx] = h_bottom[in_idx];
         }
       }
     }
   }
 
-  T* d_in = in_tensor.get_ptr();
-  HCTR_LIB_THROW(
-      cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
 
   reshape_layer.fprop(true);
 
-  std::vector<T> h_result;
-  h_result.resize(batch_size * n_active_slot * vector_length);
-  T* d_out = out_tensor.get_ptr();
-  HCTR_LIB_THROW(
-      cudaMemcpy(&h_result.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  std::vector<T> h_result(batch_size * n_active_slot * vector_length);
+  core23::copy_sync(h_result.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(&h_result.front(), &h_ref.front(), h_result.size(), eps));
 
   // bprop
   h_ref.resize(batch_size * n_slot * vector_length);
-  h_ref = h_in;
+  h_ref = h_bottom;
 
   reshape_layer.bprop();
 
   h_result.resize(batch_size * n_slot * vector_length);
-  cudaMemcpy(&h_result.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  core23::copy_sync(h_result.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
 
   ASSERT_TRUE(
-      test::compare_array_approx<T>(&h_result.front(), &h_in.front(), h_result.size(), eps));
+      test::compare_array_approx<T>(&h_result.front(), &h_bottom.front(), h_result.size(), eps));
 }
 
 }  // namespace

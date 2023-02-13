@@ -16,6 +16,9 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/sequence_mask_layer.hpp>
 #include <utest/test_utils.hpp>
 #include <utils.hpp>
@@ -63,48 +66,51 @@ void sequence_mask_cpu(T* input, T* output, size_t batch_size, size_t max_sequen
 }
 
 template <typename T>
-void sequence_mask_test(size_t batch_size, size_t max_sequence_len) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+void sequence_mask_test(int64_t batch_size, int64_t max_sequence_len) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  std::vector<size_t> dim_in = {batch_size};
-  std::vector<size_t> dim_out = {batch_size, 1, 1, max_sequence_len};
-  size_t in_size = batch_size;
-  size_t out_size = batch_size * max_sequence_len;
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
 
-  Tensor2<T> in_tensor;
-  buff->reserve(dim_in, &in_tensor);
-  Tensor2<T> out_tensor;
-  buff->reserve(dim_out, &out_tensor);
+  core23::Shape shape_in = {batch_size};
+  core23::Shape shape_out = {batch_size, 1, 1, max_sequence_len};
+  auto in_size = shape_in.size();
+  auto out_size = shape_out.size();
 
-  SequenceMaskLayer<T> sequence_mask_layer(in_tensor, out_tensor, max_sequence_len, buff,
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+
+  core23::Tensor bottom_tensor(tensor_params.shape(shape_in));
+  core23::Tensor top_tensor(tensor_params.shape(shape_out));
+
+  SequenceMaskLayer<T> sequence_mask_layer(bottom_tensor, top_tensor, max_sequence_len,
                                            test::get_default_gpu());
 
-  buff->allocate();
+  auto* d_bottom = bottom_tensor.data<T>();
+  auto* d_top = top_tensor.data<T>();
 
-  T* h_d_in = in_tensor.get_ptr();
-
-  T* d_out = out_tensor.get_ptr();
-
-  std::unique_ptr<T[]> h_in(new T[in_size]);
-  std::unique_ptr<T[]> h_d_out(new T[out_size]);
-  std::unique_ptr<T[]> h_cpu_out(new T[out_size]);
-
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  std::vector<T> h_bottom(in_size);
+  std::vector<T> h_top(out_size);
+  std::vector<T> h_ref(out_size);
 
   // fprop
+  test::normal_sync_cpu(h_bottom.data(), in_size, 0.f, 1.f, generator);
 
-  simulator.fill(h_in.get(), in_size);
-  f2i_input(h_in.get(), in_size, max_sequence_len);
-  HCTR_LIB_THROW(cudaMemcpy(h_d_in, h_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
+  f2i_input(h_bottom.data(), in_size, max_sequence_len);
+  core23::copy_sync(d_bottom, h_bottom.data(), bottom_tensor.num_bytes(), bottom_tensor.device(),
+                    core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sequence_mask_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_d_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_top.data(), d_top, top_tensor.num_bytes(), core23::DeviceType::CPU,
+                    top_tensor.device());
 
-  sequence_mask_cpu(h_in.get(), h_cpu_out.get(), batch_size, max_sequence_len, out_size);
-  ASSERT_TRUE(
-      test::compare_array_approx<T>(h_d_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
+  sequence_mask_cpu(h_bottom.data(), h_ref.data(), batch_size, max_sequence_len, out_size);
+  ASSERT_TRUE(test::compare_array_approx<T>(h_top.data(), h_ref.data(), out_size, Eps<T>::value()));
 }
 
 }  // namespace

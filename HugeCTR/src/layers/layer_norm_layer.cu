@@ -506,4 +506,156 @@ std::unique_ptr<DataSimulator> LayerNormLayer<T>::get_default_initializer(const 
 template class LayerNormLayer<float>;
 template class LayerNormLayer<__half>;
 
+template <typename T>
+Core23TempLayerNormLayer<T>::Core23TempLayerNormLayer(
+    const core23::Tensor& in_tensor, const core23::Tensor& out_tensor, const Params& params,
+    const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
+    : Base(gpu_resource, initializer_types), params_(params) {
+  CudaDeviceContext context(this->get_device_id());
+  const auto& in_tensor_dim = in_tensor.shape();
+  const auto& out_tensor_dim = out_tensor.shape();
+
+  assert(in_tensor_dim.dims() == out_tensor_dim.dims());
+  if (in_tensor_dim.dims() > 4 || in_tensor_dim.dims() < 2) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D 3D 4D tensors can be layer-normed");
+  }
+  for (int64_t idx = 0; idx < in_tensor_dim.dims(); idx++) {
+    assert(in_tensor_dim.size(idx) == out_tensor_dim.size(idx));
+  }
+
+  int64_t batch = 1;
+  int64_t hidden_dim = in_tensor_dim.size(in_tensor_dim.dims() - 1);
+
+  for (int64_t idx = 0; idx < in_tensor_dim.dims() - 1; idx++) {
+    batch = batch * in_tensor_dim.size(idx);
+  }
+  if (hidden_dim > static_cast<int64_t>(65535)) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Unsupport hidden_dim, the last dim should not be longer than 65535");
+  }
+
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
+
+  core23::Shape gamma_dim = {hidden_dim, 1};
+  core23::Shape mean_dim = {batch, 1};
+
+  // gamma & beta
+  this->set_weight(0, gamma_dim);
+  this->set_weight(1, gamma_dim);
+
+  gamma_ = this->get_weight(0);
+  beta_ = this->get_weight(1);
+  // gamma grad & beta grad
+  this->set_wgrad(0, gamma_dim);
+  this->set_wgrad(1, gamma_dim);
+  gamma_grad_ = this->get_wgrad(0);
+  beta_grad_ = this->get_wgrad(1);
+
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
+  core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
+
+  // save running mean & var (cache)
+
+  result_save_mean_ = core23::Tensor(core23::TensorParams()
+                                         .data_type(core23::ToScalarType<T>::value)
+                                         .shape(mean_dim)
+                                         .device(device)
+                                         .buffer_params(blobs_buffer_params));
+
+  result_save_var_ = core23::Tensor(core23::TensorParams()
+                                        .data_type(core23::ToScalarType<T>::value)
+                                        .shape(mean_dim)
+                                        .device(device)
+                                        .buffer_params(blobs_buffer_params));
+}
+
+template <typename T>
+void Core23TempLayerNormLayer<T>::fprop(bool is_train) {
+  CudaDeviceContext context(this->get_device_id());
+  float one = 1.0f, zero = 0.0f;
+
+  core23::Tensor& in_tensor = in_tensors_[0];
+  core23::Tensor& out_tensor = out_tensors_[0];
+  T* in = in_tensor.data<T>();
+  T* out = out_tensor.data<T>();
+
+  T* gamma = gamma_.data<T>();
+  T* beta = beta_.data<T>();
+
+  T* result_save_mean = result_save_mean_.data<T>();
+  T* result_save_var = result_save_var_.data<T>();
+
+  const auto& in_tensor_dim = in_tensor.shape();
+  int64_t batch = 1;
+  int64_t hidden_dim = in_tensor_dim.size(in_tensor_dim.dims() - 1);
+
+  for (int64_t idx = 0; idx < in_tensor_dim.dims() - 1; idx++) {
+    batch = batch * in_tensor_dim.size(idx);
+  }
+  dim3 block_size(min(hidden_dim, static_cast<int64_t>(MAX_THREADS)), 1, 1);
+  dim3 grid_size(batch, 1, 1);
+
+  layer_norm_kernel<<<grid_size, block_size, 0, this->get_gpu().get_stream()>>>(
+      out, in, result_save_var, result_save_mean, gamma, beta, batch, hidden_dim, params_.eps);
+}
+
+template <typename T>
+void Core23TempLayerNormLayer<T>::bprop() {
+  CudaDeviceContext context(this->get_device_id());
+
+  float one = 1.0f, zero = 0.0f;
+
+  core23::Tensor& in_tensor = in_tensors_[0];
+  core23::Tensor& out_tensor = out_tensors_[0];
+  const auto& in_tensor_dim = in_tensor.shape();
+
+  T* in = in_tensor.data<T>();
+  T* out = out_tensor.data<T>();
+
+  T* gamma = gamma_.data<T>();
+
+  T* gamma_grad = gamma_grad_.data<T>();
+  T* beta_grad = beta_grad_.data<T>();
+
+  T* result_save_mean = result_save_mean_.data<T>();
+  T* result_save_var = result_save_var_.data<T>();
+
+  int64_t batch = 1;
+  int64_t hidden_dim = in_tensor_dim.size(in_tensor_dim.dims() - 1);
+
+  for (int64_t idx = 0; idx < in_tensor_dim.dims() - 1; idx++) {
+    batch = batch * in_tensor_dim.size(idx);
+  }
+
+  dim3 grid_dim1(max(hidden_dim / TILE_DIM, static_cast<int64_t>(1)));
+  dim3 block_dim1(TILE_DIM, TILE_DIM);
+  layer_norm_backward1<<<grid_dim1, block_dim1, 0, this->get_gpu().get_stream()>>>(
+      out, in, result_save_var, result_save_mean, gamma_grad, beta_grad, batch, hidden_dim);
+
+  dim3 grid_dim2(batch);
+  int64_t blockDimx = hidden_dim < 32 ? hidden_dim : ((hidden_dim >> 5) << 5);
+  dim3 block_dim2(min(blockDimx, static_cast<int64_t>(MAX_THREADS)));
+
+  layer_norm_backward2<<<grid_dim2, block_dim2, 0, this->get_gpu().get_stream()>>>(
+      out, in, gamma, result_save_var, result_save_mean, in, hidden_dim);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempLayerNormLayer<T>::get_default_initializer(
+    const int index) {
+  std::unique_ptr<DataSimulator> simu;
+  if (0 == index) {
+    simu.reset(new ConstantDataSimulator(1.0f));
+  } else if (1 == index) {
+    simu.reset(new ConstantDataSimulator(0.0f));
+  } else {
+    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
+  }
+  return simu;
+}
+
+template class Core23TempLayerNormLayer<float>;
+template class Core23TempLayerNormLayer<__half>;
 }  // namespace HugeCTR

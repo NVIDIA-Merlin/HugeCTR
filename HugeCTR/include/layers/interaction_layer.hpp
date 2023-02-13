@@ -48,16 +48,29 @@ class InteractionLayer : public Layer {
   bool separate_Y_and_dY_;
 
   Tensors2<T> internal_tensors_;
+  std::vector<core23::Tensor> intermediate_tensors_;
 
   Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
 
  private:
+  void init(const core23::Tensor& input_bottom_mlp_tensor, const core23::Tensor& input_embeddings,
+            core23::Tensor& output_tensor, core23::Tensor& grad_tensor,
+            const std::shared_ptr<GPUResource>& gpu_resource);
   void init(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
             Tensor2<T>& out_tensor, Tensor2<T>& grad_tensor,
             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
             const std::shared_ptr<GPUResource>& gpu_resource);
 
  public:
+  InteractionLayer(const core23::Tensor& input_bottom_mlp_tensor,
+                   const core23::Tensor& input_embeddings, core23::Tensor& out_tensor,
+                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                   bool enable_tf32_compute);
+
+  InteractionLayer(const core23::Tensor& input_bottom_mlp_tensor,
+                   const core23::Tensor& input_embeddings, core23::Tensor& out_tensor,
+                   core23::Tensor& grad_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
+                   bool use_mixed_precision, bool enable_tf32_compute);
   /**
    * Ctor of InteractionLayer.
    * @param in_bottom_mlp_tensor the input bottom MLP tensor (batch_size, width)
@@ -94,6 +107,7 @@ class InteractionLayer : public Layer {
   void bprop_generic();
   void bprop() override;
   Tensor2<T>& get_internal(size_t i) { return internal_tensors_[i]; };
+  core23::Tensor& get_intermediate(int64_t i) { return intermediate_tensors_[i]; };
 };
 
 }  // namespace HugeCTR

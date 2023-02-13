@@ -96,4 +96,75 @@ class FullyConnectedLayer<float> : public TrainableLayer<float> {
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 };
+
+template <typename T>
+class Core23TempFullyConnectedLayer;
+
+/**
+ * @brief
+ * This class implements the fully connected layer.
+ */
+template <>
+class Core23TempFullyConnectedLayer<float> : public Core23TempTrainableLayer<float> {
+ private:
+  const bool use_mixed_precision_{false};
+  const bool enable_tf32_compute_{false};
+  // Optimized cublasGemmEx algorithm selection
+  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
+
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
+
+  std::vector<core23::Tensor>& get_in_tensors(bool is_train) { return in_tensors_; }
+
+ public:
+  /**
+   * forward pass
+   */
+  void fprop(bool is_train) final;
+  /**
+   * backward pass
+   */
+  void bprop() final;
+  /*
+   * algorithm search for cublasGemmEx
+   */
+  void search_algorithm() final;
+  /**
+   * This is the constructor of the Core23TempFullyConnectedLayer.
+   * It will check whether the format combination of all tensors is supported or not.
+   * Only two kinds of tensor formats are supported:
+   * (1) weight, input, output, wgrad are all in row-major.
+   * (2) weight, input, output, wgrad are all in column-major.
+   * @param in_tensor: stores the input tensor
+   * @param out_tensor: stores the output tensor
+   * @param weight_format: specifies the format of the weight tensor, either HW (row major) or WH
+   * (col-major)
+   */
+  Core23TempFullyConnectedLayer(
+      const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
+      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+      bool enable_tf32_compute,
+      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+  Core23TempFullyConnectedLayer(const Core23TempFullyConnectedLayer& C) = delete;
+  Core23TempFullyConnectedLayer& operator=(const Core23TempFullyConnectedLayer&);
+
+ private:
+  /*
+   * initializers for this layer.
+   */
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+};
+
 }  // namespace HugeCTR

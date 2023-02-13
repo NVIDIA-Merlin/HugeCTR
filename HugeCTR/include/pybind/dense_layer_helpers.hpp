@@ -25,6 +25,7 @@ namespace HugeCTR {
 
 class ILoss;
 struct DenseLayer;
+class Layer;
 
 struct TensorEntity {
   std::string name;

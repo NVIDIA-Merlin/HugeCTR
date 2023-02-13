@@ -17,10 +17,14 @@ cmake_minimum_required(VERSION 3.17)
 file(GLOB layers_test_src
   trainable_layer_test.cpp
   dropout_layer_test.cpp
+  dropout_layer_test_old.cpp
   batch_norm_layer_test.cpp
   cast_layer_test.cpp
+  cast_layer_test_old.cpp
   concat_layer_test.cpp
+  concat_layer_test_old.cpp
   elu_layer_test.cpp
+  elu_layer_test_old.cpp
   fully_connected_layer_test.cpp
   fully_connected_layer_half_test.cpp
   fused_fully_connected_layer_test.cpp
@@ -28,10 +32,14 @@ file(GLOB layers_test_src
   gru_layer_test.cpp
   matrix_multiply_test.cpp
   interaction_layer_test.cpp
+  interaction_layer_test_old.cpp
   relu_layer_test.cpp
+  relu_layer_test_old.cpp
   slice_layer_test.cpp
   reshape_layer_test.cpp
+  reshape_layer_test_old.cpp
   reshape_layer_test_sel.cpp
+  reshape_layer_test_sel_old.cpp
   prelu_dice_layer_test.cpp
   fm_order2_layer_test.cpp
   weight_multiply_layer_test.cpp
@@ -46,6 +54,7 @@ file(GLOB layers_test_src
   gather_layer_test.cpp
   reduce_mean_layer_test.cpp
   sigmoid_layer_test.cpp
+  sigmoid_layer_test_old.cpp
   elementwise_multiply_layer_test.cpp
   group_dense_layer_test.cpp
   mlp_test.cpp
@@ -53,6 +62,7 @@ file(GLOB layers_test_src
   multi_head_attention_layer_test.cpp
   layer_norm_layer_test.cpp
   sequence_mask_layer_test.cpp
+  sequence_mask_layer_test_old.cpp
   masked_softmax_layer_test.cpp
 )
 

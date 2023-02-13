@@ -18,12 +18,38 @@
 #include <gtest/gtest.h>
 
 #include <common.hpp>
+#include <core23/cuda_stream.hpp>
+#include <core23/curand_generator.hpp>
+#include <core23/data_type.hpp>
+#include <core23/low_level_primitives.hpp>
 #include <gpu_resource.hpp>
 #include <random>
 
 namespace HugeCTR {
 
 namespace test {
+
+template <typename T>
+void normal_sync_cpu(T* data, int64_t num_elements, const float mean, const float stddev,
+                     core23::CURANDGenerator generator) {
+  auto stream = core23::CUDAStream();
+
+  std::vector<float> data_full;
+  if constexpr (std::is_same_v<T, __half>) {
+    data_full.resize(num_elements);
+    core23::normal_async<float>(data_full.data(), num_elements, mean, stddev,
+                                core23::DeviceType::CPU, generator, stream);
+    core23::convert_async<T, float>(data, data_full.data(), num_elements, core23::DeviceType::CPU,
+                                    core23::DeviceType::CPU, stream);
+  } else if constexpr (std::is_same_v<T, float>) {
+    core23::normal_async<T>(data, num_elements, 0.f, 1.f, core23::DeviceType::CPU, generator,
+                            stream);
+  } else {
+    HCTR_DIE("%s is not allowed for normal_sync_cpu",
+             core23::DataType(core23::ToScalarType<T>::value).name().c_str());
+  }
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
+}
 
 template <typename T>
 T abs(const T& val) {

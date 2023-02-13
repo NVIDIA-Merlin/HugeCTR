@@ -16,7 +16,11 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/relu_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utest/test_utils.hpp>
 #include <vector>
 
@@ -62,57 +66,82 @@ void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len) {
 }
 
 template <typename T>
-void relu_test(size_t dim0, size_t dim1) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, dim1};
+void relu_test(int64_t dim0, int64_t dim1) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  Tensor2<T> bottom_tensor;
-  buf->reserve(dims, &bottom_tensor);
-  Tensor2<T> top_tensor;
-  buf->reserve(dims, &top_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::CUDAStream stream(cudaStreamDefault, 0);
+
+  auto shape = core23::Shape({dim0, dim1});
+
+  core23::TensorParams tensor_params =
+      core23::TensorParams(shape)
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(GetBlobsBufferChannel());
+  core23::Tensor bottom_tensor(tensor_params);
+  core23::Tensor top_tensor(tensor_params);
 
   ReluLayer<T> relu_layer(bottom_tensor, top_tensor, test::get_default_gpu());
 
-  buf->allocate();
   relu_layer.initialize();
 
-  const size_t len = dim0 * dim1;
+  const int64_t len = dim0 * dim1;
 
-  std::unique_ptr<T[]> h_bottom(new T[len]);
-  std::unique_ptr<T[]> h_top(new T[len]);
-  std::unique_ptr<T[]> d2h_top(new T[len]);
-  std::unique_ptr<T[]> h_bottom_grad(new T[len]);
-  std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
+  std::vector<T> h_bottom(len);
+  std::vector<T> h_top(len);
+  std::vector<T> d2h_top(len);
+  std::vector<T> h_bottom_grad(len);
+  std::vector<T> d2h_bottom_grad(len);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_bottom.get(), len);
+  if constexpr (std::is_same_v<T, __half>) {
+    std::vector<float> h_bottom_full(len);
+    core23::normal_async<float>(h_bottom_full.data(), len, 0.f, 1.f, core23::DeviceType::CPU,
+                                generator, stream);
+    core23::convert_async<T, float>(h_bottom.data(), h_bottom_full.data(), len,
+                                    core23::DeviceType::CPU, core23::DeviceType::CPU, stream);
+  } else {
+    core23::normal_async<T>(h_bottom.data(), len, 0.f, 1.f, core23::DeviceType::CPU, generator,
+                            stream);
+  }
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
 
   // fprop
-
-  HCTR_LIB_THROW(
-      cudaMemcpy(bottom_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  core23::copy_async(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                     bottom_tensor.device(), core23::DeviceType::CPU, stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
   relu_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(
-      cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(d2h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  relu_cpu<T>(h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, Eps<T>::value()));
+  relu_cpu<T>(h_top.data(), h_bottom.data(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.data(), h_top.data(), len, Eps<T>::value()));
 
   // bprop
-  simulator.fill(h_top.get(), len);
+  if constexpr (std::is_same_v<T, __half>) {
+    std::vector<float> h_top_full(len);
+    core23::normal_async<float>(h_top_full.data(), len, 0.f, 1.f, core23::DeviceType::CPU,
+                                generator, stream);
+    core23::convert_async<T, float>(h_top.data(), h_top_full.data(), len, core23::DeviceType::CPU,
+                                    core23::DeviceType::CPU, stream);
+  } else {
+    core23::normal_async<float>(h_top.data(), len, 0.f, 1.f, core23::DeviceType::CPU, generator,
+                                stream);
+  }
+  cudaStreamSynchronize(stream());
 
-  HCTR_LIB_THROW(
-      cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  core23::copy_async(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
+                     core23::DeviceType::CPU, stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
   relu_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
-                            cudaMemcpyDeviceToHost));
+  core23::copy_sync(d2h_bottom_grad.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len,
+  relu_bprop_cpu<T>(h_bottom_grad.data(), h_top.data(), h_bottom.data(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.data(), h_bottom_grad.data(), len,
                                             Eps<T>::value()));
 }
 

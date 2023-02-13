@@ -43,6 +43,7 @@ class Shape : private std::vector<int64_t> {
     }
     return sum;
   }
+  void set(int64_t dim, int64_t size) { at(dim) = size; }
   const int64_t *data() const { return std::vector<int64_t>::data(); }
 
   bool operator==(const Shape &other) const;

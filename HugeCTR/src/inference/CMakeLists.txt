@@ -90,6 +90,7 @@ file(GLOB huge_ctr_inference_src
   ../io/s3_filesystem.cpp
   ../io/local_filesystem.cpp
   ../io/gcs_filesystem.cpp
+  ../network_buffer_channels.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)

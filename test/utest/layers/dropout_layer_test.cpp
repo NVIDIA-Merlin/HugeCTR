@@ -18,6 +18,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <cstdlib>
 #include <layers/dropout_layer.hpp>
 #include <utest/test_utils.hpp>
@@ -32,39 +35,44 @@ const float eps = 1e-6;
 const float thr = 0.95f;
 
 template <typename T>
-void dropout_test(size_t dim0, size_t dim1, float rate) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, dim1};
-  Tensor2<T> in_tensor;
-  buf->reserve(dims, &in_tensor);
-  Tensor2<T> out_tensor;
-  buf->reserve(dims, &out_tensor);
+void dropout_test(int64_t dim0, int64_t dim1, float rate) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  DropoutLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, test::get_default_gpu());
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::CUDAStream stream(cudaStreamDefault, 0);
 
-  buf->allocate();
+  auto shape = core23::Shape({dim0, dim1});
+  auto len = shape.size();
 
-  const int len = dim0 * dim1;
-  const int n_bytes = len * sizeof(T);
-  T* d_in = in_tensor.get_ptr();
-  T* d_out = out_tensor.get_ptr();
+  core23::TensorParams tensor_params =
+      core23::TensorParams(shape)
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+  core23::Tensor bottom_tensor(tensor_params);
+  core23::Tensor top_tensor(tensor_params);
 
-  std::unique_ptr<T[]> h_in(new T[len]);
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_in.get(), len);
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice));
+  DropoutLayer<T> dropout_layer(bottom_tensor, top_tensor, rate, test::get_default_gpu());
 
-  std::unique_ptr<T[]> h_out(new T[len]);
+  std::vector<T> h_bottom(len);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
+
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
 
   // fprop test
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   dropout_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost));
+  std::vector<T> h_top(len);
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
+
   int cnt_zero_fprop = 0;
   for (int i = 0; i < len; i++) {
-    if (std::abs(h_out[i] - 0.f) < eps) {
+    if (std::abs(h_top[i] - 0.f) < eps) {
       cnt_zero_fprop++;
     }
   }
@@ -79,15 +87,18 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   dropout_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_bottom.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
   int cnt_zero_bprop = 0;
   for (int i = 0; i < len; i++) {
-    if (std::abs(h_out[i] - 0.f) < eps) {
+    if (std::abs(h_bottom[i] - 0.f) < eps) {
       cnt_zero_bprop++;
     }
   }
-
-  ASSERT_TRUE(cnt_zero_fprop == cnt_zero_bprop);
+  ref_zero_cnt = rate * len;
+  p = (cnt_zero_bprop < ref_zero_cnt) ? ref_zero_cnt : cnt_zero_bprop;
+  c = (cnt_zero_bprop < ref_zero_cnt) ? cnt_zero_bprop : ref_zero_cnt;
+  ASSERT_TRUE(c / p > thr);
 }
 
 TEST(dropout_layer, fp32_2048x1024_25) { dropout_test<float>(2048, 1024, 0.25); }

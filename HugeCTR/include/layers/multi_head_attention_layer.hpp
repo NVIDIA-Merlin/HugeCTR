@@ -26,10 +26,11 @@ namespace HugeCTR {
  */
 template <typename T>
 class MultiHeadAttentionLayer : public Layer {
-  bool enable_tf32_compute_;
-  bool use_mixed_precision_;
-
  public:
+  MultiHeadAttentionLayer(const std::vector<core23::Tensor>& input_tensors,
+                          std::vector<core23::Tensor>& output_tensors, int num_attention_heads,
+                          bool transpose_b, const std::shared_ptr<GPUResource>& gpu_resource,
+                          bool use_mixed_precision, bool enable_tf32_compute);
   /**
    * Ctor of MultiHeadAttentionLayer.
    * @param in_tensor the input tensor
@@ -67,15 +68,21 @@ class MultiHeadAttentionLayer : public Layer {
   /*
    * stores the axis.
    */
-  size_t num_;
-  size_t dims_;
-  size_t batch_size_;
-  size_t num_head_;
+
+  bool enable_tf32_compute_;
+  bool use_mixed_precision_;
+  int64_t num_;
+  int64_t dims_;
   bool transpose_b_;
+  int64_t num_head_;
   Tensor2<T> fprop_inputA_;
   Tensor2<T> query_buf_;
   Tensor2<T> key_buf_;
   Tensor2<T> value_buf_;
+  core23::Tensor fprop_inputA_tensor_;
+  core23::Tensor query_buf_tensor_;
+  core23::Tensor key_buf_tensor_;
+  core23::Tensor value_buf_tensor_;
 };
 
 }  // namespace HugeCTR
