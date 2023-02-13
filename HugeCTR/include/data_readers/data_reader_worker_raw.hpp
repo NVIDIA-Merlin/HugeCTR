@@ -39,23 +39,24 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   std::vector<CSR<T>> host_sparse_buffer_;
 
   void read_new_file() {
-    Error_t flag = source_->next_source();
+    Error_t flag = source_->next_source(1);
     if (flag == Error_t::EndOfFile) {
       throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
     }
   }
 
+ public:
   void post_set_source() override {
     is_eof_ = false;
     buffer_->state.store(BufferState::ReadyForWrite);
   }
 
- public:
   /**
    * Ctor
    */
   DataReaderWorkerRaw(const int worker_id, const int worker_num,
-                      const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
+                      const std::shared_ptr<GPUResource>& gpu_resource,
+                      const std::shared_ptr<std::atomic<bool>>& loop_flag,
                       const std::shared_ptr<ThreadBuffer>& buffer,
                       std::shared_ptr<MmapOffsetList>& file_offset_list, bool repeat,
                       const std::vector<DataReaderSparseParam>& params, bool float_label_dense)
@@ -95,6 +96,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
       total_slot_num_ += param.slot_num;
     }
   }
+  void do_h2d(){};
   /**
    * read a batch of data from data set to heap.
    */
@@ -112,7 +114,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
 
         while (buffer_->state.load() != BufferState::ReadyForWrite) {
           usleep(2);
-          if (*loop_flag_ == 0) return;
+          if (!loop_flag_->load()) return;
         }
         return;
       } else {
@@ -232,6 +234,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
 
     return;
   }
+  DataReaderType_t get_reader_type() override { return DataReaderType_t::Raw; }
 };
 
 }  // namespace HugeCTR

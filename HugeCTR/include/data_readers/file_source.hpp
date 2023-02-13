@@ -70,7 +70,7 @@ class FileSource : public Source {
    * Start a new file to read.
    * @return `Success`, `FileCannotOpen` or `UnspecificError`
    */
-  Error_t next_source() noexcept {
+  Error_t next_source(long long expected_next_source_items) noexcept {
     try {
       if (in_file_stream_.is_open()) {
         in_file_stream_.close();

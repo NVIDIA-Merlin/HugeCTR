@@ -540,7 +540,9 @@ template <typename SparseType>
 void AsyncDataReader<SparseType>::create_drwg_parquet(std::string file_list,
                                                       bool strict_order_of_batches,
                                                       const std::vector<long long> slot_offset,
-                                                      bool start_reading_from_beginning) {}
+                                                      bool start_reading_from_beginning,
+                                                      long long max_samples_per_group,
+                                                      int label_dense_num, int label_dense_dim) {}
 #endif
 template <typename SparseType>
 void AsyncDataReader<SparseType>::set_source(std::string file_list) {}

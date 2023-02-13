@@ -47,12 +47,9 @@ void create_datareader<TypeKey>::operator()(
 
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
   for (size_t i = 0; i < inference_parser.slot_num_for_tables.size(); i++) {
-    DataReaderSparseParam param;
-    param.top_name = inference_parser.sparse_names[i];
-    param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
-    param.slot_num = inference_parser.slot_num_for_tables[i];
-    param.max_nnz = inference_parser.max_nnz_for_tables[i];
-    data_reader_sparse_param_array.push_back(param);
+    data_reader_sparse_param_array.emplace_back(inference_parser.sparse_names[i],
+                                                inference_parser.max_nnz_for_tables[i], false,
+                                                inference_parser.slot_num_for_tables[i]);
   }
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
@@ -81,8 +78,36 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      data_reader->create_drwg_parquet(source, false, slot_offset, true);
-      HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
+      std::shared_ptr<Metadata> parquet_meta = std::make_shared<Metadata>();
+      auto get_meta_path = [&](std::string one_parquet_file_path) -> std::string {
+        std::size_t found = one_parquet_file_path.find_last_of("/\\");
+        std::string metadata_path = one_parquet_file_path.substr(0, found);
+        metadata_path.append("/_metadata.json");
+        return metadata_path;
+      };
+      std::string first_file_name, buff;
+      std::string metadata_path;
+      std::ifstream read_stream(source, std::ifstream::in);
+      if (!read_stream.is_open()) {
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + source);
+      }
+      std::getline(read_stream, buff);
+      int num_of_files = std::stoi(buff);
+      if (num_of_files) {
+        std::getline(read_stream, first_file_name);
+        metadata_path = get_meta_path(first_file_name);
+      }
+      parquet_meta->reset_metadata(metadata_path);
+      auto parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
+      auto parquet_label_cols = parquet_meta->get_label_names().size();
+      auto parquet_dense_cols = parquet_meta->get_cont_names().size();
+      read_stream.close();
+      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %d\n",
+               parquet_eval_max_row_group_size);
+      data_reader->create_drwg_parquet(source, false, slot_offset, true,
+                                       parquet_eval_max_row_group_size,
+                                       parquet_dense_cols + parquet_label_cols,
+                                       inference_parser.dense_dim + inference_parser.label_dim);
 #endif
       break;
     }
@@ -120,7 +145,7 @@ void create_datareader<TypeKey>::operator()(
     std::vector<TensorBag2>& label_tensor_list, std::vector<TensorBag2>& dense_tensor_list,
     const std::string& source, const DataReaderType_t data_reader_type, const Check_t check_type,
     const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-    const DataSourceParams& data_source_params) {
+    const DataSourceParams& data_source_params, bool read_file_seq) {
   HCTR_CHECK_HINT(label_tensor_list.size() == 0,
                   "label tensor list should be empty before creating data reader");
   HCTR_CHECK_HINT(dense_tensor_list.size() == 0,
@@ -137,12 +162,9 @@ void create_datareader<TypeKey>::operator()(
 
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
   for (size_t i = 0; i < inference_parser.slot_num_for_tables.size(); i++) {
-    DataReaderSparseParam param;
-    param.top_name = inference_parser.sparse_names[i];
-    param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
-    param.slot_num = inference_parser.slot_num_for_tables[i];
-    param.max_nnz = inference_parser.max_nnz_for_tables[i];
-    data_reader_sparse_param_array.push_back(param);
+    data_reader_sparse_param_array.emplace_back(inference_parser.sparse_names[i],
+                                                inference_parser.max_nnz_for_tables[i], false,
+                                                inference_parser.slot_num_for_tables[i]);
   }
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
@@ -173,8 +195,36 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      // read_file_sequentially = True, start_reading_from_beginning = True
-      data_reader->create_drwg_parquet(source, true, slot_offset, true);
+      std::shared_ptr<Metadata> parquet_meta = std::make_shared<Metadata>();
+      auto get_meta_path = [&](std::string one_parquet_file_path) -> std::string {
+        std::size_t found = one_parquet_file_path.find_last_of("/\\");
+        std::string metadata_path = one_parquet_file_path.substr(0, found);
+        metadata_path.append("/_metadata.json");
+        return metadata_path;
+      };
+      std::string first_file_name, buff;
+      std::string metadata_path;
+      std::ifstream read_stream(source, std::ifstream::in);
+      if (!read_stream.is_open()) {
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + source);
+      }
+      std::getline(read_stream, buff);
+      int num_of_files = std::stoi(buff);
+      if (num_of_files) {
+        std::getline(read_stream, first_file_name);
+        metadata_path = get_meta_path(first_file_name);
+      }
+      parquet_meta->reset_metadata(metadata_path);
+      auto parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
+      auto parquet_label_cols = parquet_meta->get_label_names().size();
+      auto parquet_dense_cols = parquet_meta->get_cont_names().size();
+      read_stream.close();
+      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %ld\n",
+               parquet_eval_max_row_group_size);
+      data_reader->create_drwg_parquet(source, read_file_seq, slot_offset, true,
+                                       parquet_eval_max_row_group_size,
+                                       parquet_dense_cols + parquet_label_cols,
+                                       inference_parser.dense_dim + inference_parser.label_dim);
       HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;

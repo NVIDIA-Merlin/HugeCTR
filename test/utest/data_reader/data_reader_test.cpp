@@ -97,8 +97,8 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   buff->allocate();
 
   // setup a data reader
-  int loop_flag = 1;
-  DataReaderWorker<T> data_reader(0, 1, local_gpu, &loop_flag, thread_buffer, file_list_name,
+  std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
+  DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_list_name,
                                   buffer_length, repeat, CHK, params);
 
   // call read a batch

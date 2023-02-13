@@ -58,9 +58,11 @@ class IDataReader {
                                bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
 #ifndef DISABLE_CUDF
-  virtual void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
-                                   const std::vector<long long> slot_offset,
-                                   bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_parquet(
+      std::string file_list, bool strict_order_of_batches, const std::vector<long long> slot_offset,
+      bool start_reading_from_beginning = true, long long max_samples_per_group = 0,
+      // label_dense_dim + fixed_slot_dims + variable_slot_id.size() == all columns
+      int label_dense_num = 0, int label_dense_dim = 0) = 0;
 #endif
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type

@@ -94,7 +94,7 @@ class SparseEmbeddingHashCpu {
   int MAX_TRY = 10;
   void read_new_file() {
     for (int i = 0; i < MAX_TRY; i++) {
-      checker_->next_source();
+      checker_->next_source(1);
 
       Error_t err =
           checker_->read(reinterpret_cast<char *>(&data_set_header_), sizeof(DataSetHeader));

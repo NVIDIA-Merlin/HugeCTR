@@ -52,7 +52,7 @@ TEST(checker, CheckSum) {
   FileSource file_source(0, 1, "file_list.txt", repeat);
   CheckSum check_sum(file_source);
   char tmp1[NUM_CHAR], tmp2[NUM_CHAR];
-  check_sum.next_source();
+  check_sum.next_source(1);
   EXPECT_EQ(check_sum.read(tmp1, NUM_CHAR), Error_t::Success);
   // for(int i=0; i< NUM_CHAR; i++){
   //   HCTR_LOG_S(DEBUG, WORLD) << tmp1[i];

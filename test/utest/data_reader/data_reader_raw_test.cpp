@@ -102,8 +102,8 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
       file_name, num_samples, (label_dim + dense_dim + slot_num) * sizeof(int), batchsize, false, 1,
       repeat);
 
-  int loop_flag = 1;
-  DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, &loop_flag, thread_buffer, file_offset_list,
+  std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
+  DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_offset_list,
                                      repeat, params, float_label_dense);
 
   int round = (num_samples - 1) / batchsize + 1;
