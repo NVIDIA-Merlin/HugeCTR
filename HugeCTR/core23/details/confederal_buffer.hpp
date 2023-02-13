@@ -28,7 +28,7 @@ class OffsettedBuffer;
 
 class ConfederalBuffer final : public Buffer {
  public:
-  ConfederalBuffer(std::unique_ptr<Allocator> allocator);
+  ConfederalBuffer(const Device& device, std::unique_ptr<Allocator> allocator);
   ~ConfederalBuffer() override;
 
   bool subscribable() const;

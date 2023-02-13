@@ -14,29 +14,28 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <core23/buffer_channel.hpp>
-#include <core23/buffer_channel_helpers.hpp>
+#include <base/debug/logger.hpp>
 #include <core23/device.hpp>
-#include <cstdint>
-#include <functional>
-#include <memory>
+#include <core23/device_guard.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-class Buffer;
+DeviceGuard::DeviceGuard() : original_device_(Device::current()) {}
+DeviceGuard::DeviceGuard(const Device& new_device) : DeviceGuard() {
+  if (new_device != original_device_) {
+    set_device(new_device);
+  }
+}
 
-struct BufferParams {
-  using CustomFactory = std::function<std::shared_ptr<Buffer>(
-      const BufferParams&, const Device& device, std::unique_ptr<Allocator>)>;
+DeviceGuard::~DeviceGuard() { set_device(original_device_); }
 
-  BufferChannel channel = GetRandomBufferChannel();
-  bool unitary = true;
-  CustomFactory custom_factory;
-};
+void DeviceGuard::set_device(const Device& device) {
+  if (device.type() != DeviceType::CPU) {
+    HCTR_LIB_THROW(cudaSetDevice(device.index()));
+  }
+}
 
 }  // namespace core23
 }  // namespace HugeCTR

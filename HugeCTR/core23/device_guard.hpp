@@ -16,27 +16,27 @@
 
 #pragma once
 
-#include <core23/buffer_channel.hpp>
-#include <core23/buffer_channel_helpers.hpp>
-#include <core23/device.hpp>
-#include <cstdint>
-#include <functional>
-#include <memory>
+#include <optional>
+#include <string>
 
 namespace HugeCTR {
-
 namespace core23 {
 
-class Buffer;
+class Device;
 
-struct BufferParams {
-  using CustomFactory = std::function<std::shared_ptr<Buffer>(
-      const BufferParams&, const Device& device, std::unique_ptr<Allocator>)>;
+class DeviceGuard final {
+ public:
+  DeviceGuard();
+  DeviceGuard(const Device& device);
+  ~DeviceGuard();
 
-  BufferChannel channel = GetRandomBufferChannel();
-  bool unitary = true;
-  CustomFactory custom_factory;
+  void set_device(const Device& device);
+
+ private:
+  Device original_device_;
 };
+
+std::ostream& operator<<(std::ostream& os, Device device);
 
 }  // namespace core23
 }  // namespace HugeCTR

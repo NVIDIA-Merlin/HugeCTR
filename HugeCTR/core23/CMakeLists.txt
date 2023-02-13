@@ -24,6 +24,7 @@ buffer_channel.cpp
 buffer_channel_helpers.cpp
 buffer_factory.cpp
 device.cpp
+device_guard.cpp
 device_type.cpp
 data_type.cpp
 offsetted_buffer.cpp

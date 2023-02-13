@@ -18,14 +18,15 @@
 #include <core23/allocator.hpp>
 #include <core23/buffer_client.hpp>
 #include <core23/details/unitary_buffer.hpp>
+#include <core23/device.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-UnitaryBuffer::UnitaryBuffer(std::unique_ptr<Allocator> allocator)
-    : Buffer(std::move(allocator)), allocated_(false), ptr_(nullptr) {}
+UnitaryBuffer::UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
+    : Buffer(device, std::move(allocator)), allocated_(false), ptr_(nullptr) {}
 
 UnitaryBuffer::~UnitaryBuffer() { allocator()->deallocate(ptr_); }
 

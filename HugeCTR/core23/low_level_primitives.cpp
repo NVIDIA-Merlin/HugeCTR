@@ -19,6 +19,7 @@
 #include <core23/data_type_helpers.cuh>
 #include <core23/details/host_launch_helpers.hpp>
 #include <core23/device.hpp>
+#include <core23/device_guard.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <optional>
 
@@ -73,6 +74,7 @@ inline void copy_common(void* dst_data, const void* src_data, int64_t num_bytes,
     return;
   }
 
+  DeviceGuard device_guard(src_device);
   if (src_device.type() == dst_device.type()) {
     if (src_device.type() == DeviceType::CPU) {
       copy_cpu_to_cpu(dst_data, src_data, num_bytes, stream_or);
