@@ -236,7 +236,7 @@ Core23TempBatchNormLayer<T>::Core23TempBatchNormLayer(
   const auto& in_tensor_dim = in_tensor.shape();
   const auto& out_tensor_dim = out_tensor.shape();
 
-  assert(get_size_from_dims(in_tensor_dim) == get_size_from_dims(out_tensor_dim));
+  assert(in_tensor_dim.size() == out_tensor_dim.size());
   assert(in_tensor_dim.dims() == 2 && out_tensor_dim.dims() == 2);
   assert(in_tensor_dim.size(0) == out_tensor_dim.size(0));
   assert(in_tensor_dim.size(1) == out_tensor_dim.size(1));

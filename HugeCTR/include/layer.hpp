@@ -80,7 +80,7 @@ class Layer {
   virtual void init_params(const curandGenerator_t& generator);
 
   Layer(const std::vector<core23::Tensor>& input_tensors,
-        const std::vector<core23::Tensor>& output_tensor,
+        const std::vector<core23::Tensor>& output_tensors,
         const std::shared_ptr<GPUResource>& gpu_resource,
         std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   Layer(const std::shared_ptr<GPUResource>& gpu_resource,

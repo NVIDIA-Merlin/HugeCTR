@@ -15,7 +15,6 @@
  */
 
 #include <base/debug/logger.hpp>
-#include <core23/device.hpp>
 #include <core23/device_guard.hpp>
 
 namespace HugeCTR {

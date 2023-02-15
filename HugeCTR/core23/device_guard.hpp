@@ -19,6 +19,8 @@
 #include <optional>
 #include <string>
 
+#include <core23/device.hpp>
+
 namespace HugeCTR {
 namespace core23 {
 
@@ -35,8 +37,6 @@ class DeviceGuard final {
  private:
   Device original_device_;
 };
-
-std::ostream& operator<<(std::ostream& os, Device device);
 
 }  // namespace core23
 }  // namespace HugeCTR

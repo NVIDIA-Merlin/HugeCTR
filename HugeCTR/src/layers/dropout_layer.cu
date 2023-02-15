@@ -33,7 +33,7 @@ DropoutLayer<T>::DropoutLayer(const core23::Tensor& input_tensor,
     : Layer({input_tensor}, {output_tensor}, gpu_resource),
       rate_(rate),
       scale_(1.0 / (1.0 - rate)) {
-  assert(input_tensors_[0].num_elements() == output_tensor_[0].num_elements());
+  assert(input_tensors_[0].num_elements() == output_tensors_[0].num_elements());
   assert(rate_ > 0.f && rate_ < 1.f);
 
   const auto& in_tensor_shape = input_tensors_[0].shape();

@@ -33,7 +33,8 @@ class Shape : private std::vector<int64_t> {
   bool valid() const { return size() != 0; }
   int64_t dims() const { return std::vector<int64_t>::size(); }
   int64_t size(int64_t dim) const { return empty() ? 0 : at(dim); }
-  int64_t &operator[](const int64_t &dim) { return at(dim); }
+  int64_t &operator[](const int64_t dim) { return at(dim); }
+  const int64_t &operator[](const int64_t dim) const { return at(dim); }
   int64_t size() const {
     if (empty()) {
       return 0;

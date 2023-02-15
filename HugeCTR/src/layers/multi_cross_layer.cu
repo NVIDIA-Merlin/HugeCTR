@@ -1273,8 +1273,8 @@ void matrix_add(core23::Tensor& out_mat, const core23::Tensor& mat_a, const core
   const auto& dim = out_mat.shape();
   const auto& idim1 = mat_a.shape();
   const auto& idim2 = mat_b.shape();
-  assert(idim1[0] == dim.size(0) && idim1[1] == dim.size(1));
-  assert(idim2[0] == dim.size(0) && idim2[1] == dim.size(1));
+  assert(idim1.size(0) == dim.size(0) && idim1.size(1) == dim.size(1));
+  assert(idim2.size(0) == dim.size(0) && idim2.size(1) == dim.size(1));
 
   const int h = dim.size(0);
   const int w = dim.size(1);
