@@ -16,19 +16,19 @@ Pull a container based on the modeling framework and notebook that you want to r
 To run the [demo_for_tf_trained_model.ipynb](demo_for_tf_trained_model.ipynb) notebook, pull the Merlin TensorFlow container:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:23.01
+docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 ```
 
 To run the [demo_for_pytorch_trained_model.ipynb](demo_for_pytorch_trained_model.ipynb) notebook, pull the Merlin PyTorch container:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-pytorch:23.01
+docker pull nvcr.io/nvidia/merlin/merlin-pytorch:23.02
 ```
 
 To run the [demo_for_hugectr_trained_model.ipynb](demo_for_hugectr_trained_model.ipynb) notebook, pull the Merlin HugeCTR container:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.01
+docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.02
 ```
 
 The HPS TensorRT plugin is installed in all the containers.
@@ -46,7 +46,7 @@ git clone https://github.com/NVIDIA-Merlin/HugeCTR
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running the following command.
 
    ```shell
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/<container-name>:23.01
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/<container-name>:23.02
    ```
 
 2. Start Jupyter using these commands:

@@ -157,6 +157,7 @@ stages:
       fi
     - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
+        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
