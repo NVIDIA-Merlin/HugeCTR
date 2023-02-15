@@ -179,8 +179,8 @@ template <typename KeyType, typename CounterType, KeyType empty_key, CounterType
 unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::~unique_op() noexcept(false) {
   // Device Restorer
   CudaDeviceContext dev_restorer;
-  // Set device
-  HCTR_LIB_THROW(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Free keys and vals
   HCTR_LIB_THROW(cudaFree(keys_));
@@ -203,8 +203,8 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
     size_t* d_output_counter, cudaStream_t stream) {
   // Device Restorer
   CudaDeviceContext dev_restorer;
-  // Set to the device of this op
-  HCTR_LIB_THROW(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Set the d_output_counter to 0
   HCTR_LIB_THROW(cudaMemsetAsync(d_output_counter, 0, sizeof(size_t), stream));
@@ -230,8 +230,8 @@ template <typename KeyType, typename CounterType, KeyType empty_key, CounterType
 void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::clear(cudaStream_t stream) {
   // Device Restorer
   CudaDeviceContext dev_restorer;
-  // Set to the device of this op
-  HCTR_LIB_THROW(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType>
