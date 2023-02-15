@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-#include <unistd.h>
-
 #include <argparse/argparse.hpp>
 #include <chrono>
+#include <common.hpp>
+#include <data_readers/async_reader/async_reader.hpp>
 #include <filesystem>
+#include <resource_manager.hpp>
 #include <vector>
-
-#include "common.hpp"
-#include "data_readers/async_reader/async_reader.hpp"
-#include "resource_manager.hpp"
 
 using namespace HugeCTR;
 

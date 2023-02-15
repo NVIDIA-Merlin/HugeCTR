@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,21 +19,19 @@
 
 #include <algorithm>
 #include <cmath>
+#include <common.hpp>
 #include <cstdlib>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/statistics.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <iostream>
 #include <map>
 #include <numeric>
+#include <tensor2.hpp>
 #include <unordered_set>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
+#include <utest/embedding/hybrid_embedding/statistics_test.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "gtest/gtest.h"
-#include "test/utest/embedding/hybrid_embedding/statistics_test.hpp"
-#include "utest/embedding/hybrid_embedding/input_generator.hpp"
 
 using namespace HugeCTR;
 using namespace HugeCTR::hybrid_embedding;

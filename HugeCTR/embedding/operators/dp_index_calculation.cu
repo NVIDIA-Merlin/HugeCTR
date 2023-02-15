@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cub/cub.cuh>
 
-#include "HugeCTR/include/utils.cuh"
-#include "dp_index_calculation.hpp"
+#include <cub/cub.cuh>
+#include <embedding/operators/dp_index_calculation.hpp>
+#include <embedding/operators/generic_lookup.cuh>
+#include <utils.cuh>
+#include <utils.hpp>
 
 namespace embedding {
 namespace {
@@ -335,6 +337,7 @@ __global__ void hash_table_lookup_key_and_map_ev_start_indices(
     }
   }
 }
+
 }  // namespace
 
 void broadcast_unique_keys(const embedding::WgradEvStartIndicesCalculationInput& input,
@@ -506,4 +509,5 @@ void SparseAllreduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput&
   local_reduce_index_calculation_.cal_dst_ev_start(local_reduce_wgrad,
                                                    sparse_allreduce_cal_ev_start_indices);
 }
+
 }  // namespace embedding

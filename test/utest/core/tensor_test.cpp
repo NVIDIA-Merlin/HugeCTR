@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/core/tensor.hpp"
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <core/hctr_impl/hctr_backend.hpp>
+#include <core/tensor.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utils.hpp>
+
 namespace {
 using namespace core;
 
@@ -151,4 +151,5 @@ TEST(test_core, native_hugectr_tensor) {
                                    HugeCTR::TensorScalarTypeFunc<float>::get_type());
   Tensor t{t_impl};
 }
+
 }  // namespace

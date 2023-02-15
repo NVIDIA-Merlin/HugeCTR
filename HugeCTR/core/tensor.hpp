@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 /*
 This header file will be included in sok and be compiled with tensorflow by c++14.
 So make sure this headerfile is c++14 compatible.
 We use cudaStream_t stream = 0 to represent the use case that user do not specify cudaStream_t in
 copy function. signature
 */
-#pragma once
+
 #include <nccl.h>
 
+#include <core/core.hpp>
+#include <core/datatype.hpp>
+#include <core/device.hpp>
+#include <core/macro.hpp>
+#include <core/shape.hpp>
 #include <memory>
 
-#include "core.hpp"
-#include "datatype.hpp"
-#include "device.hpp"
-#include "macro.hpp"
-#include "shape.hpp"
-
 namespace core {
+
 class CoreResourceManager;
 
 ncclDataType_t get_nccl_dtype_from_tensor_scalar_type(TensorScalarType scalar_type);
@@ -235,4 +237,5 @@ class TensorList final {
 
   size_t nbytes() const { return dtype().itemsize() * get_num_elements(); }
 };
+
 }  // namespace core

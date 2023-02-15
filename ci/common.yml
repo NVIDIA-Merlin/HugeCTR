@@ -41,3 +41,13 @@ variables:
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}
   RD_CI_JOB_TOKEN: gitlab-ci-token:${CI_JOB_TOKEN}@
   EXTRA_DOCKER_RUN_ARGS: "--label RUNNER_ID=${RUNNER_ID}"
+  # Variables for child pipeline on Dracorno cluster
+  DRACO_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/criteo_kaggle
+  DRACO_DIN_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/din
+  DRACO_NCF_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/ncf_data
+  DRACO_DATASET_NEW_CRITEO: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/new_criteo_kaggle
+  DRACO_MMOE_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/mmoe_data
+  DRACO_BST_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/bst
+  DRACO_CLUSTER: "dracorno"
+  DRACO_LOGDIR: ${DATA_PREFIX}/fs1/projects/gpu_compute/users/svcnvdlfw/hugectr_ci/${PARENT_PIPELINE_ID}
+  DRACORNO_SBATCH_OTHER_PARAMS: "--nv-meta ml-model.${CI_PROJECT_NAME} --gpus-per-node=8 "

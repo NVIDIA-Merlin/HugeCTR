@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <embedding/embedding.hpp>
 #include <iterator>
 #include <numeric>
 #include <unordered_set>
+#include <utest/embedding_collection/embedding_collection_utils.hpp>
+#include <utest/embedding_collection/embedding_table_cpu.hpp>
 
-#include "HugeCTR/embedding/embedding.hpp"
-#include "embedding_collection_utils.hpp"
-#include "embedding_table_cpu.hpp"
 using namespace embedding;
 
 struct ModelParallelEmbeddingMetaCPU {

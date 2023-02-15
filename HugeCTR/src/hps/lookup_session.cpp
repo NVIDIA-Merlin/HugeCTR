@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
     }
     HCTR_LOG(INFO, ROOT, "Creating lookup session for %s on device: %d\n",
              inference_params_.model_name.c_str(), inference_params_.device_id);
-    // initialize the profiler
     ls_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::LOOKSESSION);
-    CudaDeviceContext context(inference_params_.device_id);
+    CudaDeviceContext dev_restorer;
+    dev_restorer.check_device(inference_params_.device_id);
     for (size_t idx = 0; idx < inference_params_.sparse_model_files.size(); ++idx) {
       cudaStream_t stream;
       cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
@@ -55,7 +55,8 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
 }
 
 LookupSession::~LookupSession() {
-  CudaDeviceContext context(inference_params_.device_id);
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(inference_params_.device_id);
   for (auto stream : lookup_streams_) HCTR_LIB_THROW(cudaStreamDestroy(stream));
 }
 
@@ -63,7 +64,8 @@ void LookupSession::lookup(const void* const h_keys, float* const d_vectors, con
                            const size_t table_id) {
   const auto begin = std::chrono::high_resolution_clock::now();
   BaseUnit* start = profiler::start();
-  CudaDeviceContext context(inference_params_.device_id);
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(inference_params_.device_id);
   // embedding_cache lookup
   embedding_cache_->lookup(table_id, d_vectors, h_keys, num_keys,
                            inference_params_.hit_rate_threshold, lookup_streams_[table_id]);
@@ -78,7 +80,8 @@ void LookupSession::lookup(const void* const h_keys, float* const d_vectors, con
 void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
                            const std::vector<float*>& d_vectors_per_table,
                            const std::vector<size_t>& num_keys_per_table) {
-  CudaDeviceContext context(inference_params_.device_id);
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(inference_params_.device_id);
   HCTR_CHECK_HINT(h_keys_per_table.size() == inference_params_.sparse_model_files.size(),
                   "The h_keys_per_table.size() should be equal to the number of embedding tables");
   HCTR_CHECK_HINT(
@@ -114,7 +117,8 @@ void LookupSession::lookup_from_device(const void* const d_keys, float* const d_
                                        const size_t num_keys, const size_t table_id) {
   const auto begin = std::chrono::high_resolution_clock::now();
   BaseUnit* start = profiler::start();
-  CudaDeviceContext context(inference_params_.device_id);
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(inference_params_.device_id);
   // embedding_cache lookup
   embedding_cache_->lookup_from_device(table_id, d_vectors, d_keys, num_keys,
                                        inference_params_.hit_rate_threshold,
@@ -130,7 +134,8 @@ void LookupSession::lookup_from_device(const void* const d_keys, float* const d_
 void LookupSession::lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                        const std::vector<float*>& d_vectors_per_table,
                                        const std::vector<size_t>& num_keys_per_table) {
-  CudaDeviceContext context(inference_params_.device_id);
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(inference_params_.device_id);
   HCTR_CHECK_HINT(d_keys_per_table.size() == inference_params_.sparse_model_files.size(),
                   "The d_keys_per_table.size() should be equal to the number of embedding tables");
   HCTR_CHECK_HINT(

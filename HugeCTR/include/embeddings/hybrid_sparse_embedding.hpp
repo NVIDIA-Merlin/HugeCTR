@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,32 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <collectives/all_reduce_comm.hpp>
 #include <collectives/ib_comm.hpp>
+#include <data_readers/async_reader/async_reader_adapter.hpp>
+#include <embedding.hpp>
+#include <embeddings/hybrid_embedding/calibration_data.hpp>
+#include <embeddings/hybrid_embedding/communication.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/frequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/indices_container.hpp>
+#include <embeddings/hybrid_embedding/infrequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/statistics.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <gpu_barrier.hpp>
 #include <queue>
 #include <random>
 #include <resource_manager.hpp>
 #include <string>
+#include <tensor2.hpp>
 #include <unordered_map>
 #include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/data_readers/async_reader/async_reader_adapter.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/calibration_data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/communication.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/frequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/tensor2.hpp"
 
 using namespace HugeCTR::hybrid_embedding;
 

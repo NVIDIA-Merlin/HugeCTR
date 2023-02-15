@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cuda_runtime_api.h>
@@ -42,6 +41,13 @@ class CudaDeviceRestorer {
  public:
   CudaDeviceRestorer() { CUDA_CHECK(cudaGetDevice(&dev_)); }
   ~CudaDeviceRestorer() { CUDA_CHECK(cudaSetDevice(dev_)); }
+  void check_device(int device) const {
+    if (device != dev_) {
+      throw std::runtime_error(
+          std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+          ": Runtime Error: The device id in the context is not consistent with configuration");
+    }
+  }
 
  private:
   int dev_;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <common.hpp>
@@ -44,7 +43,7 @@ class Source {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  virtual Error_t next_source() noexcept = 0;
+  virtual Error_t next_source(long long expected_next_source_items) noexcept = 0;
 
   virtual long long get_num_of_items_in_source() { return 0; }
 

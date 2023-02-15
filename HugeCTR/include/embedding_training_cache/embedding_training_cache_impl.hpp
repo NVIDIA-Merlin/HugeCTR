@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <algorithm>
 #include <embedding.hpp>
+#include <embedding_training_cache/parameter_server_manager.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <iterator>
-
-#include "HugeCTR/include/embedding_training_cache/parameter_server_manager.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 
 namespace HugeCTR {
 

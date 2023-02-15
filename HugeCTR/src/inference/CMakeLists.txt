@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -9,6 +9,8 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 cmake_minimum_required(VERSION 3.8)
@@ -117,7 +119,7 @@ if(ENABLE_GCS)
   )
 endif()
 
-target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(huge_ctr_inference PUBLIC hugectr_core23 cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(huge_ctr_inference PUBLIC  numa )
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include "embedding_training_cache/sparse_model_entity.hpp"
-
 #include <omp.h>
 
 #include <algorithm>
+#include <embedding_training_cache/sparse_model_entity.hpp>
 #include <execution>
 #include <fstream>
 #include <iterator>
@@ -26,8 +25,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
-
-#include "utils.hpp"
+#include <utils.hpp>
 
 namespace {
 

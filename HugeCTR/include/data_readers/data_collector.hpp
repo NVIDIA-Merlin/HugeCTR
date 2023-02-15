@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
+#include <nvToolsExt.h>
 #include <omp.h>
-#include <unistd.h>
 
 #include <atomic>
 #include <common.hpp>
+#include <data_readers/data_reader_common.hpp>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -28,10 +28,10 @@
 #include <thread>
 #include <utils.hpp>
 
-#include "data_readers/data_reader_common.hpp"
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
+
 namespace HugeCTR {
 
 template <typename TypeComp>
@@ -114,6 +114,7 @@ class DataCollector {
           }
           dst_buffer->current_batch_size = current_src_buffer->current_batch_size;
           if (current_src_buffer->current_batch_size != 0) {
+            // P2P
             broadcast<T>(current_src_buffer, dst_buffer, last_batch_nnz_, resource_manager_);
 
             current_src_buffer->state.store(BufferState::ReadyForWrite);
@@ -175,8 +176,9 @@ class DataCollector {
     }
     long long current_batch_size = broadcast_buffer_->current_batch_size;
     if (current_batch_size != 0) {
+      // D2D
       int local_gpu_count = resource_manager_->get_local_gpu_count();
-
+      nvtxRangePushA("to_output");
 #pragma omp parallel for num_threads(local_gpu_count)
       for (int i = 0; i < local_gpu_count; ++i) {
         auto local_gpu = resource_manager_->get_local_gpu(i);
@@ -224,6 +226,7 @@ class DataCollector {
                 local_gpu->get_stream());
         }
       }
+      nvtxRangePop();
     } else {
       broadcast_buffer_->state.store(BufferState::ReadyForWrite);
     }

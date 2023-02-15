@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-
-#include <stdio.h>
 
 #include <base/debug/logger.hpp>
 #include <cmath>
@@ -24,8 +21,7 @@
 #include <memory>
 #include <type_traits>
 #include <unordered_set>
-
-#include "utest/embedding/sparse_embedding_hash_cpu.hpp"
+#include <utest/embedding/sparse_embedding_hash_cpu.hpp>
 
 namespace HugeCTR {
 

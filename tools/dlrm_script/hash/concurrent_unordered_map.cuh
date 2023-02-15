@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CONCURRENT_UNORDERED_MAP_CUH
-#define CONCURRENT_UNORDERED_MAP_CUH
+#pragma once
 
 #include <thrust/pair.h>
 
@@ -524,5 +522,3 @@ class concurrent_unordered_map {
     CUDA_TRY(cudaGetLastError());
   }
 };
-
-#endif  // CONCURRENT_UNORDERED_MAP_CUH

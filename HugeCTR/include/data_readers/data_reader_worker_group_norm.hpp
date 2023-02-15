@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <data_readers/data_reader_worker.hpp>
@@ -26,11 +25,8 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   std::string file_list_; /**< file list of data set */
 
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-                                        const std::string &file_name, bool strict_order_of_batches,
-                                        bool repeat,
+                                        const std::string &file_name, bool repeat,
                                         const DataSourceParams &data_source_params) override {
-    HCTR_CHECK_HINT(!strict_order_of_batches,
-                    "Norm datareader: cant impose norm data loading order\n");
     return std::make_shared<FileSource>(worker_id, num_worker, file_name, repeat);
   }
 
@@ -62,7 +58,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
     for (int i = 0; i < num_threads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
           i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count),
-          &data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat,
+          data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat,
           check_type, params));
       data_readers_.push_back(data_reader);
     }

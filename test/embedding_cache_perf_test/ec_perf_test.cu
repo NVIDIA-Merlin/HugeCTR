@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
+
+#include <base/debug/logger.hpp>
+#include <embedding_cache_perf_test/ec_test_helper.cuh>
+#include <gpu_cache/include/nv_gpu_cache.hpp>
 #include <iostream>
 #include <nlohmann/json.hpp>
-
-#include "HugeCTR/include/base/debug/logger.hpp"
-#include "ec_test_helper.cuh"
-#include "gpu_cache/include/nv_gpu_cache.hpp"
-#include "gtest/gtest.h"
 
 namespace {
 constexpr size_t ONE_GiB = 1024 * 1024 * 1024;
@@ -79,6 +79,7 @@ void ec_perf_test(std::string json_file, size_t num_hot) {
     batch_size /= 2;
   }
 }
+
 }  // namespace
 
 TEST(ec_perf_test, zipf_distribution) {

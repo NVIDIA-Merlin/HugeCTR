@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1333,8 +1333,8 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
 
-  // Set device
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Destruct CUDA std object
   destruct_kernel<<<((capacity_in_set_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_>>>(
@@ -1358,8 +1358,8 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
 
-  // Set device
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Free GPU memory for cache
   CUDA_CHECK(cudaFree(keys_));
@@ -1381,8 +1381,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
                                    const size_t task_per_warp_tile) {
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Check if it is a valid query
   if (len == 0) {
@@ -1419,8 +1419,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
                                    const size_t task_per_warp_tile) {
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Check if it is a valid query
   if (len == 0) {
@@ -1463,8 +1463,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
@@ -1493,8 +1493,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
@@ -1523,8 +1523,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Update the value of input keys that are existed in the cache
   const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
@@ -1550,8 +1550,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Update the value of input keys that are existed in the cache
   const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
@@ -1585,8 +1585,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Set the global counter to 0 first
   CUDA_CHECK(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));
@@ -1620,8 +1620,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
-  // Set to the device of this cache
-  CUDA_CHECK(cudaSetDevice(dev_));
+  // Check device
+  dev_restorer.check_device(dev_);
 
   // Set the global counter to 0 first
   CUDA_CHECK(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));

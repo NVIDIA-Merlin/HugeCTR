@@ -1,9 +1,23 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <data_readers/multi_hot/detail/data_reader_impl.hpp>
+#include <scheduleable.hpp>
 #include <tensor2.hpp>
-
-#include "scheduleable.hpp"
 
 namespace HugeCTR {
 namespace MultiHot {
@@ -80,7 +94,9 @@ class AsyncDataReader : public SchedulableDataReader {
 #ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
                            const std::vector<long long> slot_offset,
-                           bool start_reading_from_beginning = true) override;
+                           bool start_reading_from_beginning = true,
+                           long long max_samples_per_group = 0, int label_dense_num = 0,
+                           int label_dense_dim = 0) override;
 #endif
   void set_source(std::string file_list = std::string()) override;
 

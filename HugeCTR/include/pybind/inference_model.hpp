@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <common.hpp>
 #include <hps/embedding_cache.hpp>
 #include <hps/hier_parameter_server.hpp>
@@ -31,12 +32,12 @@ class InferenceModel {
 
   float evaluate(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
                  Check_t check_type, const std::vector<long long>& slot_size_array,
-                 const DataSourceParams& data_source_params);
+                 const DataSourceParams& data_source_params, bool reading_file_seq = true);
 
   void predict(float* pred_output, size_t num_batches, const std::string& source,
                DataReaderType_t data_reader_type, Check_t check_type,
                const std::vector<long long>& slot_size_array,
-               const DataSourceParams& data_source_params);
+               const DataSourceParams& data_source_params, bool reading_file_seq = true);
 
   std::tuple<size_t, size_t, std::vector<size_t>, int> get_tensor_info_by_name(
       const std::string& tensor_name);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 #include <gtest/gtest.h>
 #include <sys/time.h>
 
+#include <core/hctr_impl/hctr_backend.hpp>
+#include <embedding/embedding.hpp>
+#include <embedding_storage/weight_io/parameter_IO.hpp>
+#include <embeddings/embedding_collection.hpp>
+#include <include/embeddings/embedding_collection.hpp>
 #include <numeric>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utest/embedding_collection/embedding_collection_cpu.hpp>
+#include <utest/embedding_collection/embedding_collection_utils.hpp>
 
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/embedding/embedding.hpp"
-#include "HugeCTR/embedding_storage/weight_io/parameter_IO.hpp"
-#include "HugeCTR/include/embeddings/embedding_collection.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "embedding_collection_cpu.hpp"
-#include "embedding_collection_utils.hpp"
-#include "embeddings/embedding_collection.hpp"
 using namespace embedding;
 
 /*

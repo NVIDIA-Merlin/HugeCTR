@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <atomic>
@@ -210,14 +209,15 @@ class DataReader : public IDataReader {
 
     data_collector_ = std::make_shared<DataCollector<TypeKey>>(thread_buffers_, broadcast_buffer_,
                                                                output_, resource_manager);
-    return;
   }
 
   ~DataReader() override {
     try {
       // stop all the loops
       data_collector_->stop();
-      worker_group_->end();
+      if (worker_group_) {
+        worker_group_->end();
+      }
       size_t local_gpu_count = resource_manager_->get_local_gpu_count();
       for (size_t i = 0; i < local_gpu_count; ++i) {
         HCTR_LIB_THROW(cudaEventDestroy(broadcast_buffer_->finish_broadcast_events[i]));
@@ -268,9 +268,15 @@ class DataReader : public IDataReader {
 
   bool current_batch_incomplete() const override { return current_batchsize_ != batchsize_; }
 
-  bool is_started() const override { return worker_group_->is_started(); }
+  bool is_started() const override { return worker_group_ && worker_group_->is_started(); }
 
-  void start() override { worker_group_->start(); }
+  void start() override {
+    if (worker_group_ != nullptr) {
+      worker_group_->start();
+    } else {
+      throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
+    }
+  }
 
   const std::vector<SparseTensorBag> &get_sparse_tensors(const std::string &name) {
     if (output_->sparse_tensors_map.find(name) == output_->sparse_tensors_map.end()) {
@@ -314,14 +320,18 @@ class DataReader : public IDataReader {
   }
 
 #ifndef DISABLE_CUDF
-  void create_drwg_parquet(std::string file_name, bool strict_order_of_batches,
+
+  void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
                            const std::vector<long long> slot_offset,
-                           bool start_reading_from_beginning = true) override {
+                           bool start_reading_from_beginning = true,
+                           long long max_samples_per_group = 0, int label_dense_num = 0,
+                           int label_dense_dim = 0) override {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name, strict_order_of_batches, repeat_, params_, slot_offset,
-        data_source_params_, resource_manager_, start_reading_from_beginning));
+        thread_buffers_, file_list, strict_order_of_batches, repeat_, params_, slot_offset,
+        data_source_params_, resource_manager_, start_reading_from_beginning, label_dense_num,
+        label_dense_dim, max_samples_per_group));
   }
 #endif
 

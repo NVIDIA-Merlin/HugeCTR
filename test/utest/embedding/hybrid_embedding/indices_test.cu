@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/frequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "hybrid_embedding_cpu.hpp"
-#include "test_common.cuh"
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/frequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/infrequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <utest/embedding/hybrid_embedding/hybrid_embedding_cpu.hpp>
+#include <utest/embedding/hybrid_embedding/test_common.cuh>
 
 /******************** Infrequent embedding: model indices ********************/
 

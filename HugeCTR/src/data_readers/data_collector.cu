@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <nvToolsExt.h>
 
 #include <common.hpp>
 #include <data_readers/data_collector.hpp>
@@ -72,11 +74,13 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
   return;
 }
 
+// broadcast, called by bg thread
 template <typename T>
 void broadcast(const std::shared_ptr<ThreadBuffer>& thread_buffer,
                std::shared_ptr<BroadcastBuffer>& broadcast_buffer,
                std::vector<size_t>& last_batch_nnz_,
                const std::shared_ptr<ResourceManager>& resource_manager) {
+  nvtxRangePushA("collector_broadcast");
   int param_num = thread_buffer->param_num;
   int dense_dim = thread_buffer->dense_dim;
   int label_dim = thread_buffer->label_dim;
@@ -119,6 +123,7 @@ void broadcast(const std::shared_ptr<ThreadBuffer>& thread_buffer,
         local_gpu->get_p2p_stream()));
     HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_p2p_stream()));
   }
+  nvtxRangePop();
 }
 
 template void broadcast<unsigned int>(const std::shared_ptr<ThreadBuffer>& thread_buffer,

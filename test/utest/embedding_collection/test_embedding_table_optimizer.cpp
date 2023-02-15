@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <core/hctr_impl/hctr_backend.hpp>
+#include <embedding_storage/dynamic_embedding.hpp>
+#include <embedding_storage/dynamic_embedding_cpu.hpp>
+#include <embedding_storage/ragged_static_embedding.hpp>
 #include <random>
-
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/embedding_storage/dynamic_embedding.hpp"
-#include "HugeCTR/embedding_storage/dynamic_embedding_cpu.hpp"
-#include "HugeCTR/embedding_storage/ragged_static_embedding.hpp"
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+#include <resource_managers/resource_manager_ext.hpp>
 
 using namespace embedding;
 

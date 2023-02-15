@@ -1,0 +1,12 @@
+#!/bin/bash
+set -ex
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" bash -c "echo -n 'Clearing cache on ' && hostname && sync && sudo /sbin/sysctl vm.drop_caches=3"
+
+srun --mpi=pmix --ntasks="${SLURM_JOB_NUM_NODES}" --ntasks-per-node=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    cd /workdir/samples/dlrm && \
+    curl --header \"PRIVATE-TOKEN: ${GIT_TOKEN}\" \"${REPO_LINK}\" -o optimized.tar && \
+    tar xvf optimized.tar --strip-components=3 -C . && \
+    pip install -r requirements.txt && \
+    source ${SOURCE_CONFIG} && \
+    python3 ${COMMAND}"

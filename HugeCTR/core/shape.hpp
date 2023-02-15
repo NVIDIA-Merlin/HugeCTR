@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <stdint.h>
 
+#include <base/debug/logger.hpp>
 #include <iostream>
 #include <vector>
-
-#include "HugeCTR/include/base/debug/logger.hpp"
 
 namespace core {
 
@@ -69,4 +67,5 @@ class Shape final {
 };
 
 std::ostream &operator<<(std::ostream &os, const Shape &s);
+
 }  // namespace core

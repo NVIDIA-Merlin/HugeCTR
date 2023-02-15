@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_readers/data_reader.hpp"
+#include <gtest/gtest.h>
 
+#include <data_generator.hpp>
+#include <data_readers/data_reader.hpp>
+#include <data_readers/data_reader_worker.hpp>
+#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <thread>
-
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_readers/data_reader_worker.hpp"
-#include "HugeCTR/include/data_readers/file_list.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
+#include <utest/test_utils.hpp>
 
 using namespace HugeCTR;
 
@@ -98,8 +97,8 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   buff->allocate();
 
   // setup a data reader
-  int loop_flag = 1;
-  DataReaderWorker<T> data_reader(0, 1, local_gpu, &loop_flag, thread_buffer, file_list_name,
+  std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
+  DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_list_name,
                                   buffer_length, repeat, CHK, params);
 
   // call read a batch

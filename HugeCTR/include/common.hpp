@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <assert.h>
 #include <cublas_v2.h>
 #include <curand.h>
 #include <nvml.h>
@@ -35,9 +33,9 @@
 #include <vector>
 
 #ifdef ENABLE_MPI
-#include <limits.h>
+// #include <limits.h>
 #include <mpi.h>
-#include <stdint.h>
+// #include <stdint.h>
 
 #if SIZE_MAX == UCHAR_MAX
 #define MPI_SIZE_T MPI_UNSIGNED_CHAR
@@ -59,7 +57,7 @@
 
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 4
+#define HUGECTR_VERSION_MAJOR 23
 #define HUGECTR_VERSION_MINOR 2
 #define HUGECTR_VERSION_PATCH 0
 
@@ -295,6 +293,7 @@ struct DataReaderSparseParam {
   std::string top_name;
   std::vector<int> nnz_per_slot;
   bool is_fixed_length;
+  std::vector<bool> is_slot_fixed_length;
   int slot_num;
 
   DataReaderSparse_t type;
@@ -307,10 +306,18 @@ struct DataReaderSparseParam {
       : top_name(top_name_),
         nnz_per_slot(nnz_per_slot_),
         is_fixed_length(is_fixed_length_),
+        is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
         slot_num(slot_num_),
         type(DataReaderSparse_t::Distributed) {
     if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
       HCTR_OWN_THROW(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
+    }
+    if (!is_fixed_length_) {
+      for (size_t i = 0; i < nnz_per_slot.size(); i++) {
+        if (nnz_per_slot[i] == 1) {
+          is_slot_fixed_length[i] = true;
+        }
+      }
     }
     max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
@@ -321,8 +328,15 @@ struct DataReaderSparseParam {
       : top_name(top_name_),
         nnz_per_slot(slot_num_, nnz_per_slot_),
         is_fixed_length(is_fixed_length_),
+        is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
         slot_num(slot_num_),
         type(DataReaderSparse_t::Distributed) {
+    for (size_t i = 0; i < nnz_per_slot.size(); i++) {
+      if (nnz_per_slot[i] == 1) {
+        is_slot_fixed_length[i] = true;
+      }
+    }
+
     max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
   }

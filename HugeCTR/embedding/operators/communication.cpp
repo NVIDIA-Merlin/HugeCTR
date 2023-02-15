@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "communication.hpp"
 
-#include "HugeCTR/include/utils.hpp"
+#include <embedding/operators/communication.hpp>
+#include <utils.hpp>
+
 namespace embedding {
 
 using core::CoreResourceManager;
@@ -55,4 +56,5 @@ void NcclAllReduceInplaceComm::communicate(Tensor &tensor, size_t count) {
   HCTR_LIB_THROW(ncclAllReduce(tensor.get(), tensor.get(), count, nccl_dtype, ncclSum,
                                core_->get_nccl(), core_->get_local_gpu()->get_stream()));
 }
+
 }  // namespace embedding

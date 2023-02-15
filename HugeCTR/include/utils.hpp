@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cuda_runtime_api.h>
@@ -21,7 +20,6 @@
 #include <getopt.h>
 #include <nccl.h>
 #include <numa.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <cassert>
@@ -40,9 +38,11 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
+
 namespace HugeCTR {
 
 template <typename T>
@@ -226,6 +226,11 @@ class CudaDeviceContext {
   ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
   void set_device(int device) const { HCTR_LIB_THROW(cudaSetDevice(device)); }
+
+  void check_device(int device) const {
+    HCTR_CHECK_HINT(device == original_device_,
+                    "The device id in the context is not consistent with configuration");
+  }
 };
 
 /**

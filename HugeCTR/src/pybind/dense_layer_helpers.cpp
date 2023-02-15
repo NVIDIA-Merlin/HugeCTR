@@ -1,0 +1,698 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <core23/data_type.hpp>
+#include <core23/tensor.hpp>
+#include <layer.hpp>
+#include <layers/add_layer.hpp>
+#include <layers/batch_norm_layer.hpp>
+#include <layers/cast_layer.hpp>
+#include <layers/concat_3d_layer.hpp>
+#include <layers/concat_layer.hpp>
+#include <layers/dropout_layer.hpp>
+#include <layers/elementwise_multiply_layer.hpp>
+#include <layers/elu_layer.hpp>
+#include <layers/fm_order2_layer.hpp>
+#include <layers/fully_connected_layer.hpp>
+#include <layers/fully_connected_layer_half.hpp>
+#include <layers/fused_fully_connected_layer.hpp>
+#include <layers/fused_relu_bias_fully_connected_layer.hpp>
+#include <layers/fused_reshape_concat_general_layer.hpp>
+#include <layers/fused_reshape_concat_layer.hpp>
+#include <layers/gather_layer.hpp>
+#include <layers/gru_layer.hpp>
+#include <layers/interaction_layer.hpp>
+#include <layers/layer_norm_layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
+#include <layers/matrix_multiply_layer.hpp>
+#include <layers/mlp_layer.hpp>
+#include <layers/multi_cross_layer.hpp>
+#include <layers/multi_head_attention_layer.hpp>
+#include <layers/prelu_dice_layer.hpp>
+#include <layers/reduce_mean_layer.hpp>
+#include <layers/reduce_sum_layer.hpp>
+#include <layers/relu_layer.hpp>
+#include <layers/reshape_layer.hpp>
+#include <layers/scale_layer.hpp>
+#include <layers/sequence_mask_layer.hpp>
+#include <layers/sigmoid_layer.hpp>
+#include <layers/slice_layer.hpp>
+#include <layers/softmax_layer.hpp>
+#include <layers/sub_layer.hpp>
+#include <layers/weight_multiply_layer.hpp>
+#include <network_buffer_channels.hpp>
+#include <pybind/dense_layer_helpers.hpp>
+#include <pybind/model.hpp>
+#include <regularizers/l1_regularizer.hpp>
+#include <regularizers/l2_regularizer.hpp>
+#include <regularizers/no_regularizer.hpp>
+
+namespace HugeCTR {
+
+std::optional<core23::Tensor> get_tensor_from_entities(
+    const std::vector<TensorEntity> tensor_entities, const std::string& name) {
+  for (const TensorEntity& entity : tensor_entities) {
+    if (entity.name == name) {
+      return entity.tensor;
+    }
+  }
+  return {};
+}
+
+InputTensorsAndOutputNames get_input_tensors_and_output_names(
+    const std::vector<std::string>& bottom_names, const std::vector<std::string>& top_names,
+    const std::vector<TensorEntity>& tensor_entities) {
+  std::vector<core23::Tensor> bottom_tensors;
+  for (auto& bottom_name : bottom_names) {
+    for (auto& top_name : top_names) {
+      if (bottom_name == top_name) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
+      }
+    }
+    if (auto tensor = get_tensor_from_entities(tensor_entities, bottom_name)) {
+      bottom_tensors.push_back(*tensor);
+    } else {
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
+    }
+  }
+  return {bottom_tensors, top_names};
+}
+
+void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& tensor_entities,
+                          std::vector<std::unique_ptr<Layer>>& layers,
+                          std::map<std::string, core23::Tensor>& loss_tensors,
+                          std::map<std::string, std::unique_ptr<ILoss>>& losses,
+                          bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics,
+                          int gpu_count_in_total, const std::shared_ptr<GPUResource>& gpu_resource,
+                          bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                          bool use_algorithm_search,
+                          std::vector<Layer*>* embedding_dependent_layers,
+                          std::vector<Layer*>* embedding_independent_layers,
+                          bool embedding_dependent) {
+  bool skip_dgrad = layers.size() == 0;
+
+  Layer_t layer_type = dense_layer.layer_type;
+  const auto& layer_type_to_string =
+      use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
+  if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
+    auto layer_type_name = layer_type_to_string.at(layer_type);
+    std::string prefix = use_mixed_precision ? "Mixed" : "Single";
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   prefix + "Mixed precision not supported for: " + layer_type_name);
+  }
+
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(core23::Device(core23::DeviceType::GPU, gpu_resource->get_device_id()))
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(GetBlobsBufferChannel());
+
+  std::vector<TensorEntity> output_tensor_entities;
+  auto input_output_info = get_input_tensors_and_output_names(
+      dense_layer.bottom_names, dense_layer.top_names, tensor_entities);
+  switch (layer_type) {
+    case Layer_t::BatchNorm: {
+      auto& bn_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor bn_out_tensor(tensor_params.shape(bn_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], bn_out_tensor});
+      // TODO: fill the details including layers.emplace_back
+      break;
+    }
+    case Layer_t::LayerNorm: {
+      auto& ln_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor ln_out_tensor(tensor_params.shape(ln_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], ln_out_tensor});
+      // TODO: fill the details including layers.emplace_back
+      break;
+    }
+    case Layer_t::BinaryCrossEntropyLoss: {
+      if (input_output_info.input_tensors.size() != 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "BinaryCrossEntropyLoss must have two inputs");
+      }
+
+      if (input_output_info.input_tensors[0].shape() !=
+          input_output_info.input_tensors[1].shape()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            input_output_info.input_tensors[0].shape().str() + " and " +
+            input_output_info.input_tensors[1].shape().str();
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
+
+      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
+
+      // create new loss tensor
+      std::string name = dense_layer.bottom_names[1];
+      core23::Tensor new_loss_tensor(
+          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
+      // TODO: fill the details including the creation of new_loss
+
+      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      losses.insert(std::make_pair(name, std::move(new_loss)));
+      break;
+    }
+    case Layer_t::Concat: {
+      [[maybe_unused]] auto axis = dense_layer.axis;
+      [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor;  // out_tensor.empty() == true
+
+      // TODO: fill the details including layers.emplace_back
+
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::CrossEntropyLoss: {
+      if (input_output_info.input_tensors.size() != 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "CrossEntropyLoss must have two inputs");
+      }
+
+      if (input_output_info.input_tensors[0].shape() !=
+          input_output_info.input_tensors[1].shape()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            input_output_info.input_tensors[0].shape().str() + " and " +
+            input_output_info.input_tensors[1].shape().str();
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
+      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
+      // create new loss tensor
+      std::string name = dense_layer.bottom_names[1];
+      core23::Tensor new_loss_tensor(
+          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
+      // TODO: fill the details including the creation of new_loss
+
+      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      losses.insert(std::make_pair(name, std::move(new_loss)));
+      break;
+    }
+    case Layer_t::Dropout: {
+      auto& do_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor do_out_tensor(tensor_params.shape(do_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], do_out_tensor});
+      [[maybe_unused]] float rate = dense_layer.dropout_rate;
+
+      // TODO: fill the details including layers.emplace_back
+
+      break;
+    }
+    case Layer_t::ELU: {
+      auto& elu_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor elu_out_tensor(tensor_params.shape(elu_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], elu_out_tensor});
+      [[maybe_unused]] float alpha = dense_layer.elu_alpha;
+
+      // TODO: fill the details including layers.emplace_back
+
+      break;
+    }
+    case Layer_t::SequenceMask: {
+      auto& smask_in_tensor = input_output_info.input_tensors[0];
+      auto max_sequence_len = dense_layer.max_sequence_len;
+      core23::Tensor smask_out_tensor(
+          tensor_params.shape({smask_in_tensor.shape().size(0), 1, 1, max_sequence_len}));
+      output_tensor_entities.push_back({input_output_info.output_names[0], smask_out_tensor});
+
+      // TODO: fill the details including layers.emplace_back
+
+      break;
+    }
+    case Layer_t::MLP: {
+      auto add_mlp = [&]() {
+        std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                     dense_layer.bias_init_type};
+        int input_size = input_output_info.input_tensors.size();
+        int output_size = input_output_info.output_names.size();
+        std::vector<core23::Tensor> in_tensors;
+        auto& train_in_tensor = input_output_info.input_tensors[0];
+        in_tensors.push_back(train_in_tensor);
+        if (input_size == 2) {
+          auto& mask_in_tensor = input_output_info.input_tensors[1];
+          in_tensors.push_back(mask_in_tensor);
+        }
+
+        std::vector<core23::Tensor> train_out_tensors;
+        int64_t batch_size = train_in_tensor.shape().size(0);
+        int64_t output_dim = *dense_layer.num_outputs.rbegin();
+        if (output_size == 1) {
+          train_out_tensors.emplace_back(tensor_params.shape({batch_size, output_dim}));
+        } else {
+          HCTR_OWN_THROW(Error_t::WrongInput, "MLP layer can only have one output.");
+        }
+
+        std::vector<Activation_t> acts(dense_layer.num_outputs.size(), dense_layer.act_type);
+        if (!dense_layer.acts.empty()) {
+          if (acts.size() != dense_layer.acts.size()) {
+            HCTR_OWN_THROW(Error_t::WrongInput,
+                           "The number of activations should be equal to the number of layers.");
+          }
+          acts = dense_layer.acts;
+        }
+
+        std::vector<bool> biases(dense_layer.num_outputs.size(), dense_layer.use_bias);
+        if (!dense_layer.biases.empty()) {
+          if (biases.size() != dense_layer.biases.size()) {
+            HCTR_OWN_THROW(Error_t::WrongInput,
+                           "The number of biases should be equal to the number of layers.");
+          }
+          biases = dense_layer.biases;
+        }
+
+        // TODO: fill the details including layers.emplace_back
+
+        if (output_size == 1) {
+          output_tensor_entities.push_back(
+              {input_output_info.output_names[0], train_out_tensors[0]});
+        }
+      };
+      add_mlp();
+      break;
+    }
+    case Layer_t::FusedInnerProduct: {
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
+      // check the position of this layer
+      int input_size = input_output_info.input_tensors.size();
+      int output_size = input_output_info.output_names.size();
+      int64_t output = dense_layer.num_output;
+      auto pos_type = dense_layer.pos_type;
+      auto act_type = dense_layer.act_type;
+      [[maybe_unused]] bool head_mask_in = pos_type == FcPosition_t::Head && input_size == 2;
+      if (skip_dgrad && pos_type == FcPosition_t::Head && input_size == 2) {
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "FusedInnerProduct Head Layer should have only one input tensors when it is the "
+            "first dense layer");
+      }
+      if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "FusedInnerProduct Head Layer should have two input tensors when turning on "
+                       "async wgrad knob");
+      }
+      if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
+                 output_size == 4) {
+      } else if (!async_mlp_wgrad && pos_type == FcPosition_t::Head && !skip_dgrad &&
+                 input_size == 1 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
+      } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
+      } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The position and dimension of bottom and top layer aren't compatible: " +
+                           LAYER_TYPE_TO_STRING_MP[layer_type]);
+      }
+      if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The layer without activation function must be the last layer in MLP.");
+      }
+      if (use_mixed_precision) {
+        auto& train_in_tensor = input_output_info.input_tensors[0];
+        core23::Tensor mask_in_tensor, dRelu_in_tensor, db_in_tensor;
+        if (pos_type == FcPosition_t::Body || pos_type == FcPosition_t::Tail) {
+          mask_in_tensor = input_output_info.input_tensors[1];
+          dRelu_in_tensor = input_output_info.input_tensors[2];
+          db_in_tensor = input_output_info.input_tensors[3];
+        } else if (pos_type == FcPosition_t::Head && input_size == 2) {
+          mask_in_tensor = input_output_info.input_tensors[1];
+        }
+        core23::Tensor train_out_tensor(
+            tensor_params.shape({train_in_tensor.shape().size(0), output}));
+        core23::Tensor mask_out_tensor(
+            tensor_params.shape({train_in_tensor.shape().size(0), output}));
+        core23::Tensor dRelu_out_tensor(
+            tensor_params.shape({train_in_tensor.shape().size(0), output}));
+        core23::Tensor db_out_tensor;
+
+        // TODO: fill the details including layers.emplace_back
+
+        if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
+            pos_type == FcPosition_t::None)
+          output_tensor_entities.push_back({input_output_info.output_names[0], train_out_tensor});
+        else {
+          output_tensor_entities.push_back({input_output_info.output_names[0], train_out_tensor});
+          output_tensor_entities.push_back({input_output_info.output_names[1], mask_out_tensor});
+          output_tensor_entities.push_back({input_output_info.output_names[2], dRelu_out_tensor});
+          output_tensor_entities.push_back({input_output_info.output_names[3], db_out_tensor});
+        }
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
+      }
+      break;
+    }
+    case Layer_t::Cast: {
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+
+      // TODO: fill the details including layers.emplace_back
+
+      break;
+    }
+    case Layer_t::InnerProduct: {
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
+      int64_t output = dense_layer.num_output;
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor fc_out_tensor;
+      if (in_tensor.shape().dims() == 2) {
+        fc_out_tensor = core23::Tensor(tensor_params.shape({in_tensor.shape().size(0), output}));
+      } else if (in_tensor.shape().dims() == 3) {
+        fc_out_tensor = core23::Tensor(
+            tensor_params.shape({in_tensor.shape().size(0), in_tensor.shape().size(1), output}));
+      }
+
+      // TODO: fill the details including layers.emplace_back
+
+      output_tensor_entities.push_back({input_output_info.output_names[0], fc_out_tensor});
+      break;
+    }
+    case Layer_t::MultiHeadAttention: {
+      if (input_output_info.input_tensors.size() < 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MultiHeadAttentionLayer needs at lease two input tensors ");
+      }
+      [[maybe_unused]] auto num_attention_heads = dense_layer.num_attention_heads;
+      [[maybe_unused]] auto transpose_b = dense_layer.transpose_b;
+
+      auto& in_tensors = input_output_info.input_tensors;
+      if (in_tensors[0].shape().dims() != 4 && in_tensors[1].shape().dims() != 3) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MultiHeadAttentionLayer needs 3D or 4D input tensors ");
+      }
+      std::vector<core23::Tensor> out_tensors;
+
+      // TODO: fill the details including layers.emplace_back
+
+      for (size_t i = 0; i < out_tensors.size(); i++) {
+        output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
+      }
+      break;
+    }
+    case Layer_t::Interaction: {
+      if (input_output_info.input_tensors.size() != 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "InteractionLayer needs two input tensors ");
+      }
+      if (input_output_info.output_names.size() != 2 &&
+          input_output_info.output_names.size() != 1) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "InteractionLayer should have one or two output tensors");
+      }
+      if (input_output_info.output_names.size() == 1 && async_mlp_wgrad == true) {
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "InteractionLayer should have two output tensors when turning on async wgrad knob");
+      }
+      if (input_output_info.output_names.size() == 2 && !use_mixed_precision) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "InteractionLayer<float> should have only one output tensor");
+      }
+
+      if (use_mixed_precision && gpu_resource->get_cc_major() < 7) {
+        std::ostringstream os;
+        os << "InteractionLayer<__half> is not supported in SM " << gpu_resource->get_cc_major()
+           << '.' << gpu_resource->get_cc_minor();
+        HCTR_OWN_THROW(Error_t::WrongInput, os.str());
+      }
+      [[maybe_unused]] auto& in_mlp_tensor = input_output_info.input_tensors[0];
+      [[maybe_unused]] auto& in_emb_tensor = input_output_info.input_tensors[1];
+      core23::Tensor out_tensor, grad_tensor;
+      if (input_output_info.output_names.size() == 2) {
+        // TODO: fill the details including layers.emplace_back
+        output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+        output_tensor_entities.push_back({input_output_info.output_names[1], grad_tensor});
+      } else {
+        // TODO: fill the details including layers.emplace_back
+        output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      }
+      break;
+    }
+    case Layer_t::MultiCross: {
+      // currently, only default init type is supported
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
+      [[maybe_unused]] int num_layers = dense_layer.num_layers;
+      [[maybe_unused]] int projection_dim = dense_layer.projection_dim;
+
+      auto& mc_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor(tensor_params.shape(mc_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+
+      // TODO: fill the details including layers.emplace_back
+      break;
+    }
+    case Layer_t::MultiCrossEntropyLoss: {
+      if (input_output_info.input_tensors.size() != 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "MultiCrossEntropyLoss must have two inputs");
+      }
+
+      if (input_output_info.input_tensors[0].shape() !=
+          input_output_info.input_tensors[1].shape()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            input_output_info.input_tensors[0].shape().str() + " and " +
+            input_output_info.input_tensors[1].shape().str();
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
+      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
+      // create new loss tensor
+      std::string name = dense_layer.bottom_names[1];
+      core23::Tensor new_loss_tensor(
+          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
+      // TODO: fill the details including the creation of new_loss
+
+      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      losses.insert(std::make_pair(name, std::move(new_loss)));
+      break;
+    }
+    case Layer_t::ReLU: {
+      auto& relu_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor relu_out_tensor(tensor_params.shape(relu_in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], relu_out_tensor});
+
+      // TODO: fill the details including layers.emplace_back
+
+      break;
+    }
+    case Layer_t::Reshape: {
+      bool selected = dense_layer.selected;
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor;
+      if (selected) {
+        // TODO: fill the details including layers.emplace_back
+      } else {
+        int64_t leading_dim = dense_layer.leading_dim;
+        int64_t time_step = dense_layer.time_step;
+        if (time_step == 0) {  // 2D output
+          out_tensor = core23::Tensor(
+              tensor_params.shape({in_tensor.num_elements() / leading_dim, leading_dim}));
+        } else {  // 3D output
+          int64_t batch_size = in_tensor.num_elements() / leading_dim / time_step;
+          out_tensor = core23::Tensor(tensor_params.shape({batch_size, time_step, leading_dim}));
+        }
+        // TODO: fill the details including layers.emplace_back
+      }
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::Sigmoid: {
+      auto& sigmoid_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor sigmoid_out_tensor(tensor_params.shape(sigmoid_in_tensor.shape()));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], sigmoid_out_tensor});
+      break;
+    }
+    case Layer_t::Slice: {
+      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      std::vector<core23::Tensor> out_tensors;
+      // TODO: fill the details including layers.emplace_back
+      for (size_t i = 0; i < out_tensors.size(); i++) {
+        output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
+      }
+      break;
+    }
+    case Layer_t::WeightMultiply: {
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], in_tensor});
+      break;
+    }
+    case Layer_t::FmOrder2: {
+      int64_t out_dim = dense_layer.out_dim;
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor(tensor_params.shape({in_tensor.shape().size(0), out_dim}));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::Add: {
+      auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::ReduceSum: {
+      [[maybe_unused]] int axis = dense_layer.axis;
+      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::ReduceMean: {
+      [[maybe_unused]] int axis = dense_layer.axis;
+      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::Sub: {
+      auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::Gather: {
+      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::GRU: {
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
+      auto& in_tensor = input_output_info.input_tensors[0];
+      int64_t num_output = dense_layer.num_output;
+      core23::Tensor gru_out_tensor(tensor_params.shape({in_tensor.shape().size(0), num_output}));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], gru_out_tensor});
+      break;
+    }
+    case Layer_t::MatrixMultiply: {
+      [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::Softmax: {
+      if (input_output_info.input_tensors.size() != 2) {
+        auto& in_tensor = input_output_info.input_tensors[0];
+        core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
+        // TODO: fill the details including layers.emplace_back
+        output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      } else {
+        HCTR_THROW_IF(use_mixed_precision, Error_t::IllegalCall,
+                      "MaskedSoftMaxLayer is not available for the mixed precision mode");
+        [[maybe_unused]] auto scale_factor = dense_layer.factor;
+        auto& in_tensor = input_output_info.input_tensors[0];
+        auto& mask_tensor = input_output_info.input_tensors[1];
+        std::vector<core23::Tensor> in_tensors{in_tensor, mask_tensor};
+        core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
+        // TODO: fill the details including layers.emplace_back
+        output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      }
+      break;
+    }
+    case Layer_t::PReLU_Dice: {
+      auto& in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      // TODO: fill the details including layers.emplace_back
+      break;
+    }
+    case Layer_t::Scale: {
+      [[maybe_unused]] auto& scale_in_tensor = input_output_info.input_tensors[0];
+      core23::Tensor scale_out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], scale_out_tensor});
+      break;
+    }
+    case Layer_t::FusedReshapeConcat: {
+      [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
+      std::vector<core23::Tensor> out_tensors;
+      // TODO: fill the details including layers.emplace_back
+      for (size_t i = 0; i < out_tensors.size(); i++) {
+        output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
+      }
+      break;
+    }
+    case Layer_t::FusedReshapeConcatGeneral: {
+      [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor;
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    case Layer_t::ElementwiseMultiply: {
+      auto& in_tensors = input_output_info.input_tensors;
+      core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
+      // TODO: fill the details including layers.emplace_back
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      break;
+    }
+    default: {
+      assert(!"Error: no such layer && should never get here!");
+    }
+  }  // end of switch
+  if (!(layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
+        layer_type == Layer_t::MultiCrossEntropyLoss)) {
+    for (auto& output_tensor_entity : output_tensor_entities) {
+      tensor_entities.push_back(output_tensor_entity);
+    }
+    if (!embedding_dependent) {
+      if (embedding_independent_layers) {
+        embedding_independent_layers->emplace_back(layers.back().get());
+      }
+    } else {
+      if (embedding_dependent_layers) {
+        embedding_dependent_layers->emplace_back(layers.back().get());
+      }
+    }
+  } else if (raw_metrics) {
+    // Create new set of metrics and add to raw metrics map
+    [[maybe_unused]] std::string name = dense_layer.bottom_names[1];
+
+    [[maybe_unused]] core23::Tensor& lookup_loss_tensor = loss_tensors.find(name)->second;
+
+    // TODO:
+    // metrics::RawMetricMap new_map;
+    // new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor));
+    // new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.input_tensors[0]));
+    // new_map.insert(std::make_pair(metrics::RawType::Label,
+    // input_output_info.input_tensors[1]));
+    // (*raw_metrics).insert(std::make_pair(name, new_map));
+  }
+}
+
+}  // namespace HugeCTR

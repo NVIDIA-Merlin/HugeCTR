@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include "HugeCTR/core/buffer.hpp"
-#include "HugeCTR/core/registry.hpp"
-#include "index_calculation.hpp"
+#include <core/buffer.hpp>
+#include <core/registry.hpp>
+#include <embedding/operators/index_calculation.hpp>
 
 namespace embedding {
 using core::CoreResourceManager;
@@ -112,4 +112,5 @@ struct DPLocalReduceIndexCalculation {
   SparseAllreduceIndexCalculation sparse_allreduce_index_calculation;
   DenseAllreduceIndexCalculation dense_allreduce_index_calculation;
 };
+
 }  // namespace embedding

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <utils.hpp>
 
 namespace HugeCTR {
+
 template <typename TypeEmbeddingComp>
 std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states(
     const std::vector<OptimizerTensor<TypeEmbeddingComp>>& opt_tensors_, Optimizer_t optimizer_type,

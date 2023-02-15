@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-
-#include <math.h>
-#include <stdlib.h>
 
 #include <common.hpp>
 #include <data_readers/check_none.hpp>
@@ -25,8 +21,7 @@
 #include <data_readers/file_list.hpp>
 #include <data_readers/file_source.hpp>
 #include <filesystem>
-
-#include "utest/embedding/cpu_hashtable.hpp"
+#include <utest/embedding/cpu_hashtable.hpp>
 
 using namespace HugeCTR;
 
@@ -99,7 +94,7 @@ class SparseEmbeddingHashCpu {
   int MAX_TRY = 10;
   void read_new_file() {
     for (int i = 0; i < MAX_TRY; i++) {
-      checker_->next_source();
+      checker_->next_source(1);
 
       Error_t err =
           checker_->read(reinterpret_cast<char *>(&data_set_header_), sizeof(DataSetHeader));

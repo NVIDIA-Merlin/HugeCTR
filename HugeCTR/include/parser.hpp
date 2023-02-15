@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <common.hpp>
 #include <data_readers/data_reader.hpp>
 #include <device_map.hpp>
@@ -445,7 +445,8 @@ struct create_datareader {
                   std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-                  const DataSourceParams& data_source_params);
+                  const DataSourceParams& data_source_params,
+                  bool reading_file_sequentially = false);
 };
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {

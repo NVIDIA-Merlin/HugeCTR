@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <atomic>
 #include <common.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
+#include <io/filesystem.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/io/filesystem.hpp"
 
 namespace HugeCTR {
 
@@ -60,9 +58,11 @@ class IDataReader {
                                bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
 #ifndef DISABLE_CUDF
-  virtual void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
-                                   const std::vector<long long> slot_offset,
-                                   bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_parquet(
+      std::string file_list, bool strict_order_of_batches, const std::vector<long long> slot_offset,
+      bool start_reading_from_beginning = true, long long max_samples_per_group = 0,
+      // label_dense_dim + fixed_slot_dims + variable_slot_id.size() == all columns
+      int label_dense_num = 0, int label_dense_dim = 0) = 0;
 #endif
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type

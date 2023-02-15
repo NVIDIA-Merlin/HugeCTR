@@ -84,7 +84,7 @@ HPS is included in the Merlin Docker containers that are available from the [NVI
 The following sample command pulls and starts the Merlin TensorFlow container:
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.12
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 ```
 You can check the existence of the HPS Python toolkit after launching this container:
 ```shell
@@ -98,3 +98,7 @@ We provide a collection of examples as [Jupyter Notebooks](../hps_tf/notebooks) 
 * Basic workflow of HPS deployment for TensorFlow models
 * Migrating from SOK training to HPS inference
 * Leveraging HPS to load pre-trained embeddings
+
+## Benchmark
+
+We benchmark the DLRM TF model with HPS plugin in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).

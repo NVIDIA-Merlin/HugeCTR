@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,15 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
 #include <set>
+#include <utest/embedding/hybrid_embedding/data_test.hpp>
+#include <utest/embedding/hybrid_embedding/input_generator.hpp>
+#include <utest/embedding/hybrid_embedding/statistics_test.hpp>
+#include <utils.cuh>
 #include <vector>
-
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "test/utest/embedding/hybrid_embedding/data_test.hpp"
-#include "test/utest/embedding/hybrid_embedding/input_generator.hpp"
-#include "test/utest/embedding/hybrid_embedding/statistics_test.hpp"
 
 using namespace HugeCTR;
 using namespace hybrid_embedding;

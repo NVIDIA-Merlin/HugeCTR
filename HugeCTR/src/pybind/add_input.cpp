@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -365,22 +365,69 @@ void add_input(Input& input, DataReaderParams& reader_params,
   } else {
     int num_workers_train = reader_params.num_workers;
     int num_workers_eval = reader_params.num_workers;
+    long long parquet_source_max_row_group_size = 0;
+    long long parquet_eval_max_row_group_size = 0;
+    size_t parquet_label_cols = 0;
+    size_t parquet_dense_cols = 0;
+    // size_t parquet_cat_cols = 0;
     int local_gpu_count = resource_manager->get_local_gpu_count();
-
+    std::vector<int> variable_slots_id;
+    std::shared_ptr<Metadata> parquet_meta = std::make_shared<Metadata>();
+    auto get_meta_path = [&](std::string one_parquet_file_path) -> std::string {
+      std::size_t found = one_parquet_file_path.find_last_of("/\\");
+      std::string metadata_path = one_parquet_file_path.substr(0, found);
+      metadata_path.append("/_metadata.json");
+      return metadata_path;
+    };
     if (format == DataReaderType_t::Parquet) {
       // if parallelism granularity is file, num_files should be greater than num of workers
-      if (!reader_params.read_file_sequentially) {
-        {
-          std::ifstream read_stream(eval_source, std::ifstream::in);
-          if (!read_stream.is_open()) {
-            HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
-          }
-          std::string buff;
-          std::getline(read_stream, buff);
-          int num_of_files = std::stoi(buff);
-          read_stream.close();
-          num_workers_eval = std::min(num_workers_eval, num_of_files);
+      std::string first_file_name, buff;
+      std::ifstream read_stream(eval_source, std::ifstream::in);
+      if (!read_stream.is_open()) {
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
+      }
+      std::getline(read_stream, buff);
+      int num_of_files = std::stoi(buff);
+      std::string metadata_path;
+      if (num_of_files) {
+        std::getline(read_stream, first_file_name);
+        metadata_path = get_meta_path(first_file_name);
+        parquet_meta->reset_metadata(metadata_path);
+        parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
+        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %ld\n", eval_source.c_str(),
+                 parquet_eval_max_row_group_size);
+      }
+      parquet_label_cols = parquet_meta->get_label_names().size();
+      parquet_dense_cols = parquet_meta->get_cont_names().size();
+      // parquet_cat_cols = parquet_meta->get_cat_names().size();
+      // HCTR_LOG(INFO,ROOT,"parquet_label_cols %ld,parquet_dense_cols
+      // %ld\n",parquet_label_cols,parquet_dense_cols);
+      read_stream.close();
+      std::vector<std::string> train_sources = reader_params.source;
+      for (const auto& file_list_name : train_sources) {
+        std::string first_file_name, buff;
+        std::ifstream read_stream(file_list_name, std::ifstream::in);
+        if (!read_stream.is_open()) {
+          HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
         }
+        std::getline(read_stream, buff);
+        int num_of_files = std::stoi(buff);
+        std::string metadata_path;
+        if (num_of_files) {
+          std::getline(read_stream, first_file_name);
+          metadata_path = get_meta_path(first_file_name);
+          parquet_meta->reset_metadata(metadata_path);
+          parquet_source_max_row_group_size =
+              std::max(parquet_meta->get_max_row_group(), parquet_source_max_row_group_size);
+          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %ld\n", file_list_name.c_str(),
+                   parquet_source_max_row_group_size);
+        }
+      }
+
+      if (!reader_params.read_file_sequentially) {
+        // std::ifstream read_stream(eval_source, std::ifstream::in);
+        num_workers_eval = std::min(num_workers_eval, num_of_files);
+
         std::vector<std::string> train_sources = reader_params.source;
         int min_num_files = 0;
         // there may exist multiple training sources
@@ -442,10 +489,14 @@ void add_input(Input& input, DataReaderParams& reader_params,
 #ifdef DISABLE_CUDF
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-        train_data_reader->create_drwg_parquet(source_data, reader_params.read_file_sequentially,
-                                               slot_offset, repeat_dataset);
-        evaluate_data_reader->create_drwg_parquet(eval_source, reader_params.read_file_sequentially,
-                                                  slot_offset, repeat_dataset);
+        train_data_reader->create_drwg_parquet(
+            source_data, reader_params.read_file_sequentially, slot_offset, repeat_dataset,
+            parquet_source_max_row_group_size, parquet_dense_cols + parquet_label_cols,
+            dense_dim + total_label_dim);
+        evaluate_data_reader->create_drwg_parquet(
+            eval_source, reader_params.read_file_sequentially, slot_offset, repeat_dataset,
+            parquet_eval_max_row_group_size, parquet_dense_cols + parquet_label_cols,
+            dense_dim + total_label_dim);
         HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
         break;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <common.hpp>
 #include <embedding.hpp>
+#include <embedding/data_distributor/data_distributor.hpp>
+#include <embedding_storage/weight_io/parameter_IO.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
+#include <embeddings/embedding_collection.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
 #include <hps/hier_parameter_server.hpp>
@@ -28,15 +32,11 @@
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
+#include <pipeline.hpp>
 #include <string>
 #include <thread>
 #include <utility>
 #include <utils.hpp>
-
-#include "HugeCTR/embedding/data_distributor/data_distributor.hpp"
-#include "embedding_storage/weight_io/parameter_IO.hpp"
-#include "embeddings/embedding_collection.hpp"
-#include "pipeline.hpp"
 
 namespace HugeCTR {
 
@@ -676,7 +676,6 @@ class Model {
    public:
     GraphScheduler(std::shared_ptr<ResourceManager> resource_manager) : launched_iter(0) {
       // set up trickling launch
-      CudaDeviceContext ctx_helper;
       CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(0)->get_device_id());
       HCTR_LIB_THROW(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
       *executed_iter = 0;

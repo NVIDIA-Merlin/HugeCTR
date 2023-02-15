@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
-#include "HugeCTR/include/io/filesystem.hpp"
-#include "HugeCTR/include/io/io_utils.hpp"
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
+#include <io/filesystem.hpp>
+#include <io/io_utils.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

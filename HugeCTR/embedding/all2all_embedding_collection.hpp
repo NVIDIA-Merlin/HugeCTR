@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 #pragma once
-#include "model_parallel_embedding.hpp"
-#include "operators/weighted_model_backward.hpp"
-#include "operators/weighted_model_forward.hpp"
-#include "operators/weighted_mp_index_calculation.hpp"
-#include "operators/weighted_network_backward.hpp"
-#include "operators/weighted_network_forward.hpp"
+
+#include <embedding/model_parallel_embedding.hpp>
+#include <embedding/operators/weighted_model_backward.hpp>
+#include <embedding/operators/weighted_model_forward.hpp>
+#include <embedding/operators/weighted_mp_index_calculation.hpp>
+#include <embedding/operators/weighted_network_backward.hpp>
+#include <embedding/operators/weighted_network_forward.hpp>
 
 namespace embedding {
 

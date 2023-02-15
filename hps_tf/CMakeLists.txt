@@ -1,5 +1,5 @@
-# 
-# Copyright (c) 2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -30,17 +30,21 @@ option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.h
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.hpp
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.cuh
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/src/*.cu
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.hpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.h
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.cuh
     ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cpp
-    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cc
     ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cu
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp
-    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.h
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.cuh
-    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cc
-    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_cc/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_cc/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_cc/*.cuh
   )
   set(clangformat_srcs ${HUGECTR_SRC})
   clangformat_setup("${clangformat_srcs}")
@@ -110,14 +114,12 @@ endif()
 
 # headers
 include_directories(
-    ${PROJECT_SOURCE_DIR}/hps_cc
-    ${PROJECT_SOURCE_DIR}/../
-    ${PROJECT_SOURCE_DIR}/../HugeCTR/
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/../HugeCTR
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
     ${PROJECT_SOURCE_DIR}/../third_party
     ${PROJECT_SOURCE_DIR}/../third_party/parallel-hashmap
     ${PROJECT_SOURCE_DIR}/../third_party/json/single_include
-    ${PROJECT_SOURCE_DIR}/../third_party/xxhash
     ${PROJECT_SOURCE_DIR}/../gpu_cache/include
     ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src
     ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/cxx17
@@ -155,10 +157,9 @@ link_directories(
 # code sources related to framework
 file(GLOB framework
     ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cc
     ${PROJECT_SOURCE_DIR}/hps_cc/kernels/*.cu
     ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cc
+    ${PROJECT_SOURCE_DIR}/hps_cc/ops/*.cu
 )
 
 # build dynamic lib

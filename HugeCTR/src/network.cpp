@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,35 +167,25 @@ std::string Network::get_no_trained_params_in_string() {
 }
 
 void Network::upload_params_to_device(const std::string& model_file) {
-  std::ifstream model_stream(model_file, std::ifstream::binary);
-  if (!model_stream.is_open()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, std::string("Cannot open dense model file (reason: ") +
-                                            std::strerror(errno) + ")");
-  }
+  auto fs = FileSystemBuilder::build_unique_by_path(model_file);
   CudaDeviceContext context(get_device_id());
 
   std::unique_ptr<char[]> params(new char[train_weight_tensor_.get_size_in_bytes()]);
-  model_stream.read(params.get(), train_weight_tensor_.get_size_in_bytes());
+  fs->read(model_file, params.get(), train_weight_tensor_.get_size_in_bytes(), 0);
   HCTR_LIB_THROW(cudaMemcpy(train_weight_tensor_.get_ptr(), params.get(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
-  model_stream.close();
   return;
 }
 
 void Network::upload_params_to_device_inference(const std::string& model_file) {
-  std::ifstream model_stream(model_file, std::ifstream::binary);
-  if (!model_stream.is_open()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, std::string("Cannot open dense model file (reason: ") +
-                                            std::strerror(errno) + ")");
-  }
+  auto fs = FileSystemBuilder::build_unique_by_path(model_file);
   CudaDeviceContext context(get_device_id());
 
   std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_.get_size_in_bytes()]);
-  model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
+  fs->read(model_file, params.get(), evaluate_weight_tensor_.get_size_in_bytes(), 0);
   HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), params.get(),
                                  evaluate_weight_tensor_.get_size_in_bytes(),
                                  cudaMemcpyHostToDevice, gpu_resource_->get_stream()));
-  model_stream.close();
   if (use_mixed_precision_) {
     conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
   }

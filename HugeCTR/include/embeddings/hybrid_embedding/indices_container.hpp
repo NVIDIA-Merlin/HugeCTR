@@ -1,21 +1,35 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <cuda_runtime.h>
 
+#include <common.hpp>
+#include <data_readers/async_reader/async_reader_common.hpp>
+#include <embeddings/hybrid_embedding/data.hpp>
+#include <embeddings/hybrid_embedding/frequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/hybrid_indices.hpp>
+#include <embeddings/hybrid_embedding/infrequent_embedding.hpp>
+#include <embeddings/hybrid_embedding/model.hpp>
+#include <embeddings/hybrid_embedding/utils.hpp>
+#include <gpu_resource.hpp>
+#include <graph_wrapper.hpp>
 #include <map>
+#include <tensor2.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_readers/async_reader/async_reader_common.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/frequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/hybrid_indices.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/graph_wrapper.hpp"
-#include "HugeCTR/include/tensor2.hpp"
 
 namespace HugeCTR {
 namespace hybrid_embedding {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <core23/tensor.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <utility>
 #include <utils.cuh>
@@ -36,6 +37,13 @@ L2Regularizer<T>::L2Regularizer(const Tensor2<float>& weight_buff, const Tensor2
                                 const int batch_size, const float lambda,
                                 const std::shared_ptr<GPUResource>& gpu_resource)
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource), lambda_(lambda) {}
+
+template <typename T>
+L2Regularizer<T>::L2Regularizer(std::vector<core23::Tensor> weight_tensors,
+                                std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+                                const float lambda,
+                                const std::shared_ptr<GPUResource>& gpu_resource)
+    : Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, gpu_resource), lambda_(lambda) {}
 
 template <typename T>
 void L2Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements) {

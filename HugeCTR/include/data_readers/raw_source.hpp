@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include <data_readers/raw_offset_list.hpp>
 #include <data_readers/source.hpp>
@@ -84,7 +78,7 @@ class RawSource : public Source {
   // no use here
   bool is_open() noexcept { return true; }
 
-  Error_t next_source() noexcept {
+  Error_t next_source(long long expected_next_source_items) noexcept {
     try {
       offset_ = raw_offset_list_->get_offset(round_, worker_id_);
       round_++;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <common.hpp>
 #include <data_readers/check_none.hpp>
 #include <data_readers/check_sum.hpp>
@@ -47,7 +47,7 @@ class DataReaderWorker : public IDataReaderWorker {
   void read_new_file() {
     constexpr int MAX_TRY = 10;
     for (int i = 0; i < MAX_TRY; i++) {
-      if (checker_->next_source() == Error_t::EndOfFile) {
+      if (checker_->next_source(1) == Error_t::EndOfFile) {
         throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
       }
 
@@ -83,19 +83,19 @@ class DataReaderWorker : public IDataReaderWorker {
     }
   }
 
+ public:
   void post_set_source() override {
     create_checker();
 
     is_eof_ = false;
     buffer_->state.store(BufferState::ReadyForWrite);
   }
-
- public:
   /**
    * Ctor
    */
   DataReaderWorker(const int worker_id, const int worker_num,
-                   const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
+                   const std::shared_ptr<GPUResource>& gpu_resource,
+                   const std::shared_ptr<std::atomic<bool>>& loop_flag,
                    const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
                    size_t buffer_length, bool repeat, Check_t check_type,
                    const std::vector<DataReaderSparseParam>& params)
@@ -137,6 +137,7 @@ class DataReaderWorker : public IDataReaderWorker {
 
     buff->allocate();
   }
+  void do_h2d(){};
 
   /**
    * read a batch of data from data set to heap.
@@ -168,7 +169,7 @@ class DataReaderWorker : public IDataReaderWorker {
 
         while (buffer_->state.load() != BufferState::ReadyForWrite) {
           usleep(2);
-          if (*loop_flag_ == 0) return;  // in case main thread exit
+          if (!loop_flag_->load()) return;  // in case main thread exit
         }
         return;  // need this return to run from begining
       } else {
@@ -315,6 +316,8 @@ class DataReaderWorker : public IDataReaderWorker {
     assert(buffer_->state.load() == BufferState::Writing);
     buffer_->state.store(BufferState::ReadyForRead);
   }
+
+  DataReaderType_t get_reader_type() override { return DataReaderType_t::Norm; }
 };
 
 }  // namespace HugeCTR

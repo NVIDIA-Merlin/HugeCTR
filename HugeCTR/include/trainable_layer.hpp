@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cassert>
+#include <data_simulator.hpp>
+#include <layer.hpp>
 #include <type_traits>
-
-#include "HugeCTR/include/data_simulator.hpp"
-#include "HugeCTR/include/layer.hpp"
 
 namespace HugeCTR {
 /**
@@ -202,4 +200,5 @@ void TrainableLayer<DType, use_FP32_weight>::init_params(const curandGenerator_t
                                    get_gpu().get_stream()));
   }
 }
+
 }  // namespace HugeCTR

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <common.hpp>
+#include <embeddings/hybrid_embedding/communication.hpp>
 #include <iostream>
+#include <tensor2.hpp>
 #include <vector>
 
-#include "HugeCTR/include/embeddings/hybrid_embedding/communication.hpp"
-#include "common.hpp"
-#include "tensor2.hpp"
-
 namespace {
+
 template <typename T>
 ncclDataType_t get_nccl_type();
 template <>
@@ -47,6 +47,7 @@ template <>
 ncclDataType_t get_nccl_type<__half>() {
   return ncclFloat16;
 }
+
 }  // namespace
 
 namespace HugeCTR {

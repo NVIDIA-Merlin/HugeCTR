@@ -2,6 +2,7 @@ stages:
   - build_from_scratch
   - format_check
   - build
+  - pre_test
   - test
   - inference_benchmark
   - sok_benchmark
@@ -156,6 +157,7 @@ stages:
       fi
     - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
+        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
@@ -210,12 +212,39 @@ stages:
   extends:
     - .selene_luna_job
     - .hugectr:rules:sanity-test
+  variables:
+    SLURM_ACCOUNT: devtech
+    DGXNNODES: 1
   allow_failure: false
 
 .cluster_test_job_daily:
   extends:
     - .selene_luna_job
     - .default:rules:daily-test
+  allow_failure: false
+
+.selene_test_job:
+  extends:
+    - .selene_luna_job
+    - .hugectr:rules:test_in_child
+  variables:
+    SLURM_ACCOUNT: devtech
+    DGXNNODES: 1
+    GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+  allow_failure: false
+
+.dracorno_test_job:
+  extends:
+    - .dracorno_job
+    - .hugectr:rules:test_in_child
+  variables:
+    CLUSTER:       "dracorno"
+    SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
+    SLURM_PARTITION: ${SLURM_PARTITION}
+    WALLTIME:      "02:00:00"
+    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+  tags:
+    - $RUNNER_TAG
   allow_failure: false
 
 .dlcluster_test_job:
@@ -247,6 +276,30 @@ stages:
   extends:
     - .selene_luna_job
     - .sok:rules:sanity-test
+  allow_failure: false
+
+.selene_sok_test_job:
+  extends:
+    - .selene_luna_job
+    - .sok:rules:test_in_child
+  variables:
+    SLURM_ACCOUNT: devtech
+    DGXNNODES: 1
+    GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+  allow_failure: false
+
+.dracorno_sok_test_job:
+  extends:
+    - .dracorno_job
+    - .sok:rules:test_in_child
+  variables:
+    CLUSTER:       "dracorno"
+    SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
+    SLURM_PARTITION: ${SLURM_PARTITION}
+    WALLTIME:      "02:00:00"
+    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+  tags:
+    - $RUNNER_TAG
   allow_failure: false
 
 .sok_test_job_daily:

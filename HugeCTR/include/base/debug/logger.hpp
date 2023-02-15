@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 /*
  * This is the header file for the set of HugeCTR debugging features.
@@ -100,8 +101,6 @@
  you,
  * which can be useful in debugging asynchronous kernel launches or cudaMemcpys.
  */
-
-#pragma once
 
 #include <cublas_v2.h>
 #include <cuda.h>

@@ -20,6 +20,10 @@ log_pattern = {
         "cmd_log": r"HugeCTR Version",
         "result_log": r"/ 58527 iterations with batchsize 71680 in (\d+\.?\d*)s. Average",
     },
+    "dlrm_dcnv2_1node": {
+        "cmd_log": r"python3 train_dcnv2.py",
+        "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average",
+    },
     "inference_benchmark": {
         "cmd_log": r"Server:",
         "result_log": r"Avg request latency: (\d+\.?\d*) usec",
@@ -49,6 +53,10 @@ log_pattern = {
         "cmd_log": r"Client:",
         "result_log": r"p99 latency: (\d+\.?\d*) usec",
     },
+    "hps_plugin_benchmark": {
+        "cmd_log": r"compute infer",
+        "result_log": r"compute infer (\d+\.?\d*) usec",
+    },
 }
 
 
@@ -69,8 +77,13 @@ def extract_result_from_log(job_name, log_path):
                     match = re.search(job_log_pattern["result_log"], line)
                     if match is None:
                         continue
-                    result = float(match.group(1))
+                    if job_name == "dlrm_dcnv2_1node":
+                        result = float(match.group(3))
+                    else:
+                        result = float(match.group(1))
                     results.append(result)
+    if job_name == "hps_plugin_benchmark":
+        return results
     return sum(results) / len(results) if len(results) > 0 else float("inf")
 
 
@@ -190,6 +203,21 @@ def collect_benchmark_result(log_path):
         print(",".join(str(i) for i in benchmark))
 
 
+def check_perf_result(perf_result, expected_result):
+    if float(perf_result) > float(expected_result):
+        raise RuntimeError(
+            "performance get worse. perf_result:{} vs. expected result:{}".format(
+                perf_result, expected_result
+            )
+        )
+    else:
+        print(
+            "performance check pass. perf_result:{} vs. expected result:{}".format(
+                perf_result, expected_result
+            )
+        )
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--collect_result", action="store_true", default=False)
@@ -203,15 +231,40 @@ if __name__ == "__main__":
         perf_result = extract_result_from_log(args.job_name, args.log_path)
         expected_result = extract_result_from_json(args.job_name)
 
-        if float(perf_result) > float(expected_result):
-            raise RuntimeError(
-                "performance get worse. perf_result:{} vs. expected result:{}".format(
-                    perf_result, expected_result
-                )
-            )
-        else:
+        if args.job_name == "hps_plugin_benchmark":
+            idx = 0
+            batch_sizes = ["32", "1024", "16384"]
+            print("DLRM Inference Latency (usec)")
             print(
-                "performance check pass. perf_result:{} vs. expected result:{}".format(
-                    perf_result, expected_result
-                )
+                "-----------------------------------------------------------------------------------------"
             )
+            print("batch_size\tnative tf\ttf_with_hps\tfp32_trt_with_hps\tfp16_trt_with_hps")
+            print(
+                "-----------------------------------------------------------------------------------------"
+            )
+            for i in range(len(perf_result) // 4):
+                print(
+                    "{}\t\t{}\t\t{}\t\t{}\t\t\t{}".format(
+                        batch_sizes[i],
+                        perf_result[i * 4],
+                        perf_result[i * 4 + 1],
+                        perf_result[i * 4 + 2],
+                        perf_result[i * 4 + 3],
+                    )
+                )
+            print(
+                "-----------------------------------------------------------------------------------------"
+            )
+            for batch_size in batch_sizes:
+                for model_name in [
+                    "native_tf",
+                    "tf_with_hps",
+                    "fp32_trt_with_hps",
+                    "fp16_trt_with_hps",
+                ]:
+                    perf = perf_result[idx]
+                    expected = expected_result[model_name][batch_size]
+                    check_perf_result(perf, expected)
+                    idx += 1
+        else:
+            check_perf_result(perf_result, expected_result)

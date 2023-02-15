@@ -1,14 +1,16 @@
-# 
-# Copyright (c) 2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 cmake_minimum_required(VERSION 3.17)
@@ -94,7 +96,7 @@ if (ENABLE_MULTINODES)
   endif()
 endif()
 
-target_link_libraries(huge_ctr_static PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa core embedding)
+target_link_libraries(huge_ctr_static PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa hugectr_core23 core embedding)
 target_link_libraries(huge_ctr_static PUBLIC gpu_cache)
 target_compile_features(huge_ctr_static PUBLIC cxx_std_17)
 target_link_libraries(huge_ctr_static PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
@@ -102,7 +104,7 @@ target_link_libraries(huge_ctr_static PUBLIC /usr/local/cuda/lib64/stubs/libcuda
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_ARCHITECTURES OFF)
 
-target_link_libraries(huge_ctr_shared PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa core embedding)
+target_link_libraries(huge_ctr_shared PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa hugectr_core23 core embedding)
 target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 target_link_libraries(huge_ctr_shared PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)

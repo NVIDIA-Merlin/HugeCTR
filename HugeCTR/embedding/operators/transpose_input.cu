@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cub/cub.cuh>
 
-#include "HugeCTR/include/utils.hpp"
-#include "transpose_input.hpp"
+#include <cub/cub.cuh>
+#include <embedding/operators/transpose_input.hpp>
+#include <utils.hpp>
 
 namespace embedding {
 
@@ -60,6 +60,7 @@ __global__ void convert_batch_major_to_feature_major_for_key_kernel(
     }
   }
 }
+
 }  // namespace
 
 PreprocessInput::PreprocessInput(std::shared_ptr<CoreResourceManager> core,
@@ -140,4 +141,5 @@ void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range,
     });
   }
 }
+
 }  // namespace embedding

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -25,14 +25,26 @@ if(CLANGFORMAT)
   include(ClangFormat)
 
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.hpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cu
+    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_tf/*.cuh
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.hpp
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cpp
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cu
+    ${PROJECT_SOURCE_DIR}/hps_trt/*.cuh
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.hpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cu
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cuh
-    ${PROJECT_SOURCE_DIR}/test/utest/*.hpp
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cpp
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cu
-    ${PROJECT_SOURCE_DIR}/test/utest/*.cuh
+    ${PROJECT_SOURCE_DIR}/test/*.hpp
+    ${PROJECT_SOURCE_DIR}/test/*.cpp
+    ${PROJECT_SOURCE_DIR}/test/*.cu
+    ${PROJECT_SOURCE_DIR}/test/*.cuh
     ${PROJECT_SOURCE_DIR}/tools/*.hpp
     ${PROJECT_SOURCE_DIR}/tools/*.cpp
     ${PROJECT_SOURCE_DIR}/tools/*.cu
@@ -289,6 +301,7 @@ if(ENABLE_INFERENCE)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_INFERENCE")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_INFERENCE")
+add_subdirectory(HugeCTR/core23)
 add_subdirectory(third_party/googletest)
 add_subdirectory(HugeCTR/src/hps)
 add_subdirectory(HugeCTR/src/inference)
@@ -301,9 +314,11 @@ else()
 add_subdirectory(HugeCTR/src)
 option(ENABLE_HCTR "Build core HCTR backend" ON)
 add_subdirectory(HugeCTR/core)
+add_subdirectory(HugeCTR/core23)
 add_subdirectory(HugeCTR/embedding)
 add_subdirectory(third_party/googletest)
 add_subdirectory(test/utest)
 add_subdirectory(tools)
+add_subdirectory(benchmarks)
 add_subdirectory(test/embedding_cache_perf_test)
 endif()

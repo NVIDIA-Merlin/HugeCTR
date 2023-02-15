@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <common.hpp>
+#include <core23/tensor_container.hpp>
 #include <memory>
 #include <regularizer.hpp>
 #include <utils.hpp>
@@ -40,6 +40,19 @@ class L2Regularizer : public Regularizer<T> {
    */
   L2Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                 const int batch_size, const float lambda,
+                const std::shared_ptr<GPUResource>& gpu_resource);
+
+  /*
+   * Constructor of L2Regularizer
+   * @param weight_tensors TensorContainer of all the layers' weights
+   * @param wgrad_tensors TensorContainer of all the layers' wgrads
+   * @param batch_size Network batch size
+   * @param lambda Hyperparameter to scale the regularization term
+   * @param cublas_handle cuBLAS handle to execute the kernel in fprop
+   * @param device_id Device to be used
+   */
+  L2Regularizer(std::vector<core23::Tensor> weight_tensors,
+                std::vector<core23::Tensor> wgrad_tensors, const int batch_size, const float lambda,
                 const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*

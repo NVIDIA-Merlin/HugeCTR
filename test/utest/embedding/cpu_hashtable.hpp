@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#ifndef CPUV_HASHTABLE_H_
-#define CPUV_HASHTABLE_H_
-#include <iostream>
 #include <unordered_map>
+
 template <typename KeyType, typename ValType>
 class HashTableCpu {
  public:
@@ -69,5 +68,3 @@ class HashTableCpu {
   using Table = std::unordered_map<KeyType, ValType>;
   Table* table_;
 };
-
-#endif

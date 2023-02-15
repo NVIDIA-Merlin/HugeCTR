@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,9 +163,8 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
 
   // Construct gpu embedding cache, 1 per embedding table
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     // Allocate resources.
     gpu_emb_caches_.reserve(cache_config_.num_emb_table_);
@@ -193,9 +192,8 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
 template <typename TypeHashKey>
 EmbeddingCache<TypeHashKey>::~EmbeddingCache() {
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    cudaSetDevice(cache_config_.cuda_dev_id_);
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     // Destroy resources.
     for (auto& stream : insert_streams_) {
       cudaStreamDestroy(stream);
@@ -222,7 +220,7 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   if (cache_config_.use_gpu_embedding_cache_) {
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     // Copy the keys to device
     start = profiler::start();
@@ -269,7 +267,7 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
 
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
                                  num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice, stream));
@@ -286,9 +284,8 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
                                                      cudaStream_t stream) {
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     BaseUnit* start = profiler::start();
     // Unique
     static_cast<UniqueOp*>(workspace_handler.unique_op_obj_[table_id])
@@ -390,9 +387,8 @@ void EmbeddingCache<TypeHashKey>::insert(const size_t table_id,
                                          cudaStream_t stream) {
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     gpu_emb_caches_[table_id]->Replace(
         static_cast<TypeHashKey*>(workspace_handler.d_missing_embeddingcolumns_[table_id]),
         workspace_handler.h_missing_length_[table_id],
@@ -406,9 +402,8 @@ void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
                                        cudaStream_t stream) {
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     gpu_emb_caches_[table_id]->Replace(
         static_cast<TypeHashKey*>(refreshspace_handler.d_refresh_embeddingcolumns_),
         *refreshspace_handler.h_length_, refreshspace_handler.d_refresh_emb_vec_, stream);
@@ -428,9 +423,8 @@ void EmbeddingCache<TypeHashKey>::dump(const size_t table_id, void* const d_keys
     if (end_index <= start_index || end_index > cache_config_.num_set_in_cache_[table_id]) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid value for end_index.");
     }
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     // Call GPU cache API
     BaseUnit* start = profiler::start();
     gpu_emb_caches_[table_id]->Dump(static_cast<TypeHashKey*>(d_keys), d_length, start_index,
@@ -450,9 +444,8 @@ void EmbeddingCache<TypeHashKey>::refresh(const size_t table_id, const void* con
     if (length == 0) {
       return;
     }
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     BaseUnit* start = profiler::start();
     // Call GPU cache API
     gpu_emb_caches_[table_id]->Update(static_cast<const TypeHashKey*>(d_keys), length, d_vectors,
@@ -467,10 +460,8 @@ void EmbeddingCache<TypeHashKey>::finalize() {
   if (cache_config_.use_gpu_embedding_cache_) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    // TODO: Why do we do this here?
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     // Join insert threads
     insert_workers_.await_idle();
@@ -499,7 +490,7 @@ EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
   workspace_handler.use_gpu_embedding_cache_ = cache_config_.use_gpu_embedding_cache_;
   if (cache_config_.use_gpu_embedding_cache_) {
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
       void* d_embeddingcolumns;
@@ -581,9 +572,8 @@ void EmbeddingCache<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& wor
   }
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap CUDA device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
     for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
       // Release resources.
       HCTR_LIB_THROW(cudaFree(workspace_handler.d_embeddingcolumns_[i]));
@@ -635,9 +625,8 @@ EmbeddingCacheRefreshspace EmbeddingCache<TypeHashKey>::create_refreshspace() {
         (max_num_key_in_buffer + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
         (SLAB_SIZE * SET_ASSOCIATIVITY);
 
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     // Create memory buffers.
     HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
@@ -663,9 +652,8 @@ void EmbeddingCache<TypeHashKey>::destroy_refreshspace(
     EmbeddingCacheRefreshspace& refreshspace_handler) {
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
-    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
     // Release resources.
     HCTR_LIB_THROW(cudaFreeHost(refreshspace_handler.h_refresh_embeddingcolumns_));

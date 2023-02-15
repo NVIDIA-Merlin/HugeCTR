@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <atomic>
+#include <data_readers/metadata.hpp>
 #include <fstream>
 #include <vector>
-
-#include "data_readers/metadata.hpp"
 
 namespace HugeCTR {
 
@@ -117,7 +116,6 @@ class FileList {
   }
 
   std::string get_file_type() { return file_type_; }
-
   int get_num_of_files() const { return num_of_files_; }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <common.hpp>
@@ -81,12 +80,12 @@ class CheckSum : public Checker {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  Error_t next_source() {
+  Error_t next_source(long long expected_next_source_items) {
     // initialize
     counter_ = 0;
     accum_ = 0;
     for (int i = MAX_TRY_; i > 0; i--) {
-      Error_t flag_eof = Checker::src_.next_source();
+      Error_t flag_eof = Checker::src_.next_source(expected_next_source_items);
       if (flag_eof == Error_t::Success || flag_eof == Error_t::EndOfFile) {
         return flag_eof;
       }

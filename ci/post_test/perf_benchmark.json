@@ -3,5 +3,12 @@
     "wdl_8gpu": 50,
     "dlrm_1node": 119,
     "dlrm_14node": 60,
-    "inference_benchmark": 500
+    "dlrm_dcnv2_1node": 900,
+    "inference_benchmark": 500,
+    "hps_plugin_benchmark": {
+        "native_tf": {"32":800, "1024":3000, "16384":50000},
+        "tf_with_hps": {"32":800, "1024":1500, "16384":6000},
+        "fp32_trt_with_hps": {"32":600, "1024":1000, "16384":5000},
+        "fp16_trt_with_hps": {"32":500, "1024":800, "16384":4000}
+    }
 }

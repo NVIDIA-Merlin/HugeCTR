@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "embeddings/embedding_collection.hpp"
+#include <embeddings/embedding_collection.hpp>
 
 namespace HugeCTR {
 
@@ -44,5 +44,6 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
       .def("shard", &HugeCTR::EmbeddingCollectionConfig::shard, pybind11::arg("shard_matrix"),
            pybind11::arg("shard_strategy"));
 }
+
 }  // namespace python_lib
 }  // namespace HugeCTR

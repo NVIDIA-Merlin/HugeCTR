@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <layers/functors/fused_gemm_functors.hpp>
 
 namespace HugeCTR {
+
 template <typename T>
 void CublasDesc<T>::set_fprop_attr(std::vector<size_t> dims_a, std::vector<size_t> dims_b,
                                    cublasOperation_t op_a, cublasOperation_t op_b,

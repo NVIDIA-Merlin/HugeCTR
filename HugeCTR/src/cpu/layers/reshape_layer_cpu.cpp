@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,6 @@
 #include <common.hpp>
 #include <cpu/layers/reshape_layer_cpu.hpp>
 #include <utils.hpp>
-#ifndef NDEBUG
-#include <iostream>
-#endif
 
 namespace HugeCTR {
 

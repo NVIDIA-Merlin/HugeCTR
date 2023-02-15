@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <common.hpp>
+#include <core23/tensor_container.hpp>
 #include <general_buffer2.hpp>
 #include <gpu_resource.hpp>
 #include <memory>
+#include <optional>
 #include <utils.hpp>
 
 namespace HugeCTR {
+
+using WeightTensors = core23::TensorContainer<float, 1, 1>;
+template <typename T>
+using WgradTensors = core23::TensorContainer<T, 1, 1>;
 
 /**
  * @brief Abstract base class of Regularizer
@@ -39,6 +44,16 @@ class Regularizer {
    */
   Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
               const std::shared_ptr<GPUResource>& gpu_resource);
+
+  /*
+   * Constructor of Regularizer
+   * @param weight_tensors TensorContainer of all the layers' weights
+   * @param wgrad_tensors TensorContainer of all the layers' wgrads
+   * @param batch_size Network batch size
+   * @param device_id Device to be used
+   */
+  Regularizer(std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
+              const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of Regularizer
@@ -94,6 +109,8 @@ class Regularizer {
 
   Tensor2<float> weight_buff_;
   Tensor2<T> wgrad_buff_;
+  std::optional<WeightTensors> weight_tensors_;
+  std::optional<WgradTensors<T>> wgrad_tensors_;
   int batch_size_;
   float h_rterm_;
   std::shared_ptr<GPUResource> gpu_resource_;

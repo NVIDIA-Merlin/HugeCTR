@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CONCURRENT_UNORDERED_MAP_CUH
-#define CONCURRENT_UNORDERED_MAP_CUH
+#pragma once
 
 #include <thrust/pair.h>
 
 #include <cassert>
+#include <hashtable/cudf/hash_functions.cuh>
+#include <hashtable/cudf/managed.cuh>
+#include <hashtable/cudf/managed_allocator.cuh>
 #include <iostream>
 #include <iterator>
 #include <type_traits>
-
-#include "hash_functions.cuh"
-#include "managed.cuh"
-#include "managed_allocator.cuh"
 
 // TODO: replace this with CUDA_TRY and propagate the error
 #ifndef CUDA_RT_CALL
@@ -753,5 +750,3 @@ int*>(tmp_it), unused, value ); if ( old_val == unused ) { it = tmp_it;
 
   unsigned long long m_collisions;
 };
-
-#endif  // CONCURRENT_UNORDERED_MAP_CUH
