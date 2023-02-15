@@ -74,7 +74,7 @@ inline void copy_common(void* dst_data, const void* src_data, int64_t num_bytes,
     return;
   }
 
-  DeviceGuard device_guard(src_device);
+  DeviceGuard device_guard(src_device.type() == DeviceType::CPU? dst_device : src_device);
   if (src_device.type() == dst_device.type()) {
     if (src_device.type() == DeviceType::CPU) {
       copy_cpu_to_cpu(dst_data, src_data, num_bytes, stream_or);

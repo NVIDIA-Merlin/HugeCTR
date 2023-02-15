@@ -122,7 +122,8 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor5.own_data());
   EXPECT_FALSE(tensor5.data() == nullptr);
 
-  // 7. Create a Tensor from shape, data_type, and params
+  // 7. Create a Tensor with shape, data_type, and params specified in its constructor.
+  // After calling data(), it override with an existing Tensor
   Tensor tensor6({512, 256}, ScalarType::Float,
                  tensor_params.buffer_channel(GetRandomBufferChannel()));
   EXPECT_TRUE(tensor6.shape() == Shape({512, 256}));
@@ -137,6 +138,17 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor6.data_type() == tensor_params.data_type());
   EXPECT_FALSE(tensor6.data() == tensor6_data);
   EXPECT_TRUE(tensor6.data() == tensor0.data());
+
+  // 8. Create a Tensor and override it wih a new Tensor before it calls data().
+  // Then call data() from another Tensor which belongs to the same channel.
+  auto tensor_params0 = TensorParams({1024, 256}).data_type(ScalarType::Int64);
+  auto tensor_params1 = TensorParams({1024, 256}).data_type(ScalarType::Int64);
+  Tensor tensor7(tensor_params0);
+  Tensor tensor8(tensor_params0);
+  Tensor tensor9(tensor_params1);
+  tensor7 = tensor9;
+  EXPECT_TRUE(tensor8.data() != nullptr);
+
 
   allocator->deallocate(data);
 }

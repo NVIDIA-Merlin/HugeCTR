@@ -90,7 +90,8 @@ template <typename DstType, typename SrcType, typename Op>
 void transform_async_common(DstType* dst, const SrcType* src, int64_t num_elements,
                             const Device& dst_device, const Device& src_device, CUDAStream stream,
                             Op op) {
-  DeviceGuard device_guard(src_device);
+
+  DeviceGuard device_guard(src_device.type() == DeviceType::CPU? dst_device : src_device);
   if (dst_device == src_device) {
     if (src_device.type() == DeviceType::CPU) {
       TransformParams<DstType, SrcType, Op>* params =
