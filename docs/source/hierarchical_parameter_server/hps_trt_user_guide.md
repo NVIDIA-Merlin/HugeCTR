@@ -57,19 +57,19 @@ The following sample commands pull and start the Merlin TensorFlow container, Me
 Merlin TensorFlow
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.01
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 ```
 
 Merlin PyTorch
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.01
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.02
 ```
 
 Merlin HugeCTR
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.01
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.02
 ```
 
 You can check the existence of the HPS plugin for TensorRT after launching the container by running the following Python statements:
@@ -81,3 +81,7 @@ handle = ctypes.CDLL("/usr/local/hps_trt/lib/libhps_plugin.so", mode=ctypes.RTLD
 ## Example Notebooks
 
 We provide a collection of examples as [Jupyter Notebooks](../hps_trt/notebooks/index.md) that demonstrate how to build the HPS-integrated TensorRT engine for models trained with TensorFlow, PyTorch, or HugeCTR.
+
+## Benchmark
+
+We benchmark the DLRM TRT engine with HPS plugin in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).

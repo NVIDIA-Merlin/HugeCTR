@@ -166,13 +166,6 @@ build_sok_tf1:
     CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
     BUILD_SOK: 1
 
-build_hps_tf_plugin:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_SOK_TF2}
-    DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
-    BUILD_TF_PLUGIN: 1
-
 build_hugectr_hps_trt_plugin:
   extends: .build_hugectr
   variables:
@@ -192,6 +185,7 @@ build_tf_hps_trt_plugin:
   variables:
     FROM_IMAGE: ${IMAGE_SOK_TF2}
     DST_IMAGE: $TF_TRT_IMAGE_VERSIONED
+    BUILD_TF_PLUGIN: 1
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80\""
     BUILD_HPS_BACKEND: 1
@@ -844,12 +838,12 @@ hugectr2onnx:
 hierarchical_parameter_server:
   extends: .cluster_test_job
   needs:
-    - build_hps_tf_plugin
+    - build_tf_hps_trt_plugin
     - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/hps_tf
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TF_PLUGIN_IMAGE_VERSIONED
+    CONT: $TF_TRT_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
@@ -958,6 +952,21 @@ hps_trt_in_pytorch:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hps/hps_trt_in_merlin_pytorch.sub
 
+hps_plugin_benchmark:
+  extends: .cluster_test_job
+  needs:
+    - build_tf_hps_trt_plugin
+    - check_selene_idle
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_plugin_benchmark
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/hps_tf_benchmark/hps_plugin_ci_model_repo:/model_repo,/lustre/fsw/devtech/hpc-hugectr/hps_tf_benchmark/perf_data:/perf_data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/hps_plugin_benchmark/run.sub
+
 inference_benchmark:
   extends: .cluster_test_job_daily
   needs:
@@ -1063,6 +1072,20 @@ wdl_check:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_wdl.sub
+
+hps_plugin_benchmark_check:
+  extends: .cluster_post_test_job
+  needs:
+    - hps_plugin_benchmark
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_plugin_benchmark_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/hps_plugin_benchmark:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_hps_plugin_benchmark.sub
 
 inference_benchmark_check:
   extends: .cluster_post_test_job_daily

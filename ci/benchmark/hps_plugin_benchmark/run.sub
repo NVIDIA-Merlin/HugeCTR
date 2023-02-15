@@ -1,0 +1,3 @@
+#!/bin/bash
+
+srun --container-image="${CONT}" --container-mounts="${MOUNTS}"  bash -cx "bash /workdir/ci/benchmark/hps_plugin_benchmark/test.sh"
