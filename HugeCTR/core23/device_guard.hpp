@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <core23/device.hpp>
 #include <optional>
 #include <string>
-
-#include <core23/device.hpp>
 
 namespace HugeCTR {
 namespace core23 {
