@@ -23,23 +23,20 @@ cmake -DBUILD_SHARED_LIBS=ON .. && make install
 cd ../..
 
 #Install crc32c
-git clone https://github.com/google/crc32c.git
+git clone --recurse-submodules https://github.com/google/crc32c.git
 
-cd crc32c && git submodule update --init --recursive
-mkdir -p build && cd build
+cd crc32c && mkdir -p build && cd build
 cmake -DCRC32C_BUILD_TESTS=0 -DCRC32C_BUILD_BENCHMARKS=0 .. && make all install
 cd ../..
 
 #Clone the google-cloud-cpp git repo
-git clone https://github.com/googleapis/google-cloud-cpp.git
+git clone --branch v2.7.0 --depth 1 https://github.com/googleapis/google-cloud-cpp.git
 
-cd google-cloud-cpp
-mkdir -p build
-cd build
+cd google-cloud-cpp && mkdir -p build && cd build
 cmake -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF -DGOOGLE_CLOUD_CPP_ENABLE_EXAMPLES=OFF -DGOOGLE_CLOUD_CPP_ENABLE=storage ..
 make -j install
 
 cd ../..
-rm -rfv abseil-cpp
-rm -rfv crc32c
-rm -rfv google-cloud-cpp
+rm -rf abseil-cpp
+rm -rf crc32c
+rm -rf google-cloud-cpp
