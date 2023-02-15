@@ -16,9 +16,7 @@
 
 #include <tensorflow/core/framework/op_kernel.h>
 
-#include <exception>
 #include <hps/plugin/facade.hpp>
-#include <hps_cc/config.hpp>
 
 namespace tensorflow {
 

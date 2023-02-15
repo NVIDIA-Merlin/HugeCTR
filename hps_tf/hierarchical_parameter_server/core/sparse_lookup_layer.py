@@ -202,13 +202,14 @@ class SparseLookupLayer(tf.keras.layers.Layer):
 
         # Query HPS for embeddings
         embeddings = lookup_ops.lookup(
-            values=ids,
+            ids=ids,
             model_name=self.model_name,
             table_id=self.table_id,
             emb_vec_size=self.emb_vec_size,
             emb_vec_dtype=self.emb_vec_dtype,
             ps_config_file=self.ps_config_file,
             global_batch_size=self.global_batch_size,
+            max_norm=max_norm,
         )
 
         # Handle weights and combiner
