@@ -21,10 +21,52 @@ import sys
 import tensorflow as tf
 import tensorflow.distribute as tf_dist
 from tensorflow.python.distribute import distribute_lib
-from tensorflow.python.ops import array_ops
-
+from tensorflow.python.ops import array_ops, math_ops, clip_ops
+from tensorflow.python.framework import ops
 
 CommToolSet = set(["Strategy", "MPI", "Horovod", "OneDevice"])
+
+
+def clip(embeddings, ids, max_norm):
+    """Helper function for lookup
+    This function optionally clips embeddings to an l2-norm of max_norm.
+    Args:
+        embeddings: A `Tensor` of embeddings retrieved by `gather`.
+        ids: The `ids` argument that was passed to `gather`.
+        max_norm: If not `None`, each embedding is clipped if its l2-norm is larger
+            than this value.
+    Returns:
+        A `Tensor` with the same type as `embeddings`.
+    """
+
+    def _rank(x):
+        """Helper function to retrieve the rank of a tensor.
+        Args:
+            x: Something convertible to `Tensor`.
+        Returns:
+            Either a pair `(rank, True)` where `rank` is an integer or a pair
+            `(rank, False)` where `rank` is an integer `Tensor`. In either case,
+            `rank` is the rank of `x`.
+        """
+        rank = ops.convert_to_tensor(x).get_shape().ndims
+        if rank:
+            return rank, True
+        else:
+            return array_ops.rank(x), False
+
+    if max_norm is None:
+        return embeddings
+    ids_rank, ids_static = _rank(ids)
+    embeddings_rank, embeddings_static = _rank(embeddings)
+    return clip_ops.clip_by_norm(
+        embeddings,
+        max_norm,
+        axes=(
+            list(range(ids_rank, embeddings_rank))
+            if ids_static and embeddings_static
+            else math_ops.range(ids_rank, embeddings_rank)
+        ),
+    )
 
 
 def get_global_replica_id(comm_tool=None, var=None):
@@ -89,7 +131,14 @@ def _get_comm_tool():
 
 
 def lookup(
-    values, model_name, table_id, emb_vec_size, emb_vec_dtype, ps_config_file, global_batch_size
+    ids,
+    model_name,
+    table_id,
+    emb_vec_size,
+    emb_vec_dtype,
+    ps_config_file,
+    global_batch_size,
+    max_norm,
 ):
     """
     This function is a wrapper of HPS's lookup forward propagation.
@@ -97,8 +146,8 @@ def lookup(
     # Lazy initialization of hps
     status = Init(ps_config_file=ps_config_file, global_batch_size=global_batch_size)
     global_replica_id = get_global_replica_id(_get_comm_tool())
-    vector = hps_lib.lookup(
-        values=values,
+    embeddings = hps_lib.lookup(
+        values=ids,
         global_replica_id=global_replica_id,
         model_name=model_name,
         table_id=table_id,
@@ -106,4 +155,5 @@ def lookup(
         dtype=emb_vec_dtype,
         init_status=status,
     )
-    return vector
+    ret = clip(embeddings, ids, max_norm)
+    return array_ops.identity(ret)

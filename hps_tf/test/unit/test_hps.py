@@ -28,6 +28,7 @@ args = dict()
 args["ps_config_file"] = "hps.json"
 args["global_batch_size"] = 1024
 args["max_vocabulary_size_per_table_per_model"] = {"foo": [30000], "bar": [50000, 2000]}
+args["num_iters"] = 10
 
 hps_config = {
     "supportlonglong": False,
@@ -151,23 +152,27 @@ class TestHPS:
             ]
             max_nnz_per_sample_per_table = model["maxnum_catfeature_query_per_table_per_sample"]
             for table_id in range(len(embedding_vecsize_per_table)):
-                lookup_layer = hps.LookupLayer(
-                    model_name=model_name,
-                    table_id=table_id,
-                    emb_vec_size=embedding_vecsize_per_table[table_id],
-                    emb_vec_dtype=tf.float32,
-                )
-                dense_keys = _generate_dense_keys(
-                    args["global_batch_size"],
-                    [0, max_vocabulary_size_per_table[table_id]],
-                    max_nnz_per_sample_per_table[table_id],
-                )
-                embeddings = lookup_layer(dense_keys)
-                embeddings_gt = tf.nn.embedding_lookup(
-                    params=cls.embedding_tables[model_name][table_id], ids=dense_keys
-                )
-                flag = tf.reduce_all(tf.equal(embeddings, embeddings_gt))
-                assert True == flag
+                for max_norm in [None, tf.Variable(0.0), tf.Variable(0.1), tf.Variable(10.0)]:
+                    lookup_layer = hps.LookupLayer(
+                        model_name=model_name,
+                        table_id=table_id,
+                        emb_vec_size=embedding_vecsize_per_table[table_id],
+                        emb_vec_dtype=tf.float32,
+                    )
+                    for i in range(args["num_iters"]):
+                        dense_keys = _generate_dense_keys(
+                            args["global_batch_size"],
+                            [0, max_vocabulary_size_per_table[table_id]],
+                            max_nnz_per_sample_per_table[table_id],
+                        )
+                        embeddings = lookup_layer(ids=dense_keys, max_norm=max_norm)
+                        embeddings_gt = tf.nn.embedding_lookup(
+                            params=cls.embedding_tables[model_name][table_id],
+                            ids=dense_keys,
+                            max_norm=max_norm,
+                        )
+                        flag = tf.reduce_all(tf.equal(embeddings, embeddings_gt))
+                        assert True == flag
 
     def test_sparse_lookup_layer(cls):
         for model in hps_config["models"]:
@@ -178,25 +183,32 @@ class TestHPS:
             ]
             max_nnz_per_sample_per_table = model["maxnum_catfeature_query_per_table_per_sample"]
             for table_id in range(len(embedding_vecsize_per_table)):
-                sparse_lookup_layer = hps.SparseLookupLayer(
-                    model_name=model_name,
-                    table_id=table_id,
-                    emb_vec_size=embedding_vecsize_per_table[table_id],
-                    emb_vec_dtype=tf.float32,
-                )
-                sparse_keys = _generate_sparse_keys(
-                    args["global_batch_size"],
-                    [0, max_vocabulary_size_per_table[table_id]],
-                    max_nnz_per_sample_per_table[table_id],
-                )
-                embeddings = sparse_lookup_layer(
-                    sp_ids=sparse_keys, sp_weights=None, combiner="mean"
-                )
-                embeddings_gt = tf.nn.embedding_lookup_sparse(
-                    params=cls.embedding_tables[model_name][table_id],
-                    sp_ids=sparse_keys,
-                    sp_weights=None,
-                    combiner="mean",
-                )
-                flag = tf.reduce_all(tf.equal(embeddings, embeddings_gt))
-                assert True == flag
+                for combiner in ["sum", "mean"]:
+                    for max_norm in [None, tf.Variable(0.0), tf.Variable(0.1), tf.Variable(10.0)]:
+                        sparse_lookup_layer = hps.SparseLookupLayer(
+                            model_name=model_name,
+                            table_id=table_id,
+                            emb_vec_size=embedding_vecsize_per_table[table_id],
+                            emb_vec_dtype=tf.float32,
+                        )
+                        for i in range(args["num_iters"]):
+                            sparse_keys = _generate_sparse_keys(
+                                args["global_batch_size"],
+                                [0, max_vocabulary_size_per_table[table_id]],
+                                max_nnz_per_sample_per_table[table_id],
+                            )
+                            embeddings = sparse_lookup_layer(
+                                sp_ids=sparse_keys,
+                                sp_weights=None,
+                                combiner=combiner,
+                                max_norm=max_norm,
+                            )
+                            embeddings_gt = tf.nn.embedding_lookup_sparse(
+                                params=cls.embedding_tables[model_name][table_id],
+                                sp_ids=sparse_keys,
+                                sp_weights=None,
+                                combiner=combiner,
+                                max_norm=max_norm,
+                            )
+                            flag = tf.reduce_all(tf.equal(embeddings, embeddings_gt))
+                            assert True == flag

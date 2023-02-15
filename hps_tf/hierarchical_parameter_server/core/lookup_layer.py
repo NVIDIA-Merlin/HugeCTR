@@ -84,30 +84,34 @@ class LookupLayer(tf.keras.layers.Layer):
         self.ps_config_file = ps_config_file
         self.global_batch_size = global_batch_size
 
-    def call(self, inputs):
+    def call(self, ids, max_norm=None):
         """
         The forward logic of this wrapper class.
 
         Parameters
         ----------
-        inputs:
+        ids:
                 Keys are stored in Tensor. The supported data types are ``tf.int32`` and ``tf.int64``.
+        max_norm:
+            if not ``None``, each embedding is clipped if its l2-norm is larger
+            than this value.
 
         Returns
         -------
         emb_vector: ``tf.Tensor`` of float32
                 the embedding vectors for the input keys. Its shape is
-                *inputs.get_shape() + emb_vec_size*.
+                *ids.get_shape() + emb_vec_size*.
         """
         emb_vector = lookup_ops.lookup(
-            values=inputs,
+            ids=ids,
             model_name=self.model_name,
             table_id=self.table_id,
             emb_vec_size=self.emb_vec_size,
             emb_vec_dtype=self.emb_vec_dtype,
             ps_config_file=self.ps_config_file,
             global_batch_size=self.global_batch_size,
+            max_norm=max_norm,
         )
-        output_shape = inputs.get_shape() + self.emb_vec_size
+        output_shape = ids.get_shape() + self.emb_vec_size
         emb_vector.set_shape(output_shape)
         return emb_vector

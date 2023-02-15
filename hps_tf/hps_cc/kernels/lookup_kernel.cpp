@@ -20,7 +20,6 @@
 #include <tensorflow/stream_executor/stream_executor.h>
 
 #include <hps/plugin/facade.hpp>
-#include <hps_cc/config.hpp>
 
 namespace tensorflow {
 

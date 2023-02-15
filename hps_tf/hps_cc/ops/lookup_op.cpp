@@ -18,8 +18,6 @@
 #include <tensorflow/core/framework/op.h>
 #include <tensorflow/core/framework/shape_inference.h>
 
-#include <hps_cc/config.hpp>
-
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
