@@ -149,7 +149,6 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   tensor7 = tensor9;
   EXPECT_TRUE(tensor8.data() != nullptr);
 
-
   allocator->deallocate(data);
 }
 
