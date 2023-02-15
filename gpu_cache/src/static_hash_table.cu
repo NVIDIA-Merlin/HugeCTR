@@ -15,6 +15,7 @@
  */
 
 #include <cooperative_groups.h>
+#include <cuda.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -48,7 +49,12 @@ __device__ size_type insert(key_type *table, size_type capacity, key_type key, c
   // otherwise return invalid_slot.
 
   const size_type num_groups = capacity / group_size;
-  const unsigned int num_tiles_per_group = group_size / cg.num_threads();
+#if (CUDA_VERSION < 11060)
+  unsigned long long num_threads_per_group = cg.size();
+#else
+  unsigned long long num_threads_per_group = cg.num_threads();
+#endif
+  const unsigned int num_tiles_per_group = group_size / num_threads_per_group;
 
   // Assuming capacity is a power of 2
   size_type slot = hash(key) & (capacity - 1);
@@ -98,7 +104,7 @@ __device__ size_type insert(key_type *table, size_type capacity, key_type key, c
         }
       }
 
-      slot += cg.num_threads();
+      slot += num_threads_per_group;
     }
     slot = (slot + group_size * step) & (capacity - 1);
   }
@@ -114,12 +120,11 @@ __global__ void InsertKeyKernel(key_type *table_keys, size_type *table_indices, 
                                 const size_type invalid_slot) {
   static_assert(tile_size <= group_size, "tile_size cannot be larger than group_size");
 
-  auto grid = cooperative_groups::this_grid();
   auto block = cooperative_groups::this_thread_block();
   auto tile = cooperative_groups::tiled_partition<tile_size>(block);
 
   int tile_idx = tile.meta_group_size() * block.group_index().x + tile.meta_group_rank();
-  int tile_cnt = tile.meta_group_size() * grid.dim_blocks().x;
+  int tile_cnt = tile.meta_group_size() * gridDim.x;
 
   for (size_type i = tile_idx; i < num_keys; i += tile_cnt) {
     key_type key = keys[i];
@@ -146,7 +151,14 @@ __device__ size_type lookup(key_type *table, size_type capacity, key_type key, c
   // otherwise return invalid_slot.
 
   const size_type num_groups = capacity / group_size;
-  const unsigned int num_tiles_per_group = group_size / cg.num_threads();
+
+#if (CUDA_VERSION < 11060)
+  unsigned long long num_threads_per_group = cg.size();
+#else
+  unsigned long long num_threads_per_group = cg.num_threads();
+#endif
+
+  const unsigned int num_tiles_per_group = group_size / num_threads_per_group;
 
   // Assuming capacity is a power of 2
   size_type slot = hash(key) & (capacity - 1);
@@ -170,7 +182,7 @@ __device__ size_type lookup(key_type *table, size_type capacity, key_type key, c
         return invalid_slot;
       }
 
-      slot += cg.num_threads();
+      slot += num_threads_per_group;
     }
     slot = (slot + group_size * step) & (capacity - 1);
   }
@@ -223,7 +235,7 @@ __global__ void LookupKernel(key_type *table_keys, size_type *table_indices, siz
   auto warp_tile = cooperative_groups::tiled_partition<WARP_SIZE>(block);
 
   int tile_idx = tile.meta_group_size() * block.group_index().x + tile.meta_group_rank();
-  int tile_cnt = tile.meta_group_size() * grid.dim_blocks().x;
+  int tile_cnt = tile.meta_group_size() * gridDim.x;
 
   for (int it = 0; it < (num_keys - 1) / tile_cnt + 1; it++) {
     size_type slot = invalid_slot;
@@ -240,7 +252,7 @@ __global__ void LookupKernel(key_type *table_keys, size_type *table_indices, siz
     }
     for (int i = 0; i < WARP_SIZE / tile_size; i++) {
       auto slot_to_read = warp_tile.shfl(slot, i * tile_size);
-      int idx_to_write = warp_tile.shfl(tile_idx, 0) + i;
+      int idx_to_write = warp_tile.shfl(key_num, 0) + i;
       if (slot_to_read == invalid_slot) {
         warp_tile_copy<WARP_SIZE>(warp_tile.thread_rank(), value_dim,
                                   output + (size_t)value_dim * idx_to_write, default_value);

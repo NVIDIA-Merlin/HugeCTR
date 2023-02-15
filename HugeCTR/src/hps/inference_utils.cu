@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <hps/inference_utils.hpp>
+// Do not include this header file, NVCC is not compatible with nlohmann/json in some versions
+// #include <hps/inference_utils.hpp>
 
 namespace HugeCTR {
 
