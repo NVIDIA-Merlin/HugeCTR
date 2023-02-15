@@ -37,6 +37,8 @@ subtrees:
                   - file: hps_trt/notebooks/demo_for_hugectr_trained_model.ipynb
               - file: hierarchical_parameter_server/hps_trt_api/index.rst
                 title: API Documentation
+          - file: hierarchical_parameter_server/hps_dlrm_benchmark.md
+            title: Benchmark HPS-integrated DLRM
       - file: sparse_operation_kit.md
         title: Sparse Operation Kit
       - file: performance.md
