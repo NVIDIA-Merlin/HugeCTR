@@ -41,6 +41,13 @@ class CudaDeviceRestorer {
  public:
   CudaDeviceRestorer() { CUDA_CHECK(cudaGetDevice(&dev_)); }
   ~CudaDeviceRestorer() { CUDA_CHECK(cudaSetDevice(dev_)); }
+  void check_device(int device) const {
+    if (device != dev_) {
+      throw std::runtime_error(
+          std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+          ": Runtime Error: The device id in the context is not consistent with configuration");
+    }
+  }
 
  private:
   int dev_;

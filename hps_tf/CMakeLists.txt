@@ -30,6 +30,13 @@ option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.h
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.hpp
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/include/*.cuh
+    ${PROJECT_SOURCE_DIR}/../gpu_cache/src/*.cu
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.hpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.h
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/*.cuh
     ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cpp
     ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cu
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp

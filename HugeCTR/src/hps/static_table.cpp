@@ -73,9 +73,8 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
     }
   }
 
-  // Swap device.
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   // Allocate resources.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
@@ -107,7 +106,7 @@ void StaticTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const v
                     "Apply for workspace from the memory pool for Static Embedding Cache Lookup");
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   // Copy the keys to device
   start = profiler::start();
   HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], h_keys,
@@ -135,7 +134,7 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
                     "Apply for workspace from the memory pool for Static Embedding Cache Lookup");
 
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   start = profiler::start();
   HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
                                  num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice, stream));
@@ -152,9 +151,8 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
                                                   cudaStream_t stream) {
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
 
-  // Swap device.
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   static_tables_[table_id]->Query(
       static_cast<TypeHashKey*>(workspace_handler.d_embeddingcolumns_[table_id]), num_keys,
@@ -182,7 +180,7 @@ EmbeddingCacheWorkspace StaticTable<TypeHashKey>::create_workspace() {
   // If GPU embedding cache is enabled.
   workspace_handler.use_gpu_embedding_cache_ = cache_config_.use_gpu_embedding_cache_;
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     void* d_embeddingcolumns;
@@ -252,9 +250,8 @@ EmbeddingCacheRefreshspace StaticTable<TypeHashKey>::create_refreshspace() {
       *max_element(cache_config_.num_set_in_cache_.begin(), cache_config_.num_set_in_cache_.end());
   const int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
                                               cache_config_.embedding_vec_size_.end());
-  // Swap device.
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   // Create memory buffers.
   HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
@@ -278,7 +275,7 @@ void StaticTable<TypeHashKey>::init(const size_t table_id,
                                     EmbeddingCacheRefreshspace& refreshspace_handler,
                                     cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   static_tables_[table_id]->Init(
       static_cast<TypeHashKey*>(refreshspace_handler.d_refresh_embeddingcolumns_),
       *refreshspace_handler.h_length_, refreshspace_handler.d_refresh_emb_vec_, stream);
@@ -290,7 +287,7 @@ void StaticTable<TypeHashKey>::refresh(const size_t table_id, const void* const 
                                        const float* const d_vectors, const size_t length,
                                        cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   static_tables_[table_id]->Clear(stream);
   static_tables_[table_id]->Init(static_cast<const TypeHashKey*>(d_keys), length, d_vectors,
                                  stream);
@@ -305,9 +302,8 @@ void StaticTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& worksp
     HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_missing_emb_vec_[i]));
     workspace_handler.h_missing_emb_vec_[i] = nullptr;
   }
-  // Swap CUDA device.
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     // Release resources.
     HCTR_LIB_THROW(cudaFree(workspace_handler.d_embeddingcolumns_[i]));
@@ -343,9 +339,8 @@ void StaticTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& worksp
 template <typename TypeHashKey>
 void StaticTable<TypeHashKey>::destroy_refreshspace(
     EmbeddingCacheRefreshspace& refreshspace_handler) {
-  // Swap device.
   CudaDeviceContext dev_restorer;
-  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   // Release resources.
   HCTR_LIB_THROW(cudaFreeHost(refreshspace_handler.h_refresh_embeddingcolumns_));
@@ -365,9 +360,8 @@ void StaticTable<TypeHashKey>::destroy_refreshspace(
 
 template <typename TypeHashKey>
 StaticTable<TypeHashKey>::~StaticTable() {
-  // Swap device.
   CudaDeviceContext dev_restorer;
-  cudaSetDevice(cache_config_.cuda_dev_id_);
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
   // Destroy resources.
   for (auto& stream : refresh_streams_) {
     cudaStreamDestroy(stream);

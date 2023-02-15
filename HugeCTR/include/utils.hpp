@@ -226,6 +226,11 @@ class CudaDeviceContext {
   ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
   void set_device(int device) const { HCTR_LIB_THROW(cudaSetDevice(device)); }
+
+  void check_device(int device) const {
+    HCTR_CHECK_HINT(device == original_device_,
+                    "The device id in the context is not consistent with configuration");
+  }
 };
 
 /**
