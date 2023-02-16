@@ -95,7 +95,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           std::vector<std::unique_ptr<Layer>>& layers,
                           std::map<std::string, core23::Tensor>& loss_tensors,
                           std::map<std::string, std::unique_ptr<ILoss>>& losses,
-                          bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics,
+                          bool async_mlp_wgrad, metrics::Core23MultiLossMetricMap* raw_metrics,
                           int gpu_count_in_total, const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                           bool use_algorithm_search,
@@ -831,17 +831,15 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     }
   } else if (raw_metrics) {
     // Create new set of metrics and add to raw metrics map
-    [[maybe_unused]] std::string name = dense_layer.bottom_names[1];
+    std::string name = dense_layer.bottom_names[1];
 
-    [[maybe_unused]] core23::Tensor& lookup_loss_tensor = loss_tensors.find(name)->second;
+    core23::Tensor& lookup_loss_tensor = loss_tensors.find(name)->second;
 
-    // TODO:
-    // metrics::RawMetricMap new_map;
-    // new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor));
-    // new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.input_tensors[0]));
-    // new_map.insert(std::make_pair(metrics::RawType::Label,
-    // input_output_info.input_tensors[1]));
-    // (*raw_metrics).insert(std::make_pair(name, new_map));
+    metrics::Core23RawMetricMap new_map;
+    new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor));
+    new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.input_tensors[0]));
+    new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.input_tensors[1]));
+    (*raw_metrics).insert(std::make_pair(name, new_map));
   }
 }
 

@@ -15,6 +15,7 @@
  */
 
 #include <loss.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.cuh>
 #include <vector>
 
@@ -43,6 +44,29 @@ Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor
       total_gpu_count_(total_gpu_count),
       scaler_(scaler),
       gen_loss_summary_(gen_loss_summary) {
+  this->use_old_tensor = true;
+  label_tensors_old_.push_back(label_tensor);
+  input_tensors_old_.push_back(input_tensor);
+  loss_tensors_old_.push_back(loss_tensor);
+
+  if (regularizer_ == nullptr) {
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "There is no regularizer specified. If you intend not to use any regularizer, pass a "
+        "NoRegularizer object.");
+  }
+}
+
+template <typename T>
+Loss<T>::Loss(const core23::Tensor &label_tensor, const core23::Tensor &input_tensor,
+              const core23::Tensor &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+              const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler,
+              bool gen_loss_summary)
+    : regularizer_(regularizer),
+      gpu_resource_(gpu_resource),
+      total_gpu_count_(total_gpu_count),
+      scaler_(scaler),
+      gen_loss_summary_(gen_loss_summary) {
   label_tensors_.push_back(label_tensor);
   input_tensors_.push_back(input_tensor);
   loss_tensors_.push_back(loss_tensor);
@@ -57,10 +81,17 @@ Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor
 
 template <typename T>
 void Loss<T>::compute_and_init(bool is_train) {
-  Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
-  const auto &input_dim = input_tensor.get_dimensions();
-  int batch_size = input_dim[0];
-  compute_and_init(is_train, batch_size);
+  if (this->use_old_tensor) {
+    Tensor2<T> &input_tensor = get_input_tensors_old(is_train)[0];
+    const auto &input_dim = input_tensor.get_dimensions();
+    int batch_size = input_dim[0];
+    compute_and_init(is_train, batch_size);
+  } else {
+    core23::Tensor &input_tensor = get_input_tensors(is_train)[0];
+    const auto &input_dim = input_tensor.shape();
+    int batch_size = input_dim.size(0);
+    compute_and_init(is_train, batch_size);
+  }
 }
 
 template <typename T>
@@ -79,32 +110,65 @@ void Loss<T>::compute_and_init(bool is_train, long long current_batchsize) {
 // Note: current_batchsize here is the batchsize on this device
 template <typename T>
 void Loss<T>::compute(bool is_train, long long current_batchsize, float rterm) {
-  Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
-  const Tensor2<float> &label_tensor = get_label_tensors(is_train)[0];
-  Tensor2<float> &loss_tensor = loss_tensors_[0];
+  if (this->use_old_tensor) {
+    Tensor2<T> &input_tensor = get_input_tensors_old(is_train)[0];
+    const Tensor2<float> &label_tensor = get_label_tensors_old(is_train)[0];
+    Tensor2<float> &loss_tensor = loss_tensors_old_[0];
 
-  const auto &input_dim = input_tensor.get_dimensions();
-  const auto &label_dim = label_tensor.get_dimensions();
+    const auto &input_dim = input_tensor.get_dimensions();
+    const auto &label_dim = label_tensor.get_dimensions();
 
-  int batch_size = input_dim[0];
-  int feature_dim = input_dim[1];
+    int batch_size = input_dim[0];
+    int feature_dim = input_dim[1];
 
-  T *input = input_tensor.get_ptr();
-  const float *label = label_tensor.get_ptr();
-  float *loss = loss_tensor.get_ptr();
+    T *input = input_tensor.get_ptr();
+    const float *label = label_tensor.get_ptr();
+    float *loss = loss_tensor.get_ptr();
 
-  if (current_batchsize > batch_size && current_batchsize < 0) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "current_batchsize > batch_size && current_batchsize < 0");
-  }
+    if (current_batchsize > batch_size && current_batchsize < 0) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "current_batchsize > batch_size && current_batchsize < 0");
+    }
 
-  do_compute(input, label, loss, current_batchsize, feature_dim, scaler_, rterm, label_weight,
-             is_train, get_gpu().get_stream());
-  if (is_train) {
-    // once current_batchsize < batch_size in train we set the rest dgrad to 0
-    if (current_batchsize < batch_size) {
-      HCTR_LIB_THROW(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
-                                     (batch_size - current_batchsize) * feature_dim * sizeof(T),
-                                     get_gpu().get_stream()));
+    do_compute(input, label, loss, current_batchsize, feature_dim, scaler_, rterm, label_weight,
+               is_train, get_gpu().get_stream());
+    if (is_train) {
+      // once current_batchsize < batch_size in train we set the rest dgrad to 0
+      if (current_batchsize < batch_size) {
+        HCTR_LIB_THROW(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
+                                       (batch_size - current_batchsize) * feature_dim * sizeof(T),
+                                       get_gpu().get_stream()));
+      }
+    }
+  } else {
+    core23::Tensor &input_tensor = get_input_tensors(is_train)[0];
+    const core23::Tensor &label_tensor = get_label_tensors(is_train)[0];
+    core23::Tensor &loss_tensor = loss_tensors_[0];
+
+    const auto &input_dim = input_tensor.shape();
+    const auto &label_dim = label_tensor.shape();
+
+    int batch_size = input_dim.size(0);
+    int feature_dim = input_dim.size(1);
+
+    T *input = input_tensor.data<T>();
+    const float *label = label_tensor.data<float>();
+    float *loss = loss_tensor.data<float>();
+
+    if (current_batchsize > batch_size && current_batchsize < 0) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "current_batchsize > batch_size && current_batchsize < 0");
+    }
+
+    do_compute(input, label, loss, current_batchsize, feature_dim, scaler_, rterm, label_weight,
+               is_train, get_gpu().get_stream());
+    if (is_train) {
+      // once current_batchsize < batch_size in train we set the rest dgrad to 0
+      if (current_batchsize < batch_size) {
+        HCTR_LIB_THROW(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
+                                       (batch_size - current_batchsize) * feature_dim * sizeof(T),
+                                       get_gpu().get_stream()));
+      }
     }
   }
 }
@@ -142,6 +206,7 @@ CrossEntropyLoss<T>::CrossEntropyLoss(const Tensor2<float> &label_tensor,
                                       int total_gpu_count, float scaler, bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
               scaler, gen_loss_summary) {
+  this->use_old_tensor = true;
   const auto &input_dim = input_tensor.get_dimensions();
   const auto &label_dim = label_tensor.get_dimensions();
   int feature_dim = input_dim[1];
@@ -150,6 +215,28 @@ CrossEntropyLoss<T>::CrossEntropyLoss(const Tensor2<float> &label_tensor,
     HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of CE loss input should be 2");
   }
   if (input_dim[0] != label_dim[0]) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The batch sizes of input tensor and label tensor are not same");
+  }
+}
+
+template <typename T>
+CrossEntropyLoss<T>::CrossEntropyLoss(const core23::Tensor &label_tensor,
+                                      const core23::Tensor &input_tensor,
+                                      const core23::Tensor &loss_tensor,
+                                      const std::shared_ptr<Regularizer<T>> &regularizer,
+                                      const std::shared_ptr<GPUResource> &gpu_resource,
+                                      int total_gpu_count, float scaler, bool gen_loss_summary)
+    : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
+              scaler, gen_loss_summary) {
+  const auto &input_dim = input_tensor.shape();
+  const auto &label_dim = label_tensor.shape();
+  int feature_dim = input_dim.size(1);
+
+  if (feature_dim != 2) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of CE loss input should be 2");
+  }
+  if (input_dim.size(0) != label_dim.size(0)) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "The batch sizes of input tensor and label tensor are not same");
   }
@@ -221,8 +308,24 @@ BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
     bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
               scaler, gen_loss_summary) {
+  this->use_old_tensor = true;
   const auto &input_dim = input_tensor.get_dimensions();
   int feature_dim = input_dim[1];
+  if (feature_dim != 1) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
+  }
+}
+
+template <typename T>
+BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
+    const core23::Tensor &label_tensor, const core23::Tensor &input_tensor,
+    const core23::Tensor &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+    const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler,
+    bool gen_loss_summary)
+    : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
+              scaler, gen_loss_summary) {
+  const auto &input_dim = input_tensor.shape();
+  int feature_dim = input_dim.size(1);
   if (feature_dim != 1) {
     HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
   }
@@ -346,12 +449,16 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
   // label_weight not currently used, since multiCross is not used for multi-label models
 
   int labels_per_sample = feature_dim;
-  HCTR_LIB_THROW(
-      cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
+  if (this->use_old_tensor) {
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors_old()[0].get_size_in_bytes(), stream));
+  } else {
+    HCTR_LIB_THROW(cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].num_bytes(), stream));
+  }
 
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample + BLOCK_SIZE - 1) / BLOCK_SIZE);
-  float *target_weight = target_weight_.get_ptr();
+  float *target_weight = target_weight_old_.get_ptr();
   MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(
       input, label, target_weight, loss, batch_size, Loss<T>::get_total_gpu_count(),
       labels_per_sample, scaler, rterm, is_train);
@@ -365,6 +472,7 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
     int total_gpu_count, float scaler, bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
               scaler, gen_loss_summary) {
+  this->use_old_tensor = true;
   if (label_tensor.get_dimensions().size() != 2 || input_tensor.get_dimensions().size() != 2 ||
       label_tensor.get_dimensions()[0] != input_tensor.get_dimensions()[0] ||
       label_tensor.get_dimensions()[1] != input_tensor.get_dimensions()[1]) {
@@ -379,12 +487,49 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> internal_buff =
       GeneralBuffer2<CudaAllocator>::create();
   std::vector<size_t> twdim = {1, label_tensor.get_dimensions()[1]};
-  internal_buff->reserve(twdim, &target_weight_);
+  internal_buff->reserve(twdim, &target_weight_old_);
 
   CudaDeviceContext context(Loss<T>::get_device_id());
   internal_buff->allocate();
-  HCTR_LIB_THROW(cudaMemcpy(target_weight_.get_ptr(), target_weight.data(),
-                            target_weight_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(target_weight_old_.get_ptr(), target_weight.data(),
+                            target_weight_old_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+
+  return;
+}
+
+template <typename T>
+MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
+    const core23::Tensor &label_tensor, const core23::Tensor &input_tensor,
+    const core23::Tensor &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+    const std::vector<float> &target_weight, const std::shared_ptr<GPUResource> &gpu_resource,
+    int total_gpu_count, float scaler, bool gen_loss_summary)
+    : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
+              scaler, gen_loss_summary) {
+  if (label_tensor.shape().size() != 2 || input_tensor.shape().size() != 2 ||
+      label_tensor.shape().size(0) != input_tensor.shape().size(0) ||
+      label_tensor.shape().size(1) != input_tensor.shape().size(1)) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
+  }
+  // verify the length of target_weight
+  if (static_cast<int64_t>(target_weight.size()) != input_tensor.shape().size(1)) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "target_weight.size() != input_tensor.shape().size(1)");
+  }
+
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
+  core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
+
+  // load target_weight to internal Tensor
+  core23::Shape twdim = {1, label_tensor.shape().size(1)};
+  target_weight_ = core23::Tensor(core23::TensorParams()
+                                      .data_type(core23::ToScalarType<float>::value)
+                                      .shape(twdim)
+                                      .device(device)
+                                      .buffer_params(blobs_buffer_params));
+
+  CudaDeviceContext context(Loss<T>::get_device_id());
+  HCTR_LIB_THROW(cudaMemcpy(target_weight_.data(), target_weight.data(), target_weight_.num_bytes(),
+                            cudaMemcpyHostToDevice));
 
   return;
 }

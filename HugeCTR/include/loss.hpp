@@ -54,39 +54,65 @@ class Loss : public ILoss {
   float scaler_;
 
   /**
-   * label_tensors_: stores the label information during the training process.
+   * label_tensors_old_: stores the label information during the training process.
    */
-  Tensors2<float> label_tensors_;
-
-  float label_weight;
-
+  Tensors2<float> label_tensors_old_;
   /**
-   * input_tensors_: at beginning, the input_tensors_ stores the result of the last layer for the
-   * final loss calculation.
+   * input_tensors_old_: at beginning, the input_tensors_old_ stores the result of the last layer
+   * for the final loss calculation.
    *
-   * After the train is called, the input_tensors_ will be updated to the input
+   * After the train is called, the input_tensors_old_ will be updated to the input
    * gradiant values for the backward pass.
    */
-  Tensors2<T> input_tensors_;
+  Tensors2<T> input_tensors_old_;
   /**
    * loss_tensors: contains a single value, which stores the average cross entropy, binary cross
    * entropy or multi-class cross entropy loss value.
    */
-  Tensors2<float> loss_tensors_;
+  Tensors2<float> loss_tensors_old_;
+
+  /**
+   * label_tensors_(type: float): stores the label information during the training process.
+   */
+  std::vector<core23::Tensor> label_tensors_;
+
+  /**
+   * input_tensors_(type: T): at beginning, the input_tensors_ stores the result of the last layer
+   * for the final loss calculation.
+   *
+   * After the train is called, the input_tensors_ will be updated to the input
+   * gradiant values for the backward pass.
+   */
+  std::vector<core23::Tensor> input_tensors_;
+  /**
+   * loss_tensors_(type: float): contains a single value, which stores the average cross entropy,
+   * binary cross entropy or multi-class cross entropy loss value.
+   */
+  std::vector<core23::Tensor> loss_tensors_;
+
+  float label_weight;
 
   virtual void do_compute(T* input, const float* label, float* loss, int batch_size,
                           int feature_dim, float scaler, float rterm, float label_weight,
                           bool is_train, cudaStream_t stream) = 0;
 
-  const Tensors2<float>& get_label_tensors(bool is_train) const { return label_tensors_; }
+  const Tensors2<float>& get_label_tensors_old(bool is_train) const { return label_tensors_old_; }
 
-  Tensors2<T>& get_input_tensors(bool is_train) { return input_tensors_; }
+  Tensors2<T>& get_input_tensors_old(bool is_train) { return input_tensors_old_; }
+
+  const std::vector<core23::Tensor>& get_label_tensors(bool is_train) const {
+    return label_tensors_;
+  }
+  std::vector<core23::Tensor>& get_input_tensors(bool is_train) { return input_tensors_; }
 
  protected:
   bool gen_loss_summary_;
-  const Tensors2<float>& get_loss_tensors() const { return loss_tensors_; }
+  const Tensors2<float>& get_loss_tensors_old() const { return loss_tensors_old_; }
+  const std::vector<core23::Tensor>& get_loss_tensors() const { return loss_tensors_; }
   int get_total_gpu_count() const { return total_gpu_count_; }
   const GPUResource& get_gpu() const { return *gpu_resource_; }
+
+  bool use_old_tensor{false};
 
  public:
   /**
@@ -107,6 +133,10 @@ class Loss : public ILoss {
    */
   Loss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
        const Tensor2<float>& loss_tensor, const std::shared_ptr<Regularizer<T>>& regularizer,
+       const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count, float scaler = 1.0,
+       bool gen_loss_summary = true);
+  Loss(const core23::Tensor& label_tensor, const core23::Tensor& input_tensor,
+       const core23::Tensor& loss_tensor, const std::shared_ptr<Regularizer<T>>& regularizer,
        const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count, float scaler = 1.0,
        bool gen_loss_summary = true);
   Loss(const Loss&) = delete;
@@ -133,6 +163,11 @@ class CrossEntropyLoss : public Loss<T> {
                    const std::shared_ptr<Regularizer<T>>& regularizer,
                    const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
                    float scaler = 1.f, bool gen_loss_summary = true);
+  CrossEntropyLoss(const core23::Tensor& label_tensor, const core23::Tensor& input_tensor,
+                   const core23::Tensor& loss_tensor,
+                   const std::shared_ptr<Regularizer<T>>& regularizer,
+                   const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
+                   float scaler = 1.f, bool gen_loss_summary = true);
 };
 
 template <typename T>
@@ -146,12 +181,18 @@ class BinaryCrossEntropyLoss : public Loss<T> {
                          const std::shared_ptr<Regularizer<T>>& regularizer,
                          const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
                          float scaler = 1.f, bool gen_loss_summary = true);
+  BinaryCrossEntropyLoss(const core23::Tensor& label_tensor, const core23::Tensor& input_tensor,
+                         const core23::Tensor& loss_tensor,
+                         const std::shared_ptr<Regularizer<T>>& regularizer,
+                         const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
+                         float scaler = 1.f, bool gen_loss_summary = true);
 };
 
 template <typename T>
 class MultiCrossEntropyLoss : public Loss<T> {
  private:
-  Tensor2<float> target_weight_;
+  Tensor2<float> target_weight_old_;
+  core23::Tensor target_weight_;
 
  public:
   void do_compute(T* input, const float* label, float* loss, int batch_size, int feature_dim,
@@ -159,6 +200,12 @@ class MultiCrossEntropyLoss : public Loss<T> {
                   cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                         const Tensor2<float>& loss_tensor,
+                        const std::shared_ptr<Regularizer<T>>& regularizer,
+                        const std::vector<float>& target_weight,
+                        const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
+                        float scaler = 1.f, bool gen_loss_summary = true);
+  MultiCrossEntropyLoss(const core23::Tensor& label_tensor, const core23::Tensor& input_tensor,
+                        const core23::Tensor& loss_tensor,
                         const std::shared_ptr<Regularizer<T>>& regularizer,
                         const std::vector<float>& target_weight,
                         const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,

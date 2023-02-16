@@ -38,7 +38,7 @@ void dense_layer_test_common(std::vector<TensorEntity> tensor_entities, DenseLay
   std::map<std::string, core23::Tensor> loss_tensors;
   std::map<std::string, std::unique_ptr<ILoss>> losses;
 
-  metrics::MultiLossMetricMap raw_metrics;
+  metrics::Core23MultiLossMetricMap raw_metrics;
 
   std::vector<Layer *> embedding_dependent_layers;
   std::vector<Layer *> embedding_independent_layers;
