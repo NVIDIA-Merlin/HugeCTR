@@ -62,7 +62,6 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
                                       embedding_features_tensors_, embedding_table_slot_size_,
                                       &embedding_feature_combiners_, &network_ptr,
                                       inference_tensor_entries_, resource_manager_);
-
     auto dense_network_feedforward =
         std::make_shared<StreamContextScheduleable>([=] { network_->predict(); });
     predict_network_pipeline_ = Pipeline(
@@ -184,18 +183,15 @@ void InferenceSession::predict_impl(float* d_dense, void* keys, bool key_on_devi
   acc_row_ptrs_offset = 0;
   for (size_t i = 0; i < num_embedding_tables; ++i) {
     // bind row ptrs input to row ptrs tensor
-    auto row_ptrs_dims = row_ptrs_tensors_[i]->get_dimensions();
-    std::shared_ptr<TensorBuffer2> row_ptrs_buff =
-        PreallocatedBuffer2<int>::create(d_row_ptrs + acc_row_ptrs_offset, row_ptrs_dims);
-    bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[i]);
+    (*row_ptrs_tensors_[i]) =
+        core23::Tensor::bind(d_row_ptrs + acc_row_ptrs_offset, row_ptrs_tensors_[i]->shape(),
+                             row_ptrs_tensors_[i]->data_type(), row_ptrs_tensors_[i]->device());
     acc_row_ptrs_offset += num_samples * inference_parser_.slot_num_for_tables[i] + 1;
 
     // bind embedding vectors from looking up to embedding features tensor
-    auto embedding_features_dims = embedding_features_tensors_[i]->get_dimensions();
-    std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(
-        d_embedding_vectors_ + acc_vectors_offset, embedding_features_dims);
-    bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff,
-                          embedding_features_tensors_[i]);
+    (*embedding_features_tensors_[i]) = core23::Tensor::bind(
+        d_embedding_vectors_ + acc_vectors_offset, embedding_features_tensors_[i]->shape(),
+        embedding_features_tensors_[i]->data_type(), embedding_features_tensors_[i]->device());
     acc_vectors_offset += inference_params_.max_batchsize *
                           inference_parser_.max_feature_num_for_tables[i] *
                           inference_parser_.embed_vec_size_for_tables[i];
@@ -275,6 +271,13 @@ void InferenceSession::predict_from_device(float* d_dense, void* d_embeddingcolu
 
   cudaStream_t stream =
       resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream();
+
+  // Copy row_ptrs to host
+  HCTR_LIB_THROW(cudaMemcpy(
+      h_row_ptrs_, d_row_ptrs,
+      (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables) *
+          sizeof(int),
+      cudaMemcpyDeviceToHost));
   // Redistribute keys ：from sample first to table first
   if (!table_major_key_layout) {
     // HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
@@ -288,6 +291,8 @@ void InferenceSession::predict_from_device(float* d_dense, void* d_embeddingcolu
           d_row_ptrs, num_samples, inference_parser_.slot_num_for_tables, stream);
     }
   }
+
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   void* d_keys_for_ec = table_major_key_layout ? d_embeddingcolumns : d_keys_;
   predict_impl(d_dense, d_keys_for_ec, true, d_row_ptrs, d_output, num_samples,

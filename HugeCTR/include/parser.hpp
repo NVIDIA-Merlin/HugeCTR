@@ -16,6 +16,21 @@
 #pragma once
 
 #include <common.hpp>
+#include <core23/allocator.hpp>
+#include <core23/allocator_factory.hpp>
+#include <core23/allocator_params.hpp>
+#include <core23/buffer.hpp>
+#include <core23/buffer_channel_helpers.hpp>
+#include <core23/buffer_client.hpp>
+#include <core23/buffer_factory.hpp>
+#include <core23/buffer_params.hpp>
+#include <core23/data_type.hpp>
+#include <core23/details/pool_cuda_allocator.hpp>
+#include <core23/device.hpp>
+#include <core23/device_type.hpp>
+#include <core23/offsetted_buffer.hpp>
+#include <core23/tensor.hpp>
+#include <core23/tensor_params.hpp>
 #include <data_readers/data_reader.hpp>
 #include <device_map.hpp>
 #include <embedding.hpp>
@@ -109,8 +124,8 @@ class InferenceParser {
   template <typename TypeEmbeddingComp>
   void create_pipeline_inference(const InferenceParams& inference_params,
                                  TensorBag2& dense_input_bag,
-                                 std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                                 std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                 std::vector<std::shared_ptr<core23::Tensor>>& rows,
+                                 std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
                                  std::vector<size_t>& embedding_table_slot_size,
                                  std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
                                  std::vector<TensorEntry>& inference_tensor_entries,
@@ -125,8 +140,8 @@ class InferenceParser {
    * Create inference pipeline, which only creates network and embedding
    */
   void create_pipeline(const InferenceParams& inference_params, TensorBag2& dense_input_bag,
-                       std::vector<std::shared_ptr<Tensor2<int>>>& row,
-                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
+                       std::vector<std::shared_ptr<core23::Tensor>>& row,
+                       std::vector<std::shared_ptr<core23::Tensor>>& embeddingvec,
                        std::vector<size_t>& embedding_table_slot_size,
                        std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
                        std::vector<TensorEntry>& inference_tensor_entries,
@@ -416,8 +431,8 @@ inline void check_graph(std::map<std::string, bool>& tensor_active,
 template <typename TypeKey, typename TypeFP>
 struct create_embedding {
   void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
-                  std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                  std::vector<std::shared_ptr<core23::Tensor>>& rows,
+                  std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
                   std::vector<size_t>& embedding_table_slot_size,
                   std::vector<TensorEntry>* tensor_entries,
                   std::vector<std::shared_ptr<Layer>>* embeddings,

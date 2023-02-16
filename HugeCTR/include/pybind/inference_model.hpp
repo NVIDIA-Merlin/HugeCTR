@@ -58,11 +58,12 @@ class InferenceModel {
   metrics::Metrics metrics_;
 
   std::shared_ptr<IDataReader> data_reader_;
-  std::vector<Tensor2<float>> pred_tensor_list_;           // the length equals local_gpu_count
-  std::vector<Tensor2<long long>> key_tensor_list_64_;     // the length equals local_gpu_count
-  std::vector<Tensor2<unsigned int>> key_tensor_list_32_;  // the length equals local_gpu_count
-  std::vector<Tensor2<int>> rowoffset_tensor_list_;        // the length equals local_gpu_count
+  std::vector<core23::Tensor> pred_tensor_list_;       // the length equals local_gpu_count
+  std::vector<core23::Tensor> key_tensor_list_;        // the length equals local_gpu_count
+  std::vector<core23::Tensor> rowoffset_tensor_list_;  // the length equals local_gpu_count
 
+  std::vector<std::shared_ptr<Tensor2<float>>>
+      old_pred_tensor_list_;                          // the length equals local_gpu_count
   std::vector<TensorBag2> reader_label_tensor_list_;  // the length equals local_gpu_count
   std::vector<TensorBag2> reader_dense_tensor_list_;  // the length equals local_gpu_count
   std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
@@ -85,8 +86,8 @@ class InferenceModel {
   template <typename TypeKey>
   void parse_input_from_data_reader(
       const std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-      std::vector<Tensor2<TypeKey>>& key_tensor_list,
-      std::vector<Tensor2<int>>& rowoffset_tensor_list);
+      std::vector<core23::Tensor>& key_tensor_list,
+      std::vector<core23::Tensor>& rowoffset_tensor_list);
 };
 
 }  // namespace HugeCTR

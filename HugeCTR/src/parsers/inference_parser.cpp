@@ -14,17 +14,24 @@
  * limitations under the License.
  */
 
+#include <core23/buffer_channel_helpers.hpp>
 #include <inference/embedding_feature_combiner.hpp>
-#include <inference/preallocated_buffer2.hpp>
+#include <inference/inference_session.hpp>
 #include <parser.hpp>
 
 namespace HugeCTR {
 
+core23::BufferChannel GetInferenceBufferChannel() {
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
+}
+
+//***** create_pipeline_inference with new tensor
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(
     const InferenceParams& inference_params, TensorBag2& dense_input_bag,
-    std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-    std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+    std::vector<std::shared_ptr<core23::Tensor>>& rows,
+    std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
     std::vector<size_t>& embedding_table_slot_size, std::vector<std::shared_ptr<Layer>>* embeddings,
     Network** network, std::vector<TensorEntry>& inference_tensor_entries,
     const std::shared_ptr<ResourceManager> resource_manager) {
@@ -33,7 +40,6 @@ void InferenceParser::create_pipeline_inference(
   auto j_layers_array = get_json(config_, "layers");
   check_graph(tensor_active_, j_layers_array);
   auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
-
   {
     const nlohmann::json& j_data = j_layers_array[0];
     auto j_dense = get_json(j_data, "dense");
@@ -66,7 +72,6 @@ void InferenceParser::create_pipeline_inference(
       inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
     }
   }
-
   create_embedding<unsigned int, TypeEmbeddingComp>()(
       inference_params, j_layers_array, rows, embeddingvecs, embedding_table_slot_size,
       &inference_tensor_entries, embeddings,
@@ -85,10 +90,11 @@ void InferenceParser::create_pipeline_inference(
       inference_params.use_mixed_precision, false, inference_params.scaler, false, true, false);
 }
 
+//****create_pipeline with new tensor
 void InferenceParser::create_pipeline(const InferenceParams& inference_params,
                                       TensorBag2& dense_input_bag,
-                                      std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                                      std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                      std::vector<std::shared_ptr<core23::Tensor>>& rows,
+                                      std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
                                       std::vector<size_t>& embedding_table_slot_size,
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
@@ -167,11 +173,12 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
   }
 }
 
+//******** create_embedding with new tensor
 template <typename TypeKey, typename TypeFP>
 void create_embedding<TypeKey, TypeFP>::operator()(
     const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
-    std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-    std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+    std::vector<std::shared_ptr<core23::Tensor>>& rows,
+    std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
     std::vector<size_t>& embedding_table_slot_size, std::vector<TensorEntry>* tensor_entries,
     std::vector<std::shared_ptr<Layer>>* embeddings,
     const std::shared_ptr<GPUResource> gpu_resource,
@@ -226,17 +233,21 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     size_t prefix_slot_num = embedding_table_slot_size.back();
     embedding_table_slot_size.push_back(prefix_slot_num + slot_num);
 
-    std::vector<size_t> row_dims = {
-        static_cast<size_t>(inference_params.max_batchsize * slot_num + 1)};
-    std::vector<size_t> embeddingvecs_dims = {
-        static_cast<size_t>(inference_params.max_batchsize * max_feature_num_per_sample),
-        static_cast<size_t>(embedding_vec_size)};
-    std::shared_ptr<Tensor2<int>> row_tensor = std::make_shared<Tensor2<int>>();
-    std::shared_ptr<Tensor2<float>> embeddingvecs_tensor = std::make_shared<Tensor2<float>>();
-    blobs_buff->reserve(row_dims, row_tensor.get());
-    blobs_buff->reserve(embeddingvecs_dims, embeddingvecs_tensor.get());
-    rows.push_back(row_tensor);
-    embeddingvecs.push_back(embeddingvecs_tensor);
+    core23::Device device_gpu(core23::DeviceType::GPU, inference_params.device_id);
+    core23::TensorParams tensor_params = core23::TensorParams()
+                                             .device(device_gpu)
+                                             .buffer_channel(HugeCTR::GetInferenceBufferChannel());
+    std::shared_ptr<core23::Tensor> row_tensor_new = std::make_shared<core23::Tensor>(
+        tensor_params.shape({static_cast<int64_t>(inference_params.max_batchsize * slot_num + 1)})
+            .data_type(core23::ScalarType::Int32));
+    std::shared_ptr<core23::Tensor> embeddingvecs_tensor_new = std::make_shared<core23::Tensor>(
+        tensor_params
+            .shape(
+                {static_cast<int64_t>(inference_params.max_batchsize * max_feature_num_per_sample),
+                 static_cast<int64_t>(embedding_vec_size)})
+            .data_type(core23::ScalarType::Float));
+    rows.push_back(row_tensor_new);
+    embeddingvecs.push_back(embeddingvecs_tensor_new);
     Tensor2<TypeFP> embedding_output;
     embeddings->push_back(std::make_shared<EmbeddingFeatureCombiner<TypeFP>>(
         embeddingvecs.back(), rows.back(), embedding_output, inference_params.max_batchsize,

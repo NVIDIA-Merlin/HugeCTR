@@ -17,9 +17,15 @@
 #include <omp.h>
 #include <tqdm.h>
 
+#include <inference/inference_session.hpp>
 #include <pybind/inference_model.hpp>
 
 namespace HugeCTR {
+
+core23::BufferChannel GetInferenceModelBufferChannel() {
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
+}
 
 InferenceModel::InferenceModel(const std::string& model_config_path,
                                const InferenceParams& inference_params)
@@ -49,35 +55,36 @@ InferenceModel::InferenceModel(const std::string& model_config_path,
   }
 
   inference_params_.max_batchsize = global_max_batch_size_;
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> buffs;
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaHostAllocator>>> host_buffs;
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); ++i) {
-    buffs.push_back(GeneralBuffer2<CudaAllocator>::create());
-    host_buffs.push_back(GeneralBuffer2<CudaHostAllocator>::create());
-    pred_tensor_list_.push_back(Tensor2<float>());
-    key_tensor_list_64_.push_back(Tensor2<long long>());
-    key_tensor_list_32_.push_back(Tensor2<unsigned int>());
-    rowoffset_tensor_list_.push_back(Tensor2<int>());
-  }
 
   size_t batch_size_per_gpu = global_max_batch_size_ / resource_manager_->get_local_gpu_count();
+  old_pred_tensor_list_.resize(resource_manager_->get_local_gpu_count());
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); ++i) {
-    CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
-    auto& buff = buffs[i];
-    auto& host_buff = host_buffs[i];
-    buff->reserve({batch_size_per_gpu, inference_parser_.label_dim}, &pred_tensor_list_[i]);
-    buff->reserve(
-        {batch_size_per_gpu * inference_parser_.slot_num + inference_parser_.num_embedding_tables},
-        &rowoffset_tensor_list_[i]);
+    core23::Device gpu(core23::DeviceType::GPU,
+                       resource_manager_->get_local_gpu(i)->get_device_id());
+    core23::TensorParams tensor_params = core23::TensorParams().device(gpu).buffer_channel(
+        HugeCTR::GetInferenceModelBufferChannel());
+    pred_tensor_list_.emplace_back(tensor_params
+                                       .shape({static_cast<int64_t>(batch_size_per_gpu),
+                                               static_cast<int64_t>(inference_parser_.label_dim)})
+                                       .data_type(core23::ScalarType::Float));
+    rowoffset_tensor_list_.emplace_back(
+        tensor_params
+            .shape({static_cast<int64_t>(batch_size_per_gpu * inference_parser_.slot_num +
+                                         inference_parser_.num_embedding_tables)})
+            .data_type(core23::ScalarType::Int32));
     if (inference_params_.i64_input_key) {
-      host_buff->reserve({batch_size_per_gpu * inference_parser_.max_feature_num_per_sample},
-                         &key_tensor_list_64_[i]);
+      key_tensor_list_.emplace_back(
+          tensor_params
+              .shape({static_cast<int64_t>(batch_size_per_gpu *
+                                           inference_parser_.max_feature_num_per_sample)})
+              .data_type(core23::ScalarType::Int64));
     } else {
-      host_buff->reserve({batch_size_per_gpu * inference_parser_.max_feature_num_per_sample},
-                         &key_tensor_list_32_[i]);
+      key_tensor_list_.emplace_back(
+          tensor_params
+              .shape({static_cast<int64_t>(batch_size_per_gpu *
+                                           inference_parser_.max_feature_num_per_sample)})
+              .data_type(core23::ScalarType::UInt32));
     }
-    buff->allocate();
-    host_buff->allocate();
   }
 }
 
@@ -119,10 +126,10 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
     HCTR_CHECK_HINT(current_batch_size_ == global_max_batch_size_,
                     "there should not be imcomplete batch under the repeat mode");
     if (inference_params_.i64_input_key) {
-      parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_64_,
+      parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_,
                                               rowoffset_tensor_list_);
     } else {
-      parse_input_from_data_reader<unsigned int>(sparse_input_map_32_, key_tensor_list_32_,
+      parse_input_from_data_reader<unsigned int>(sparse_input_map_32_, key_tensor_list_,
                                                  rowoffset_tensor_list_);
     }
 
@@ -133,20 +140,20 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
       long long current_batchsize_per_device =
           current_batch_size_ / resource_manager_->get_local_gpu_count();
       if (inference_params_.i64_input_key) {
-        inference_sessions_[i]->predict(
+        inference_sessions_[i]->predict_from_device(
             reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_64_[i].get_ptr(), rowoffset_tensor_list_[i].get_ptr(),
-            pred_tensor_list_[i].get_ptr(), current_batchsize_per_device, true);
+            key_tensor_list_[i].data<long long>(), rowoffset_tensor_list_[i].data<int>(),
+            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
       } else {
-        inference_sessions_[i]->predict(
+        inference_sessions_[i]->predict_from_device(
             reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_32_[i].get_ptr(), rowoffset_tensor_list_[i].get_ptr(),
-            pred_tensor_list_[i].get_ptr(), current_batchsize_per_device, true);
+            key_tensor_list_[i].data<unsigned int>(), rowoffset_tensor_list_[i].data<int>(),
+            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
       }
       size_t pred_output_offset = (batch * current_batch_size_ + i * current_batchsize_per_device) *
                                   inference_parser_.label_dim;
       HCTR_LIB_THROW(cudaMemcpyAsync(
-          pred_output + pred_output_offset, pred_tensor_list_[i].get_ptr(),
+          pred_output + pred_output_offset, pred_tensor_list_[i].data<float>(),
           current_batchsize_per_device * inference_parser_.label_dim * sizeof(float),
           cudaMemcpyDeviceToHost, resource_manager_->get_local_gpu(i)->get_stream()));
     }
@@ -197,7 +204,14 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
   }
 
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    raw_metrics_map_list_.push_back({{metrics::RawType::Pred, pred_tensor_list_[i].shrink()},
+    std::vector<size_t> pred_tensor_shape(pred_tensor_list_[i].shape().dims(), 0);
+    for (size_t j{0}; j < pred_tensor_shape.size(); ++j) {
+      pred_tensor_shape[j] = pred_tensor_list_[i].shape().size(j);
+    }
+    std::shared_ptr<TensorBuffer2> pred_buffer =
+        PreallocatedBuffer2<float>::create(pred_tensor_list_[i].data(), pred_tensor_shape);
+    bind_tensor_to_buffer(pred_tensor_shape, pred_buffer, old_pred_tensor_list_[i]);
+    raw_metrics_map_list_.push_back({{metrics::RawType::Pred, old_pred_tensor_list_[i]->shrink()},
                                      {metrics::RawType::Label, reader_label_tensor_list_[i]}});
   }
 
@@ -209,10 +223,10 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
                     "there should not be imcomplete batch under the repeat mode");
     metric_->set_current_batch_size(current_batch_size_);
     if (inference_params_.i64_input_key) {
-      parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_64_,
+      parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_,
                                               rowoffset_tensor_list_);
     } else {
-      parse_input_from_data_reader<unsigned int>(sparse_input_map_32_, key_tensor_list_32_,
+      parse_input_from_data_reader<unsigned int>(sparse_input_map_32_, key_tensor_list_,
                                                  rowoffset_tensor_list_);
     }
 
@@ -223,15 +237,15 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
       long long current_batchsize_per_device =
           current_batch_size_ / resource_manager_->get_local_gpu_count();
       if (inference_params_.i64_input_key) {
-        inference_sessions_[i]->predict(
+        inference_sessions_[i]->predict_from_device(
             reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_64_[i].get_ptr(), rowoffset_tensor_list_[i].get_ptr(),
-            pred_tensor_list_[i].get_ptr(), current_batchsize_per_device, true);
+            key_tensor_list_[i].data<long long>(), rowoffset_tensor_list_[i].data<int>(),
+            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
       } else {
-        inference_sessions_[i]->predict(
+        inference_sessions_[i]->predict_from_device(
             reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_32_[i].get_ptr(), rowoffset_tensor_list_[i].get_ptr(),
-            pred_tensor_list_[i].get_ptr(), current_batchsize_per_device, true);
+            key_tensor_list_[i].data<unsigned int>(), rowoffset_tensor_list_[i].data<int>(),
+            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
       }
       metric_->local_reduce(i, raw_metrics_map_list_[i]);
     }
@@ -250,8 +264,8 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
 template <typename TypeKey>
 void InferenceModel::parse_input_from_data_reader(
     const std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<Tensor2<TypeKey>>& key_tensor_list,
-    std::vector<Tensor2<int>>& rowoffset_tensor_list) {
+    std::vector<core23::Tensor>& key_tensor_list,
+    std::vector<core23::Tensor>& rowoffset_tensor_list) {
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
     size_t i = omp_get_thread_num();
@@ -284,11 +298,17 @@ void InferenceModel::parse_input_from_data_reader(
                                      resource_manager_->get_local_gpu(i)->get_stream()));
       HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
       size_t num_keys = h_reader_rowoffset.back() - h_reader_rowoffset.front();
-      HCTR_LIB_THROW(cudaMemcpyAsync(key_tensor_list[i].get_ptr() + value_stride,
-                                     value_tensor.get_ptr() + h_reader_rowoffset.front(),
-                                     num_keys * sizeof(TypeKey), cudaMemcpyDeviceToHost,
-                                     resource_manager_->get_local_gpu(i)->get_stream()));
-
+      if (inference_params_.i64_input_key) {
+        HCTR_LIB_THROW(cudaMemcpyAsync(key_tensor_list[i].data<long long>() + value_stride,
+                                       value_tensor.get_ptr() + h_reader_rowoffset.front(),
+                                       num_keys * sizeof(TypeKey), cudaMemcpyDeviceToDevice,
+                                       resource_manager_->get_local_gpu(i)->get_stream()));
+      } else {
+        HCTR_LIB_THROW(cudaMemcpyAsync(key_tensor_list[i].data<unsigned int>() + value_stride,
+                                       value_tensor.get_ptr() + h_reader_rowoffset.front(),
+                                       num_keys * sizeof(TypeKey), cudaMemcpyDeviceToDevice,
+                                       resource_manager_->get_local_gpu(i)->get_stream()));
+      }
       TypeKey tmp = h_reader_rowoffset.front();
       for (auto& entry : h_reader_rowoffset) {
         entry -= tmp;
@@ -296,7 +316,7 @@ void InferenceModel::parse_input_from_data_reader(
       h_reader_rowoffset_list.push_back(h_reader_rowoffset);
       std::transform(h_reader_rowoffset.begin(), h_reader_rowoffset.end(),
                      h_reader_rowoffset_int.begin(), [](int x) { return static_cast<int>(x); });
-      HCTR_LIB_THROW(cudaMemcpyAsync(rowoffset_tensor_list[i].get_ptr() + rowoffset_stride,
+      HCTR_LIB_THROW(cudaMemcpyAsync(rowoffset_tensor_list[i].data<int>() + rowoffset_stride,
                                      h_reader_rowoffset_int.data(), rowoffset_length * sizeof(int),
                                      cudaMemcpyHostToDevice,
                                      resource_manager_->get_local_gpu(i)->get_stream()));
