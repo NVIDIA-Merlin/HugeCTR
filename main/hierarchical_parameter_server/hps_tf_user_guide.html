@@ -67,6 +67,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="hps_trt_user_guide.html">HPS Plugin for TensorRT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
@@ -117,6 +118,7 @@
 </ul>
 </li>
 <li><p><a class="reference internal" href="#example-notebooks" id="id7">Example Notebooks</a></p></li>
+<li><p><a class="reference internal" href="#benchmark" id="id8">Benchmark</a></p></li>
 </ul>
 </div>
 <div class="section" id="introduction-to-the-hps-plugin-for-tensorflow">
@@ -194,7 +196,7 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 <p>HPS is included in the Merlin Docker containers that are available from the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">NVIDIA container repository</a>. To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin TensorFlow container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.12
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 </pre></div>
 </div>
 <p>You can check the existence of the HPS Python toolkit after launching this container:</p>
@@ -211,6 +213,10 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 <li><p>Migrating from SOK training to HPS inference</p></li>
 <li><p>Leveraging HPS to load pre-trained embeddings</p></li>
 </ul>
+</div>
+<div class="section" id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline"></a></h2>
+<p>We benchmark the DLRM TF model with HPS plugin in <a class="reference internal" href="hps_dlrm_benchmark.html"><span class="doc std std-doc">hps_dlrm_benchmark.md</span></a>.</p>
 </div>
 <div class="toctree-wrapper compound">
 </div>

@@ -67,6 +67,7 @@
 <li class="toctree-l3"><a class="reference internal" href="hps_trt_api/index.html">API Documentation</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
@@ -116,6 +117,7 @@
 </ul>
 </li>
 <li><p><a class="reference internal" href="#example-notebooks" id="id6">Example Notebooks</a></p></li>
+<li><p><a class="reference internal" href="#benchmark" id="id7">Benchmark</a></p></li>
 </ul>
 </div>
 <div class="section" id="introduction-to-the-hps-plugin-for-tensorrt">
@@ -174,17 +176,17 @@ To use these Docker containers, you must install the <a class="reference externa
 <p>The following sample commands pull and start the Merlin TensorFlow container, Merlin PyTorch container, or Merlin HugeCTR container:</p>
 <p>Merlin TensorFlow</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.01
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 </pre></div>
 </div>
 <p>Merlin PyTorch</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.01
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.02
 </pre></div>
 </div>
 <p>Merlin HugeCTR</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.01
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.02
 </pre></div>
 </div>
 <p>You can check the existence of the HPS plugin for TensorRT after launching the container by running the following Python statements:</p>
@@ -197,6 +199,10 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 <div class="section" id="example-notebooks">
 <h2>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permalink to this headline"></a></h2>
 <p>We provide a collection of examples as <a class="reference internal" href="../hps_trt/notebooks/index.html"><span class="doc std std-doc">Jupyter Notebooks</span></a> that demonstrate how to build the HPS-integrated TensorRT engine for models trained with TensorFlow, PyTorch, or HugeCTR.</p>
+</div>
+<div class="section" id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline"></a></h2>
+<p>We benchmark the DLRM TRT engine with HPS plugin in <a class="reference internal" href="hps_dlrm_benchmark.html"><span class="doc std std-doc">hps_dlrm_benchmark.md</span></a>.</p>
 </div>
 <div class="toctree-wrapper compound">
 </div>

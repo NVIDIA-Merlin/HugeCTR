@@ -947,10 +947,12 @@ BinaryCrossEntropyLoss                  fc2                           loss
 </div>
 <div class="section" id="inference">
 <h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
-</div>
-<div class="section" id="id2">
-<h3>Data preparation**<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
-<p>Please note that we are Not supporting reading model graphs and dense models from S3 yet. Only Sparse models can be read from remote.**</p>
+<p><strong>Important API used in the following script:</strong></p>
+<ol class="arabic simple">
+<li><p>In <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inferenceparams-class">InferenceParams()</a>, we specify S3 path in the <code class="docutils literal notranslate"><span class="pre">sparse_model_files</span></code> parameter to load trained models from S3.</p></li>
+<li><p>In <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#predict-method">predict()</a>, we specify the DataSourceParams to read data from S3.</p></li>
+</ol>
+<p><strong>Please note that we are Not supporting reading model graphs from S3 yet. Only models can be read from remote.</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> inference_with_s3.py
@@ -973,7 +975,7 @@ BinaryCrossEntropyLoss                  fc2                           loss
     <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dcn&quot;</span><span class="p">,</span>
     <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
     <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;./_dense_1000.model&quot;</span><span class="p">,</span> <span class="c1"># should be in local</span>
+    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/dcn_model/_dense_1000.model&quot;</span><span class="p">,</span> <span class="c1"># S3 URL</span>
     <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;https://s3.us-east-1.amazonaws.com/hugectr-io-test/pipeline_test/dcn_model/0_sparse_1000.model&quot;</span><span class="p">],</span> <span class="c1"># S3 URL</span>
     <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
     <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -1007,55 +1009,66 @@ BinaryCrossEntropyLoss                  fc2                           loss
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][04:20:52.693][INFO][RK0][main]: Global seed is 3493872112
-[HCTR][04:20:52.695][INFO][RK0][main]: Device to NUMA mapping:
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][02:48:08.494][INFO][RK0][main]: Global seed is 2188274617
+[HCTR][02:48:08.496][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
-[HCTR][04:20:54.545][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][04:20:54.545][INFO][RK0][main]: Start all2all warmup
-[HCTR][04:20:54.545][INFO][RK0][main]: End all2all warmup
-[HCTR][04:20:54.546][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][02:48:10.297][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][02:48:10.297][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.7791 
+[HCTR][02:48:10.297][INFO][RK0][main]: Start all2all warmup
+[HCTR][02:48:10.297][INFO][RK0][main]: End all2all warmup
+[HCTR][02:48:10.298][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
 ====================================================HPS Create====================================================
-[HCTR][04:20:54.546][INFO][RK0][main]: Creating HashMap CPU database backend...
-[HCTR][04:20:54.546][DEBUG][RK0][main]: Created blank database backend in local memory!
-[HCTR][04:20:54.546][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][04:20:54.546][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][04:20:54.546][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][04:20:54.546][INFO][RK0][main]: Using S3 file system backend.
-[HCTR][04:20:59.070][INFO][RK0][main]: Table: hps_et.dcn.sparse_embedding1; cached 252900 / 252900 embeddings in volatile database (HashMapBackend); load: 252900 / 18446744073709551615 (0.00%).
-[HCTR][04:20:59.070][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][04:20:59.070][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][04:20:59.076][INFO][RK0][main]: Model name: dcn
-[HCTR][04:20:59.076][INFO][RK0][main]: Number of embedding tables: 1
-[HCTR][04:20:59.076][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
-[HCTR][04:20:59.076][INFO][RK0][main]: Use I64 input key: True
-[HCTR][04:20:59.076][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
-[HCTR][04:20:59.076][INFO][RK0][main]: The size of thread pool: 80
-[HCTR][04:20:59.076][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][04:20:59.076][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][04:20:59.076][INFO][RK0][main]: The refresh percentage : 0.000000
-[HCTR][04:20:59.087][INFO][RK0][main]: Model name: dcn
-[HCTR][04:20:59.087][INFO][RK0][main]: Use mixed precision: False
-[HCTR][04:20:59.087][INFO][RK0][main]: Use cuda graph: True
-[HCTR][04:20:59.087][INFO][RK0][main]: Max batchsize: 1024
-[HCTR][04:20:59.087][INFO][RK0][main]: Use I64 input key: True
-[HCTR][04:20:59.087][INFO][RK0][main]: start create embedding for inference
-[HCTR][04:20:59.087][INFO][RK0][main]: sparse_input name data1
-[HCTR][04:20:59.087][INFO][RK0][main]: create embedding for inference success
-[HCTR][04:20:59.088][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-[HCTR][04:20:59.941][INFO][RK0][main]: Create inference data reader on 1 GPU(s)
-[HCTR][04:20:59.941][INFO][RK0][main]: num of DataReader workers: 1
-[HCTR][04:20:59.941][INFO][RK0][main]: Using S3 file system backend.
-[HCTR][04:21:01.949][INFO][RK0][main]: Vocabulary size: 397821
-  ████████████████████████████████████████▏ <span class=" -Color -Color-Bold -Color-Bold-Red">100.0% </span><span class=" -Color -Color-Bold -Color-Bold-Blue">[  10/  10 | 8.9 Hz | 1s&lt;0s]  </span>0m
-[HCTR][04:21:03.076][INFO][RK0][main]: Inference time for 10 batches: 1.12329
+[HCTR][02:48:10.298][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][02:48:10.298][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][02:48:10.298][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][02:48:10.298][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][02:48:10.298][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][02:48:10.298][INFO][RK0][main]: Using S3 file system backend.
+[HCTR][02:48:21.335][INFO][RK0][main]: Table: hps_et.dcn.sparse_embedding1; cached 252900 / 252900 embeddings in volatile database (HashMapBackend); load: 252900 / 18446744073709551615 (0.00%).
+[HCTR][02:48:21.335][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][02:48:21.335][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][02:48:21.340][INFO][RK0][main]: Model name: dcn
+[HCTR][02:48:21.340][INFO][RK0][main]: Max batch size: 1024
+[HCTR][02:48:21.340][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][02:48:21.340][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][02:48:21.340][INFO][RK0][main]: Use static table: False
+[HCTR][02:48:21.340][INFO][RK0][main]: Use I64 input key: True
+[HCTR][02:48:21.340][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][02:48:21.340][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][02:48:21.340][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][02:48:21.340][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][02:48:21.340][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][02:48:21.351][INFO][RK0][main]: Model name: dcn
+[HCTR][02:48:21.351][INFO][RK0][main]: Use mixed precision: False
+[HCTR][02:48:21.351][INFO][RK0][main]: Use cuda graph: True
+[HCTR][02:48:21.351][INFO][RK0][main]: Max batchsize: 1024
+[HCTR][02:48:21.351][INFO][RK0][main]: Use I64 input key: True
+[HCTR][02:48:21.351][INFO][RK0][main]: start create embedding for inference
+[HCTR][02:48:21.351][INFO][RK0][main]: sparse_input name data1
+[HCTR][02:48:21.351][INFO][RK0][main]: create embedding for inference success
+[HCTR][02:48:21.352][DEBUG][RK0][main]: [device 0] allocating 0.0033 GB, available 30.4958 
+[HCTR][02:48:21.352][INFO][RK0][main]: No projection_dim given, degrade to DCNv1
+[HCTR][02:48:21.352][WARNING][RK0][main]: using multi-cross v1
+[HCTR][02:48:21.352][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][02:48:21.353][DEBUG][RK0][main]: [device 0] allocating 0.0423 GB, available 30.4490 
+[HCTR][02:48:22.133][INFO][RK0][main]: Using S3 file system backend.
+[HCTR][02:48:29.008][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 30.4470 
+[HCTR][02:48:29.009][INFO][RK0][main]: Create inference data reader on 1 GPU(s)
+[HCTR][02:48:29.009][INFO][RK0][main]: num of DataReader workers: 1
+[HCTR][02:48:29.009][DEBUG][RK0][main]: [device 0] allocating 0.0014 GB, available 30.4451 
+[HCTR][02:48:29.010][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.4451 
+[HCTR][02:48:29.010][INFO][RK0][main]: Using S3 file system backend.
+[HCTR][02:48:31.017][INFO][RK0][main]: Vocabulary size: 397821
+  ████████████████████████████████████████▏ <span class=" -Color -Color-Bold -Color-Bold-Red">100.0% </span><span class=" -Color -Color-Bold -Color-Bold-Blue">[  10/  10 | 7.5 Hz | 1s&lt;0s]  </span>0m
+[HCTR][02:48:32.354][INFO][RK0][main]: Inference time for 10 batches: 1.33394
 (10240, 1)
-[[0.4490533 ]
- [0.48545888]
- [0.4543276 ]
+[[0.47839856]
+ [0.4756918 ]
+ [0.47329405]
  ...
- [0.44132772]
- [0.45555124]
- [0.47390968]]
+ [0.46896443]
+ [0.49150574]
+ [0.45769793]]
 </pre></div>
 </div>
 </div>
@@ -1074,8 +1087,8 @@ Please note that GCS SDK are NOT preinstalled in the NGC docker. To use GCS rela
 <li><p>cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 -DENABLE_GCS=ON … #ENABLE_GCS option will install GCS SDKs for you.</p></li>
 <li><p>make -j &amp;&amp; make install</p></li>
 </ol>
-<div class="section" id="id3">
-<h3>Data preparation<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h3>
+<div class="section" id="id2">
+<h3>Data preparation<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
 <p><strong>Create <code class="docutils literal notranslate"><span class="pre">file_list.txt</span> <span class="pre">and</span> <span class="pre">file_list_test.txt</span></code>:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -1186,8 +1199,8 @@ Please note that GCS SDK are NOT preinstalled in the NGC docker. To use GCS rela
 </div>
 </div>
 </div>
-<div class="section" id="id4">
-<h3>Training<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h3>
+<div class="section" id="id3">
+<h3>Training<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h3>
 <p><strong>Important APIs used in the following script:</strong></p>
 <ol class="arabic simple">
 <li><p>We use the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#datasourceparams-class">DataSourceParams</a> to define the remote file system to read data from, in this case, GCS.</p></li>
@@ -1458,10 +1471,10 @@ BinaryCrossEntropyLoss                  fc2                           loss
 </div>
 </div>
 </div>
+<div class="section" id="id4">
+<h2>Inference<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h2>
 <div class="section" id="id5">
-<h2>Inference<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h2>
-<div class="section" id="id6">
-<h3>Data preparation**<a class="headerlink" href="#id6" title="Permalink to this headline"></a></h3>
+<h3>Data preparation**<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h3>
 <p>Please note that we are Not supporting reading model graphs and dense models from GCS yet. Only Sparse models can be read from remote.**</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">

@@ -186,13 +186,7 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14537948
--rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
--rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
--rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
--rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
-drwxr-xr-x 2 root root        4096 Jul  5 05:41 <span class=" -Color -Color-Bold -Color-Bold-Blue">temp-parquet-after-conversion</span>/
--rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 <span class=" -Color -Color-Bold -Color-Bold-Green">train.txt</span>*
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 0
 </pre></div>
 </div>
 </div>
@@ -206,15 +200,6 @@ drwxr-xr-x 2 root root        4096 Jul  5 05:41 <span class=" -Color -Color-Bold
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Reading package lists... Done
-Building dependency tree       
-Reading state information... Done
-wget is already the newest version (1.20.3-1ubuntu1).
-0 upgraded, 0 newly installed, 0 to remove and 4 not upgraded.
-</pre></div>
-</div>
-</div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -222,24 +207,11 @@ wget is already the newest version (1.20.3-1ubuntu1).
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--2022-06-16 03:27:50--  https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
-Resolving storage.googleapis.com (storage.googleapis.com)... 142.250.191.80, 172.217.5.112, 142.250.189.208, ...
-Connecting to storage.googleapis.com (storage.googleapis.com)|142.250.191.80|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 16309554343 (15G) [application/octet-stream]
-Saving to: ‘wdl_train/train/day_0.gz’
-
-day_0.gz               100%[===================================================&gt;]   15G  --.-KB/s    in  6m 12s 
-2021-07-05 03:34:04 (79.2 MB/s) - &#39;day_0.gz&#39; saved [16309554343/16309554343]
-</pre></div>
-</div>
-</div>
 </div>
 <p>Split the dataset into training and validation.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>gzip -d -c <span class="nv">$train_path</span>/day_0.gz &gt; day_0
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!gzip -d -c $train_path/day_0.gz &gt; day_0</span>
 <span class="o">!</span>head -n <span class="m">45840617</span> day_0 &gt; <span class="nv">$train_path</span>/train.txt
 <span class="o">!</span>tail -n <span class="m">2000000</span> day_0 &gt; <span class="nv">$val_path</span>/test.txt 
 </pre></div>
@@ -257,25 +229,20 @@ day_0.gz               100%[===================================================&
 <span class="kn">import</span> <span class="nn">argparse</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">cudf.io.parquet</span> <span class="kn">import</span> <span class="n">ParquetWriter</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">concurrent.futures</span> <span class="k">as</span> <span class="nn">cf</span>
-<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="kn">import</span> <span class="n">as_completed</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 
 <span class="kn">import</span> <span class="nn">dask_cudf</span>
 <span class="kn">from</span> <span class="nn">dask_cuda</span> <span class="kn">import</span> <span class="n">LocalCUDACluster</span>
 <span class="kn">from</span> <span class="nn">dask.distributed</span> <span class="kn">import</span> <span class="n">Client</span>
-<span class="kn">from</span> <span class="nn">dask.utils</span> <span class="kn">import</span> <span class="n">parse_bytes</span>
-<span class="kn">from</span> <span class="nn">dask.delayed</span> <span class="kn">import</span> <span class="n">delayed</span>
 
 <span class="kn">import</span> <span class="nn">cudf</span>
 <span class="kn">import</span> <span class="nn">rmm</span>
 <span class="kn">import</span> <span class="nn">nvtabular</span> <span class="k">as</span> <span class="nn">nvt</span>
 <span class="kn">from</span> <span class="nn">nvtabular.io</span> <span class="kn">import</span> <span class="n">Shuffle</span>
 <span class="kn">from</span> <span class="nn">nvtabular.utils</span> <span class="kn">import</span> <span class="n">device_mem_size</span>
-<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">Categorify</span><span class="p">,</span> <span class="n">Clip</span><span class="p">,</span> <span class="n">FillMissing</span><span class="p">,</span> <span class="n">HashBucket</span><span class="p">,</span> <span class="n">LambdaOp</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">Rename</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">get_embedding_sizes</span>
+<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">Categorify</span><span class="p">,</span> <span class="n">Clip</span><span class="p">,</span> <span class="n">FillMissing</span><span class="p">,</span> <span class="n">LambdaOp</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">Rename</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">get_embedding_sizes</span>
 <span class="c1">#%load_ext memory_profiler</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -310,19 +277,6 @@ day_0.gz               100%[===================================================&
     <span class="n">a</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;k&#39;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span> <span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span> <span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;p&#39;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">}</span>
     <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">bytes</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">bytes</span> <span class="o">/</span> <span class="p">(</span><span class="n">bsize</span> <span class="o">**</span> <span class="n">a</span><span class="p">[</span><span class="n">to</span><span class="p">])</span>
-
-<span class="k">class</span> <span class="nc">FeatureCross</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dependency</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dependency</span> <span class="o">=</span> <span class="n">dependency</span>
-
-    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">gdf</span><span class="p">):</span>
-        <span class="n">new_df</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">gdf</span><span class="p">)()</span>
-        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
-            <span class="n">new_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">+</span> <span class="n">gdf</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dependency</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">new_df</span>
-
-    <span class="k">def</span> <span class="nf">dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dependency</span><span class="p">]</span>
 
 <span class="c1">#process the data with NVTabular</span>
 <span class="k">def</span> <span class="nf">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
@@ -416,7 +370,7 @@ day_0.gz               100%[===================================================&
     <span class="n">categorify_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
     <span class="n">cat_features</span> <span class="o">=</span> <span class="n">CATEGORICAL_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">categorify_op</span>
     <span class="n">cont_features</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">FillMissing</span><span class="p">()</span> <span class="o">&gt;&gt;</span> <span class="n">Clip</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">Normalize</span><span class="p">()</span>
-    <span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
+    <span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">encode_type</span><span class="o">=</span><span class="s2">&quot;combo&quot;</span><span class="p">,</span> <span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
 
     <span class="n">features</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span>
     
@@ -425,10 +379,7 @@ day_0.gz               100%[===================================================&
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
             <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
             <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
-                <span class="n">col0</span> <span class="o">=</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">col1</span> <span class="o">=</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-                <span class="n">features</span> <span class="o">+=</span> <span class="n">col0</span> <span class="o">&gt;&gt;</span> <span class="n">FeatureCross</span><span class="p">(</span><span class="n">col1</span><span class="p">)</span>  <span class="o">&gt;&gt;</span> <span class="n">Rename</span><span class="p">(</span><span class="n">postfix</span><span class="o">=</span><span class="s2">&quot;_&quot;</span><span class="o">+</span><span class="n">col1</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
-            
+                <span class="n">features</span> <span class="o">+=</span> <span class="p">[</span><span class="n">pair</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
     <span class="n">features</span> <span class="o">+=</span> <span class="n">cat_features</span>
 
     <span class="n">workflow</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Workflow</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
@@ -681,33 +632,52 @@ day_0.gz               100%[===================================================&
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-</pre></div>
-</div>
-</div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 /wdl_train/preprocess.py --data_path wdl_train/ \
---out_path wdl_train/ --freq_limit 6 --feature_cross_list C1_C2,C3_C4 \
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 /wdl_train/preprocess.py --data_path /wdl_train/ \
+--out_path /wdl_train/ --freq_limit 6 --feature_cross_list C1_C2,C3_C4 \
 --device_pool_frac 0.5  --devices &#39;0&#39; --num_io_threads 2
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2021-07-05 05:41:34,199 NVTabular processing
-2021-07-05 05:42:00,112 Preprocessing
-2021-07-05 05:42:00,469 Train Datasets Preprocessing.....
-[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
-2021-07-05 05:44:17,349 Valid Datasets Preprocessing.....
-[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
-2021-07-05 05:44:19,138 NVTabular processing done
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-02-10 10:32:34,808 NVTabular processing
+2023-02-10 10:32:36,590 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-02-10 10:32:36,590 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-02-10 10:32:36,604 Unable to start CUDA Context
+Traceback (most recent call last):
+  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 782, in _nvmlGetFunctionPointer
+    _nvmlGetFunctionPointer_cache[name] = getattr(nvmlLib, name)
+  File &quot;/usr/lib/python3.8/ctypes/__init__.py&quot;, line 386, in __getattr__
+    func = self.__getitem__(name)
+  File &quot;/usr/lib/python3.8/ctypes/__init__.py&quot;, line 391, in __getitem__
+    func = self._FuncPtr((name_or_ordinal, self))
+AttributeError: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1: undefined symbol: nvmlDeviceGetComputeRunningProcesses_v2
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File &quot;/usr/local/lib/python3.8/dist-packages/dask_cuda/initialize.py&quot;, line 41, in _create_cuda_context
+    ctx = has_cuda_context()
+  File &quot;/usr/local/lib/python3.8/dist-packages/distributed/diagnostics/nvml.py&quot;, line 164, in has_cuda_context
+    running_processes = pynvml.nvmlDeviceGetComputeRunningProcesses_v2(handle)
+  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 2191, in nvmlDeviceGetComputeRunningProcesses_v2
+    fn = _nvmlGetFunctionPointer(&quot;nvmlDeviceGetComputeRunningProcesses_v2&quot;)
+  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 785, in _nvmlGetFunctionPointer
+    raise NVMLError(NVML_ERROR_FUNCTION_NOT_FOUND)
+pynvml.nvml.NVMLError_FunctionNotFound: Function Not Found
+/usr/local/lib/python3.8/dist-packages/merlin/core/utils.py:384: FutureWarning: The `client` argument is deprecated from DaskExecutor and will be removed in a future version of NVTabular. By default, a global client in the same python context will be detected automatically, and `merlin.utils.set_dask_client` (as well as `Distributed` and `Serial`) can be used for explicit control.
+  warnings.warn(
+2023-02-10 10:32:54,260 Preprocessing
+2023-02-10 10:32:54,521 Train Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 281564, 415262]
+2023-02-10 10:34:09,155 Valid Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 281564, 415262]
+2023-02-10 10:34:10,596 NVTabular processing done
 
 Dask-NVTabular Criteo Preprocessing
 --------------------------------------
-data_path          | wdl_train/
-output_path        | wdl_train/
-partition size     | 2.77 GB
+data_path          | /wdl_train/
+output_path        | /wdl_train/
+partition size     | 3.97 GB
 protocol           | tcp
 device(s)          | 0
 rmm-pool-frac      | 0.5
@@ -715,7 +685,7 @@ out-files-per-proc | 1
 num_io_threads     | 2
 shuffle            | PER_PARTITION
 ======================================
-Runtime[s]         | 159.50506210327148
+Runtime[s]         | 92.90126419067383
 ======================================
 </pre></div>
 </div>
@@ -730,120 +700,17 @@ Runtime[s]         | 159.50506210327148
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14537948
--rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
--rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
--rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
--rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
-drwxr-xr-x 2 root root        4096 Jul  5 05:41 temp-parquet-after-conversion
--rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 train.txt
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14449264
+-rw-r--r-- 1 root root          34 Feb 10 10:34 _file_list.txt
+-rw-r--r-- 1 root root      450893 Feb 10 10:34 _metadata
+-rw-r--r-- 1 root root        1510 Feb 10 10:34 _metadata.json
+-rw-r--r-- 1 root root  3245838178 Feb 10 10:34 part_0.parquet
+-rw-r--r-- 1 root root       27296 Feb 10 10:33 schema.pbtxt
+drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
+-rw-r--r-- 1 root root 11549710546 Feb 10 10:32 train.txt
 </pre></div>
 </div>
 </div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;/wdl_train/train/0.8870d61b8a1f4deca0f911acfb072999.parquet&quot;</span><span class="p">)</span>
-<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output text_html"><div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>I1</th>
-      <th>I2</th>
-      <th>I3</th>
-      <th>I4</th>
-      <th>I5</th>
-      <th>I6</th>
-      <th>I7</th>
-      <th>I8</th>
-      <th>I9</th>
-      <th>I10</th>
-      <th>...</th>
-      <th>C17</th>
-      <th>C18</th>
-      <th>C19</th>
-      <th>C20</th>
-      <th>C21</th>
-      <th>C22</th>
-      <th>C23</th>
-      <th>C24</th>
-      <th>C25</th>
-      <th>C26</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>-0.048792</td>
-      <td>-0.368150</td>
-      <td>0.478781</td>
-      <td>-0.133437</td>
-      <td>-0.069780</td>
-      <td>0.068484</td>
-      <td>0.743047</td>
-      <td>-0.266159</td>
-      <td>1.481252</td>
-      <td>1.386036</td>
-      <td>...</td>
-      <td>3</td>
-      <td>356</td>
-      <td>10</td>
-      <td>183947</td>
-      <td>140830</td>
-      <td>28449</td>
-      <td>64057</td>
-      <td>6432</td>
-      <td>10</td>
-      <td>22</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>-0.061206</td>
-      <td>0.840877</td>
-      <td>-0.594327</td>
-      <td>0.148456</td>
-      <td>-0.209261</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.281810</td>
-      <td>-0.760031</td>
-      <td>-0.470383</td>
-      <td>...</td>
-      <td>1</td>
-      <td>781</td>
-      <td>10</td>
-      <td>207893</td>
-      <td>27876</td>
-      <td>112273</td>
-      <td>65971</td>
-      <td>3414</td>
-      <td>10</td>
-      <td>5</td>
-    </tr>
-  </tbody>
-</table>
-<p>2 rows × 42 columns</p>
-</div></div></div>
 </div>
 </div>
 </div>
@@ -863,8 +730,8 @@ drwxr-xr-x 2 root root        4096 Jul  5 05:41 temp-parquet-after-conversion
                               <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 
 <span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
-                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./train/_file_list.txt&quot;</span><span class="p">],</span>
-                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./val/_file_list.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;/wdl_train/train/_file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;/wdl_train/val/_file_list.txt&quot;</span><span class="p">,</span>
                                   <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
                                   <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">249058</span><span class="p">,</span> <span class="mi">19561</span><span class="p">,</span> <span class="mi">14212</span><span class="p">,</span> <span class="mi">6890</span><span class="p">,</span> <span class="mi">18592</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6356</span><span class="p">,</span> <span class="mi">1254</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">226170</span><span class="p">,</span> <span class="mi">80508</span><span class="p">,</span> <span class="mi">72308</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2169</span><span class="p">,</span> <span class="mi">7597</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">923</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">249619</span><span class="p">,</span> <span class="mi">168974</span><span class="p">,</span> <span class="mi">243480</span><span class="p">,</span> <span class="mi">68212</span><span class="p">,</span> <span class="mi">9169</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">278018</span><span class="p">,</span> <span class="mi">415262</span><span class="p">])</span>
 <span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
@@ -962,160 +829,150 @@ drwxr-xr-x 2 root root        4096 Jul  5 05:41 temp-parquet-after-conversion
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>====================================================Model Init=====================================================
-[13d04h56m26s][HUGECTR][INFO]: Global seed is 3689394843
-[13d04h56m31s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
-Device 2: A30
-[13d04h56m31s][HUGECTR][INFO]: num of DataReader workers: 1
-[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2097152
-[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2211840
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 4.2
+====================================================Model Init=====================================================
+[HCTR][10:35:38.637][WARNING][RK0][main]: The model name is not specified when creating the solver.
+[HCTR][10:35:38.637][INFO][RK0][main]: Global seed is 1886280762
+[HCTR][10:35:38.640][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 0
+[HCTR][10:35:40.821][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][10:35:40.821][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.8035 
+[HCTR][10:35:40.821][INFO][RK0][main]: Start all2all warmup
+[HCTR][10:35:40.821][INFO][RK0][main]: End all2all warmup
+[HCTR][10:35:40.822][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][10:35:40.823][INFO][RK0][main]: Device 2: Tesla V100-SXM2-32GB
+[HCTR][10:35:40.824][INFO][RK0][main]: num of DataReader workers for train: 1
+[HCTR][10:35:40.824][INFO][RK0][main]: num of DataReader workers for eval: 1
+[HCTR][10:35:40.824][DEBUG][RK0][main]: [device 2] allocating 0.0054 GB, available 30.5476 
+[HCTR][10:35:40.825][DEBUG][RK0][main]: [device 2] allocating 0.0054 GB, available 30.5417 
+[HCTR][10:35:40.825][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.5417 
+[HCTR][10:35:40.826][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.5417 
+[HCTR][10:35:40.826][INFO][RK0][main]: Vocabulary size: 2138588
+[HCTR][10:35:40.826][INFO][RK0][main]: max_vocabulary_size_per_gpu_=2097152
+[HCTR][10:35:40.838][DEBUG][RK0][main]: [device 2] allocating 0.0241 GB, available 30.3914 
+[HCTR][10:35:40.845][INFO][RK0][main]: max_vocabulary_size_per_gpu_=2211840
+[HCTR][10:35:40.851][DEBUG][RK0][main]: [device 2] allocating 0.4288 GB, available 29.9617 
+[HCTR][10:35:40.851][INFO][RK0][main]: Graph analysis to resolve tensor dependency
 ===================================================Model Compile===================================================
-[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
-[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
-[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
-[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
+[HCTR][10:35:40.856][DEBUG][RK0][main]: [device 2] allocating 0.2162 GB, available 29.4792 
+[HCTR][10:35:40.856][DEBUG][RK0][main]: [device 2] allocating 0.0056 GB, available 29.4734 
+[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][10:35:50.017][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][10:35:50.017][DEBUG][RK0][main]: [device 2] allocating 0.0001 GB, available 29.4734 
+[HCTR][10:35:50.019][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][10:35:50.023][INFO][RK0][main]: Warm-up done
 ===================================================Model Summary===================================================
+[HCTR][10:35:50.023][INFO][RK0][main]: Model structure on each GPU
 Label                                   Dense                         Sparse                        
 label                                   dense                          wide_data,deep_data           
-(None, 1)                               (None, 13)                              
-------------------------------------------------------------------------------------------------------------------
+(2720,1)                                (2720,13)                               
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 Layer Type                              Input Name                    Output Name                   Output Shape                  
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (2720,2,1)                    
 ------------------------------------------------------------------------------------------------------------------
-DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 2, 1)                  
-DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)                
-Reshape                                 sparse_embedding1             reshape1                      (None, 416)                   
-Reshape                                 sparse_embedding2             reshape2                      (None, 2)                     
-ReduceSum                               reshape2                      wide_redn                     (None, 1)                     
-Concat                                  reshape1,dense                concat1                       (None, 429)                   
-InnerProduct                            concat1                       fc1                           (None, 1024)                  
-ReLU                                    fc1                           relu1                         (None, 1024)                  
-Dropout                                 relu1                         dropout1                      (None, 1024)                  
-InnerProduct                            dropout1                      fc2                           (None, 1024)                  
-ReLU                                    fc2                           relu2                         (None, 1024)                  
-Dropout                                 relu2                         dropout2                      (None, 1024)                  
-InnerProduct                            dropout2                      fc3                           (None, 1)                     
-Add                                     fc3,wide_redn                 add1                          (None, 1)                     
-BinaryCrossEntropyLoss                  add1,label                    loss                                                        
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (2720,26,16)                  
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding1             reshape1                      (2720,416)                    
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding2             reshape2                      (2720,2)                      
+------------------------------------------------------------------------------------------------------------------
+ReduceSum                               reshape2                      wide_redn                     (2720,1)                      
+------------------------------------------------------------------------------------------------------------------
+Concat                                  reshape1                      concat1                       (2720,429)                    
+                                        dense                                                                                     
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            concat1                       fc1                           (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+ReLU                                    fc1                           relu1                         (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+Dropout                                 relu1                         dropout1                      (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            dropout1                      fc2                           (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+ReLU                                    fc2                           relu2                         (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+Dropout                                 relu2                         dropout2                      (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            dropout2                      fc3                           (2720,1)                      
+------------------------------------------------------------------------------------------------------------------
+Add                                     fc3                           add1                          (2720,1)                      
+                                        wide_redn                                                                                 
+------------------------------------------------------------------------------------------------------------------
+BinaryCrossEntropyLoss                  add1                          loss                                                        
+                                        label                                                                                     
 ------------------------------------------------------------------------------------------------------------------
 =====================================================Model Fit=====================================================
-[13d40h56m46s][HUGECTR][INFO]: Use non-epoch mode with number of iterations: 21000
-[13d40h56m46s][HUGECTR][INFO]: Training batchsize: 2720, evaluation batchsize: 2720
-[13d40h56m46s][HUGECTR][INFO]: Evaluation interval: 4000, snapshot interval: 20000
-[13d40h56m46s][HUGECTR][INFO]: Sparse embedding trainable: 1, dense network trainable: 1
-[13d40h56m46s][HUGECTR][INFO]: Use mixed precision: 0, scaler: 1.000000, use cuda graph: 1
-[13d40h56m46s][HUGECTR][INFO]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
-[13d40h56m46s][HUGECTR][INFO]: Training source file: ./train/_file_list.txt
-[13d40h56m46s][HUGECTR][INFO]: Evaluation source file: ./val/_file_list.txt
-[13d40h56m53s][HUGECTR][INFO]: Iter: 1000 Time(1000 iters): 6.920620s Loss: 0.083037 lr:0.001000
-[13d40h57m00s][HUGECTR][INFO]: Iter: 2000 Time(1000 iters): 6.706585s Loss: 0.120559 lr:0.001000
-[13d40h57m60s][HUGECTR][INFO]: Iter: 3000 Time(1000 iters): 6.699129s Loss: 0.117169 lr:0.001000
-[13d40h57m13s][HUGECTR][INFO]: Iter: 4000 Time(1000 iters): 6.758591s Loss: 0.083112 lr:0.001000
-[13d40h57m23s][HUGECTR][INFO]: Evaluation, AUC: 0.824140
-[13d40h57m23s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.483117s
-[13d40h57m29s][HUGECTR][INFO]: Iter: 5000 Time(1000 iters): 16.187022s Loss: 0.131896 lr:0.001000
-[13d40h57m36s][HUGECTR][INFO]: Iter: 6000 Time(1000 iters): 6.748882s Loss: 0.082966 lr:0.001000
-[13d40h57m43s][HUGECTR][INFO]: Iter: 7000 Time(1000 iters): 6.761953s Loss: 0.091929 lr:0.001000
-[13d40h57m50s][HUGECTR][INFO]: Iter: 8000 Time(1000 iters): 6.874048s Loss: 0.080763 lr:0.001000
-[13d40h57m59s][HUGECTR][INFO]: Evaluation, AUC: 0.826269
-[13d40h57m59s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.275068s
-[13d40h58m60s][HUGECTR][INFO]: Iter: 9000 Time(1000 iters): 15.969286s Loss: 0.088093 lr:0.001000
-[13d40h58m12s][HUGECTR][INFO]: Iter: 10000 Time(1000 iters): 6.652935s Loss: 0.137476 lr:0.001000
-[13d40h58m19s][HUGECTR][INFO]: Iter: 11000 Time(1000 iters): 6.751184s Loss: 0.116295 lr:0.001000
-[13d40h58m26s][HUGECTR][INFO]: Iter: 12000 Time(1000 iters): 6.659960s Loss: 0.151319 lr:0.001000
-[13d40h58m35s][HUGECTR][INFO]: Evaluation, AUC: 0.827362
-[13d40h58m35s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.378966s
-[13d40h58m42s][HUGECTR][INFO]: Iter: 13000 Time(1000 iters): 16.001544s Loss: 0.094625 lr:0.001000
-[13d40h58m48s][HUGECTR][INFO]: Iter: 14000 Time(1000 iters): 6.678430s Loss: 0.121618 lr:0.001000
-[13d40h58m55s][HUGECTR][INFO]: Iter: 15000 Time(1000 iters): 6.840206s Loss: 0.083302 lr:0.001000
-[13d40h59m20s][HUGECTR][INFO]: Iter: 16000 Time(1000 iters): 6.489092s Loss: 0.102394 lr:0.001000
-[13d40h59m11s][HUGECTR][INFO]: Evaluation, AUC: 0.829899
-[13d40h59m11s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.338721s
-[13d40h59m18s][HUGECTR][INFO]: Iter: 17000 Time(1000 iters): 15.868251s Loss: 0.108997 lr:0.001000
-[13d40h59m24s][HUGECTR][INFO]: Iter: 18000 Time(1000 iters): 5.960831s Loss: 0.098293 lr:0.001000
-[13d40h59m29s][HUGECTR][INFO]: Iter: 19000 Time(1000 iters): 5.980448s Loss: 0.071080 lr:0.001000
-[13d40h59m35s][HUGECTR][INFO]: Iter: 20000 Time(1000 iters): 5.984280s Loss: 0.115342 lr:0.001000
-[13d40h59m45s][HUGECTR][INFO]: Evaluation, AUC: 0.828875
-[13d40h59m45s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.337684s
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
-[13d40h59m45s][HUGECTR][INFO]: Dumping sparse weights to files, successful
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
-[13d40h59m45s][HUGECTR][INFO]: Done
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
-[13d40h59m45s][HUGECTR][INFO]: Done
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
-[13d40h59m45s][HUGECTR][INFO]: Done
-[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
-[13d40h59m45s][HUGECTR][INFO]: Done
-[13d40h59m45s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
-[13d40h59m45s][HUGECTR][INFO]: Dumping dense weights to file, successful
-[13d40h59m45s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
-[13d40h59m45s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
-[13d40h59m51s][HUGECTR][INFO]: Save the model graph to wdl.json, successful
-</pre></div>
-</div>
-</div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -ll
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 301620
--rw-rw-r-- 1 1025 1025     49824 Jul  6 07:00 HugeCTR_WDL_Training.ipynb
-drwxr-xr-x 2 root root      4096 Jul  5 05:43 categories
-drwxr-xr-x 3 root root      4096 Jul  5 05:44 dask-worker-space
--rw-r--r-- 1 root root      5539 Jul  6 07:00 model.py
--rw-r--r-- 1 root root     14265 Jul  6 06:59 preprocess.py
-drwxr-xr-x 3 root root      4096 Jul  5 23:34 train
-drwxr-xr-x 3 root root      4096 Jul  5 05:44 val
--rw-r--r-- 1 root root  17108704 Jul  6 03:28 wdl0_opt_sparse_20000.model
-drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl0_sparse_20000.model
--rw-r--r-- 1 root root 273739264 Jul  6 03:28 wdl1_opt_sparse_20000.model
-drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl1_sparse_20000.model
--rw-r--r-- 1 root root   5963780 Jul  6 03:28 wdl_dense_20000.model
--rw-r--r-- 1 root root      3158 Jul  6 03:28 wdl_infer.json
--rw-r--r-- 1 root root  11927560 Jul  6 03:28 wdl_opt_dense_20000.model
-</pre></div>
-</div>
-</div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_infer/wdl_python_infer.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
-&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
-&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
-&quot;/wdl_infer/first_ten.csv&quot;
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
-[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-Local RocksDB is initializing the embedding table: wdl0
-Last Iteration insert successfully
-Local RocksDB is initializing the embedding table: wdl1
-Last Iteration insert successfully
-[14d04h24m08s][HUGECTR][INFO]: Global seed is 2483322206
-[14d04h24m08s][HUGECTR][INFO]: Device to NUMA mapping:
-  GPU 2 -&gt;  node 1
-
-[14d04h24m13s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
-[14d04h24m13s][HUGECTR][INFO]: Start all2all warmup
-[14d04h24m13s][HUGECTR][INFO]: End all2all warmup
-[14d04h24m13s][HUGECTR][INFO]: Use mixed precision: 0
-[14d04h24m13s][HUGECTR][INFO]: start create embedding for inference
-[14d04h24m13s][HUGECTR][INFO]: sparse_input name wide_data
-[14d04h24m13s][HUGECTR][INFO]: sparse_input name deep_data
-[14d04h24m13s][HUGECTR][INFO]: create embedding for inference success
-[14d04h24m13s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-Rocksdb gets missing keys from model: wdl and table: 0
-Rocksdb gets missing keys from model: wdl and table: 1
-WDL multi-embedding table inference result is [0.2726621925830841, 0.16786302626132965, 0.06844793260097504, 0.21687281131744385, 0.28839486837387085, 0.09961184859275818, 0.1451544463634491, 0.1859627217054367, 0.1754387617111206, 0.14994166791439056]
-[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is less  than threshold:0.0001, error is 1.1102230246251565e-16
+[HCTR][10:35:50.024][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
+[HCTR][10:35:50.024][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
+[HCTR][10:35:50.024][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
+[HCTR][10:35:50.024][INFO][RK0][main]: Dense network trainable: True
+[HCTR][10:35:50.024][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][10:35:50.024][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
+[HCTR][10:35:50.024][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HCTR][10:35:50.024][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][10:35:50.024][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][10:35:50.024][INFO][RK0][main]: Training source file: /wdl_train/train/_file_list.txt
+[HCTR][10:35:50.024][INFO][RK0][main]: Evaluation source file: /wdl_train/val/_file_list.txt
+[HCTR][10:35:55.354][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 5.32919s Loss: 0.117964 lr:0.001
+[HCTR][10:36:00.665][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 5.30907s Loss: 0.126084 lr:0.001
+[HCTR][10:36:06.002][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 5.33581s Loss: 0.138335 lr:0.001
+[HCTR][10:36:11.349][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 5.34525s Loss: 0.101962 lr:0.001
+[HCTR][10:36:15.933][INFO][RK0][main]: Evaluation, AUC: 0.763947
+[HCTR][10:36:15.933][INFO][RK0][main]: Eval Time for 4000 iters: 4.583s
+[HCTR][10:36:21.258][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 9.90761s Loss: 0.120185 lr:0.001
+[HCTR][10:36:26.620][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 5.35972s Loss: 0.128626 lr:0.001
+[HCTR][10:36:31.947][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 5.32628s Loss: 0.125264 lr:0.001
+[HCTR][10:36:37.320][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 5.37131s Loss: 0.121486 lr:0.001
+[HCTR][10:36:41.803][INFO][RK0][main]: Evaluation, AUC: 0.767916
+[HCTR][10:36:41.803][INFO][RK0][main]: Eval Time for 4000 iters: 4.48175s
+[HCTR][10:36:47.154][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 9.83223s Loss: 0.109454 lr:0.001
+[HCTR][10:36:52.522][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 5.36677s Loss: 0.149472 lr:0.001
+[HCTR][10:36:57.896][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 5.37183s Loss: 0.118341 lr:0.001
+[HCTR][10:37:03.264][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 5.36706s Loss: 0.128496 lr:0.001
+[HCTR][10:37:07.728][INFO][RK0][main]: Evaluation, AUC: 0.769081
+[HCTR][10:37:07.728][INFO][RK0][main]: Eval Time for 4000 iters: 4.46314s
+[HCTR][10:37:13.098][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 9.83154s Loss: 0.118482 lr:0.001
+[HCTR][10:37:18.447][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 5.34802s Loss: 0.122699 lr:0.001
+[HCTR][10:37:23.812][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 5.36294s Loss: 0.118947 lr:0.001
+[HCTR][10:37:29.176][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 5.36303s Loss: 0.112516 lr:0.001
+[HCTR][10:37:33.646][INFO][RK0][main]: Evaluation, AUC: 0.772322
+[HCTR][10:37:33.646][INFO][RK0][main]: Eval Time for 4000 iters: 4.46896s
+[HCTR][10:37:39.146][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 9.96806s Loss: 0.11619 lr:0.001
+[HCTR][10:37:44.517][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 5.37011s Loss: 0.113035 lr:0.001
+[HCTR][10:37:49.891][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 5.37157s Loss: 0.116589 lr:0.001
+[HCTR][10:37:55.236][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 5.34424s Loss: 0.127488 lr:0.001
+[HCTR][10:37:59.698][INFO][RK0][main]: Evaluation, AUC: 0.768523
+[HCTR][10:37:59.698][INFO][RK0][main]: Eval Time for 4000 iters: 4.46044s
+[HCTR][10:37:59.698][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:37:59.771][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][10:37:59.810][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:37:59.867][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][10:38:00.091][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][10:38:00.092][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][10:38:00.092][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:00.115][INFO][RK0][main]: Done
+[HCTR][10:38:00.116][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][10:38:00.116][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:00.140][INFO][RK0][main]: Done
+[HCTR][10:38:00.245][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][10:38:00.245][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:00.610][INFO][RK0][main]: Done
+[HCTR][10:38:00.695][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][10:38:00.695][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:01.057][INFO][RK0][main]: Done
+[HCTR][10:38:01.063][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][10:38:01.064][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:01.079][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][10:38:01.081][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:38:01.116][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][10:38:06.487][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 136.46s.
+[HCTR][10:38:06.488][INFO][RK0][main]: Save the model graph to wdl.json successfully
+[1676025486.656545] [dgx1v-loki-23:602  :0] cuda_copy_iface.c:468  UCX  ERROR cuCtxGetCurrent(&amp;cuda_context)() failed: p�
+[1676025486.656590] [dgx1v-loki-23:602  :0]  cuda_ipc_iface.c:531  UCX  ERROR cuCtxGetCurrent(&amp;cuda_context)() failed: 
+[HCTR][10:38:06.707][INFO][RK0][main]: MPI finalization done.
 </pre></div>
 </div>
 </div>
@@ -1131,13 +988,14 @@ WDL multi-embedding table inference result is [0.2726621925830841, 0.16786302626
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 637376
--rw-r--r-- 1 root root 142856977 Jul  5 05:44 0.110d099942694a5cbf1b71eb73e10f27.parquet
--rw-r--r-- 1 root root        51 Jul  6 07:02 _file_list.txt
--rw-r--r-- 1 root root     27701 Jul  5 05:44 _metadata
--rw-r--r-- 1 root root      1537 Jul  5 05:44 _metadata.json
-drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
--rw-r--r-- 1 1025 1025 509766965 Jul  5 04:45 test.txt
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 633080
+-rw-r--r-- 1 root root        32 Feb 10 10:34 _file_list.txt
+-rw-r--r-- 1 root root     21894 Feb 10 10:34 _metadata
+-rw-r--r-- 1 root root      1509 Feb 10 10:34 _metadata.json
+-rw-r--r-- 1 root root 138441430 Feb 10 10:34 part_0.parquet
+-rw-r--r-- 1 root root     27296 Feb 10 10:34 schema.pbtxt
+drwxr-xr-x 2 root root        50 Feb 10 10:32 temp-parquet-after-conversion
+-rw-r--r-- 1 root root 509766965 Feb 10 10:32 test.txt
 </pre></div>
 </div>
 </div>
@@ -1145,7 +1003,7 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;/wdl_train/val/0.110d099942694a5cbf1b71eb73e10f27.parquet&quot;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;/wdl_train/val/part_0.parquet&quot;</span><span class="p">)</span>
 
 <span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
@@ -1196,123 +1054,123 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.061161</td>
-      <td>0.974006</td>
-      <td>-0.594327</td>
-      <td>-0.157301</td>
-      <td>-0.224758</td>
-      <td>0.618222</td>
+      <td>-0.054112</td>
+      <td>-0.267624</td>
+      <td>0.371471</td>
+      <td>-0.076760</td>
+      <td>-0.131771</td>
+      <td>-0.206385</td>
       <td>-0.064249</td>
-      <td>-0.281810</td>
-      <td>-0.760031</td>
-      <td>1.386036</td>
+      <td>-0.208772</td>
+      <td>0.324461</td>
+      <td>-0.470383</td>
       <td>...</td>
-      <td>2</td>
-      <td>666</td>
       <td>1</td>
-      <td>33722</td>
-      <td>24373</td>
-      <td>91481</td>
-      <td>62242</td>
-      <td>7673</td>
-      <td>44</td>
-      <td>28</td>
+      <td>49</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3</td>
+      <td>9</td>
+      <td>402</td>
+      <td>1</td>
+      <td>4</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>-0.061206</td>
-      <td>-0.437431</td>
-      <td>0.156849</td>
-      <td>-0.146861</td>
-      <td>-0.193763</td>
-      <td>0.893091</td>
+      <td>-0.048792</td>
+      <td>-0.547466</td>
+      <td>-0.594327</td>
+      <td>-0.157301</td>
+      <td>-0.224758</td>
+      <td>-0.206385</td>
       <td>-0.064249</td>
-      <td>0.286841</td>
-      <td>-0.109336</td>
-      <td>3.242455</td>
+      <td>0.949396</td>
+      <td>-0.760031</td>
+      <td>-0.470383</td>
       <td>...</td>
+      <td>3</td>
+      <td>2</td>
       <td>1</td>
-      <td>666</td>
-      <td>10</td>
       <td>0</td>
-      <td>97438</td>
+      <td>1645</td>
       <td>0</td>
-      <td>21446</td>
-      <td>4472</td>
-      <td>56</td>
-      <td>19</td>
+      <td>1358</td>
+      <td>1232</td>
+      <td>1</td>
+      <td>1</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.043427</td>
-      <td>-0.464600</td>
-      <td>-0.379705</td>
-      <td>-0.120014</td>
-      <td>0.054203</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.093999</td>
-      <td>-0.543133</td>
-      <td>-0.470383</td>
-      <td>...</td>
-      <td>1</td>
-      <td>575</td>
-      <td>10</td>
-      <td>0</td>
-      <td>46601</td>
-      <td>0</td>
-      <td>12090</td>
-      <td>540</td>
-      <td>10</td>
-      <td>17</td>
-    </tr>
-    <tr>
-      <th>3</th>
       <td>-0.059432</td>
-      <td>-0.273058</td>
-      <td>-0.487016</td>
-      <td>-0.143878</td>
-      <td>-0.193763</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.279201</td>
-      <td>-0.109336</td>
-      <td>-0.470383</td>
-      <td>...</td>
-      <td>0</td>
-      <td>351</td>
-      <td>10</td>
-      <td>125237</td>
-      <td>4329</td>
-      <td>238309</td>
-      <td>0</td>
-      <td>8488</td>
-      <td>56</td>
-      <td>22</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>-0.048792</td>
-      <td>-0.418412</td>
-      <td>0.693403</td>
-      <td>0.300589</td>
-      <td>-0.193763</td>
+      <td>-0.516221</td>
+      <td>-0.594327</td>
+      <td>-0.115539</td>
+      <td>-0.209261</td>
       <td>-0.206385</td>
       <td>-0.064249</td>
       <td>-0.281810</td>
-      <td>0.902856</td>
+      <td>-0.687732</td>
       <td>-0.470383</td>
       <td>...</td>
       <td>0</td>
-      <td>575</td>
-      <td>7</td>
-      <td>69747</td>
-      <td>76381</td>
-      <td>207280</td>
+      <td>1</td>
+      <td>1</td>
+      <td>33190</td>
+      <td>32473</td>
+      <td>34242</td>
       <td>0</td>
-      <td>444</td>
-      <td>73</td>
-      <td>22</td>
+      <td>954</td>
+      <td>3</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>-0.029284</td>
+      <td>-0.548824</td>
+      <td>-0.057773</td>
+      <td>-0.105099</td>
+      <td>-0.224758</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.255725</td>
+      <td>-0.760031</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>622</td>
+      <td>1</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>-0.061206</td>
+      <td>-0.548824</td>
+      <td>-0.594327</td>
+      <td>-0.145369</td>
+      <td>-0.209261</td>
+      <td>-0.206385</td>
+      <td>0.339399</td>
+      <td>-0.281810</td>
+      <td>0.035263</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>90</td>
+      <td>143</td>
+      <td>101</td>
+      <td>0</td>
+      <td>21</td>
+      <td>1</td>
+      <td>3</td>
     </tr>
   </tbody>
 </table>
@@ -1338,7 +1196,7 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
-<span class="k">def</span> <span class="nf">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span><span class="n">enable_cache</span><span class="p">,</span><span class="n">dbtype</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="n">enable_cache</span><span class="p">,</span> <span class="n">use_rocksdb</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rocksdb_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span><span class="o">+</span><span class="p">[</span><span class="s2">&quot;C1_C2&quot;</span><span class="p">,</span><span class="s2">&quot;C3_C4&quot;</span><span class="p">]</span>
     <span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
     <span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
@@ -1351,6 +1209,14 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
     <span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
     <span class="n">embedding_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">((</span><span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">+</span><span class="n">shift</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
     
+    
+    <span class="n">persistent_db_params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">PersistentDatabaseParams</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">use_rocksdb</span><span class="p">:</span>
+        <span class="n">persistent_db_params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">PersistentDatabaseParams</span><span class="p">(</span>
+                                  <span class="n">backend</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.</span><span class="n">rocks_db</span><span class="p">,</span>
+                                  <span class="n">path</span> <span class="o">=</span> <span class="n">rocksdb_path</span>
+                                <span class="p">)</span>
+    
 
     <span class="c1"># create parameter server, embedding cache and inference session</span>
     <span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span><span class="p">,</span>
@@ -1358,14 +1224,12 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
                                 <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
                                 <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">dense_file</span><span class="p">,</span>
                                 <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="n">embedding_file_list</span><span class="p">,</span>
-                                <span class="n">device_id</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+                                <span class="n">device_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
                                 <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="n">enable_cache</span><span class="p">,</span>
                                 <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+                                <span class="n">persistent_db</span> <span class="o">=</span> <span class="n">persistent_db_params</span><span class="p">,</span>
                                 <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-                                <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-                                <span class="n">db_type</span> <span class="o">=</span> <span class="n">dbtype</span><span class="p">,</span>
-                                <span class="n">rocksdb_path</span><span class="o">=</span><span class="n">rocksdb_path</span><span class="p">,</span>
-                                <span class="n">cache_size_percentage_redis</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+                                <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
     <span class="n">inference_session</span> <span class="o">=</span> <span class="n">CreateInferenceSession</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
     <span class="n">output</span> <span class="o">=</span> <span class="n">inference_session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dense_features</span><span class="p">,</span> <span class="n">embedding_columns</span><span class="p">,</span> <span class="n">row_ptrs</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;WDL multi-embedding table inference result is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
@@ -1383,12 +1247,12 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction input data path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">data_file</span><span class="p">))</span>
     <span class="n">input_dbtype</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction input dbtype path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">input_dbtype</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">input_dbtype</span><span class="o">==</span><span class="s2">&quot;local&quot;</span><span class="p">:</span>
-        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">Local</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">input_dbtype</span><span class="o">==</span><span class="s2">&quot;disabled&quot;</span><span class="p">:</span>
+        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">input_dbtype</span><span class="o">==</span><span class="s2">&quot;rocksdb&quot;</span><span class="p">:</span>
         <span class="n">rocksdb_path</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction rocksdb_path path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="p">))</span>
-        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">RocksDB</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="p">)</span>
+        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">rocksdb_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1406,33 +1270,63 @@ drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
 <h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python /wdl_train/wdl_predict.py <span class="s2">&quot;wdl&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl.json&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;</span> <span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span> <span class="s2">&quot;local&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python /wdl_train/wdl_predict.py <span class="s2">&quot;wdl&quot;</span> <span class="s2">&quot;./wdl.json&quot;</span> <span class="s2">&quot;./wdl_dense_20000.model&quot;</span> <span class="s2">&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot;</span> <span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span> <span class="s2">&quot;disabled&quot;</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
-wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
-wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
-wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction network is ./wdl.json
+wdl multi-embedding table prediction dense file is ./wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;./wdl0_sparse_20000.model/&#39;, &#39;./wdl1_sparse_20000.model&#39;]
 wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
-wdl multi-embedding table prediction input dbtype path is local
-[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-[15d09h17m32s][HUGECTR][INFO]: Global seed is 1361897547
-[15d09h17m32s][HUGECTR][INFO]: Device to NUMA mapping:
-  GPU 2 -&gt;  node 1
-
-[15d09h17m48s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
-[15d09h17m48s][HUGECTR][INFO]: Start all2all warmup
-[15d09h17m48s][HUGECTR][INFO]: End all2all warmup
-[15d09h17m48s][HUGECTR][INFO]: Use mixed precision: 0
-[15d09h17m48s][HUGECTR][INFO]: start create embedding for inference
-[15d09h17m48s][HUGECTR][INFO]: sparse_input name wide_data
-[15d09h17m48s][HUGECTR][INFO]: sparse_input name deep_data
-[15d09h17m48s][HUGECTR][INFO]: create embedding for inference success
-[15d09h17m48s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+wdl multi-embedding table prediction input dbtype path is disabled
+[HCTR][10:53:44.990][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][10:53:44.990][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][10:53:44.990][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][10:53:44.990][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][10:53:44.991][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][10:53:44.991][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][10:53:44.991][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][10:53:44.991][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][10:53:44.991][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:53:45.479][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 / 664320 embeddings in volatile database (HashMapBackend); load: 664320 / 18446744073709551615 (0.00%).
+[HCTR][10:53:45.479][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:53:45.829][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 / 1030499 embeddings in volatile database (HashMapBackend); load: 1030499 / 18446744073709551615 (0.00%).
+[HCTR][10:53:45.836][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][10:53:45.836][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][10:53:45.842][INFO][RK0][main]: Model name: wdl
+[HCTR][10:53:45.842][INFO][RK0][main]: Max batch size: 64
+[HCTR][10:53:45.842][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][10:53:45.842][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
+[HCTR][10:53:45.842][INFO][RK0][main]: Use static table: False
+[HCTR][10:53:45.842][INFO][RK0][main]: Use I64 input key: True
+[HCTR][10:53:45.842][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
+[HCTR][10:53:45.842][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][10:53:45.842][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][10:53:45.842][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][10:53:45.842][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][10:53:46.786][INFO][RK0][main]: Global seed is 1984285016
+[HCTR][10:53:46.789][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][10:53:47.797][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][10:53:47.797][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.7156 
+[HCTR][10:53:47.797][INFO][RK0][main]: Start all2all warmup
+[HCTR][10:53:47.797][INFO][RK0][main]: End all2all warmup
+[HCTR][10:53:47.798][INFO][RK0][main]: Model name: wdl
+[HCTR][10:53:47.798][INFO][RK0][main]: Use mixed precision: False
+[HCTR][10:53:47.798][INFO][RK0][main]: Use cuda graph: True
+[HCTR][10:53:47.798][INFO][RK0][main]: Max batchsize: 64
+[HCTR][10:53:47.798][INFO][RK0][main]: Use I64 input key: True
+[HCTR][10:53:47.798][INFO][RK0][main]: start create embedding for inference
+[HCTR][10:53:47.798][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][10:53:47.798][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][10:53:47.798][INFO][RK0][main]: create embedding for inference success
+[HCTR][10:53:47.798][DEBUG][RK0][main]: [device 0] allocating 0.0003 GB, available 30.4636 
+[HCTR][10:53:47.799][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][10:53:47.799][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.4421 
+WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737061232328, 0.005509266164153814, 0.0118627417832613, 0.01798960007727146, 0.010030664503574371, 0.02108118124306202, 0.008684462867677212, 0.07753805071115494, 0.011398322880268097]
 </pre></div>
 </div>
 </div>
@@ -1450,9 +1344,9 @@ WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
-&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
-&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;./wdl.json&quot; \
+&quot;./wdl_dense_20000.model&quot; \
+&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot; \
 &quot;/wdl_train/infer_test.csv&quot; \
 &quot;rocksdb&quot;  &quot;/wdl_train/rocksdb&quot;
 </pre></div>
@@ -1460,34 +1354,67 @@ WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
-wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
-wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
-wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction network is ./wdl.json
+wdl multi-embedding table prediction dense file is ./wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;./wdl0_sparse_20000.model/&#39;, &#39;./wdl1_sparse_20000.model&#39;]
 wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
 wdl multi-embedding table prediction input dbtype path is rocksdb
 wdl multi-embedding table prediction rocksdb_path path is /wdl_train/rocksdb
-[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
-Local RocksDB is initializing the embedding table: wdl0
-Last Iteration insert successfully
-Local RocksDB is initializing the embedding table: wdl1
-Last Iteration insert successfully
-[15d12h32m07s][HUGECTR][INFO]: Global seed is 1156574989
-[15d12h32m08s][HUGECTR][INFO]: Device to NUMA mapping:
-  GPU 2 -&gt;  node 1
-
-[15d12h32m21s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
-[15d12h32m21s][HUGECTR][INFO]: Start all2all warmup
-[15d12h32m21s][HUGECTR][INFO]: End all2all warmup
-[15d12h32m21s][HUGECTR][INFO]: Use mixed precision: 0
-[15d12h32m21s][HUGECTR][INFO]: start create embedding for inference
-[15d12h32m21s][HUGECTR][INFO]: sparse_input name wide_data
-[15d12h32m21s][HUGECTR][INFO]: sparse_input name deep_data
-[15d12h32m21s][HUGECTR][INFO]: create embedding for inference success
-[15d12h32m21s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-Rocksdb gets missing keys from model: wdl and table: 0
-Rocksdb gets missing keys from model: wdl and table: 1
-WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+[HCTR][10:56:41.546][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][10:56:41.546][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][10:56:41.546][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][10:56:41.546][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][10:56:41.547][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][10:56:41.547][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][10:56:41.547][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][10:56:41.547][INFO][RK0][main]: Creating RocksDB backend...
+[HCTR][10:56:41.547][INFO][RK0][main]: Connecting to RocksDB database...
+[HCTR][10:56:41.548][ERROR][RK0][main]: RocksDB /wdl_train/rocksdb: Listing column names failed!
+[HCTR][10:56:41.548][INFO][RK0][main]: RocksDB /wdl_train/rocksdb, found column family &quot;default&quot;.
+[HCTR][10:56:41.583][INFO][RK0][main]: Connected to RocksDB database!
+[HCTR][10:56:41.583][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][10:56:41.583][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:56:42.084][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 / 664320 embeddings in volatile database (HashMapBackend); load: 664320 / 18446744073709551615 (0.00%).
+[HCTR][10:56:43.351][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 embeddings in persistent database (RocksDB).
+[HCTR][10:56:43.351][INFO][RK0][main]: Using Local file system backend.
+[HCTR][10:56:43.693][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 / 1030499 embeddings in volatile database (HashMapBackend); load: 1030499 / 18446744073709551615 (0.00%).
+[HCTR][10:56:45.979][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 embeddings in persistent database (RocksDB).
+[HCTR][10:56:45.985][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][10:56:45.985][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][10:56:45.991][INFO][RK0][main]: Model name: wdl
+[HCTR][10:56:45.991][INFO][RK0][main]: Max batch size: 64
+[HCTR][10:56:45.991][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][10:56:45.991][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
+[HCTR][10:56:45.991][INFO][RK0][main]: Use static table: False
+[HCTR][10:56:45.991][INFO][RK0][main]: Use I64 input key: True
+[HCTR][10:56:45.991][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
+[HCTR][10:56:45.991][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][10:56:45.991][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][10:56:45.991][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][10:56:45.991][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][10:56:46.953][INFO][RK0][main]: Global seed is 3196997041
+[HCTR][10:56:46.956][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][10:56:48.005][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][10:56:48.005][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.7156 
+[HCTR][10:56:48.005][INFO][RK0][main]: Start all2all warmup
+[HCTR][10:56:48.005][INFO][RK0][main]: End all2all warmup
+[HCTR][10:56:48.006][INFO][RK0][main]: Model name: wdl
+[HCTR][10:56:48.006][INFO][RK0][main]: Use mixed precision: False
+[HCTR][10:56:48.006][INFO][RK0][main]: Use cuda graph: True
+[HCTR][10:56:48.006][INFO][RK0][main]: Max batchsize: 64
+[HCTR][10:56:48.006][INFO][RK0][main]: Use I64 input key: True
+[HCTR][10:56:48.006][INFO][RK0][main]: start create embedding for inference
+[HCTR][10:56:48.006][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][10:56:48.006][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][10:56:48.006][INFO][RK0][main]: create embedding for inference success
+[HCTR][10:56:48.006][DEBUG][RK0][main]: [device 0] allocating 0.0003 GB, available 30.4636 
+[HCTR][10:56:48.007][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][10:56:48.007][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.4421 
+WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737061232328, 0.005509266164153814, 0.0118627417832613, 0.01798960007727146, 0.010030664503574371, 0.02108118124306202, 0.008684462867677212, 0.07753805071115494, 0.011398322880268097]
+[HCTR][10:56:48.571][INFO][RK0][main]: Disconnecting from RocksDB database...
+[HCTR][10:56:48.573][INFO][RK0][main]: Disconnected from RocksDB database!
 </pre></div>
 </div>
 </div>

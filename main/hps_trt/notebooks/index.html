@@ -72,6 +72,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_api/index.html">API Documentation</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
@@ -122,15 +123,15 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <h3>Pull the Container from NGC<a class="headerlink" href="#pull-the-container-from-ngc" title="Permalink to this headline"></a></h3>
 <p>Pull a container based on the modeling framework and notebook that you want to run.</p>
 <p>To run the <a class="reference internal" href="demo_for_tf_trained_model.html"><span class="doc std std-doc">demo_for_tf_trained_model.ipynb</span></a> notebook, pull the Merlin TensorFlow container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:23.01
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 </pre></div>
 </div>
 <p>To run the <a class="reference internal" href="demo_for_pytorch_trained_model.html"><span class="doc std std-doc">demo_for_pytorch_trained_model.ipynb</span></a> notebook, pull the Merlin PyTorch container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-pytorch:23.01
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-pytorch:23.02
 </pre></div>
 </div>
 <p>To run the <a class="reference internal" href="demo_for_hugectr_trained_model.html"><span class="doc std std-doc">demo_for_hugectr_trained_model.ipynb</span></a> notebook, pull the Merlin HugeCTR container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.01
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.02
 </pre></div>
 </div>
 <p>The HPS TensorRT plugin is installed in all the containers.</p>
@@ -146,7 +147,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running the following command.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/&lt;container-name&gt;:23.01
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/&lt;container-name&gt;:23.02
 </pre></div>
 </div>
 </li>
