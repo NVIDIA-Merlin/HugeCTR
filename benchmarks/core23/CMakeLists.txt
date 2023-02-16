@@ -20,6 +20,7 @@ function(configureBenchmark executableName)
   add_executable(${executableName} ${ARGN})
   target_compile_features(${executableName} PUBLIC cxx_std_17)
   target_link_libraries(${executableName} PUBLIC hugectr_core23)
+  target_link_libraries(${executableName} PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
   set_target_properties(${executableName} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON
                                                      CUDA_ARCHITECTURES OFF
                                                      POSITION_INDEPENDENT_CODE ON)
