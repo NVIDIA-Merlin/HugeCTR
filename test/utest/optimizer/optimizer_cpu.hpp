@@ -29,8 +29,8 @@ void compare_array(const float* a, const float* b, int len, float eps) {
 template <typename T>
 class AdaGradCPU {
  public:
-  AdaGradCPU(int len, float* w, const T* g, const float lr, const float initial_accu_value,
-             const float epsilon, const float scaler)
+  AdaGradCPU(int len, float* w, const T* g, const float lr, const float initial_accu_value = 0.0f,
+             const float epsilon = 1e-7, const float scaler = 1.0f)
       : w_(w), g_(g), len_(len), lr_(lr), epsilon_(epsilon), scaler_(scaler) {
     sum_.resize(len);
     std::fill(sum_.begin(), sum_.end(), initial_accu_value);

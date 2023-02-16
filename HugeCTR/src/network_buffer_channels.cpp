@@ -43,5 +43,9 @@ core23::BufferChannel GetWgradHalfBufferChannel() {
   static auto name = core23::GetRandomBufferChannelName();
   return core23::BufferChannel(name);
 }
+core23::BufferChannel GetOptStateBufferChannnel() {
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
+}
 
 }  // namespace HugeCTR

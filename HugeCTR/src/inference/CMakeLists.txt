@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.8)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB huge_ctr_inference_src
+  ../network_buffer_channels.cpp
   ../cpu_resource.cpp
   ../gpu_resource.cpp
   ../resource_manager.cpp

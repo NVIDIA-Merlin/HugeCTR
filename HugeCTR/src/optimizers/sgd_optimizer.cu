@@ -123,32 +123,66 @@ SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main,
     : Optimizer(weight_main, gpu_resource, lr, scaler),
       wgrad_(wgrad),
       weight_main_half_(weight_main_half),
+      wgrad_tensors_({}),
+      weight_half_tensors_({}),
       use_mixed_precision_(use_mixed_precision) {
   optimizer_type_ = Optimizer_t::SGD;
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
     HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
 }
+template <typename T>
+SGDOptimizer<T>::SGDOptimizer(std::vector<core23::Tensor> weight_tensors,
+                              std::vector<core23::Tensor> weight_half_tensors,
+                              std::vector<core23::Tensor> wgrad_tensors,
+                              const std::shared_ptr<GPUResource>& gpu_resource, float lr,
+                              float scaler, bool use_mixed_precision)
+    : Optimizer(weight_tensors, gpu_resource, lr, scaler),
+      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
+          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      weight_half_tensors_(std::make_optional<WeightHalfTensors>(
+          std::move(weight_half_tensors),
+          core23::Shape({static_cast<int64_t>(weight_half_tensors.size())}))),
+      use_mixed_precision_(use_mixed_precision) {}
 
 template <typename T>
 void SGDOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
-  const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   constexpr int vec_width = sizeof(float4) / sizeof(float);
-  const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
 
-  float* weight = weight_main_.get_ptr();
-  __half* weight_half = weight_main_half_.get_ptr();
-  const T* wgrad = wgrad_.get_ptr();
+  if (!wgrad_tensors_) {
+    const size_t len = weight_main_.get_num_elements();
+    const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
+    float* weight = weight_main_.get_ptr();
+    __half* weight_half = weight_main_half_.get_ptr();
+    const T* wgrad = wgrad_.get_ptr();
 
-  if (gpu_learning_rate_scheduler_ == nullptr) {
-    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
+    if (gpu_learning_rate_scheduler_ == nullptr) {
+      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+          len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
+    } else {
+      float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
+      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+          len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
+    }
   } else {
-    float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
-    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
+    auto flat_weight_tensor = weight_tensors_->flatten();
+    auto flat_weight_half_tensor = weight_half_tensors_->flatten();
+    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+    float* weight = flat_weight_tensor.data();
+    __half* weight_half = flat_weight_half_tensor.data();
+    const T* wgrad = flat_wgrad_tensor.data();
+    auto len = flat_weight_tensor.size(0);
+    const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
+    if (gpu_learning_rate_scheduler_ == nullptr) {
+      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+          len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
+    } else {
+      float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
+      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+          len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
+    }
   }
 
 #ifndef NDEBUG

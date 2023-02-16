@@ -37,6 +37,18 @@ class NesterovOptimizer : public Optimizer {
                     const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                     const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                     float momentum_factor, float scaler = 1.f);
+  /**
+   * Constructor of NesterovOptimizer.
+   * @param weight_tensors a list of dense layer weight tensors
+   * @param wgrad gradient for weight tensors
+   * @param gpu_resource the GPU where update kernel is launched
+   * @param learning_rate learning rate
+   * @param momentum_factor the momentum factor
+   */
+  NesterovOptimizer(std::vector<core23::Tensor> weight_tensors,
+                    std::vector<core23::Tensor> wgrad_tensors,
+                    const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
+                    float momentum_factor, float scaler = 1.f);
 
   void initialize() override;
 
@@ -49,7 +61,9 @@ class NesterovOptimizer : public Optimizer {
  private:
   Tensor2<T> wgrad_;
   Tensor2<float> accum_;  // accumulation
-  const float mu_;        // momentum factor
+  std::optional<WgradTensors<T>> wgrad_tensors_;
+  core23::Tensor accum_tensor_;
+  const float mu_;  // momentum factor
 };
 
 }  // namespace HugeCTR
