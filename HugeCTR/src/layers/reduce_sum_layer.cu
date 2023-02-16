@@ -119,6 +119,37 @@ __global__ void reduce_sum_dgrad_kernel(const T* top_grad, T* dgrad, int axis, A
 }  // end of namespace
 
 template <typename T>
+ReduceSumLayer<T>::ReduceSumLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
+                                  int axis, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {}, gpu_resource), axis_(axis) {
+  try {
+    // error input checking
+    const auto& in_shape = input_tensor.shape();
+    if (in_shape.size() == 0) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "The input dims can not be 0");
+    }
+    if (axis >= in_shape.dims() || axis < 0) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "The axis is overflow");
+    }
+
+    core23::Shape out_shape(in_shape.dims());
+    for (auto i = 0; i < in_shape.dims(); i++) {
+      if (i == axis) {
+        out_shape.set(i, 1);
+      } else {
+        out_shape.set(i, in_shape.size(i));
+      }
+    }
+
+    output_tensor = core23::Tensor(input_tensor.my_params().shape(out_shape));
+    output_tensors_.push_back(output_tensor);
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
 ReduceSumLayer<T>::ReduceSumLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                                   int axis, const std::shared_ptr<GPUResource>& gpu_resource)
@@ -157,27 +188,52 @@ template <typename T>
 void ReduceSumLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  T* input = in_tensors_[0].get_ptr();
-  T* output = out_tensors_[0].get_ptr();
-  auto in_dims = in_tensors_[0].get_dimensions();
-  auto out_dims = out_tensors_[0].get_dimensions();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    T* input = in_tensors_[0].get_ptr();
+    T* output = out_tensors_[0].get_ptr();
+    auto in_dims = in_tensors_[0].get_dimensions();
+    auto out_dims = out_tensors_[0].get_dimensions();
 
-  int block_num = 1;
-  for (auto dim : out_dims) {
-    block_num *= dim;
-  }
+    int block_num = 1;
+    for (auto dim : out_dims) {
+      block_num *= dim;
+    }
 
-  dim3 blockSize(256, 1, 1);
-  dim3 gridSize(block_num, 1, 1);
-  if (in_dims.size() == 1) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
-                                                                          in_dims[0]);
-  } else if (in_dims.size() == 2) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
-                                                                          in_dims[0], in_dims[1]);
-  } else if (in_dims.size() == 3) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-        input, output, axis_, in_dims[0], in_dims[1], in_dims[2]);
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize(block_num, 1, 1);
+    if (in_dims.size() == 1) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
+                                                                            in_dims[0]);
+    } else if (in_dims.size() == 2) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
+                                                                            in_dims[0], in_dims[1]);
+    } else if (in_dims.size() == 3) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          input, output, axis_, in_dims[0], in_dims[1], in_dims[2]);
+    }
+  } else {
+    auto* input = input_tensors_[0].data<T>();
+    auto* output = output_tensors_[0].data<T>();
+    auto in_shape = input_tensors_[0].shape();
+    auto out_shape = output_tensors_[0].shape();
+
+    auto block_num = out_shape.size();
+
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize(block_num, 1, 1);
+    if (in_shape.dims() == 1) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          input, output, axis_, static_cast<size_t>(in_shape.size(0)));
+    } else if (in_shape.dims() == 2) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          input, output, axis_, static_cast<size_t>(in_shape.size(0)),
+          static_cast<size_t>(in_shape.size(1)));
+    } else if (in_shape.dims() == 3) {
+      reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          input, output, axis_, static_cast<size_t>(in_shape.size(0)),
+          static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
+    }
   }
 
 #ifndef NDEBUG
@@ -190,26 +246,50 @@ template <typename T>
 void ReduceSumLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  T* input = in_tensors_[0].get_ptr();
-  T* output = out_tensors_[0].get_ptr();
-  auto in_dims = in_tensors_[0].get_dimensions();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    T* input = in_tensors_[0].get_ptr();
+    T* output = out_tensors_[0].get_ptr();
+    auto in_dims = in_tensors_[0].get_dimensions();
 
-  int size = 1;
-  for (auto dim : in_dims) {
-    size *= dim;
-  }
+    int size = 1;
+    for (auto dim : in_dims) {
+      size *= dim;
+    }
 
-  dim3 blockSize(256, 1, 1);
-  dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
-  if (in_dims.size() == 1) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, input,
-                                                                                axis_, in_dims[0]);
-  } else if (in_dims.size() == 2) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-        output, input, axis_, in_dims[0], in_dims[1]);
-  } else if (in_dims.size() == 3) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-        output, input, axis_, in_dims[0], in_dims[1], in_dims[2]);
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
+    if (in_dims.size() == 1) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, in_dims[0]);
+    } else if (in_dims.size() == 2) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, in_dims[0], in_dims[1]);
+    } else if (in_dims.size() == 3) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, in_dims[0], in_dims[1], in_dims[2]);
+    }
+  } else {
+    auto* input = input_tensors_[0].data<T>();
+    auto* output = output_tensors_[0].data<T>();
+    auto in_shape = input_tensors_[0].shape();
+
+    auto size = in_shape.size();
+
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
+    if (in_shape.dims() == 1) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, static_cast<size_t>(in_shape.size(0)));
+    } else if (in_shape.dims() == 2) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, static_cast<size_t>(in_shape.size(0)),
+          static_cast<size_t>(in_shape.size(1)));
+    } else if (in_shape.dims() == 3) {
+      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+          output, input, axis_, static_cast<size_t>(in_shape.size(0)),
+          static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
+    }
   }
 
 #ifndef NDEBUG

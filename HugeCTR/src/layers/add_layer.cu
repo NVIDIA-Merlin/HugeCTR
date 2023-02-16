@@ -24,7 +24,19 @@ namespace HugeCTR {
 
 namespace {
 
-#define BLOCK_DIM_SIZE 32
+template <typename ContainerView, typename T>
+__global__ void add_kernel(ContainerView inputs, T* output, int size) {
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (tid < size) {
+    T tmp = 0;
+    for (int i = 0; i < inputs.size(0); i++) {
+      tmp += inputs[i][tid];
+    }
+    output[tid] = tmp;
+  }
+}
+
 template <typename T>
 __global__ void add_kernel(T** inputs, T* output, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -38,6 +50,17 @@ __global__ void add_kernel(T** inputs, T* output, int size, int num) {
   }
 }
 
+template <typename ContainerView, typename T>
+__global__ void add_dgrad_kernel(const T* top_grad, ContainerView dgrads, int size) {
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (tid < size) {
+    for (int i = 0; i < dgrads.size(0); i++) {
+      dgrads[i][tid] = top_grad[tid];
+    }
+  }
+}
+
 template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -46,6 +69,32 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
     for (int i = 0; i < num; i++) {
       dgrads[i][tid] = top_grad[tid];
     }
+  }
+}
+
+template <>
+__global__ void add_kernel<core23::TensorContainer<__half, 1, 1>::View, __half>(
+    core23::TensorContainer<__half, 1, 1>::View inputs, __half* output, int size) {
+  __half2* output2 = (__half2*)(output);
+  int size2 = size / 2;
+
+  const __half2 zero = __half2half2(__float2half(0.f));
+  int start = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  for (int i = start; i < size2; i += stride) {
+    __half2 tmp = zero;
+    for (int j = 0; j < inputs.size(0); ++j) {
+      const __half2* input2 = reinterpret_cast<__half2*>(&inputs[j][0]);
+      tmp += input2[i];
+    }
+    output2[i] = tmp;
+  }
+  if (start == 0 && size % 2 > 0) {
+    __half tmp = __float2half(0.0f);
+    for (int j = 0; j < inputs.size(0); ++j) {
+      tmp += inputs[j][size - 1];
+    }
+    output[size - 1] = tmp;
   }
 }
 
@@ -75,6 +124,27 @@ __global__ void add_kernel<__half>(__half** inputs, __half* output, int size, in
 }
 
 template <>
+__global__ void add_dgrad_kernel<core23::TensorContainer<__half, 1, 1>::View, __half>(
+    const __half* top_grad, core23::TensorContainer<__half, 1, 1>::View dgrads, int size) {
+  const __half2* top_grad2 = (const __half2*)(top_grad);
+  int size2 = size / 2;
+
+  int start = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  for (int i = start; i < size2; i += stride) {
+    for (int j = 0; j < dgrads.size(0); ++j) {
+      __half2* dgrad2 = reinterpret_cast<__half2*>(&dgrads[j][0]);
+      dgrad2[i] = top_grad2[i];
+    }
+  }
+  if (start == 0 && size % 2 > 0) {
+    for (int j = 0; j < dgrads.size(0); ++j) {
+      dgrads[j][size - 1] = top_grad[size - 1];
+    }
+  }
+}
+
+template <>
 __global__ void add_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads, int size,
                                          int num) {
   const __half2* top_grad2 = (const __half2*)(top_grad);
@@ -96,6 +166,37 @@ __global__ void add_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads
 }
 
 }  // end of namespace
+
+template <typename T>
+AddLayer<T>::AddLayer(const std::vector<core23::Tensor>& input_tensors,
+                      const core23::Tensor& output_tensor,
+                      const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(input_tensors, {output_tensor}, gpu_resource),
+      size_(input_tensors_[0].num_elements()),
+      input_tensor_container_(input_tensors_, {static_cast<int64_t>(input_tensors_.size())}) {
+  try {
+    // error input checking
+    int64_t dims = input_tensors_[0].dims();
+    int64_t num = input_tensors_.size();
+    if (num < 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "AddLayer needs at least 2 input tensors");
+    }
+    for (auto i = 1; i < num; i++) {
+      if (input_tensors_[i].dims() != dims) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+      }
+      for (auto j = 0; j < dims; j++) {
+        if (input_tensors_[i].size(j) != input_tensors_[0].size(j)) {
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same dims");
+        }
+      }
+    }
+
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
 
 template <typename T>
 AddLayer<T>::AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
@@ -137,66 +238,67 @@ AddLayer<T>::AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
 
 template <typename T>
 void AddLayer<T>::initialize() {
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
-      GeneralBuffer2<CudaHostAllocator>::create();
-  pinned_host_buf->reserve({num_}, &h_inputs_);
-  pinned_host_buf->allocate();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
+        GeneralBuffer2<CudaHostAllocator>::create();
+    pinned_host_buf->reserve({num_}, &h_inputs_);
+    pinned_host_buf->allocate();
 
-  for (size_t i = 0; i < num_; i++) {
-    h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
+    for (size_t i = 0; i < num_; i++) {
+      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
+    }
+
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+                                   num_ * sizeof(T*), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+  } else {
+    input_tensor_container_.flatten();
   }
-
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                 num_ * sizeof(T*), cudaMemcpyHostToDevice,
-                                 get_gpu().get_stream()));
 }
 
 template <typename T>
 void AddLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  T* output = out_tensors_[0].get_ptr();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    T* output = out_tensors_[0].get_ptr();
 
-  dim3 block_size(256, 1, 1);
-  dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
-  add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
-                                                                   size_, num_);
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
+    add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
+                                                                     size_, num_);
+  } else {
+    T* output = output_tensors_[0].data<T>();
+
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
+    add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(input_tensor_container_.view(),
+                                                                     output, size_);
+  }
 }
 
 template <typename T>
 void AddLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  T* output = out_tensors_[0].get_ptr();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    T* output = out_tensors_[0].get_ptr();
 
-  dim3 blockSize(256, 1, 1);
-  dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  add_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
-                                                                       size_, num_);
-}
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
+    add_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        output, d_inputs_.get_ptr(), size_, num_);
+  } else {
+    T* output = output_tensors_[0].data<T>();
 
-template <>
-void AddLayer<__half>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
-
-  __half* output = out_tensors_[0].get_ptr();
-
-  dim3 block_size(256, 1, 1);
-  dim3 grid_size((size_ / 2 + block_size.x - 1) / block_size.x, 1, 1);
-  add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
-                                                                   size_, num_);
-}
-
-template <>
-void AddLayer<__half>::bprop() {
-  CudaDeviceContext context(get_device_id());
-
-  __half* output = out_tensors_[0].get_ptr();
-
-  dim3 blockSize(256, 1, 1);
-  dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
-  add_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
-                                                                       size_, num_);
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
+    add_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        output, input_tensor_container_.view(), size_);
+  }
 }
 
 template class AddLayer<float>;

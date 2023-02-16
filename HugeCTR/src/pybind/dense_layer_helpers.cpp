@@ -680,24 +680,37 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     }
     case Layer_t::FmOrder2: {
       int64_t out_dim = dense_layer.out_dim;
-      auto& in_tensor = input_output_info.input_tensors[0];
-      core23::Tensor out_tensor(tensor_params.shape({in_tensor.shape().size(0), out_dim}));
-      // TODO: fill the details including layers.emplace_back
-      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      auto& input_tensor = input_output_info.input_tensors[0];
+      core23::Tensor output_tensor(tensor_params.shape({input_tensor.shape().size(0), out_dim}));
+      if (use_mixed_precision) {
+        layers.emplace_back(new FmOrder2Layer<__half>(input_tensor, output_tensor, gpu_resource));
+      } else {
+        layers.emplace_back(new FmOrder2Layer<float>(input_tensor, output_tensor, gpu_resource));
+      }
+      output_tensor_entities.push_back({input_output_info.output_names[0], output_tensor});
       break;
     }
     case Layer_t::Add: {
-      auto& in_tensors = input_output_info.input_tensors;
-      core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
+      auto& input_tensors = input_output_info.input_tensors;
+      core23::Tensor output_tensor(tensor_params.shape(input_tensors[0].shape()));
       // TODO: fill the details including layers.emplace_back
-      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
+      if (use_mixed_precision) {
+        layers.emplace_back(new AddLayer<__half>(input_tensors, output_tensor, gpu_resource));
+      } else {
+        layers.emplace_back(new AddLayer<float>(input_tensors, output_tensor, gpu_resource));
+      }
+      output_tensor_entities.push_back({input_output_info.output_names[0], output_tensor});
       break;
     }
     case Layer_t::ReduceSum: {
       [[maybe_unused]] int axis = dense_layer.axis;
       [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      if (use_mixed_precision) {
+        layers.emplace_back(new ReduceSumLayer<__half>(in_tensor, out_tensor, axis, gpu_resource));
+      } else {
+        layers.emplace_back(new ReduceSumLayer<float>(in_tensor, out_tensor, axis, gpu_resource));
+      }
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }

@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <layers/reshape_layer.hpp>
+#include <layers/fm_order2_layer.hpp>
 #include <utest/dense_layer/dense_layer_test_common.hpp>
 
 namespace {
@@ -25,35 +25,31 @@ namespace {
 using namespace HugeCTR;
 
 template <typename T>
-void dense_reshape_layer_test(int64_t leading_dim, int64_t time_step) {
+void dense_fm_order2_layer_test() {
   constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
   int64_t batch_size = 1024;
-  int64_t n_slots = 26;
-  int64_t width = 128;
+  int64_t width = 512;
 
   core23::TensorParams tensor_params =
       core23::TensorParams()
-          .shape({batch_size, n_slots, width})
+          .shape({batch_size, width})
           .device(core23::Device(core23::DeviceType::GPU, test::get_default_gpu()->get_device_id()))
           .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float);
   core23::Tensor bottom_tensor(tensor_params);
 
   TensorEntity bottom_tensor_entity = {"fc1", bottom_tensor};
 
-  Layer_t layer_type = Layer_t::Reshape;
+  Layer_t layer_type = Layer_t::FmOrder2;
   std::vector<std::string> bottom_names{bottom_tensor_entity.name};
-  std::vector<std::string> top_names = {"reshape1"};
+  std::vector<std::string> top_names = {"fm_order21"};
 
   DenseLayer dense_layer(layer_type, bottom_names, top_names);
-  dense_layer.leading_dim = n_slots * width;
-  dense_layer.time_step = time_step;
-  test::dense_layer_test_common<ReshapeLayer<T>>(
+  dense_layer.out_dim = 16;
+  test::dense_layer_test_common<FmOrder2Layer<T>>(
       {bottom_tensor_entity}, dense_layer, use_mixed_precision, false, false, 1024.f, false, false);
 }
 
 }  // namespace
 
-TEST(test_dense_layer, reshape_layer_t0_fp32) { dense_reshape_layer_test<float>(128, 0); }
-TEST(test_dense_layer, reshape_layer_t0_fp16) { dense_reshape_layer_test<__half>(128, 0); }
-TEST(test_dense_layer, reshape_layer_t2_fp32) { dense_reshape_layer_test<float>(128, 2); }
-TEST(test_dense_layer, reshape_layer_t2_fp16) { dense_reshape_layer_test<__half>(128, 2); }
+TEST(test_dense_layer, fm_order2_layer_fp32) { dense_fm_order2_layer_test<float>(); }
+TEST(test_dense_layer, fm_order2_layer_fp16) { dense_fm_order2_layer_test<__half>(); }

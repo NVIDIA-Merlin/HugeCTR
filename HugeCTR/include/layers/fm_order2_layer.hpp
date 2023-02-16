@@ -46,6 +46,8 @@ class FmOrder2Layer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  FmOrder2Layer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+                const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of FmOrder2Layer.
    * @param in_tensor the input tensor

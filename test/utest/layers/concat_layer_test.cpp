@@ -37,7 +37,6 @@ void concat_layer_test(int64_t height, std::vector<int64_t> widths) {
 
   auto device = core23::Device::current();
   core23::CURANDGenerator generator(core23::DeviceType::CPU);
-  core23::CUDAStream stream(cudaStreamDefault, 0);
 
   std::vector<core23::Tensor> bottom_tensors;
 

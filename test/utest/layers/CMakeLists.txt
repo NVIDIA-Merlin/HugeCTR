@@ -36,16 +36,20 @@ file(GLOB layers_test_src
   relu_layer_test.cpp
   relu_layer_test_old.cpp
   slice_layer_test.cpp
+  slice_layer_test_old.cpp
   reshape_layer_test.cpp
   reshape_layer_test_old.cpp
   reshape_layer_test_sel.cpp
   reshape_layer_test_sel_old.cpp
   prelu_dice_layer_test.cpp
   fm_order2_layer_test.cpp
+  fm_order2_layer_test_old.cpp
   weight_multiply_layer_test.cpp
   multi_cross_layer_test.cpp
   add_layer_test.cpp
+  add_layer_test_old.cpp
   reduce_sum_layer_test.cpp
+  reduce_sum_layer_test_old.cpp
   softmax_layer_test.cpp
   scale_layer_test.cpp
   fused_reshape_concat_general_layer_test.cpp

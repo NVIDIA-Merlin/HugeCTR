@@ -112,6 +112,31 @@ __global__ void fm_order2_dgrad_kernel(const __half* in, const __half* top_grad,
 }  // end of namespace
 
 template <typename T>
+FmOrder2Layer<T>::FmOrder2Layer(const core23::Tensor& input_tensor,
+                                const core23::Tensor& output_tensor,
+                                const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource),
+      batch_size_(input_tensor.size(0)),
+      slot_num_(input_tensor.size(1) / output_tensor.size(1)),
+      embedding_vec_size_(output_tensor.size(1)) {
+  try {
+    if (input_tensor.dims() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "only 2D tensors can be used as input for FmOrder2Layer");
+    }
+    if (output_tensor.dims() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "only 2D tensors can be used as output for FmOrder2Layer");
+    }
+    if ((input_tensor.size(1) % output_tensor.size(1)) != 0) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "(in_shape.size(1) % out_shape.size(1)) != 0");
+    }
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
 FmOrder2Layer<T>::FmOrder2Layer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                                 const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
@@ -146,29 +171,54 @@ template <typename T>
 void FmOrder2Layer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const T* in = in_tensors_[0].get_ptr();
-  T* out = out_tensors_[0].get_ptr();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const T* in = in_tensors_[0].get_ptr();
+    T* out = out_tensors_[0].get_ptr();
 
-  dim3 blockSize(embedding_vec_size_, 1, 1);
-  dim3 grdiSize(batch_size_, 1, 1);
-  fm_order2_kernel<<<grdiSize, blockSize, 0, get_gpu().get_stream()>>>(
-      in, out, batch_size_, slot_num_, embedding_vec_size_);
+    dim3 blockSize(embedding_vec_size_, 1, 1);
+    dim3 grdiSize(batch_size_, 1, 1);
+    fm_order2_kernel<<<grdiSize, blockSize, 0, get_gpu().get_stream()>>>(
+        in, out, batch_size_, slot_num_, embedding_vec_size_);
+  } else {
+    const auto* in = input_tensors_[0].data<T>();
+    auto* out = output_tensors_[0].data<T>();
+
+    dim3 blockSize(embedding_vec_size_, 1, 1);
+    dim3 grdiSize(batch_size_, 1, 1);
+    fm_order2_kernel<<<grdiSize, blockSize, 0, get_gpu().get_stream()>>>(
+        in, out, batch_size_, slot_num_, embedding_vec_size_);
+  }
 }
 
 template <typename T>
 void FmOrder2Layer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  T* in = in_tensors_[0].get_ptr();
-  const T* out = out_tensors_[0].get_ptr();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    T* in = in_tensors_[0].get_ptr();
+    const T* out = out_tensors_[0].get_ptr();
 
-  dim3 blockSize(embedding_vec_size_, 1, 1);
-  dim3 gridSize(batch_size_, 1, 1);
-  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(in,
-                                                                             out,  // top_grad
-                                                                             in,   // dgrad
-                                                                             batch_size_, slot_num_,
-                                                                             embedding_vec_size_);
+    dim3 blockSize(embedding_vec_size_, 1, 1);
+    dim3 gridSize(batch_size_, 1, 1);
+    fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        in,
+        out,  // top_grad
+        in,   // dgrad
+        batch_size_, slot_num_, embedding_vec_size_);
+  } else {
+    auto* in = input_tensors_[0].data<T>();
+    const auto* out = output_tensors_[0].data<T>();
+
+    dim3 blockSize(embedding_vec_size_, 1, 1);
+    dim3 gridSize(batch_size_, 1, 1);
+    fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        in,
+        out,  // top_grad
+        in,   // dgrad
+        batch_size_, slot_num_, embedding_vec_size_);
+  }
 }
 
 template class FmOrder2Layer<float>;

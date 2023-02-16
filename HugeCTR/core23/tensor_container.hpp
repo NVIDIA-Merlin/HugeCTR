@@ -48,6 +48,8 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   TensorContainer(TensorContainer&& other) = delete;
   TensorContainer& operator=(const TensorContainer& other) = delete;
   TensorContainer& operator=(TensorContainer&& other) = delete;
+  // TODO: we should remove this constructor which is a kind of temporary WAR
+  TensorContainer() : Base(nullptr, nullptr), tensor_view_ptrs_(nullptr), viewed_(false) {}
 
   ~TensorContainer() {
     if (allocator_) {
@@ -56,6 +58,9 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   }
 
   FlattenedTensorView flatten() const {
+    HCTR_THROW_IF(tensors_.empty() || Base::data_ == nullptr, HugeCTR::Error_t::IllegalCall,
+                  "This empty TensorContainer cannot be flattened");
+
     std::vector<Tensor> tensors = tensors_;
     std::sort(tensors.begin(), tensors.end(),
               [](const Tensor& lhs, const Tensor& rhs) { return lhs.data() < rhs.data(); });
@@ -83,6 +88,9 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   }
 
   View view() const {
+    HCTR_THROW_IF(tensors_.empty() || Base::data_ == nullptr, HugeCTR::Error_t::IllegalCall,
+                  "This empty TensorContainer cannot be flattened");
+
     if (viewed_ == false) {
       std::vector<TargetTensorView> host_tensor_views;
       std::transform(tensors_.begin(), tensors_.end(), std::back_inserter(host_tensor_views),

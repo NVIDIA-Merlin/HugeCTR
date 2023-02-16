@@ -15,7 +15,10 @@
 
 cmake_minimum_required(VERSION 3.17)
 file(GLOB dense_layer_test_src
+  dense_add_layer_test.cpp
+  dense_fm_order2_layer_test.cpp
   dense_relu_layer_test.cpp
+  dense_reduce_sum_layer_test.cpp
   dense_elu_layer_test.cpp
   dense_sigmoid_layer_test.cpp
   dense_slice_layer_test.cpp

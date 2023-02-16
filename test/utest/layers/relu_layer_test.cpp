@@ -95,17 +95,7 @@ void relu_test(int64_t dim0, int64_t dim1) {
   std::vector<T> h_bottom_grad(len);
   std::vector<T> d2h_bottom_grad(len);
 
-  if constexpr (std::is_same_v<T, __half>) {
-    std::vector<float> h_bottom_full(len);
-    core23::normal_async<float>(h_bottom_full.data(), len, 0.f, 1.f, core23::DeviceType::CPU,
-                                generator, stream);
-    core23::convert_async<T, float>(h_bottom.data(), h_bottom_full.data(), len,
-                                    core23::DeviceType::CPU, core23::DeviceType::CPU, stream);
-  } else {
-    core23::normal_async<T>(h_bottom.data(), len, 0.f, 1.f, core23::DeviceType::CPU, generator,
-                            stream);
-  }
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
   // fprop
   core23::copy_async(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
@@ -120,17 +110,7 @@ void relu_test(int64_t dim0, int64_t dim1) {
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.data(), h_top.data(), len, Eps<T>::value()));
 
   // bprop
-  if constexpr (std::is_same_v<T, __half>) {
-    std::vector<float> h_top_full(len);
-    core23::normal_async<float>(h_top_full.data(), len, 0.f, 1.f, core23::DeviceType::CPU,
-                                generator, stream);
-    core23::convert_async<T, float>(h_top.data(), h_top_full.data(), len, core23::DeviceType::CPU,
-                                    core23::DeviceType::CPU, stream);
-  } else {
-    core23::normal_async<float>(h_top.data(), len, 0.f, 1.f, core23::DeviceType::CPU, generator,
-                                stream);
-  }
-  cudaStreamSynchronize(stream());
+  test::normal_sync_cpu(h_top.data(), h_top.size(), 0.f, 1.f, generator);
 
   core23::copy_async(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
                      core23::DeviceType::CPU, stream);

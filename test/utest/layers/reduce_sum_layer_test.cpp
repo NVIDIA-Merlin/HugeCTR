@@ -38,56 +38,59 @@ __half Eps() {
 }
 
 template <typename T>
-void reduce_sum_cpu(const T* input, T* output, std::vector<size_t> dims, size_t axis) {
+void reduce_sum_cpu(const T* input, T* output, core23::Shape shape, int64_t axis) {
   if (axis == 0) {
-    if (dims.size() == 1) {
-      for (size_t i = 0; i < dims[0]; i++) {
+    if (shape.dims() == 1) {
+      for (auto i = 0; i < shape.size(0); i++) {
         output[0] = input[i];
       }
-    } else if (dims.size() == 2) {
-      for (size_t k = 0; k < dims[1]; k++) {
+    } else if (shape.dims() == 2) {
+      for (auto k = 0; k < shape.size(1); k++) {
         output[k] = 0.0f;
-        for (size_t i = 0; i < dims[0]; i++) {
-          output[k] = output[k] + input[i * dims[1] + k];
+        for (auto i = 0; i < shape.size(0); i++) {
+          output[k] = output[k] + input[i * shape.size(1) + k];
         }
       }
-    } else if (dims.size() == 3) {
-      for (size_t j = 0; j < dims[1]; j++) {
-        for (size_t k = 0; k < dims[2]; k++) {
-          output[j * dims[2] + k] = 0.0f;
-          for (size_t i = 0; i < dims[0]; i++) {
-            output[j * dims[2] + k] =
-                output[j * dims[2] + k] + input[i * dims[1] * dims[2] + j * dims[2] + k];
+    } else if (shape.dims() == 3) {
+      for (auto j = 0; j < shape.size(1); j++) {
+        for (auto k = 0; k < shape.size(2); k++) {
+          output[j * shape.size(2) + k] = 0.0f;
+          for (auto i = 0; i < shape.size(0); i++) {
+            output[j * shape.size(2) + k] =
+                output[j * shape.size(2) + k] +
+                input[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k];
           }
         }
       }
     }
   } else if (axis == 1) {
-    if (dims.size() == 2) {
-      for (size_t i = 0; i < dims[0]; i++) {
+    if (shape.dims() == 2) {
+      for (auto i = 0; i < shape.size(0); i++) {
         output[i] = 0.0f;
-        for (size_t j = 0; j < dims[1]; j++) {
-          output[i] = output[i] + input[i * dims[1] + j];
+        for (auto j = 0; j < shape.size(1); j++) {
+          output[i] = output[i] + input[i * shape.size(1) + j];
         }
       }
-    } else if (dims.size() == 3) {
-      for (size_t i = 0; i < dims[0]; i++) {
-        for (size_t k = 0; k < dims[2]; k++) {
-          output[i * dims[2] + k] = 0.0f;
-          for (size_t j = 0; j < dims[1]; j++) {
-            output[i * dims[2] + k] =
-                output[i * dims[2] + k] + input[i * dims[1] * dims[2] + j * dims[2] + k];
+    } else if (shape.dims() == 3) {
+      for (auto i = 0; i < shape.size(0); i++) {
+        for (auto k = 0; k < shape.size(2); k++) {
+          output[i * shape.size(2) + k] = 0.0f;
+          for (auto j = 0; j < shape.size(1); j++) {
+            output[i * shape.size(2) + k] =
+                output[i * shape.size(2) + k] +
+                input[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k];
           }
         }
       }
     }
   } else if (axis == 2) {
-    for (size_t i = 0; i < dims[0]; i++) {
-      for (size_t j = 0; j < dims[1]; j++) {
-        output[i * dims[1] + j] = 0.0f;
-        for (size_t k = 0; k < dims[2]; k++) {
-          output[i * dims[1] + j] =
-              output[i * dims[1] + j] + input[i * dims[1] * dims[2] + j * dims[2] + k];
+    for (auto i = 0; i < shape.size(0); i++) {
+      for (auto j = 0; j < shape.size(1); j++) {
+        output[i * shape.size(1) + j] = 0.0f;
+        for (auto k = 0; k < shape.size(2); k++) {
+          output[i * shape.size(1) + j] =
+              output[i * shape.size(1) + j] +
+              input[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k];
         }
       }
     }
@@ -95,44 +98,47 @@ void reduce_sum_cpu(const T* input, T* output, std::vector<size_t> dims, size_t 
 }
 
 template <typename T>
-void reduce_sum_dgrad_cpu(const T* top_grad, T* dgrad, std::vector<size_t> dims, size_t axis) {
+void reduce_sum_dgrad_cpu(const T* top_grad, T* dgrad, core23::Shape shape, int64_t axis) {
   if (axis == 0) {
-    if (dims.size() == 2) {
-      for (size_t j = 0; j < dims[1]; j++) {
-        for (size_t i = 0; i < dims[0]; i++) {
-          dgrad[i * dims[1] + j] = top_grad[j];
+    if (shape.dims() == 2) {
+      for (auto j = 0; j < shape.size(1); j++) {
+        for (auto i = 0; i < shape.size(0); i++) {
+          dgrad[i * shape.size(1) + j] = top_grad[j];
         }
       }
-    } else if (dims.size() == 3) {
-      for (size_t j = 0; j < dims[1]; j++) {
-        for (size_t k = 0; k < dims[2]; k++) {
-          for (size_t i = 0; i < dims[0]; i++) {
-            dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[j * dims[2] + k];
+    } else if (shape.dims() == 3) {
+      for (auto j = 0; j < shape.size(1); j++) {
+        for (auto k = 0; k < shape.size(2); k++) {
+          for (auto i = 0; i < shape.size(0); i++) {
+            dgrad[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k] =
+                top_grad[j * shape.size(2) + k];
           }
         }
       }
     }
   } else if (axis == 1) {
-    if (dims.size() == 2) {
-      for (size_t i = 0; i < dims[0]; i++) {
-        for (size_t j = 0; j < dims[1]; j++) {
-          dgrad[i * dims[1] + j] = top_grad[i];
+    if (shape.dims() == 2) {
+      for (auto i = 0; i < shape.size(0); i++) {
+        for (auto j = 0; j < shape.size(1); j++) {
+          dgrad[i * shape.size(1) + j] = top_grad[i];
         }
       }
-    } else if (dims.size() == 3) {
-      for (size_t i = 0; i < dims[0]; i++) {
-        for (size_t k = 0; k < dims[2]; k++) {
-          for (size_t j = 0; j < dims[1]; j++) {
-            dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[i * dims[2] + k];
+    } else if (shape.dims() == 3) {
+      for (auto i = 0; i < shape.size(0); i++) {
+        for (auto k = 0; k < shape.size(2); k++) {
+          for (auto j = 0; j < shape.size(1); j++) {
+            dgrad[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k] =
+                top_grad[i * shape.size(2) + k];
           }
         }
       }
     }
   } else if (axis == 2) {
-    for (size_t i = 0; i < dims[0]; i++) {
-      for (size_t j = 0; j < dims[1]; j++) {
-        for (size_t k = 0; k < dims[2]; k++) {
-          dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[i * dims[1] + j];
+    for (auto i = 0; i < shape.size(0); i++) {
+      for (auto j = 0; j < shape.size(1); j++) {
+        for (auto k = 0; k < shape.size(2); k++) {
+          dgrad[i * shape.size(1) * shape.size(2) + j * shape.size(2) + k] =
+              top_grad[i * shape.size(1) + j];
         }
       }
     }
@@ -140,61 +146,63 @@ void reduce_sum_dgrad_cpu(const T* top_grad, T* dgrad, std::vector<size_t> dims,
 }
 
 template <typename T>
-void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t axis) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+void reduce_sum_test(int64_t batch_size, int64_t slot_num, int64_t embedding_vec_size,
+                     int64_t axis) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  std::vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
 
-  Tensor2<T> in_tensor;
-  buff->reserve(in_dims, &in_tensor);
-  Tensor2<T> out_tensor;
+  core23::Shape in_shape = {batch_size, slot_num, embedding_vec_size};  // 3D
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  ReduceSumLayer<T> reduce_sum_layer(in_tensor, out_tensor, buff, axis, test::get_default_gpu());
+  core23::Tensor bottom_tensor(tensor_params.shape(in_shape));
+  core23::Tensor top_tensor;
 
-  buff->allocate();
+  ReduceSumLayer<T> reduce_sum_layer(bottom_tensor, top_tensor, axis, test::get_default_gpu());
+
   reduce_sum_layer.initialize();
 
-  size_t in_size = 1;
-  for (auto dim : in_dims) {
-    in_size *= dim;
-  }
-  auto out_dims = out_tensor.get_dimensions();
-  size_t out_size = 1;
-  for (auto dim : out_dims) {
-    out_size *= dim;
-  }
+  auto in_size = in_shape.size();
+  auto out_shape = top_tensor.shape();
+  auto out_size = out_shape.size();
 
-  T* d_in = in_tensor.get_ptr();
-  T* d_out = out_tensor.get_ptr();
-  std::unique_ptr<T[]> h_in(new T[in_size]);
-  std::unique_ptr<T[]> h_out(new T[out_size]);
-  std::unique_ptr<T[]> h_cpu_out(new T[out_size]);
-  std::unique_ptr<T[]> h_gpu_dgrad(new T[in_size]);
+  std::vector<T> h_bottom(in_size);
+  std::vector<T> h_top(out_size);
+  std::vector<T> h_cpu_top(out_size);
+  std::vector<T> h_gpu_dgrad(in_size);
 
   // fprop
-  simulator.fill(h_in.get(), in_size);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   reduce_sum_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  reduce_sum_cpu<T>(h_in.get(), h_cpu_out.get(), in_dims, axis);
+  reduce_sum_cpu<T>(h_bottom.data(), h_cpu_top.data(), in_shape, axis);
 
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), out_size, Eps<T>()));
+  ASSERT_TRUE(test::compare_array_approx<T>(h_top.data(), h_cpu_top.data(), out_size, Eps<T>()));
 
   // bprop
-  simulator.fill(h_out.get(), out_size);
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_top.data(), h_top.size(), 0.f, 1.f, generator);
+  core23::copy_sync(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
+                    core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   reduce_sum_layer.bprop();  // compute wgrad and dgrad
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(h_gpu_dgrad.get(), d_in, in_size * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_gpu_dgrad.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
 
-  reduce_sum_dgrad_cpu<T>(h_out.get(), h_in.get(), in_dims, axis);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_gpu_dgrad.get(), in_size,
+  reduce_sum_dgrad_cpu<T>(h_top.data(), h_bottom.data(), in_shape, axis);
+  ASSERT_TRUE(test::compare_array_approx<T>(h_bottom.data(), h_gpu_dgrad.data(), in_size,
                                             Eps<T>()));  // compare dgrad
 }
 

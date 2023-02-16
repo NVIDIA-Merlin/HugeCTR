@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <layers/reshape_layer.hpp>
+#include <layers/add_layer.hpp>
 #include <utest/dense_layer/dense_layer_test_common.hpp>
 
 namespace {
@@ -25,35 +25,34 @@ namespace {
 using namespace HugeCTR;
 
 template <typename T>
-void dense_reshape_layer_test(int64_t leading_dim, int64_t time_step) {
+void dense_add_layer_test() {
   constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
   int64_t batch_size = 1024;
-  int64_t n_slots = 26;
-  int64_t width = 128;
+  int64_t base_width = 32;
+  int64_t num_tensors = 4;
 
   core23::TensorParams tensor_params =
       core23::TensorParams()
-          .shape({batch_size, n_slots, width})
           .device(core23::Device(core23::DeviceType::GPU, test::get_default_gpu()->get_device_id()))
           .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float);
-  core23::Tensor bottom_tensor(tensor_params);
 
-  TensorEntity bottom_tensor_entity = {"fc1", bottom_tensor};
+  std::vector<TensorEntity> tensor_entities;
+  std::vector<std::string> bottom_names;
+  for (int64_t i = 0; i < num_tensors; i++) {
+    tensor_entities.push_back(
+        {"in_" + std::to_string(i), tensor_params.shape({batch_size, base_width})});
+    bottom_names.push_back(tensor_entities.back().name);
+  }
 
-  Layer_t layer_type = Layer_t::Reshape;
-  std::vector<std::string> bottom_names{bottom_tensor_entity.name};
-  std::vector<std::string> top_names = {"reshape1"};
+  Layer_t layer_type = Layer_t::Add;
+  std::vector<std::string> top_names = {"add1"};
 
   DenseLayer dense_layer(layer_type, bottom_names, top_names);
-  dense_layer.leading_dim = n_slots * width;
-  dense_layer.time_step = time_step;
-  test::dense_layer_test_common<ReshapeLayer<T>>(
-      {bottom_tensor_entity}, dense_layer, use_mixed_precision, false, false, 1024.f, false, false);
+  test::dense_layer_test_common<AddLayer<T>>(tensor_entities, dense_layer, use_mixed_precision,
+                                             false, false, 1024.f, false, false);
 }
 
 }  // namespace
 
-TEST(test_dense_layer, reshape_layer_t0_fp32) { dense_reshape_layer_test<float>(128, 0); }
-TEST(test_dense_layer, reshape_layer_t0_fp16) { dense_reshape_layer_test<__half>(128, 0); }
-TEST(test_dense_layer, reshape_layer_t2_fp32) { dense_reshape_layer_test<float>(128, 2); }
-TEST(test_dense_layer, reshape_layer_t2_fp16) { dense_reshape_layer_test<__half>(128, 2); }
+TEST(test_dense_layer, add_layer_fp32) { dense_add_layer_test<float>(); }
+TEST(test_dense_layer, add_layer_fp16) { dense_add_layer_test<__half>(); }
