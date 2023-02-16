@@ -17,6 +17,7 @@
 
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
 cd ${SCRIPT_DIR}/../third_party
+HDFS_BUILD_MODE="$1"
 
 if [[ -z "${HADOOP_HOME}" ]]; then
   HADOOP_HOME=/opt/hadoop
@@ -25,7 +26,7 @@ fi
 # Find hadoop full version.
 cd hadoop
 HADOOP_TAR=$(ls hadoop-dist/target/hadoop-*.tar.gz | head -n 1)
-if [[ "$HADOOP_TAR" -eq 0 ]]; then
+if [[ -z "$HADOOP_TAR" ]]; then
   HADOOP_TAR=$(ls hadoop-hdfs-project/hadoop-hdfs-native-client/target/hadoop-hdfs-native-client-*.tar.gz | head -n 1)
 fi
 
@@ -52,9 +53,11 @@ ln -sf ${HADOOP_HOME}/lib/native/libhadoop.so /usr/local/lib/libhadoop.so
 ln -sf ${HADOOP_HOME}/lib/native/libhadoop.so.1.0.0 /usr/local/lib/libhadoop.so.1.0.0
 
 # Create minimalist single-node "default" configuration.
-sed -i "s/^# export JAVA_HOME=$/export JAVA_HOME=${JAVA_HOME//\//\\\/}/g" ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+# Skip if install with minimal mode.
+if [[ "${HDFS_BUILD_MODE}" != "MINIMAL" ]]; then
+  sed -i "s/^# export JAVA_HOME=$/export JAVA_HOME=${JAVA_HOME//\//\\\/}/g" ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
-echo '<?xml version="1.0" encoding="UTF-8"?>
+  echo '<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 
 <!-- Single-node dummy configuration -->
@@ -65,7 +68,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
   </property>
 </configuration>' > ${HADOOP_HOME}/etc/hadoop/core-site.xml
 
-echo '<?xml version="1.0" encoding="UTF-8"?>
+  echo '<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 
 <!-- Single-node dummy configuration -->
@@ -76,19 +79,20 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
   </property>
 </configuration>' > ${HADOOP_HOME}/etc/hadoop/hdfs-site.xml
 
-if [[ -z $HOME/.ssh/id_ecdsa ]]; then
-  ssh-keygen -q -t ecdsa -b 521 -N "" <<< ""
-  cat $HOME/.ssh/id_ecdsa.pub >> $HOME/.ssh/authorized_keys
-fi
+  if [[ -z $HOME/.ssh/id_ecdsa ]]; then
+    ssh-keygen -q -t ecdsa -b 521 -N "" <<< ""
+    cat $HOME/.ssh/id_ecdsa.pub >> $HOME/.ssh/authorized_keys
+  fi
 
-ldconfig
-echo "
-Hadoop version: $(${HADOOP_HOME}/bin/hadoop version)
+  ldconfig
+  echo "
+  Hadoop version: $(${HADOOP_HOME}/bin/hadoop version)
 
-To run a single-node hadoop instance (for development only):
+  To run a single-node hadoop instance (for development only):
 
     hadoop namenode -format
     service ssh start
     start-dfs.sh
 
-"
+  "
+fi
