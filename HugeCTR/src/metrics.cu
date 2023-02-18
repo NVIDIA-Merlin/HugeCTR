@@ -20,6 +20,7 @@
 #include <diagnose.hpp>
 #include <general_buffer2.hpp>
 #include <metrics.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.cuh>
 
 #define MMAP_DEBUG(...)  // HCTR_LOG(INFO, ROOT, __VA_ARGS__)
@@ -391,6 +392,8 @@ void send_halo_right(T* srcptr, T* dstptr, int count, int left_neighbor, int rig
 void get_raw_metric_as_host_float_tensor(Core23RawMetricMap metric_map, RawType raw_type,
                                          bool mixed_precision, float* rst, size_t num) {
   core23::Tensor device_prediction_result;
+  int device_id;
+  HCTR_LIB_THROW(cudaGetDevice(&device_id));
 
   if (mixed_precision) {
     core23::Tensor raw_metric_tensor = metric_map[raw_type];
@@ -399,9 +402,11 @@ void get_raw_metric_as_host_float_tensor(Core23RawMetricMap metric_map, RawType 
       os << "num elements: " << raw_metric_tensor.num_elements() << " not match with " << num;
       HCTR_OWN_THROW(Error_t::WrongInput, os.str());
     }
-    device_prediction_result = core23::Tensor(core23::TensorParams()
-                                                  .data_type(core23::ToScalarType<float>::value)
-                                                  .shape(raw_metric_tensor.shape()));
+    device_prediction_result =
+        core23::Tensor(core23::TensorParams()
+                           .data_type(core23::ToScalarType<float>::value)
+                           .device(core23::Device(core23::DeviceType::GPU, device_id))
+                           .shape(raw_metric_tensor.shape()));
     dim3 blockSize(256, 1, 1);
     dim3 gridSize((num + blockSize.x - 1) / blockSize.x, 1, 1);
     convert_half_to_float_kernel<<<gridSize, blockSize>>>(
@@ -686,80 +691,111 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
   allocated_temp_storage_.resize(num_streams, 0);
   workspace_.resize(num_streams);
   finalize_storage_.resize(num_streams);
+  int device_id;
+  HCTR_LIB_THROW(cudaGetDevice(&device_id));
+  core23::Device device = core23::Device(core23::DeviceType::GPU, device_id);
+  core23::Device device_unified = core23::Device(core23::DeviceType::UNIFIED, device_id);
+  core23::BufferParams buffer_params = {};
+  buffer_params.channel = GetBlobsBufferChannel();
 
   for (auto& st : finalize_storage_) {
     st.local_bins_ = core23::Tensor(core23::TensorParams()
                                         .data_type(core23::ToScalarType<CountType>::value)
+                                        .device(device)
+                                        .buffer_params(buffer_params)
                                         .shape({static_cast<int64_t>(num_bins)}));
 
     st.global_bins_ = core23::Tensor(core23::TensorParams()
                                          .data_type(core23::ToScalarType<CountType>::value)
+                                         .device(device)
+                                         .buffer_params(buffer_params)
                                          .shape({static_cast<int64_t>(num_bins)}));
 
     st.local_bins_sum_ = core23::Tensor(core23::TensorParams()
                                             .data_type(core23::ToScalarType<CountType>::value)
+                                            .device(device)
+                                            .buffer_params(buffer_params)
                                             .shape({static_cast<int64_t>(num_bins)}));
 
     st.global_bins_sum_ = core23::Tensor(core23::TensorParams()
                                              .data_type(core23::ToScalarType<CountType>::value)
+                                             .device(device)
+                                             .buffer_params(buffer_params)
                                              .shape({static_cast<int64_t>(num_bins)}));
 
     st.pos_per_gpu_ = core23::Tensor(core23::TensorParams()
                                          .data_type(core23::ToScalarType<float>::value)
+                                         .device(device)
+                                         .buffer_params(buffer_params)
                                          .shape({static_cast<int64_t>(num_global_gpus + 1)}));
 
     st.neg_per_gpu_ = core23::Tensor(core23::TensorParams()
                                          .data_type(core23::ToScalarType<float>::value)
+                                         .device(device)
+                                         .buffer_params(buffer_params)
                                          .shape({static_cast<int64_t>(num_global_gpus + 1)}));
 
     st.tp_offsets_ = core23::Tensor(core23::TensorParams()
                                         .data_type(core23::ToScalarType<CountType>::value)
+                                        .device(device)
+                                        .buffer_params(buffer_params)
                                         .shape({static_cast<int64_t>(num_global_gpus + 1)}));
 
     st.fp_offsets_ = core23::Tensor(core23::TensorParams()
                                         .data_type(core23::ToScalarType<CountType>::value)
+                                        .device(device)
+                                        .buffer_params(buffer_params)
                                         .shape({static_cast<int64_t>(num_global_gpus + 1)}));
 
     st.pivots_ = core23::Tensor(core23::TensorParams()
                                     .data_type(core23::ToScalarType<int>::value)
+                                    .device(device)
+                                    .buffer_params(buffer_params)
                                     .shape({static_cast<int64_t>(num_partitions)}));
 
     st.num_identical_segments_ = core23::Tensor(core23::TensorParams()
                                                     .data_type(core23::ToScalarType<int>::value)
+                                                    .device(device)
+                                                    .buffer_params(buffer_params)
                                                     .shape({static_cast<int64_t>(1)}));
 
     st.halo_tpr_ = core23::Tensor(core23::TensorParams()
                                       .data_type(core23::ToScalarType<float>::value)
+                                      .device(device)
+                                      .buffer_params(buffer_params)
                                       .shape({static_cast<int64_t>(1)}));
 
     st.halo_fpr_ = core23::Tensor(core23::TensorParams()
                                       .data_type(core23::ToScalarType<float>::value)
+                                      .device(device)
+                                      .buffer_params(buffer_params)
                                       .shape({static_cast<int64_t>(1)}));
 
     st.partition_offsets_ = core23::Tensor(core23::TensorParams()
                                                .data_type(core23::ToScalarType<CountType>::value)
-                                               .device(core23::Device(core23::DeviceType::UNIFIED))
+                                               .device(device_unified)
+                                               .buffer_params(buffer_params)
                                                .shape({static_cast<int64_t>(num_partitions + 1)}));
 
     st.all_partition_offsets_ =
         core23::Tensor(core23::TensorParams()
                            .data_type(core23::ToScalarType<CountType>::value)
-                           .device(core23::Device(core23::DeviceType::UNIFIED))
+                           .device(device_unified)
+                           .buffer_params(buffer_params)
                            .shape({static_cast<int64_t>(num_partitions + 1),
                                    static_cast<int64_t>(num_global_gpus)}));
 
     st.recv_offsets_ = core23::Tensor(core23::TensorParams()
                                           .data_type(core23::ToScalarType<CountType>::value)
-                                          .device(core23::Device(core23::DeviceType::UNIFIED))
+                                          .device(device_unified)
+                                          .buffer_params(buffer_params)
                                           .shape({static_cast<int64_t>(num_partitions + 1)}));
 
     st.auc_ = core23::Tensor(core23::TensorParams()
                                  .data_type(core23::ToScalarType<float>::value)
-                                 .device(core23::Device(core23::DeviceType::UNIFIED))
+                                 .device(device_unified)
+                                 .buffer_params(buffer_params)
                                  .shape({static_cast<int64_t>(1)}));
-
-    HCTR_LIB_THROW(cudaMemset(st.d_pos_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
-    HCTR_LIB_THROW(cudaMemset(st.d_neg_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
 
     st.preds_1_.init_access_desc(&this->access_desc_);
     st.labels_1_.init_access_desc(&this->access_desc_);
@@ -773,12 +809,21 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
     for (size_t class_id = 0; class_id < num_classes_; class_id++) {
       class_preds_.emplace_back(core23::TensorParams()
                                     .data_type(core23::ToScalarType<float>::value)
+                                    .device(device)
+                                    .buffer_params(buffer_params)
                                     .shape({static_cast<int64_t>(num_local_samples)}));
 
       class_labels_.emplace_back(core23::TensorParams()
                                      .data_type(core23::ToScalarType<float>::value)
+                                     .device(device)
+                                     .buffer_params(buffer_params)
                                      .shape({static_cast<int64_t>(num_local_samples)}));
     }
+  }
+
+  for (auto& st : finalize_storage_) {
+    HCTR_LIB_THROW(cudaMemset(st.d_pos_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
+    HCTR_LIB_THROW(cudaMemset(st.d_neg_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
   }
 
   for (size_t stream_id = 0; stream_id < num_streams; stream_id++) {
@@ -1863,55 +1908,77 @@ void NDCGStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t n
                              size_t num_global_gpus, const std::vector<int>& peers) {
   num_allocated_redistributed_ = 0;
   allocated_temp_storage_ = 0;
+  int device_id;
+  HCTR_LIB_THROW(cudaGetDevice(&device_id));
+  core23::Device device = core23::Device(core23::DeviceType::GPU, device_id);
+  core23::Device device_unified = core23::Device(core23::DeviceType::UNIFIED, device_id);
+  core23::BufferParams buffer_params = {};
+  buffer_params.channel = GetBlobsBufferChannel();
 
   local_bins_ = core23::Tensor(core23::TensorParams()
                                    .data_type(core23::ToScalarType<CountType>::value)
+                                   .device(device)
+                                   .buffer_params(buffer_params)
                                    .shape({static_cast<int64_t>(num_bins)}));
 
   global_bins_ = core23::Tensor(core23::TensorParams()
                                     .data_type(core23::ToScalarType<CountType>::value)
+                                    .device(device)
+                                    .buffer_params(buffer_params)
                                     .shape({static_cast<int64_t>(num_bins)}));
 
   local_bins_sum_ = core23::Tensor(core23::TensorParams()
                                        .data_type(core23::ToScalarType<CountType>::value)
+                                       .device(device)
+                                       .buffer_params(buffer_params)
                                        .shape({static_cast<int64_t>(num_bins)}));
 
   global_bins_sum_ = core23::Tensor(core23::TensorParams()
                                         .data_type(core23::ToScalarType<CountType>::value)
+                                        .device(device)
+                                        .buffer_params(buffer_params)
                                         .shape({static_cast<int64_t>(num_bins)}));
 
   pivots_ = core23::Tensor(core23::TensorParams()
                                .data_type(core23::ToScalarType<int>::value)
+                               .device(device)
+                               .buffer_params(buffer_params)
                                .shape({static_cast<int64_t>(num_partitions)}));
 
   label_count_ = core23::Tensor(core23::TensorParams()
                                     .data_type(core23::ToScalarType<int>::value)
+                                    .device(device)
+                                    .buffer_params(buffer_params)
                                     .shape({static_cast<int64_t>(1)}));
 
   partition_offsets_ = core23::Tensor(core23::TensorParams()
                                           .data_type(core23::ToScalarType<CountType>::value)
-                                          .device(core23::Device(core23::DeviceType::UNIFIED))
+                                          .device(device_unified)
                                           .shape({static_cast<int64_t>(num_partitions + 1)}));
 
   all_partition_offsets_ = core23::Tensor(core23::TensorParams()
                                               .data_type(core23::ToScalarType<CountType>::value)
-                                              .device(core23::Device(core23::DeviceType::UNIFIED))
+                                              .device(device_unified)
+                                              .buffer_params(buffer_params)
                                               .shape({static_cast<int64_t>(num_partitions + 1),
                                                       static_cast<int64_t>(num_global_gpus)}));
 
   recv_offsets_ = core23::Tensor(core23::TensorParams()
                                      .data_type(core23::ToScalarType<CountType>::value)
-                                     .device(core23::Device(core23::DeviceType::UNIFIED))
+                                     .device(device_unified)
+                                     .buffer_params(buffer_params)
                                      .shape({static_cast<int64_t>(num_partitions + 1)}));
 
   dcg_ = core23::Tensor(core23::TensorParams()
                             .data_type(core23::ToScalarType<float>::value)
-                            .device(core23::Device(core23::DeviceType::UNIFIED))
+                            .device(device_unified)
+                            .buffer_params(buffer_params)
                             .shape({static_cast<int64_t>(1)}));
 
   ideal_dcg_ = core23::Tensor(core23::TensorParams()
                                   .data_type(core23::ToScalarType<float>::value)
-                                  .device(core23::Device(core23::DeviceType::UNIFIED))
+                                  .device(device_unified)
+                                  .buffer_params(buffer_params)
                                   .shape({static_cast<int64_t>(1)}));
   gen_access_desc(access_desc_, peers);
   preds_1_.init_access_desc(&access_desc_);

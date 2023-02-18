@@ -170,71 +170,81 @@ void set_l2_policy(const cudaStream_t& stream, T* ptr, int num_bytes) {
 
 template <typename T>
 struct Param {
-  T **h_kernel, **h_kernel_grad, **h_bias_grad, **h_bias;
-  T **h_bottom, **h_bottom_grad, **h_middle, **h_middle_grad, **h_top, **h_top_grad;
+  std::vector<std::shared_ptr<T>> h_kernel;
+  std::vector<std::shared_ptr<T>> h_kernel_grad;
+  std::vector<std::shared_ptr<T>> h_bias_grad;
+  std::vector<std::shared_ptr<T>> h_bias;
+  std::vector<std::shared_ptr<T>> h_bottom;
+  std::vector<std::shared_ptr<T>> h_bottom_grad;
+  std::vector<std::shared_ptr<T>> h_middle;
+  std::vector<std::shared_ptr<T>> h_middle_grad;
+  std::vector<std::shared_ptr<T>> h_top;
+  std::vector<std::shared_ptr<T>> h_top_grad;
 };
 
-std::vector<Layer*> layers;
-std::vector<Layer*> baseline_layers;
+std::vector<std::unique_ptr<Layer>> layers;
 
 std::map<int, std::vector<int>> map_mlp;
 
 template <typename T>
 static void init_data_cpu(Param<T>& p, int* input_dims, int* output_dims, int n_layers,
                           int batch_size) {
-  p.h_kernel = new T*[n_layers];
-  p.h_kernel_grad = new T*[n_layers];
-  p.h_bias_grad = new T*[n_layers];
-  p.h_bias = new T*[n_layers];
+  p.h_kernel.resize(n_layers);
+  p.h_kernel_grad.resize(n_layers);
+  p.h_bias_grad.resize(n_layers);
+  p.h_bias.resize(n_layers);
+
   for (int i = 0; i < n_layers; i++) {
-    p.h_kernel[i] = new T[input_dims[i] * output_dims[i]];
-    p.h_kernel_grad[i] = new T[input_dims[i] * output_dims[i]];
-    p.h_bias_grad[i] = new T[output_dims[i]];
-    p.h_bias[i] = new T[output_dims[i]];
-    fill_data(p.h_kernel[i], input_dims[i] * output_dims[i]);
-    fill_data(p.h_kernel_grad[i], input_dims[i] * output_dims[i]);
-    fill_data(p.h_bias_grad[i], output_dims[i]);
-    fill_data(p.h_bias[i], output_dims[i]);
+    p.h_kernel[i] = std::shared_ptr<T>(new T[input_dims[i] * output_dims[i]]);
+    p.h_kernel_grad[i] = std::shared_ptr<T>(new T[input_dims[i] * output_dims[i]]);
+    p.h_bias_grad[i] = std::shared_ptr<T>(new T[output_dims[i]]);
+    p.h_bias[i] = std::shared_ptr<T>(new T[output_dims[i]]);
+    fill_data(p.h_kernel[i].get(), input_dims[i] * output_dims[i]);
+    fill_data(p.h_kernel_grad[i].get(), input_dims[i] * output_dims[i]);
+    fill_data(p.h_bias_grad[i].get(), output_dims[i]);
+    fill_data(p.h_bias[i].get(), output_dims[i]);
   }
-  p.h_bottom = new T*[n_layers];
-  p.h_bottom_grad = new T*[n_layers];
-  p.h_middle = new T*[n_layers];
-  p.h_middle_grad = new T*[n_layers];
-  p.h_top = new T*[n_layers];
-  p.h_top_grad = new T*[n_layers];
+
+  p.h_bottom.resize(n_layers);
+  p.h_bottom_grad.resize(n_layers);
+  p.h_middle.resize(n_layers);
+  p.h_middle_grad.resize(n_layers);
+  p.h_top.resize(n_layers);
+  p.h_top_grad.resize(n_layers);
+
   // Forward
-  p.h_bottom[0] = new T[batch_size * input_dims[0]];
-  p.h_middle[0] = new T[batch_size * output_dims[0]];
-  p.h_top[0] = new T[batch_size * output_dims[0]];
-  fill_data(p.h_bottom[0], batch_size * input_dims[0]);
-  fill_data(p.h_middle[0], batch_size * output_dims[0]);
-  fill_data(p.h_top[0], batch_size * output_dims[0]);
+  p.h_bottom[0] = std::shared_ptr<T>(new T[batch_size * input_dims[0]]);
+  p.h_middle[0] = std::shared_ptr<T>(new T[batch_size * output_dims[0]]);
+  p.h_top[0] = std::shared_ptr<T>(new T[batch_size * output_dims[0]]);
+  fill_data(p.h_bottom[0].get(), batch_size * input_dims[0]);
+  fill_data(p.h_middle[0].get(), batch_size * output_dims[0]);
+  fill_data(p.h_top[0].get(), batch_size * output_dims[0]);
 
   for (int i = 1; i < n_layers; i++) {
     p.h_bottom[i] = p.h_top[i - 1];
-    p.h_middle[i] = new T[batch_size * output_dims[i]];
+    p.h_middle[i] = std::shared_ptr<T>(new T[batch_size * output_dims[i]]);
     int tmp_dim = output_dims[i];
     if (i < n_layers - 1 && input_dims[i + 1] > tmp_dim) {
       tmp_dim = input_dims[i + 1];
     }
-    p.h_top[i] = new T[batch_size * tmp_dim];
-    fill_data(p.h_middle[i], batch_size * output_dims[i]);
-    fill_data(p.h_top[i], batch_size * tmp_dim);
+    p.h_top[i] = std::shared_ptr<T>(new T[batch_size * tmp_dim]);
+    fill_data(p.h_middle[i].get(), batch_size * output_dims[i]);
+    fill_data(p.h_top[i].get(), batch_size * tmp_dim);
   }
   // Backward
-  p.h_bottom_grad[n_layers - 1] = new T[batch_size * input_dims[n_layers - 1]];
-  p.h_middle_grad[n_layers - 1] = new T[batch_size * output_dims[n_layers - 1]];
-  p.h_top_grad[n_layers - 1] = new T[batch_size * output_dims[n_layers - 1]];
-  fill_data(p.h_top_grad[n_layers - 1], batch_size * output_dims[n_layers - 1]);
-  fill_data(p.h_middle_grad[n_layers - 1], batch_size * output_dims[n_layers - 1]);
-  fill_data(p.h_bottom_grad[n_layers - 1], batch_size * input_dims[n_layers - 1]);
+  p.h_bottom_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * input_dims[n_layers - 1]]);
+  p.h_middle_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * output_dims[n_layers - 1]]);
+  p.h_top_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * output_dims[n_layers - 1]]);
+  fill_data(p.h_top_grad[n_layers - 1].get(), batch_size * output_dims[n_layers - 1]);
+  fill_data(p.h_middle_grad[n_layers - 1].get(), batch_size * output_dims[n_layers - 1]);
+  fill_data(p.h_bottom_grad[n_layers - 1].get(), batch_size * input_dims[n_layers - 1]);
 
   for (int i = n_layers - 2; i >= 0; i--) {
     p.h_top_grad[i] = p.h_bottom_grad[i + 1];
-    p.h_middle_grad[i] = new T[batch_size * output_dims[i]];
-    p.h_bottom_grad[i] = new T[batch_size * input_dims[i]];
-    fill_data(p.h_middle_grad[i], batch_size * output_dims[i]);
-    fill_data(p.h_bottom_grad[i], batch_size * input_dims[i]);
+    p.h_middle_grad[i] = std::shared_ptr<T>(new T[batch_size * output_dims[i]]);
+    p.h_bottom_grad[i] = std::shared_ptr<T>(new T[batch_size * input_dims[i]]);
+    fill_data(p.h_middle_grad[i].get(), batch_size * output_dims[i]);
+    fill_data(p.h_bottom_grad[i].get(), batch_size * input_dims[i]);
   }
 }
 
@@ -246,24 +256,25 @@ bool is_mlp_layer(Layer* layer) {
 template <typename T>
 static void copy_data_from_cpu(Param<T>& p, int* input_dims, int* output_dims, int n_layers,
                                int batch_size) {
-  T** d_kernel = new T*[n_layers];
-  T** d_bias = new T*[n_layers];
-  T** d_kernel_grad = new T*[n_layers];
-  T** d_bias_grad = new T*[n_layers];
+  std::vector<T*> d_kernel(n_layers);
+  std::vector<T*> d_bias(n_layers);
+  std::vector<T*> d_kernel_grad(n_layers);
+  std::vector<T*> d_bias_grad(n_layers);
+
   for (int i = 0; i < n_layers; i++) {
     auto index = map_mlp[i];
-    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
     d_kernel[i] = layer->get_kernel(index[1]).template data<T>();
     d_bias[i] = layer->get_bias(index[1]).template data<T>();
     d_kernel_grad[i] = layer->get_kernel_grad(index[1]).template data<T>();
     d_bias_grad[i] = layer->get_bias_grad(index[1]).template data<T>();
-    HCTR_LIB_THROW(cudaMemcpy(d_kernel[i], p.h_kernel[i],
+    HCTR_LIB_THROW(cudaMemcpy(d_kernel[i], p.h_kernel[i].get(),
                               input_dims[i] * output_dims[i] * sizeof(T), cudaMemcpyHostToDevice));
-    HCTR_LIB_THROW(
-        cudaMemcpy(d_bias[i], p.h_bias[i], output_dims[i] * sizeof(T), cudaMemcpyHostToDevice));
-    HCTR_LIB_THROW(cudaMemcpy(d_kernel_grad[i], p.h_kernel_grad[i],
+    HCTR_LIB_THROW(cudaMemcpy(d_bias[i], p.h_bias[i].get(), output_dims[i] * sizeof(T),
+                              cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(d_kernel_grad[i], p.h_kernel_grad[i].get(),
                               input_dims[i] * output_dims[i] * sizeof(T), cudaMemcpyHostToDevice));
-    HCTR_LIB_THROW(cudaMemcpy(d_bias_grad[i], p.h_bias_grad[i], output_dims[i] * sizeof(T),
+    HCTR_LIB_THROW(cudaMemcpy(d_bias_grad[i], p.h_bias_grad[i].get(), output_dims[i] * sizeof(T),
                               cudaMemcpyHostToDevice));
   }
 }
@@ -277,6 +288,7 @@ static float check_data_cpu_and_gpu(T* host, T* device, uint32_t N, float thresh
     return compare_bit_array(host, d2h, N, threshold, is_print);
   else
     return compare_array(host, d2h, N, threshold, is_print);
+  delete d2h;
 }
 
 template <typename T>
@@ -290,8 +302,6 @@ static void mlp_test(std::vector<Layer_t> network,
   int cnt_mlp = 0;
   int64_t inter_emb_dim = 26;
 
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
-      GeneralBuffer2<CudaAllocator>::create();
   std::shared_ptr<GPUResource> gpu_resource = test::get_default_gpu();
 
   core23::BufferParams buffer_params = {};
@@ -328,44 +338,34 @@ static void mlp_test(std::vector<Layer_t> network,
                                               .data_type(core23::ToScalarType<T>::value)
                                               .buffer_params(buffer_params));
 
-    layers.push_back(
+    layers.emplace_back(
         new Core23TempMLPLayer<T>(train_in_tensors, train_out_tensors, num_outputs, gpu_resource,
                                   relu, bias, std::vector<Initializer_t>(), false,
                                   config_set.async_mlp_wgrad, use_fuse_wb[i], enable_tf32_compute));
 
     if (i != cnt_mlp - 1) {
-      Tensor2<T> in_mlp_tensor;
-      blobs_buff->reserve({size_t(train_out_tensors[0].shape().size(0)),
-                           size_t(train_out_tensors[0].shape().size(1))},
-                          &in_mlp_tensor);
-      Tensor2<T> in_emb_tensor;
-      blobs_buff->reserve({size_t(batch_size), size_t(inter_emb_dim), size_t(last_num_output)},
-                          &in_emb_tensor);
+      core23::Tensor in_mlp_tensor =
+          core23::Tensor(core23::TensorParams(train_out_tensors[0].shape())
+                             .data_type(core23::ToScalarType<T>::value)
+                             .buffer_params(buffer_params));
 
-      Tensor2<T> out_tensor, grad_tensor;
-      layers.push_back(new InteractionLayer<T>(in_mlp_tensor, in_emb_tensor, out_tensor,
-                                               grad_tensor, blobs_buff, gpu_resource, true, false));
+      core23::Tensor in_emb_tensor =
+          core23::Tensor(core23::TensorParams({batch_size, inter_emb_dim, last_num_output})
+                             .data_type(core23::ToScalarType<T>::value)
+                             .buffer_params(buffer_params));
 
-      // Still need it for InteractionLayer
-      blobs_buff->allocate();
+      core23::Tensor out_tensor, grad_tensor;
+      layers.emplace_back(new InteractionLayer<T>(in_mlp_tensor, in_emb_tensor, out_tensor,
+                                                  grad_tensor, gpu_resource, true, false));
 
       train_in_tensors.resize(2);
-      core23::Device device(core23::DeviceType::GPU, 0);
-      train_in_tensors[0] = core23::Tensor::bind(
-          out_tensor.get_ptr(),
-          {int64_t(out_tensor.get_dimensions()[0]), int64_t(out_tensor.get_dimensions()[1])},
-          core23::ToScalarType<T>::value, device);
-      // train_in_tensors[0] = out_tensor;
-      train_in_tensors[1] = core23::Tensor::bind(
-          grad_tensor.get_ptr(),
-          {int64_t(out_tensor.get_dimensions()[0]), int64_t(out_tensor.get_dimensions()[1])},
-          core23::ToScalarType<T>::value, device);
-      // train_in_tensors[1] = grad_tensor;
+      train_in_tensors[0] = out_tensor;
+      train_in_tensors[1] = grad_tensor;
     }
   }
 
   // Initialize tensors to 0 and choose cublas algorithms
-  for (auto layer : layers) {
+  for (const auto& layer : layers) {
     layer->initialize();
     layer->search_algorithm();
   }
@@ -399,55 +399,57 @@ static void mlp_test(std::vector<Layer_t> network,
   copy_data_from_cpu(p, fc_in_dims.data(), fc_out_dims.data(), n_fc_layers, batch_size);
 
   // check if grad and bias are equal
-  T** d_kernel = new T*[n_fc_layers];
-  T** d_bias = new T*[n_fc_layers];
-  T** d_kernel_grad = new T*[n_fc_layers];
-  T** d_bias_grad = new T*[n_fc_layers];
+  std::vector<T*> d_kernel(n_fc_layers);
+  std::vector<T*> d_bias(n_fc_layers);
+  std::vector<T*> d_kernel_grad(n_fc_layers);
+  std::vector<T*> d_bias_grad(n_fc_layers);
   for (int i = 0; i < n_fc_layers; i++) {
     auto index = map_mlp[i];
-    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
     d_kernel[i] = layer->get_kernel(index[1]).template data<T>();
     d_bias[i] = layer->get_bias(index[1]).template data<T>();
     d_kernel_grad[i] = layer->get_kernel_grad(index[1]).template data<T>();
     d_bias_grad[i] = layer->get_bias_grad(index[1]).template data<T>();
-    ASSERT_EQ(
-        check_data_cpu_and_gpu(p.h_kernel[i], d_kernel[i], fc_in_dims[i] * fc_out_dims[i], 1e-3), 0)
+    ASSERT_EQ(check_data_cpu_and_gpu(p.h_kernel[i].get(), d_kernel[i],
+                                     fc_in_dims[i] * fc_out_dims[i], 1e-3),
+              0)
         << "kernel cross_check result fail" << std::endl;
-    ASSERT_EQ(check_data_cpu_and_gpu(p.h_bias[i], d_bias[i], fc_out_dims[i], 1e-3), 0)
+    ASSERT_EQ(check_data_cpu_and_gpu(p.h_bias[i].get(), d_bias[i], fc_out_dims[i], 1e-3), 0)
         << "bias cross_check result fail" << std::endl;
-    ASSERT_EQ(check_data_cpu_and_gpu(p.h_kernel_grad[i], d_kernel_grad[i],
+    ASSERT_EQ(check_data_cpu_and_gpu(p.h_kernel_grad[i].get(), d_kernel_grad[i],
                                      fc_in_dims[i] * fc_out_dims[i], 1e-3),
               0)
         << "kernel_grad cross_check result fail" << std::endl;
-    ASSERT_EQ(check_data_cpu_and_gpu(p.h_bias_grad[i], d_bias_grad[i], fc_out_dims[i], 1e-3), 0)
+    ASSERT_EQ(check_data_cpu_and_gpu(p.h_bias_grad[i].get(), d_bias_grad[i], fc_out_dims[i], 1e-3),
+              0)
         << "bias_grad cross_check result fail" << std::endl;
   }
   // inner_tensors = mlp_layer->get_inner_tensors();
   // initialize X
-  HCTR_LIB_THROW(cudaMemcpy(input_tensor[0].data(), p.h_bottom[0],
+  HCTR_LIB_THROW(cudaMemcpy(input_tensor[0].data(), p.h_bottom[0].get(),
                             sizeof(T) * batch_size * fc_in_dims[0], cudaMemcpyHostToDevice));
 
   if (!config_set.is_perf_test) {
     // Forward pass (CPU)
     for (int i = 0; i < n_fc_layers; i++) {
-      cpu_mm(p.h_top[i], p.h_bottom[i], false, p.h_kernel[i], false, 0.0, batch_size, fc_in_dims[i],
-             fc_out_dims[i]);
-      cpu_add_bias_and_re(p.h_top[i], p.h_middle[i], p.h_bias[i], is_relu[i], use_bias_vector[i],
-                          batch_size, fc_out_dims[i]);
+      cpu_mm(p.h_top[i].get(), p.h_bottom[i].get(), false, p.h_kernel[i].get(), false, 0.0,
+             batch_size, fc_in_dims[i], fc_out_dims[i]);
+      cpu_add_bias_and_re(p.h_top[i].get(), p.h_middle[i].get(), p.h_bias[i].get(), is_relu[i],
+                          use_bias_vector[i], batch_size, fc_out_dims[i]);
     }
 
     for (int i = 0; i < n_fc_layers; i++) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
       if (i > 0 && fc_in_dims[i] != fc_out_dims[i - 1]) {
         auto& input_tensors = mlp_layer->get_input_tensors();
-        HCTR_LIB_THROW(cudaMemcpy(input_tensors[0].template data<T>(), p.h_bottom[i],
+        HCTR_LIB_THROW(cudaMemcpy(input_tensors[0].template data<T>(), p.h_bottom[i].get(),
                                   sizeof(T) * batch_size * fc_in_dims[i], cudaMemcpyHostToDevice));
       }
     }
 
     for (size_t i = 0; i < layers.size(); i++) {
-      if (is_mlp_layer(layers[i])) {
+      if (is_mlp_layer(layers[i].get())) {
         layers[i]->fprop(true);
       }
     }
@@ -456,9 +458,9 @@ static void mlp_test(std::vector<Layer_t> network,
     // Check results
     for (int i = 0; i < n_fc_layers; i++) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
-      ASSERT_LE(check_data_cpu_and_gpu(p.h_top[i], inner_tensors[index[1]].template data<T>(),
+      ASSERT_LE(check_data_cpu_and_gpu(p.h_top[i].get(), inner_tensors[index[1]].template data<T>(),
                                        batch_size * fc_out_dims[i], 1e-2),
                 0)
           << "Forward, Y of the " << i << "th layer cross_check result fail" << std::endl;
@@ -467,40 +469,40 @@ static void mlp_test(std::vector<Layer_t> network,
     // initialize dX
     {
       auto index = map_mlp[n_fc_layers - 1];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
       HCTR_LIB_THROW(cudaMemcpy(
-          inner_tensors[index[1]].template data<T>(), p.h_top_grad[n_fc_layers - 1],
+          inner_tensors[index[1]].template data<T>(), p.h_top_grad[n_fc_layers - 1].get(),
           sizeof(T) * batch_size * fc_out_dims[n_fc_layers - 1], cudaMemcpyHostToDevice));
     }
 
     // Backward pass (CPU)
     for (int i = n_fc_layers - 1; i >= 0; i--) {
       if (!is_relu[i]) {
-        memcpy(p.h_middle[i], p.h_top_grad[i], batch_size * fc_out_dims[i] * sizeof(T));
+        memcpy(p.h_middle[i].get(), p.h_top_grad[i].get(), batch_size * fc_out_dims[i] * sizeof(T));
         if (use_bias_vector[i]) {
           for (uint32_t col = 0; col < fc_out_dims[i]; col++) {
             float sum = 0.0;
             for (uint32_t row = 0; row < batch_size; row++) {
-              sum = sum + p.h_top_grad[i][row * fc_out_dims[i] + col];
+              sum = sum + p.h_top_grad[i].get()[row * fc_out_dims[i] + col];
             }
-            p.h_bias_grad[i][col] = sum;
+            p.h_bias_grad[i].get()[col] = sum;
           }
         }
       } else {
-        cpu_reverse_add_bias_and_re(p.h_bias_grad[i], p.h_middle[i], p.h_middle[i], p.h_top_grad[i],
-                                    batch_size, fc_out_dims[i], i == int(n_fc_layers - 1),
-                                    use_bias_vector[i]);
+        cpu_reverse_add_bias_and_re(p.h_bias_grad[i].get(), p.h_middle[i].get(),
+                                    p.h_middle[i].get(), p.h_top_grad[i].get(), batch_size,
+                                    fc_out_dims[i], i == int(n_fc_layers - 1), use_bias_vector[i]);
       }
-      cpu_mm(p.h_kernel_grad[i], p.h_bottom[i], true, p.h_middle[i], false, 1.0, fc_in_dims[i],
-             batch_size, fc_out_dims[i]);
-      cpu_mm(p.h_bottom_grad[i], p.h_middle[i], false, p.h_kernel[i], true, 0.0, batch_size,
-             fc_out_dims[i], fc_in_dims[i]);
+      cpu_mm(p.h_kernel_grad[i].get(), p.h_bottom[i].get(), true, p.h_middle[i].get(), false, 1.0,
+             fc_in_dims[i], batch_size, fc_out_dims[i]);
+      cpu_mm(p.h_bottom_grad[i].get(), p.h_middle[i].get(), false, p.h_kernel[i].get(), true, 0.0,
+             batch_size, fc_out_dims[i], fc_in_dims[i]);
     }
 
     // Backward pass (GPU)
     for (int i = layers.size() - 1; i >= 0; i--) {
-      if (is_mlp_layer(layers[i])) {
+      if (is_mlp_layer(layers[i].get())) {
         layers[i]->bprop();
       }
     }
@@ -509,15 +511,15 @@ static void mlp_test(std::vector<Layer_t> network,
     // Check results
     for (int i = n_fc_layers - 1; i >= 0; i--) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]]);
+      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
 
-      ASSERT_LE(check_data_cpu_and_gpu(p.h_bias_grad[i],
+      ASSERT_LE(check_data_cpu_and_gpu(p.h_bias_grad[i].get(),
                                        mlp_layer->get_bias_grad(index[1]).template data<T>(),
                                        fc_out_dims[i], 1e-3),
                 0)
           << "Backward, dBias of the " << i << "th layer cross_check result fail" << std::endl;
-      ASSERT_LE(check_data_cpu_and_gpu(p.h_kernel_grad[i],
+      ASSERT_LE(check_data_cpu_and_gpu(p.h_kernel_grad[i].get(),
                                        mlp_layer->get_kernel_grad(index[1]).template data<T>(),
                                        fc_in_dims[i] * fc_out_dims[i], 1e-3),
                 0)

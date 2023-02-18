@@ -229,13 +229,20 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
   std::vector<metrics::Core23RawMetricMap> metric_maps(num_local_gpus);
 
   for (int i = 0; i < num_local_gpus; i++) {
-    CudaDeviceContext context(resource_manager->get_local_gpu(i)->get_device_id());
+    int device_id = resource_manager->get_local_gpu(i)->get_device_id();
+    CudaDeviceContext context(device_id);
 
-    labels_tensors[i] = core23::Tensor(
-        core23::TensorParams().data_type(core23::ToScalarType<float>::value).shape(dims));
+    labels_tensors[i] =
+        core23::Tensor(core23::TensorParams()
+                           .data_type(core23::ToScalarType<float>::value)
+                           .device(core23::Device(core23::DeviceType::GPU, device_id))
+                           .shape(dims));
 
-    scores_tensors[i] = core23::Tensor(
-        core23::TensorParams().data_type(core23::ToScalarType<T>::value).shape(dims));
+    scores_tensors[i] =
+        core23::Tensor(core23::TensorParams()
+                           .data_type(core23::ToScalarType<T>::value)
+                           .device(core23::Device(core23::DeviceType::GPU, device_id))
+                           .shape(dims));
 
     metric_maps[i] = {{metrics::RawType::Pred, scores_tensors[i]},
                       {metrics::RawType::Label, labels_tensors[i]}};
@@ -291,6 +298,7 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
 
   float error_margin = auc ? eps : 10 * eps;  // Use a larger margin of error for NDCG
   ASSERT_NEAR(gpu_result, ref_result, error_margin);
+  delete metric;
 }
 
 class MPIEnvironment : public ::testing::Environment {

@@ -316,24 +316,15 @@ class Core23TempTrainableLayer : public Layer {
       const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
       : Layer(gpu_resource, initializer_types),
+        master_weights_params_(core23::TensorParams().buffer_channel(GetWeightBufferChannel())),
+        weights_params_(core23::TensorParams().buffer_channel(std::is_same<WeightType, float>::value
+                                                                  ? GetWeightBufferChannel()
+                                                                  : GetWeightHalfBufferChannel())),
+        wgrads_params_(core23::TensorParams().buffer_channel(std::is_same<WeightType, float>::value
+                                                                 ? GetWgradBufferChannel()
+                                                                 : GetWgradHalfBufferChannel())),
         device_(core23::DeviceType::GPU, gpu_resource->get_device_id()) {
-    core23::BufferParams buffer_param;
-    buffer_param.channel = GetWeightBufferChannel();
-    master_weights_params_.buffer_params(buffer_param);
-
-    if constexpr (std::is_same<WeightType, float>::value) {
-      buffer_param.channel = GetWeightBufferChannel();
-      weights_params_.buffer_params(buffer_param);
-
-      buffer_param.channel = GetWgradBufferChannel();
-      wgrads_params_.buffer_params(buffer_param);
-    } else if constexpr (std::is_same<WeightType, __half>::value) {
-      buffer_param.channel = GetWeightHalfBufferChannel();
-      weights_params_.buffer_params(buffer_param);
-
-      buffer_param.channel = GetWgradHalfBufferChannel();
-      wgrads_params_.buffer_params(buffer_param);
-    }
+    static_assert(std::is_same_v<WeightType, float> || std::is_same_v<WeightType, __half>);
   }
 
   std::vector<core23::Tensor> get_master_weights() { return master_weights_; };
