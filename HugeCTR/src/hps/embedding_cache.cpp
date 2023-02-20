@@ -163,8 +163,9 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
 
   // Construct gpu embedding cache, 1 per embedding table
   if (cache_config_.use_gpu_embedding_cache_) {
+    // This is the only two places to set the cuda context in embedding cache
     CudaDeviceContext dev_restorer;
-    dev_restorer.check_device(cache_config_.cuda_dev_id_);
+    dev_restorer.set_device(cache_config_.cuda_dev_id_);
 
     // Allocate resources.
     gpu_emb_caches_.reserve(cache_config_.num_emb_table_);
@@ -192,8 +193,10 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
 template <typename TypeHashKey>
 EmbeddingCache<TypeHashKey>::~EmbeddingCache() {
   if (cache_config_.use_gpu_embedding_cache_) {
+    // This is the only two places to set the cuda context in embedding cache
     CudaDeviceContext dev_restorer;
-    dev_restorer.check_device(cache_config_.cuda_dev_id_);
+    dev_restorer.set_device(cache_config_.cuda_dev_id_);
+
     // Destroy resources.
     for (auto& stream : insert_streams_) {
       cudaStreamDestroy(stream);
@@ -203,6 +206,8 @@ EmbeddingCache<TypeHashKey>::~EmbeddingCache() {
       cudaStreamDestroy(stream);
     }
     refresh_streams_.clear();
+
+    gpu_emb_caches_.clear();
   }
 }
 
