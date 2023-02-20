@@ -223,6 +223,7 @@ HierParameterServer<TypeHashKey>::~HierParameterServer() {
 
   for (auto it = model_cache_map_.begin(); it != model_cache_map_.end(); it++) {
     for (auto& v : it->second) {
+      CudaDeviceContext dev_restorer{v.second->get_cache_config().cuda_dev_id_};
       v.second->finalize();
     }
   }
@@ -405,6 +406,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
     HCTR_LOG(INFO, ROOT, "EC initialization for model: \"%s\", num_tables: %d\n",
              inference_params.model_name.c_str(), inference_params.sparse_model_files.size());
     for (auto device_id : inference_params.deployed_devices) {
+      CudaDeviceContext dev_restorer{device_id};
       HCTR_LOG(INFO, ROOT, "EC initialization on device: %d\n", device_id);
       cudaStream_t stream = embedding_cache_map[device_id]->get_refresh_streams()[j];
       embedding_cache_config cache_config = embedding_cache_map[device_id]->get_cache_config();
