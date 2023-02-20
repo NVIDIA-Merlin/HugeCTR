@@ -23,6 +23,7 @@
 #include <map>
 #include <mutex>
 #include <thread>
+#include <utils.hpp>
 #include <vector>
 
 #define MAX_MEMORY_SIZE 256
@@ -54,6 +55,7 @@ class MemoryPool {
     _pHeader = nullptr;
     _pBuffer = nullptr;
     _embedding_cache = embedding_cache;
+    _device_id = embedding_cache->get_cache_config().cuda_dev_id_;
     _cache_type = cache_type;
     InitMemory(cache_type);
   }
@@ -82,6 +84,7 @@ class MemoryPool {
   }
 
   void InitMemory(CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER) {
+    CudaDeviceContext dev_restorer{_device_id};
     if (_pBuffer) return;
     _Alloc[0] = (MemoryBlock*)(new MemoryBlock());
     _pBuffer = _Alloc[0];
@@ -130,6 +133,7 @@ class MemoryPool {
 
   void DestoryMemoryPool(CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER) {
     std::lock_guard<std::mutex> lock(_mutex);
+    CudaDeviceContext dev_restorer{_device_id};
     for (size_t i = 0; i < _nBlock; i++) {
       if (_Alloc[i] != NULL) {
         if (space_type == CACHE_SPACE_TYPE::WORKER) {
@@ -146,6 +150,7 @@ class MemoryPool {
   MemoryBlock* _pBuffer;
   MemoryBlock* _pHeader;
   std::shared_ptr<EmbeddingCacheBase> _embedding_cache;
+  int _device_id;
   size_t _nBlock;
   std::mutex _mutex;
   MemoryBlock* _Alloc[MAX_MEMORY_SIZE];
