@@ -308,6 +308,7 @@ struct DataReaderSparseParam {
         is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
         slot_num(slot_num_),
         type(DataReaderSparse_t::Distributed) {
+    HCTR_CHECK_HINT(slot_num_ > 0, "Illegal value for slot_num!");
     if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
       HCTR_OWN_THROW(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
     }
@@ -330,6 +331,7 @@ struct DataReaderSparseParam {
         is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
         slot_num(slot_num_),
         type(DataReaderSparse_t::Distributed) {
+    HCTR_CHECK_HINT(slot_num_ > 0, "Illegal value for slot_num!");
     for (size_t i = 0; i < nnz_per_slot.size(); i++) {
       if (nnz_per_slot[i] == 1) {
         is_slot_fixed_length[i] = true;
