@@ -187,7 +187,7 @@ hierarchical_parameter_server:
   extends: .dracorno_test_job
   needs:
     - pipeline: $PARENT_PIPELINE_ID
-      job: build_hps_tf_plugin
+      job: build_tf_hps_trt_plugin
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/hierarchical_parameter_server
     CONT: $TF_PLUGIN_IMAGE_VERSIONED
