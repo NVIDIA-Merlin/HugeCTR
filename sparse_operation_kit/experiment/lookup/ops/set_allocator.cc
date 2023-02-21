@@ -14,24 +14,20 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "tensorflow/core/framework/common_shape_fns.h"
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/shape_inference.h"
 
-#include <core23/allocator.hpp>
-#include <core23/device.hpp>
-#include <cstdint>
+namespace tensorflow {
 
-namespace HugeCTR {
+using shape_inference::InferenceContext;
+using shape_inference::ShapeHandle;
 
-namespace core23 {
+REGISTER_OP("SetDefaultAllocator")
+ .Output("return_status:string")
+ .SetShapeFn([](InferenceContext* c) {
+return Status::OK();
 
-struct AllocatorParams {
-  using CustomFactory =
-      std::function<std::unique_ptr<Allocator>(const AllocatorParams&, const Device& device)>;
-  static CustomFactory default_allocator_factory;
-  bool pinned = true;
-  bool compressible = false;  // TODO: perhaps replace by a Decorator
-  CustomFactory custom_factory = default_allocator_factory;
-};
+});
 
-}  // namespace core23
-}  // namespace HugeCTR
+}  // namespace tensorflow

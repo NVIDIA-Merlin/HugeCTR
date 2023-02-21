@@ -34,26 +34,46 @@ void LocalReduce::init(std::shared_ptr<CoreResourceManager> core,
   this->kernel_params_ = kernel_params;
 
   int num_sms = kernel_params.num_sms;
-
-  auto buffer_ptr = GetBuffer(core);
-  this->partial_reduce_result_.partial_wgrad =
-      buffer_ptr->reserve({num_sms * 4 * max_ev_size}, DeviceType::GPU, TensorScalarType::Float32);
-  this->partial_reduce_result_.partial_keys =
-      buffer_ptr->reserve({num_sms * 4}, DeviceType::GPU, TensorScalarType::UInt32);
-  this->partial_reduce_result_.partial_ev_length =
-      buffer_ptr->reserve({num_sms * 4}, DeviceType::GPU, TensorScalarType::Int32);
-  this->partial_reduce_result_.partial_dst_offset_array =
-      buffer_ptr->reserve({num_sms * 4}, DeviceType::GPU, TensorScalarType::UInt32);
   int max_partial_num = (max_input_num - 1) / EV_NUM + 1;
-  this->partial_reduce_result_.partial_wgrad_new = buffer_ptr->reserve(
-      {max_partial_num * max_ev_size}, DeviceType::GPU, TensorScalarType::Float32);
-  this->partial_reduce_result_.partial_ev_length_new =
-      buffer_ptr->reserve({max_partial_num}, DeviceType::GPU, TensorScalarType::Int32);
-  this->partial_reduce_result_.partial_dst_id_array_new =
-      buffer_ptr->reserve({max_partial_num}, DeviceType::GPU, TensorScalarType::UInt32);
-  this->partial_reduce_result_.max_input_num = max_input_num;
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
 
-  buffer_ptr->allocate();
+  this->partial_reduce_result_.partial_wgrad =
+      core23::Tensor(core23::TensorParams()
+                         .shape({num_sms * 4 * max_ev_size})
+                         .data_type(core23::ScalarType::Float)
+                         .device(device));
+  this->partial_reduce_result_.partial_keys =
+      core23::Tensor(core23::TensorParams()
+                         .shape({num_sms * 4})
+                         .data_type(core23::ScalarType::UInt32)
+                         .device(device));
+  this->partial_reduce_result_.partial_ev_length =
+      core23::Tensor(core23::TensorParams()
+                         .shape({num_sms * 4})
+                         .data_type(core23::ScalarType::Int32)
+                         .device(device));
+  this->partial_reduce_result_.partial_dst_offset_array =
+      core23::Tensor(core23::TensorParams()
+                         .shape({num_sms * 4})
+                         .data_type(core23::ScalarType::UInt32)
+                         .device(device));
+  this->partial_reduce_result_.partial_wgrad_new =
+      core23::Tensor(core23::TensorParams()
+                         .shape({max_partial_num * max_ev_size})
+                         .data_type(core23::ScalarType::Float)
+                         .device(device));
+  this->partial_reduce_result_.partial_ev_length_new =
+      core23::Tensor(core23::TensorParams()
+                         .shape({max_partial_num})
+                         .data_type(core23::ScalarType::Int32)
+                         .device(device));
+  this->partial_reduce_result_.partial_dst_id_array_new =
+      core23::Tensor(core23::TensorParams()
+                         .shape({max_partial_num})
+                         .data_type(core23::ScalarType::UInt32)
+                         .device(device));
+
+  this->partial_reduce_result_.max_input_num = max_input_num;
 }
 
 void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
@@ -63,24 +83,25 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
 
   const auto& src_buffer_attr = src_buffer.attr;
   const auto& dst_attr = wgrad.attr;
+  if (src_buffer_attr.num_lookup == 0) return;
 
   int batch_size_per_gpu = batch_size / src_buffer_attr.num_gpus;
   HCTR_CHECK_HINT(src_buffer_attr.layout == EmbeddingLayout::FeatureMajor,
                   "local reduce model comm buffer should be feature major");
 
-  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.get<int>();
-  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.get<int>();
-  const uint32_t* src_ids_ptr = reduction_indices.src_ids.get<uint32_t>();
+  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.data<int>();
+  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.data<int>();
+  const uint32_t* src_ids_ptr = reduction_indices.src_ids.data<uint32_t>();
 
-  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.get<int>();
+  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.data<int>();
 
-  const int* dst_table_ids_ptr = wgrad.table_ids.get<int>();
-  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.get<uint32_t>();
-  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.get<uint32_t>();
-  float* dst_ptr = wgrad.data.get<float>();
+  const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
+  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
+  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
+  float* dst_ptr = wgrad.data.data<float>();
 
-  DISPATCH_FLOAT_AND_HALF_FUNCTION(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t** src_ptr = src_buffer.data.get<emb_t>();
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
+    const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, float>(
         [=] __device__() { return reduction_indices.num_elements; },
@@ -112,31 +133,31 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
 
 void dp_local_reduce_from_feature_major_top_grad(
     const KernelParams& kernel_params, const ReductionIndices& reduction_indices,
-    const EmbeddingOutput& src_buffer, const Tensor& local_lookup_ids, int num_lookup, Wgrad& wgrad,
-    PartialReduceResult& partial_reduce_result, int batch_size_per_gpu, int max_ev_size,
-    cudaStream_t stream) {
+    const EmbeddingOutput& src_buffer, const core23::Tensor& local_lookup_ids, int num_lookup,
+    Wgrad& wgrad, PartialReduceResult& partial_reduce_result, int batch_size_per_gpu,
+    int max_ev_size, cudaStream_t stream) {
   const auto& src_buffer_attr = src_buffer.attr;
   const auto& dst_attr = wgrad.attr;
 
   HCTR_CHECK_HINT(src_buffer_attr.layout == EmbeddingLayout::FeatureMajor,
                   "local reduce model comm buffer should be feature major");
 
-  const int* local_lookup_ids_ptr = local_lookup_ids.get<int>();
+  const int* local_lookup_ids_ptr = local_lookup_ids.data<int>();
 
-  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.get<int>();
-  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.get<int>();
+  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.data<int>();
+  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.data<int>();
 
-  const uint32_t* src_ids_ptr = reduction_indices.src_ids.get<uint32_t>();
+  const uint32_t* src_ids_ptr = reduction_indices.src_ids.data<uint32_t>();
 
-  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.get<int>();
+  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.data<int>();
 
-  const int* dst_table_ids_ptr = wgrad.table_ids.get<int>();
-  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.get<uint32_t>();
-  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.get<uint32_t>();
-  float* dst_ptr = wgrad.data.get<float>();
+  const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
+  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
+  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
+  float* dst_ptr = wgrad.data.data<float>();
 
-  DISPATCH_FLOAT_AND_HALF_FUNCTION(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t* src_ptr = src_buffer.data.get<emb_t>();
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
+    const emb_t* src_ptr = src_buffer.data.data<emb_t>();
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce<emb_t, float>(
         reduction_indices.num_elements, [=] __device__(int i) { return dst_ids_ptr[i]; },
@@ -174,31 +195,31 @@ void dp_local_reduce_from_feature_major_top_grad(
 
 void dp_local_reduce_from_batch_major_top_grad(
     const KernelParams& kernel_params, const ReductionIndices& reduction_indices,
-    const EmbeddingOutput& src_buffer, const Tensor& local_lookup_ids, int num_lookup, Wgrad& wgrad,
-    PartialReduceResult& partial_reduce_result, int batch_size_per_gpu, int max_ev_size,
-    cudaStream_t stream) {
+    const EmbeddingOutput& src_buffer, const core23::Tensor& local_lookup_ids, int num_lookup,
+    Wgrad& wgrad, PartialReduceResult& partial_reduce_result, int batch_size_per_gpu,
+    int max_ev_size, cudaStream_t stream) {
   const auto& src_buffer_attr = src_buffer.attr;
   const auto& dst_attr = wgrad.attr;
 
   HCTR_CHECK_HINT(src_buffer_attr.layout == EmbeddingLayout::BatchMajor,
                   "local reduce model comm buffer should be batch major");
 
-  const int* local_lookup_ids_ptr = local_lookup_ids.get<int>();
+  const int* local_lookup_ids_ptr = local_lookup_ids.data<int>();
 
-  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.get<int>();
-  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.get<int>();
+  const int* src_id_to_ev_start_indices_ptr = src_buffer_attr.id_to_ev_start_indices.data<int>();
+  const int* src_id_to_ev_size_ptr = reduction_indices.ev_sizes.data<int>();
 
-  const uint32_t* src_ids_ptr = reduction_indices.src_ids.get<uint32_t>();
+  const uint32_t* src_ids_ptr = reduction_indices.src_ids.data<uint32_t>();
 
-  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.get<int>();
+  const int* dst_table_id_to_ev_size_ptr = dst_attr.table_id_to_ev_size.data<int>();
 
-  const int* dst_table_ids_ptr = wgrad.table_ids.get<int>();
-  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.get<uint32_t>();
-  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.get<uint32_t>();
-  float* dst_ptr = wgrad.data.get<float>();
+  const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
+  const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
+  const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
+  float* dst_ptr = wgrad.data.data<float>();
 
-  DISPATCH_FLOAT_AND_HALF_FUNCTION(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t* src_ptr = src_buffer.data.get<emb_t>();
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
+    const emb_t* src_ptr = src_buffer.data.data<emb_t>();
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce<emb_t, float>(
         reduction_indices.num_elements, [=] __device__(int i) { return dst_ids_ptr[i]; },
@@ -233,13 +254,13 @@ void dp_local_reduce_from_batch_major_top_grad(
 
 void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
                                const EmbeddingOutput& src_buffer, Wgrad& wgrad,
-                               const Tensor& local_lookup_ids, int num_lookup,
+                               const core23::Tensor& local_lookup_ids, int num_lookup,
                                int num_global_lookup, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
-  cudaMemsetAsync(wgrad.data.get(), 0, wgrad.data.nbytes(), stream);
+  cudaMemsetAsync(wgrad.data.data(), 0, wgrad.data.num_bytes(), stream);
 
   if (src_buffer.attr.layout == EmbeddingLayout::FeatureMajor) {
     dp_local_reduce_from_feature_major_top_grad(

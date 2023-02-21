@@ -28,8 +28,13 @@
 #include "lookup/impl/core_impl/tf_backend.hpp"
 // clang-format on
 
-namespace sok {
+#include "HugeCTR/core23/device.hpp"
+#include "HugeCTR/core23/tensor.hpp"
+#include "HugeCTR/core23/device_type.hpp"
+#include "HugeCTR/core23/shape.hpp"
 
+namespace sok {
+namespace core23 = HugeCTR::core23;
 // clang-format off
 using Tensor              = ::core::Tensor;
 using CoreResourceManager = ::core::CoreResourceManager;
@@ -37,6 +42,8 @@ using TFCoreResourceManager = ::tf_internal::TFCoreResourceManager;
 using EmbeddingCollectionParam = ::embedding::EmbeddingCollectionParam;
 using UniformModelParallelEmbeddingMeta = ::embedding::UniformModelParallelEmbeddingMeta;
 using TablePlacementStrategy   = ::embedding::TablePlacementStrategy;
+
+using Tensor23 = core23::Tensor;
 // clang-foramt on
 
 template <typename T>
@@ -47,6 +54,11 @@ std::shared_ptr<::core::TensorImpl> convert_tensor(const tensorflow::Tensor* ten
   auto impl = std::make_shared<::core::TensorImpl>(storage, 0, shape, ::core::DeviceType::GPU,
                                                    ::HugeCTR::TensorScalarTypeFunc<T>::get_type());
   return impl;
+}
+
+template <typename T>
+core23::Tensor convert_tensor_core23(const tensorflow::Tensor* tensor,int device_id) {
+  return core23::Tensor::bind(tensor->data(),{tensor->NumElements()},core23::ToScalarType<T>::value,{core23::DeviceType::GPU,device_id});
 }
 
 template <typename KeyType, typename OffsetType, typename DType>
@@ -84,10 +96,10 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
     shard_matrix,
     {{::embedding::TablePlacementStrategy::ModelParallel, table_ids}},
     global_batch_size,
-    ::HugeCTR::TensorScalarTypeFunc<KeyType>::get_type(),
-    ::HugeCTR::TensorScalarTypeFunc<int32_t>::get_type(),
-    ::HugeCTR::TensorScalarTypeFunc<OffsetType>::get_type(),
-    ::HugeCTR::TensorScalarTypeFunc<DType>::get_type(),
+    core23::ToScalarType<KeyType>::value,
+    core23::ToScalarType<int32_t>::value,
+    core23::ToScalarType<OffsetType>::value,
+    core23::ToScalarType<DType>::value,
     ::embedding::EmbeddingLayout::FeatureMajor,
     ::embedding::EmbeddingLayout::FeatureMajor,
     false

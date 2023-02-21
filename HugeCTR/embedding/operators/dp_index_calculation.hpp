@@ -16,22 +16,15 @@
 #pragma once
 
 #include <core/buffer.hpp>
-#include <core/registry.hpp>
+#include <core23/registry.hpp>
 #include <embedding/operators/index_calculation.hpp>
 
 namespace embedding {
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::DeviceType;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
-using core::TensorScalarType;
 
 struct DPKeySelector {
   int num_lookup_before_filter;
-  Tensor lookup_ids;
+  core23::Tensor lookup_ids;
   int num_lookup_after_filter;
 
   int gpu_id;
@@ -51,17 +44,17 @@ struct DenseAllreduceIndexCalculation {
   SegmentdUnique segmented_unique_;
 
   void cal_for_sparse_indices(const EmbeddingInput& embedding_input,
-                              const Tensor& table_id_to_allreduce_buffer_start_indices,
-                              const Tensor& ev_start_indices_in_allreduce_buffer,
+                              const core23::Tensor& table_id_to_allreduce_buffer_start_indices,
+                              const core23::Tensor& ev_start_indices_in_allreduce_buffer,
                               ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
 };
 
 struct BroadcastResult {
-  Tensor h_table_range_;
-  Tensor allgather_table_range_;
-  Tensor reordered_allgather_table_range_;
-  Tensor h_reordered_allgather_table_range_;
-  Tensor allgather_unique_keys_;
+  core23::Tensor h_table_range_;
+  core23::Tensor allgather_table_range_;
+  core23::Tensor reordered_allgather_table_range_;
+  core23::Tensor h_reordered_allgather_table_range_;
+  core23::Tensor allgather_unique_keys_;
 };
 
 template <typename key_t>
@@ -71,16 +64,16 @@ struct TableEntry {
 };
 
 struct HashTable {
-  Tensor hash_table_;
-  Tensor d_temp_scan_table_range_storage_;
+  core23::Tensor hash_table_;
+  core23::Tensor d_temp_scan_table_range_storage_;
 };
 
 struct SparseAllreduceCalEVStartIndicesTempStorage {
-  Tensor mask_unique_keys_in_allgather_unique_keys_;
-  Tensor d_temp_select_temp_storage_;
-  Tensor d_temp_scan_ev_start_indices_storage_;
-  Tensor unique_idx_;
-  Tensor d_temp_scan_unique_idx_temp_storage_;
+  core23::Tensor mask_unique_keys_in_allgather_unique_keys_;
+  core23::Tensor d_temp_select_temp_storage_;
+  core23::Tensor d_temp_scan_ev_start_indices_storage_;
+  core23::Tensor unique_idx_;
+  core23::Tensor d_temp_scan_unique_idx_temp_storage_;
 };
 
 struct SparseAllreduceCalEVStartIndicesStorage {
@@ -91,7 +84,8 @@ struct SparseAllreduceCalEVStartIndicesStorage {
   SparseAllreduceCalEVStartIndicesStorage() = default;
 
   SparseAllreduceCalEVStartIndicesStorage(std::shared_ptr<CoreResourceManager> core, int num_table,
-                                          int local_hotness_sum, int batch_size, DataType key_type);
+                                          int local_hotness_sum, int batch_size,
+                                          core23::DataType key_type);
 };
 
 struct SparseAllreduceIndexCalculation {

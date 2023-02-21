@@ -14,24 +14,14 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <core23/allocator.hpp>
-#include <core23/device.hpp>
-#include <cstdint>
+#include <core23/allocator_params.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-struct AllocatorParams {
-  using CustomFactory =
-      std::function<std::unique_ptr<Allocator>(const AllocatorParams&, const Device& device)>;
-  static CustomFactory default_allocator_factory;
-  bool pinned = true;
-  bool compressible = false;  // TODO: perhaps replace by a Decorator
-  CustomFactory custom_factory = default_allocator_factory;
-};
+AllocatorParams::CustomFactory AllocatorParams::default_allocator_factory =
+    [](const auto&, const auto&) -> std::unique_ptr<Allocator> { return nullptr; };
 
 }  // namespace core23
 }  // namespace HugeCTR

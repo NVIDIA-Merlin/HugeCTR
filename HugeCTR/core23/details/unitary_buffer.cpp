@@ -28,7 +28,9 @@ namespace core23 {
 UnitaryBuffer::UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
     : Buffer(device, std::move(allocator)), allocated_(false), ptr_(nullptr) {}
 
-UnitaryBuffer::~UnitaryBuffer() { allocator()->deallocate(ptr_); }
+UnitaryBuffer::~UnitaryBuffer() {
+  if (allocated_ || ptr_ != nullptr) allocator()->deallocate(ptr_);
+}
 
 Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator>& allocator,
                                                  const ClientRequirements& client_requirements) {

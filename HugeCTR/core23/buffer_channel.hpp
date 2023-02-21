@@ -24,7 +24,7 @@ namespace HugeCTR {
 namespace core23 {
 
 class Buffer;
-class BufferParams;
+struct BufferParams;
 class Allocator;
 class Device;
 

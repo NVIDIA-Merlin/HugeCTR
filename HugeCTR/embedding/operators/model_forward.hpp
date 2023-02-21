@@ -16,6 +16,7 @@
 #pragma once
 
 #include <core/registry.hpp>
+#include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
 namespace embedding {
@@ -32,14 +33,14 @@ class DPModelForward {
   DPModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_embedding,
                  int num_local_embedding);
 
-  void compute(const TensorList &lookup_res, const Tensor &dp_bucket_range,
-               const Tensor &local_lookup_ids, EmbeddingOutput &embedding_output,
+  void compute(const core23::Tensor &lookup_res, const core23::Tensor &dp_bucket_range,
+               const core23::Tensor &local_lookup_ids, EmbeddingOutput &embedding_output,
                int batch_size_per_gpu);
 };
 
 struct ModelCommBufferAttr : public EVBufferAttr {
-  Tensor id_to_ev_size;
-  Tensor id_to_ev_start_indices;
+  core23::Tensor id_to_ev_size;
+  core23::Tensor id_to_ev_start_indices;
   int num_lookup;
   int num_gpus;
   int max_ev_elements;
@@ -49,8 +50,8 @@ struct ModelCommBufferAttr : public EVBufferAttr {
 };
 
 struct ModelCommBuffer {
-  std::vector<Tensor> data_list;
-  TensorList data;
+  std::vector<core23::Tensor> data_list;
+  core23::Tensor data;
 
   ModelCommBufferAttr attr;
 
@@ -58,14 +59,14 @@ struct ModelCommBuffer {
             int batch_size);
 
   void init_from_device_buffer(std::shared_ptr<CoreResourceManager> core,
-                               const std::vector<Tensor> &data_buffer_list,
+                               const std::vector<core23::Tensor> &data_buffer_list,
                                const ModelCommBufferAttr &attr);
 };
 
 struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;
 
-  void compute(const TensorList &mp_ev, const Tensor &bucket_range,
+  void compute(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
                ModelCommBuffer &model_comm_buffer, int batch_size);
 };
 

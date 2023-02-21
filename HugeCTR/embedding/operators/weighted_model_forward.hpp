@@ -16,6 +16,7 @@
 #pragma once
 
 #include <core/registry.hpp>
+#include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
 namespace embedding {
@@ -31,9 +32,10 @@ class WeightedModelForward {
   WeightedModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus,
                        const std::vector<int> &local_embedding_list);
 
-  void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
-               const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
-               int batch_size, int max_ev_size, const Tensor &sp_weight);
+  void compute(const core23::Tensor &mp_ev, const core23::Tensor &model_offset,
+               core23::Tensor &model_comm_buffer, const core23::Tensor &d_local_ev_size_list,
+               const core23::Tensor &d_local_ev_size_offset, int batch_size, int max_ev_size,
+               const core23::Tensor &sp_weight);
 };
 
 }  // namespace embedding

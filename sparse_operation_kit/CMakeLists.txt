@@ -57,6 +57,7 @@ if (USE_NVTX)
     find_package(NVTX REQUIRED)
 endif()
 
+option(ENABLE_HCTR "Build core HCTR backend" ON)
 # whether make ops to be asynchronous
 option(SOK_ASYNC "Make Ops to be asynchronous" ON)
 if (SOK_ASYNC)
@@ -160,6 +161,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/HugeCTR/include
     ${PROJECT_SOURCE_DIR}/HugeCTR/core
     ${PROJECT_SOURCE_DIR}/HugeCTR/embedding
+    ${PROJECT_SOURCE_DIR}/HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/third_party/json/include
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
@@ -176,6 +178,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
     ${PROJECT_SOURCE_DIR}/../HugeCTR/core
     ${PROJECT_SOURCE_DIR}/../HugeCTR/embedding
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/../third_party/json/include
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
@@ -253,10 +256,12 @@ if(SKBUILD)
 configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
 add_subdirectory(HugeCTR/core core.out)
 add_subdirectory(HugeCTR/embedding embedding.out)
+add_subdirectory(HugeCTR/core23 hugectr_core23.out)
 else()
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
 add_subdirectory(../HugeCTR/core core.out)
 add_subdirectory(../HugeCTR/embedding embedding.out)
+add_subdirectory(../HugeCTR/core23 hugectr_core23.out)
 endif()
 # file(GLOB core_impl
 #     ${PROJECT_SOURCE_DIR}/experiment/lookup/impl/core_impl/*.cpp

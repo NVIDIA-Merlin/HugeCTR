@@ -54,7 +54,7 @@ const std::vector<LookupParam> lookup_params_with_shared_table = {
 
 const std::vector<int> device_list = {0, 1};
 
-std::vector<EmbeddingTableParam> get_table_param_list(core::DataType emb_type) {
+std::vector<EmbeddingTableParam> get_table_param_list(core23::DataType emb_type) {
   std::vector<EmbeddingTableParam> table_param_list;
 
   HugeCTR::OptParams opt_param;
@@ -63,7 +63,7 @@ std::vector<EmbeddingTableParam> get_table_param_list(core::DataType emb_type) {
   // members
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
-  opt_param.scaler = (emb_type == TensorScalarType::Float16) ? 1024 : 1;
+  opt_param.scaler = (emb_type == core23::ScalarType::Half) ? 1024 : 1;
   opt_param.hyperparams = HugeCTR::OptHyperParams{};
   opt_param.update_type = HugeCTR::Update_t::Local;
 
@@ -83,10 +83,10 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                               EmbeddingLayout output_layout, bool indices_only) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
   ASSERT_EQ(table_ev_size_list.size(), num_table);
-  auto key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
-  auto index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
-  auto offset_type = HugeCTR::TensorScalarTypeFunc<offset_t>::get_type();
-  auto emb_type = HugeCTR::TensorScalarTypeFunc<emb_t>::get_type();
+  auto key_type = HugeCTR::core23::ToScalarType<key_t>::value;
+  auto index_type = HugeCTR::core23::ToScalarType<index_t>::value;
+  auto offset_type = HugeCTR::core23::ToScalarType<offset_t>::value;
+  auto emb_type = HugeCTR::core23::ToScalarType<emb_t>::value;
 
   std::cout << "embedding_collection_e2e test. output_layout:" << output_layout
             << ", indices_only:" << indices_only << ", key_type:" << key_type
@@ -214,24 +214,27 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
       std::make_unique<embedding::EmbeddingCollection>(resource_manager, core_resource_manager_list,
                                                        ebc_param, ebc_param, table_param_list);
 
-  std::vector<std::vector<core::Tensor>> sparse_dp_tensors;
-  std::vector<std::vector<core::Tensor>> sparse_dp_bucket_ranges;
-  std::vector<core::Tensor> ebc_top_grads;
-  std::vector<core::Tensor> ebc_outptut;
+  std::vector<std::vector<core23::Tensor>> sparse_dp_tensors;
+  std::vector<std::vector<core23::Tensor>> sparse_dp_bucket_ranges;
+  std::vector<core23::Tensor> ebc_top_grads;
+  std::vector<core23::Tensor> ebc_outptut;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
-    auto buffer = GetBuffer(core_resource_manager_list[gpu_id]);
+    core23::Device device(core23::DeviceType::GPU,
+                          core_resource_manager_list[gpu_id]->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
 
-    std::vector<core::Tensor> sparse_dp_tensors_on_current_gpu;
-    std::vector<core::Tensor> sparse_dp_bucket_range_on_current_gpu;
+    std::vector<core23::Tensor> sparse_dp_tensors_on_current_gpu;
+    std::vector<core23::Tensor> sparse_dp_bucket_range_on_current_gpu;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       auto &lookup_param = ebc_param.lookup_params[lookup_id];
       int max_hotness = lookup_param.max_hotness;
-      sparse_dp_tensors_on_current_gpu.push_back(
-          buffer->reserve({ebc_param.universal_batch_size / num_gpus, max_hotness}, DeviceType::GPU,
-                          ebc_param.key_type));
-      sparse_dp_bucket_range_on_current_gpu.push_back(buffer->reserve(
-          {ebc_param.universal_batch_size / num_gpus}, DeviceType::GPU, ebc_param.offset_type));
+      sparse_dp_tensors_on_current_gpu.emplace_back(
+          params.shape({ebc_param.universal_batch_size / num_gpus, max_hotness})
+              .data_type(ebc_param.key_type));
+      sparse_dp_bucket_range_on_current_gpu.emplace_back(
+          params.shape({ebc_param.universal_batch_size / num_gpus})
+              .data_type(ebc_param.offset_type));
     }
     sparse_dp_tensors.push_back(sparse_dp_tensors_on_current_gpu);
     sparse_dp_bucket_ranges.push_back(sparse_dp_bucket_range_on_current_gpu);
@@ -244,19 +247,18 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                     : lookup_param.ev_size;
     }
     num_ev *= (ebc_param.universal_batch_size / num_gpus);
-    ebc_top_grads.push_back(buffer->reserve(num_ev, DeviceType::GPU, ebc_param.emb_type));
-    ebc_outptut.push_back(buffer->reserve(num_ev, DeviceType::GPU, ebc_param.emb_type));
-    buffer->allocate();
+    ebc_top_grads.emplace_back(params.shape({num_ev}).data_type(ebc_param.emb_type));
+    ebc_outptut.emplace_back(params.shape({num_ev}).data_type(ebc_param.emb_type));
   }
 
   auto prepare_gpu_input = [&] {
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
 
-      ebc_top_grads[gpu_id].copy_from(top_grads[gpu_id]);
+      core23::copy_sync(ebc_top_grads[gpu_id], top_grads[gpu_id]);
 
       for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        sparse_dp_tensors[gpu_id][lookup_id].copy_from(dp_keys[gpu_id][lookup_id]);
+        core23::copy_sync(sparse_dp_tensors[gpu_id][lookup_id], dp_keys[gpu_id][lookup_id]);
       }
     }
   };
@@ -303,8 +305,8 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 
     std::cout << "compare ebc gpu emb output vs. emb reference emb output.\n";
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      std::vector<emb_t> gpu_emb_output;
-      ebc_outptut[gpu_id].to(&gpu_emb_output);
+      std::vector<emb_t> gpu_emb_output(ebc_outptut[gpu_id].num_elements());
+      core23::copy_sync(gpu_emb_output, ebc_outptut[gpu_id]);
       ASSERT_EQ(gpu_emb_output.size(), emb_ref.embedding_vec_[gpu_id].size());
       if (debug_verbose) {
         std::cout << "forward ref output:\n";

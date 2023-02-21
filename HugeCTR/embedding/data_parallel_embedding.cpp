@@ -24,8 +24,12 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
     size_t grouped_id)
     : num_lookup_(ebc_param.num_lookup), h_ev_size_offset_{0} {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
+
   const auto& lookup_params = ebc_param.lookup_params;
-  auto buffer_ptr = GetBuffer(core);
   const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
                   "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
@@ -60,40 +64,39 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
                      : 0;
   std::partial_sum(h_ev_size_list_.begin(), h_ev_size_list_.end(),
                    std::back_inserter(h_ev_size_offset_));
-  d_ev_size_offset_ =
-      buffer_ptr->reserve({h_ev_size_offset_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_ev_size_offset_.copy_from(h_ev_size_offset_);
+  d_ev_size_offset_ = core23::Tensor(params.shape({static_cast<int64_t>(h_ev_size_offset_.size())})
+                                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(d_ev_size_offset_, h_ev_size_offset_);
 
-  d_combiner_list_ =
-      buffer_ptr->reserve({h_combiner_list_.size()}, DeviceType::GPU, TensorScalarType::Char);
-  buffer_ptr->allocate();
-  d_combiner_list_.copy_from(h_combiner_list_);
+  d_combiner_list_ = core23::Tensor(params.shape({static_cast<int64_t>(h_combiner_list_.size())})
+                                        .data_type(core23::ScalarType::Char));
+  core23::copy_sync(d_combiner_list_, h_combiner_list_);
 
   num_local_lookup_ = static_cast<int>(h_local_table_id_list_.size());
 
-  d_local_lookup_id_list_ = buffer_ptr->reserve({h_local_lookup_id_list_.size()}, DeviceType::GPU,
-                                                TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_lookup_id_list_.copy_from(h_local_lookup_id_list_);
+  d_local_lookup_id_list_ =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_local_lookup_id_list_.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(d_local_lookup_id_list_, h_local_lookup_id_list_);
 
   d_local_ev_size_list_ =
-      buffer_ptr->reserve({h_local_ev_size_list_.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_ev_size_list_.copy_from(h_local_ev_size_list_);
+      core23::Tensor(params.shape({static_cast<int64_t>(h_local_ev_size_list_.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(d_local_ev_size_list_, h_local_ev_size_list_);
 
-  d_local_table_id_list_ = buffer_ptr->reserve({h_local_table_id_list_.size()}, DeviceType::GPU,
-                                               TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_table_id_list_.copy_from(h_local_table_id_list_);
+  d_local_table_id_list_ =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_local_table_id_list_.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(d_local_table_id_list_, h_local_table_id_list_);
+
   wgrad_attr.init(core, ebc_param, grouped_id);
 
   if (ebc_param.indices_only_ && !ebc_param.table_id_to_vocabulary_size.empty()) {
     h_table_id_to_global_start_indices = ebc_param.get_table_id_to_global_start_indices();
-    table_id_to_global_start_indices = buffer_ptr->reserve(
-        {h_table_id_to_global_start_indices.size()}, DeviceType::GPU, TensorScalarType::Int32);
-    buffer_ptr->allocate();
-    table_id_to_global_start_indices.copy_from(h_table_id_to_global_start_indices);
+    table_id_to_global_start_indices = core23::Tensor(
+        params.shape({static_cast<int64_t>(h_table_id_to_global_start_indices.size())})
+            .data_type(core23::ScalarType::Int32));
+    core23::copy_sync(table_id_to_global_start_indices, h_table_id_to_global_start_indices);
 
     std::vector<int> h_table_id_to_allreduce_buffer_start_indices(ebc_param.num_table, 0);
     int cnt = 0;
@@ -102,12 +105,11 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
       h_table_id_to_allreduce_buffer_start_indices[table_id] = cnt;
       cnt += ebc_param.table_id_to_vocabulary_size[table_id];
     }
-    table_id_to_allreduce_buffer_start_indices =
-        buffer_ptr->reserve({h_table_id_to_allreduce_buffer_start_indices.size()}, DeviceType::GPU,
-                            TensorScalarType::Int32);
-    buffer_ptr->allocate();
-    table_id_to_allreduce_buffer_start_indices.copy_from(
-        h_table_id_to_allreduce_buffer_start_indices);
+    table_id_to_allreduce_buffer_start_indices = core23::Tensor(
+        params.shape({static_cast<int64_t>(h_table_id_to_allreduce_buffer_start_indices.size())})
+            .data_type(core23::ScalarType::Int32));
+    core23::copy_sync(table_id_to_allreduce_buffer_start_indices,
+                      h_table_id_to_allreduce_buffer_start_indices);
   }
   kernel_params.init();
   update_mutable_meta(core, ebc_param, grouped_id);
@@ -173,8 +175,11 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
                                         meta_.h_ev_size_list_, params.universal_batch_size);
   }
 
-  embedding_vec_ = TensorList(core_.get(), universal_batch_size * meta_.num_local_hotness_,
-                              DeviceType::GPU, TensorScalarType::Float32);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams tensor_params = core23::TensorParams().device(device);
+
+  embedding_vec_ = core23::init_tensor_list<float>(universal_batch_size * meta_.num_local_hotness_,
+                                                   core->get_device_id());
 
   reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus);
   // init_indices local reduce buffer
@@ -226,7 +231,7 @@ void UniformDPEmbedding::forward_per_gpu(const EmbeddingInput& embedding_input,
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
-  Tensor num_key_per_lookup_offset;
+  core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(embedding_input.bucket_range, batch_size_per_gpu,
                            &num_key_per_lookup_offset);
 
@@ -268,13 +273,13 @@ void UniformDPEmbedding::backward_per_gpu_for_indices_only(
     }
 
     top_grad_after_average_combiner.data = average_combiner_.float_emb_vec_;
-    top_grad_after_average_combiner.attr.type = core::TensorScalarType::Float32;
+    top_grad_after_average_combiner.attr.type = core23::ScalarType::Float;
   }
   local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
                              local_reduce_buffer, meta_.d_local_lookup_id_list_,
                              meta_.num_local_lookup_, meta_.num_lookup_, batch_size);
 
-  allreduce_comm_.communicate(wgrad.data, wgrad.data.get_num_elements());
+  allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
 }
 
 void UniformDPEmbedding::backward_per_gpu_for_dynamic_table(
@@ -305,7 +310,7 @@ void UniformDPEmbedding::backward_per_gpu_for_dynamic_table(
                                             meta_.num_lookup_);
     }
     top_grad_after_average_combiner.data = average_combiner_.float_emb_vec_;
-    top_grad_after_average_combiner.attr.type = core::TensorScalarType::Float32;
+    top_grad_after_average_combiner.attr.type = core23::ScalarType::Float;
   }
   local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
                              local_reduce_buffer, meta_.d_local_lookup_id_list_,
@@ -313,13 +318,13 @@ void UniformDPEmbedding::backward_per_gpu_for_dynamic_table(
 
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   size_t h_num_unique_keys = 0ul;
-  HCTR_LIB_THROW(cudaMemcpyAsync(&h_num_unique_keys, wgrad.num_unique_keys.get<size_t>(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&h_num_unique_keys, wgrad.num_unique_keys.data<uint64_t>(),
                                  sizeof(size_t), cudaMemcpyDeviceToHost, stream));
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   uint32_t num_ev_elements;
   HCTR_LIB_THROW(cudaMemcpyAsync(&num_ev_elements,
-                                 wgrad.ev_start_indices.get<uint32_t>() + h_num_unique_keys,
+                                 wgrad.ev_start_indices.data<uint32_t>() + h_num_unique_keys,
                                  sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   allreduce_comm_.communicate(wgrad.data, num_ev_elements);

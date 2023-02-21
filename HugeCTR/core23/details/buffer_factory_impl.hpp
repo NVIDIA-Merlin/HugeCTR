@@ -26,7 +26,7 @@ class Allocator;
 class Device;
 class BufferChannel;
 class Buffer;
-class BufferParams;
+struct BufferParams;
 
 [[nodiscard]] std::shared_ptr<Buffer> CreateBuffer(BufferParams buffer_params, const Device& device,
                                                    std::unique_ptr<Allocator> allocator);

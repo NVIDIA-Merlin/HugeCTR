@@ -22,21 +22,14 @@
 
 namespace embedding {
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::DeviceType;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
-using core::TensorScalarType;
 
 struct MPKeySelector {
   int num_lookup_before_filter;
-  Tensor lookup_ids;
+  core23::Tensor lookup_ids;
   int num_lookup_after_filter;
 
-  Tensor shard_ids;
-  Tensor num_shards;
+  core23::Tensor shard_ids;
+  core23::Tensor num_shards;
 
   int max_num_keys_before_filter;
   int max_num_keys_after_filter;

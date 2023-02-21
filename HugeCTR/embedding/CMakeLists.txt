@@ -31,4 +31,4 @@ data_distributor/*.cu
 add_library(embedding SHARED ${embedding_src})
 
 set_target_properties(embedding PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-target_link_libraries(embedding PUBLIC core)
+target_link_libraries(embedding PUBLIC core hugectr_core23)

@@ -24,35 +24,35 @@ WeightedNetworkForward::WeightedNetworkForward(std::shared_ptr<CoreResourceManag
                                                int num_gpus)
     : core_(core), num_gpus_(num_gpus) {}
 
-void WeightedNetworkForward::compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
-                                     const TensorList& network_comm_buffer,
-                                     const Tensor& network_ids, const Tensor& network_gpu_ids,
-                                     const Tensor& network_offsets,
-                                     const Tensor& network_dst_lookup_ids,
-                                     const TensorList& network_ev_sizes,
-                                     const TensorList& network_ev_offsets,
-                                     TensorList& output_buffer, const Tensor& d_ev_size_offset,
-                                     int batch_size, int max_ev_size, const Tensor& sp_weight_sum) {
+void WeightedNetworkForward::compute(
+    const core23::Tensor& row_lengths, const core23::Tensor& d_combiner_list,
+    const core23::Tensor& network_comm_buffer, const core23::Tensor& network_ids,
+    const core23::Tensor& network_gpu_ids, const core23::Tensor& network_offsets,
+    const core23::Tensor& network_dst_lookup_ids, const core23::Tensor& network_ev_sizes,
+    const core23::Tensor& network_ev_offsets, core23::Tensor& output_buffer,
+    const core23::Tensor& d_ev_size_offset, int batch_size, int max_ev_size,
+    const core23::Tensor& sp_weight_sum) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / num_gpus_;
-  DISPATCH_INTEGRAL_FUNCTION(row_lengths.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(network_comm_buffer.dtype().type(), emb_t, [&] {
-      DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), dst_emb_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(row_lengths.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_comm_buffer.data_type().type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), dst_emb_t, [&] {
         auto stream = core_->get_local_gpu()->get_stream();
 
-        const offset_t** row_lengths_ptr = row_lengths.get<offset_t>();
-        const int* network_ids_ptr = network_ids.get<int>();
-        const int* network_gpu_ids_ptr = network_gpu_ids.get<int>();
-        const int* network_offsets_ptr = network_offsets.get<int>();
-        const int* network_dst_lookup_ids_ptr = network_dst_lookup_ids.get<int>();
-        const int** network_ev_sizes_ptr = network_ev_sizes.get<int>();
-        const int** network_ev_offsets_ptr = network_ev_offsets.get<int>();
-        const emb_t** network_comm_buffer_ptr = network_comm_buffer.get<emb_t>();
-        const int* d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
-        const char* combiner_ptr = d_combiner_list.get<char>();
-        const float* sp_weight_ptr = sp_weight_sum.get<float>();
-        dst_emb_t** output_buffer_ptr = output_buffer.get<dst_emb_t>();
-        int num_network_dst_lookup_ids = network_dst_lookup_ids.get_num_elements();
+        const offset_t** row_lengths_ptr = static_cast<const offset_t**>(row_lengths.data());
+        const int* network_ids_ptr = network_ids.data<int>();
+        const int* network_gpu_ids_ptr = network_gpu_ids.data<int>();
+        const int* network_offsets_ptr = network_offsets.data<int>();
+        const int* network_dst_lookup_ids_ptr = network_dst_lookup_ids.data<int>();
+        const int** network_ev_sizes_ptr = static_cast<const int**>(network_ev_sizes.data());
+        const int** network_ev_offsets_ptr = static_cast<const int**>(network_ev_offsets.data());
+        const emb_t** network_comm_buffer_ptr =
+            static_cast<const emb_t**>(network_comm_buffer.data());
+        const int* d_ev_size_offset_ptr = d_ev_size_offset.data<int>();
+        const char* combiner_ptr = d_combiner_list.data<char>();
+        const float* sp_weight_ptr = sp_weight_sum.data<float>();
+        dst_emb_t** output_buffer_ptr = static_cast<dst_emb_t**>(output_buffer.data());
+        int num_network_dst_lookup_ids = network_dst_lookup_ids.num_elements();
         int gpu_id = core_->get_global_gpu_id();
 
         auto multi_to_one_desc = make_MultiToOneWeight<emb_t, dst_emb_t>(

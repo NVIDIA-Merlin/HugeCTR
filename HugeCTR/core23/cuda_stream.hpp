@@ -27,6 +27,7 @@ namespace core23 {
 class CUDAStream final {
  public:
   CUDAStream() : stream_(nullptr) {}
+  CUDAStream(cudaStream_t outer_stream) : stream_(new cudaStream_t) { *stream_ = outer_stream; }
   CUDAStream(int flags, int priority = 0)
       : stream_(
             [flags, priority]() {
@@ -39,7 +40,7 @@ class CUDAStream final {
               delete stream;
             }) {}
   CUDAStream(const CUDAStream&) = default;
-  CUDAStream(CUDAStream&&) = delete;
+  CUDAStream(CUDAStream&&) = default;
   CUDAStream& operator=(const CUDAStream&) = default;
   CUDAStream& operator=(CUDAStream&&) = delete;
   ~CUDAStream() = default;

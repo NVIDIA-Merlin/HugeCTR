@@ -35,29 +35,29 @@ struct UniformDataParallelEmbeddingMeta {
   std::vector<int> h_ev_size_list_;
   int max_ev_size_;
   std::vector<int> h_ev_size_offset_;
-  Tensor d_ev_size_offset_;
+  core23::Tensor d_ev_size_offset_;
 
   std::vector<char> h_combiner_list_;
-  Tensor d_combiner_list_;
+  core23::Tensor d_combiner_list_;
 
   int num_local_lookup_;
 
   std::vector<char> h_local_combiner_list_;
 
   std::vector<int> h_local_lookup_id_list_;
-  Tensor d_local_lookup_id_list_;
+  core23::Tensor d_local_lookup_id_list_;
 
   std::vector<int> h_local_ev_size_list_;
-  Tensor d_local_ev_size_list_;
+  core23::Tensor d_local_ev_size_list_;
 
   std::vector<int> h_local_table_id_list_;
-  Tensor d_local_table_id_list_;
+  core23::Tensor d_local_table_id_list_;
 
   WgradAttr wgrad_attr;
 
   std::vector<int> h_table_id_to_global_start_indices;
-  Tensor table_id_to_global_start_indices;
-  Tensor table_id_to_allreduce_buffer_start_indices;
+  core23::Tensor table_id_to_global_start_indices;
+  core23::Tensor table_id_to_allreduce_buffer_start_indices;
 
   KernelParams kernel_params;
 
@@ -83,7 +83,7 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
 
   NcclAllReduceInplaceComm allreduce_comm_;
 
-  TensorList embedding_vec_;
+  core23::Tensor embedding_vec_;
 
   void backward_per_gpu_for_indices_only(const EmbeddingInput &embedding_input,
                                          const embedding::EmbeddingOutput &top_grad,

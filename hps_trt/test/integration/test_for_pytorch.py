@@ -153,7 +153,6 @@ class DLRM(torch.nn.Module):
     def __init__(
         self, init_tensors, embed_vec_size, slot_num, dense_dim, arch_bot, arch_top, **kwargs
     ):
-
         super(DLRM, self).__init__()
         self.embedding = torch.nn.Embedding.from_pretrained(init_tensors, freeze=False)
 

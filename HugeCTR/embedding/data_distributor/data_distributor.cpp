@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
+#include <HugeCTR/embedding/common.hpp>
 #include <core/hctr_impl/hctr_backend.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding/data_distributor/gpu_kernels.hpp>
+#include <embedding/operators/communication.hpp>
 
 namespace HugeCTR {
 
 DataDistributor::DataDistributor(
-    size_t batch_size, core::DataType scalar_type,
+    size_t batch_size, core23::DataType scalar_type,
     std::shared_ptr<ResourceManager> resource_manager,
     std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
     const embedding::EmbeddingCollectionParam& ebc_param)
@@ -93,23 +95,24 @@ void DataDistributor::init_comm_data() {
 
   for (size_t i = 0; i < num_local_gpus_; ++i) {
     CudaDeviceContext context(core_resource_managers_[i]->get_device_id());
+    core23::Device device(core23::DeviceType::GPU, core_resource_managers_[i]->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
 
     GpuCommData comm_data;
     comm_data.local_rank = i;
     comm_data.last_batch_size = 0;
 
-    auto buffer_ptr = core::GetBuffer(core_resource_managers_[i]);
     size_t num_keys = num_features * ebc_param_.universal_batch_size;
 
-    comm_data.hotness_bucket_range = buffer_ptr->reserve({num_features_ + 1}, core::DeviceType::GPU,
-                                                         core::TensorScalarType::Int32);
-    comm_data.features =
-        buffer_ptr->reserve({num_keys}, core::DeviceType::GPU, ebc_param_.key_type);
+    comm_data.hotness_bucket_range =
+        core23::Tensor(params.shape({static_cast<int64_t>(num_features_ + 1)})
+                           .data_type(core23::ScalarType::Int32));
+    comm_data.features = core23::Tensor(
+        params.shape({static_cast<int64_t>(num_keys)}).data_type(ebc_param_.key_type));
 
     size_t num_bucket_ranges = num_buckets * ebc_param_.universal_batch_size + 1;
-    comm_data.bucket_range =
-        buffer_ptr->reserve({num_bucket_ranges}, core::DeviceType::GPU, ebc_param_.offset_type);
-    buffer_ptr->allocate();
+    comm_data.bucket_range = core23::Tensor(
+        params.shape({static_cast<int64_t>(num_bucket_ranges)}).data_type(ebc_param_.offset_type));
 
     std::vector<int> hotness_bucket_range(1, 0);
     std::copy(feature_pooling_factors_.begin(), feature_pooling_factors_.end(),
@@ -117,7 +120,7 @@ void DataDistributor::init_comm_data() {
     std::inclusive_scan(hotness_bucket_range.begin() + 1, hotness_bucket_range.end(),
                         hotness_bucket_range.begin() + 1);
 
-    comm_data.hotness_bucket_range.copy_from(hotness_bucket_range);
+    core23::copy_sync(comm_data.hotness_bucket_range, hotness_bucket_range);
 
     init_fixed_bucket_ranges(comm_data.bucket_range);
     gpu_comm_data_.emplace_back(comm_data);
@@ -131,9 +134,12 @@ DataDistributor::KeyFilterInitParams::KeyFilterInitParams(
       global_gpu_id(core_resource_manager->get_global_gpu_id()),
       total_gpu_count(core_resource_manager->get_global_gpu_count()) {
   CudaDeviceContext context(core_resource_manager->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core_resource_manager->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
   const auto& lookup_params = ebc_param.lookup_params;
-  auto buffer_ptr = GetBuffer(core_resource_manager);
   const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
 
   size_t num_gpus = core_resource_manager->get_global_gpu_count();
@@ -190,20 +196,23 @@ DataDistributor::KeyFilterInitParams::KeyFilterInitParams(
 
   num_local_hotness = std::accumulate(h_local_hotness.begin(), h_local_hotness.end(), 0);
 
-  d_local_lookup_ids = buffer_ptr->reserve({h_local_lookup_ids.size()}, core::DeviceType::GPU,
-                                           TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_lookup_ids.copy_from(h_local_lookup_ids);
+  if (num_local_lookup) {
+    d_local_lookup_ids =
+        core23::Tensor(params.shape({static_cast<int64_t>(h_local_lookup_ids.size())})
+                           .data_type(core23::ScalarType::Int32));
+    core23::copy_sync(d_local_lookup_ids, h_local_lookup_ids);
 
-  d_local_shard_ids = buffer_ptr->reserve({h_local_shard_ids.size()}, core::DeviceType::GPU,
-                                          TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_shard_ids.copy_from(h_local_shard_ids);
-
-  d_local_num_shards = buffer_ptr->reserve({h_local_num_shards.size()}, core::DeviceType::GPU,
-                                           TensorScalarType::Int32);
-  buffer_ptr->allocate();
-  d_local_num_shards.copy_from(h_local_num_shards);
+    if (group_params.table_placement_strategy == embedding::TablePlacementStrategy::ModelParallel) {
+      d_local_shard_ids =
+          core23::Tensor(params.shape({static_cast<int64_t>(h_local_shard_ids.size())})
+                             .data_type(core23::ScalarType::Int32));
+      core23::copy_sync(d_local_shard_ids, h_local_shard_ids);
+      d_local_num_shards =
+          core23::Tensor(params.shape({static_cast<int64_t>(h_local_num_shards.size())})
+                             .data_type(core23::ScalarType::Int32));
+      core23::copy_sync(d_local_num_shards, h_local_num_shards);
+    }
+  }
 }
 
 void DataDistributor::init_key_filter() {
@@ -250,16 +259,16 @@ void DataDistributor::init_key_filter() {
   }
 }
 
-void DataDistributor::init_fixed_bucket_ranges(core::Tensor& output_bucket_ranges) const {
+void DataDistributor::init_fixed_bucket_ranges(core23::Tensor& output_bucket_ranges) const {
   // feature-major bucket ranges
-  DISPATCH_INTEGRAL_FUNCTION(output_bucket_ranges.dtype().type(), BucketRangeType, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(output_bucket_ranges.data_type().type(), BucketRangeType, [&] {
     std::vector<BucketRangeType> bucket_ranges(1, 0);
     for (size_t feat_id = 0; feat_id < num_features_; ++feat_id) {
       bucket_ranges.insert(bucket_ranges.end(), batch_size_, feature_pooling_factors_[feat_id]);
     }
     std::inclusive_scan(bucket_ranges.begin() + 1, bucket_ranges.end(), bucket_ranges.begin() + 1);
     // copy up to GPU
-    output_bucket_ranges.copy_from(bucket_ranges);
+    core23::copy_sync(output_bucket_ranges, bucket_ranges);
   });
 }
 
@@ -283,8 +292,8 @@ DataDistributor::~DataDistributor() {
   }
 }
 
-void DataDistributor::distribute(int gpu_id, const std::vector<core::Tensor>& dp_keys,
-                                 const std::vector<core::Tensor>& dp_bucket_range,
+void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
+                                 const std::vector<core23::Tensor>& dp_bucket_range,
                                  DataDistributor::Result& output, int batch_size) {
   assert(gpu_id < gpu_comm_data_.size());
   assert(batch_size <= batch_size_ && "input batch_size larger than allocated batch_size");
@@ -318,79 +327,29 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core::Tensor>& dp
     }
 
     if (bucket_ranges_outdated) {
-      HCTR_LIB_THROW(cudaMemcpyAsync(output[grouped_id].fullbatch_bucket_range.get(),
-                                     gpu_comm_data_[gpu_id].bucket_range.get(),
-                                     gpu_comm_data_[gpu_id].bucket_range.nbytes(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(output[grouped_id].fullbatch_bucket_range.data(),
+                                     gpu_comm_data_[gpu_id].bucket_range.data(),
+                                     gpu_comm_data_[gpu_id].bucket_range.num_bytes(),
                                      cudaMemcpyDeviceToDevice, stream));
     }
   }
 }
-//
-// void DataDistributor::communicate_data(GpuCommData& comm_data,
-//                                       std::vector<core::Tensor> feature_shards, ncclComm_t comm,
-//                                       cudaStream_t stream, CommResult& output) {
-//  std::vector<size_t> group_recv_offsets(ebc_param_.grouped_emb_params.size(), 0);
-//
-//  const auto nccl_type = get_nccl_dtype_from_tensor_scalar_type(scalar_type_.type());
-//
-//  ncclGroupStart();
-//  for (size_t feat_id = 0; feat_id < feature_shards.size(); ++feat_id) {
-//    const size_t table_id = feature_id_to_table_id_map_[feat_id];
-//    const size_t group_id = feature_id_to_group_id_map_[feat_id];
-//    auto& output_features = output.features[group_id];
-//    auto& send_tensor = feature_shards[feat_id];
-//
-//    switch (ebc_param_.grouped_emb_params[group_id].table_placement_strategy) {
-//      case embedding::TablePlacementStrategy::ModelParallel: {
-//        for (size_t peer = 0; peer < num_local_gpus_ * n_ranks_; ++peer) {
-//          const bool peer_device_has_feature = resident_feature_tables_[peer][table_id];
-//          if (peer_device_has_feature)
-//            HCTR_LIB_THROW(ncclSend(send_tensor.get(), send_tensor.get_num_elements(), nccl_type,
-//                                    peer, comm, stream));
-//
-//          const bool this_device_has_feature =
-//              resident_feature_tables_[comm_data.local_rank][table_id];
-//          if (this_device_has_feature) {
-//            HCTR_LIB_THROW(ncclRecv((char*)output_features.get() + group_recv_offsets[group_id],
-//                                    send_tensor.get_num_elements(), nccl_type, peer, comm,
-//                                    stream));
-//            group_recv_offsets[group_id] +=
-//                send_tensor.nbytes();  // assumes all ranks have same shard size
-//          }
-//        }
-//        break;
-//      }
-//      case embedding::TablePlacementStrategy::DataParallel: {
-//        // coalesce shards
-//        HCTR_LIB_THROW(cudaMemcpyAsync((char*)output_features.get() +
-//        group_recv_offsets[group_id],
-//                                       send_tensor.get(), send_tensor.nbytes(), cudaMemcpyDefault,
-//                                       stream));
-//        group_recv_offsets[group_id] += send_tensor.nbytes();
-//        break;
-//      }
-//      default:
-//        throw std::runtime_error("Table placement strategy not supported in DataDistributor");
-//    }
-//  }
-//  ncclGroupEnd();
-//}
 
-void DataDistributor::communicate_data(std::vector<core::Tensor> feature_shards, int gpu_id,
+void DataDistributor::communicate_data(std::vector<core23::Tensor> feature_shards, int gpu_id,
                                        cudaStream_t stream) {
   size_t recv_offset = 0;
 
   GpuCommData& comm_data = gpu_comm_data_[gpu_id];
   ncclComm_t comm = comms_[gpu_id];
 
-  const auto nccl_type = get_nccl_dtype_from_tensor_scalar_type(scalar_type_.type());
+  const auto nccl_type = core23::get_nccl_dtype_from_tensor_scalar_type_core23(scalar_type_.type());
 
   ncclGroupStart();
   for (size_t feat_id = 0; feat_id < feature_shards.size(); ++feat_id) {
     const size_t table_id = feature_id_to_table_id_map_[feat_id];
-    auto recv_buffer = (char*)comm_data.features.get();
-    auto send_buffer = (char*)feature_shards[feat_id].get();
-    const size_t feature_num_keys = feature_shards[feat_id].get_num_elements();
+    auto recv_buffer = (char*)comm_data.features.data();
+    auto send_buffer = (char*)feature_shards[feat_id].data();
+    const size_t feature_num_keys = feature_shards[feat_id].num_elements();
 
     for (size_t peer = 0; peer < num_local_gpus_ * n_ranks_; ++peer) {
       const bool peer_device_has_feature = resident_feature_tables_[peer][table_id];
@@ -402,23 +361,23 @@ void DataDistributor::communicate_data(std::vector<core::Tensor> feature_shards,
       if (this_device_has_feature) {
         HCTR_LIB_THROW(
             ncclRecv(recv_buffer + recv_offset, feature_num_keys, nccl_type, peer, comm, stream));
-        recv_offset += feature_num_keys * scalar_type_.itemsize();
+        recv_offset += feature_num_keys * scalar_type_.size();
       }
     }
   }
   ncclGroupEnd();
 }
 
-void DataDistributor::distribute(int gpu_id, const core::Tensor& batch_major_fullbatch_keys,
-                                 const core::Tensor& batch_major_fullbatch_bucket_range,
+void DataDistributor::distribute(int gpu_id, const core23::Tensor& fullbatch_keys,
+                                 const core23::Tensor& fullbatch_bucket_range,
                                  DataDistributor::Result& output, int batch_size) {
   HCTR_ASSERT(ebc_param_.input_layout_ == embedding::EmbeddingLayout::BatchMajor);
   CudaDeviceContext context(core_resource_managers_[gpu_id]->get_device_id());
 
   auto& preprocess_input = preprocess_inputs_[gpu_id];
-  core::Tensor feature_major_key, feature_major_bucket_range;
-  preprocess_input->compute(batch_major_fullbatch_keys, batch_major_fullbatch_bucket_range,
-                            &feature_major_key, &feature_major_bucket_range, batch_size);
+  core23::Tensor feature_major_key, feature_major_bucket_range;
+  preprocess_input->compute(fullbatch_keys, fullbatch_bucket_range, &feature_major_key,
+                            &feature_major_bucket_range, batch_size);
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); ++grouped_id) {
     if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
@@ -432,8 +391,8 @@ void DataDistributor::distribute(int gpu_id, const core::Tensor& batch_major_ful
     } else {
       HCTR_OWN_THROW(Error_t::IllegalCall, "unsupported table placement strategy.");
     }
-    output[grouped_id].fullbatch_bucket_range.copy_from(
-        feature_major_bucket_range, core_resource_managers_[gpu_id]->get_local_gpu()->get_stream());
+    core23::copy_async(output[grouped_id].fullbatch_bucket_range, fullbatch_bucket_range,
+                       core_resource_managers_[gpu_id]->get_local_gpu()->get_stream());
   }
 }
 
@@ -461,20 +420,27 @@ DataDistributor::Result allocate_output_for_data_distributor(
       num_buckets += 1;
     }
 
-    auto buffer_ptr = core::GetBuffer(core_resource_manager);
+    core23::Device device(core23::DeviceType::GPU, core_resource_manager->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
+
     embedding::EmbeddingInput embedding_input;
     embedding_input.h_num_keys = 0ul;
-    embedding_input.keys = buffer_ptr->reserve({batch_size_after_filter * num_features},
-                                               core::DeviceType::GPU, ebc_param.key_type);
-    embedding_input.bucket_range =
-        buffer_ptr->reserve({batch_size_after_filter * num_buckets + 1}, core::DeviceType::GPU,
-                            core::TensorScalarType::UInt32);
-    embedding_input.num_keys =
-        buffer_ptr->reserve({1}, core::DeviceType::CPU, core::TensorScalarType::Size_t);
-    embedding_input.fullbatch_bucket_range =
-        buffer_ptr->reserve({ebc_param.universal_batch_size * ebc_param.num_lookup + 1},
-                            core::DeviceType::GPU, ebc_param.offset_type);
-    buffer_ptr->allocate();
+    embedding_input.keys =
+        core23::Tensor(params.shape({static_cast<int64_t>(batch_size_after_filter * num_features)})
+                           .data_type(ebc_param.key_type));
+
+    embedding_input.bucket_range = core23::Tensor(
+        params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
+            .data_type(core23::ScalarType::UInt32));
+
+    embedding_input.num_keys = core23::Tensor(
+        params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
+
+    embedding_input.fullbatch_bucket_range = core23::Tensor(
+        params
+            .shape(
+                {static_cast<int64_t>(ebc_param.universal_batch_size * ebc_param.num_lookup + 1)})
+            .data_type(ebc_param.offset_type));
 
     output.push_back(embedding_input);
   }
