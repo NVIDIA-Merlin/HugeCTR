@@ -229,7 +229,7 @@ template <typename T>
 Core23TempBatchNormLayer<T>::Core23TempBatchNormLayer(
     const core23::Tensor& in_tensor, const core23::Tensor& out_tensor, const Params& params,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Base(gpu_resource, initializer_types),
+    : Base({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
   CudaDeviceContext context(this->get_device_id());
@@ -252,9 +252,6 @@ Core23TempBatchNormLayer<T>::Core23TempBatchNormLayer(
 
   HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
                                               num_feature, n_stride, 1, 1, w_stride));
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
 
   HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
 
@@ -319,7 +316,7 @@ template <typename T>
 void Core23TempBatchNormLayer<T>::initialize() {
   // host array to get running mean & var
 
-  int64_t num_feature = in_tensors_[0].shape().size(1);
+  int64_t num_feature = this->input_tensors_[0].shape().size(1);
 
   h_result_running_mean_ = core23::Tensor(core23::TensorParams()
                                               .data_type(core23::ToScalarType<float>::value)
@@ -337,8 +334,8 @@ void Core23TempBatchNormLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
   float one = 1.0f, zero = 0.0f;
 
-  core23::Tensor& in_tensor = in_tensors_[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& in_tensor = this->input_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
   T* in = in_tensor.data<T>();
   T* out = out_tensor.data<T>();
 
@@ -368,8 +365,8 @@ void Core23TempBatchNormLayer<T>::bprop() {
 
   float one = 1.0f, zero = 0.0f;
 
-  core23::Tensor& in_tensor = in_tensors_[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& in_tensor = this->input_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
   T* in = in_tensor.data<T>();
   T* out = out_tensor.data<T>();
 

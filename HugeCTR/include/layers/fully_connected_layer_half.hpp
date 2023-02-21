@@ -119,16 +119,6 @@ class Core23TempFullyConnectedLayer<__half> : public Core23TempTrainableLayer<__
   cublasGemmAlgo_t balgo_x_;
 
   /*
-   * stores the references to the input tensors of this layer.
-   */
-  core23::Tensor bottom_tensor_;
-
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  core23::Tensor top_tensor_;
-
-  /*
    * stores the references to the output tensors of GEMM.
    */
   core23::Tensor identity_tensor_;
@@ -141,7 +131,7 @@ class Core23TempFullyConnectedLayer<__half> : public Core23TempTrainableLayer<__
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
-  core23::Tensor& get_bottom_tensor(bool is_train) { return bottom_tensor_; }
+  core23::Tensor& get_bottom_tensor(bool is_train) { return this->input_tensors_[0]; }
 
  public:
   /**

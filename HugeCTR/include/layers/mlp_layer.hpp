@@ -103,9 +103,6 @@ class MLPLayer : public TrainableLayer<T> {
 
 template <typename T>
 class Core23TempMLPLayer : public Core23TempTrainableLayer<T> {
-  std::vector<core23::Tensor> bottom_tensors_;
-  std::vector<core23::Tensor> top_tensors_;
-
   std::vector<core23::Tensor> train_tensors_, mask_tensors_, dact_tensors_, db_tensors_;
 
   std::vector<core23::Tensor> kernels_;
@@ -164,8 +161,8 @@ class Core23TempMLPLayer : public Core23TempTrainableLayer<T> {
   auto& get_kernel_grad(int index) { return kernels_grad_[index]; }
   auto& get_bias_grad(int index) { return db_tensors_[index]; }
   auto& get_inner_tensors() { return train_tensors_; }
-  auto& get_input_tensors() { return bottom_tensors_; }
-  auto& get_output_tensors() { return top_tensors_; }
+  auto& get_input_tensors() { return this->input_tensors_; }
+  auto& get_output_tensors() { return this->output_tensors_; }
 
   ~Core23TempMLPLayer() {
     CudaDeviceContext context(this->get_device_id());

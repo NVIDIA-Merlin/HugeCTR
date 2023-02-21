@@ -403,7 +403,7 @@ Core23TempFullyConnectedLayer<float>::Core23TempFullyConnectedLayer(
     const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
     bool enable_tf32_compute, std::vector<Initializer_t> initializer_types)
-    : Core23TempTrainableLayer<float>(gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<float>({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
@@ -437,9 +437,6 @@ Core23TempFullyConnectedLayer<float>::Core23TempFullyConnectedLayer(
     this->set_wgrad(0, weight_dim);
     this->set_wgrad(1, bias_dim);
 
-    in_tensors_.push_back(in_tensor);
-    out_tensors_.push_back(out_tensor);
-    // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -450,7 +447,7 @@ void Core23TempFullyConnectedLayer<float>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   core23::Tensor& in_tensor = get_in_tensors(is_train)[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
 
   float* weight = this->get_weight(0).data<float>();
   float* bias = this->get_weight(1).data<float>();
@@ -484,7 +481,7 @@ void Core23TempFullyConnectedLayer<float>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
 
   float* wgrad = this->get_wgrad(0).data<float>();
   float* bias_grad = this->get_wgrad(1).data<float>();
@@ -530,7 +527,7 @@ void Core23TempFullyConnectedLayer<float>::search_algorithm() {
 
   // Device Tensors to be used
   core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& out_tensor = output_tensors_[0];
   float* weight = this->get_weight(0).data<float>();
   float* in = in_tensor.data<float>();
   float* out = out_tensor.data<float>();
@@ -684,7 +681,7 @@ void Core23TempFullyConnectedLayer<float>::search_algorithm() {
 std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_uniform_initializer(
     const int index) {
   const core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  const core23::Tensor& out_tensor = out_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
   float bottom_dim = in_tensor.shape().size(in_tensor.shape().dims() - 1);
   float top_dim = out_tensor.shape().size(out_tensor.shape().dims() - 1);
 
@@ -695,7 +692,7 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_uniform
 std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_xavier_uniform_initializer(
     const int index) {
   const core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  const core23::Tensor& out_tensor = out_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
   float bottom_dim = in_tensor.shape().size(in_tensor.shape().dims() - 1);
   float top_dim = out_tensor.shape().size(out_tensor.shape().dims() - 1);
 
@@ -707,7 +704,7 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_xavier_
 std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_xavier_norm_initializer(
     const int index) {
   const core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  const core23::Tensor& out_tensor = out_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
   float bottom_dim = in_tensor.shape().size(in_tensor.shape().dims() - 1);
   float top_dim = out_tensor.shape().size(out_tensor.shape().dims() - 1);
 
@@ -719,7 +716,7 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_xavier_
 std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<float>::get_default_initializer(
     const int index) {
   const core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  const core23::Tensor& out_tensor = out_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
   float bottom_dim = in_tensor.shape().size(in_tensor.shape().dims() - 1);
   float top_dim = out_tensor.shape().size(out_tensor.shape().dims() - 1);
 

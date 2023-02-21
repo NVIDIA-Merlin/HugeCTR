@@ -34,14 +34,11 @@ class DummyTrainableLayer : public Core23TempTrainableLayer<DType, use_FP32_weig
   using Base = Core23TempTrainableLayer<DType, use_FP32_weight>;
   using WeightType = typename Base::WeightType;
 
-  std::vector<core23::Tensor> in_tensors_;
-  std::vector<core23::Tensor> out_tensors_;
-
  public:
   DummyTrainableLayer(const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
                       const std::shared_ptr<GPUResource>& gpu_resource,
                       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
-      : Base(gpu_resource, initializer_types) {
+      : Base({in_tensor}, {out_tensor}, gpu_resource, initializer_types) {
     const auto& in_tensor_dim = in_tensor.shape();
     const auto& out_tensor_dim = out_tensor.shape();
 
@@ -60,9 +57,6 @@ class DummyTrainableLayer : public Core23TempTrainableLayer<DType, use_FP32_weig
     this->set_weight(1, dim1);
     this->set_wgrad(0, dim0);
     this->set_wgrad(1, dim1);
-
-    in_tensors_.push_back(in_tensor);
-    out_tensors_.push_back(out_tensor);
   }
 
   void fprop(bool is_train) override {

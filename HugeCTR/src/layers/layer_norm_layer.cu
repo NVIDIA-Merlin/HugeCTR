@@ -510,7 +510,7 @@ template <typename T>
 Core23TempLayerNormLayer<T>::Core23TempLayerNormLayer(
     const core23::Tensor& in_tensor, const core23::Tensor& out_tensor, const Params& params,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Base(gpu_resource, initializer_types), params_(params) {
+    : Base({in_tensor}, {out_tensor}, gpu_resource, initializer_types), params_(params) {
   CudaDeviceContext context(this->get_device_id());
   const auto& in_tensor_dim = in_tensor.shape();
   const auto& out_tensor_dim = out_tensor.shape();
@@ -533,9 +533,6 @@ Core23TempLayerNormLayer<T>::Core23TempLayerNormLayer(
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Unsupport hidden_dim, the last dim should not be longer than 65535");
   }
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
 
   core23::Shape gamma_dim = {hidden_dim, 1};
   core23::Shape mean_dim = {batch, 1};
@@ -576,8 +573,8 @@ void Core23TempLayerNormLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
   float one = 1.0f, zero = 0.0f;
 
-  core23::Tensor& in_tensor = in_tensors_[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& in_tensor = this->input_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
   T* in = in_tensor.data<T>();
   T* out = out_tensor.data<T>();
 
@@ -607,8 +604,8 @@ void Core23TempLayerNormLayer<T>::bprop() {
 
   float one = 1.0f, zero = 0.0f;
 
-  core23::Tensor& in_tensor = in_tensors_[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& in_tensor = this->input_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
   const auto& in_tensor_dim = in_tensor.shape();
 
   T* in = in_tensor.data<T>();

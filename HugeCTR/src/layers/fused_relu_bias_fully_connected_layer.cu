@@ -838,7 +838,8 @@ Core23TempFusedReluBiasFullyConnectedLayer::Core23TempFusedReluBiasFullyConnecte
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
     const bool async_mlp_wgrad, const bool head_mask_in,
     const DenseLayerSwitchs& dense_layer_switches)
-    : Core23TempTrainableLayer<__half>(gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<__half>({train_in_tensor}, {train_out_tensor}, gpu_resource,
+                                       initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -884,7 +885,6 @@ Core23TempFusedReluBiasFullyConnectedLayer::Core23TempFusedReluBiasFullyConnecte
                                         .device(device)
                                         .buffer_params(blobs_buffer_params));
 
-  train_in_tensor_ = train_in_tensor;
   //  if (pos_ == FcPosition_t::Head || pos_ == FcPosition_t::Isolated) {
   //    // mask_in_tensor_ = train_in_tensor;
   //  } else {
@@ -892,7 +892,6 @@ Core23TempFusedReluBiasFullyConnectedLayer::Core23TempFusedReluBiasFullyConnecte
   dRelu_in_tensor_ = dRelu_in_tensor;
   db_in_tensor_ = db_in_tensor;
   //  }
-  train_out_tensor_ = train_out_tensor;
   mask_out_tensor_ = mask_out_tensor;
   dRelu_out_tensor_ = dRelu_out_tensor;
   db_out_tensor_ = db_out_tensor;
@@ -910,7 +909,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::initialize() {
 
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
   __half* identity = identity_tensor_.data<__half>();
 
   int batch_size = bottom_tensor_dim.size(0);
@@ -991,7 +990,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::initialize() {
 void Core23TempFusedReluBiasFullyConnectedLayer::initialize_dgrad() {
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
@@ -1073,7 +1072,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::initialize_dgrad() {
 void Core23TempFusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
   int64_t input_size = bottom_tensor_dim.size(1);
@@ -1142,11 +1141,11 @@ void Core23TempFusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   const __half* kernel = weights_half_[0].data<__half>();
   const __half* bias = weights_half_[1].data<__half>();
   const __half* bottom = get_bottom_tensor_fprop(is_train).data<__half>();
-  __half* top_fprop = train_out_tensor_.data<__half>();
+  __half* top_fprop = this->output_tensors_[0].data<__half>();
   __half* mask_out = mask_out_tensor_.data<__half>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(is_train).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
@@ -1162,7 +1161,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
 
   if ((pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) &&
       act_ != Activation_t::None) {
-    int64_t len = train_out_tensor_.num_elements();
+    int64_t len = this->output_tensors_[0].num_elements();
     HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
                                    cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
   }
@@ -1176,7 +1175,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
   const __half* kernel = weights_half_[0].data<__half>();
-  const __half* train_out = train_out_tensor_.data<__half>();
+  const __half* train_out = this->output_tensors_[0].data<__half>();
   __half* mask_out = mask_out_tensor_.data<__half>();
   __half* kernel_grad = weights_grad_[0].data<__half>();
   __half* bias_grad = weights_grad_[1].data<__half>();
@@ -1187,7 +1186,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
   const __half* identity = identity_tensor_.data<__half>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
@@ -1210,7 +1209,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
                                           get_gpu().get_stream()>>>(dRelu_top, mask_out, train_out,
                                                                     batch_size * output_size);
     } else
-      dRelu_top = train_out_tensor_.data<__half>();
+      dRelu_top = this->output_tensors_[0].data<__half>();
   }
 
   // wait for dRelu
@@ -1233,7 +1232,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
     if (head_mask_in_) {
       bottom_bprop = mask_in_tensor_.data<__half>();
     } else {
-      bottom_bprop = train_in_tensor_.data<__half>();
+      bottom_bprop = this->input_tensors_[0].data<__half>();
     }
 
     if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
@@ -1264,7 +1263,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::search_algorithm() {
 
   // Device Tensors to be used
   __half* bottom = get_bottom_tensor_fprop(true).data<__half>();
-  __half* top = train_out_tensor_.data<__half>();
+  __half* top = this->output_tensors_[0].data<__half>();
   __half* kernel = weights_half_[0].data<__half>();
   __half* bias = weights_half_[1].data<__half>();
   __half* kernel_grad = weights_grad_[0].data<__half>();
@@ -1273,7 +1272,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::search_algorithm() {
 
   // Tensor dim
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).shape();
-  const auto& top_tensor_dim = train_out_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int batch_size = bottom_tensor_dim.size(0);
   int output_size = top_tensor_dim.size(1);
@@ -1561,7 +1560,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::search_algorithm() {
 std::unique_ptr<DataSimulator> Core23TempFusedReluBiasFullyConnectedLayer::get_uniform_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor_fprop(true).shape().size(1);
-  int64_t top_dim = train_out_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
@@ -1570,7 +1569,7 @@ std::unique_ptr<DataSimulator> Core23TempFusedReluBiasFullyConnectedLayer::get_u
 std::unique_ptr<DataSimulator>
 Core23TempFusedReluBiasFullyConnectedLayer::get_xavier_uniform_initializer(const int index) {
   int64_t bottom_dim = get_bottom_tensor_fprop(true).shape().size(1);
-  int64_t top_dim = train_out_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Uniform,
@@ -1580,7 +1579,7 @@ Core23TempFusedReluBiasFullyConnectedLayer::get_xavier_uniform_initializer(const
 std::unique_ptr<DataSimulator>
 Core23TempFusedReluBiasFullyConnectedLayer::get_xavier_norm_initializer(const int index) {
   int64_t bottom_dim = get_bottom_tensor_fprop(true).shape().size(1);
-  int64_t top_dim = train_out_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Norm,
@@ -1590,7 +1589,7 @@ Core23TempFusedReluBiasFullyConnectedLayer::get_xavier_norm_initializer(const in
 std::unique_ptr<DataSimulator> Core23TempFusedReluBiasFullyConnectedLayer::get_default_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor_fprop(true).shape().size(1);
-  int64_t top_dim = train_out_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {

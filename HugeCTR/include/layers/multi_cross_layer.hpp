@@ -251,15 +251,6 @@ class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
   core23::Tensor tmp_mat_tensors_[4];  //[h,w]
   core23::Tensor tmp_vec_tensor_;      //[h,1]
 
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
   std::vector<CublasDesc<T>> xu_descrs_fprop_;
   std::vector<CublasDesc<T>> xuvb_descrs_fprop_;
   std::vector<CublasDesc<T>> xu_descrs_bprop_;

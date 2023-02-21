@@ -105,15 +105,6 @@ template <typename T>
 class Core23TempLayerNormLayer : public Core23TempTrainableLayer<T> {
   using Base = Core23TempTrainableLayer<T>;
 
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
  public:
   /**
    * LayerNorm parameters

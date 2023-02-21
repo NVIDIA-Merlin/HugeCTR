@@ -130,16 +130,6 @@ class Core23TempBatchNormLayer : public Core23TempTrainableLayer<T, true> {
   using Base = Core23TempTrainableLayer<T, true>;
   using WeightType = typename Base::WeightType;
 
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
  public:
   /**
    * BatchNorm parameters

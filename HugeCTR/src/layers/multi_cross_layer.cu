@@ -1690,7 +1690,7 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim,
     std::vector<Initializer_t> initializer_types, bool enable_tf32_compute)
-    : Core23TempTrainableLayer<T>(gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<T>({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
       num_layers_(num_layers),
       projection_dim_(projection_dim),
       enable_tf32_compute_(enable_tf32_compute) {
@@ -1769,8 +1769,6 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
       }
     }
 
-    in_tensors_.push_back(in_tensor);
-    out_tensors_.push_back(out_tensor);
     // setup blobs
 
     core23::Shape blob_dim = {batchsize, vec_length};
@@ -2065,8 +2063,8 @@ void Core23TempMultiCrossLayer<T>::initialize() {
 template <typename T>
 std::unique_ptr<DataSimulator> Core23TempMultiCrossLayer<T>::get_default_initializer(
     const int index) {
-  const core23::Tensor& in_tensor = in_tensors_[0];
-  const core23::Tensor& out_tensor = out_tensors_[0];
+  const core23::Tensor& in_tensor = this->input_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
   float bottom_dim = in_tensor.shape().size(1);
   float top_dim = out_tensor.shape().size(1);
   assert(bottom_dim == top_dim);

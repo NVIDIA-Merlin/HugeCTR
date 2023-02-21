@@ -294,14 +294,12 @@ template class Core23TempMLPLayer<__half>;
 
 template <typename T>
 Core23TempMLPLayer<T>::Core23TempMLPLayer(
-    const std::vector<core23::Tensor>& bottom_tensors_,
+    const std::vector<core23::Tensor>& bottom_tensors,
     const std::vector<core23::Tensor>& top_tensors, const std::vector<int64_t>& num_outputs,
     const std::shared_ptr<GPUResource>& gpu_resource, const std::vector<Activation_t>& acts,
     const std::vector<bool>& use_bias, std::vector<Initializer_t> initializer_types,
     bool skip_head_dgrad, bool async_wgrad, bool fuse_wb, bool enable_tf32_compute)
-    : Core23TempTrainableLayer<T>(gpu_resource, initializer_types),
-      bottom_tensors_(bottom_tensors_),
-      top_tensors_(top_tensors),
+    : Core23TempTrainableLayer<T>(bottom_tensors, top_tensors, gpu_resource, initializer_types),
       num_outputs_(num_outputs),
       acts_(acts),
       use_bias_(use_bias),
@@ -326,7 +324,7 @@ Core23TempMLPLayer<T>::Core23TempMLPLayer(
 
   for (int i = 0; i < num_layers; i++) {
     const auto& bottom_tensor_dim =
-        i == 0 ? bottom_tensors_[0].shape() : train_tensors_[i - 1].shape();
+        i == 0 ? this->input_tensors_[0].shape() : train_tensors_[i - 1].shape();
     int64_t batch_size = bottom_tensor_dim.size(0);
     int64_t input_size = bottom_tensor_dim.size(1);
     int64_t output_size = num_outputs[i];
@@ -343,7 +341,7 @@ Core23TempMLPLayer<T>::Core23TempMLPLayer(
     this->set_wgrad(i * 2 + 1, bias_dim);
     db_tensors_.push_back(this->get_wgrad(i * 2 + 1));
 
-    const auto& train_in_tensor = i == 0 ? bottom_tensors_[0] : train_tensors_[i - 1];
+    const auto& train_in_tensor = i == 0 ? this->input_tensors_[0] : train_tensors_[i - 1];
     int64_t num_output = num_outputs[i];
 
     core23::BufferParams buffer_params = {};
@@ -368,8 +366,8 @@ Core23TempMLPLayer<T>::Core23TempMLPLayer(
       core23::Shape shape({train_in_tensor.shape().size(0), num_output});
       auto data_type = core23::ToScalarType<T>::value;
 
-      train_tensors_[i] = top_tensors[0];
-      if (top_tensors.size() == 1) {
+      train_tensors_[i] = this->output_tensors_[0];
+      if (this->output_tensors_.size() == 1) {
         if (acts_[i] == Activation_t::Relu) {
           mask_tensors_[i] = core23::Tensor(
               core23::TensorParams().data_type(data_type).shape(shape).device(device).buffer_params(
@@ -391,7 +389,8 @@ void Core23TempMLPLayer<T>::fprop(bool is_train) {
   int num_layers = num_outputs_.size();
   for (int i = 0; i < num_layers; i++) {
     const T* kernel = kernels_[i].data<T>();
-    const T* bottom = i == 0 ? bottom_tensors_[0].data<T>() : train_tensors_[i - 1].data<T>();
+    const T* bottom =
+        i == 0 ? this->input_tensors_[0].template data<T>() : train_tensors_[i - 1].data<T>();
     T* top_fprop = train_tensors_[i].data<T>();
 
     layer_functors_.fprop(kernel, bottom, top_fprop, layer_desc_[i], layer_algo_[i],
@@ -412,7 +411,7 @@ void Core23TempMLPLayer<T>::bprop() {
   int num_layers = num_outputs_.size();
   for (int i = num_layers - 1; i >= 0; i--) {
     const auto& bottom_tensor_dim =
-        i == 0 ? bottom_tensors_[0].shape() : train_tensors_[i - 1].shape();
+        i == 0 ? this->input_tensors_[0].shape() : train_tensors_[i - 1].shape();
     int64_t batch_size = bottom_tensor_dim.size(0);
     int64_t top_size = num_outputs_[i];
 
@@ -427,18 +426,19 @@ void Core23TempMLPLayer<T>::bprop() {
     T* grad_top =
         acts_[i] == Activation_t::None ? train_tensors_[i].data<T>() : dact_tensors_[i].data<T>();
     T* kernel_grad = kernels_grad_[i].data<T>();
-    T* bottom = i == 0 ? bottom_tensors_[0].data<T>() : train_tensors_[i - 1].data<T>();
+    T* bottom =
+        i == 0 ? this->input_tensors_[0].template data<T>() : train_tensors_[i - 1].data<T>();
 
     T* bottom_bprop = nullptr;
     if (i != 0) {
       bottom_bprop = acts_[i - 1] == Activation_t::None ? train_tensors_[i - 1].data<T>()
                                                         : dact_tensors_[i - 1].data<T>();
     } else {
-      if (bottom_tensors_.size() == 1) {
+      if (this->input_tensors_.size() == 1) {
         // train_in_tensor
-        bottom_bprop = bottom_tensors_[0].data<T>();
+        bottom_bprop = this->input_tensors_[0].template data<T>();
       } else {
-        bottom_bprop = bottom_tensors_[1].data<T>();
+        bottom_bprop = this->input_tensors_[1].template data<T>();
       }
     }
 
@@ -468,7 +468,7 @@ void Core23TempMLPLayer<T>::initialize() {
   int num_layers = num_outputs_.size();
   for (int i = 0; i < num_layers; i++) {
     const auto& bottom_tensor_dim =
-        i == 0 ? bottom_tensors_[0].shape() : train_tensors_[i - 1].shape();
+        i == 0 ? this->input_tensors_[0].shape() : train_tensors_[i - 1].shape();
     int64_t batch_size = bottom_tensor_dim.size(0);
     int64_t input_size = bottom_tensor_dim.size(1);
     int64_t output_size = num_outputs_[i];
@@ -519,11 +519,12 @@ void Core23TempMLPLayer<T>::search_algorithm() {
   int num_layers = num_outputs_.size();
   for (int i = 0; i < num_layers; i++) {
     T* kernel = kernels_[i].data<T>();
-    T* bottom = i == 0 ? bottom_tensors_[0].data<T>() : train_tensors_[i - 1].data<T>();
+    T* bottom =
+        i == 0 ? this->input_tensors_[0].template data<T>() : train_tensors_[i - 1].data<T>();
     T* top = train_tensors_[i].data<T>();
 
     const auto& bottom_tensor_dim =
-        i == 0 ? bottom_tensors_[0].shape() : train_tensors_[i - 1].shape();
+        i == 0 ? this->input_tensors_[0].shape() : train_tensors_[i - 1].shape();
     int64_t batch_size = bottom_tensor_dim.size(0);
     int64_t input_size = bottom_tensor_dim.size(1);
     int64_t output_size = num_outputs_[i];
@@ -538,7 +539,7 @@ template <typename T>
 std::unique_ptr<DataSimulator> Core23TempMLPLayer<T>::get_uniform_initializer(const int index) {
   int i = index / 2;
   int64_t bottom_dim =
-      i == 0 ? bottom_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
+      i == 0 ? this->input_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
   float limit = sqrt(1.0f / (bottom_dim));
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
@@ -548,7 +549,7 @@ std::unique_ptr<DataSimulator> Core23TempMLPLayer<T>::get_xavier_uniform_initial
     const int index) {
   int i = index / 2;
   int64_t bottom_dim =
-      i == 0 ? bottom_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
+      i == 0 ? this->input_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
   int64_t top_dim = train_tensors_[i].shape().size(1);
   // fan_avg for weight
   // fan_out for bias
@@ -560,7 +561,7 @@ template <typename T>
 std::unique_ptr<DataSimulator> Core23TempMLPLayer<T>::get_xavier_norm_initializer(const int index) {
   int i = index / 2;
   int64_t bottom_dim =
-      i == 0 ? bottom_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
+      i == 0 ? this->input_tensors_[0].shape().size(1) : train_tensors_[i - 1].shape().size(1);
   int64_t top_dim = train_tensors_[i].shape().size(1);
   // fan_avg for weight
   // fan_out for bias

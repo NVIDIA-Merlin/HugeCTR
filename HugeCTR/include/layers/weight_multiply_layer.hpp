@@ -95,15 +95,6 @@ class WeightMultiplyLayer : public TrainableLayer<T> {
  */
 template <typename T>
 class Core23TempWeightMultiplyLayer : public Core23TempTrainableLayer<T> {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
  public:
   /**
    * Ctor of Core23TempWeightMultiplyLayer.

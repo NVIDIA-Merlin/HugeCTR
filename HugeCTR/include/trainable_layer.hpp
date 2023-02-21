@@ -295,6 +295,8 @@ class Core23TempTrainableLayer : public Layer {
     HCTR_CHECK_HINT(idx < wgrads_.size(), "Wrong index for getting weight gradient tensors");
     return wgrads_[idx];
   }
+  using Layer::input_tensors_;
+  using Layer::output_tensors_;
 
  public:
   // @brief a parameter initialization function
@@ -305,17 +307,15 @@ class Core23TempTrainableLayer : public Layer {
 
   /**
    * Ctor of TrainableLayer.
-   * @param master_weight_buff the buffer to reserve master weight tensors, used only if WeightType
-   * is not FP32.
-   * @param weight_buff the buffer to reserve weight tensors
-   * @param wgrad_buff the buffer to reserve weight gradient tensors
    * @param gpu_resource the abstraction of GPU where this dense layer resides
    * @param initializer_types the list of initializer types of all weight tensors
    */
   Core23TempTrainableLayer(
+      const std::vector<core23::Tensor>& input_tensors,
+      const std::vector<core23::Tensor>& output_tensors,
       const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
-      : Layer(gpu_resource, initializer_types),
+      : Layer(input_tensors, output_tensors, gpu_resource, initializer_types),
         master_weights_params_(core23::TensorParams().buffer_channel(GetWeightBufferChannel())),
         weights_params_(core23::TensorParams().buffer_channel(std::is_same<WeightType, float>::value
                                                                   ? GetWeightBufferChannel()

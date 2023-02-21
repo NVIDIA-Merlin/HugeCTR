@@ -459,7 +459,8 @@ template class FullyConnectedLayer<__half>;
 Core23TempFullyConnectedLayer<__half>::Core23TempFullyConnectedLayer(
     const core23::Tensor& bottom_tensor, const core23::Tensor& top_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Core23TempTrainableLayer<__half>(gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<__half>({bottom_tensor}, {top_tensor}, gpu_resource,
+                                       initializer_types),
       falgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -503,9 +504,6 @@ Core23TempFullyConnectedLayer<__half>::Core23TempFullyConnectedLayer(
                                         .shape(identity_dim)
                                         .device(device)
                                         .buffer_params(blobs_buffer_params));
-
-  bottom_tensor_ = bottom_tensor;
-  top_tensor_ = top_tensor;
 }
 
 void Core23TempFullyConnectedLayer<__half>::fprop(bool is_train) {
@@ -515,10 +513,11 @@ void Core23TempFullyConnectedLayer<__half>::fprop(bool is_train) {
   const __half* bias = this->get_weight(1).data<__half>();
   const __half* bottom = get_bottom_tensor(is_train).data<__half>();
   const __half* identity = identity_tensor_.data<__half>();
-  __half* top = top_tensor_.data<__half>();
+  auto top_tensor = this->output_tensors_[0];
+  __half* top = top_tensor.data<__half>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor(is_train).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = top_tensor.shape();
 
   int64_t in_batch_size = 1;
   int64_t input_size = bottom_tensor_dim.size(bottom_tensor_dim.dims() - 1);
@@ -552,14 +551,15 @@ void Core23TempFullyConnectedLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   const __half* kernel = this->get_weight(0).data<__half>();
-  const __half* top = top_tensor_.data<__half>();
+  auto top_tensor = this->output_tensors_[0];
+  const __half* top = top_tensor.data<__half>();
   const __half* identity = identity_tensor_.data<__half>();
   __half* kernel_grad = this->get_wgrad(0).data<__half>();
   __half* bias_grad = this->get_wgrad(1).data<__half>();
   __half* bottom = get_bottom_tensor(true).data<__half>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor(true).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = top_tensor.shape();
 
   int64_t in_batch_size = 1;
   int64_t input_size = bottom_tensor_dim.size(bottom_tensor_dim.dims() - 1);
@@ -617,7 +617,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
 
   // Device Tensors to be used
   __half* bottom = get_bottom_tensor(true).data<__half>();
-  __half* top = top_tensor_.data<__half>();
+  __half* top = this->output_tensors_[0].template data<__half>();
   __half* identity = identity_tensor_.data<__half>();
   __half* kernel = this->get_weight(0).data<__half>();
   __half* bias = this->get_weight(1).data<__half>();
@@ -626,7 +626,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
 
   // Tensor dim
   const auto& bottom_tensor_dim = get_bottom_tensor(true).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t in_batch_size = 1;
   int64_t input_size = bottom_tensor_dim.size(bottom_tensor_dim.dims() - 1);
@@ -845,7 +845,8 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<__half>::get_unifor
     const int index) {
   int64_t bottom_dim =
       get_bottom_tensor(true).shape().size(get_bottom_tensor(true).shape().dims() - 1);
-  int64_t top_dim = top_tensor_.shape().size(top_tensor_.shape().dims() - 1);
+  auto top_tensor = this->output_tensors_[0];
+  int64_t top_dim = top_tensor.shape().size(top_tensor.shape().dims() - 1);
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
@@ -855,7 +856,8 @@ std::unique_ptr<DataSimulator>
 Core23TempFullyConnectedLayer<__half>::get_xavier_uniform_initializer(const int index) {
   int64_t bottom_dim =
       get_bottom_tensor(true).shape().size(get_bottom_tensor(true).shape().dims() - 1);
-  int64_t top_dim = top_tensor_.shape().size(top_tensor_.shape().dims() - 1);
+  auto top_tensor = this->output_tensors_[0];
+  int64_t top_dim = top_tensor.shape().size(top_tensor.shape().dims() - 1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Uniform,
@@ -866,7 +868,8 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<__half>::get_xavier
     const int index) {
   int64_t bottom_dim =
       get_bottom_tensor(true).shape().size(get_bottom_tensor(true).shape().dims() - 1);
-  int64_t top_dim = top_tensor_.shape().size(top_tensor_.shape().dims() - 1);
+  auto top_tensor = this->output_tensors_[0];
+  int64_t top_dim = top_tensor.shape().size(top_tensor.shape().dims() - 1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Norm,
@@ -877,7 +880,8 @@ std::unique_ptr<DataSimulator> Core23TempFullyConnectedLayer<__half>::get_defaul
     const int index) {
   int64_t bottom_dim =
       get_bottom_tensor(true).shape().size(get_bottom_tensor(true).shape().dims() - 1);
-  int64_t top_dim = top_tensor_.shape().size(top_tensor_.shape().dims() - 1);
+  auto top_tensor = this->output_tensors_[0];
+  int64_t top_dim = top_tensor.shape().size(top_tensor.shape().dims() - 1);
 
   std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {

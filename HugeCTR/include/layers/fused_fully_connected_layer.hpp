@@ -110,16 +110,6 @@ class Core23TempFusedFullyConnectedLayer : public Core23TempTrainableLayer<__hal
   cublasGemmAlgo_t balgo_x_{CUBLAS_GEMM_DEFAULT};
 
   /*
-   * stores the references to the bottom tensors of this layer.
-   */
-  core23::Tensor bottom_tensor_;
-
-  /*
-   * stores the references to the top tensors of this layer.
-   */
-  core23::Tensor top_tensor_;
-
-  /*
    * stores the references to the intermediate top tensors of this layer.
    */
   core23::Tensor middle_tensor_;
@@ -134,7 +124,7 @@ class Core23TempFusedFullyConnectedLayer : public Core23TempTrainableLayer<__hal
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
-  core23::Tensor& get_bottom_tensor(bool is_train) { return bottom_tensor_; }
+  core23::Tensor& get_bottom_tensor(bool is_train) { return this->input_tensors_[0]; }
 
  public:
   /**

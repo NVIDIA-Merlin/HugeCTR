@@ -243,7 +243,7 @@ template <typename T>
 Core23TempWeightMultiplyLayer<T>::Core23TempWeightMultiplyLayer(
     const core23::Tensor& in_tensor, core23::Tensor& out_tensor, const core23::Shape& weight_dims,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Core23TempTrainableLayer<T>(gpu_resource, initializer_types) {
+    : Core23TempTrainableLayer<T>({in_tensor}, {}, gpu_resource, initializer_types) {
   try {
     const auto& in_dims = in_tensor.shape();
     if (in_dims.dims() != 2) {
@@ -272,8 +272,7 @@ Core23TempWeightMultiplyLayer<T>::Core23TempWeightMultiplyLayer(
                                     .device(device)
                                     .buffer_params(blobs_buffer_params));
 
-    in_tensors_.push_back(in_tensor);
-    out_tensors_.push_back(out_tensor);
+    this->output_tensors_.push_back(out_tensor);
 
     this->set_weight(0, weight_dims);
     this->set_wgrad(0, weight_dims);
@@ -336,9 +335,9 @@ template <typename T>
 void Core23TempWeightMultiplyLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
 
-  T* input = in_tensors_[0].data<T>();
+  T* input = this->input_tensors_[0].template data<T>();
   const T* weight = this->get_weight(0).template data<T>();
-  T* output = out_tensors_[0].data<T>();
+  T* output = this->output_tensors_[0].template data<T>();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
@@ -353,8 +352,8 @@ void Core23TempWeightMultiplyLayer<T>::bprop() {
   const T* weight = this->get_weight(0).template data<T>();
   T* wgrad = this->get_wgrad(0).template data<T>();
   T* wgrad_tmp_trans = wgrad_tmp_trans_.data<T>();
-  T* input = in_tensors_[0].data<T>();
-  T* output = out_tensors_[0].data<T>();
+  T* input = this->input_tensors_[0].template data<T>();
+  T* output = this->output_tensors_[0].template data<T>();
 
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
                         embedding_vec_size_, this->get_gpu().get_stream());

@@ -415,7 +415,7 @@ Core23TempGRULayer<T>::Core23TempGRULayer(const core23::Tensor& in_tensor,
                                           int64_t embedding_vec_size,
                                           const std::shared_ptr<GPUResource>& gpu_resource,
                                           std::vector<Initializer_t> initializer_types)
-    : Core23TempTrainableLayer<T>(gpu_resource, initializer_types) {
+    : Core23TempTrainableLayer<T>({in_tensor}, {out_tensor}, gpu_resource, initializer_types) {
   try {
     CudaDeviceContext context(this->get_device_id());
     // check the in_tensor and out_tensor
@@ -559,9 +559,6 @@ Core23TempGRULayer<T>::Core23TempGRULayer(const core23::Tensor& in_tensor,
     HCTR_LIB_THROW(cudaMalloc((void**)&reserveSpace, reserveSpaceSize));
     // HCTR_LIB_THROW(cudaMalloc((void **)&dweightSpace, weightSpaceSize));
 
-    in_tensors_.push_back(in_tensor);
-    out_tensors_.push_back(out_tensor);
-    // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -574,7 +571,7 @@ void Core23TempGRULayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
 
   core23::Tensor& in_tensor = get_in_tensors(is_train)[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
 
   T* weight = this->get_weight(0).template data<T>();
   T* hx = this->get_weight(1).template data<T>();
@@ -677,7 +674,7 @@ template <typename T>
 void Core23TempGRULayer<T>::bprop() {
   CudaDeviceContext context(this->get_device_id());
   core23::Tensor& in_tensor = get_in_tensors(true)[0];
-  core23::Tensor& out_tensor = out_tensors_[0];
+  core23::Tensor& out_tensor = this->output_tensors_[0];
 
   T* weight = this->get_weight(0).template data<T>();
   T* in = in_tensor.data<T>();

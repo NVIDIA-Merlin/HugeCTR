@@ -757,16 +757,26 @@ TEST(multi_cross_layer_v1, fp16_1283x356x3) {
 // projection_dim = 0)
 //
 TEST(multi_cross_layer_v2, fp32_1x1024x1) {
-  MultiCrossLayerTest<float> test(1, 256, 1, 256);
-  MultiCrossLayerTest<float> test1(1, 1024, 1, 256);
-  MultiCrossLayerTest<float> test2(4, 256, 1, 256);
-  MultiCrossLayerTest<float> test3(4, 1024, 1, 256);
-  MultiCrossLayerTest<float> test4(8, 1024, 1, 128);
-  test.test();
-  test1.test();
-  test2.test();
-  test3.test();
-  test4.test();
+  {
+    MultiCrossLayerTest<float> test(1, 256, 1, 256);
+    test.test();
+  }
+  {
+    MultiCrossLayerTest<float> test1(1, 1024, 1, 256);
+    test1.test();
+  }
+  {
+    MultiCrossLayerTest<float> test2(4, 256, 1, 256);
+    test2.test();
+  }
+  {
+    MultiCrossLayerTest<float> test3(4, 1024, 1, 256);
+    test3.test();
+  }
+  {
+    MultiCrossLayerTest<float> test4(8, 1024, 1, 128);
+    test4.test();
+  }
 }
 TEST(multi_cross_layer_v2, fp32_4096x356x3) {
   MultiCrossLayerTest<float> test(4096, 256, 3, 512);
@@ -803,48 +813,17 @@ TEST(multi_cross_layer_v2, fp32_3x1024x4) {
 }
 //
 TEST(multi_cross_layer_v2, fp16_debug) {
-  MultiCrossLayerTest<__half> test0(1, 1024, 1, 1024);
-  MultiCrossLayerTest<__half> test1(1, 1024, 1, 512);
-  MultiCrossLayerTest<__half> test2(1, 256, 3, 256);
-  MultiCrossLayerTest<__half> test3(3, 512, 3, 1024);
-  MultiCrossLayerTest<__half> test4(3, 1024, 3, 32);
-  MultiCrossLayerTest<__half> test5(3, 1024, 3, 64);
-  MultiCrossLayerTest<__half> test6(3, 1024, 3, 128);
-  MultiCrossLayerTest<__half> test7(3, 1024, 3, 256);
-  MultiCrossLayerTest<__half> test8(3, 1024, 3, 512);
-  MultiCrossLayerTest<__half> test9(3, 3456, 3, 256);
-  MultiCrossLayerTest<__half> test10(3, 3456, 3, 64);
-  MultiCrossLayerTest<__half> test11(3, 3456, 3, 512);
-  MultiCrossLayerTest<__half> test12(3, 3456, 3, 512);
-  MultiCrossLayerTest<__half> test13(1024, 1024, 1, 1024);
-  test0.test();
-  std::cout << "Test0 \n";
-  test1.test();
-  std::cout << "Test1 \n";
-  test2.test();
-  std::cout << "Test2 \n";
-  test3.test();
-  std::cout << "Test3 \n";
-  test4.test();
-  std::cout << "Test4 \n";
-  test5.test();
-  std::cout << "Test5 \n";
-  test6.test();
-  std::cout << "Test6 \n";
-  test7.test();
-  std::cout << "Test7 \n";
-  test8.test();
-  std::cout << "Test8 \n";
-  test9.test();
-  std::cout << "Test9 \n";
-  test10.test();
-  std::cout << "Test10 \n";
-  test11.test();
-  std::cout << "Test11 \n";
-  test12.test();
-  std::cout << "Test12 \n";
-  test13.test();
-  std::cout << "Test13 \n";
+  std::vector<std::array<int, 4>> augments = {
+      {1, 1024, 1, 1024}, {1, 1024, 1, 512},    {1, 256, 3, 256},  {3, 512, 3, 1024},
+      {3, 1024, 3, 32},   {3, 1024, 3, 64},     {3, 1024, 3, 128}, {3, 1024, 3, 256},
+      {3, 1024, 3, 512},  {3, 3456, 3, 256},    {3, 3456, 3, 64},  {3, 3456, 3, 512},
+      {3, 3456, 3, 512},  {1024, 1024, 1, 1024}};
+  for (size_t i = 0; i < augments.size(); i++) {
+    std::cout << "Test" << i << std::endl;
+    MultiCrossLayerTest<__half> test(augments[i][0], augments[i][1], augments[i][2],
+                                     augments[i][3]);
+    test.test();
+  }
 }
 
 TEST(multi_cross_layer_v2, fp16_3x1024x1) {

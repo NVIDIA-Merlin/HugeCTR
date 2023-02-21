@@ -106,20 +106,12 @@ class GRULayer : public Layer {
 template <typename T>
 class Core23TempGRULayer : public Core23TempTrainableLayer<T> {
   cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
 
   size_t workSpaceSize;
   size_t reserveSpaceSize;
   size_t inputTensorSize, outputTensorSize, hiddenTensorSize;
 
-  std::vector<core23::Tensor> &get_in_tensors(bool is_train) { return in_tensors_; }
+  std::vector<core23::Tensor> &get_in_tensors(bool is_train) { return this->input_tensors_; }
 
  public:
   /**

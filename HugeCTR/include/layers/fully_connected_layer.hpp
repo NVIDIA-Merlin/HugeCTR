@@ -114,16 +114,7 @@ class Core23TempFullyConnectedLayer<float> : public Core23TempTrainableLayer<flo
   cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
 
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
-  std::vector<core23::Tensor>& get_in_tensors(bool is_train) { return in_tensors_; }
+  std::vector<core23::Tensor>& get_in_tensors(bool is_train) { return this->input_tensors_; }
 
  public:
   /**

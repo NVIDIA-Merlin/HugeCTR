@@ -420,7 +420,8 @@ std::unique_ptr<DataSimulator> FusedFullyConnectedLayer::get_default_initializer
 Core23TempFusedFullyConnectedLayer::Core23TempFusedFullyConnectedLayer(
     const core23::Tensor& bottom_tensor, const core23::Tensor& top_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
-    : Core23TempTrainableLayer<__half>(gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<__half>({bottom_tensor}, {top_tensor}, gpu_resource,
+                                       initializer_types),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP) {
@@ -450,16 +451,13 @@ Core23TempFusedFullyConnectedLayer::Core23TempFusedFullyConnectedLayer(
   this->set_wgrad(0, kernel_dim);
   this->set_wgrad(1, bias_dim);
 
-  bottom_tensor_ = bottom_tensor;
-  top_tensor_ = top_tensor;
-
   core23::BufferParams blobs_buffer_params = {};
   blobs_buffer_params.channel = GetBlobsBufferChannel();
   core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
 
   middle_tensor_ = core23::Tensor(core23::TensorParams()
                                       .data_type(core23::ToScalarType<__half>::value)
-                                      .shape(top_tensor_.shape())
+                                      .shape(this->output_tensors_[0].shape())
                                       .device(device)
                                       .buffer_params(blobs_buffer_params));
 
@@ -477,10 +475,10 @@ void Core23TempFusedFullyConnectedLayer::fprop(bool is_train) {
   const __half* bias = this->get_weight(1).data<__half>();
   const __half* bottom = get_bottom_tensor(is_train).data<__half>();
   __half* middle = middle_tensor_.data<__half>();
-  __half* top = top_tensor_.data<__half>();
+  __half* top = this->output_tensors_[0].data<__half>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor(is_train).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
@@ -510,7 +508,7 @@ void Core23TempFusedFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
   const __half* kernel = this->get_weight(0).data<__half>();
-  const __half* top = top_tensor_.data<__half>();
+  const __half* top = this->output_tensors_[0].data<__half>();
   __half* kernel_grad = this->get_wgrad(0).data<__half>();
   __half* bias_grad = this->get_wgrad(1).data<__half>();
   __half* bottom = get_bottom_tensor(true).data<__half>();
@@ -518,7 +516,7 @@ void Core23TempFusedFullyConnectedLayer::bprop() {
   float* bias_grad_float = bias_grad_tensor_.data<float>();
 
   const auto& bottom_tensor_dim = get_bottom_tensor(true).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int batch_size = bottom_tensor_dim.size(0);
   int output_size = top_tensor_dim.size(1);
@@ -562,7 +560,7 @@ void Core23TempFusedFullyConnectedLayer::search_algorithm() {
 
   // Device Tensors to be used
   __half* bottom = get_bottom_tensor(true).data<__half>();
-  __half* top = top_tensor_.data<__half>();
+  __half* top = this->output_tensors_[0].data<__half>();
   __half* kernel = this->get_weight(0).data<__half>();
   __half* bias = this->get_weight(1).data<__half>();
   __half* kernel_grad = this->get_wgrad(0).data<__half>();
@@ -570,7 +568,7 @@ void Core23TempFusedFullyConnectedLayer::search_algorithm() {
 
   // Tensor dim
   const auto& bottom_tensor_dim = get_bottom_tensor(true).shape();
-  const auto& top_tensor_dim = top_tensor_.shape();
+  const auto& top_tensor_dim = this->output_tensors_[0].shape();
 
   int64_t batch_size = bottom_tensor_dim.size(0);
   int64_t output_size = top_tensor_dim.size(1);
@@ -710,7 +708,7 @@ void Core23TempFusedFullyConnectedLayer::search_algorithm() {
 std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_uniform_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor(true).shape().size(1);
-  int64_t top_dim = top_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
@@ -719,7 +717,7 @@ std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_uniform_i
 std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_xavier_uniform_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor(true).shape().size(1);
-  int64_t top_dim = top_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Uniform,
@@ -729,7 +727,7 @@ std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_xavier_un
 std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_xavier_norm_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor(true).shape().size(1);
-  int64_t top_dim = top_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Norm,
@@ -739,7 +737,7 @@ std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_xavier_no
 std::unique_ptr<DataSimulator> Core23TempFusedFullyConnectedLayer::get_default_initializer(
     const int index) {
   int64_t bottom_dim = get_bottom_tensor(true).shape().size(1);
-  int64_t top_dim = top_tensor_.shape().size(1);
+  int64_t top_dim = this->output_tensors_[0].shape().size(1);
 
   std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {
