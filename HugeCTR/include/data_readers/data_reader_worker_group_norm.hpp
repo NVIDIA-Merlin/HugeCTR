@@ -37,7 +37,8 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
                             std::string file_list, bool repeat, Check_t check_type,
                             const std::vector<DataReaderSparseParam> &params,
                             bool start_reading_from_beginning = true)
-      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm) {
+      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm, false, nullptr,
+                              output_buffers.size()) {
     if (file_list.empty()) {
       HCTR_OWN_THROW(Error_t::WrongInput, "file_name.empty()");
     }
