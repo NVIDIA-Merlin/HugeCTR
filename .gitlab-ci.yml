@@ -805,9 +805,10 @@ py_multi_node:
 
 # hugectr inference correctness test
 inference_model:
-  extends: .cluster_test_job_daily
+  extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/inference_model
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}

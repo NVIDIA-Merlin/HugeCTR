@@ -271,14 +271,34 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
       start, "Apply for workspace from the memory pool for Embedding Cache Lookup_from_device");
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
 
-  CudaDeviceContext dev_restorer;
-  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  if (cache_config_.use_gpu_embedding_cache_) {
+    CudaDeviceContext dev_restorer;
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
-  HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
-                                 num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice, stream));
-  start = profiler::start();
-  lookup_from_device(table_id, d_vectors, memory_block, num_keys, hit_rate_threshold, stream);
-  ec_profiler_->end(start, "Lookup the embedding keys from Embedding Cache");
+    HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
+                                   num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice,
+                                   stream));
+    start = profiler::start();
+    lookup_from_device(table_id, d_vectors, memory_block, num_keys, hit_rate_threshold, stream);
+    ec_profiler_->end(start, "Lookup the embedding keys from Embedding Cache");
+  }
+  // Not using GPU embedding cache
+  else {
+    HCTR_LIB_THROW(cudaMemcpy(workspace_handler.h_embeddingcolumns_[table_id], d_keys,
+                              num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToHost));
+    start = profiler::start();
+    parameter_server_->lookup(workspace_handler.h_embeddingcolumns_[table_id], num_keys,
+                              workspace_handler.h_missing_emb_vec_[table_id],
+                              cache_config_.model_name_, table_id);
+    ec_profiler_->end(
+        start, "Lookup the embedding keys from Database backend(disable the Embedding Cache)");
+    HCTR_LIB_THROW(
+        cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
+                        num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
+                        cudaMemcpyHostToDevice, stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    parameter_server_->free_buffer(memory_block);
+  }
 }
 
 template <typename TypeHashKey>
@@ -383,6 +403,10 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
     } else {
       parameter_server_->free_buffer(memory_block);
     }
+  } else {
+    HCTR_LOG_S(ERROR, WORLD)
+        << "Cannot call internal lookup_from_device when disabling GPU embedding cache"
+        << std::endl;
   }
 }
 
