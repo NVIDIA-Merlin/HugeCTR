@@ -108,9 +108,10 @@ class EmbeddingIO {
         core::Tensor embedding_weights;
         auto& target_key_type = tmp_ebc_param.key_type;
         auto& target_value_type = tmp_ebc_param.emb_type;
-        embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
-                                                  tmp_filter, core_list[0], target_key_type,
-                                                  target_value_type);
+        embedding_para_io_->load_embedding_weight(
+            tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
+            embedding::data_type_core23_to_core[target_key_type.type()],
+            embedding::data_type_core23_to_core[target_value_type.type()]);
         for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
           HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
           auto& grouped_table =
@@ -143,9 +144,10 @@ class EmbeddingIO {
           auto tmp_filter = [=](size_t key) { return key % num_shards == shard_id; };
           core::Tensor keys;
           core::Tensor embedding_weights;
-          embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
-                                                    tmp_filter, core_list[0], target_key_type,
-                                                    target_value_type);
+          embedding_para_io_->load_embedding_weight(
+              tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
+              embedding::data_type_core23_to_core[target_key_type.type()],
+              embedding::data_type_core23_to_core[target_value_type.type()]);
 
           auto& grouped_table =
               tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
@@ -269,14 +271,15 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      shard_matrix,
                                      grouped_emb_params,
                                      batch_size,
-                                     HugeCTR::TensorScalarTypeFunc<key_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<index_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<offset_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<emb_t>::get_type(),
+                                     HugeCTR::core23::ToScalarType<key_t>::value,
+                                     HugeCTR::core23::ToScalarType<index_t>::value,
+                                     HugeCTR::core23::ToScalarType<offset_t>::value,
+                                     HugeCTR::core23::ToScalarType<emb_t>::value,
                                      EmbeddingLayout::FeatureMajor,
                                      EmbeddingLayout::FeatureMajor,
                                      false};
-  auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
+  auto table_param_list =
+      get_table_param_list_io(embedding::data_type_core23_to_core[ebc_param.emb_type.type()]);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   EmbeddingIO emb_io = EmbeddingIO(resource_manager);
@@ -386,25 +389,29 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                                        ebc_param, ebc_param, table_param_list);
   emb_io.add_embedding_collection(ebc.get());
 
-  std::vector<std::vector<core::Tensor>> sparse_dp_tensors;
-  std::vector<std::vector<core::Tensor>> sparse_dp_bucket_ranges;
+  std::vector<std::vector<core23::Tensor>> sparse_dp_tensors;
+  std::vector<std::vector<core23::Tensor>> sparse_dp_bucket_ranges;
   std::vector<size_t*> ebc_num_keys_list;
-  std::vector<core::Tensor> ebc_top_grads;
-  std::vector<core::Tensor> ebc_outptut;
+  std::vector<core23::Tensor> ebc_top_grads;
+  std::vector<core23::Tensor> ebc_outptut;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
-    auto buffer = GetBuffer(core_resource_manager_list[gpu_id]);
+    core23::Device device(core23::DeviceType::GPU,
+                          core_resource_manager_list[gpu_id]->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
 
-    std::vector<core::Tensor> sparse_dp_tensors_on_current_gpu;
-    std::vector<core::Tensor> sparse_dp_bucket_range_on_current_gpu;
+    std::vector<core23::Tensor> sparse_dp_tensors_on_current_gpu;
+    std::vector<core23::Tensor> sparse_dp_bucket_range_on_current_gpu;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       auto& lookup_param = ebc_param.lookup_params[lookup_id];
       int max_hotness = lookup_param.max_hotness;
-      sparse_dp_tensors_on_current_gpu.push_back(
-          buffer->reserve({ebc_param.universal_batch_size / num_gpus, max_hotness}, DeviceType::GPU,
-                          ebc_param.key_type));
-      sparse_dp_bucket_range_on_current_gpu.push_back(buffer->reserve(
-          {ebc_param.universal_batch_size / num_gpus}, DeviceType::GPU, ebc_param.offset_type));
+
+      sparse_dp_tensors_on_current_gpu.emplace_back(
+          params.shape({ebc_param.universal_batch_size / num_gpus, max_hotness})
+              .data_type(ebc_param.key_type));
+      sparse_dp_bucket_range_on_current_gpu.emplace_back(
+          params.shape({ebc_param.universal_batch_size / num_gpus})
+              .data_type(ebc_param.offset_type));
     }
     sparse_dp_tensors.push_back(sparse_dp_tensors_on_current_gpu);
     sparse_dp_bucket_ranges.push_back(sparse_dp_bucket_range_on_current_gpu);
@@ -417,19 +424,18 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                     : lookup_param.ev_size;
     }
     num_ev *= (ebc_param.universal_batch_size / num_gpus);
-    ebc_top_grads.push_back(buffer->reserve(num_ev, DeviceType::GPU, ebc_param.emb_type));
-    ebc_outptut.push_back(buffer->reserve(num_ev, DeviceType::GPU, ebc_param.emb_type));
-    buffer->allocate();
+    ebc_top_grads.emplace_back(params.shape({num_ev}).data_type(ebc_param.emb_type));
+    ebc_outptut.emplace_back(params.shape({num_ev}).data_type(ebc_param.emb_type));
   }
 
   auto prepare_gpu_input = [&] {
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
 
-      ebc_top_grads[gpu_id].copy_from(top_grads[gpu_id]);
+      core23::copy_sync(ebc_top_grads[gpu_id], top_grads[gpu_id]);
 
       for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        sparse_dp_tensors[gpu_id][lookup_id].copy_from(dp_keys[gpu_id][lookup_id]);
+        core23::copy_sync(sparse_dp_tensors[gpu_id][lookup_id], dp_keys[gpu_id][lookup_id]);
       }
     }
   };
@@ -477,8 +483,8 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
 
     std::cout << "compare ebc gpu emb output vs. emb reference emb output.\n";
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      std::vector<emb_t> gpu_emb_output;
-      ebc_outptut[gpu_id].to(&gpu_emb_output);
+      std::vector<emb_t> gpu_emb_output(ebc_outptut[gpu_id].num_elements());
+      core23::copy_sync(gpu_emb_output, ebc_outptut[gpu_id]);
       ASSERT_EQ(gpu_emb_output.size(), emb_ref.embedding_vec_[gpu_id].size());
       if (debug_verbose_io) {
         std::cout << "forward ref output:\n";

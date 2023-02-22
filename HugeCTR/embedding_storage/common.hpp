@@ -16,6 +16,9 @@
 #pragma once
 
 #include <core/buffer.hpp>
+#include <core23/tensor.hpp>
+#include <core23/tensor_operations.hpp>
+#include <core23/tensor_params.hpp>
 #include <embedding/common.hpp>
 #include <map>
 #include <optimizer.hpp>
@@ -24,6 +27,7 @@
 
 namespace embedding {
 
+namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
 using core::DataType;
 using core::Device;

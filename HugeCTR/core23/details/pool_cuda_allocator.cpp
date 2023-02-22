@@ -47,7 +47,9 @@ PoolCUDAAllocator::PoolCUDAAllocator(const Device& device) {
 
   std::vector<cudaMemAccessDesc> descs;
   for (int64_t id = 0; id < Device::count(); id++) {
-    if (device.index() != id) {
+    int can_access_peer = 0;
+    HCTR_LIB_THROW(cudaDeviceCanAccessPeer(&can_access_peer, device.index(), id));
+    if (can_access_peer && device.index() != id) {
       cudaMemAccessDesc desc = {};
       desc.location.type = cudaMemLocationTypeDevice;
       desc.location.id = id;

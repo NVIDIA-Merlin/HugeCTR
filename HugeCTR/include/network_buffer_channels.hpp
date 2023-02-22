@@ -30,4 +30,6 @@ core23::BufferChannel GetWgradBufferChannel();
 
 core23::BufferChannel GetWgradHalfBufferChannel();
 
+core23::BufferChannel GetOptStateBufferChannnel();
+
 }  // namespace HugeCTR

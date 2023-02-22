@@ -224,34 +224,35 @@ class PreprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTyp
     // Prepare inputs
     int64_t num_keys = 0;
     int64_t num_row_lengths = 0;
-    std::vector<sok::Tensor> keys_sok;
-    std::vector<sok::Tensor> row_lengths_sok;
-    std::vector<sok::Tensor> sp_weights_sok;
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
+    std::vector<sok::Tensor23> keys_sok;
+    std::vector<sok::Tensor23> row_lengths_sok;
+    std::vector<sok::Tensor23> sp_weights_sok;
     this->use_sp_weight_ = false;
     for (int i = 0; i < this->num_lookups_; ++i) {
       const Tensor& key_tf = ctx->input(i);
-      keys_sok.push_back(sok::convert_tensor<KeyType>(&key_tf));
+      keys_sok.push_back(sok::convert_tensor_core23<KeyType>(&key_tf,tensor_device_id));
       num_keys += key_tf.NumElements();
 
       const Tensor& row_length_tf = ctx->input(this->num_lookups_ + i);
-      row_lengths_sok.push_back(sok::convert_tensor<OffsetType>(&row_length_tf));
+      row_lengths_sok.push_back(sok::convert_tensor_core23<OffsetType>(&row_length_tf,tensor_device_id));
       num_row_lengths += row_length_tf.NumElements();
     }
 
     // Prepare outputs
     Tensor* key_send_buffer_tf = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {num_keys}, &key_send_buffer_tf));
-    sok::Tensor key_send_buffer_sok(sok::convert_tensor<KeyType>(key_send_buffer_tf));
+    sok::Tensor23 key_send_buffer_sok(sok::convert_tensor_core23<KeyType>(key_send_buffer_tf,tensor_device_id));
 
     Tensor* row_length_send_buffer_tf = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(1, {num_row_lengths}, &row_length_send_buffer_tf));
-    sok::Tensor row_length_send_buffer_sok(
-        sok::convert_tensor<OffsetType>(row_length_send_buffer_tf));
+    sok::Tensor23 row_length_send_buffer_sok(
+        sok::convert_tensor_core23<OffsetType>(row_length_send_buffer_tf,tensor_device_id));
 
     Tensor* sp_weight_send_buffer_tf = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(2, {0}, &sp_weight_send_buffer_tf));
 
-    sok::Tensor sp_weight_send_buffer_sok(sok::convert_tensor<DType>(sp_weight_send_buffer_tf));
+    sok::Tensor23 sp_weight_send_buffer_sok(sok::convert_tensor_core23<DType>(sp_weight_send_buffer_tf,tensor_device_id));
 
     // Do forward
     ::embedding::tf::swizzle_key::sparse_forward_per_gpu(this->make_core_resource(ctx), keys_sok,
@@ -304,20 +305,21 @@ class PreprocessingForwardWithWeightOp
     int64_t num_keys = 0;
     int64_t num_row_lengths = 0;
     int64_t num_sp_weights = 0;
-    std::vector<sok::Tensor> keys_sok;
-    std::vector<sok::Tensor> row_lengths_sok;
-    std::vector<sok::Tensor> sp_weights_sok;
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
+    std::vector<sok::Tensor23> keys_sok;
+    std::vector<sok::Tensor23> row_lengths_sok;
+    std::vector<sok::Tensor23> sp_weights_sok;
     for (int i = 0; i < this->num_lookups_; ++i) {
       const Tensor& key_tf = ctx->input(i);
-      keys_sok.push_back(sok::convert_tensor<KeyType>(&key_tf));
+      keys_sok.push_back(sok::convert_tensor_core23<KeyType>(&key_tf,tensor_device_id));
       num_keys += key_tf.NumElements();
 
       const Tensor& row_length_tf = ctx->input(this->num_lookups_ + i);
-      row_lengths_sok.push_back(sok::convert_tensor<OffsetType>(&row_length_tf));
+      row_lengths_sok.push_back(sok::convert_tensor_core23<OffsetType>(&row_length_tf,tensor_device_id));
       num_row_lengths += row_length_tf.NumElements();
       if (this->use_sp_weight_) {
         const Tensor& sp_weight_tf = ctx->input(this->num_lookups_ * 2 + i);
-        sp_weights_sok.push_back(sok::convert_tensor<DType>(&sp_weight_tf));
+        sp_weights_sok.push_back(sok::convert_tensor_core23<DType>(&sp_weight_tf,tensor_device_id));
         num_sp_weights += sp_weight_tf.NumElements();
       }
     }
@@ -325,12 +327,12 @@ class PreprocessingForwardWithWeightOp
     // Prepare outputs
     Tensor* key_send_buffer_tf = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {num_keys}, &key_send_buffer_tf));
-    sok::Tensor key_send_buffer_sok(sok::convert_tensor<KeyType>(key_send_buffer_tf));
+    sok::Tensor23 key_send_buffer_sok(sok::convert_tensor_core23<KeyType>(key_send_buffer_tf,tensor_device_id));
 
     Tensor* row_length_send_buffer_tf = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(1, {num_row_lengths}, &row_length_send_buffer_tf));
-    sok::Tensor row_length_send_buffer_sok(
-        sok::convert_tensor<OffsetType>(row_length_send_buffer_tf));
+    sok::Tensor23 row_length_send_buffer_sok(
+        sok::convert_tensor_core23<OffsetType>(row_length_send_buffer_tf,tensor_device_id));
 
     Tensor* sp_weight_send_buffer_tf = nullptr;
     if (this->use_sp_weight_) {
@@ -338,7 +340,7 @@ class PreprocessingForwardWithWeightOp
     } else {
       OP_REQUIRES_OK(ctx, ctx->allocate_output(2, {0}, &sp_weight_send_buffer_tf));
     }
-    sok::Tensor sp_weight_send_buffer_sok(sok::convert_tensor<DType>(sp_weight_send_buffer_tf));
+    sok::Tensor23 sp_weight_send_buffer_sok(sok::convert_tensor_core23<DType>(sp_weight_send_buffer_tf,tensor_device_id));
 
     // Do forward
     ::embedding::tf::swizzle_key::weighted_sparse_forward_per_gpu(
@@ -392,6 +394,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     std::vector<tf_shared_lock> locks;
     std::vector<core::RefCountPtr<VarType>> vars;
     std::vector<int> scale;
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
     for (int i = 0; i < this->num_lookups_; ++i) {
       auto handle = HandleFromInput(ctx, i);
       auto dtypes_and_shapes = handle.dtypes_and_shapes();
@@ -420,16 +423,16 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     // Prepare inputs (except handles)
     const Tensor* key_recv_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("key_recv_buffer", &key_recv_buffer));
-    sok::Tensor key_recv_buffer_tensor(sok::convert_tensor<KeyType>(key_recv_buffer));
+    sok::Tensor23 key_recv_buffer_tensor(sok::convert_tensor_core23<KeyType>(key_recv_buffer,tensor_device_id));
 
     const Tensor* row_length_recv_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("row_length_recv_buffer", &row_length_recv_buffer));
-    sok::Tensor row_length_recv_buffer_tensor(
-        sok::convert_tensor<OffsetType>(row_length_recv_buffer));
+    sok::Tensor23 row_length_recv_buffer_tensor(
+        sok::convert_tensor_core23<OffsetType>(row_length_recv_buffer,tensor_device_id));
 
     const Tensor* sp_weight = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("sp_weight", &sp_weight));
-    sok::Tensor sp_weight_recv_buffer_tensor(sok::convert_tensor<DType>(sp_weight));
+    sok::Tensor23 sp_weight_recv_buffer_tensor(sok::convert_tensor_core23<DType>(sp_weight,tensor_device_id));
 
     int global_batch_size = row_length_recv_buffer->NumElements() / this->num_lookups_;
     // Get hotness dynamic
@@ -456,23 +459,29 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     // Prepare outputs
     auto buffer_size_list = ::embedding::tf::model_forward::get_model_comm_buffer_size(
         *this->meta_, tf_backend->get_global_gpu_count(), global_batch_size);
-    std::vector<sok::Tensor> emb_vec_model_buffer;
+    std::vector<sok::Tensor23> emb_vec_model_buffer;
     for (size_t i = 0; i < buffer_size_list.size(); ++i) {
       Tensor* output = nullptr;
       OP_REQUIRES_OK(ctx,
                      ctx->allocate_output(i, {static_cast<int64_t>(buffer_size_list[i])}, &output));
-      emb_vec_model_buffer.push_back(sok::convert_tensor<DType>(output));
+      emb_vec_model_buffer.push_back(sok::convert_tensor_core23<DType>(output,tensor_device_id));
     }
 
     // Do forward
     int64_t num_model_key, num_model_offsets;
-    sok::Tensor ret_model_key, ret_model_offset, ret_sp_sum, ret_sp_weight;
+    sok::Tensor23 ret_model_key, ret_model_offset, ret_sp_sum, ret_sp_weight;
     if (this->use_sp_weight_) {
-      ::embedding::tf::model_forward::weighted_sparse_forward_per_gpu(
+//      ::embedding::tf::model_forward::weighted_sparse_forward_per_gpu(
+//          tf_backend, *this->meta_, this->global_gpu_id_, key_recv_buffer_tensor,
+//          row_length_recv_buffer_tensor, sp_weight_recv_buffer_tensor, &adapter_,
+//          emb_vec_model_buffer, &num_model_key, &num_model_offsets, &ret_model_key,
+//          &ret_model_offset, &ret_sp_weight);
+  ::embedding::tf::model_forward::weighted_sparse_forward_per_gpu(
           tf_backend, *this->meta_, this->global_gpu_id_, key_recv_buffer_tensor,
           row_length_recv_buffer_tensor, sp_weight_recv_buffer_tensor, &adapter_,
-          emb_vec_model_buffer, &num_model_key, &num_model_offsets, &ret_model_key,
-          &ret_model_offset, &ret_sp_weight);
+          emb_vec_model_buffer, &num_model_key, &num_model_offsets, ret_model_key,
+          ret_model_offset, ret_sp_weight);
+
     } else {
       ::embedding::tf::model_forward::sparse_forward_per_gpu(
           tf_backend, *this->ebc_param_, *this->meta_, key_recv_buffer_tensor,
@@ -484,11 +493,11 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     // Note the type of model_offsets is always uint32_t
     Tensor* model_key = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(this->num_gpus_, {num_model_key}, &model_key));
-    sok::Tensor model_key_tensor(sok::convert_tensor<KeyType>(model_key));
+    sok::Tensor23 model_key_tensor(sok::convert_tensor_core23<KeyType>(model_key,tensor_device_id));
     Tensor* model_offsets = nullptr;
     OP_REQUIRES_OK(ctx,
                    ctx->allocate_output(this->num_gpus_ + 1, {num_model_offsets}, &model_offsets));
-    sok::Tensor model_offsets_tensor(sok::convert_tensor<uint32_t>(model_offsets));
+    sok::Tensor23 model_offsets_tensor(sok::convert_tensor_core23<uint32_t>(model_offsets,tensor_device_id));
 
     Tensor* model_sp_weight = nullptr;
     if (this->use_sp_weight_) {
@@ -497,7 +506,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     } else {
       OP_REQUIRES_OK(ctx, ctx->allocate_output(this->num_gpus_ + 2, {0}, &model_sp_weight));
     }
-    sok::Tensor sp_weight_tensor(sok::convert_tensor<uint32_t>(model_sp_weight));
+    sok::Tensor23 sp_weight_tensor(sok::convert_tensor_core23<uint32_t>(model_sp_weight,tensor_device_id));
 
     // Copy tensors that will be used in backward
     if (this->use_sp_weight_) {
@@ -574,18 +583,19 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
       return;
     }
 
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
     // Prepare input
-    std::vector<sok::Tensor> emb_vec_buffer_grad;
+    std::vector<sok::Tensor23> emb_vec_buffer_grad;
     for (int i = 0; i < this->num_gpus_; ++i) {
       const Tensor& inp = ctx->input(i);
-      emb_vec_buffer_grad.push_back(sok::convert_tensor<DType>(&inp));
+      emb_vec_buffer_grad.push_back(sok::convert_tensor_core23<DType>(&inp,tensor_device_id));
     }
     const Tensor* model_key = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("model_key", &model_key));
-    sok::Tensor model_key_tensor(sok::convert_tensor<KeyType>(model_key));
+    sok::Tensor23 model_key_tensor(sok::convert_tensor_core23<KeyType>(model_key,tensor_device_id));
     const Tensor* model_offsets = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("model_offsets", &model_offsets));
-    sok::Tensor model_offsets_tensor(sok::convert_tensor<uint32_t>(model_offsets));
+    sok::Tensor23 model_offsets_tensor(sok::convert_tensor_core23<uint32_t>(model_offsets,tensor_device_id));
 
     // Get global batch size
     int batch_size = (model_offsets->NumElements() - 1) / this->num_local_lookups_;
@@ -601,14 +611,13 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 
     const Tensor* model_sp_weight = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("model_sp_weight", &model_sp_weight));
-    sok::Tensor model_sp_weight_tensor(sok::convert_tensor<DType>(model_sp_weight));
+    sok::Tensor23 model_sp_weight_tensor(sok::convert_tensor_core23<DType>(model_sp_weight,tensor_device_id));
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, batch_size, hotness_vector);
-
     // Do backward
     std::vector<int> num_unique_key_per_table, unique_id_space_list;
-    sok::Tensor ret_continous_unique_key, ret_continous_emb_vec;
+    sok::Tensor23 ret_continous_unique_key, ret_continous_emb_vec;
     if (this->use_sp_weight_) {
       ::embedding::tf::model_backward::weighted_sparse_backward_per_gpu(
           tf_backend, *this->meta_, emb_vec_buffer_grad, model_key_tensor, model_offsets_tensor,
@@ -622,7 +631,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     }
 
     // Prepare output
-    std::vector<sok::Tensor> unique_key, grad;
+    std::vector<sok::Tensor23> unique_key, grad;
     for (int i = 0; i < this->num_lookups_; ++i) {
       int num_unique_key = 0;
       auto target_id_space_iter =
@@ -638,8 +647,8 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i + this->num_lookups_,
                                                {num_unique_key, this->dimensions_[i]}, &grad_tf));
       if (target_id_space_iter != unique_id_space_list.end()) {
-        unique_key.push_back(sok::convert_tensor<KeyType>(unique_key_tf));
-        grad.push_back(sok::convert_tensor<DType>(grad_tf));
+        unique_key.push_back(sok::convert_tensor_core23<KeyType>(unique_key_tf,tensor_device_id));
+        grad.push_back(sok::convert_tensor_core23<DType>(grad_tf,tensor_device_id));
       }
     }
 
@@ -699,21 +708,21 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
 #else
     int64_t* emb_vec_buffer_shape_ptr = emb_vec_buffer_shape->flat<int64_t>().data();
 #endif
-
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
     // Prepare input
-    std::vector<sok::Tensor> emb_vec_buffer;
+    std::vector<sok::Tensor23> emb_vec_buffer;
     for (int i = 0; i < this->num_gpus_; ++i) {
       const Tensor& emb_vec_buffer_tf = ctx->input(i);
-      sok::Tensor emb_vec_buffer_tensor(sok::convert_tensor<DType>(&emb_vec_buffer_tf));
+      sok::Tensor23 emb_vec_buffer_tensor(sok::convert_tensor_core23<DType>(&emb_vec_buffer_tf,tensor_device_id));
       emb_vec_buffer.push_back(emb_vec_buffer_tensor);
       emb_vec_buffer_shape_ptr[i] = emb_vec_buffer_tf.NumElements();
     }
 
     int batch_size = -1;
-    std::vector<sok::Tensor> row_lengths;
+    std::vector<sok::Tensor23> row_lengths;
     for (int i = 0; i < this->num_lookups_; ++i) {
       const Tensor& row_length = ctx->input(this->num_gpus_ + i);
-      sok::Tensor row_length_tensor(sok::convert_tensor<OffsetType>(&row_length));
+      sok::Tensor23 row_length_tensor(sok::convert_tensor_core23<OffsetType>(&row_length,tensor_device_id));
       row_lengths.push_back(row_length_tensor);
       if (batch_size == -1) {
         batch_size = row_length.NumElements();
@@ -726,7 +735,7 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
 
     const Tensor* sp_sum_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("sp_sum", &sp_sum_buffer));
-    sok::Tensor sp_sum_tensor(sok::convert_tensor<DType>(sp_sum_buffer));
+    sok::Tensor23 sp_sum_tensor(sok::convert_tensor_core23<DType>(sp_sum_buffer,tensor_device_id));
 
     // Get global batch size
     int global_batch_size = batch_size * this->num_gpus_;
@@ -745,11 +754,11 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
     this->update_meta(tf_backend, global_batch_size, hotness_vector);
 
     // Prepare output
-    std::vector<sok::Tensor> emb_vec;
+    std::vector<sok::Tensor23> emb_vec;
     for (int i = 0; i < this->num_lookups_; ++i) {
       Tensor* emb = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {batch_size, this->dimensions_[i]}, &emb));
-      emb_vec.push_back(sok::convert_tensor<DType>(emb));
+      emb_vec.push_back(sok::convert_tensor_core23<DType>(emb,tensor_device_id));
     }
 
     // Do forward
@@ -807,10 +816,11 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
   void Compute(OpKernelContext* ctx) override {
     // Prepare input
     int batch_size = -1;
-    std::vector<sok::Tensor> emb_vec_grad;
+    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
+    std::vector<sok::Tensor23> emb_vec_grad;
     for (int i = 0; i < this->num_lookups_; ++i) {
       const Tensor& emb_vec_grad_tf = ctx->input(i);
-      sok::Tensor emb_vec_grad_tensor(sok::convert_tensor<DType>(&emb_vec_grad_tf));
+      sok::Tensor23 emb_vec_grad_tensor(sok::convert_tensor_core23<DType>(&emb_vec_grad_tf,tensor_device_id));
       emb_vec_grad.push_back(emb_vec_grad_tensor);
 
       OP_REQUIRES(ctx, this->dimensions_[i] == emb_vec_grad_tf.dim_size(1),
@@ -824,10 +834,10 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
       }
     }
 
-    std::vector<sok::Tensor> row_lengths;
+    std::vector<sok::Tensor23> row_lengths;
     for (int i = 0; i < this->num_lookups_; ++i) {
       const Tensor& row_length = ctx->input(this->num_lookups_ + 1 + i);
-      sok::Tensor row_length_tensor(sok::convert_tensor<OffsetType>(&row_length));
+      sok::Tensor23 row_length_tensor(sok::convert_tensor_core23<OffsetType>(&row_length,tensor_device_id));
       row_lengths.push_back(row_length_tensor);
     }
 
@@ -845,7 +855,7 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
 
     const Tensor* sp_sum_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("sp_sum", &sp_sum_buffer));
-    sok::Tensor sp_sum_tensor(sok::convert_tensor<DType>(sp_sum_buffer));
+    sok::Tensor23 sp_sum_tensor(sok::convert_tensor_core23<DType>(sp_sum_buffer,tensor_device_id));
 
     // instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
@@ -859,11 +869,11 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
 #else
     const int64_t* shape = emb_vec_buffer_shape->flat<int64_t>().data();
 #endif
-    std::vector<sok::Tensor> emb_vec_buffer_grad;
+    std::vector<sok::Tensor23> emb_vec_buffer_grad;
     for (int i = 0; i < this->num_gpus_; ++i) {
       Tensor* emb = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {shape[i]}, &emb));
-      emb_vec_buffer_grad.push_back(sok::convert_tensor<DType>(emb));
+      emb_vec_buffer_grad.push_back(sok::convert_tensor_core23<DType>(emb,tensor_device_id));
     }
     // Do backward
     if (this->use_sp_weight_) {

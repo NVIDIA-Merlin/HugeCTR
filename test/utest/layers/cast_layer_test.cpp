@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <core23/low_level_primitives.hpp>
 #include <cstdlib>
 #include <layers/cast_layer.hpp>
 #include <utest/test_utils.hpp>
@@ -43,41 +44,48 @@ void cast_cpu(float* top, const __half* bottom, int len) {
 }
 
 template <typename From, typename To>
-void cast_test(size_t dim0, size_t dim1) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, dim1};
-  Tensor2<From> in_tensor;
-  buff->reserve(dims, &in_tensor);
-  Tensor2<To> out_tensor;
-  buff->reserve(dims, &out_tensor);
+void cast_test(int64_t dim0, int64_t dim1) {
+  constexpr bool use_mixed_precision = std::is_same_v<To, __half>;
 
-  CastLayer<From, To> cast_layer(in_tensor, out_tensor, test::get_default_gpu());
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .shape({dim0, dim1})
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+  core23::Tensor bottom_tensor(tensor_params.data_type(
+      use_mixed_precision ? core23::ScalarType::Float : core23::ScalarType::Half));
+  core23::Tensor top_tensor(tensor_params);
 
-  buff->allocate();
+  CastLayer<From, To> cast_layer(bottom_tensor, top_tensor, test::get_default_gpu());
+
   cast_layer.initialize();
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
-  const int len = dim0 * dim1;
-  From* d_in = in_tensor.get_ptr();
-  To* d_out = out_tensor.get_ptr();
+  const auto len = dim0 * dim1;
 
-  std::unique_ptr<From[]> h_in(new From[len]);
-  std::unique_ptr<To[]> h_out(new To[len]);
+  std::vector<From> h_bottom(len);
+  std::vector<To> h_top(len);
+  std::vector<To> h_ref(len);
 
-  simulator.fill(h_in.get(), len);
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(From), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
+
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
 
   // fprop test
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   cast_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  std::unique_ptr<To[]> h_out_gpu(new To[len]);
-  HCTR_LIB_THROW(cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(To), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  cast_cpu(h_out.get(), h_in.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<To>(h_out.get(), h_out_gpu.get(), len, eps));
+  cast_cpu(h_ref.data(), h_bottom.data(), len);
+  ASSERT_TRUE(test::compare_array_approx<To>(h_top.data(), h_ref.data(), len, eps));
 
   // bprop test
   // doing nothing in bprop, no need to test

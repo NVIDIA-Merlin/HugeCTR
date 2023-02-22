@@ -158,14 +158,14 @@ TFAdapter<KeyType, DType>::~TFAdapter() {
 }
 
 template <typename KeyType, typename DType>
-void TFAdapter<KeyType, DType>::lookup(const ::core::Tensor& keys, size_t num_keys,
-                                       const ::core::Tensor& id_space_offset,
-                                       size_t num_id_space_offset, const ::core::Tensor& id_space,
-                                       ::core::TensorList& embedding_vec) {
+void TFAdapter<KeyType, DType>::lookup(const core23::Tensor& keys, size_t num_keys,
+                                       const core23::Tensor& id_space_offset,
+                                       size_t num_id_space_offset, const core23::Tensor& id_space,
+                                       core23::Tensor& embedding_vec) {
   TFAdapterKernel<KeyType, DType><<<2 * sm_count_, 1024ul, 0, stream_>>>(
-      d_data_, d_dimensions_, d_scale_, d_id_space_to_local_index_, keys.get<KeyType>(), num_keys,
-      id_space_offset.get<uint32_t>(), num_id_space_offset - 1, id_space.get<int>(),
-      embedding_vec.get<DType>());
+      d_data_, d_dimensions_, d_scale_, d_id_space_to_local_index_, keys.data<KeyType>(), num_keys,
+      id_space_offset.data<uint32_t>(), num_id_space_offset - 1, id_space.data<int>(),
+      static_cast<DType**>(embedding_vec.data()));
   // CUDACHECK(cudaStreamSynchronize(stream_));
   // CUDACHECK(cudaGetLastError());
 }
@@ -208,28 +208,28 @@ void DummyVarAdapter<KeyType, DType>::set(
 }
 
 template <typename KeyType, typename DType>
-void DummyVarAdapter<KeyType, DType>::lookup(const ::core::Tensor& keys, size_t num_keys,
-                                             const ::core::Tensor& id_space_offset,
+void DummyVarAdapter<KeyType, DType>::lookup(const core23::Tensor& keys, size_t num_keys,
+                                             const core23::Tensor& id_space_offset,
                                              size_t num_id_space_offset,
-                                             const ::core::Tensor& id_space,
-                                             ::core::TensorList& embedding_vec) {
+                                             const core23::Tensor& id_space,
+                                             core23::Tensor& embedding_vec) {
   // clang-format off
   id_space_offset_.resize(num_id_space_offset);
   CUDACHECK(cudaMemcpyAsync(id_space_offset_.data(),
-                            id_space_offset.get<uint32_t>(),
+                            id_space_offset.data<uint32_t>(),
                             sizeof(uint32_t) * (num_id_space_offset),
                             cudaMemcpyDeviceToHost, stream_));
   id_space_.resize(num_id_space_offset - 1);
   CUDACHECK(cudaMemcpyAsync(id_space_.data(),
-                            id_space.get<int>(),
+                            id_space.data<int>(),
                             sizeof(int) * (num_id_space_offset - 1),
                             cudaMemcpyDeviceToHost, stream_));
   // clang-format on
 
   CUDACHECK(cudaStreamSynchronize(stream_));
 
-  DType** output = embedding_vec.get<DType>();
-  const KeyType* input = keys.get<KeyType>();
+  DType** output = static_cast<DType**>(embedding_vec.data());
+  const KeyType* input = keys.data<KeyType>();
   for (int i = 0; i < num_id_space_offset - 1; ++i) {
     size_t num = id_space_offset_[i + 1] - id_space_offset_[i];
     auto var = vars_[id_space_[i]];

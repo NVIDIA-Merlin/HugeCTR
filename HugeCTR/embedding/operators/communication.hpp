@@ -16,11 +16,20 @@
 #pragma once
 
 #include <core/buffer.hpp>
+#include <core23/tensor.hpp>
+#include <core23/tensor_operations.hpp>
+#include <core23/tensor_params.hpp>
+
+namespace HugeCTR {
+namespace core23 {
+
+ncclDataType_t get_nccl_dtype_from_tensor_scalar_type_core23(core23::ScalarType scalar_type);
+}
+}  // namespace HugeCTR
 
 namespace embedding {
+namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
-using core::Device;
-using core::Tensor;
 
 class NcclAll2AllComm {
   std::shared_ptr<CoreResourceManager> core_;
@@ -30,8 +39,8 @@ class NcclAll2AllComm {
 
   NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core);
 
-  void communicate(const std::vector<Tensor> &send_tensors, const std::vector<size_t> &send_offsets,
-                   std::vector<Tensor> &recv_tensors, const std::vector<size_t> &recv_offsets);
+  void communicate(const std::vector<core23::Tensor> &send_tensors,
+                   std::vector<core23::Tensor> &recv_tensors);
 };
 
 class NcclAllReduceInplaceComm {
@@ -42,7 +51,7 @@ class NcclAllReduceInplaceComm {
 
   NcclAllReduceInplaceComm(std::shared_ptr<CoreResourceManager> core);
 
-  void communicate(Tensor &tensors, size_t count);
+  void communicate(core23::Tensor &tensors, size_t count);
 };
 
 }  // namespace embedding

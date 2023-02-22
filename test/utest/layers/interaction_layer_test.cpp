@@ -17,6 +17,11 @@
 #include <cublas_v2.h>
 #include <gtest/gtest.h>
 
+#include <core23/cuda_stream.hpp>
+#include <core23/curand_generator.hpp>
+#include <core23/data_type_helpers.cuh>
+#include <core23/low_level_primitives.hpp>
+#include <core23/tensor.hpp>
 #include <layers/interaction_layer.hpp>
 #include <memory>
 #include <utest/test_utils.hpp>
@@ -41,40 +46,42 @@ __half get_eps(bool use_tf32) {
 }
 
 template <typename T>
-void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
+void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
                             bool enable_tf32_compute = false) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  Tensors2<T> in_tensors;
+  std::vector<core23::Tensor> bottom_tensors;
 
-  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
-  std::vector<std::vector<T>> h_ins;
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
+
+  auto device = core23::Device::current();
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::CUDAStream stream(cudaStreamDefault, 0);
+
+  std::vector<std::vector<T>> h_bottoms;
+  core23::Shape mlp_shape = {height, in_width};
+  core23::Shape emb_shape = {height, n_emb, in_width};
   for (int ni = 0; ni < 2; ni++) {
-    std::vector<size_t> dims;
-    if (ni == 0) {
-      dims = {height, in_width};
-    } else {
-      dims = {height, n_emb, in_width};
-    }
-    Tensor2<T> in_tensor;
-    buff->reserve(dims, &in_tensor);
-    in_tensors.push_back(in_tensor);
-
-    h_ins.push_back(
-        std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f)));
-
-    data_sim.fill(h_ins[ni].data(), h_ins[ni].size());
+    bottom_tensors.emplace_back(tensor_params.shape(ni == 0 ? mlp_shape : emb_shape));
+    h_bottoms.emplace_back(bottom_tensors[ni].num_elements(),
+                           core23::TypeConverter<T, float>::value(0.0f));
+    test::normal_sync_cpu(h_bottoms[ni].data(), h_bottoms[ni].size(), 0.f, 1.f, generator);
   }
 
-  auto& in_mlp_tensor = in_tensors[0];
-  auto& in_emb_tensor = in_tensors[1];
+  auto& bottom_mlp_tensor = bottom_tensors[0];
+  auto& bottom_emb_tensor = bottom_tensors[1];
 
-  auto& h_in_mlp = h_ins[0];
-  auto& h_in_emb = h_ins[1];
+  auto& h_bottom_mlp = h_bottoms[0];
+  auto& h_bottom_emb = h_bottoms[1];
 
   size_t n_ins = 1 + n_emb;
   size_t out_width = n_ins * in_width;
 
-  std::vector<T> h_concat(height * out_width, TypeConvert<T, float>::convert(0.0f));
+  std::vector<T> h_concat(height * out_width, core23::TypeConverter<T, float>::value(0.0f));
   auto concat_op = [&](bool fprop) {
     for (size_t ni = 0; ni < n_ins; ni++) {
       for (size_t h = 0; h < height; h++) {
@@ -84,33 +91,30 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
           size_t out_idx = h * out_width + ni * in_width + w;
           if (fprop) {
             h_concat[out_idx] =
-                (ni == 0) ? h_in_mlp[in_idx] : h_in_emb[(ni - 1) * in_width + in_idx];
+                (ni == 0) ? h_bottom_mlp[in_idx] : h_bottom_emb[(ni - 1) * in_width + in_idx];
           } else {
             if (ni == 0) {
-              h_in_mlp[in_idx] = h_in_mlp[in_idx] + h_concat[out_idx];
+              h_bottom_mlp[in_idx] = h_bottom_mlp[in_idx] + h_concat[out_idx];
             } else {
-              h_in_emb[in_idx + (ni - 1) * in_width] = h_concat[out_idx];
+              h_bottom_emb[in_idx + (ni - 1) * in_width] = h_concat[out_idx];
             }
           }
         }
       }
     }
   };
-
-  Tensor2<T> out_tensor;
-  InteractionLayer<T> interaction_layer(in_mlp_tensor, in_emb_tensor, out_tensor, buff,
+  core23::Tensor top_tensor;
+  InteractionLayer<T> interaction_layer(bottom_mlp_tensor, bottom_emb_tensor, top_tensor,
                                         test::get_default_gpu(), true, enable_tf32_compute);
 
-  buff->allocate();
   interaction_layer.initialize();
 
   // device fprop
-  T* d_in_mlp = in_mlp_tensor.get_ptr();
-  HCTR_LIB_THROW(cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor.get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
-  T* d_in_emb = in_emb_tensor.get_ptr();
-  HCTR_LIB_THROW(cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor.get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_mlp_tensor.data(), h_bottom_mlp.data(), bottom_mlp_tensor.num_bytes(),
+                    bottom_mlp_tensor.device(), core23::DeviceType::CPU);
+
+  core23::copy_sync(bottom_emb_tensor.data(), h_bottom_emb.data(), bottom_emb_tensor.num_bytes(),
+                    bottom_emb_tensor.device(), core23::DeviceType::CPU);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   interaction_layer.fprop(true);
@@ -121,16 +125,15 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   // check phase 0: concat
 
   if (n_ins > 31) {
-    auto concat_dev_tensor = interaction_layer.get_internal(0);
-    std::vector<T> h_concat_dev(height * out_width, TypeConvert<T, float>::convert(0.0f));
-    HCTR_LIB_THROW(cudaMemcpy(&h_concat_dev.front(), concat_dev_tensor.get_ptr(),
-                              concat_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    auto concat_dev_tensor = interaction_layer.get_intermediate(0);
+    std::vector<T> h_concat_dev(height * out_width, core23::TypeConverter<T, float>::value(0.0f));
+    core23::copy_sync(h_concat_dev.data(), concat_dev_tensor.data(), concat_dev_tensor.num_bytes(),
+                      core23::DeviceType::CPU, concat_dev_tensor.device());
     ASSERT_TRUE(test::compare_array_approx<T>(&h_concat_dev.front(), &h_concat.front(),
                                               h_concat.size(), get_eps<T>(enable_tf32_compute)));
-    std::cout << "concat is correct\n";
   }
 
-  std::vector<T> h_mat(height * n_ins * n_ins, TypeConvert<T, float>::convert(0.0f));
+  std::vector<T> h_matmul(height * n_ins * n_ins, core23::TypeConverter<T, float>::value(0.0f));
   for (size_t p = 0; p < height; p++) {
     size_t concat_stride = n_ins * in_width * p;
     size_t mat_stride = n_ins * n_ins * p;
@@ -141,20 +144,20 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
           accum += h_concat[concat_stride + m * in_width + k] *
                    h_concat[concat_stride + n * in_width + k];
         }
-        h_mat[mat_stride + m * n_ins + n] = accum;
+        h_matmul[mat_stride + m * n_ins + n] = accum;
       }
     }
   }
   // check phase 2: matmul
 
   if (n_ins > 31) {
-    auto matmul_dev_tensor = interaction_layer.get_internal(1);
-    std::vector<T> h_mat_dev(height * n_ins * n_ins, TypeConvert<T, float>::convert(0.0f));
-    HCTR_LIB_THROW(cudaMemcpy(&h_mat_dev.front(), matmul_dev_tensor.get_ptr(),
-                              matmul_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-    ASSERT_TRUE(test::compare_array_approx<T>(&h_mat_dev.front(), &h_mat.front(), h_mat.size(),
-                                              get_eps<T>(enable_tf32_compute)));
-    std::cout << "matmul is correct\n";
+    auto matmul_dev_tensor = interaction_layer.get_intermediate(1);
+    std::vector<T> h_matmul_dev(height * n_ins * n_ins,
+                                core23::TypeConverter<T, float>::value(0.0f));
+    core23::copy_sync(h_matmul_dev.data(), matmul_dev_tensor.data(), matmul_dev_tensor.num_bytes(),
+                      core23::DeviceType::CPU, matmul_dev_tensor.device());
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_matmul_dev.front(), &h_matmul.front(),
+                                              h_matmul.size(), get_eps<T>(enable_tf32_compute)));
   }
 
   size_t out_len = in_width + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
@@ -164,26 +167,23 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     size_t out_stride = p * out_len;
     size_t mat_stride = p * n_ins * n_ins;
     for (size_t i = 0; i < in_width; i++) {
-      h_ref[out_stride + cur_idx++] = h_in_mlp[p * in_width + i];
+      h_ref[out_stride + cur_idx++] = h_bottom_mlp[p * in_width + i];
     }
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         if (n > m) {
           // use h_mat_dev
-          h_ref[out_stride + cur_idx++] = h_mat[mat_stride + m * n_ins + n];
+          h_ref[out_stride + cur_idx++] = h_matmul[mat_stride + m * n_ins + n];
         }
       }
     }
   }
 
-  std::vector<T> h_out(out_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
-  T* d_out = out_tensor.get_ptr();
-  HCTR_LIB_THROW(
-      cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(),
+  std::vector<T> h_top(top_tensor.num_elements(), core23::TypeConverter<T, float>::value(0.0f));
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
+  ASSERT_TRUE(test::compare_array_approx<T>(&h_top.front(), &h_ref.front(), h_top.size(),
                                             get_eps<T>(enable_tf32_compute)));
-
-  std::cout << "fprop() correct\n";
 
   /*
    * bprop() test begins:
@@ -199,12 +199,12 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     size_t out_stride = p * out_len;
     size_t mat_stride = p * n_ins * n_ins;
     for (size_t i = 0; i < in_width; i++) {
-      h_in_mlp[p * in_width + i] = h_ref[out_stride + cur_idx++];
+      h_bottom_mlp[p * in_width + i] = h_ref[out_stride + cur_idx++];
     }
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
-        h_mat[mat_stride + m * n_ins + n] =
-            (n > m) ? h_ref[out_stride + cur_idx++] : TypeConvert<T, float>::convert(0.0f);
+        h_matmul[mat_stride + m * n_ins + n] =
+            (n > m) ? h_ref[out_stride + cur_idx++] : core23::TypeConverter<T, float>::value(0.0f);
       }
     }
   }
@@ -217,49 +217,48 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
       for (size_t n = 0; n < in_width; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < n_ins; k++) {
-          accum += (h_mat[mat_stride + m * n_ins + k] + h_mat[mat_stride + k * n_ins + m]) *
+          accum += (h_matmul[mat_stride + m * n_ins + k] + h_matmul[mat_stride + k * n_ins + m]) *
                    h_concat_tmp[concat_stride + k * in_width + n];
         }
         h_concat[concat_stride + m * in_width + n] = 1.0f * accum;
       }
     }
   }
-  std::vector<T> h_mat_tmp(h_mat);
+  std::vector<T> h_mat_tmp(h_matmul);
 
   for (size_t p = 0; p < height; p++) {
     size_t mat_stride = n_ins * n_ins * p;
     for (size_t m = 0; m < n_ins; m++) {
       for (size_t n = 0; n < n_ins; n++) {
         h_mat_tmp[mat_stride + m * n_ins + n] =
-            (h_mat[mat_stride + m * n_ins + n] + h_mat[mat_stride + n * n_ins + m]);
+            (h_matmul[mat_stride + m * n_ins + n] + h_matmul[mat_stride + n * n_ins + m]);
       }
     }
   }
 
   if (n_ins > 31) {
-    auto concat_tmp_dev_tensor = interaction_layer.get_internal(3);
-    std::vector<T> h_mat_dev(h_mat.size(), TypeConvert<T, float>::convert(0.0f));
-    HCTR_LIB_THROW(cudaMemcpy(&h_mat_dev.front(), concat_tmp_dev_tensor.get_ptr(),
-                              concat_tmp_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    auto concat_tmp_dev_tensor = interaction_layer.get_intermediate(3);
+    std::vector<T> h_mat_dev(h_matmul.size(), core23::TypeConverter<T, float>::value(0.0f));
+    core23::copy_sync(h_mat_dev.data(), concat_tmp_dev_tensor.data(),
+                      concat_tmp_dev_tensor.num_bytes(), core23::DeviceType::CPU,
+                      concat_tmp_dev_tensor.device());
     ASSERT_TRUE(test::compare_array_approx<T>(&h_mat_tmp.front(), &h_mat_dev.front(),
                                               h_mat_dev.size(), get_eps<T>(enable_tf32_compute)));
-    std::cout << "bprop: (m+mT) is correct\n";
   }
 
   concat_op(false);
 
   for (int i = 0; i < 2; i++) {
-    auto in_tensor = in_tensors[i];
-    std::vector<T> h_in(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
-    T* d_in = in_tensor.get_ptr();
-    HCTR_LIB_THROW(
-        cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-    std::vector<T>& h_ref = h_ins[i];
+    auto bottom_tensor = bottom_tensors[i];
+    std::vector<T> h_bottom(bottom_tensor.num_elements(),
+                            core23::TypeConverter<T, float>::value(0.0f));
+    core23::copy_sync(h_bottom.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                      core23::DeviceType::CPU, bottom_tensor.device());
+    std::vector<T>& h_ref = h_bottoms[i];
 
-    ASSERT_TRUE(test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(),
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_bottom.front(), &h_ref.front(), h_bottom.size(),
                                               get_eps<T>(enable_tf32_compute)));
   }
-  std::cout << "bprop() correct\n";
 }
 
 }  // namespace

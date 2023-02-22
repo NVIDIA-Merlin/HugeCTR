@@ -1169,4 +1169,943 @@ std::unique_ptr<DataSimulator> MultiCrossLayer<T>::get_default_initializer(const
 template class MultiCrossLayer<float>;
 template class MultiCrossLayer<__half>;
 
+namespace {
+
+template <typename T>
+void matrix_vec_mul(core23::Tensor& out, const core23::Tensor& mat, const core23::Tensor& vec,
+                    cublasHandle_t cublas_handle, cudaStream_t stream);
+
+template <>
+void matrix_vec_mul<float>(core23::Tensor& out, const core23::Tensor& mat,
+                           const core23::Tensor& vec, cublasHandle_t cublas_handle,
+                           cudaStream_t stream) {
+  float* pout = out.data<float>();
+  const float* pmat = mat.data<float>();
+  const float* pvec = vec.data<float>();
+
+  const auto& dim = out.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2 && idim.size(1) == vec.shape().size(1) &&
+         vec.shape().size(0) == 1);
+  assert(idim.size(0) == dim.size(0));
+
+  const int h = idim.size(0);
+  const int w = idim.size(1);
+  const float alpha = 1.0f;
+  const float beta = 0.0f;
+
+  CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
+  CUBLAS_CHECK(cublasSgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w, pvec,
+                           w, &beta, pout, h));
+}
+
+template <>
+void matrix_vec_mul<__half>(core23::Tensor& out, const core23::Tensor& mat,
+                            const core23::Tensor& vec, cublasHandle_t cublas_handle,
+                            cudaStream_t stream) {
+  __half* pout = out.data<__half>();
+  const __half* pmat = mat.data<__half>();
+  const __half* pvec = vec.data<__half>();
+
+  const auto& dim = out.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2 && idim.size(1) == vec.shape().size(1) &&
+         vec.shape().size(0) == 1);
+  assert(idim.size(0) == dim.size(0));
+
+  const int h = idim.size(0);
+  const int w = idim.size(1);
+  const __half alpha = 1.0f;
+  const __half beta = 0.0f;
+
+  CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
+  CUBLAS_CHECK(cublasHgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w, pvec,
+                           w, &beta, pout, h));
+}
+
+template <typename T>
+void row_scaling(core23::Tensor& o_mat, const core23::Tensor& mat, const core23::Tensor& vec,
+                 cudaStream_t stream) {
+  T* pout = o_mat.data<T>();
+  const T* pmat = mat.data<T>();
+  const T* pvec = vec.data<T>();
+
+  const auto& dim = o_mat.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2 && dim.size(0) == vec.shape().size(0) &&
+         vec.shape().size(1) == 1);
+  assert(idim.size(0) == dim.size(0) && idim.size(1) == dim.size(1));
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, true, [] __device__(T a, T b) { return a * b; }, stream);
+}
+
+template <typename T>
+void matrix_vec_add(core23::Tensor& o_mat, const core23::Tensor& mat, const core23::Tensor& vec,
+                    cudaStream_t stream) {
+  T* pout = o_mat.data<T>();
+  const T* pmat = mat.data<T>();
+  const T* pvec = vec.data<T>();
+
+  const auto& dim = o_mat.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2 && dim.size(1) == vec.shape().size(1) &&
+         vec.shape().size(0) == 1);
+  assert(idim.size(0) == dim.size(0) && idim.size(1) == dim.size(1));
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, false, [] __device__(T a, T b) { return a + b; }, stream);
+}
+
+template <typename T>
+void matrix_add(core23::Tensor& out_mat, const core23::Tensor& mat_a, const core23::Tensor& mat_b,
+                cudaStream_t stream) {
+  T* pout = out_mat.data<T>();
+  const T* pmat_a = mat_a.data<T>();
+  const T* pmat_b = mat_b.data<T>();
+
+  const auto& dim = out_mat.shape();
+  const auto& idim1 = mat_a.shape();
+  const auto& idim2 = mat_b.shape();
+  assert(idim1.size(0) == dim.size(0) && idim1.size(1) == dim.size(1));
+  assert(idim2.size(0) == dim.size(0) && idim2.size(1) == dim.size(1));
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  MLCommon::LinAlg::binaryOp(
+      pout, pmat_a, pmat_b, h * w, [] __device__(T a, T b) { return a + b; }, stream);
+}
+
+template <typename T>
+void fused_mul_fma3(core23::Tensor& Y0, core23::Tensor& Y1, const core23::Tensor& A,
+                    const core23::Tensor& B, const core23::Tensor& C, cudaStream_t stream) {
+  const T* pmat_a = A.data<T>();
+  const T* pmat_b = B.data<T>();
+  const T* pmat_c = C.data<T>();
+  T* pmat_o0 = Y0.data<T>();
+  T* pmat_o1 = Y1.data<T>();
+  const auto& idima = A.shape();
+  const auto& idimb = B.shape();
+  const auto& idimc = C.shape();
+  const auto& idimc0 = Y0.shape();
+  const auto& idimc1 = Y1.shape();
+
+  assert(idima.size(0) == idimb.size(0) && idima.size(1) == idimb.size(1) &&
+         idimc.size(0) == idimb.size(0) && idimc0.size(1) == idimb.size(1) &&
+         idimc.size(0) == idima.size(0) && idimc.size(1) == idima.size(1));
+  assert(idimc1.size(0) == idimc.size(0) && idimc1.size(1) == idimc0.size(1));
+  const int h = idima.size(0);
+  const int w = idima.size(1);
+  const int len = h * w;
+  constexpr int warp_per_sm = 8;
+  constexpr int warp_size = 32;
+  const int BLOCK_DIM = warp_size * warp_per_sm;  // 8 warps per block
+  int GRID_DIM = (len + BLOCK_DIM - 1) / BLOCK_DIM;
+  if (len % 8 == 0 && std::is_same<T, __half>::value) {
+    GRID_DIM = (len / 8 + BLOCK_DIM - 1) / BLOCK_DIM;
+    vector_mul_fma3_align<T, 8, 3>
+        <<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pmat_o0, pmat_o1, pmat_a, pmat_b, pmat_c, len);
+  } else {
+    vector_mul_fma3_align<T>
+        <<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pmat_o0, pmat_o1, pmat_a, pmat_b, pmat_c, len);
+  }
+}
+// perform out_mat = mat_a * mat_b + mat_c
+template <typename T>
+void fused_matrix_elementwise_dot_add(core23::Tensor& out_mat, const core23::Tensor& mat_a,
+                                      const core23::Tensor& mat_b, const core23::Tensor& mat_c,
+                                      cudaStream_t stream) {
+  T* pout = out_mat.data<T>();
+  const T* pmat_a = mat_a.data<T>();
+  const T* pmat_b = mat_b.data<T>();
+  const T* pmat_c = mat_c.data<T>();
+  const auto& dim = out_mat.shape();
+  const auto& idima = mat_a.shape();
+  const auto& idimb = mat_b.shape();
+  const auto& idimc = mat_c.shape();
+  assert(idima.size(0) == dim.size(0) && idima.size(1) == dim.size(1) &&
+         idimc.size(0) == dim.size(0));
+  assert(idimb.size(0) == dim.size(0) && idimb.size(1) == dim.size(1) &&
+         idimc.size(1) == dim.size(1));
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  constexpr int sm_count = 108;
+  constexpr int warp_per_sm = 8;
+  constexpr int warp_size = 32;
+  constexpr int kNumWaves = 32;
+  const int BLOCK_DIM = warp_size * warp_per_sm;  // 8 warps per block
+  const int GRID_DIM = (h * w + BLOCK_DIM - 1) / BLOCK_DIM;
+  if (h * w % 8 == 0 && std::is_same<T, __half>::value) {
+    int num_items = h * w / 8;
+    const int GRID_DIM_h4 = (num_items + BLOCK_DIM - 1) / BLOCK_DIM;
+    if (pout == pmat_c) {
+      vector_fma3_align8<<<GRID_DIM_h4, BLOCK_DIM, 0, stream>>>(pout, pmat_a, pmat_b, h * w);
+    } else {
+      vector_fma4_align8<<<GRID_DIM_h4, BLOCK_DIM, 0, stream>>>(pout, pmat_a, pmat_b, pmat_c,
+                                                                h * w);
+    }
+  } else {
+    vector_fma4<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, pmat_b, pmat_c, h * w);
+  }
+}
+// c = a * b => 3
+template <typename T>
+void matrix_elementwise_dot(core23::Tensor& out_mat, const core23::Tensor& mat_a,
+                            const core23::Tensor& mat_b, cudaStream_t stream) {
+  T* pout = out_mat.data<T>();
+  const T* pmat_a = mat_a.data<T>();
+  const T* pmat_b = mat_b.data<T>();
+
+  const auto& dim = out_mat.shape();
+  const auto& idim1 = mat_a.shape();
+  const auto& idim2 = mat_b.shape();
+  assert(idim1[0] == dim.size(0) && idim1[1] == dim.size(1));
+  assert(idim2[0] == dim.size(0) && idim2[1] == dim.size(1));
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  MLCommon::LinAlg::binaryOp(
+      pout, pmat_a, pmat_b, h * w, [] __device__(T a, T b) { return a * b; }, stream);
+}
+
+template <typename T>
+void matrix_pair_mul(core23::Tensor& o_vec, const core23::Tensor& mat_a,
+                     const core23::Tensor& mat_b, cudaStream_t stream) {
+  T* pout = o_vec.data<T>();
+  const T* pmat_a = mat_a.data<T>();
+  const T* pmat_b = mat_b.data<T>();
+
+  const auto& dim = mat_a.shape();
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+  assert(h == mat_b.shape().size(0) && w == mat_a.shape().size(1) && h == o_vec.shape().size(0) &&
+         1 == o_vec.shape().size(1));
+
+  const int BLOCK_DIM = 256;
+  const int GRID_DIM = calc_grid(h * WARP_SIZE, BLOCK_DIM);
+  matrix_pair_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
+}
+
+template <typename T>
+void out_product(core23::Tensor& out_mat, const core23::Tensor& vec_a, const core23::Tensor& vec_b,
+                 cudaStream_t stream) {
+  T* pout = out_mat.data<T>();
+  const T* pvec_a = vec_a.data<T>();
+  const T* pvec_b = vec_b.data<T>();
+  const auto& dim = out_mat.shape();
+
+  const int h = dim.size(0);
+  const int w = dim.size(1);
+
+  assert(h == vec_a.shape().size(0) && w == vec_b.shape().size(1) && vec_a.shape().size(1) == 1 &&
+         vec_b.shape().size(0) == 1);
+
+  const int BLOCK_DIM = 256;
+  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  mm_1d<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
+}
+
+template <typename T>
+void row_scaling_sum(core23::Tensor& out, const core23::Tensor& mat, const core23::Tensor& vec,
+                     cudaStream_t stream) {
+  T* pout = out.data<T>();
+  const T* pmat = mat.data<T>();
+  const T* pvec = vec.data<T>();
+
+  const auto& dim = out.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2 && idim.size(0) == vec.shape().size(0) &&
+         vec.shape().size(1) == 1);
+  assert(idim.size(1) == dim.size(1));
+
+  const int h = idim.size(0);
+  const int w = idim.size(1);
+
+  const int BLOCK_DIM = 256;
+  const int GRID_DIM = calc_grid(w * WARP_SIZE, BLOCK_DIM);  // each col one warp
+
+  row_scaling_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+}
+
+template <typename T>
+void rows_sum(core23::Tensor& out, const core23::Tensor& mat, cudaStream_t stream) {
+  T* pout = out.data<T>();
+  const T* pmat = mat.data<T>();
+
+  const auto& dim = out.shape();
+  const auto& idim = mat.shape();
+  assert(dim.dims() == 2 && idim.dims() == 2);
+  assert(idim.size(1) == dim.size(1));
+
+  const int h = idim.size(0);
+  const int w = idim.size(1);
+
+  MLCommon::LinAlg::reduce(pout, pmat, h, w, (T)0, false, true, stream, false,
+                           [] __device__(T in, int i) { return in; });
+}
+
+}  // namespace
+
+/*
+ * Equivalent TensorFlow Code:
+ *
+def forward(x, k, b, layers):
+  y = []
+  h = []
+  for i in range(layers):
+    v = tf.linalg.matvec(x if i == 0 else y[i - 1], k[i])
+    v = tf.transpose(v)
+    h.append(v)
+    m = tf.multiply(x, v)
+    m = tf.add(m, x if i == 0 else y[i - 1])
+    m = tf.add(m, b[i])
+    y.append(m)
+  return y, h
+ *
+ */
+template <typename T>
+void Core23TempMultiCrossForwardFunctor<T>::operator()(
+    cudaStream_t stream, cublasHandle_t cublas_handle, const core23::Tensor& input_tensor,
+    const std::vector<core23::Tensor>& kernel_tensors,
+    const std::vector<core23::Tensor>& bias_tensors,
+    std::vector<core23::Tensor>& layer_output_tensors,
+    std::vector<core23::Tensor>& layer_hidden_tensors, int num_layers) const {
+  for (int i = 0; i < num_layers; i++) {
+    // weight: kernel_tensors[i] is a row vector
+    // layer_hidden_tensors[i] is a row vector
+    matrix_vec_mul<T>(layer_hidden_tensors[i], i == 0 ? input_tensor : layer_output_tensors[i - 1],
+                      kernel_tensors[i], cublas_handle, stream);
+    row_scaling<T>(layer_output_tensors[i], input_tensor, layer_hidden_tensors[i], stream);
+    matrix_add<T>(layer_output_tensors[i], layer_output_tensors[i],
+                  i == 0 ? input_tensor : layer_output_tensors[i - 1], stream);
+    matrix_vec_add<T>(layer_output_tensors[i], layer_output_tensors[i], bias_tensors[i], stream);
+  }
+}
+
+//
+/*
+  ouput is x_{l+1} =  x_0 \. (w * x_l + b) + x_l , where
+  input is
+    input_tensor : x_0
+    kernel_tensors : w
+    bias_tensors   : n
+    layer_output_tensors : x_l
+
+
+  output is
+    layer_output_tensors : x_l
+
+  intermediate tensor:
+    layer_hidden_tensors : w * x_l
+
+h_i = gemv(x_i,w_i) ,
+o_i = row_scaling(h_i,x),
+o_i = matrix_vec_add(o_i,bias)
+o_i = matrix_add(o_i,o_{i-1})
+
+*
+*/
+template <typename T>
+
+void Core23TempMultiCrossForwardFunctorv2<T>::operator()(
+    cudaStream_t stream, const core23::Tensor& input_tensor,
+    const std::vector<core23::Tensor>& kernel_tensors,
+    const std::vector<core23::Tensor>& bias_tensors, std::vector<core23::Tensor>& XU_tensors,
+    std::vector<core23::Tensor>& layer_output_tensors,
+    std::vector<core23::Tensor>& layer_hidden_tensors, int num_layers,
+    const std::vector<CublasDesc<T>>& xu_descr_, const std::vector<CublasDesc<T>>& xuvb_descr_,
+    const std::vector<CublasAlgo<T>>& xu_fprop_algo_,
+    const std::vector<CublasAlgo<T>>& xuvb_fprop_algo_, cublasLtHandle_t cublaslt_handle) {
+  auto batchsize = input_tensor.shape().size(0);
+  auto projection_dim = kernel_tensors[0].shape().size(1);
+  auto vec_length = input_tensor.shape().size(1);
+  auto U_row = kernel_tensors[0].shape().size(0);
+  auto V_col = kernel_tensors[1].shape().size(1);
+  float alpha = 1.0f;
+  float beta = 0.0f;
+  if (vec_length != U_row || vec_length != V_col) {
+    HCTR_LOG(INFO, WORLD, "vec_length %d U_row %d V_col %d\n", vec_length, U_row, V_col);
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor dimensions not matches");
+  }
+  for (int i = 0; i < num_layers; i++) {
+    const auto& tensor_input = i == 0 ? input_tensor : layer_output_tensors[i - 1];
+    // gemm with functor
+    // x_i * u
+    {
+      const T* mat_a = tensor_input.data<T>();
+      const T* mat_b = kernel_tensors[2 * i].data<T>();
+      T* mat_c = XU_tensors[i].data<T>();
+      this->gemm_functor_(alpha, mat_a, mat_b, beta, mat_c, mat_c, xu_descr_[i], xu_fprop_algo_[i],
+                          cublaslt_handle, stream);
+    }
+
+    // gemm + bias with functor
+    // x_i * u * v + b
+    {
+      const T* mat_a = XU_tensors[i].data<T>();
+      const T* mat_b = kernel_tensors[2 * i + 1].data<T>();
+      T* mat_c = layer_hidden_tensors[i].data<T>();
+      this->gemm_functor_(alpha, mat_a, mat_b, beta, mat_c, mat_c, xuvb_descr_[i],
+                          xuvb_fprop_algo_[i], cublaslt_handle, stream);
+    }
+    // x_0 .* (x_i * u * v + b) + x_i
+    fused_matrix_elementwise_dot_add<T>(
+        layer_output_tensors[i], layer_hidden_tensors[i], input_tensor,
+        i == 0 ? input_tensor : layer_output_tensors[i - 1], stream);
+  }
+}
+
+/*
+ * Equivalent TensorFlow Code:
+ *
+def backward(x, k, y, h, dy, layers):
+  dx = tf.zeros(x.shape)
+  dk = []
+  db = []
+  for i in reversed(range(layers)):
+    dx = tf.add(dx, tf.multiply(dy, h[i]))
+    dv = tf.expand_dims(tf.reduce_sum(tf.multiply(dy, x), 1), 1)
+    dk.insert(0, tf.linalg.matvec(x if i == 0 else y[i - 1], tf.transpose(dv), transpose_a=True))
+    db.insert(0, tf.expand_dims(tf.reduce_sum(dy, 0), 0))
+    dy = tf.add(dy, tf.matmul(dv, k[i]))
+  dx = tf.add(dx, dy)
+  return dx, dk, db
+grad_tensor : dy
+one multi-cross contains multiple cell:
+
+tmp_mat_tensors[0] : dy * h[i]
+tmp_mat_tensors[1] : tmp data gradient to current multicross cell
+tmp_mat_tensors[2]: sum(dy/dh * h[i])
+ *
+ */
+template <typename T>
+void Core23TempMultiCrossBackwardFunctor<T>::operator()(
+    cudaStream_t stream, const core23::Tensor& input_tensor,
+    const std::vector<core23::Tensor>& kernel_tensors,
+    const std::vector<core23::Tensor>& layer_output_tensors,
+    const std::vector<core23::Tensor>& layer_hidden_tensors, const core23::Tensor& grad_tensor,
+    core23::Tensor& output_tensor, std::vector<core23::Tensor>& kernel_output_tensors,
+    std::vector<core23::Tensor>& bias_output_tensors, core23::Tensor& tmp_vec_tensor,
+    core23::Tensor tmp_mat_tensors[], int num_layers) const {
+  cudaMemsetAsync(tmp_mat_tensors[2].data(), 0, tmp_mat_tensors[2].num_bytes(), stream);
+  for (int i = num_layers - 1; i >= 0; i--) {
+    // tmp_mat_tensors[0] = dy * h_i (h_i = gemv(x_i , w_i))
+    row_scaling<T>(tmp_mat_tensors[0], i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1],
+                   layer_hidden_tensors[i], stream);
+    // dx
+    matrix_add<T>(tmp_mat_tensors[2], tmp_mat_tensors[2], tmp_mat_tensors[0], stream);
+    // tmp_vec_tensor : {batchsize , 1}
+    matrix_pair_mul<T>(tmp_vec_tensor, i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1],
+                       input_tensor, stream);
+
+    // gemv(layer_output_tensors^T, tmp_vec_tensor)
+    // gradient WRT weight
+    row_scaling_sum<T>(kernel_output_tensors[i],
+                       i == 0 ? input_tensor : layer_output_tensors[i - 1], tmp_vec_tensor, stream);
+    // dbias
+    rows_sum<T>(bias_output_tensors[i], i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1],
+                stream);
+
+    out_product<T>(tmp_mat_tensors[0], tmp_vec_tensor, kernel_tensors[i], stream);
+    matrix_add<T>(tmp_mat_tensors[1], i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1],
+                  tmp_mat_tensors[0], stream);
+  }
+  matrix_add<T>(output_tensor, tmp_mat_tensors[2], tmp_mat_tensors[1], stream);
+}
+
+template <typename T>
+void Core23TempMultiCrossBackwardFunctorv2<T>::operator()(
+    cudaStream_t stream, const core23::Tensor& input_tensor,
+    const std::vector<core23::Tensor>& kernel_tensors,
+    const std::vector<core23::Tensor>& layer_output_tensors,
+    const std::vector<core23::Tensor>& layer_hidden_tensors, const core23::Tensor& grad_tensor,
+    core23::Tensor& output_tensor, std::vector<core23::Tensor>& kernel_output_tensors,
+    std::vector<core23::Tensor>& bias_output_tensors, std::vector<core23::Tensor>& XU_tensors,
+    core23::Tensor tmp_mat_tensors[], int num_layers, const std::vector<CublasDesc<T>>& xu_descr_,
+    const std::vector<CublasDesc<T>>& xuvb_descr_,
+    const std::vector<CublasDesc<T>>& du_descrs_bprop_,
+    const std::vector<CublasDesc<T>>& dhidden_descrs_bprop_,
+    const std::vector<CublasAlgo<T>>& xu_bprop_algo_,
+    const std::vector<CublasAlgo<T>>& xuvb_bprop_algo_,
+    const std::vector<CublasAlgo<T>>& du_bprop_algos_,
+    const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_, cublasLtHandle_t cublaslt_handle) {
+  cudaMemsetAsync(tmp_mat_tensors[2].data(), 0, tmp_mat_tensors[2].num_bytes(), stream);
+  auto batchsize = input_tensor.shape().size(0);
+  auto projection_dim = kernel_tensors[0].shape().size(1);
+  auto vec_length = input_tensor.shape().size(1);
+  auto U_row = kernel_tensors[0].shape().size(0);
+  auto V_col = kernel_tensors[1].shape().size(1);
+  for (int i = num_layers - 1; i >= 0; i--) {
+    // S0 = dY_i .* X , shape: (batchsize, w)
+    // dX += dY_i .* H , shape: (batchsize, w)
+    fused_mul_fma3<T>(tmp_mat_tensors[0], tmp_mat_tensors[2],
+                      i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1], input_tensor,
+                      layer_hidden_tensors[i], stream);
+    {
+      // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
+      const T* mat_a = XU_tensors[i].data<T>();
+      const T* mat_b = tmp_mat_tensors[0].data<T>();
+      T* mat_c = kernel_output_tensors[2 * i + 1].data<T>();
+      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
+                          cublaslt_handle, stream);
+      // 2 dH = S1 = S0 * V^T shape: (batchsize, project_dim)
+      mat_a = tmp_mat_tensors[0].data<T>();
+      mat_b = kernel_tensors[2 * i + 1].data<T>();
+      mat_c = tmp_mat_tensors[3].data<T>();
+      this->gemm_functor_(1.0f, mat_a, mat_b, 0.0f, mat_c, mat_c, xuvb_descr_[i],
+                          xuvb_bprop_algo_[i], cublaslt_handle, stream);
+      // 3  dU = X_{i-1} ^T * S1 shape: (w, project_dim)
+      mat_a = i == 0 ? input_tensor.data<T>() : layer_output_tensors[i - 1].data<T>();
+      mat_b = tmp_mat_tensors[3].data<T>();
+      mat_c = kernel_output_tensors[2 * i].data<T>();
+      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, du_descrs_bprop_[i],
+                          du_bprop_algos_[i], cublaslt_handle, stream);
+      // 4 dY_{i-1} = S1 * U^T + dY_{i} shape: (batchsize, w)
+      mat_a = tmp_mat_tensors[3].data<T>();
+      mat_b = kernel_tensors[i * 2].data<T>();
+      auto dgrad = (i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1]);
+      mat_c = dgrad.data<T>();
+      T* mat_d = tmp_mat_tensors[1].data<T>();
+      // gemm: mat_d = mat_a * mat_b + mat_c
+      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_d, dhidden_descrs_bprop_[i],
+                          dhidden_bprop_algos_[i], cublaslt_handle, stream);
+    }
+  }
+  matrix_add<T>(output_tensor, tmp_mat_tensors[2], tmp_mat_tensors[1], stream);
+}
+
+template <typename T>
+Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
+    const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
+    const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim,
+    std::vector<Initializer_t> initializer_types, bool enable_tf32_compute)
+    : Core23TempTrainableLayer<T>({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
+      num_layers_(num_layers),
+      projection_dim_(projection_dim),
+      enable_tf32_compute_(enable_tf32_compute) {
+  try {
+    // check the in_tensor and out_tensor
+    const auto& in_tensor_dim = in_tensor.shape();
+    const auto& out_tensor_dim = out_tensor.shape();
+    int64_t vec_length = in_tensor_dim.size(1);
+    int64_t batchsize = in_tensor_dim.size(0);
+    if (projection_dim_ == 0) {
+      HCTR_LOG(WARNING, ROOT, "using multi-cross v1\n");
+    }
+    // 1. two dim?
+    if (in_tensor_dim.dims() != 2 || out_tensor_dim.dims() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    }
+    // 2. same dim?
+    for (int i = 0; i < 2; i++) {
+      if (in_tensor_dim.size(i) != out_tensor_dim.size(i)) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor doesn't match");
+      }
+    }
+
+    // check num_lyaers
+    if (num_layers < 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "num_layers < 1");
+    }
+
+    core23::Shape bias_dim = {1, vec_length};
+    core23::Shape weight_dim = {vec_length, vec_length};
+    core23::Shape U_dim = {vec_length, this->projection_dim_};
+    core23::Shape V_dim = {this->projection_dim_, vec_length};
+    if (!this->projection_dim_) {
+      weight_dim = {1ul, weight_dim.size(1)};
+    }
+    for (int i = 0; i < num_layers; i++) {
+      // setup weights and bias
+      {
+        // dcnv2
+        if (this->projection_dim_) {
+          this->set_weight(3 * i, U_dim);
+          this->set_weight(3 * i + 1, V_dim);
+          this->set_weight(3 * i + 2, bias_dim);
+          // dcnv1
+        } else {
+          this->set_weight(2 * i, weight_dim);
+          this->set_weight(2 * i + 1, bias_dim);
+        }
+      }
+      // setup weight gradient
+      // dcnv2
+      if (this->projection_dim_) {
+        this->set_wgrad(3 * i, U_dim);
+        this->set_wgrad(3 * i + 1, V_dim);
+        this->set_wgrad(3 * i + 2, bias_dim);
+        // dcnv1
+      } else {
+        this->set_wgrad(2 * i, weight_dim);
+        this->set_wgrad(2 * i + 1, bias_dim);
+      }
+
+      if (this->projection_dim_) {
+        xu_descrs_fprop_.emplace_back();
+        xuvb_descrs_fprop_.emplace_back();
+        xu_descrs_bprop_.emplace_back();
+        xuvb_descrs_bprop_.emplace_back();
+        du_descrs_bprop_.emplace_back();
+        dhidden_descrs_bprop_.emplace_back();
+
+        xu_fprop_algos_.emplace_back();
+        xuvb_fprop_algos_.emplace_back();
+        xu_bprop_algos_.emplace_back();
+        xuvb_bprop_algos_.emplace_back();
+        du_bprop_algos_.emplace_back();
+        dhidden_bprop_algos_.emplace_back();
+      }
+    }
+
+    // setup blobs
+
+    core23::Shape blob_dim = {batchsize, vec_length};
+
+    core23::BufferParams blobs_buffer_params = {};
+    blobs_buffer_params.channel = GetBlobsBufferChannel();
+    core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
+
+    // input
+    blob_tensors_.push_back(in_tensor);
+    // intermediate output
+    for (int i = 0; i < num_layers - 1; i++) {
+      core23::Tensor tensor = core23::Tensor(core23::TensorParams()
+                                                 .data_type(core23::ToScalarType<T>::value)
+                                                 .shape(blob_dim)
+                                                 .device(device)
+                                                 .buffer_params(blobs_buffer_params));
+      blob_tensors_.push_back(tensor);
+    }
+    // output
+    blob_tensors_.push_back(out_tensor);
+
+    for (int i = 0; i < 3; i++) {
+      tmp_mat_tensors_[i] = core23::Tensor(core23::TensorParams()
+                                               .data_type(core23::ToScalarType<T>::value)
+                                               .shape(blob_dim)
+                                               .device(device)
+                                               .buffer_params(blobs_buffer_params));
+    }
+    if (projection_dim_) {
+      tmp_mat_tensors_[3] = core23::Tensor(core23::TensorParams()
+                                               .data_type(core23::ToScalarType<T>::value)
+                                               .shape({batchsize, projection_dim_})
+                                               .device(device)
+                                               .buffer_params(blobs_buffer_params));
+    }
+
+    core23::Shape tmp_vec_dim = {batchsize, 1};
+    core23::Shape hidden_dim = {batchsize, weight_dim.size(0)};
+
+    tmp_vec_tensor_ = core23::Tensor(core23::TensorParams()
+                                         .data_type(core23::ToScalarType<T>::value)
+                                         .shape(tmp_vec_dim)
+                                         .device(device)
+                                         .buffer_params(blobs_buffer_params));
+    if (this->projection_dim_) {
+      core23::Shape XU_dim = {batchsize, this->projection_dim_};
+      for (int i = 0; i < num_layers; i++) {
+        core23::Tensor tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<T>::value)
+                                                   .shape(XU_dim)
+                                                   .device(device)
+                                                   .buffer_params(blobs_buffer_params));
+        XU_tensors_.push_back(tensor);
+      }
+    }
+    for (int i = 0; i < num_layers; i++) {
+      core23::Tensor tensor = core23::Tensor(core23::TensorParams()
+                                                 .data_type(core23::ToScalarType<T>::value)
+                                                 .shape(hidden_dim)
+                                                 .device(device)
+                                                 .buffer_params(blobs_buffer_params));
+      hidden_tensors_.push_back(tensor);
+    }
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
+void Core23TempMultiCrossLayer<T>::fprop(bool is_train) {
+  CudaDeviceContext context(this->get_device_id());
+  std::vector<core23::Tensor> kernel_tensors;
+  std::vector<core23::Tensor> bias_tensors;
+  std::vector<core23::Tensor> output_tensors;
+  std::vector<core23::Tensor> hidden_tensors;
+
+  if (this->projection_dim_) {
+    for (int i = 0; i < num_layers_; i++) {
+      kernel_tensors.push_back(this->get_weight(3 * i));
+      kernel_tensors.push_back(this->get_weight(3 * i + 1));
+      bias_tensors.push_back(this->get_weight(3 * i + 2));
+    }
+  } else {
+    for (int i = 0; i < num_layers_; i++) {
+      kernel_tensors.push_back(this->get_weight(2 * i));
+      bias_tensors.push_back(this->get_weight(2 * i + 1));
+    }
+  }
+  for (int i = 0; i < num_layers_; i++) {
+    output_tensors.push_back(blob_tensors_[i + 1]);
+    hidden_tensors.push_back(hidden_tensors_[i]);
+  }
+  if (this->projection_dim_ == 0) {
+    // dcn v1
+    Core23TempMultiCrossForwardFunctor<T>()(
+        this->get_gpu().get_stream(), this->get_gpu().get_cublas_handle(), blob_tensors_[0],
+        kernel_tensors, bias_tensors, output_tensors, hidden_tensors, num_layers_);
+  } else {
+    // dcn v2
+    this->dcnv2_forward_functor_(this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors,
+                                 bias_tensors, XU_tensors_, output_tensors, hidden_tensors,
+                                 num_layers_, xu_descrs_fprop_, xuvb_descrs_fprop_, xu_fprop_algos_,
+                                 xuvb_fprop_algos_, this->get_gpu().get_cublaslt_handle());
+  }
+}
+
+template <typename T>
+void Core23TempMultiCrossLayer<T>::bprop() {
+  CudaDeviceContext context(this->get_device_id());
+  std::vector<core23::Tensor> kernel_tensors;
+  std::vector<core23::Tensor> kernel_output_tensors;
+  std::vector<core23::Tensor> bias_output_tensors;
+  std::vector<core23::Tensor> forward_output_tensors;
+  std::vector<core23::Tensor> forward_hidden_tensors;
+  // dcnv2
+  if (this->projection_dim_) {
+    for (int i = 0; i < num_layers_; i++) {
+      // U
+      kernel_tensors.push_back(this->get_weight(3 * i));
+      // V
+      kernel_tensors.push_back(this->get_weight(3 * i + 1));
+      // dU
+      kernel_output_tensors.push_back(this->get_wgrad(3 * i));
+      // dV
+      kernel_output_tensors.push_back(this->get_wgrad(3 * i + 1));
+      // db
+      bias_output_tensors.push_back(this->get_wgrad(3 * i + 2));
+      // intermediate output
+      forward_hidden_tensors.push_back(hidden_tensors_[i]);
+    }
+  } else {
+    for (int i = 0; i < num_layers_; i++) {
+      kernel_tensors.push_back(this->get_weight(2 * i));
+      kernel_output_tensors.push_back(this->get_wgrad(2 * i));
+      bias_output_tensors.push_back(this->get_wgrad(2 * i + 1));
+      forward_hidden_tensors.push_back(hidden_tensors_[i]);
+    }
+  }
+
+  for (int i = 0; i < num_layers_ - 1; i++) {
+    forward_output_tensors.push_back(blob_tensors_[i + 1]);
+  }
+  if (this->projection_dim_ == 0) {
+    // dcn v1
+    Core23TempMultiCrossBackwardFunctor<T>()(
+        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
+        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
+        bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
+  } else {
+    // dcn v2
+    this->dcnv2_backward_functor_(
+        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
+        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
+        bias_output_tensors, this->XU_tensors_, tmp_mat_tensors_, num_layers_, xu_descrs_bprop_,
+        xuvb_descrs_bprop_, du_descrs_bprop_, dhidden_descrs_bprop_, xu_bprop_algos_,
+        xuvb_bprop_algos_, du_bprop_algos_, dhidden_bprop_algos_,
+        this->get_gpu().get_cublaslt_handle());
+  }
+}
+template <typename T>
+void Core23TempMultiCrossLayer<T>::search_algorithm() {
+  // dcnv1 no search_algorithm
+  CudaDeviceContext context(this->get_device_id());
+  auto cublaslt_handle = this->get_gpu().get_cublaslt_handle();
+  auto stream = this->get_gpu().get_stream();
+  if (this->projection_dim_) {
+    // setting up for fprop()
+    {
+      for (int i = 0; i < num_layers_; i++) {
+        const auto& tensor_input = blob_tensors_[i];
+        const T* mat_a = tensor_input.data<T>();
+        const T* mat_b = this->get_weight(3 * i).template data<T>();
+        T* mat_c = XU_tensors_[i].data<T>();
+
+        this->xu_fprop_algos_[i].search_algorithm(1.0f, mat_a, mat_b, 0.f, mat_c, mat_c,
+                                                  xu_descrs_fprop_[i], cublaslt_handle, stream);
+        mat_a = XU_tensors_[i].data<T>();
+        mat_b = this->get_weight(3 * i + 1).template data<T>();
+        mat_c = hidden_tensors_[i].data<T>();
+        this->xuvb_fprop_algos_[i].search_algorithm(1.0f, mat_a, mat_b, 0.f, mat_c, mat_c,
+                                                    xuvb_descrs_fprop_[i], cublaslt_handle, stream);
+      }
+    }
+
+    // setting up for bprop()
+    {
+      for (int i = 0; i < num_layers_; i++) {
+        // 1
+        const T* mat_a = XU_tensors_[i].data<T>();
+        const T* mat_b = tmp_mat_tensors_[0].data<T>();
+        T* mat_c = this->get_wgrad(3 * i + 1).template data<T>();
+        this->xu_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
+                                                  xu_descrs_bprop_[i], cublaslt_handle, stream);
+        // 2
+        mat_a = tmp_mat_tensors_[0].data<T>();
+        mat_b = this->get_wgrad(3 * i + 1).template data<T>();
+        mat_c = tmp_mat_tensors_[3].data<T>();
+        this->xuvb_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 0.0, mat_c, mat_c,
+                                                    xuvb_descrs_bprop_[i], cublaslt_handle, stream);
+        // 3
+        mat_a = blob_tensors_[i].data<T>();
+        mat_b = tmp_mat_tensors_[3].data<T>();
+        mat_c = this->get_wgrad(3 * i).template data<T>();
+        this->du_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
+                                                  du_descrs_bprop_[i], cublaslt_handle, stream);
+
+        // 4
+        mat_a = tmp_mat_tensors_[3].data<T>();
+        mat_b = this->get_weight(3 * i).template data<T>();
+        mat_c = tmp_mat_tensors_[0].data<T>();
+        this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
+                                                       dhidden_descrs_bprop_[i], cublaslt_handle,
+                                                       stream);
+      }
+    }
+  }
+}
+template <typename T>
+void Core23TempMultiCrossLayer<T>::initialize() {
+  auto cublaslt_handle = this->get_gpu().get_cublaslt_handle();
+  auto stream = this->get_gpu().get_stream();
+  auto shape_to_vector = [](const core23::Shape shape) {
+    std::vector<size_t> vec;
+    for (int64_t i = 0; i < shape.dims(); i++) {
+      vec.push_back(shape.size(i));
+    }
+    return vec;
+  };
+
+  if (this->projection_dim_) {
+    // setting up for fprop()
+    {
+      for (int i = 0; i < num_layers_; i++) {
+        const auto& tensor_input = blob_tensors_[i];
+        std::vector<size_t> dims_a = shape_to_vector(tensor_input.shape());
+        std::vector<size_t> dims_b = shape_to_vector(this->get_weight(3 * i).shape());
+        this->xu_descrs_fprop_[i].set_fprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_N,
+                                                 CUBLASLT_ORDER_ROW, this->enable_tf32_compute_,
+                                                 nullptr);
+        this->xu_fprop_algos_[i].init_algorithm(this->xu_descrs_fprop_[i], cublaslt_handle);
+
+        dims_a = shape_to_vector(XU_tensors_[i].shape());
+        dims_b = shape_to_vector(this->get_weight(3 * i + 1).shape());
+        T* bias = this->get_weight(3 * i + 2).template data<T>();
+
+        this->xuvb_descrs_fprop_[i].set_fprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_N,
+                                                   CUBLASLT_ORDER_ROW, this->enable_tf32_compute_,
+                                                   bias);
+        this->xuvb_fprop_algos_[i].init_algorithm(this->xuvb_descrs_fprop_[i], cublaslt_handle);
+      }
+    }
+    // setting up for bprop()
+    {
+      for (int i = 0; i < num_layers_; i++) {
+        // 1
+        std::vector<size_t> dims_a = shape_to_vector(XU_tensors_[i].shape());
+        std::vector<size_t> dims_b = shape_to_vector(tmp_mat_tensors_[0].shape());
+        T* dbias = this->get_wgrad(3 * i + 2).template data<T>();
+        this->xu_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_T, CUBLAS_OP_N,
+                                                 CUBLASLT_ORDER_ROW, this->enable_tf32_compute_,
+                                                 dbias);
+        this->xu_bprop_algos_[i].init_algorithm(this->xu_descrs_bprop_[i], cublaslt_handle);
+
+        // 2
+        dims_a = shape_to_vector(tmp_mat_tensors_[0].shape());
+        dims_b = shape_to_vector(this->get_weight(3 * i + 1).shape());
+        this->xuvb_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_T,
+                                                   CUBLASLT_ORDER_ROW, this->enable_tf32_compute_);
+        this->xuvb_bprop_algos_[i].init_algorithm(this->xuvb_descrs_bprop_[i], cublaslt_handle);
+
+        // 3
+        dims_a = shape_to_vector(blob_tensors_[i].shape());
+        dims_b = shape_to_vector(XU_tensors_[i].shape());
+        this->du_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_T, CUBLAS_OP_N,
+                                                 CUBLASLT_ORDER_ROW, this->enable_tf32_compute_);
+        this->du_bprop_algos_[i].init_algorithm(this->du_descrs_bprop_[i], cublaslt_handle);
+
+        // 4
+        dims_a = shape_to_vector(XU_tensors_[i].shape());
+        dims_b = shape_to_vector(this->get_weight(3 * i).shape());
+        this->dhidden_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_T,
+                                                      CUBLASLT_ORDER_ROW,
+                                                      this->enable_tf32_compute_);
+        this->dhidden_bprop_algos_[i].init_algorithm(this->dhidden_descrs_bprop_[i],
+                                                     cublaslt_handle);
+      }
+    }
+  }
+}
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempMultiCrossLayer<T>::get_default_initializer(
+    const int index) {
+  const core23::Tensor& in_tensor = this->input_tensors_[0];
+  const core23::Tensor& out_tensor = this->output_tensors_[0];
+  float bottom_dim = in_tensor.shape().size(1);
+  float top_dim = out_tensor.shape().size(1);
+  assert(bottom_dim == top_dim);
+  std::unique_ptr<DataSimulator> simu(nullptr);
+  int idx = -1;
+  // each dcn2 layer has one more weight tensor (U and V)
+  // U V shares the same initializer, U (bottom_dim, projection_dim), V (projection_dim, top_dim)
+  if (this->projection_dim_) {
+    idx = index % 3;
+    // U;
+    if (0 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm, bottom_dim,
+                                              this->projection_dim_, false));
+    }
+    // V;
+    else if (1 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm,
+                                              this->projection_dim_, top_dim, false));
+    } else if (2 == idx) {
+      simu.reset(new ConstantDataSimulator(0.0f));
+    } else {
+      HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
+    }
+  } else {
+    idx = index % 2;
+    if (0 == idx) {
+      simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                              data_simu::Distribution_t::Norm, bottom_dim, top_dim,
+                                              false));
+    } else if (1 == idx) {
+      simu.reset(new ConstantDataSimulator(0.0f));
+    } else {
+      HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
+    }
+  }
+  return simu;
+}
+
+template class Core23TempMultiCrossLayer<float>;
+template class Core23TempMultiCrossLayer<__half>;
+
 }  // namespace HugeCTR

@@ -27,12 +27,10 @@ namespace core23 {
 struct AllocatorParams {
   using CustomFactory =
       std::function<std::unique_ptr<Allocator>(const AllocatorParams&, const Device& device)>;
-
+  static CustomFactory default_allocator_factory;
   bool pinned = true;
   bool compressible = false;  // TODO: perhaps replace by a Decorator
-  CustomFactory custom_factory = [](const auto&, const auto&) -> std::unique_ptr<Allocator> {
-    return nullptr;
-  };
+  CustomFactory custom_factory = default_allocator_factory;
 };
 
 }  // namespace core23

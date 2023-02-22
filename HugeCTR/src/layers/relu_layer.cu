@@ -59,6 +59,11 @@ __global__ void half4_relu_kernel(__half* __restrict__ out, const __half* __rest
 }  // namespace
 
 template <typename T>
+ReluLayer<T>::ReluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+                        const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource) {}
+
+template <typename T>
 ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                         const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
@@ -72,12 +77,22 @@ template <typename T>
 void ReluLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  int len = in_tensors_[0].get_num_elements();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    int len = in_tensors_[0].get_num_elements();
 
-  auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
+    auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
 
-  MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop,
-                            get_gpu().get_stream());
+    MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop,
+                              get_gpu().get_stream());
+  } else {
+    int len = input_tensors_[0].num_elements();
+
+    auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
+
+    MLCommon::LinAlg::unaryOp(output_tensors_[0].data<T>(), input_tensors_[0].data<T>(), len, fop,
+                              get_gpu().get_stream());
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -89,18 +104,33 @@ template <typename T>
 void ReluLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  int len = in_tensors_[0].get_num_elements();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    int len = in_tensors_[0].get_num_elements();
 
-  auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
+    auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
 
-  MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
-                             in_tensors_[0].get_ptr(), len, bop, get_gpu().get_stream());
+    MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
+                               in_tensors_[0].get_ptr(), len, bop, get_gpu().get_stream());
+  } else {
+    int len = input_tensors_[0].num_elements();
+
+    auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
+
+    MLCommon::LinAlg::binaryOp(input_tensors_[0].data<T>(), output_tensors_[0].data<T>(),
+                               input_tensors_[0].data<T>(), len, bop, get_gpu().get_stream());
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
+
+ReluLayer<__half>::ReluLayer(const core23::Tensor& input_tensor,
+                             const core23::Tensor& output_tensor,
+                             const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource) {}
 
 ReluLayer<__half>::ReluLayer(const Tensor2<__half>& bottom_tensor,
                              const Tensor2<__half>& top_tensor,
@@ -118,25 +148,48 @@ void ReluLayer<__half>::fprop(bool is_train) {
 
   const size_t BLOCK_DIM = 1024;
 
-  const size_t size = bottom_tensor_.get_num_elements();
-  const size_t grid_dim = get_gpu().get_sm_count() * 4;
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const size_t size = bottom_tensor_.get_num_elements();
+    const size_t grid_dim = get_gpu().get_sm_count() * 4;
 
-  half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
-      top_tensor_.get_ptr(), bottom_tensor_.get_ptr(), size,
-      [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
-        const int2 hack = reinterpret_cast<const int2*>(in4)[i];
-        half4 t = *reinterpret_cast<const half4*>(&hack);
+    half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+        top_tensor_.get_ptr(), bottom_tensor_.get_ptr(), size,
+        [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+          const int2 hack = reinterpret_cast<const int2*>(in4)[i];
+          half4 t = *reinterpret_cast<const half4*>(&hack);
 
-        const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
-        const half4 res = {__hmul2(t[0], mask[0]), __hmul2(t[1], mask[1])};
+          const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+          const half4 res = {__hmul2(t[0], mask[0]), __hmul2(t[1], mask[1])};
 
-        reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
-      },
-      [] __device__(const __half* in, const __half zero, int i, __half* out) {
-        __half t = __ldg(in + i);
-        __half mask = __hgt(t, zero);
-        out[i] = __hmul(t, mask);
-      });
+          reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+        },
+        [] __device__(const __half* in, const __half zero, int i, __half* out) {
+          __half t = __ldg(in + i);
+          __half mask = __hgt(t, zero);
+          out[i] = __hmul(t, mask);
+        });
+  } else {
+    const auto size = input_tensors_[0].num_elements();
+    const auto grid_dim = get_gpu().get_sm_count() * 4;
+
+    half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+        output_tensors_[0].data<__half>(), input_tensors_[0].data<__half>(), size,
+        [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+          const int2 hack = reinterpret_cast<const int2*>(in4)[i];
+          half4 t = *reinterpret_cast<const half4*>(&hack);
+
+          const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+          const half4 res = {__hmul2(t[0], mask[0]), __hmul2(t[1], mask[1])};
+
+          reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+        },
+        [] __device__(const __half* in, const __half zero, int i, __half* out) {
+          __half t = __ldg(in + i);
+          __half mask = __hgt(t, zero);
+          out[i] = __hmul(t, mask);
+        });
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -149,28 +202,54 @@ void ReluLayer<__half>::bprop() {
 
   const size_t BLOCK_DIM = 1024;
 
-  const size_t size = bottom_tensor_.get_num_elements();
-  const size_t grid_dim = get_gpu().get_sm_count() * 4;
-  half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
-      bottom_tensor_.get_ptr(), top_tensor_.get_ptr(), size,
-      [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
-        const int2 t_hack = reinterpret_cast<const int2*>(out4)[i];
-        const half4 t = *reinterpret_cast<const half4*>(&t_hack);
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const size_t size = bottom_tensor_.get_num_elements();
+    const size_t grid_dim = get_gpu().get_sm_count() * 4;
+    half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+        bottom_tensor_.get_ptr(), top_tensor_.get_ptr(), size,
+        [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+          const int2 t_hack = reinterpret_cast<const int2*>(out4)[i];
+          const half4 t = *reinterpret_cast<const half4*>(&t_hack);
 
-        const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+          const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
 
-        const int2 t2_hack = reinterpret_cast<const int2*>(in4)[i];
-        const half4 t2 = *reinterpret_cast<const half4*>(&t2_hack);
+          const int2 t2_hack = reinterpret_cast<const int2*>(in4)[i];
+          const half4 t2 = *reinterpret_cast<const half4*>(&t2_hack);
 
-        const half4 res = {__hmul2(t2[0], mask[0]), __hmul2(t2[1], mask[1])};
+          const half4 res = {__hmul2(t2[0], mask[0]), __hmul2(t2[1], mask[1])};
 
-        reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
-      },
-      [] __device__(const __half* in, const __half zero, int i, __half* out) {
-        __half t = out[i];
-        __half mask = __hgt(t, zero);
-        out[i] = __hmul(__ldg(in + i), mask);
-      });
+          reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+        },
+        [] __device__(const __half* in, const __half zero, int i, __half* out) {
+          __half t = out[i];
+          __half mask = __hgt(t, zero);
+          out[i] = __hmul(__ldg(in + i), mask);
+        });
+  } else {
+    const size_t size = input_tensors_[0].num_elements();
+    const size_t grid_dim = get_gpu().get_sm_count() * 4;
+    half4_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+        input_tensors_[0].data<__half>(), output_tensors_[0].data<__half>(), size,
+        [] __device__(const half4* in4, const __half2 zero2, int i, half4* out4) {
+          const int2 t_hack = reinterpret_cast<const int2*>(out4)[i];
+          const half4 t = *reinterpret_cast<const half4*>(&t_hack);
+
+          const half4 mask = {__hgt2(t[0], zero2), __hgt2(t[1], zero2)};
+
+          const int2 t2_hack = reinterpret_cast<const int2*>(in4)[i];
+          const half4 t2 = *reinterpret_cast<const half4*>(&t2_hack);
+
+          const half4 res = {__hmul2(t2[0], mask[0]), __hmul2(t2[1], mask[1])};
+
+          reinterpret_cast<int2*>(out4)[i] = *reinterpret_cast<const int2*>(&res);
+        },
+        [] __device__(const __half* in, const __half zero, int i, __half* out) {
+          __half t = out[i];
+          __half mask = __hgt(t, zero);
+          out[i] = __hmul(__ldg(in + i), mask);
+        });
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

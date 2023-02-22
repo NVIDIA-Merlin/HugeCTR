@@ -5,8 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ *     http://www.apache.org/licenses/LICENSE-2.0 *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -109,6 +108,9 @@ void tensor_container_test_impl(Shape container_shape, Shape tensor_shape) {
 
   TensorContainer<int, TensorDims, ContainerDims> input_tensor_container(std::move(input_tensors),
                                                                          Shape(container_shape));
+  TensorContainer<int, TensorDims, ContainerDims> input_tensor_container_copy0 =
+      input_tensor_container;
+
   for (int64_t t = 0; t < container_shape.size(); t++) {
     std::vector<int> h_ins(tensor_shape.size());
     for (size_t i = 0; i < h_ins.size(); i++) {
@@ -125,8 +127,31 @@ void tensor_container_test_impl(Shape container_shape, Shape tensor_shape) {
     }
   }
 
-  TensorContainer<int, TensorDims, ContainerDims> output_tensor_container(std::move(output_tensors),
-                                                                          Shape(container_shape));
+  TensorContainer<int, TensorDims, ContainerDims> input_tensor_container_copy1 =
+      input_tensor_container;
+
+  TensorContainer<int, TensorDims, ContainerDims> output_tensor_container_original(
+      output_tensors, Shape(container_shape));
+  TensorContainer<int, TensorDims, ContainerDims> output_tensor_container(
+      output_tensor_container_original);
+
+  for (int64_t t = 0; t < container_shape.size(); t++) {
+    if constexpr (ContainerDims == 1) {
+      EXPECT_TRUE(input_tensor_container[t].data() == input_tensor_container_copy0[t].data());
+      EXPECT_TRUE(input_tensor_container[t].data() == input_tensor_container_copy1[t].data());
+      EXPECT_TRUE(input_tensor_container[t].device() == input_tensor_container_copy0[t].device());
+      EXPECT_TRUE(input_tensor_container[t].device() == input_tensor_container_copy1[t].device());
+    } else {
+      auto w = t % container_shape.size(1);
+      auto h = t / container_shape.size(1);
+      EXPECT_TRUE(input_tensor_container[h][w].data() == input_tensor_container_copy0[h][w].data());
+      EXPECT_TRUE(input_tensor_container[h][w].data() == input_tensor_container_copy1[h][w].data());
+      EXPECT_TRUE(input_tensor_container[h][w].device() ==
+                  input_tensor_container_copy0[h][w].device());
+      EXPECT_TRUE(input_tensor_container[h][w].device() ==
+                  input_tensor_container_copy1[h][w].device());
+    }
+  }
 
   CUDAStream stream(cudaStreamDefault, 0);
   if constexpr (Flatten && TensorDims == 1 && ContainerDims == 1) {
@@ -141,6 +166,15 @@ void tensor_container_test_impl(Shape container_shape, Shape tensor_shape) {
                                                                   input_tensor_container.view());
   }
   HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
+
+  if constexpr (Flatten && TensorDims == 1 && ContainerDims == 1) {
+    TensorContainer<int, TensorDims, ContainerDims> input_tensor_container_copy2 =
+        input_tensor_container;
+    for (int64_t t = 0; t < container_shape.size(); t++) {
+      EXPECT_TRUE(input_tensor_container[t].data() == input_tensor_container_copy2[t].data());
+      EXPECT_TRUE(input_tensor_container[t].device() == input_tensor_container_copy2[t].device());
+    }
+  }
 
   for (int64_t t = 0; t < container_shape.size(); t++) {
     std::vector<int> h_ins(tensor_shape.size());

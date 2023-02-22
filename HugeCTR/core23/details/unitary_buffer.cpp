@@ -18,16 +18,19 @@
 #include <core23/allocator.hpp>
 #include <core23/buffer_client.hpp>
 #include <core23/details/unitary_buffer.hpp>
+#include <core23/device.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-UnitaryBuffer::UnitaryBuffer(std::unique_ptr<Allocator> allocator)
-    : Buffer(std::move(allocator)), allocated_(false), ptr_(nullptr) {}
+UnitaryBuffer::UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
+    : Buffer(device, std::move(allocator)), allocated_(false), ptr_(nullptr) {}
 
-UnitaryBuffer::~UnitaryBuffer() { allocator()->deallocate(ptr_); }
+UnitaryBuffer::~UnitaryBuffer() {
+  if (allocated_ || ptr_ != nullptr) allocator()->deallocate(ptr_);
+}
 
 Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator>& allocator,
                                                  const ClientRequirements& client_requirements) {
@@ -51,23 +54,25 @@ Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator
   while (!new_insertion_order_.empty()) {
     auto client = new_insertion_order_.front();
     auto search = client_requirements.find(client);
-    auto requirements = search->second;
-    int64_t alignment = requirements.alignment;
-    if (is_first) {
-      alignment = allocator->get_valid_alignment(alignment);
-      is_first = false;
-    } else {
-      const auto& current_stream = requirements.stream;
-      if (first_stream != current_stream) {
-        HCTR_LOG_S(WARNING, ROOT)
-            << "A BufferClient doesn't have the same CUDAStream with the first BufferClient."
-            << std::endl;
+    if (search != client_requirements.end()) {
+      auto requirements = search->second;
+      int64_t alignment = requirements.alignment;
+      if (is_first) {
+        alignment = allocator->get_valid_alignment(alignment);
+        is_first = false;
+      } else {
+        const auto& current_stream = requirements.stream;
+        if (first_stream != current_stream) {
+          HCTR_LOG_S(WARNING, ROOT)
+              << "A BufferClient doesn't have the same CUDAStream with the first BufferClient."
+              << std::endl;
+        }
       }
-    }
 
-    current_offset = compute_offset(current_offset, alignment);
-    client_offsets[client] = current_offset;
-    current_offset += requirements.num_bytes;
+      current_offset = compute_offset(current_offset, alignment);
+      client_offsets[client] = current_offset;
+      current_offset += requirements.num_bytes;
+    }
     new_insertion_order_.pop();
   }
 

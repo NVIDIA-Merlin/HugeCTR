@@ -15,30 +15,24 @@
  */
 #pragma once
 
+#include <HugeCTR/embedding/common.hpp>
 #include <core/buffer.hpp>
-#include <core/registry.hpp>
+#include <core23/registry.hpp>
 
 namespace embedding {
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::DeviceType;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
-using core::TensorScalarType;
 
 class CompressOffset {
   std::shared_ptr<CoreResourceManager> core_;
   int num_compressed_offset_;
-  Tensor compressed_offset_;
+  core23::Tensor compressed_offset_;
 
  public:
   CompressOffset() = default;
 
   CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset);
 
-  void compute(const Tensor &offset, int batch_size, Tensor *compressed_offset);
+  void compute(const core23::Tensor &offset, int batch_size, core23::Tensor *compressed_offset);
 };
 
 class AverageCombiner {
@@ -47,20 +41,23 @@ class AverageCombiner {
   int num_local_embedding_;
 
  public:
-  Tensor float_emb_vec_;
+  core23::Tensor float_emb_vec_;
 
   AverageCombiner() = default;
 
   AverageCombiner(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
                   const std::vector<int> &ev_size_list, int universal_batch_size);
 
-  void compute_feature_major(const Tensor &bucket_range, const Tensor &src_emb_vec,
-                             const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
-                             const Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
+  void compute_feature_major(const core23::Tensor &bucket_range, const core23::Tensor &src_emb_vec,
+                             const core23::Tensor &d_local_embedding_list,
+                             const core23::Tensor &d_combiner_list,
+                             const core23::Tensor &d_ev_size_offset, int batch_size,
+                             int max_ev_size);
 
-  void compute_batch_major(const Tensor &bucket_range, const Tensor &src_emb_vec,
-                           const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
-                           const Tensor &d_ev_size_offset, int batch_size, int max_ev_size,
+  void compute_batch_major(const core23::Tensor &bucket_range, const core23::Tensor &src_emb_vec,
+                           const core23::Tensor &d_local_embedding_list,
+                           const core23::Tensor &d_combiner_list,
+                           const core23::Tensor &d_ev_size_offset, int batch_size, int max_ev_size,
                            int num_lookup);
 };
 

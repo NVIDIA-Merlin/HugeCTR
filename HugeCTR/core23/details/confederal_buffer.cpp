@@ -18,14 +18,15 @@
 #include <core23/allocator.hpp>
 #include <core23/buffer_client.hpp>
 #include <core23/details/confederal_buffer.hpp>
+#include <core23/device.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-ConfederalBuffer::ConfederalBuffer(std::unique_ptr<Allocator> allocator)
-    : Buffer(std::move(allocator)), current_offset_(0LL) {}
+ConfederalBuffer::ConfederalBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
+    : Buffer(device, std::move(allocator)), current_offset_(0LL) {}
 
 ConfederalBuffer::~ConfederalBuffer() {
   for (auto [offset, ptr] : offset_to_ptr_) {

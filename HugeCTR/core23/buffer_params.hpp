@@ -30,8 +30,8 @@ namespace core23 {
 class Buffer;
 
 struct BufferParams {
-  using CustomFactory =
-      std::function<std::shared_ptr<Buffer>(const BufferParams&, std::unique_ptr<Allocator>)>;
+  using CustomFactory = std::function<std::shared_ptr<Buffer>(
+      const BufferParams&, const Device& device, std::unique_ptr<Allocator>)>;
 
   BufferChannel channel = GetRandomBufferChannel();
   bool unitary = true;

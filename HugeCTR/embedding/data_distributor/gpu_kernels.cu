@@ -47,13 +47,13 @@ __global__ void compute_bucket_ranges_with_padding(offset_t* bucket_ranges,
   }
 }
 
-void compute_fixed_bucket_ranges(core::Tensor hotness_bucket_range, int current_batch_size,
-                                 int batch_size, core::Tensor bucket_range, cudaStream_t stream) {
-  const size_t num_lookup = hotness_bucket_range.get_num_elements() - 1;
+void compute_fixed_bucket_ranges(core23::Tensor hotness_bucket_range, int current_batch_size,
+                                 int batch_size, core23::Tensor bucket_range, cudaStream_t stream) {
+  const size_t num_lookup = hotness_bucket_range.num_elements() - 1;
 
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
     compute_bucket_ranges_with_padding<<<dim3(144 * 8, num_lookup), 256, 0, stream>>>(
-        bucket_range.get<offset_t>(), hotness_bucket_range.get<int>(), current_batch_size,
+        bucket_range.data<offset_t>(), hotness_bucket_range.data<int>(), current_batch_size,
         batch_size);
   });
 }

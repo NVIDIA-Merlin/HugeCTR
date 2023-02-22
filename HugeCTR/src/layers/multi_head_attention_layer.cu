@@ -122,6 +122,112 @@ __global__ void transpose_V_back(T* v_buf, const T* V, const int batch_size, con
 
 template <typename T>
 MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
+    const std::vector<core23::Tensor>& input_tensors, std::vector<core23::Tensor>& output_tensors,
+    int num_attention_heads, bool transpose_b, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute)
+    : Layer(input_tensors, {}, gpu_resource),
+      use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute),
+      num_(input_tensors_.size()),
+      dims_(input_tensors_[0].dims()),
+      transpose_b_(transpose_b) {
+  try {
+    int64_t m = 0, k = 0, h = 0, b = 0, size_per_head = 0;
+
+    // check if the input shape is legit
+    if (dims_ != 4 && dims_ != 3) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "MultiHeadAttentionLayer needs 4D or 3D input tensors, but accept " +
+                         std::to_string(dims_) + "D inputs");
+    } else if (dims_ == 4) {
+      if (num_ < 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MultiHeadAttentionLayer needs 2 input tensors: query and key");
+      }
+      if (input_tensors_[1].dims() != dims_) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+      }
+      if (input_tensors_[0].size(0) != input_tensors_[1].size(0)) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "input tensors must have the same batch_size");
+      }
+      if (input_tensors_[1].size(dims_ - 1) != input_tensors_[0].size(dims_ - 1) &&
+          input_tensors_[0].size(dims_ - 1) != input_tensors_[1].size(dims_ - 2)) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The last two dimension of 4D the input tensors should be m x n, k x n or m "
+                       "x n, n x k");
+      }
+      if (transpose_b_) {
+        b = input_tensors_[0].size(0);
+        h = input_tensors_[0].size(1);
+        m = input_tensors_[0].size(dims_ - 2);
+        k = input_tensors_[1].size(dims_ - 2);
+        size_per_head = input_tensors_[0].size(dims_ - 1);
+      } else {
+        b = input_tensors_[0].size(0);
+        h = input_tensors_[0].size(1);
+        m = input_tensors_[0].size(dims_ - 2);
+        k = input_tensors_[0].size(dims_ - 1);
+        size_per_head = input_tensors_[1].size(dims_ - 1);
+      }
+    } else if (dims_ == 3) {
+      // query: [batch_size, seq_len, hidden_dim]
+      // key: [batch_size, seq_len, hidden_dim]
+      // value: [batch_size, seq_len, hidden_dim]
+      if (num_ < 3) {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MultiHeadAttentionLayer needs 3 input tensors: query, key and value");
+      }
+      if (input_tensors_[1].dims() != dims_ || input_tensors_[2].dims() != dims_) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+      }
+      if (input_tensors_[0].size(dims_ - 1) != input_tensors_[1].size(dims_ - 1) ||
+          input_tensors_[0].size(dims_ - 1) != input_tensors_[2].size(dims_ - 1)) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same hidden_dim");
+      }
+      if (input_tensors_[0].size(dims_ - 2) != input_tensors_[1].size(dims_ - 2) ||
+          input_tensors_[0].size(dims_ - 2) != input_tensors_[2].size(dims_ - 2)) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same seq_len");
+      }
+      transpose_b_ = true;
+      b = input_tensors_[0].size(0);
+      h = num_attention_heads;
+      m = input_tensors_[0].size(dims_ - 2);
+      k = input_tensors_[1].size(dims_ - 2);
+      size_per_head = input_tensors_[0].size(dims_ - 1) / h;
+    }
+    num_head_ = h;
+
+    auto common_tensor_params =
+        input_tensors_[0].my_params().data_type(core23::ToScalarType<T>::value);
+
+    if (transpose_b_) {
+      core23::Shape out_shape = {b, h, m, k};
+      output_tensors_.emplace_back(common_tensor_params.shape(out_shape));
+    } else {
+      value_buf_tensor_ = core23::Tensor(common_tensor_params.shape({b, h, size_per_head}));
+      core23::Shape out_shape = {b, m, size_per_head * h};
+      output_tensors_.emplace_back(common_tensor_params.shape(out_shape));
+    }
+
+    fprop_inputA_tensor_ = core23::Tensor(common_tensor_params);
+
+    if (dims_ == 3) {
+      core23::Shape out_shape = {b, h, m, size_per_head};
+      query_buf_tensor_ = core23::Tensor(common_tensor_params.shape(out_shape));
+      key_buf_tensor_ = core23::Tensor(common_tensor_params.shape(out_shape));
+      output_tensors_.emplace_back(common_tensor_params.shape(out_shape));
+    }
+
+    output_tensors_ = output_tensors;
+
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
+MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     const Tensors2<T>& in_tensors, Tensors2<T>& out_tensors,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int num_attention_heads,
     bool transpose_b, const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
@@ -145,7 +251,7 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "MultiHeadAttentionLayer needs 2 input tensors: query and key");
       }
-      if (in_tensors[1].get_dimensions().size() != dims_) {
+      if (in_tensors[1].get_dimensions().size() != static_cast<size_t>(dims_)) {
         HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
@@ -166,8 +272,8 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "MultiHeadAttentionLayer needs 3 input tensors: query, key and value");
       }
-      if (in_tensors[1].get_dimensions().size() != dims_ ||
-          in_tensors[2].get_dimensions().size() != dims_) {
+      if (in_tensors[1].get_dimensions().size() != static_cast<size_t>(dims_) ||
+          in_tensors[2].get_dimensions().size() != static_cast<size_t>(dims_)) {
         HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       if (in_tensors[0].get_dimensions()[dims_ - 1] != in_tensors[1].get_dimensions()[dims_ - 1] ||
@@ -180,7 +286,7 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
       }
     }
 
-    for (size_t i = 0; i < num_; i++) {
+    for (size_t i = 0; i < static_cast<size_t>(num_); i++) {
       in_tensors_.push_back(in_tensors[i]);
     }
     size_t m = 0, k = 0, h = 0, b = 0, size_per_head = 0;
@@ -240,7 +346,7 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
-}  // namespace HugeCTR
+}
 
 template <typename T>
 void MultiHeadAttentionLayer<T>::fprop(bool is_train) {

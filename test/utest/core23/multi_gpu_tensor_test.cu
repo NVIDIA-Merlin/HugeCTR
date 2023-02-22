@@ -20,6 +20,7 @@
 #include <base/debug/logger.hpp>
 #include <common.hpp>
 #include <core23/cuda_primitives.cuh>
+#include <core23/device_guard.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/tensor.hpp>
 #include <cstdint>
@@ -49,6 +50,7 @@ void multi_gpu_tensor_test_impl() {
   std::vector<std::thread> threads;
   for (int64_t d = 0; d < device_count; d++) {
     Device device(DeviceType::GPU, d);
+    DeviceGuard device_guard(device);
     CUDAStream stream(cudaStreamDefault, 0);
     TensorParams tensor_params =
         TensorParams().device(device).data_type(ScalarType::Int32).shape(shape).stream(stream);
@@ -59,8 +61,9 @@ void multi_gpu_tensor_test_impl() {
     copy_sync(input_tensor.data(), h_input.data(), input_tensor.num_bytes(), input_tensor.device(),
               DeviceType::CPU);
 
-    threads.emplace_back([input_tensor, output_tensor]() {
+    threads.emplace_back([device, input_tensor, output_tensor]() {
       auto stream = output_tensor.my_params().stream();
+      DeviceGuard device_guard(device);
       dim3 block(32, 32, 1);
       dim3 grid((output_tensor.size(1) + block.x - 1) / block.x,
                 (output_tensor.size(0) + block.y - 1) / block.y);

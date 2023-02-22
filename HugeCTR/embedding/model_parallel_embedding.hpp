@@ -39,32 +39,32 @@ struct UniformModelParallelEmbeddingMeta {
 
   std::vector<int> h_ev_size_list_;
   std::vector<int> h_ev_size_offset_;
-  Tensor d_ev_size_offset_;
+  core23::Tensor d_ev_size_offset_;
   int max_ev_size_;
   int num_sms_;
   KernelParams kernel_params;
 
   std::vector<char> h_combiner_list_;
-  Tensor d_combiner_list_;
+  core23::Tensor d_combiner_list_;
 
   int num_local_lookup_;
   std::vector<int> h_local_shard_id_list_;
-  Tensor d_local_shard_id_list_;
+  core23::Tensor d_local_shard_id_list_;
 
   std::vector<int> h_local_num_shards_list_;
-  Tensor d_local_num_shards_list_;
+  core23::Tensor d_local_num_shards_list_;
 
   std::vector<int> h_local_table_id_list_;
-  Tensor d_local_table_id_list_;
+  core23::Tensor d_local_table_id_list_;
 
   std::vector<int> h_local_lookup_id_list_;
-  Tensor d_local_lookup_id_list_;
+  core23::Tensor d_local_lookup_id_list_;
 
   std::vector<int> h_local_ev_size_list_;
-  Tensor d_local_ev_size_list_;
+  core23::Tensor d_local_ev_size_list_;
 
   std::vector<int> h_local_ev_size_offset_;
-  Tensor d_local_ev_size_offset_;
+  core23::Tensor d_local_ev_size_offset_;
 
   ModelCommBufferAttr model_buffer_attr;
 
@@ -76,7 +76,7 @@ struct UniformModelParallelEmbeddingMeta {
   WgradAttr wgrad_attr;
 
   std::vector<int> h_table_id_to_global_start_indices;
-  Tensor table_id_to_global_start_indices;
+  core23::Tensor table_id_to_global_start_indices;
 
   UniformModelParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
                                     const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
@@ -100,14 +100,10 @@ class UniformModelParallelEmbedding : public IGroupedEmbeddingOp {
 
   NetworkBackward network_backward_;
 
-  TensorList embedding_vec_;
+  core23::Tensor embedding_vec_;
 
   ModelCommBuffer model_comm_buffer_;
   NetworkBuffer network_buffer_;
-
-  std::vector<size_t> get_model_comm_buffer_size(int universal_batch_size);
-
-  std::vector<size_t> get_network_comm_buffer_size(int universal_batch_size);
 
  public:
   UniformModelParallelEmbedding(std::shared_ptr<CoreResourceManager> core,

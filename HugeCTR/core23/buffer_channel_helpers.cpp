@@ -23,7 +23,7 @@
 namespace HugeCTR {
 namespace core23 {
 
-BufferChannel GetRandomBufferChannel() {
+std::string GetRandomBufferChannelName() {
   static const char alpha[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "abcdefghijklmnopqrstuvwxyz"
@@ -37,8 +37,10 @@ BufferChannel GetRandomBufferChannel() {
   std::string name(length_dist(e), 0);
   std::generate_n(name.begin(), name.length(), []() { return alpha[alpha_dist(e)]; });
 
-  return BufferChannel(name);
+  return name;
 }
+
+BufferChannel GetRandomBufferChannel() { return GetRandomBufferChannelName(); }
 
 }  // namespace core23
 }  // namespace HugeCTR

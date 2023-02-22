@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/reshape_layer.hpp>
 #include <utest/test_utils.hpp>
 #include <vector>
@@ -25,56 +27,51 @@ using namespace HugeCTR;
 namespace {
 
 template <typename T>
-void reshape_test(std::vector<size_t>& dims_in, std::vector<size_t>& dims_out) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  Tensor2<T> in_tensor;
-  buff->reserve(dims_in, &in_tensor);
+void reshape_test(core23::Shape& shape_in, core23::Shape& shape_out) {
+  core23::Tensor bottom_tensor(core23::TensorParams().shape(shape_in));
+  core23::Tensor top_tensor(core23::TensorParams().shape(shape_out));
+  ReshapeLayer<T> reshape_layer(bottom_tensor, top_tensor, test::get_default_gpu());
 
-  Tensor2<T> out_tensor;
-  buff->reserve(dims_out, &out_tensor);
-  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, test::get_default_gpu());
-
-  buff->allocate();
   reshape_layer.initialize();
 
-  ASSERT_TRUE(out_tensor.allocated());
+  ASSERT_FALSE(top_tensor.empty());
 
-  std::vector<size_t> out_dims = out_tensor.get_dimensions();
-  size_t n_in_elems = in_tensor.get_num_elements();
-  size_t n_out_elems = out_tensor.get_num_elements();
+  core23::Shape out_shape = top_tensor.shape();
+  int64_t n_in_elems = bottom_tensor.num_elements();
+  int64_t n_out_elems = top_tensor.num_elements();
 
-  if (out_dims.size() == 2) {
-    ASSERT_TRUE(out_dims.size() == 2 && n_in_elems == n_out_elems &&
-                dims_out[1] == out_dims[out_dims.size() - 1]);
+  if (out_shape.dims() == 2) {
+    ASSERT_TRUE(out_shape.dims() == 2 && n_in_elems == n_out_elems &&
+                shape_out.size(1) == out_shape.size(out_shape.dims() - 1));
   } else {
-    ASSERT_TRUE(out_dims.size() == 3 && n_in_elems == n_out_elems &&
-                dims_out[1] == out_dims[out_dims.size() - 2] &&
-                dims_out[2] == out_dims[out_dims.size() - 1]);
+    ASSERT_TRUE(out_shape.dims() == 3 && n_in_elems == n_out_elems &&
+                shape_out.size(1) == out_shape.size(out_shape.dims() - 2) &&
+                shape_out.size(2) == out_shape.size(out_shape.dims() - 1));
   }
 }
 
 template <typename T>
-void reshape_2d_test(size_t dim0, size_t dim1, size_t leading_dim) {
-  std::vector<size_t> in_dims = {dim0, dim1};
-  std::vector<size_t> dims_out = {dim0 * dim1 / leading_dim, leading_dim};
-  reshape_test<T>(in_dims, dims_out);
+void reshape_2d_test(int64_t dim0, int64_t dim1, int64_t leading_dim) {
+  core23::Shape in_dims = {dim0, dim1};
+  core23::Shape shape_out = {dim0 * dim1 / leading_dim, leading_dim};
+  reshape_test<T>(in_dims, shape_out);
 }
 
 template <typename T>
-void reshape_3d_test(size_t dim0, size_t dim1, size_t dim2, size_t leading_dim) {
-  std::vector<size_t> in_dims = {dim0, dim1, dim2};
-  std::vector<size_t> dims_out = {dim0 * dim1 * dim2 / leading_dim, leading_dim};
-  reshape_test<T>(in_dims, dims_out);
+void reshape_3d_test(int64_t dim0, int64_t dim1, int64_t dim2, int64_t leading_dim) {
+  core23::Shape in_dims = {dim0, dim1, dim2};
+  core23::Shape shape_out = {dim0 * dim1 * dim2 / leading_dim, leading_dim};
+  reshape_test<T>(in_dims, shape_out);
 }
 
 template <typename T>
-void reshape_2d_to_3d_test(size_t dim0, size_t leading_dim, size_t time_step) {
-  std::vector<size_t> dims_in = {dim0, leading_dim};
+void reshape_2d_to_3d_test(int64_t dim0, int64_t leading_dim, int64_t time_step) {
+  core23::Shape shape_in = {dim0, leading_dim};
   if (dim0 % time_step != 0)
     throw std::runtime_error("Error: the input first dimension is not divisible by time step");
   else {
-    std::vector<size_t> dims_out = {dim0 / time_step, time_step, leading_dim};
-    reshape_test<T>(dims_in, dims_out);
+    core23::Shape shape_out = {dim0 / time_step, time_step, leading_dim};
+    reshape_test<T>(shape_in, shape_out);
   }
 }
 

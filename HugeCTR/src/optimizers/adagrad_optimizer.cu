@@ -45,6 +45,7 @@ AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const T
                                       float scaler)
     : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
       wgrad_(wgrad),
+      wgrad_tensors_({}),
       initial_accumulator_value_(initial_accu_value),
       epsilon_(epsilon) {
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
@@ -54,23 +55,62 @@ AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const T
 }
 
 template <typename T>
+AdaGradOptimizer<T>::AdaGradOptimizer(std::vector<core23::Tensor> weight_tensors,
+                                      std::vector<core23::Tensor> wgrad_tensors,
+                                      const std::shared_ptr<GPUResource>& gpu_resource,
+                                      float learning_rate, float initial_accu_value, float epsilon,
+                                      float scaler)
+    : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
+      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
+          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      initial_accumulator_value_(initial_accu_value),
+      epsilon_(epsilon) {
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(core23::Device(core23::DeviceType::GPU, gpu_resource->get_device_id()))
+          .data_type(core23::ScalarType::Float)
+          .shape(core23::Shape({weight_tensors_->flatten().size(0)}))
+          .buffer_channel(GetOptStateBufferChannnel());
+
+  accum_tensor_ = core23::Tensor(tensor_params);
+}
+
+template <typename T>
 void AdaGradOptimizer<T>::initialize() {
-  HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
-                                 accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
+  if (!wgrad_tensors_) {
+    HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
+                                   accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
+  } else {
+    HCTR_LIB_THROW(cudaMemsetAsync(accum_tensor_.data(), initial_accumulator_value_,
+                                   accum_tensor_.num_bytes(), gpu_resource_->get_stream()));
+  }
 }
 
 template <typename T>
 void AdaGradOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
-  const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
-  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_main_.get_ptr();
-  const T* wgrad = wgrad_.get_ptr();
-  ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-      len, weight, wgrad, accum_.get_ptr(), lr_, epsilon_, scaler_);
+  if (!wgrad_tensors_) {
+    const size_t len = weight_main_.get_num_elements();
+    float* weight = weight_main_.get_ptr();
+    const T* wgrad = wgrad_.get_ptr();
+    float* accum = accum_.get_ptr();
+    const size_t grid_dim = (len - 1) / block_dim + 1;
+    ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, accum, lr_, epsilon_, scaler_);
+  } else {
+    auto flat_weight_tensor = weight_tensors_->flatten();
+    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+    float* weight = flat_weight_tensor.data();
+    const T* wgrad = flat_wgrad_tensor.data();
+    auto len = flat_weight_tensor.size(0);
+    float* accum = accum_tensor_.data<float>();
+    const size_t grid_dim = (len - 1) / block_dim + 1;
+    ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, accum, lr_, epsilon_, scaler_);
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

@@ -23,7 +23,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     hvd.init()
     gpus = tf.config.experimental.list_physical_devices("GPU")
     for gpu in gpus:
@@ -32,13 +31,16 @@ if __name__ == "__main__":
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
     sok.init()
 
-    rows = [65536 * 10, 65536]
-    cols = [128, 4]
-    hotness = [10, 3]
-    combiners = ["sum", "sum"]
+    gpu_num = hvd.size()
+    rows = [65536] * gpu_num
+    cols = [128 - 8 * x for x in range(gpu_num)]
+    hotness = np.random.randint(1, 10, gpu_num)
+    combiners = ["mean"] * np.floor(gpu_num / 2).astype(np.int32) + ["sum"] * np.ceil(
+        gpu_num - gpu_num / 2
+    ).astype(np.int32)
     batch_size = 65536
     iters = 100
-    gpus = [0, min(1, hvd.size() - 1)]
+    gpus = np.arange(gpu_num)
 
     # initial value of embedding table
     weights = []
@@ -55,6 +57,7 @@ if __name__ == "__main__":
         for i, w in enumerate(weights):
             v = sok.Variable(w, mode="localized:%d" % gpus[i])
             sok_vars.append(v)
+
     else:
         for i, w in enumerate(weights):
             v = sok.Variable(w, mode="localized:0")
@@ -178,10 +181,10 @@ if __name__ == "__main__":
     for i in range(iters):
         # normalize
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
-        diff = diff + (loss1[i] - loss2[i]) ** 2 / length
+        diff = diff + (loss1[i] - loss2[i]) ** 2 / length**2
     print("[SOK INFO] loss diff:", diff)
     assert diff < 1e-4
 
-    print("[SOK INFO] lookup_sparse distributed test passed")
+    print("[SOK INFO] lookup_sparse localized test passed")
     ts = ts[5:]
     print("[SOK INFO] Average time: %f ms/iteration" % (sum(ts) / len(ts) * 1000))

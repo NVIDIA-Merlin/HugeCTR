@@ -37,12 +37,12 @@ std::shared_ptr<Buffer> CreateBuffer(BufferParams buffer_params, const Device& d
 
   std::shared_ptr<Buffer> buffer;
   if (buffer_params.custom_factory) {
-    buffer = buffer_params.custom_factory(buffer_params, std::move(allocator));
+    buffer = buffer_params.custom_factory(buffer_params, device, std::move(allocator));
   } else {
     if (buffer_params.unitary) {
-      buffer = std::make_shared<UnitaryBuffer>(std::move(allocator));
+      buffer = std::make_shared<UnitaryBuffer>(device, std::move(allocator));
     } else {
-      buffer = std::make_shared<ConfederalBuffer>(std::move(allocator));
+      buffer = std::make_shared<ConfederalBuffer>(device, std::move(allocator));
     }
   }
 

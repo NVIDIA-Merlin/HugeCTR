@@ -102,6 +102,7 @@ def init(comm_tool="horovod"):
     None
     """
     set_comm_tool(comm_tool)
+    status = raw_ops.set_default_allocator()
     print("[SOK INFO] Initialize finished, communication tool: " + comm_tool)
 
 

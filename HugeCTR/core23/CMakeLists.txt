@@ -18,12 +18,14 @@ set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB core23_src 
 allocator_factory.cpp
+allocator_params.cpp
 buffer.cpp
 buffer_client.cpp
 buffer_channel.cpp
 buffer_channel_helpers.cpp
 buffer_factory.cpp
 device.cpp
+device_guard.cpp
 device_type.cpp
 data_type.cpp
 offsetted_buffer.cpp

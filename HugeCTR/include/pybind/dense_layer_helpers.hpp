@@ -25,6 +25,7 @@ namespace HugeCTR {
 
 class ILoss;
 struct DenseLayer;
+class Layer;
 
 struct TensorEntity {
   std::string name;
@@ -47,7 +48,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           std::vector<std::unique_ptr<Layer>>& layers,
                           std::map<std::string, core23::Tensor>& loss_tensors,
                           std::map<std::string, std::unique_ptr<ILoss>>& losses,
-                          bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics,
+                          bool async_mlp_wgrad, metrics::Core23MultiLossMetricMap* raw_metrics,
                           int gpu_count_in_total, const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                           bool use_algorithm_search,

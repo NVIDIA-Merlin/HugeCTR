@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 
 #include <core/hctr_impl/hctr_backend.hpp>
+#include <core23/tensor.hpp>
+#include <core23/tensor_operations.hpp>
 #include <embedding/operators/compress_offset.hpp>
 #include <resource_managers/resource_manager_ext.hpp>
 #include <utils.hpp>
@@ -25,18 +27,18 @@
 using namespace embedding;
 
 TEST(test_compress_offset, test_compress_offset) {
-  Device device{DeviceType::GPU, 0};
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
-  HugeCTR::CudaDeviceContext context(device.index());
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  HugeCTR::core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  HugeCTR::core23::TensorParams params = core23::TensorParams().device(device);
+
   int batch_size = 5;
   int num_table = 2;
   int num_offset = batch_size * num_table + 1;
   int num_compressed_offset = num_table + 1;
 
-  auto buffer_ptr = core::GetBuffer(core);
-  auto offset = buffer_ptr->reserve({num_offset}, device, TensorScalarType::UInt32);
-  buffer_ptr->allocate();
+  auto offset = core23::Tensor(params.shape({num_offset}).data_type(core23::ScalarType::UInt32));
 
   std::vector<uint32_t> cpu_offset{0};
   for (int i = 1; i < num_offset; ++i) {
@@ -44,16 +46,16 @@ TEST(test_compress_offset, test_compress_offset) {
     cpu_offset.push_back(n);
   }
   std::partial_sum(cpu_offset.begin(), cpu_offset.end(), cpu_offset.begin());
-  offset.copy_from(cpu_offset);
+  core23::copy_sync(offset, cpu_offset);
 
   CompressOffset compress_offset{core, num_compressed_offset};
-  Tensor compressed_offset;
+  HugeCTR::core23::Tensor compressed_offset;
   compress_offset.compute(offset, batch_size, &compressed_offset);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
 
-  std::vector<uint32_t> gpu_compressed_offset;
-  compressed_offset.to(&gpu_compressed_offset);
+  std::vector<uint32_t> gpu_compressed_offset(compressed_offset.num_elements());
+  HugeCTR::core23::copy_sync(gpu_compressed_offset, compressed_offset);
 
   ASSERT_EQ(gpu_compressed_offset.size(), num_compressed_offset);
   for (int i = 0; i < num_compressed_offset; ++i) {

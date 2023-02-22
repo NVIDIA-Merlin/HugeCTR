@@ -63,6 +63,42 @@ void copy_async(Tensor& dst, const Tensor& src, CUDAStream stream) {
   copy_async(dst.data(), src.data(), src.num_bytes(), dst.device(), src.device(), stream);
 }
 
+template <typename T>
+void copy_sync(std::vector<T>& dst, const Tensor& src) {
+  HCTR_THROW_IF(dst.size() * sizeof(T) != src.num_bytes(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent sizes.");
+  HCTR_THROW_IF(ToScalarType<T>::value != src.data_type().type(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent data types.");
+  copy_sync(dst.data(), src.data(), src.num_bytes(), DeviceType::CPU, src.device());
+}
+
+template <typename T>
+void copy_async(std::vector<T>& dst, const Tensor& src, CUDAStream stream) {
+  HCTR_THROW_IF(dst.size() * sizeof(T) != src.num_bytes(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent sizes.");
+  HCTR_THROW_IF(ToScalarType<T>::value != src.data_type().type(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent data types.");
+  copy_async(dst.data(), src.data(), src.num_bytes(), DeviceType::CPU, src.device(), stream);
+}
+
+template <typename T>
+void copy_sync(Tensor& dst, const std::vector<T>& src) {
+  HCTR_THROW_IF(src.size() * sizeof(T) != dst.num_bytes(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent sizes.");
+  HCTR_THROW_IF(ToScalarType<T>::value != dst.data_type().type(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent data types.");
+  copy_sync(dst.data(), src.data(), src.size() * sizeof(T), dst.device(), DeviceType::CPU);
+}
+
+template <typename T>
+void copy_async(Tensor& dst, const std::vector<T>& src, CUDAStream stream) {
+  HCTR_THROW_IF(src.size() * sizeof(T) != dst.num_bytes(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent sizes.");
+  HCTR_THROW_IF(ToScalarType<T>::value != dst.data_type().type(), HugeCTR::Error_t::IllegalCall,
+                "Destination and Source Tensors have inconsitent data types.");
+  copy_async(dst.data(), src.data(), src.size() * sizeof(T), dst.device(), DeviceType::CPU, stream);
+}
+
 void convert_async(Tensor& dst, const Tensor& src, CUDAStream stream) {
   if (dst.data_type() == src.data_type()) {
     copy_async(dst, src, stream);
@@ -102,6 +138,22 @@ void normal_async(Tensor& data, const float mean, const float stddev, CURANDGene
   }
 }
 
+#define DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(type)                                          \
+  template void copy_sync<type>(std::vector<type> & dst, const Tensor& src);                     \
+  template void copy_sync<type>(Tensor & dst, const std::vector<type>& src);                     \
+  template void copy_async<type>(std::vector<type> & dst, const Tensor& src, CUDAStream stream); \
+  template void copy_async<type>(Tensor & dst, const std::vector<type>& src, CUDAStream stream);
+
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(__half)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(float)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(double)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(char)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(int8_t)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(uint8_t)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(int32_t)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(uint32_t)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(int64_t)
+DEFINE_TEMPLATE_FUNC_IN_TENSOR_OPERATRION(uint64_t)
 }  // namespace core23
 
 }  // namespace HugeCTR

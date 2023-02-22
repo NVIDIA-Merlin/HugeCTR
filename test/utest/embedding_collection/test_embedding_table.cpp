@@ -49,8 +49,8 @@ void test_embedding_table(int device_id, int table_type) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
 
-  auto key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
-  auto index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
+  auto key_type = HugeCTR::core23::ToScalarType<key_t>::value;
+  auto index_type = HugeCTR::core23::ToScalarType<index_t>::value;
 
   std::vector<int> table_id_to_vocabulary_size;
   for (auto& p : table_param_list) {
@@ -65,8 +65,8 @@ void test_embedding_table(int device_id, int table_type) {
                                      universal_batch_size,
                                      key_type,
                                      index_type,
-                                     HugeCTR::TensorScalarTypeFunc<uint32_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<float>::get_type(),
+                                     HugeCTR::core23::ToScalarType<uint32_t>::value,
+                                     HugeCTR::core23::ToScalarType<float>::value,
                                      EmbeddingLayout::BatchMajor,
                                      EmbeddingLayout::FeatureMajor,
                                      false};
@@ -82,33 +82,37 @@ void test_embedding_table(int device_id, int table_type) {
                                   ebc_param, 0, table_param_list[0].opt_param);
   }
 
-  Device device{DeviceType::GPU, core->get_device_id()};
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
+
   std::vector<key_t> cpu_searched_key{504662, 2, 0, 2, 0, 2, 10, 12};
   std::vector<uint32_t> cpu_searched_id_space_offset{0, 2, 4, 6, 8};
   std::vector<int> cpu_searched_id_space_list{0, 0, 1, 2};
-  TensorList emb_vec{core.get(), 10, device, TensorScalarType::Float32};
 
-  auto buffer_ptr = GetBuffer(core);
-  auto searched_keys = buffer_ptr->reserve(cpu_searched_key.size(), device, key_type);
+  core23::Tensor emb_vec = core23::init_tensor_list<float>(10, params.device().index());
+  auto searched_keys = core23::Tensor(
+      params.shape({static_cast<int64_t>(cpu_searched_key.size())}).data_type(key_type));
   auto searched_id_space_offset =
-      buffer_ptr->reserve(cpu_searched_id_space_offset.size(), device, TensorScalarType::UInt32);
+      core23::Tensor(params.shape({static_cast<int64_t>(cpu_searched_id_space_offset.size())})
+                         .data_type(core23::ScalarType::UInt32));
   auto searched_id_space_list =
-      buffer_ptr->reserve(cpu_searched_id_space_list.size(), device, TensorScalarType::Int32);
-  buffer_ptr->allocate();
+      core23::Tensor(params.shape({static_cast<int64_t>(cpu_searched_id_space_list.size())})
+                         .data_type(core23::ScalarType::Int32));
 
-  searched_keys.copy_from(cpu_searched_key);
-  searched_id_space_offset.copy_from(cpu_searched_id_space_offset);
-  searched_id_space_list.copy_from(cpu_searched_id_space_list);
+  core23::copy_sync(searched_keys, cpu_searched_key);
+  core23::copy_sync(searched_id_space_offset, cpu_searched_id_space_offset);
+  core23::copy_sync(searched_id_space_list, cpu_searched_id_space_list);
 
-  embedding_table->lookup(searched_keys, searched_keys.get_num_elements(), searched_id_space_offset,
-                          searched_id_space_offset.get_num_elements(), searched_id_space_list,
-                          emb_vec);
+  embedding_table->lookup(searched_keys, searched_keys.num_elements(), searched_id_space_offset,
+                          searched_id_space_offset.num_elements(), searched_id_space_list, emb_vec);
   {
     HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
 
     std::vector<float*> cpu_emb_vec(cpu_searched_key.size());
 
-    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec.data(), emb_vec.get<float>(),
+    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec.data(), emb_vec.data<float>(),
                               cpu_searched_key.size() * sizeof(void*), cudaMemcpyDeviceToHost));
 
     for (size_t idx = 0; idx < cpu_searched_id_space_offset.size() - 1; ++idx) {

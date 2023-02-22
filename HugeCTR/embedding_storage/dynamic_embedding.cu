@@ -40,7 +40,9 @@ DynamicEmbeddingTable::DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_res
                                              const std::vector<EmbeddingTableParam> &table_params,
                                              const EmbeddingCollectionParam &ebc_param,
                                              size_t grouped_id, const HugeCTR::OptParams &opt_param)
-    : core_(core), key_type_(ebc_param.key_type), opt_param_(opt_param) {
+    : core_(core),
+      key_type_(data_type_core23_to_core[ebc_param.key_type.type()]),
+      opt_param_(opt_param) {
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
@@ -127,12 +129,17 @@ std::vector<size_t> DynamicEmbeddingTable::remap_id_space(const std::vector<int>
   return local_idsl_cpu;
 }
 
-void DynamicEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
-                                   const Tensor &id_space_offset, size_t num_id_space_offset,
-                                   const Tensor &id_space_list, TensorList &emb_vec) {
+void DynamicEmbeddingTable::lookup(const core23::Tensor &core23_keys, size_t num_keys,
+                                   const core23::Tensor &core23_id_space_offset,
+                                   size_t num_id_space_offset,
+                                   const core23::Tensor &core23_id_space_list,
+                                   core23::Tensor &core23_emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   HCTR_ASSERT(keys.dtype() == key_type_);
+  auto keys = convert_core23_tensor_to_core_tensor(core23_keys);
+  auto id_space_offset = convert_core23_tensor_to_core_tensor(core23_id_space_offset);
+  auto id_space_list = convert_core23_tensor_to_core_tensor(core23_id_space_list);
 
   const auto mapped_id_space_list = remap_id_space(id_space_list, stream);
   std::vector<size_t> id_space_offset_cpu;
@@ -149,7 +156,7 @@ void DynamicEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
     DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
       auto table = cast_table<key_t, float>(table_);
 
-      table->lookup_unsafe(keys.get<key_t>(), emb_vec.get<float>(), num_keys,
+      table->lookup_unsafe(keys.get<key_t>(), (float **)core23_emb_vec.data(), num_keys,
                            mapped_id_space_list.data(), id_space_offset_cpu.data(),
                            num_id_space_offset - 1, stream);
       HCTR_LIB_THROW(cudaStreamSynchronize(stream));
@@ -164,10 +171,11 @@ void DynamicEmbeddingTable::update(const Tensor &unique_keys, const Tensor &num_
 
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-  HCTR_ASSERT(unique_keys.dtype() == key_type_);
-  HCTR_ASSERT(num_unique_keys.dtype().type() == TensorScalarType::Size_t);
-  HCTR_ASSERT(table_ids.dtype().type() == TensorScalarType::Int32);
-  HCTR_ASSERT(wgrad.dtype().type() == TensorScalarType::Float32);
+  HCTR_CHECK(unique_keys.dtype() == key_type_);
+  HCTR_CHECK(num_unique_keys.dtype().type() == TensorScalarType::UInt64);
+  HCTR_CHECK(table_ids.dtype().type() == TensorScalarType::Int32);
+  HCTR_CHECK(wgrad.dtype().type() == TensorScalarType::Float32);
+  HCTR_CHECK(num_unique_keys.nbytes() == sizeof(size_t));
 
   size_t num_unique_keys_cpu;
   HCTR_LIB_THROW(cudaMemcpyAsync(&num_unique_keys_cpu, num_unique_keys.get(),

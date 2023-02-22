@@ -16,22 +16,27 @@
 #pragma once
 
 #include <core/registry.hpp>
+#include <core23/tensor.hpp>
+#include <core23/tensor_operations.hpp>
+#include <core23/tensor_params.hpp>
 #include <embedding/embedding_table.hpp>
 
 namespace embedding {
+namespace core23 = HugeCTR::core23;
 
 struct ReductionIndices;
 struct ModelCommBuffer;
 
 struct PartialReduceResult {
-  Tensor partial_wgrad;
-  Tensor partial_keys;
-  Tensor partial_ev_length;
-  Tensor partial_dst_offset_array;
+  core23::Tensor partial_wgrad;
+  core23::Tensor partial_keys;
+  core23::Tensor partial_ev_length;
+  core23::Tensor partial_dst_offset_array;
 
-  Tensor partial_wgrad_new;
-  Tensor partial_ev_length_new;
-  Tensor partial_dst_id_array_new;
+  core23::Tensor partial_wgrad_new;
+  core23::Tensor partial_ev_length_new;
+  core23::Tensor partial_dst_id_array_new;
+
   size_t max_input_num;
 };
 
@@ -49,7 +54,7 @@ class LocalReduce {
                     Wgrad &wgrad, int batch_size);
 
   void local_reduce(const ReductionIndices &reduction_indices, const EmbeddingOutput &src_buffer,
-                    Wgrad &wgrad, const Tensor &local_lookup_ids, int num_lookup,
+                    Wgrad &wgrad, const core23::Tensor &local_lookup_ids, int num_lookup,
                     int num_global_lookup, int batch_size);
 };
 }  // namespace embedding

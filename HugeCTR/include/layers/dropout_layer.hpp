@@ -44,6 +44,8 @@ class DropoutLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  DropoutLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor, float rate,
+               const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of DropoutLayer.
    * @param in_tensor the input tensor
@@ -68,7 +70,9 @@ class DropoutLayer : public Layer {
    */
   void bprop() override;
 
-  const float* mask() const { return mask_.get_ptr(); }
+  const float* mask() const {
+    return noise_mask_.empty() ? mask_.get_ptr() : noise_mask_.data<float>();
+  }
 
  private:
   cudnnDropoutDescriptor_t dropout_descriptor_;
@@ -76,6 +80,7 @@ class DropoutLayer : public Layer {
   float scale_;
   void* cudnn_status_;
   Tensor2<float> mask_;
+  core23::Tensor noise_mask_;
   cudnnTensorDescriptor_t in_out_desc_;
   size_t reserveSpaceSizeInBytes_;
 };

@@ -62,10 +62,10 @@ void all2all_embedding_collection_test() {
                                      shard_matrix,
                                      grouped_emb_params,
                                      batch_size,
-                                     HugeCTR::TensorScalarTypeFunc<key_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<index_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<offset_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<emb_t>::get_type(),
+                                     HugeCTR::core23::ToScalarType<key_t>::value,
+                                     HugeCTR::core23::ToScalarType<index_t>::value,
+                                     HugeCTR::core23::ToScalarType<offset_t>::value,
+                                     HugeCTR::core23::ToScalarType<emb_t>::value,
                                      EmbeddingLayout::FeatureMajor,
                                      EmbeddingLayout::FeatureMajor,
                                      false};
@@ -73,7 +73,7 @@ void all2all_embedding_collection_test() {
   HugeCTR::OptParams opt_param;
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
-  opt_param.scaler = (ebc_param.emb_type == TensorScalarType::Float16) ? 1024 : 1;
+  opt_param.scaler = (ebc_param.emb_type == core23::ScalarType::Half) ? 1024 : 1;
 
   std::vector<EmbeddingTableParam> table_param_list;
   table_param_list.reserve(num_table);
@@ -143,41 +143,47 @@ void all2all_embedding_collection_test() {
 
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       HugeCTR::CudaDeviceContext context(core_list[gpu_id]->get_device_id());
+      core23::Device device(core23::DeviceType::GPU, core_list[gpu_id]->get_device_id());
+      core23::BufferParams buffer_params;
+      buffer_params.unitary = false;
+      core23::TensorParams params =
+          core23::TensorParams().device(device).buffer_params(buffer_params);
 
-      auto buffer = GetBuffer(core_list[gpu_id]);
-      std::vector<core::Tensor> ebc_key_list;
-      std::vector<core::Tensor> ebc_row_lengths_list;
+      std::vector<core23::Tensor> ebc_key_list;
+      std::vector<core23::Tensor> ebc_row_lengths_list;
 
       auto copy_gpu_input = [&] {
         for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
-          ebc_key_list.push_back(buffer->reserve(key_list[gpu_id][embedding_id].size(),
-                                                 DeviceType::GPU, ebc_param.key_type));
-          ebc_row_lengths_list.push_back(buffer->reserve(row_lengths[gpu_id][embedding_id].size(),
-                                                         DeviceType::GPU, ebc_param.offset_type));
-          buffer->allocate();
-          ebc_key_list[embedding_id].copy_from(key_list[gpu_id][embedding_id]);
-          ebc_row_lengths_list[embedding_id].copy_from(row_lengths[gpu_id][embedding_id]);
+          ebc_key_list.emplace_back(
+              params.shape({static_cast<int64_t>(key_list[gpu_id][embedding_id].size())})
+                  .data_type(ebc_param.key_type));
+          core23::copy_sync(ebc_key_list[embedding_id], key_list[gpu_id][embedding_id]);
+
+          ebc_row_lengths_list.emplace_back(
+              params.shape({static_cast<int64_t>(row_lengths[gpu_id][embedding_id].size())})
+                  .data_type(ebc_param.offset_type));
+          core23::copy_sync(ebc_row_lengths_list[embedding_id], row_lengths[gpu_id][embedding_id]);
         }
       };
       copy_gpu_input();
 
-      core::Tensor key_all_gather_send_buffer;
-      core::Tensor row_lengths_all_gather_send_buffer;
+      core23::Tensor key_all_gather_send_buffer;
+      core23::Tensor row_lengths_all_gather_send_buffer;
       auto allocate_all_gather_buffer = [&] {
         int64_t num_key_all_gather_send_buffer = 0;
         for (auto &t : ebc_key_list) {
-          num_key_all_gather_send_buffer += t.get_num_elements();
+          num_key_all_gather_send_buffer += t.num_elements();
         }
-        key_all_gather_send_buffer =
-            buffer->reserve(num_key_all_gather_send_buffer, DeviceType::GPU, ebc_param.key_type);
+        key_all_gather_send_buffer = core23::Tensor(
+            params.shape({num_key_all_gather_send_buffer}).data_type(ebc_param.key_type));
 
         int64_t num_row_lengths_all_gather_send_buffer = 0;
         for (auto &t : ebc_row_lengths_list) {
-          num_row_lengths_all_gather_send_buffer += t.get_num_elements();
+          num_row_lengths_all_gather_send_buffer += t.num_elements();
         }
-        row_lengths_all_gather_send_buffer = buffer->reserve(
-            num_row_lengths_all_gather_send_buffer, DeviceType::GPU, ebc_param.offset_type);
-        buffer->allocate();
+        row_lengths_all_gather_send_buffer =
+            core23::Tensor(params.shape({num_row_lengths_all_gather_send_buffer})
+                               .data_type(ebc_param.offset_type));
       };
       allocate_all_gather_buffer();
 
@@ -189,25 +195,29 @@ void all2all_embedding_collection_test() {
       auto print_input_key = [&] {
         std::cout << "gpu_id:" << gpu_id << ",ebc_key_list:\n";
         for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
-          std::vector<key_t> gpu_ebc_key;
-          ebc_key_list[embedding_id].to(&gpu_ebc_key);
+          std::vector<key_t> gpu_ebc_key(ebc_key_list[embedding_id].num_elements());
+          core23::copy_sync(gpu_ebc_key, ebc_key_list[embedding_id]);
           print_array(gpu_ebc_key.size(), gpu_ebc_key);
         }
 
         std::cout << "gpu_id:" << gpu_id << ",ebc_row_lengths:\n";
         for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
-          std::vector<key_t> gpu_ebc_row_length;
-          ebc_row_lengths_list[embedding_id].to(&gpu_ebc_row_length);
+          std::vector<key_t> gpu_ebc_row_length(ebc_row_lengths_list[embedding_id].num_elements());
+          core23::copy_sync(gpu_ebc_row_length, ebc_row_lengths_list[embedding_id]);
+
           print_array(gpu_ebc_row_length.size(), gpu_ebc_row_length);
         }
       };
       print_input_key();
 
       auto print_all_gather_result = [&] {
-        std::vector<key_t> gpu_key_all_gather_send_buffer;
-        key_all_gather_send_buffer.to(&gpu_key_all_gather_send_buffer);
-        std::vector<offset_t> gpu_row_lengths_all_gather_send_buffer;
-        row_lengths_all_gather_send_buffer.to(&gpu_row_lengths_all_gather_send_buffer);
+        std::vector<key_t> gpu_key_all_gather_send_buffer(
+            key_all_gather_send_buffer.num_elements());
+        core23::copy_sync(gpu_key_all_gather_send_buffer, key_all_gather_send_buffer);
+        std::vector<offset_t> gpu_row_lengths_all_gather_send_buffer(
+            row_lengths_all_gather_send_buffer.num_elements());
+        core23::copy_sync(gpu_row_lengths_all_gather_send_buffer,
+                          row_lengths_all_gather_send_buffer);
 
         std::cout << "gpu_id:" << gpu_id << ",gpu_key_all_gather_send_buffer:\n";
         print_array(gpu_key_all_gather_send_buffer.size(), gpu_key_all_gather_send_buffer);
@@ -219,8 +229,8 @@ void all2all_embedding_collection_test() {
       };
       print_all_gather_result();
 
-      Tensor key_all_gather_recv_buffer;
-      Tensor row_lengths_all_gather_recv_buffer;
+      core23::Tensor key_all_gather_recv_buffer;
+      core23::Tensor row_lengths_all_gather_recv_buffer;
       auto prepare_all_gather_recv_buffer = [&] {
         std::vector<key_t> cpu_key_all_gather_recv_buffer;
         std::vector<offset_t> cpu_row_lengths_all_gather_recv_buffer;
@@ -235,42 +245,43 @@ void all2all_embedding_collection_test() {
           }
         }
 
-        key_all_gather_recv_buffer = buffer->reserve(cpu_key_all_gather_recv_buffer.size(),
-                                                     DeviceType::GPU, ebc_param.key_type);
-        row_lengths_all_gather_recv_buffer = buffer->reserve(
-            cpu_row_lengths_all_gather_recv_buffer.size(), DeviceType::GPU, ebc_param.offset_type);
-        buffer->allocate();
-        key_all_gather_recv_buffer.copy_from(cpu_key_all_gather_recv_buffer);
-        row_lengths_all_gather_recv_buffer.copy_from(cpu_row_lengths_all_gather_recv_buffer);
+        key_all_gather_recv_buffer = core23::Tensor(
+            params.shape({static_cast<int64_t>(cpu_key_all_gather_recv_buffer.size())})
+                .data_type(ebc_param.key_type));
+        core23::copy_sync(key_all_gather_recv_buffer, cpu_key_all_gather_recv_buffer);
+
+        row_lengths_all_gather_recv_buffer = core23::Tensor(
+            params.shape({static_cast<int64_t>(cpu_row_lengths_all_gather_recv_buffer.size())})
+                .data_type(ebc_param.offset_type));
+        core23::copy_sync(row_lengths_all_gather_recv_buffer,
+                          cpu_row_lengths_all_gather_recv_buffer);
       };
       prepare_all_gather_recv_buffer();
 
-      std::vector<Tensor> emb_vec_model_buffer;
+      std::vector<core23::Tensor> emb_vec_model_buffer;
       auto prepare_model_buffer = [&] {
         auto buffer_size_list = tf::model_forward::get_model_comm_buffer_size(
             meta_list[gpu_id], core_list[gpu_id]->get_global_gpu_count(), batch_size);
         for (size_t buffer_size : buffer_size_list) {
-          auto t = buffer->reserve(buffer_size, DeviceType::GPU, ebc_param.emb_type);
-          emb_vec_model_buffer.push_back(t);
+          emb_vec_model_buffer.emplace_back(
+              params.shape({static_cast<int64_t>(buffer_size)}).data_type(ebc_param.emb_type));
           std::cout << "buffer_size:" << buffer_size << "\n";
         }
-        buffer->allocate();
       };
       prepare_model_buffer();
 
       int64_t num_model_key, num_model_offsets;
-      Tensor ret_model_key, ret_model_offset;
+      core23::Tensor ret_model_key, ret_model_offset;
       tf::model_forward::sparse_forward_per_gpu(
           core_list[gpu_id], ebc_param, meta_list[gpu_id], key_all_gather_recv_buffer,
           row_lengths_all_gather_recv_buffer, ebc_table_list[gpu_id].get(), emb_vec_model_buffer,
           &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
 
-      Tensor model_key, model_offsets;
+      core23::Tensor model_key, model_offsets;
       auto allocate_model_key_and_offsets = [&] {
-        model_key = buffer->reserve(num_model_key, DeviceType::GPU, ebc_param.key_type);
+        model_key = core23::Tensor(params.shape({num_model_key}).data_type(ebc_param.key_type));
         model_offsets =
-            buffer->reserve(num_model_offsets, DeviceType::GPU, TensorScalarType::UInt32);
-        buffer->allocate();
+            core23::Tensor(params.shape({num_model_offsets}).data_type(core23::ScalarType::UInt32));
       };
       allocate_model_key_and_offsets();
       tf::model_forward::copy_model_keys_and_offsets(core_list[gpu_id], ret_model_key,
@@ -280,8 +291,8 @@ void all2all_embedding_collection_test() {
       auto print_model_buffer = [&] {
         std::cout << "model buffer:\n";
         for (int dst_gpu_id = 0; dst_gpu_id < num_gpus; ++dst_gpu_id) {
-          std::vector<emb_t> gpu_model_buffer;
-          emb_vec_model_buffer[dst_gpu_id].to(&gpu_model_buffer);
+          std::vector<emb_t> gpu_model_buffer(emb_vec_model_buffer[dst_gpu_id].num_elements());
+          core23::copy_sync(gpu_model_buffer, emb_vec_model_buffer[dst_gpu_id]);
           std::cout << "dst_gpu_id " << dst_gpu_id << ":";
           print_array(gpu_model_buffer.size(), gpu_model_buffer);
         }
@@ -289,16 +300,16 @@ void all2all_embedding_collection_test() {
       print_model_buffer();
 
       auto print_model_key_and_offsets = [&] {
-        std::vector<key_t> gpu_model_key;
-        model_key.to(&gpu_model_key);
+        std::vector<key_t> gpu_model_key(model_key.num_elements());
+        core23::copy_sync(gpu_model_key, model_key);
         std::cout << "gpu model key:\n";
         for (auto i : gpu_model_key) {
           std::cout << i << " ";
         }
         std::cout << "\n";
 
-        std::vector<uint32_t> gpu_model_offsets;
-        model_offsets.to(&gpu_model_offsets);
+        std::vector<uint32_t> gpu_model_offsets(model_offsets.num_elements());
+        core23::copy_sync(gpu_model_offsets, model_offsets);
         std::cout << "gpu model offsets:\n";
         for (auto i : gpu_model_offsets) {
           std::cout << i << " ";
@@ -307,7 +318,7 @@ void all2all_embedding_collection_test() {
       };
       print_model_key_and_offsets();
 
-      std::vector<Tensor> emb_vec_network_buffer;
+      std::vector<core23::Tensor> emb_vec_network_buffer;
       auto prepare_network_buffer = [&] {
         timeval t1;
         gettimeofday(&t1, NULL);
@@ -323,19 +334,17 @@ void all2all_embedding_collection_test() {
             float x = (float)rand() / (float)(RAND_MAX);
             cpu_network_buffer.push_back(x);
           }
-
-          emb_vec_network_buffer.push_back(
-              buffer->reserve(num_elements, DeviceType::GPU, ebc_param.emb_type));
-          buffer->allocate();
-          emb_vec_network_buffer.back().copy_from(cpu_network_buffer);
+          emb_vec_network_buffer.emplace_back(
+              params.shape({num_elements}).data_type(ebc_param.emb_type));
+          core23::copy_sync(emb_vec_network_buffer.back(), cpu_network_buffer);
         }
       };
       prepare_network_buffer();
 
       auto print_network_buffer = [&] {
         for (int dst_gpu_id = 0; dst_gpu_id < num_gpus; ++dst_gpu_id) {
-          std::vector<emb_t> gpu_network_buffer;
-          emb_vec_network_buffer[dst_gpu_id].to(&gpu_network_buffer);
+          std::vector<emb_t> gpu_network_buffer(emb_vec_network_buffer[dst_gpu_id].num_elements());
+          core23::copy_sync(gpu_network_buffer, emb_vec_network_buffer[dst_gpu_id]);
           std::cout << "dst_gpu_id " << dst_gpu_id << ", num_elements:" << gpu_network_buffer.size()
                     << "\n";
           print_array(gpu_network_buffer.size(), gpu_network_buffer);
@@ -344,14 +353,13 @@ void all2all_embedding_collection_test() {
       std::cout << "network buffer:\n";
       print_network_buffer();
 
-      std::vector<Tensor> forward_emb_vec;
+      std::vector<core23::Tensor> forward_emb_vec;
       auto allocate_forward_emb_vec = [&] {
         for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
-          forward_emb_vec.push_back(
-              buffer->reserve(ebc_param.lookup_params[embedding_id].ev_size * batch_size / num_gpus,
-                              DeviceType::GPU, ebc_param.emb_type));
+          forward_emb_vec.emplace_back(
+              params.shape({ebc_param.lookup_params[embedding_id].ev_size * batch_size / num_gpus})
+                  .data_type(ebc_param.emb_type));
         }
-        buffer->allocate();
       };
       allocate_forward_emb_vec();
 
@@ -362,8 +370,8 @@ void all2all_embedding_collection_test() {
       auto print_output_buffer = [&] {
         std::cout << "forward emb result:\n";
         for (auto &t : forward_emb_vec) {
-          std::vector<emb_t> gpu_forward_result;
-          t.to(&gpu_forward_result);
+          std::vector<emb_t> gpu_forward_result(t.num_elements());
+          core23::copy_sync(gpu_forward_result, t);
           print_array(gpu_forward_result.size(), gpu_forward_result);
         }
       };
@@ -375,24 +383,27 @@ void all2all_embedding_collection_test() {
       print_network_buffer();
 
       std::vector<int> num_unique_key_per_table, unique_id_space_list;
-      Tensor ret_continous_unique_key, ret_continous_emb_vec;
+      core23::Tensor ret_continous_unique_key, ret_continous_emb_vec;
       tf::model_backward::sparse_backward_per_gpu(
           core_list[gpu_id], ebc_param, meta_list[gpu_id], emb_vec_model_buffer, model_key,
           model_offsets, &num_unique_key_per_table, &unique_id_space_list,
           &ret_continous_unique_key, &ret_continous_emb_vec);
 
-      std::vector<Tensor> unique_key, grad_emb_vec;
+      std::vector<core23::Tensor> unique_key, grad_emb_vec;
       auto allocate_grad = [&] {
         for (size_t i = 0; i < num_unique_key_per_table.size(); ++i) {
           int id_space = unique_id_space_list[i];
           int ev_size = table_ev_size_list[id_space];
           std::cout << "num_unique_key_per_table:" << num_unique_key_per_table[i] << "\n";
-          unique_key.push_back(
-              buffer->reserve(num_unique_key_per_table[i], DeviceType::GPU, ebc_param.key_type));
-          grad_emb_vec.push_back(buffer->reserve(num_unique_key_per_table[i] * ev_size,
-                                                 DeviceType::GPU, TensorScalarType::Float32));
+          if (num_unique_key_per_table[i] == 0) {
+            unique_key.emplace_back();
+          } else {
+            unique_key.emplace_back(
+                params.shape({num_unique_key_per_table[i]}).data_type(ebc_param.key_type));
+            grad_emb_vec.emplace_back(params.shape({num_unique_key_per_table[i] * ev_size})
+                                          .data_type(core23::ScalarType::Float));
+          }
         }
-        buffer->allocate();
       };
       allocate_grad();
 
@@ -404,14 +415,16 @@ void all2all_embedding_collection_test() {
       auto print_grad = [&] {
         std::cout << "unique_key:";
         for (auto &t : unique_key) {
-          std::vector<key_t> gpu_unique_key;
-          t.to(&gpu_unique_key);
+          if (t.empty()) continue;
+          std::vector<key_t> gpu_unique_key(t.num_elements());
+          core23::copy_sync(gpu_unique_key, t);
           print_array(gpu_unique_key.size(), gpu_unique_key);
         }
         std::cout << "grad_emb_vec:";
         for (auto &t : grad_emb_vec) {
-          std::vector<float> gpu_grad_emb_vec;
-          t.to(&gpu_grad_emb_vec);
+          if (t.empty()) continue;
+          std::vector<float> gpu_grad_emb_vec(t.num_elements());
+          core23::copy_sync(gpu_grad_emb_vec, t);
           print_array(gpu_grad_emb_vec.size(), gpu_grad_emb_vec);
         }
       };

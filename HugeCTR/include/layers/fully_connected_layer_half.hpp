@@ -105,4 +105,69 @@ class FullyConnectedLayer<__half> : public TrainableLayer<__half> {
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 };
 
+/**
+ * @brief
+ * This class implements the fully connected layer.
+ */
+template <>
+class Core23TempFullyConnectedLayer<__half> : public Core23TempTrainableLayer<__half> {
+  // Optimized cublasGemmEx algorithm selection
+  cublasGemmAlgo_t falgo_b_;
+  cublasGemmAlgo_t falgo_k_;
+  cublasGemmAlgo_t balgo_b_;
+  cublasGemmAlgo_t balgo_k_;
+  cublasGemmAlgo_t balgo_x_;
+
+  /*
+   * stores the references to the output tensors of GEMM.
+   */
+  core23::Tensor identity_tensor_;
+
+  /*
+   * initializers for this layer.
+   */
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+
+  core23::Tensor& get_bottom_tensor(bool is_train) { return this->input_tensors_[0]; }
+
+ public:
+  /**
+   * forward pass
+   */
+  void fprop(bool is_train) final;
+  /**
+   * backward pass
+   */
+  void bprop() final;
+  /*
+   * initialize for cublasGemmEx
+   */
+  void initialize() final;
+  /*
+   * algorithm search for cublasGemmEx
+   */
+  void search_algorithm() final;
+
+  /**
+   * This is the constructor of the Core23TempFullyConnectedLayer.
+   * It will check whether the format combination of all tensors is supported or not.
+   * Only two kinds of tensor formats are supported:
+   * (1) weight, input, output, wgrad are all in row-major.
+   * (2) weight, input, output, wgrad are all in column-major.
+   * @param bottom_tensor: stores the tensor from bottom layer
+   * @param top_tensor: stores the tensor to top layer
+   * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
+   * (col-major)
+   */
+  Core23TempFullyConnectedLayer(
+      const core23::Tensor& bottom_tensor, const core23::Tensor& top_tensor,
+      const std::shared_ptr<GPUResource>& gpu_resource,
+      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+  Core23TempFullyConnectedLayer(const Core23TempFullyConnectedLayer&) = delete;
+  Core23TempFullyConnectedLayer& operator=(const Core23TempFullyConnectedLayer&);
+};
+
 }  // namespace HugeCTR

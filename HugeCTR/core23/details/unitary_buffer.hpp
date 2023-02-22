@@ -28,7 +28,7 @@ class OffsettedBuffer;
 
 class UnitaryBuffer final : public Buffer {
  public:
-  UnitaryBuffer(std::unique_ptr<Allocator> allocator);
+  UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator);
   ~UnitaryBuffer() override;
 
   bool subscribable() const;

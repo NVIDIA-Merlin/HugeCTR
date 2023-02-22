@@ -34,6 +34,8 @@ class SequenceMaskLayer : public Layer {
   Tensor2<T> out_tensor_;
 
  public:
+  SequenceMaskLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+                    int max_sequence_len, const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of SequenceMaskLayer.
    * @param in_tensor the input tensor

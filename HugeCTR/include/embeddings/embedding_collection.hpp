@@ -262,10 +262,10 @@ class EmbeddingCollection {
                       const std::vector<EmbeddingTableParam> &emb_table_param_list);
 
   void forward_per_gpu(bool is_train, int gpu_id, const HugeCTR::DataDistributor::Result &input,
-                       Tensor &output_buffer, int batch_size);
+                       core23::Tensor &output_buffer, int batch_size);
 
   void backward_per_gpu(int gpu_id, const HugeCTR::DataDistributor::Result &input,
-                        const Tensor &top_grad, int batch_size);
+                        const core23::Tensor &top_grad, int batch_size);
 
   void update_per_gpu(int gpu_id);
 

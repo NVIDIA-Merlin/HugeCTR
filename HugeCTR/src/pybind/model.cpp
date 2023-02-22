@@ -748,49 +748,61 @@ void Model::add(DenseLayer& dense_layer) {
 }
 
 namespace core_helper {
-
 template <typename T>
-core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_tensor,
-                                                  core::Device device) {
-  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
-      native_tensor.get_ptr(), native_tensor.get_size_in_bytes());
+core23::Tensor convert_tensor2_to_core23_tensor(HugeCTR::Tensor2<T> native_tensor,
+                                                core23::Device device) {
+  return core23::Tensor::bind(native_tensor.get_ptr(),
+                              {static_cast<int64_t>(native_tensor.get_num_elements())},
+                              {core23::ToScalarType<T>::value}, device);
+}
 
-  auto t_impl =
-      std::make_shared<core::TensorImpl>(storage, 0, native_tensor.get_dimensions(), device,
-                                         HugeCTR::TensorScalarTypeFunc<T>::get_type());
-  return core::Tensor(t_impl);
+template <>
+core23::Tensor convert_tensor2_to_core23_tensor<long long>(
+    HugeCTR::Tensor2<long long> native_tensor, core23::Device device) {
+  return core23::Tensor::bind(native_tensor.get_ptr(),
+                              {static_cast<int64_t>(native_tensor.get_num_elements())},
+                              {core23::ScalarType::Int64}, device);
 }
 
 template <typename T>
-core::Tensor convert_sparse_tensor_to_core_tensor(HugeCTR::SparseTensor<T> sparse_tensor,
-                                                  core::Device device) {
+core23::Tensor convert_sparse_tensor_to_core_tensor(HugeCTR::SparseTensor<T> sparse_tensor,
+                                                    core23::Device device) {
   auto native_tensor = sparse_tensor.get_value_tensor();
-  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
-      native_tensor.get_ptr(), native_tensor.get_size_in_bytes());
-  std::vector<size_t> shape = {*sparse_tensor.get_nnz_ptr()};
-  auto t_impl = std::make_shared<core::TensorImpl>(storage, 0, shape, device,
-                                                   HugeCTR::TensorScalarTypeFunc<T>::get_type());
-  return core::Tensor(t_impl);
+  return core23::Tensor::bind(native_tensor.get_ptr(),
+                              {static_cast<int64_t>(native_tensor.get_num_elements())},
+                              {core23::ToScalarType<T>::value}, device);
+}
+
+template <>
+core23::Tensor convert_sparse_tensor_to_core_tensor<long long>(
+    HugeCTR::SparseTensor<long long> sparse_tensor, core23::Device device) {
+  auto native_tensor = sparse_tensor.get_value_tensor();
+  return core23::Tensor::bind(native_tensor.get_ptr(),
+                              {static_cast<int64_t>(native_tensor.get_num_elements())},
+                              {core23::ScalarType::Int64}, device);
 }
 
 template <typename T>
-std::vector<core::Tensor> convert_sparse_tensors_to_core_tensors(
-    std::vector<HugeCTR::SparseTensor<T>> sparse_tensors, core::Device device) {
-  std::vector<core::Tensor> core_tensors;
+std::vector<core23::Tensor> convert_sparse_tensors_to_core23_tensors(
+    std::vector<HugeCTR::SparseTensor<T>> sparse_tensors, core23::Device device) {
+  std::vector<core23::Tensor> core_tensors;
   for (auto& t : sparse_tensors) {
     core_tensors.push_back(convert_sparse_tensor_to_core_tensor(t, device));
   }
   return core_tensors;
 }
 
-std::vector<core::Tensor> current_sparse_tensors_to_core_tensors(HugeCTR::IDataReader* reader,
-                                                                 int gpu_id) {
+std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::IDataReader* reader,
+                                                                     int gpu_id) {
+  int device_id;
+  HCTR_LIB_THROW(cudaGetDevice(&device_id));
+  core23::Device device(core23::DeviceType::GPU, device_id);
   if (auto typed_reader = dynamic_cast<AsyncDataReader<uint32_t>*>(reader)) {
-    return convert_sparse_tensors_to_core_tensors(
-        typed_reader->get_current_sparse_tensors()[gpu_id], core::DeviceType::GPU);
+    return convert_sparse_tensors_to_core23_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], device);
   } else if (auto typed_reader = dynamic_cast<AsyncDataReader<long long>*>(reader)) {
-    return convert_sparse_tensors_to_core_tensors(
-        typed_reader->get_current_sparse_tensors()[gpu_id], core::DeviceType::GPU);
+    return convert_sparse_tensors_to_core23_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], device);
   } else {
     throw std::runtime_error("Unknown type of AsyncDataReader");
   }
@@ -804,7 +816,7 @@ void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manage
                                 const EmbeddingCollectionConfig& ebc_config,
                                 const embedding::EmbeddingCollectionParam& ebc_param,
                                 std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-                                std::vector<core::Tensor>& ebc_output) {
+                                std::vector<core23::Tensor>& ebc_output) {
   int num_local_gpus = resource_manager_->get_local_gpu_count();
   for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
     CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
@@ -832,8 +844,11 @@ void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manage
     auto continous_emb_output = block_buffer->as_tensor();
     continous_emb_output.reset_shape(
         {batch_size_per_gpu, continous_emb_output.get_num_elements() / batch_size_per_gpu});
-    ebc_output.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_emb_output,
-                                                                           core::DeviceType::GPU));
+    core23::Device device(core23::DeviceType::GPU,
+                          resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+    ebc_output.push_back(
+        core_helper::convert_tensor2_to_core23_tensor(continous_emb_output, device));
+
     if (ebc_param.output_layout_ == embedding::EmbeddingLayout::BatchMajor) {
       // a WAR since interaction layout only support 3d output
       const auto ebc_3d_batch_major_output = std::getenv("HUGECTR_EBC_3D_BATCH_MAJOR_OUTPUT");
@@ -858,14 +873,14 @@ template void allocate_ebc_output_helper<__half>(
     const EmbeddingCollectionConfig& ebc_config,
     const embedding::EmbeddingCollectionParam& ebc_param,
     std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core::Tensor>& ebc_output);
+    std::vector<core23::Tensor>& ebc_output);
 
 template void allocate_ebc_output_helper<float>(
     std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
     const EmbeddingCollectionConfig& ebc_config,
     const embedding::EmbeddingCollectionParam& ebc_param,
     std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core::Tensor>& ebc_output);
+    std::vector<core23::Tensor>& ebc_output);
 
 std::vector<int> get_table_id_to_vocabulary_size(
     const std::vector<embedding::EmbeddingTableParam>& table_params, bool indices_only) {
@@ -903,14 +918,14 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
   int num_lookup = ebc_config.lookup_configs_.size();
-  core::DataType key_type =
-      solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
-  core::DataType index_type =
-      solver_.i64_input_key ? TensorScalarType::UInt64 : TensorScalarType::UInt32;
-  core::DataType offset_type =
-      solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
-  core::DataType emb_type =
-      solver_.use_mixed_precision ? TensorScalarType::Float16 : TensorScalarType::Float32;
+  core23::DataType key_type =
+      solver_.i64_input_key ? core23::ScalarType::Int64 : core23::ScalarType::UInt32;
+  core23::DataType index_type =
+      solver_.i64_input_key ? core23::ScalarType::UInt64 : core23::ScalarType::UInt32;
+  core23::DataType offset_type =
+      solver_.i64_input_key ? core23::ScalarType::Int64 : core23::ScalarType::UInt32;
+  core23::DataType emb_type =
+      solver_.use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float;
   embedding::EmbeddingLayout input_layout_ =
       reader_params_.data_reader_type == DataReaderType_t::RawAsync
           ? embedding::EmbeddingLayout::FeatureMajor
@@ -1000,23 +1015,26 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
 
     for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
       CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+      core23::Device device{core23::DeviceType::GPU,
+                            static_cast<core23::DeviceIndex>(
+                                resource_manager_->get_local_gpu(local_gpu_id)->get_device_id())};
 
-      auto train_key_tensor = core_helper::convert_native_tensor_to_core_tensor(
-          train_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU);
+      auto train_key_tensor = core_helper::convert_tensor2_to_core23_tensor(
+          train_sparse_tensors[local_gpu_id].get_value_tensor(), device);
       train_ebc_key_list_.push_back(train_key_tensor);
 
-      auto train_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(
-          train_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
+      auto train_bucket_range_tensor = core_helper::convert_tensor2_to_core23_tensor(
+          train_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), device);
       train_ebc_bucket_range_list_.push_back(train_bucket_range_tensor);
 
       train_ebc_num_keys_list_.push_back(train_sparse_tensors[local_gpu_id].get_nnz_ptr().get());
 
-      auto evaluate_key_tensor = core_helper::convert_native_tensor_to_core_tensor(
-          evaluate_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU);
+      auto evaluate_key_tensor = core_helper::convert_tensor2_to_core23_tensor(
+          evaluate_sparse_tensors[local_gpu_id].get_value_tensor(), device);
       evaluate_ebc_key_list_.push_back(evaluate_key_tensor);
 
-      auto evaluate_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(
-          evaluate_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
+      auto evaluate_bucket_range_tensor = core_helper::convert_tensor2_to_core23_tensor(
+          evaluate_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), device);
       evaluate_ebc_bucket_range_list_.push_back(evaluate_bucket_range_tensor);
 
       evaluate_ebc_num_keys_list_.push_back(
@@ -1062,12 +1080,9 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
       tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
     }
   } else {
-    std::vector<std::string> top_name_list;
     int concate_out_dims = 0;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-      std::string top_name = ebc_config.top_names_[lookup_id];
-      top_name_list.push_back(top_name);
 
       int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
                              ? lookup_param.max_hotness * lookup_param.ev_size
@@ -1675,9 +1690,10 @@ void Model::embedding_load(const std::string& path, const std::vector<std::strin
       core::Tensor embedding_weights;
       auto& target_key_type = tmp_ebc_param.key_type;
       auto& target_value_type = tmp_ebc_param.emb_type;
-      embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
-                                                tmp_filter, core_list[0], target_key_type,
-                                                target_value_type);
+      embedding_para_io_->load_embedding_weight(
+          tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
+          embedding::data_type_core23_to_core[target_key_type.type()],
+          embedding::data_type_core23_to_core[target_value_type.type()]);
       for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
         HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
         auto& grouped_table =
@@ -1709,9 +1725,10 @@ void Model::embedding_load(const std::string& path, const std::vector<std::strin
         auto tmp_filter = [=](size_t key) { return key % num_shards == shard_id; };
         core::Tensor keys;
         core::Tensor embedding_weights;
-        embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
-                                                  tmp_filter, core_list[0], target_key_type,
-                                                  target_value_type);
+        embedding_para_io_->load_embedding_weight(
+            tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
+            embedding::data_type_core23_to_core[target_key_type.type()],
+            embedding::data_type_core23_to_core[target_value_type.type()]);
         auto& grouped_table =
             tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
         grouped_table->load_by_id(&keys, &embedding_weights, model_table_id);
@@ -2318,7 +2335,7 @@ bool Model::train(bool is_first_batch) {
         if (solver_.use_embedding_collection) {
           if (is_scheduled_datareader()) {
             auto sparse_dp_tensors =
-                core_helper::current_sparse_tensors_to_core_tensors(train_data_reader_.get(), id);
+                core_helper::current_sparse_tensors_to_core23_tensors(train_data_reader_.get(), id);
             train_data_distributor_->distribute(id, sparse_dp_tensors, {}, train_ddl_output_[id],
                                                 train_data_reader_->get_full_batchsize());
 
@@ -2434,7 +2451,7 @@ bool Model::eval(bool is_first_batch) {
       auto eval_ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
           if (is_scheduled_datareader()) {
-            auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core_tensors(
+            auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core23_tensors(
                 evaluate_data_reader_.get(), id);
             eval_data_distributor_->distribute(id, sparse_dp_tensors, {}, evaluate_ddl_output_[id],
                                                current_eval_batchsize_);
