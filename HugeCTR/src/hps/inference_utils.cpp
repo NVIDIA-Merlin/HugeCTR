@@ -37,6 +37,7 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          address == p.address && user_name == p.user_name && password == p.password &&
          num_partitions == p.num_partitions && allocation_rate == p.allocation_rate &&
          shared_memory_size == p.shared_memory_size && shared_memory_name == p.shared_memory_name &&
+         shared_memory_auto_remove == p.shared_memory_auto_remove &&
          num_node_connections == p.num_node_connections && max_batch_size == p.max_batch_size &&
          enable_tls == p.enable_tls && tls_ca_certificate == p.tls_ca_certificate &&
          tls_client_certificate == p.tls_client_certificate && tls_client_key == p.tls_client_key &&
@@ -89,10 +90,10 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
     const size_t num_partitions, const size_t allocation_rate, const size_t shared_memory_size,
-    const std::string& shared_memory_name, const size_t num_node_connections,
-    const size_t max_batch_size, const bool enable_tls, const std::string& tls_ca_certificate,
-    const std::string& tls_client_certificate, const std::string& tls_client_key,
-    const std::string& tls_server_name_identification,
+    const std::string& shared_memory_name, const bool shared_memory_auto_remove,
+    const size_t num_node_connections, const size_t max_batch_size, const bool enable_tls,
+    const std::string& tls_ca_certificate, const std::string& tls_client_certificate,
+    const std::string& tls_client_key, const std::string& tls_server_name_identification,
     // Overflow handling related.
     const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
     const double overflow_resolution_target,
@@ -110,6 +111,7 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       allocation_rate{allocation_rate},
       shared_memory_size{shared_memory_size},
       shared_memory_name{shared_memory_name},
+      shared_memory_auto_remove{shared_memory_auto_remove},
       num_node_connections{num_node_connections},
       max_batch_size{max_batch_size},
       enable_tls{enable_tls},
@@ -330,6 +332,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
         get_value_from_json_soft(volatile_db, "shared_memory_size", params.shared_memory_size);
     params.shared_memory_name =
         get_value_from_json_soft(volatile_db, "shared_memory_name", params.shared_memory_name);
+    params.shared_memory_auto_remove = get_value_from_json_soft(
+        volatile_db, "shared_memory_auto_remove", params.shared_memory_auto_remove);
 
     params.num_node_connections =
         get_value_from_json_soft(volatile_db, "num_node_connections", params.num_node_connections);

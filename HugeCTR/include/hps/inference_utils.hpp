@@ -126,7 +126,8 @@ struct VolatileDatabaseParams {
       1024};  // Size-limit of the shared memory (only for Multi-Process hashmap).
   std::string shared_memory_name{
       "hctr_mp_hash_map_database"};  // Name of the shared memory (only for Multi-Process hashmap).
-  size_t num_node_connections{5};    // Only used with Redis backend.
+  bool shared_memory_auto_remove{true};
+  size_t num_node_connections{5};  // Only used with Redis backend.
   size_t max_batch_size{64L * 1024};
 
   bool enable_tls{false};
@@ -149,24 +150,22 @@ struct VolatileDatabaseParams {
   std::vector<std::string> update_filters{{"^hps_.+$"}};  // Should be a regex for Kafka.
 
   VolatileDatabaseParams();
-  VolatileDatabaseParams(DatabaseType_t type,
-                         // Backend specific.
-                         const std::string& address, const std::string& user_name,
-                         const std::string& password, size_t num_partitions, size_t allocation_rate,
-                         size_t shared_memory_size, const std::string& shared_memory_name,
-                         size_t num_node_connections, size_t max_batch_size, bool enable_tls,
-                         const std::string& tls_ca_certificate,
-                         const std::string& tls_client_certificate,
-                         const std::string& tls_client_key,
-                         const std::string& tls_server_name_identification,
-                         // Overflow handling related.
-                         size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
-                         double overflow_resolution_target,
-                         // Caching behavior related.
-                         bool initialize_after_startup, double initial_cache_rate,
-                         bool cache_missed_embeddings,
-                         // Real-time update mechanism related.
-                         const std::vector<std::string>& update_filters);
+  VolatileDatabaseParams(
+      DatabaseType_t type,
+      // Backend specific.
+      const std::string& address, const std::string& user_name, const std::string& password,
+      size_t num_partitions, size_t allocation_rate, size_t shared_memory_size,
+      const std::string& shared_memory_name, bool shared_memory_auto_remove,
+      size_t num_node_connections, size_t max_batch_size, bool enable_tls,
+      const std::string& tls_ca_certificate, const std::string& tls_client_certificate,
+      const std::string& tls_client_key, const std::string& tls_server_name_identification,
+      // Overflow handling related.
+      size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
+      double overflow_resolution_target,
+      // Caching behavior related.
+      bool initialize_after_startup, double initial_cache_rate, bool cache_missed_embeddings,
+      // Real-time update mechanism related.
+      const std::vector<std::string>& update_filters);
 
   bool operator==(const VolatileDatabaseParams& p) const;
   bool operator!=(const VolatileDatabaseParams& p) const;

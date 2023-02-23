@@ -126,7 +126,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
             conf.shared_memory_size,
             conf.shared_memory_name,
             std::chrono::milliseconds{100},  // heart_beat_frequency
-            true,                            // auto_remove
+            conf.shared_memory_auto_remove,
         };
         volatile_db_ = std::make_unique<MultiProcessHashMapBackend<TypeHashKey>>(params);
       } break;
@@ -583,7 +583,6 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   }
   const auto start_time = std::chrono::high_resolution_clock::now();
   BaseUnit* start = profiler::start();
-  const auto time_budget = std::chrono::nanoseconds::max();
 
   const auto& model_id = ps_config_.find_model_id(model_name);
   HCTR_CHECK_HINT(
@@ -664,6 +663,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
         HCTR_LOG_C(DEBUG, WORLD, "Attempting to migrate ", keys_to_elevate->size(),
                    " embeddings from ", persistent_db_->get_name(), " to ",
                    volatile_db_->get_name(), ".\n");
+
         start = profiler::start();
         volatile_db_async_inserter_.submit([this, tag_name, keys_to_elevate, values_to_elevate,
                                             expected_value_size, start]() {
