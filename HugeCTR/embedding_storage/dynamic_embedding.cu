@@ -136,10 +136,10 @@ void DynamicEmbeddingTable::lookup(const core23::Tensor &core23_keys, size_t num
                                    core23::Tensor &core23_emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  HCTR_ASSERT(keys.dtype() == key_type_);
   auto keys = convert_core23_tensor_to_core_tensor(core23_keys);
   auto id_space_offset = convert_core23_tensor_to_core_tensor(core23_id_space_offset);
   auto id_space_list = convert_core23_tensor_to_core_tensor(core23_id_space_list);
+  HCTR_CHECK(keys.dtype() == key_type_);
 
   const auto mapped_id_space_list = remap_id_space(id_space_list, stream);
   std::vector<size_t> id_space_offset_cpu;
@@ -338,8 +338,8 @@ void DynamicEmbeddingTable::assign(const Tensor &keys, size_t num_keys,
   CudaDeviceContext context(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-  HCTR_ASSERT(keys.dtype() == key_type_);
-  HCTR_ASSERT(embeding_vector.dtype().type() == TensorScalarType::Float32);
+  HCTR_CHECK(keys.dtype() == key_type_);
+  HCTR_CHECK(embeding_vector.dtype().type() == TensorScalarType::Float32);
 
   const auto mapped_id_space_list = remap_id_space(table_id_list, stream);
   std::vector<size_t> id_space_offset_cpu;
@@ -424,7 +424,7 @@ void DynamicEmbeddingTable::load_by_id(Tensor *h_keys_tensor, Tensor *h_embeddin
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   auto key_type = h_keys_tensor->dtype();
-  HCTR_ASSERT(h_keys_tensor->dtype() == key_type_);
+  HCTR_CHECK(h_keys_tensor->dtype() == key_type_);
 
   auto it = find(h_table_ids_.begin(), h_table_ids_.end(), table_id);
   int table_index = 0;
@@ -551,9 +551,9 @@ void DynamicEmbeddingTable::evict(const Tensor &keys, size_t num_keys,
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-  HCTR_ASSERT(keys.dtype() == key_type_);
-  HCTR_ASSERT(id_space_offset.dtype().type() == TensorScalarType::Size_t);
-  HCTR_ASSERT(id_space_list.dtype().type() == TensorScalarType::Size_t);
+  HCTR_CHECK(keys.dtype() == key_type_);
+  HCTR_CHECK(id_space_offset.dtype().type() == TensorScalarType::Size_t);
+  HCTR_CHECK(id_space_list.dtype().type() == TensorScalarType::Size_t);
 
   const auto mapped_id_space_list = remap_id_space(id_space_list, stream);
   std::vector<size_t> id_space_offset_cpu;
