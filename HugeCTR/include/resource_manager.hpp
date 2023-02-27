@@ -17,7 +17,6 @@
 
 #include <collectives/all_reduce_comm.hpp>
 #include <collectives/ib_comm.hpp>
-#include <core/mpi_lifetime_service.hpp>
 #include <cpu_resource.hpp>
 #include <device_map.hpp>
 #include <gpu_resource.hpp>

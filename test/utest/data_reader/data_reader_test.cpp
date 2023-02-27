@@ -261,10 +261,7 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 
 //   cudaSetDevice(0);
 //   test::mpi_init();
-//   int numprocs = 1;
-// #ifdef ENABLE_MPI
-//   HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-// #endif
+//   const int numprocs{core23::MpiInitService::get().world_size()};
 
 //   std::vector<std::vector<int>> vvgpu;
 //   std::vector<int> device_list = {0, 1, 2, 3};
@@ -302,14 +299,14 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 // #ifdef ENABLE_MPI
 // TEST(data_reader_test, two_nodes_localized) {
 //   int batchsize = 2048;
-//   int numprocs = 1, pid = 0;
+
 //   HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_samples,
 //                                             slot_num, vocabulary_size, label_dim, dense_dim,
 //                                             max_nnz);
 
 //   test::mpi_init();
-//   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-//   HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+//   const int numprocs{core23::MpiInitService::get().world_size()};
+//   const int pid{core23::MpiInitService::get().world_rank()};
 
 //   if (numprocs != 2) {
 //     HCTR_LOG_S(DEBUG, WORLD) << "numprocs != 2" << std::endl;

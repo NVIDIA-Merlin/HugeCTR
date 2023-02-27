@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <base/debug/logger.hpp>
 #include <core/hctr_impl/hctr_backend.hpp>
+#include <core23/mpi_init_service.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
@@ -2521,12 +2522,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
 
     std::unique_ptr<float[]> global_prediction_result;
     std::unique_ptr<float[]> global_label_result;
-    int numprocs = 1;
-    int pid = 0;
-#ifdef ENABLE_MPI
-    HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
+    const int numprocs{core23::MpiInitService::get().world_size()};
+    const int pid{core23::MpiInitService::get().world_rank()};
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
       if (pid == 0) {
@@ -2957,10 +2954,7 @@ void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_resu
               local_gpu_count * tensor_num_of_elements);
   }
 
-  int numprocs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
+  const int numprocs{core23::MpiInitService::get().world_size()};
   if (numprocs > 1) {
 #ifdef ENABLE_MPI
     HCTR_MPI_THROW(MPI_Gather(local_result.get(), local_gpu_count * tensor_num_of_elements,
