@@ -15,10 +15,12 @@
  */
 
 #ifdef ENABLE_MPI
+
 #include <gtest/gtest.h>
 
 #include <collectives/ib_comm.hpp>
 #include <common.hpp>
+#include <core23/mpi_init_service.hpp>
 #include <general_buffer2.hpp>
 #include <random>
 #include <resource_managers/resource_manager_ext.hpp>
@@ -105,11 +107,10 @@ template <typename TypeEmbeddingComp>
 struct IbCommsTest {
  public:
   IbCommsTest(const std::vector<int>& device_list, size_t max_size)
-      : num_gpus_(device_list.size()), max_size_(max_size) {
-    max_elems_ = max_size_ / sizeof(TypeEmbeddingComp);
-
-    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
-
+      : num_gpus_(device_list.size()),
+        max_size_(max_size),
+        max_elems_{max_size / sizeof(TypeEmbeddingComp)},
+        num_procs_{core23::MpiInitService::get().world_size()} {
     std::vector<std::vector<int>> vvgpu;
     for (int i = 0; i < num_procs_; i++) {
       vvgpu.push_back(device_list);
@@ -326,8 +327,7 @@ struct IbCommsTest {
 
 template <typename TypeEmbeddingComp>
 void test_ib_comm(const std::vector<int>& device_list) {
-  int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  const int num_procs{core23::MpiInitService::get().world_size()};
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 64 * 1024 * 1024;
@@ -337,8 +337,7 @@ void test_ib_comm(const std::vector<int>& device_list) {
 
 template <typename TypeEmbeddingComp>
 void test_ib_comm_perf(const std::vector<int>& device_list) {
-  int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  const int num_procs{core23::MpiInitService::get().world_size()};
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 64 * 1024 * 1024;

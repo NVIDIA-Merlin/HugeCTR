@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <core23/mpi_init_service.hpp>
 #include <resource_managers/resource_manager_ext.hpp>
 #include <utest/embedding/unified_embedding.hpp>
 
@@ -26,10 +27,8 @@ template <template <typename, typename> typename EmbeddingType, typename Key,
 void unified_embedding_forward(const TestParams &test_param, const std::vector<int> &device_list,
                                const std::vector<size_t> &slot_size_array) {
   test::mpi_init();
-  int numprocs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
+  const int numprocs{core23::MpiInitService::get().world_size()};
+
   std::vector<std::vector<int>> vvgpu;
   for (int i = 0; i < numprocs; ++i) {
     vvgpu.push_back(device_list);
