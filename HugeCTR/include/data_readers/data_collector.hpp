@@ -28,10 +28,6 @@
 #include <thread>
 #include <utils.hpp>
 
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
-
 namespace HugeCTR {
 
 template <typename TypeComp>

@@ -15,6 +15,7 @@
  */
 
 #include <base/debug/logger.hpp>
+#include <core23/mpi_init_service.hpp>
 #include <random>
 #include <resource_managers/resource_manager_ext.hpp>
 #include <utils.hpp>
@@ -24,13 +25,8 @@ namespace HugeCTR {
 std::shared_ptr<ResourceManager> ResourceManagerExt::create(
     const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
     DeviceMap::Layout layout) {
-  int size = 1, rank = 0;
-
-#ifdef ENABLE_MPI
-  MPILifetimeService::init();
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &size));
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-#endif
+  const int size{core23::MpiInitService::get().world_size()};
+  const int rank{core23::MpiInitService::get().world_rank()};
 
   DeviceMap device_map(visible_devices, rank, layout);
 
