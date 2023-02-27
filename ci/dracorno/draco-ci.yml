@@ -179,7 +179,7 @@ hugectr2onnx:
     GPFSFOLDER: $DRACO_LOGDIR/hugectr2onnx
     #GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:/etc/workspace/new_criteo_kaggle,${DRACO_DIN_DATASET}:/etc/workspace/din,${DRACO_NCF_DATASET}:/etc/workspace/ncf_data
+    MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:/etc/workspace/new_criteo_kaggle,${DRACO_DIN_DATASET}:/etc/workspace/din,${DRACO_NCF_DATASET}:/etc/workspace/ncf_data,${DRACO_MMOE_DATASET}:/etc/workspace/mmoe_data
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
 ### Stage: test
@@ -190,7 +190,7 @@ hierarchical_parameter_server:
       job: build_tf_hps_trt_plugin
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/hierarchical_parameter_server
-    CONT: $TF_PLUGIN_IMAGE_VERSIONED
+    CONT: $TF_TRT_IMAGE_VERSIONED
     MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
     TEST_CMD: ./ci/integration_test/hps/hps.sub
 
