@@ -79,7 +79,6 @@ reader = hugectr.DataReaderParams(
     source=["./criteo_data/train/_file_list.txt"],
     eval_source="./criteo_data/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
-    slot_size_array=slot_size_array,
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True

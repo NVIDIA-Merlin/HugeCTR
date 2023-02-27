@@ -53,6 +53,19 @@ std::shared_ptr<Buffer> GetBuffer(const BufferParams& buffer_params, const Devic
   return channel.get_buffer({});
 }
 
+bool AllocateBuffers(const Device& device) {
+  auto it = g_buffers.find(device);
+  if (it != g_buffers.end()) {
+    for (auto& channel : it->second) {
+      if (auto buffer = channel.get_buffer({}); buffer && buffer->allocatable()) {
+        buffer->allocate();
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 }  // namespace core23
 
 }  // namespace HugeCTR

@@ -22,6 +22,7 @@
 #include <core23/allocator_factory.hpp>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_channel.hpp>
+#include <core23/buffer_factory.hpp>
 #include <core23/buffer_params.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_params.hpp>
@@ -108,7 +109,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor1.data() == tensor3.data());
   EXPECT_TRUE(tensor1.data() != tensor4.data());
 
-  // 8. Create an emtpy Tensor and then overwrite it with the tensor0
+  // 7. Create an emtpy Tensor and then overwrite it with the tensor0
   Tensor tensor5;
   EXPECT_TRUE(tensor5.empty());
   EXPECT_THROW(tensor5.shape(), HugeCTR::internal_runtime_error);
@@ -122,7 +123,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor5.own_data());
   EXPECT_FALSE(tensor5.data() == nullptr);
 
-  // 7. Create a Tensor with shape, data_type, and params specified in its constructor.
+  // 8. Create a Tensor with shape, data_type, and params specified in its constructor.
   // After calling data(), it override with an existing Tensor
   Tensor tensor6({512, 256}, ScalarType::Float,
                  tensor_params.buffer_channel(GetRandomBufferChannel()));
@@ -139,7 +140,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_FALSE(tensor6.data() == tensor6_data);
   EXPECT_TRUE(tensor6.data() == tensor0.data());
 
-  // 8. Create a Tensor and override it wih a new Tensor before it calls data().
+  // 9. Create a Tensor and override it wih a new Tensor before it calls data().
   // Then call data() from another Tensor which belongs to the same channel.
   auto tensor_params0 = TensorParams({1024, 256}).data_type(ScalarType::Int64);
   auto tensor_params1 = TensorParams({1024, 256}).data_type(ScalarType::Int64);
@@ -148,6 +149,18 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   Tensor tensor9(tensor_params1);
   tensor7 = tensor9;
   EXPECT_TRUE(tensor8.data() != nullptr);
+
+  // 10. Create a set of Tensors and expliclty allocate them.
+  Tensor tensor10(TensorParams({128, 64}).device(device));
+  Tensor tensor11;
+  tensor11 = Tensor(TensorParams({32, 32}).device(device));
+  Tensor tensor12(tensor10.my_params());
+  Tensor tensor13(tensor10.my_params().shape({2, 8, 4}));
+  Tensor tensor14(tensor11.my_params());
+  Tensor tensor15(TensorParams({16, 64}).device(device));
+  Tensor tensor16;
+  bool success = AllocateBuffers(device);
+  EXPECT_TRUE(success);
 
   allocator->deallocate(data);
 }
