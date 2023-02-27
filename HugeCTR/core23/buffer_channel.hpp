@@ -34,6 +34,7 @@ class BufferChannel {
     friend std::shared_ptr<Buffer> GetBuffer(const BufferParams& buffer_params,
                                              const Device& device,
                                              std::unique_ptr<Allocator> allocator);
+    friend bool AllocateBuffers(const Device& device);
 
    private:
     Key() {}

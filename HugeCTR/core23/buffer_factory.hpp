@@ -32,6 +32,8 @@ struct BufferParams;
                                                 const Device& device,
                                                 std::unique_ptr<Allocator> allocator = nullptr);
 
+[[nodiscard]] bool AllocateBuffers(const Device& device);
+
 }  // namespace core23
 
 }  // namespace HugeCTR

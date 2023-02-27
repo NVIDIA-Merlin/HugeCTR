@@ -285,6 +285,7 @@ void UniformDPEmbedding::backward_per_gpu_for_indices_only(
 void UniformDPEmbedding::backward_per_gpu_for_dynamic_table(
     const EmbeddingInput& embedding_input, const embedding::EmbeddingOutput& top_grad,
     embedding::Wgrad& wgrad, int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
   int num_gpus = core_->get_global_gpu_count();
   Wgrad local_reduce_buffer{local_reduce_indices_.attr,
                             local_reduce_indices_.unique_keys,

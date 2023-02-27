@@ -48,7 +48,9 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   void allocate();
 
   bool subscribable() const { return allocator_ && subscribable_impl(); }
-  bool allocatable() const { return allocator_ && allocatable_impl(); }
+  bool allocatable() const {
+    return allocator_ && !new_client_requirements_.empty() && allocatable_impl();
+  }
 
   inline void* data(int64_t offset, AccessKey) const { return data_impl(offset); }
 

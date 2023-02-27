@@ -1509,6 +1509,19 @@ void Model::compile() {
     resource_manager_->set_ready_to_transfer();
   }
 #endif
+  for (int local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
+       ++local_gpu_id) {
+    core23::Device device(core23::DeviceType::GPU, local_gpu_id);
+    bool success = core23::AllocateBuffers(device);
+    if (!success) {
+      HCTR_LOG_S(DEBUG, ROOT) << "Nothing to preallocate" << std::endl;
+    }
+  }
+  core23::Device device_h(core23::DeviceType::CPU);
+  bool success = core23::AllocateBuffers(device_h);
+  if (!success) {
+    HCTR_LOG_S(DEBUG, ROOT) << "Nothing to preallocate" << std::endl;
+  }
 }
 
 void Model::compile(std::vector<std::string>& label_names, std::vector<float>& label_weights) {
