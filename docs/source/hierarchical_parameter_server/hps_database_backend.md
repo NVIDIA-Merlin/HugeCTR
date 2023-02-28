@@ -362,6 +362,7 @@ params = hugectr.inference.VolatileDatabaseParams(
   allocation_rate = 268435456,  # 256 MiB
   shared_memory_size = 17179869184,  # 16 GiB
   shared_memory_name = "hctr_mp_hash_map_database",
+  shared_memory_auto_remove = True,
   max_batch_size = 65536,
   enable_tls = False,
   tls_ca_certificate = "cacertbundle.crt",
@@ -392,6 +393,7 @@ The following JSON shows a sample configuration for the `volatile_db` key in a p
   "allocation_rate": 268435456,  // 256 MiB
   "shared_memory_size": 17179869184,  // 16 GiB
   "shared_memory_name": "hctr_mp_hash_map_database",
+  "shared_memory_auto_remove": true,
   "max_batch_size": 65536,
   "enable_tls": false,
   "tls_ca_certificate": "cacertbundle.crt",
@@ -432,6 +434,8 @@ The following parameters apply when you set `type="multi_process_hash_map"`:
 * `shared_memory_size`: Integer, denotes the amount of shared memory that should be reserved in the operating system. In other words, this value determines the size of the memory mapped file that will be created in `/dev/shm`. The upper bound size of `/dev/shm` is determined by your hardware and operating system  configuration. The latter of which may need to be adjusted to share large embedding tables between processes. This is particularly true when running HugeCTR in a Docker image. By default, Docker will only allocate 64 MiB for `/dev/shm`, which is insufficient for most recommendation models. You can try starting your docker deployment with `--shm-size=...` to reserve more shared memory of the native OS for the respective docker container (see also [docs.docker.com/engine/reference/run](https://docs.docker.com/engine/reference/run)).
 
 * `shared_memory_name`: String, the symbolic name of the shared memory. System-unique, and must be the same for all processes that attach to the smae shared memory.
+
+* `shared_memory_auto_remove`: Boolean, disables removal of the shared memory when the last process disconnects. If this is flag is set to `False` (`True` by default), the state of the shared memory is retained across program restarts.
 
 The following parameters apply when you set `type="redis_cluster"`:
 

@@ -47,24 +47,24 @@ struct KeySelectorGPU {
   const int *shard_ids_ptr_;
   const int *num_shards_ptr_;
 
-  KeySelectorGPU(const Tensor &keys, const Tensor &bucket_range, const MPKeySelector &key_selector,
-                 int batch_size)
-      : keys_ptr(keys.get<key_t>()),
-        bucket_range_ptr(bucket_range.get<offset_t>()),
-        lookup_ids_ptr(key_selector.lookup_ids.get<int>()),
+  KeySelectorGPU(const core23::Tensor &keys, const core23::Tensor &bucket_range,
+                 const MPKeySelector &key_selector, int batch_size)
+      : keys_ptr(keys.data<key_t>()),
+        bucket_range_ptr(bucket_range.data<offset_t>()),
+        lookup_ids_ptr(key_selector.lookup_ids.data<int>()),
         num_lookup_before_filter(key_selector.num_lookup_before_filter),
         num_lookup_after_filter(key_selector.num_lookup_after_filter),
         gpu_id(0),
         num_gpus(1),
         batch_size_per_gpu(batch_size),
-        shard_ids_ptr_(key_selector.shard_ids.get<int>()),
-        num_shards_ptr_(key_selector.num_shards.get<int>()) {}
+        shard_ids_ptr_(key_selector.shard_ids.data<int>()),
+        num_shards_ptr_(key_selector.num_shards.data<int>()) {}
 
-  KeySelectorGPU(const Tensor &keys, const Tensor &bucket_range, const DPKeySelector &key_selector,
-                 int batch_size)
-      : keys_ptr(keys.get<key_t>()),
-        bucket_range_ptr(bucket_range.get<offset_t>()),
-        lookup_ids_ptr(key_selector.lookup_ids.get<int>()),
+  KeySelectorGPU(const core23::Tensor &keys, const core23::Tensor &bucket_range,
+                 const DPKeySelector &key_selector, int batch_size)
+      : keys_ptr(keys.data<key_t>()),
+        bucket_range_ptr(bucket_range.data<offset_t>()),
+        lookup_ids_ptr(key_selector.lookup_ids.data<int>()),
         num_lookup_before_filter(key_selector.num_lookup_before_filter),
         num_lookup_after_filter(key_selector.num_lookup_after_filter),
         gpu_id(key_selector.gpu_id),
@@ -134,25 +134,26 @@ void IndexCalculationTempStorage::init(const std::shared_ptr<CoreResourceManager
                                        int max_num_keys_after_filter, int batch_size_before_filter,
                                        int batch_size_after_filter, int num_lookup) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
-  Device device{DeviceType::GPU, core->get_device_id()};
-  auto buffer_ptr = GetBuffer(core);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
 
-  this->flag = buffer_ptr->reserve({batch_size_before_filter * max_num_keys_before_filter}, device,
-                                   TensorScalarType::Char);
+  this->flag = core23::Tensor(params.shape({batch_size_before_filter * max_num_keys_before_filter})
+                                  .data_type(core23::ScalarType::Char));
   {
     size_t temp_bytes = 0;
     cub::DeviceSelect::Flagged(nullptr, temp_bytes, (uint64_t *)nullptr, (char *)nullptr,
                                (uint64_t *)nullptr, (size_t *)nullptr,
                                batch_size_before_filter * max_num_keys_before_filter);
-    this->temp_select_storage = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
+    this->temp_select_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
   {
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint64_t *)nullptr, (uint32_t *)nullptr,
                                   batch_size_after_filter * num_lookup + 1);
-    this->temp_scan_storage = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
+    this->temp_scan_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
-  buffer_ptr->allocate();
 }
 
 template <>
@@ -177,43 +178,45 @@ void IndexCalculation<DPKeySelector>::init(std::shared_ptr<CoreResourceManager> 
 }
 
 template <typename KeySelector>
-void IndexCalculation<KeySelector>::filter_sparse_input(const Tensor &keys,
-                                                        const Tensor &bucket_range,
+void IndexCalculation<KeySelector>::filter_sparse_input(const core23::Tensor &keys,
+                                                        const core23::Tensor &bucket_range,
                                                         EmbeddingInput &result, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
 
-  HCTR_LIB_THROW(cudaMemsetAsync(result.keys.get(), 0, result.keys.nbytes(), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(result.keys.data(), 0, result.keys.num_bytes(), stream));
   HCTR_LIB_THROW(
-      cudaMemsetAsync(result.bucket_range.get(), 0, result.bucket_range.nbytes(), stream));
-  HCTR_LIB_THROW(cudaMemsetAsync(temp_storage_.flag.get(), 0, temp_storage_.flag.nbytes(), stream));
+      cudaMemsetAsync(result.bucket_range.data(), 0, result.bucket_range.num_bytes(), stream));
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(temp_storage_.flag.data(), 0, temp_storage_.flag.num_bytes(), stream));
 
-  DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
-    DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
-      const key_t *keys_ptr = keys.get<key_t>();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+      const key_t *keys_ptr = keys.data<key_t>();
 
-      uint32_t *bucket_range_after_filter = result.bucket_range.get<uint32_t>();
-      key_t *keys_after_filter = result.keys.get<key_t>();
+      uint32_t *bucket_range_after_filter = result.bucket_range.data<uint32_t>();
+      key_t *keys_after_filter = result.keys.data<key_t>();
 
       KeySelectorGPU<key_t, offset_t> key_selector_gpu{keys, bucket_range, key_selector_,
                                                        batch_size};
 
       mask_and_count_keys_in_bucket_kernel<<<144 * 8, 256, 0, stream>>>(
           key_selector_gpu, key_selector_gpu.keys_ptr, bucket_range_after_filter,
-          temp_storage_.flag.get<char>(), result.bucket_range.get_num_elements() - 1);
+          temp_storage_.flag.data<char>(), result.bucket_range.num_elements() - 1);
 
-      size_t temp_scan_storage_nbytes = temp_storage_.temp_scan_storage.nbytes();
-      cub::DeviceScan::InclusiveSum(temp_storage_.temp_scan_storage.get(), temp_scan_storage_nbytes,
-                                    bucket_range_after_filter, bucket_range_after_filter,
-                                    result.bucket_range.get_num_elements(), stream);
+      size_t temp_scan_storage_nbytes = temp_storage_.temp_scan_storage.num_bytes();
+      cub::DeviceScan::InclusiveSum(temp_storage_.temp_scan_storage.data(),
+                                    temp_scan_storage_nbytes, bucket_range_after_filter,
+                                    bucket_range_after_filter, result.bucket_range.num_elements(),
+                                    stream);
 
-      size_t temp_select_storage_nbytes = temp_storage_.temp_select_storage.nbytes();
-      cub::DeviceSelect::Flagged(temp_storage_.temp_select_storage.get(),
+      size_t temp_select_storage_nbytes = temp_storage_.temp_select_storage.num_bytes();
+      cub::DeviceSelect::Flagged(temp_storage_.temp_select_storage.data(),
                                  temp_select_storage_nbytes, keys_ptr,
-                                 temp_storage_.flag.get<char>(), keys_after_filter,
-                                 result.num_keys.get<size_t>(), keys.get_num_elements(), stream);
+                                 temp_storage_.flag.data<char>(), keys_after_filter,
+                                 result.num_keys.data<size_t>(), keys.num_elements(), stream);
       HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-      result.h_num_keys = static_cast<size_t>(result.num_keys.get<size_t>()[0]);
+      result.h_num_keys = static_cast<size_t>(result.num_keys.data<uint64_t>()[0]);
     });
   });
 }
@@ -226,46 +229,47 @@ void ReductionIndices::init(std::shared_ptr<CoreResourceManager> core, int local
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   int max_num_key_for_reduction = local_hotness_sum * batch_size;
 
-  auto buffer_ptr = GetBuffer(core);
-  this->src_ids =
-      buffer_ptr->reserve({max_num_key_for_reduction}, DeviceType::GPU, TensorScalarType::UInt32);
-  this->dst_ids =
-      buffer_ptr->reserve({max_num_key_for_reduction}, DeviceType::GPU, TensorScalarType::UInt32);
-  this->table_ids =
-      buffer_ptr->reserve({max_num_key_for_reduction}, DeviceType::GPU, TensorScalarType::Int32);
-  this->ev_sizes =
-      buffer_ptr->reserve({max_num_key_for_reduction}, DeviceType::GPU, TensorScalarType::Int32);
-  this->num_key = buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Size_t);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  this->src_ids = core23::Tensor(
+      params.shape({max_num_key_for_reduction}).data_type(core23::ScalarType::UInt32));
+
+  this->dst_ids = core23::Tensor(
+      params.shape({max_num_key_for_reduction}).data_type(core23::ScalarType::UInt32));
+  this->table_ids = core23::Tensor(
+      params.shape({max_num_key_for_reduction}).data_type(core23::ScalarType::Int32));
+  this->ev_sizes = core23::Tensor(
+      params.shape({max_num_key_for_reduction}).data_type(core23::ScalarType::Int32));
+  this->num_key = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
 }
 
 void PartitionedResult::init(std::shared_ptr<CoreResourceManager> core, int num_lookup,
                              int num_table, int local_hotness_sum, int batch_size,
-                             DataType key_type) {
+                             core23::DataType key_type) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
-  auto buffer_ptr = GetBuffer(core);
-  this->partitioned_keys =
-      buffer_ptr->reserve({batch_size * local_hotness_sum}, DeviceType::GPU, key_type);
-  this->partitioned_src_ids = buffer_ptr->reserve({batch_size * local_hotness_sum}, DeviceType::GPU,
-                                                  TensorScalarType::UInt32);
-  this->partitioned_bucket_range =
-      buffer_ptr->reserve({num_lookup * batch_size + 1}, DeviceType::GPU, TensorScalarType::UInt32);
-  this->partitioned_table_range =
-      buffer_ptr->reserve({num_table + 1}, DeviceType::GPU, TensorScalarType::Int32);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
 
-  buffer_ptr->allocate();
+  this->partitioned_keys =
+      core23::Tensor(params.shape({batch_size * local_hotness_sum}).data_type(key_type));
+  this->partitioned_src_ids = core23::Tensor(
+      params.shape({batch_size * local_hotness_sum}).data_type(core23::ScalarType::UInt32));
+  this->partitioned_bucket_range = core23::Tensor(
+      params.shape({num_lookup * batch_size + 1}).data_type(core23::ScalarType::UInt32));
+  this->partitioned_table_range =
+      core23::Tensor(params.shape({num_table + 1}).data_type(core23::ScalarType::Int32));
 }
 
 void SortedResult::init(std::shared_ptr<CoreResourceManager> core, int local_hotness_sum,
-                        int batch_size, DataType key_type) {
+                        int batch_size, core23::DataType key_type) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
 
-  auto buffer_ptr = GetBuffer(core);
-  this->sorted_keys =
-      buffer_ptr->reserve({batch_size * local_hotness_sum}, DeviceType::GPU, key_type);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
 
-  buffer_ptr->allocate();
+  this->sorted_keys =
+      core23::Tensor(params.shape({batch_size * local_hotness_sum}).data_type(key_type));
 }
 
 namespace {
@@ -304,30 +308,31 @@ __global__ void group_keys_by_lookup_id_kernel(const int *sorted_lookup_ids, con
   }
 }
 
-void group_keys_by_lookup_id(const Tensor &keys, const Tensor &bucket_range,
-                             const Tensor &sorted_lookup_ids, int num_lookup, int batch_size,
-                             Tensor &partitioned_keys, Tensor &partitioned_bucket_range,
+void group_keys_by_lookup_id(const core23::Tensor &keys, const core23::Tensor &bucket_range,
+                             const core23::Tensor &sorted_lookup_ids, int num_lookup,
+                             int batch_size, core23::Tensor &partitioned_keys,
+                             core23::Tensor &partitioned_bucket_range,
                              LocalReduceIndexCalculationTempStorage &temp_storage,
                              cudaStream_t stream) {
-  DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
-    DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
       constexpr int grid_dim_x = 144 * 8;
       constexpr int block_dim_x = 32;
 
       subtract_left_kernel<<<grid_dim_x, block_dim_x, 0, stream>>>(
-          sorted_lookup_ids.get<int>(), bucket_range.get<offset_t>(), num_lookup, batch_size,
-          partitioned_bucket_range.get<uint32_t>());
+          sorted_lookup_ids.data<int>(), bucket_range.data<offset_t>(), num_lookup, batch_size,
+          partitioned_bucket_range.data<uint32_t>());
 
-      size_t temp_storage_nbytes = temp_storage.temp_scan_storage.nbytes();
-      cub::DeviceScan::InclusiveSum(temp_storage.temp_scan_storage.get(), temp_storage_nbytes,
-                                    partitioned_bucket_range.get<uint32_t>(),
-                                    partitioned_bucket_range.get<uint32_t>(),
+      size_t temp_storage_nbytes = temp_storage.temp_scan_storage.num_bytes();
+      cub::DeviceScan::InclusiveSum(temp_storage.temp_scan_storage.data(), temp_storage_nbytes,
+                                    partitioned_bucket_range.data<uint32_t>(),
+                                    partitioned_bucket_range.data<uint32_t>(),
                                     num_lookup * batch_size + 1, stream);
 
       group_keys_by_lookup_id_kernel<<<grid_dim_x, block_dim_x, 0, stream>>>(
-          sorted_lookup_ids.get<int>(), keys.get<key_t>(), bucket_range.get<offset_t>(),
-          partitioned_bucket_range.get<uint32_t>(), num_lookup, batch_size,
-          partitioned_keys.get<key_t>());
+          sorted_lookup_ids.data<int>(), keys.data<key_t>(), bucket_range.data<offset_t>(),
+          partitioned_bucket_range.data<uint32_t>(), num_lookup, batch_size,
+          partitioned_keys.data<key_t>());
     });
   });
 }
@@ -338,7 +343,7 @@ __global__ void replicate_bucket_range_kernel(const offset_t *bucket_range,
                                               const int *sorted_table_ids,
                                               const int *table_id_to_ev_size, int num_lookup,
                                               int batch_size, uint32_t *src_ids, int *table_ids,
-                                              int *ev_sizes, size_t *num_key) {
+                                              int *ev_sizes, uint64_t *num_key) {
   extern __shared__ uint32_t smem_buffer[];
   uint32_t *smem_bucket_range = smem_buffer;
 
@@ -374,18 +379,21 @@ __global__ void replicate_bucket_range_kernel(const offset_t *bucket_range,
   }
 }
 
-void replicate_bucket_range(const Tensor &bucket_range, const Tensor &sorted_lookup_ids,
-                            const Tensor &sorted_table_ids, const Tensor &table_id_to_ev_size,
-                            int num_lookup, int batch_size, Tensor &src_ids, Tensor &table_ids,
-                            Tensor &ev_sizes, Tensor &num_key, cudaStream_t stream) {
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
+void replicate_bucket_range(const core23::Tensor &bucket_range,
+                            const core23::Tensor &sorted_lookup_ids,
+                            const core23::Tensor &sorted_table_ids,
+                            const core23::Tensor &table_id_to_ev_size, int num_lookup,
+                            int batch_size, core23::Tensor &src_ids, core23::Tensor &table_ids,
+                            core23::Tensor &ev_sizes, core23::Tensor &num_key,
+                            cudaStream_t stream) {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
     constexpr int grid_dim_x = 144 * 32;
     constexpr int block_dim_x = 64;
     replicate_bucket_range_kernel<<<grid_dim_x, block_dim_x, sizeof(uint32_t) * (block_dim_x + 1),
                                     stream>>>(
-        bucket_range.get<offset_t>(), sorted_lookup_ids.get<int>(), sorted_table_ids.get<int>(),
-        table_id_to_ev_size.get<int>(), num_lookup, batch_size, src_ids.get<uint32_t>(),
-        table_ids.get<int>(), ev_sizes.get<int>(), num_key.get<size_t>());
+        bucket_range.data<offset_t>(), sorted_lookup_ids.data<int>(), sorted_table_ids.data<int>(),
+        table_id_to_ev_size.data<int>(), num_lookup, batch_size, src_ids.data<uint32_t>(),
+        table_ids.data<int>(), ev_sizes.data<int>(), num_key.data<uint64_t>());
   });
 }
 
@@ -412,32 +420,35 @@ __global__ void cal_table_range_kernel(const offset_t *bucket_range, const int *
   }
 }
 
-void cal_table_range(const Tensor &bucket_range, const Tensor &sorted_table_ids, int num_lookup,
-                     Tensor &table_range, int batch_size,
+void cal_table_range(const core23::Tensor &bucket_range, const core23::Tensor &sorted_table_ids,
+                     int num_lookup, core23::Tensor &table_range, int batch_size,
                      LocalReduceIndexCalculationTempStorage &temp_storage, cudaStream_t stream) {
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
     constexpr int grid_dim_x = 144 * 8;
     constexpr int block_dim_x = 32;
     cal_table_range_kernel<<<grid_dim_x, block_dim_x, 0, stream>>>(
-        bucket_range.get<offset_t>(), sorted_table_ids.get<int>(), num_lookup,
-        temp_storage.temp_lookup_range.get<int>(), batch_size);
+        bucket_range.data<offset_t>(), sorted_table_ids.data<int>(), num_lookup,
+        temp_storage.temp_lookup_range.data<int>(), batch_size);
   });
   LessThan select_op(std::numeric_limits<int>::max());
-  size_t temp_storage_nbytes = temp_storage.temp_select_storage.nbytes();
-  cub::DeviceSelect::If(temp_storage.temp_select_storage.get(), temp_storage_nbytes,
-                        temp_storage.temp_lookup_range.get<int>(), table_range.get<int>(),
-                        temp_storage.d_num_selected_table_range_.get<int>(),
-                        temp_storage.temp_lookup_range.get_num_elements(), select_op, stream);
+  size_t temp_storage_nbytes = temp_storage.temp_select_storage.num_bytes();
+  cub::DeviceSelect::If(temp_storage.temp_select_storage.data(), temp_storage_nbytes,
+                        temp_storage.temp_lookup_range.data<int>(), table_range.data<int>(),
+                        temp_storage.d_num_selected_table_range_.data<int>(),
+                        temp_storage.temp_lookup_range.num_elements(), select_op, stream);
 }
 
-void partition_by_table_id(const Tensor &keys, const Tensor &bucket_range,
-                           const Tensor &sorted_lookup_ids, const Tensor &sorted_table_ids,
-                           Tensor &partitioned_keys, Tensor &partitioned_src_ids,
-                           const Tensor &table_id_to_ev_size, Tensor &partitioned_bucket_range,
-                           Tensor &partitioned_table_range, int num_lookup, int num_table,
-                           Tensor &table_ids, Tensor &ev_sizes, Tensor &num_key, int batch_size,
+void partition_by_table_id(const core23::Tensor &keys, const core23::Tensor &bucket_range,
+                           const core23::Tensor &sorted_lookup_ids,
+                           const core23::Tensor &sorted_table_ids, core23::Tensor &partitioned_keys,
+                           core23::Tensor &partitioned_src_ids,
+                           const core23::Tensor &table_id_to_ev_size,
+                           core23::Tensor &partitioned_bucket_range,
+                           core23::Tensor &partitioned_table_range, int num_lookup, int num_table,
+                           core23::Tensor &table_ids, core23::Tensor &ev_sizes,
+                           core23::Tensor &num_key, int batch_size,
                            LocalReduceIndexCalculationTempStorage &temp_storage,
-                           cudaStream_t stream) {
+                           std::shared_ptr<CoreResourceManager> core, cudaStream_t stream) {
   if (num_table != num_lookup) {
     group_keys_by_lookup_id(keys, bucket_range, sorted_lookup_ids, num_lookup, batch_size,
                             partitioned_keys, partitioned_bucket_range, temp_storage, stream);
@@ -460,14 +471,16 @@ template <typename offset_t>
 void LocalReduceIndexCalculationTempStorage::init(const std::shared_ptr<CoreResourceManager> &core,
                                                   int num_lookup, int num_table, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
-  Device device{DeviceType::GPU, core->get_device_id()};
-  auto buffer_ptr = GetBuffer(core);
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
 
   {
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (offset_t *)nullptr, (offset_t *)nullptr,
                                   (size_t)num_lookup * batch_size + 1);
-    this->temp_scan_storage = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
+    this->temp_scan_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
 
   {
@@ -475,53 +488,56 @@ void LocalReduceIndexCalculationTempStorage::init(const std::shared_ptr<CoreReso
     LessThan select_op(std::numeric_limits<int>::max());
     cub::DeviceSelect::If(nullptr, temp_bytes, (int *)nullptr, (int *)nullptr, (int *)nullptr,
                           num_lookup + 1, select_op);
-    this->temp_select_storage = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
+    this->temp_select_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
-  this->d_num_selected_table_range_ = buffer_ptr->reserve({1}, device, TensorScalarType::Int32);
-  this->temp_lookup_range = buffer_ptr->reserve({num_lookup + 1}, device, TensorScalarType::Int32);
-  buffer_ptr->allocate();
+  this->d_num_selected_table_range_ =
+      core23::Tensor(params.shape({1}).data_type(core23::ScalarType::Int32));
+  this->temp_lookup_range =
+      core23::Tensor(params.shape({num_lookup + 1}).data_type(core23::ScalarType::Int32));
 }
 
 LocalReduceIndexCalculation::LocalReduceIndexCalculation(std::shared_ptr<CoreResourceManager> core,
                                                          int num_lookup, int num_table,
                                                          int local_hotness_sum, int batch_size,
-                                                         DataType key_type) {
+                                                         core23::DataType key_type) {
   this->core_ = core;
 
   this->partitioned_result_.init(core, num_lookup, num_table, local_hotness_sum, batch_size,
                                  key_type);
   this->sorted_result.init(core, local_hotness_sum, batch_size, key_type);
 
-  DISPATCH_INTEGRAL_FUNCTION(
-      partitioned_result_.partitioned_bucket_range.dtype().type(), offset_t,
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(
+      partitioned_result_.partitioned_bucket_range.data_type().type(), offset_t,
       [&] { temp_storage_.init<offset_t>(core, num_lookup, num_table, batch_size); });
 }
 
 SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core,
                                          int max_num_keys, int batch_size, int num_table,
-                                         DataType key_type) {
+                                         core23::DataType key_type) {
   max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
-  auto buffer_ptr = core::GetBuffer(core);
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     cub::DeviceSegmentedSort::SortPairs(nullptr, cub_sort_temp_bytes_, (key_t *)nullptr,
                                         (key_t *)nullptr, (uint32_t *)nullptr, (uint32_t *)nullptr,
                                         max_key_num_, num_table, (int *)nullptr, (int *)nullptr);
+    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
     cub_sort_temp_buffer_ =
-        buffer_ptr->reserve({cub_sort_temp_bytes_}, core::DeviceType::GPU, TensorScalarType::Void);
+        core23::Tensor(params.shape({static_cast<int64_t>(cub_sort_temp_bytes_)})
+                           .data_type(core23::ScalarType::Char));
   });
-  buffer_ptr->allocate();
 }
 
 void SegmentedSortDevice::operator()(const embedding::SortInput &input,
                                      embedding::SortOutput &output, cudaStream_t stream) {
   // sort
-  DISPATCH_INTEGRAL_FUNCTION(input.keys.dtype().type(), key_t, [&] {
-    int num_table = input.unique_table_ids.get_num_elements();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(input.keys.data_type().type(), key_t, [&] {
+    int num_table = input.unique_table_ids.num_elements();
     cub::DeviceSegmentedSort::SortPairs(
-        cub_sort_temp_buffer_.get(), cub_sort_temp_bytes_, input.keys.get<key_t>(),
-        output.sorted_keys.get<key_t>(), input.src_ids.get<uint32_t>(),
-        output.sorted_src_ids.get<uint32_t>(), max_key_num_, num_table,
-        input.table_range.get<int>(), input.table_range.get<int>() + 1, stream);
+        cub_sort_temp_buffer_.data(), cub_sort_temp_bytes_, input.keys.data<key_t>(),
+        output.sorted_keys.data<key_t>(), input.src_ids.data<uint32_t>(),
+        output.sorted_src_ids.data<uint32_t>(), max_key_num_, num_table,
+        input.table_range.data<int>(), input.table_range.data<int>() + 1, stream);
   });
 }
 
@@ -550,74 +566,76 @@ __global__ void local_indices_to_global_indices_kernel(const key_t *input_indice
 }
 
 IndicesSort::IndicesSort(const std::shared_ptr<CoreResourceManager> &core,
-                         const Tensor &table_id_to_global_start_indices, int end_bit,
-                         int max_num_keys, int batch_size, DataType key_type)
+                         const core23::Tensor &table_id_to_global_start_indices, int end_bit,
+                         int max_num_keys, int batch_size, core23::DataType key_type)
     : table_id_to_global_start_indices(table_id_to_global_start_indices), end_bit(end_bit) {
-  HCTR_CHECK_HINT(end_bit > 0 && static_cast<size_t>(end_bit) < key_type.itemsize() * 8,
+  HCTR_CHECK_HINT(end_bit > 0 && static_cast<int64_t>(end_bit) < key_type.size() * 8,
                   "end_bit error");
-  auto buffer_ptr = core::GetBuffer(core);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
   temp_global_indices =
-      buffer_ptr->reserve({max_num_keys * batch_size}, core::DeviceType::GPU, key_type);
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+      core23::Tensor(params.shape({max_num_keys * batch_size}).data_type(key_type.type()));
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     size_t temp_bytes = 0;
     // ATTENTION: cub radix sort requires NumItemT to be consistent
     cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (key_t *)nullptr, (key_t *)nullptr,
                                     (uint32_t *)nullptr, (uint32_t *)nullptr,
                                     static_cast<int64_t>(batch_size * max_num_keys));
-    d_temp_sort_storage =
-        buffer_ptr->reserve({temp_bytes}, core::DeviceType::GPU, TensorScalarType::Void);
+    d_temp_sort_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   });
-  buffer_ptr->allocate();
 }
 
 void IndicesSort::operator()(const embedding::SortInput &input, embedding::SortOutput &output,
                              cudaStream_t stream) {
   // 1. add table offset to get global unique indices
-  auto key_type = input.keys.dtype();
-  HCTR_CHECK_HINT(input.keys.get_num_elements() == temp_global_indices.get_num_elements(),
+  auto key_type = input.keys.data_type();
+  HCTR_CHECK_HINT(input.keys.num_elements() == temp_global_indices.num_elements(),
                   "IndicesSort check input size error");
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     auto local_to_global_conversion = [] __device__(const key_t &input_indice, const int &offset) {
       return input_indice + static_cast<key_t>(offset);
     };
     local_indices_to_global_indices_kernel<<<144 * 8, 256, 0, stream>>>(
-        input.keys.get<key_t>(), input.keys.get_num_elements(), input.table_range.get<int>(),
-        input.unique_table_ids.get<int>(), input.unique_table_ids.get_num_elements(),
-        table_id_to_global_start_indices.get<int>(), temp_global_indices.get<key_t>(),
+        input.keys.data<key_t>(), input.keys.num_elements(), input.table_range.data<int>(),
+        input.unique_table_ids.data<int>(), input.unique_table_ids.num_elements(),
+        table_id_to_global_start_indices.data<int>(), temp_global_indices.data<key_t>(),
         local_to_global_conversion, end_bit);
   });
 
   // 2. sort
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    size_t temp_bytes = d_temp_sort_storage.nbytes();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    size_t temp_bytes = d_temp_sort_storage.num_bytes();
     cub::DeviceRadixSort::SortPairs(
-        d_temp_sort_storage.get(), temp_bytes, temp_global_indices.get<key_t>(),
-        output.sorted_keys.get<key_t>(), input.src_ids.get<uint32_t>(),
-        output.sorted_src_ids.get<uint32_t>(), temp_global_indices.get_num_elements(), 0,
+        d_temp_sort_storage.data(), temp_bytes, temp_global_indices.data<key_t>(),
+        output.sorted_keys.data<key_t>(), input.src_ids.data<uint32_t>(),
+        output.sorted_src_ids.data<uint32_t>(), temp_global_indices.num_elements(), 0,
         sizeof(key_t) * 8, stream);
   });
 
   // 3. global unique indices to local indices
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     auto global_to_local_conversion = [] __device__(const key_t &input_indice, const int &offset) {
       return input_indice - static_cast<key_t>(offset);
     };
     local_indices_to_global_indices_kernel<<<144 * 8, 256, 0, stream>>>(
-        output.sorted_keys.get<key_t>(), input.keys.get_num_elements(),
-        input.table_range.get<int>(), input.unique_table_ids.get<int>(),
-        input.unique_table_ids.get_num_elements(), table_id_to_global_start_indices.get<int>(),
-        output.sorted_keys.get<key_t>(), global_to_local_conversion, end_bit);
+        output.sorted_keys.data<key_t>(), input.keys.num_elements(), input.table_range.data<int>(),
+        input.unique_table_ids.data<int>(), input.unique_table_ids.num_elements(),
+        table_id_to_global_start_indices.data<int>(), output.sorted_keys.data<key_t>(),
+        global_to_local_conversion, end_bit);
   });
 }
 
 template <typename key_t>
 __global__ void get_keys_flag(const key_t *__restrict__ sorted_keys,
-                              const int *__restrict__ table_ids, const size_t *__restrict__ num_key,
-                              size_t *__restrict__ key_flag_buffer) {
+                              const int *__restrict__ table_ids,
+                              const uint64_t *__restrict__ num_key,
+                              uint64_t *__restrict__ key_flag_buffer) {
   CUDA_1D_KERNEL_LOOP(tid, *num_key) {
     key_t local_key = sorted_keys[tid];
     int table_id = table_ids[tid];
-    size_t is_first = 0;
+    uint64_t is_first = 0;
     if ((tid == 0) ||
         ((tid > 0) && ((sorted_keys[tid - 1] != local_key) || (table_ids[tid - 1] != table_id))))
       is_first = 1;
@@ -628,14 +646,14 @@ __global__ void get_keys_flag(const key_t *__restrict__ sorted_keys,
 template <typename key_t>
 __global__ void get_unique_key(const key_t *__restrict__ sorted_keys,
                                const int *__restrict__ table_ids,
-                               const size_t *__restrict__ key_flag_buffer,
-                               const size_t *__restrict__ num_key, key_t *__restrict__ unique_keys,
-                               int *__restrict__ unique_table_ids,
-                               size_t *__restrict__ unique_key_num,
+                               const uint64_t *__restrict__ key_flag_buffer,
+                               const uint64_t *__restrict__ num_key,
+                               key_t *__restrict__ unique_keys, int *__restrict__ unique_table_ids,
+                               uint64_t *__restrict__ unique_key_num,
                                uint32_t *__restrict__ dst_ids) {
-  int key_num = *num_key;
+  uint32_t key_num = *num_key;
   CUDA_1D_KERNEL_LOOP(tid, key_num) {
-    size_t key_buffer = key_flag_buffer[tid];  // need size_t?
+    uint64_t key_buffer = key_flag_buffer[tid];  // need size_t?
     dst_ids[tid] = key_buffer - 1;
     if ((tid > 0 && key_flag_buffer[tid - 1] != key_buffer) || tid == 0) {
       unique_keys[key_buffer - 1] = sorted_keys[tid];
@@ -650,41 +668,42 @@ __global__ void get_unique_key(const key_t *__restrict__ sorted_keys,
 
 SegmentdUnique::SegmentdUnique(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                                int batch_size) {
-  auto buffer_ptr = core::GetBuffer(core);
-  max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
-  key_flag_buffer_ =
-      buffer_ptr->reserve({max_key_num_}, core::DeviceType::GPU, TensorScalarType::Size_t);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
 
-  cub::DeviceScan::InclusiveSum(nullptr, cub_scan_temp_bytes_, (size_t *)nullptr, (size_t *)nullptr,
-                                max_key_num_);
-  cub_scan_temp_buffer_ =
-      buffer_ptr->reserve({cub_scan_temp_bytes_}, core::DeviceType::GPU, TensorScalarType::Void);
-  buffer_ptr->allocate();
+  max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
+  key_flag_buffer_ = core23::Tensor(
+      params.shape({static_cast<int64_t>(max_key_num_)}).data_type(core23::ScalarType::UInt64));
+
+  cub::DeviceScan::InclusiveSum(nullptr, cub_scan_temp_bytes_, (uint64_t *)nullptr,
+                                (uint64_t *)nullptr, max_key_num_);
+  cub_scan_temp_buffer_ = core23::Tensor(params.shape({static_cast<int64_t>(cub_scan_temp_bytes_)})
+                                             .data_type(core23::ScalarType::Char));
 }
 
-void SegmentdUnique::operator()(const Tensor &sorted_keys, const Tensor &table_ids,
-                                const Tensor &key_num, Tensor &unique_keys,
-                                Tensor &unique_table_ids, Tensor &num_unique_keys, Tensor &dst_ids,
-                                cudaStream_t stream) {
-  auto key_type = sorted_keys.dtype();
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    get_keys_flag<<<144 * 8, 256, 0, stream>>>(sorted_keys.get<key_t>(), table_ids.get<int>(),
-                                               key_num.get<size_t>(),
-                                               key_flag_buffer_.get<size_t>());
+void SegmentdUnique::operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
+                                const core23::Tensor &key_num, core23::Tensor &unique_keys,
+                                core23::Tensor &unique_table_ids, core23::Tensor &num_unique_keys,
+                                core23::Tensor &dst_ids, cudaStream_t stream) {
+  auto key_type = sorted_keys.data_type();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    get_keys_flag<<<144 * 8, 256, 0, stream>>>(sorted_keys.data<key_t>(), table_ids.data<int>(),
+                                               key_num.data<uint64_t>(),
+                                               key_flag_buffer_.data<uint64_t>());
   });
 
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    size_t temp_bytes = cub_scan_temp_buffer_.nbytes();
-    cub::DeviceScan::InclusiveSum(cub_scan_temp_buffer_.get(), temp_bytes,
-                                  key_flag_buffer_.get<size_t>(), key_flag_buffer_.get<size_t>(),
-                                  max_key_num_, stream);
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    size_t temp_bytes = cub_scan_temp_buffer_.num_bytes();
+    cub::DeviceScan::InclusiveSum(cub_scan_temp_buffer_.data(), temp_bytes,
+                                  key_flag_buffer_.data<uint64_t>(),
+                                  key_flag_buffer_.data<uint64_t>(), max_key_num_, stream);
   });
 
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     get_unique_key<<<144 * 8, 256, 0, stream>>>(
-        sorted_keys.get<key_t>(), table_ids.get<int>(), key_flag_buffer_.get<size_t>(),
-        key_num.get<size_t>(), unique_keys.get<key_t>(), unique_table_ids.get<int>(),
-        num_unique_keys.get<size_t>(), dst_ids.get<uint32_t>());
+        sorted_keys.data<key_t>(), table_ids.data<int>(), key_flag_buffer_.data<uint64_t>(),
+        key_num.data<uint64_t>(), unique_keys.data<key_t>(), unique_table_ids.data<int>(),
+        num_unique_keys.data<uint64_t>(), dst_ids.data<uint32_t>());
   });
 }
 
@@ -705,31 +724,33 @@ __global__ void get_ids_flag(const key_t *__restrict__ sorted_keys, const int *t
 
 CalDstIds::CalDstIds(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                      int batch_size) {
-  auto buffer_ptr = core::GetBuffer(core);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
   max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
   cub::DeviceScan::InclusiveSum(nullptr, cub_scan_temp_bytes_, (uint32_t *)nullptr,
                                 (uint32_t *)nullptr, max_key_num_);
-  cub_scan_temp_buffer_ =
-      buffer_ptr->reserve({cub_scan_temp_bytes_}, core::DeviceType::GPU, TensorScalarType::Void);
-  buffer_ptr->allocate();
+  cub_scan_temp_buffer_ = core23::Tensor(params.shape({static_cast<int64_t>(cub_scan_temp_bytes_)})
+                                             .data_type(core23::ScalarType::Char));
 }
 
-void CalDstIds::operator()(Tensor &sorted_keys, int num_table, const Tensor &table_range,
-                           Tensor &dst_ids, cudaStream_t stream) {
-  auto key_type = sorted_keys.dtype();
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    get_ids_flag<<<144 * 8, 256, 0, stream>>>(sorted_keys.get<key_t>(), table_range.get<int>(),
-                                              num_table, dst_ids.get<uint32_t>());
+void CalDstIds::operator()(core23::Tensor &sorted_keys, int num_table,
+                           const core23::Tensor &table_range, core23::Tensor &dst_ids,
+                           cudaStream_t stream) {
+  auto key_type = sorted_keys.data_type();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    get_ids_flag<<<144 * 8, 256, 0, stream>>>(sorted_keys.data<key_t>(), table_range.data<int>(),
+                                              num_table, dst_ids.data<uint32_t>());
   });
 
-  cub::DeviceScan::InclusiveSum(cub_scan_temp_buffer_.get(), cub_scan_temp_bytes_,
-                                dst_ids.get<uint32_t>(), dst_ids.get<uint32_t>(), max_key_num_,
+  cub::DeviceScan::InclusiveSum(cub_scan_temp_buffer_.data(), cub_scan_temp_bytes_,
+                                dst_ids.data<uint32_t>(), dst_ids.data<uint32_t>(), max_key_num_,
                                 stream);
 }
 
-void intra_partition_sort(const Tensor &keys, const Tensor &src_ids, const Tensor &table_range,
-                          const Tensor &unique_table_ids, Tensor &sorted_keys,
-                          Tensor &sorted_src_ids, Tensor &dst_ids, SortKeyAndSrcIdOp sort_op,
+void intra_partition_sort(const core23::Tensor &keys, const core23::Tensor &src_ids,
+                          const core23::Tensor &table_range, const core23::Tensor &unique_table_ids,
+                          core23::Tensor &sorted_keys, core23::Tensor &sorted_src_ids,
+                          core23::Tensor &dst_ids, SortKeyAndSrcIdOp sort_op,
                           CalDstIds &cal_dst_ids_kernel, cudaStream_t stream) {
   SortInput input{keys, src_ids, table_range, unique_table_ids};
   SortOutput output{sorted_keys, sorted_src_ids};
@@ -737,10 +758,10 @@ void intra_partition_sort(const Tensor &keys, const Tensor &src_ids, const Tenso
 }
 
 __global__ void get_unique_valid_range(const int *__restrict__ unique_key_table_ids,
-                                       const size_t *num_unique_key, int table_num,
+                                       const uint64_t *num_unique_key, int table_num,
                                        uint32_t *__restrict__ unique_table_range) {
   CUDA_1D_KERNEL_LOOP(tid, table_num + 1) { unique_table_range[tid] = 0; }
-  size_t key_num = *num_unique_key;
+  uint64_t key_num = *num_unique_key;
   CUDA_1D_KERNEL_LOOP(tid, key_num) {
     if (tid > 0 && unique_key_table_ids[tid] != unique_key_table_ids[tid - 1]) {
       unique_table_range[unique_key_table_ids[tid - 1] + 1] = tid;
@@ -761,12 +782,12 @@ __global__ void fill_unique_range(uint32_t *__restrict__ unique_table_range, int
   }
 }
 
-void get_unique_range(const Tensor &unique_table_ids, Tensor &unique_table_ranges,
-                      Tensor &num_unique_key, int table_num, cudaStream_t stream) {
-  get_unique_valid_range<<<144 * 8, 256, 0, stream>>>(unique_table_ids.get<int>(),
-                                                      num_unique_key.get<size_t>(), table_num,
-                                                      unique_table_ranges.get<uint32_t>());
-  fill_unique_range<<<144 * 8, 256, 0, stream>>>(unique_table_ranges.get<uint32_t>(), table_num);
+void get_unique_range(const core23::Tensor &unique_table_ids, core23::Tensor &unique_table_ranges,
+                      core23::Tensor &num_unique_key, int table_num, cudaStream_t stream) {
+  get_unique_valid_range<<<144 * 8, 256, 0, stream>>>(unique_table_ids.data<int>(),
+                                                      num_unique_key.data<uint64_t>(), table_num,
+                                                      unique_table_ranges.data<uint32_t>());
+  fill_unique_range<<<144 * 8, 256, 0, stream>>>(unique_table_ranges.data<uint32_t>(), table_num);
 }
 
 __global__ void get_dst_length_per_key(const int *__restrict__ unique_key_table_ids,
@@ -780,33 +801,36 @@ __global__ void get_dst_length_per_key(const int *__restrict__ unique_key_table_
 
 CalDstOffsetMP::CalDstOffsetMP(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                                int batch_size) {
-  auto buffer_ptr = core::GetBuffer(core);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
   max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
   cub::DeviceScan::ExclusiveSum(nullptr, cub_scan_temp_bytes_, (uint32_t *)nullptr,
                                 (uint32_t *)nullptr, max_key_num_);
-  cub_scan_temp_buffer_ =
-      buffer_ptr->reserve({cub_scan_temp_bytes_}, core::DeviceType::GPU, TensorScalarType::UInt32);
-  buffer_ptr->allocate();
+  cub_scan_temp_buffer_ = core23::Tensor(params.shape({static_cast<int64_t>(cub_scan_temp_bytes_)})
+                                             .data_type(core23::ScalarType::Char));
 }
 
-void CalDstOffsetMP::operator()(const Tensor &unique_key_table_ids,
-                                const Tensor &table_id_to_evsizes, const Tensor &num_unique_keys,
-                                Tensor &dst_key_offset, cudaStream_t stream) {
+void CalDstOffsetMP::operator()(const core23::Tensor &unique_key_table_ids,
+                                const core23::Tensor &table_id_to_evsizes,
+                                const core23::Tensor &num_unique_keys,
+                                core23::Tensor &dst_key_offset, cudaStream_t stream) {
   get_dst_length_per_key<<<144 * 8, 256, 0, stream>>>(
-      unique_key_table_ids.get<int>(), table_id_to_evsizes.get<int>(),
-      num_unique_keys.get<uint64_t>(), dst_key_offset.get<uint32_t>());
+      unique_key_table_ids.data<int>(), table_id_to_evsizes.data<int>(),
+      num_unique_keys.data<uint64_t>(), dst_key_offset.data<uint32_t>());
 
-  size_t temp_bytes = cub_scan_temp_buffer_.nbytes();
-  cub::DeviceScan::ExclusiveSum(cub_scan_temp_buffer_.get(), temp_bytes,
-                                dst_key_offset.get<uint32_t>(), dst_key_offset.get<uint32_t>(),
+  size_t temp_bytes = cub_scan_temp_buffer_.num_bytes();
+  cub::DeviceScan::ExclusiveSum(cub_scan_temp_buffer_.data(), temp_bytes,
+                                dst_key_offset.data<uint32_t>(), dst_key_offset.data<uint32_t>(),
                                 max_key_num_, stream);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
-void unique_keys(const Tensor &sorted_keys, const Tensor &table_ids, const Tensor &num_key,
-                 Tensor &unique_keys, Tensor &num_unique_keys, Tensor &reduction_table_ids,
-                 Tensor &dst_ids, SegmentdUnique &segmented_unique_kernel, cudaStream_t stream) {
+void unique_keys(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
+                 const core23::Tensor &num_key, core23::Tensor &unique_keys,
+                 core23::Tensor &num_unique_keys, core23::Tensor &reduction_table_ids,
+                 core23::Tensor &dst_ids, SegmentdUnique &segmented_unique_kernel,
+                 cudaStream_t stream) {
   segmented_unique_kernel(sorted_keys, table_ids, num_key, unique_keys, reduction_table_ids,
                           num_unique_keys, dst_ids, stream);
 }
@@ -827,7 +851,8 @@ void LocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput &emb
       partitioned_result_.partitioned_src_ids, wgrad.attr.table_id_to_ev_size,
       partitioned_result_.partitioned_bucket_range, partitioned_result_.partitioned_table_range,
       wgrad.attr.num_lookup, wgrad.attr.num_table, reduction_indices.table_ids,
-      reduction_indices.ev_sizes, reduction_indices.num_key, batch_size, temp_storage_, stream);
+      reduction_indices.ev_sizes, reduction_indices.num_key, batch_size, temp_storage_, core_,
+      stream);
   HCTR_LIB_THROW(cudaGetLastError());
 
   intra_partition_sort(partitioned_result_.partitioned_keys,

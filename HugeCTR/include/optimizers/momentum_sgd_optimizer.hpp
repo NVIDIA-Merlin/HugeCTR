@@ -37,6 +37,18 @@ class MomentumSGDOptimizer : public Optimizer {
                        const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                        const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                        float momentum_factor, float scaler = 1.f);
+  /**
+   * Constructor of MomentumSGD.
+   * @param weight_tensors a list of dense layer weight tensors
+   * @param wgrad gradient for weight_tensors
+   * @param device_id the id of GPU where update kernel is launched
+   * @param learning_rate learning rate
+   * @param momentum_factor momentum factor
+   */
+  MomentumSGDOptimizer(std::vector<core23::Tensor> weight_tensors,
+                       std::vector<core23::Tensor> wgrad_tensors,
+                       const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
+                       float momentum_factor, float scaler = 1.f);
 
   void initialize() override;
 
@@ -49,6 +61,8 @@ class MomentumSGDOptimizer : public Optimizer {
  private:
   Tensor2<T> wgrad_;
   Tensor2<float> momentum_;
+  std::optional<WgradTensors<T>> wgrad_tensors_;
+  core23::Tensor momentum_tensor_;
   const float momentum_factor_;
 };
 

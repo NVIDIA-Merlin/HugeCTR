@@ -13,11 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <layer.hpp>
 #include <utility>
 
 namespace HugeCTR {
+
+Layer::Layer(const std::vector<core23::Tensor>& input_tensors,
+             const std::vector<core23::Tensor>& output_tensors,
+             const std::shared_ptr<GPUResource>& gpu_resource,
+             std::vector<Initializer_t> initializer_types)
+    : input_tensors_(input_tensors),
+      output_tensors_(output_tensors),
+      gpu_resource_(gpu_resource),
+      initializer_types_(initializer_types) {}
 
 void Layer::init_params(const curandGenerator_t& generator) {
   std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =

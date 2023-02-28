@@ -16,11 +16,41 @@
 
 #include <cuda_runtime.h>
 
+#include <core/hctr_impl/hctr_backend.hpp>
 #include <core/registry.hpp>
 #include <embedding/common.hpp>
 #include <utils.hpp>
 
 namespace embedding {
+
+core::Tensor convert_core23_tensor_to_core_tensor(core23::Tensor native_tensor) {
+  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
+      native_tensor.data(), native_tensor.num_bytes());
+  std::vector<size_t> tmp_shape = {static_cast<size_t>(native_tensor.shape().size())};
+
+  core::DeviceType device_type;
+  if (native_tensor.device().type() == core23::DeviceType::GPU) {
+    device_type = core::DeviceType::GPU;
+  } else {
+    device_type = core::DeviceType::CPU;
+  }
+  core::Device device{device_type, native_tensor.device().index()};
+  auto t_impl = std::make_shared<core::TensorImpl>(
+      storage, 0, tmp_shape, device, data_type_core23_to_core[native_tensor.data_type().type()]);
+  return core::Tensor(t_impl);
+}
+
+core23::Tensor convert_core_tensor_to_core23_tensor(core::Tensor native_tensor) {
+  core23::DeviceType device_type;
+  if (native_tensor.device().is_gpu()) {
+    device_type = core23::DeviceType::GPU;
+  } else {
+    device_type = core23::DeviceType::CPU;
+  }
+  core23::Device device{device_type, native_tensor.device().index()};
+  return core23::Tensor::bind(native_tensor.get(), {native_tensor.get_num_elements()},
+                              {data_type_core_to_core23[native_tensor.dtype().type()]}, device);
+}
 
 std::ostream &operator<<(std::ostream &os, const Combiner &p) {
   switch (p) {
@@ -96,18 +126,24 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
                    std::back_inserter(h_id_to_ev_start_indices));
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
-  this->id_to_ev_size =
-      buffer_ptr->reserve({h_id_to_ev_size.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->id_to_ev_start_indices = buffer_ptr->reserve({h_id_to_ev_start_indices.size()},
-                                                     DeviceType::GPU, TensorScalarType::Int32);
-  this->id_to_combiner =
-      buffer_ptr->reserve({h_id_to_combiner.size()}, DeviceType::GPU, TensorScalarType::Char);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
-  this->id_to_ev_size.copy_from(h_id_to_ev_size);
-  this->id_to_ev_start_indices.copy_from(h_id_to_ev_start_indices);
-  this->id_to_combiner.copy_from(h_id_to_combiner);
+  this->id_to_ev_size = core23::Tensor(params.shape({static_cast<int64_t>(h_id_to_ev_size.size())})
+                                           .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->id_to_ev_size, h_id_to_ev_size);
+
+  this->id_to_ev_start_indices =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_id_to_ev_start_indices.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->id_to_ev_start_indices, h_id_to_ev_start_indices);
+
+  this->id_to_combiner =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_id_to_combiner.size())})
+                         .data_type(core23::ScalarType::Char));
+  core23::copy_sync(this->id_to_combiner, h_id_to_combiner);
 
   this->num_elements_per_sample = h_id_to_ev_start_indices.back();
 
@@ -197,24 +233,35 @@ void WgradAttr::init(std::shared_ptr<CoreResourceManager> core,
   this->num_lookup = h_lookup_id_to_table_id.size();
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
-  this->lookup_id_to_table_ids = buffer_ptr->reserve({h_lookup_id_to_table_id.size()},
-                                                     DeviceType::GPU, TensorScalarType::Int32);
-  this->sorted_lookup_ids =
-      buffer_ptr->reserve({h_sorted_lookup_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->sorted_table_ids =
-      buffer_ptr->reserve({h_sorted_table_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->sorted_unique_table_ids = buffer_ptr->reserve({this->h_sorted_unique_table_ids.size()},
-                                                      DeviceType::GPU, TensorScalarType::Int32);
-  this->table_id_to_ev_size =
-      buffer_ptr->reserve({h_table_id_to_ev_size.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
-  this->lookup_id_to_table_ids.copy_from(h_lookup_id_to_table_id);
-  this->sorted_lookup_ids.copy_from(h_sorted_lookup_ids);
-  this->sorted_table_ids.copy_from(h_sorted_table_ids);
-  this->sorted_unique_table_ids.copy_from(this->h_sorted_unique_table_ids);
-  this->table_id_to_ev_size.copy_from(h_table_id_to_ev_size);
+  this->lookup_id_to_table_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_lookup_id_to_table_id.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->lookup_id_to_table_ids, h_lookup_id_to_table_id);
+
+  this->sorted_lookup_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_sorted_lookup_ids.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->sorted_lookup_ids, h_sorted_lookup_ids);
+
+  this->sorted_table_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_sorted_table_ids.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->sorted_table_ids, h_sorted_table_ids);
+
+  this->sorted_unique_table_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_sorted_unique_table_ids.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->sorted_unique_table_ids, h_sorted_unique_table_ids);
+
+  this->table_id_to_ev_size =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_table_id_to_ev_size.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->table_id_to_ev_size, h_table_id_to_ev_size);
 }
 
 std::vector<int> get_wgrad_max_num_keys(const EmbeddingCollectionParam &ebc_param,
@@ -272,16 +319,19 @@ WgradInitializer &WgradInitializer::init_indices() {
   int batch_size = ebc_param.universal_batch_size;
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
-  wgrad->unique_keys = buffer_ptr->reserve({batch_size * max_num_keys}, DeviceType::GPU, key_type);
-  wgrad->num_unique_keys = buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Size_t);
-  wgrad->table_ids =
-      buffer_ptr->reserve({batch_size * max_num_keys}, DeviceType::GPU, TensorScalarType::Int32);
-  wgrad->ev_start_indices = buffer_ptr->reserve({batch_size * max_num_keys + 1}, DeviceType::GPU,
-                                                TensorScalarType::UInt32);
-  wgrad->table_range =
-      buffer_ptr->reserve({wgrad_attr.num_table + 1}, DeviceType::GPU, TensorScalarType::UInt32);
-  buffer_ptr->allocate();
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
+  wgrad->unique_keys =
+      core23::Tensor(params.shape({batch_size * max_num_keys}).data_type(key_type));
+  wgrad->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
+  wgrad->table_ids = core23::Tensor(
+      params.shape({batch_size * max_num_keys}).data_type(core23::ScalarType::Int32));
+  wgrad->ev_start_indices = core23::Tensor(
+      params.shape({batch_size * max_num_keys + 1}).data_type(core23::ScalarType::UInt32));
+  wgrad->table_range = core23::Tensor(
+      params.shape({wgrad_attr.num_table + 1}).data_type(core23::ScalarType::UInt32));
   return *this;
 }
 
@@ -300,8 +350,10 @@ WgradInitializer &WgradInitializer::init_data() {
     max_buffer_size += local_max_hotness_list[i] * local_ev_size_list[i];
   }
   max_buffer_size *= batch_size;
-  wgrad->data = buffer_ptr->reserve({max_buffer_size}, DeviceType::GPU, TensorScalarType::Float32);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  wgrad->data =
+      core23::Tensor(params.shape({max_buffer_size}).data_type(core23::ScalarType::Float));
   return *this;
 }
 
@@ -320,8 +372,9 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   int gpu_id = core->get_global_gpu_id();
 
   std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
-  std::vector<int> h_unique_table_ids;
-  wgrad_attr.sorted_unique_table_ids.to(&h_unique_table_ids);
+  std::vector<int> h_unique_table_ids(wgrad_attr.sorted_unique_table_ids.num_elements());
+  core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
+
   std::vector<int> h_local_num_keys_list =
       get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
   auto key_type = ebc_param.key_type;
@@ -329,18 +382,22 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   int max_num_keys = std::accumulate(h_local_num_keys_list.begin(), h_local_num_keys_list.end(), 0);
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
-  wgrad->unique_keys = buffer_ptr->reserve({max_num_keys}, DeviceType::GPU, key_type);
-  wgrad->num_unique_keys = buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Size_t);
-  wgrad->table_ids = buffer_ptr->reserve({max_num_keys}, DeviceType::GPU, TensorScalarType::Int32);
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
+  wgrad->unique_keys = core23::Tensor(params.shape({max_num_keys}).data_type(key_type));
+  wgrad->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
+  wgrad->table_ids =
+      core23::Tensor(params.shape({max_num_keys}).data_type(core23::ScalarType::Int32));
   wgrad->ev_start_indices =
-      buffer_ptr->reserve({max_num_keys + 1}, DeviceType::GPU, TensorScalarType::UInt32);
-  wgrad->table_range = buffer_ptr->reserve({h_unique_table_ids.size() + 1}, DeviceType::GPU,
-                                           TensorScalarType::UInt32);
-  buffer_ptr->allocate();
+      core23::Tensor(params.shape({max_num_keys + 1}).data_type(core23::ScalarType::UInt32));
+  wgrad->table_range =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_unique_table_ids.size() + 1)})
+                         .data_type(core23::ScalarType::UInt32));
 
   // FIXME: move those initialization on GPU
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     std::vector<key_t> h_unique_keys;
     for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
       int num_keys = h_local_num_keys_list[i];
@@ -349,17 +406,22 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
       std::iota(indices.begin(), indices.end(), 0);
       h_unique_keys.insert(h_unique_keys.end(), indices.begin(), indices.end());
     }
-    wgrad->unique_keys.copy_from(h_unique_keys);
+    core23::copy_sync(wgrad->unique_keys.data(), h_unique_keys.data(),
+                      wgrad->unique_keys.num_bytes(), wgrad->unique_keys.device(),
+                      core23::DeviceType::CPU);
+
     std::vector<size_t> h_num_unqiue_keys{h_unique_keys.size()};
-    wgrad->num_unique_keys.copy_from(h_num_unqiue_keys);
+    core23::copy_sync(wgrad->num_unique_keys.data(), h_num_unqiue_keys.data(),
+                      wgrad->num_unique_keys.num_bytes(), wgrad->num_unique_keys.device(),
+                      core23::DeviceType::CPU);
   });
 
   std::vector<int> h_table_ids;
   for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
     h_table_ids.insert(h_table_ids.end(), h_local_num_keys_list[i], h_unique_table_ids[i]);
   }
-  wgrad->table_ids.copy_from(h_table_ids);
-
+  core23::copy_sync(wgrad->table_ids.data(), h_table_ids.data(), wgrad->table_ids.num_bytes(),
+                    wgrad->table_ids.device(), core23::DeviceType::CPU);
   {
     std::vector<uint32_t> h_ev_start_indices;
     uint32_t cnt = 0;
@@ -372,7 +434,9 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
       }
     }
     h_ev_start_indices.push_back(cnt);
-    wgrad->ev_start_indices.copy_from(h_ev_start_indices);
+    core23::copy_sync(wgrad->ev_start_indices.data(), h_ev_start_indices.data(),
+                      wgrad->ev_start_indices.num_bytes(), wgrad->ev_start_indices.device(),
+                      core23::DeviceType::CPU);
   }
 
   {
@@ -384,7 +448,9 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
       cnt += num_keys;
     }
     h_table_range.push_back(cnt);
-    wgrad->table_range.copy_from(h_table_range);
+    core23::copy_sync(wgrad->table_range.data(), h_table_range.data(),
+                      wgrad->table_range.num_bytes(), wgrad->table_range.device(),
+                      core23::DeviceType::CPU);
   }
   return *this;
 }
@@ -393,20 +459,22 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data() {
   wgrad->attr = wgrad_attr;
   int gpu_id = core->get_global_gpu_id();
   std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
-  std::vector<int> h_unique_table_ids;
-  wgrad_attr.sorted_unique_table_ids.to(&h_unique_table_ids);
+  std::vector<int> h_unique_table_ids(wgrad_attr.sorted_unique_table_ids.num_elements());
+  core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
   std::vector<int> h_local_num_keys_list =
       get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
 
   int max_buffer_size = 0;
   for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
     max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
   }
-  wgrad->data = buffer_ptr->reserve({max_buffer_size}, DeviceType::GPU, TensorScalarType::Float32);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  wgrad->data =
+      core23::Tensor(params.shape({max_buffer_size}).data_type(core23::ScalarType::Float));
+
   return *this;
 }
 }  // namespace embedding

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,19 @@ std::shared_ptr<Buffer> GetBuffer(const BufferParams& buffer_params, const Devic
     channel.set_buffer(buffer, {});
   }
   return channel.get_buffer({});
+}
+
+bool AllocateBuffers(const Device& device) {
+  auto it = g_buffers.find(device);
+  if (it != g_buffers.end()) {
+    for (auto& channel : it->second) {
+      if (auto buffer = channel.get_buffer({}); buffer && buffer->allocatable()) {
+        buffer->allocate();
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 }  // namespace core23

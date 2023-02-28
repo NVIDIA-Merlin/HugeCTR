@@ -34,6 +34,8 @@ class ReluLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  ReluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+            const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of ReluLayer.
    * @param in_tensor the input tensor
@@ -70,6 +72,8 @@ class ReluLayer<__half> : public Layer {
   Tensor2<__half> top_tensor_;
 
  public:
+  ReluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+            const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of ReluLayer.
    * @param bottom_tensor the input tensor

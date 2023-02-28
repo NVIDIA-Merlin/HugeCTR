@@ -54,6 +54,15 @@ __global__ void cast_kernel(float* out, const __half* in, int size) {
 }  // namespace
 
 template <typename From, typename To>
+CastLayer<From, To>::CastLayer(const core23::Tensor& input_tensor,
+                               const core23::Tensor& output_tensor,
+                               const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource) {
+  HCTR_THROW_IF(input_tensor.num_elements() != output_tensor.num_elements(), Error_t::IllegalCall,
+                "Input and output tensors must have the same number of elements");
+}
+
+template <typename From, typename To>
 CastLayer<From, To>::CastLayer(const Tensor2<From>& bottom_tensor, const Tensor2<To>& top_tensor,
                                const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
@@ -67,13 +76,24 @@ template <typename From, typename To>
 void CastLayer<From, To>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const From* bottom = bottom_tensor_.get_ptr();
-  To* top = top_tensor_.get_ptr();
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const From* bottom = bottom_tensor_.get_ptr();
+    To* top = top_tensor_.get_ptr();
 
-  const size_t threads = 512;
-  const size_t blocks = std::min((bottom_tensor_.get_num_elements() - 1) / threads + 1, 1024ul);
-  cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, bottom,
-                                                              bottom_tensor_.get_num_elements());
+    const size_t threads = 512;
+    const size_t blocks = std::min((bottom_tensor_.get_num_elements() - 1) / threads + 1, 1024ul);
+    cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, bottom,
+                                                                bottom_tensor_.get_num_elements());
+  } else {
+    const From* in = input_tensors_[0].data<From>();
+    To* out = output_tensors_[0].data<To>();
+    int num_elements = input_tensors_[0].num_elements();
+
+    const auto threads = 512;
+    const auto blocks = std::min((num_elements - 1) / threads + 1, 1024);
+    cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(out, in, num_elements);
+  }
 
 #ifndef NDEBUG
   HCTR_LIB_THROW(cudaDeviceSynchronize());

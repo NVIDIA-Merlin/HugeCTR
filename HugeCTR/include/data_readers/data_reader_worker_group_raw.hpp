@@ -52,7 +52,8 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
                            const std::vector<DataReaderSparseParam> params, int label_dim,
                            int dense_dim, int batchsize, bool float_label_dense,
                            bool data_shuffle = false, bool start_reading_from_beginning = true)
-      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Raw),
+      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Raw, false, nullptr,
+                              output_buffers.size()),
         num_samples_(num_samples),
         batchsize_(batchsize),
         data_shuffle_(data_shuffle) {

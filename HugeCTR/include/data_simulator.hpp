@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <core23/tensor.hpp>
 #include <gpu_resource.hpp>
 #include <tensor2.hpp>
 
@@ -27,6 +28,9 @@ class UniformGenerator {
                    const curandGenerator_t& generator, const cudaStream_t& stream);
   template <typename T>
   static void fill(Tensor2<T>& tensor, T a, T b, size_t sm_count,
+                   const curandGenerator_t& generator, const cudaStream_t& stream);
+  template <typename T>
+  static void fill(core23::Tensor& tensor, T a, T b, size_t sm_count,
                    const curandGenerator_t& generator, const cudaStream_t& stream);
 };
 
@@ -41,6 +45,8 @@ class HostUniformGenerator {
  public:
   template <typename T>
   static void fill(Tensor2<T>& tensor, T a, T b, const curandGenerator_t& gen);
+  template <typename T>
+  static void fill(core23::Tensor& tensor, T a, T b, const curandGenerator_t& gen);
 };
 
 class NormalGenerator {
@@ -48,18 +54,24 @@ class NormalGenerator {
   template <typename T>
   static void fill(Tensor2<T>& tensor, float mean, float stddev, size_t sm_count,
                    const curandGenerator_t& generator, const cudaStream_t& stream);
+  template <typename T>
+  static void fill(core23::Tensor& tensor, float mean, float stddev, size_t sm_count,
+                   const curandGenerator_t& generator, const cudaStream_t& stream);
 };
 
 class HostNormalGenerator {
  public:
   template <typename T>
   static void fill(Tensor2<T>& tensor, float mean, float stddev, const curandGenerator_t& gen);
+  template <typename T>
+  static void fill(core23::Tensor& tensor, float mean, float stddev, const curandGenerator_t& gen);
 };
 
 class DataSimulator {
  public:
   virtual ~DataSimulator() {}
   virtual void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) = 0;
+  virtual void fill(core23::Tensor& tensor, const curandGenerator_t& gen) = 0;
 };
 
 /*
@@ -70,6 +82,7 @@ class ConstantDataSimulator : public DataSimulator {
   ConstantDataSimulator(float value) : value_(value) {}
 
   void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
+  void fill(core23::Tensor& tensor, const curandGenerator_t& gen) override;
 
  private:
   float value_;
@@ -80,6 +93,7 @@ class UniformDataSimulator : public DataSimulator {
   UniformDataSimulator(float min, float max) : min_(min), max_(max) {}
 
   void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
+  void fill(core23::Tensor& tensor, const curandGenerator_t& gen) override;
 
  private:
   float min_;
@@ -91,6 +105,7 @@ class GaussianDataSimulator : public DataSimulator {
   GaussianDataSimulator(float mu, float sigma, float min, float max) : mu_(mu), sigma_(sigma) {}
 
   void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
+  void fill(core23::Tensor& tensor, const curandGenerator_t& gen) override;
 
  private:
   float mu_;
@@ -158,6 +173,10 @@ class VarianceScalingSimulator : public DataSimulator {
   }
 
   void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override {
+    simulator_->fill(tensor, gen);
+  }
+
+  void fill(core23::Tensor& tensor, const curandGenerator_t& gen) override {
     simulator_->fill(tensor, gen);
   }
 

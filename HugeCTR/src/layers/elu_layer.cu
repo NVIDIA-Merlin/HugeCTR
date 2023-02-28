@@ -84,6 +84,11 @@ __global__ void elu_dgrad_kernel<__half>(const __half* d_out, __half* d_in, int 
 }  // namespace
 
 template <typename T>
+EluLayer<T>::EluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+                      T alpha, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource), alpha_(alpha) {}
+
+template <typename T>
 EluLayer<T>::EluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, T alpha,
                       const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource), alpha_(alpha) {
@@ -97,66 +102,124 @@ template <typename T>
 void EluLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const Tensor2<T>& in_tensor = in_tensors_[0];
-  Tensor2<T>& out_tensor = out_tensors_[0];
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const Tensor2<T>& in_tensor = in_tensors_[0];
+    Tensor2<T>& out_tensor = out_tensors_[0];
 
-  const int len = in_tensor.get_num_elements();
+    const int len = in_tensor.get_num_elements();
 
-  T alpha = alpha_;
-  auto fop = [alpha] __device__(T in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
+    T alpha = alpha_;
+    auto fop = [alpha] __device__(T in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
 
-  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
-                            get_gpu().get_stream());
+    MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
+                              get_gpu().get_stream());
+  } else {
+    const auto& input_tensor = input_tensors_[0];
+    auto& output_tensor = output_tensors_[0];
+
+    const int len = input_tensor.num_elements();
+
+    T alpha = alpha_;
+    auto fop = [alpha] __device__(T in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
+
+    MLCommon::LinAlg::unaryOp(output_tensor.data<T>(), input_tensor.data<T>(), len, fop,
+                              get_gpu().get_stream());
+  }
 }
 
 template <>
 void EluLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const Tensor2<__half>& in_tensor = in_tensors_[0];
-  Tensor2<__half>& out_tensor = out_tensors_[0];
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    const Tensor2<__half>& in_tensor = in_tensors_[0];
+    Tensor2<__half>& out_tensor = out_tensors_[0];
 
-  const int len = in_tensor.get_num_elements();
+    const int len = in_tensor.get_num_elements();
 
-  __half alpha = alpha_;
-  dim3 block_size(256, 1, 1);
-  dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
-  elu_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      in_tensor.get_ptr(), out_tensor.get_ptr(), len, alpha);
+    __half alpha = alpha_;
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
+    elu_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        in_tensor.get_ptr(), out_tensor.get_ptr(), len, alpha);
+  } else {
+    const auto& input_tensor = input_tensors_[0];
+    auto& output_tensor = output_tensors_[0];
+
+    const int len = input_tensor.num_elements();
+
+    __half alpha = alpha_;
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
+    elu_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        input_tensor.data<__half>(), output_tensor.data<__half>(), len, alpha);
+  }
 }
 
 template <typename T>
 void EluLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  Tensor2<T>& in_tensor = in_tensors_[0];
-  const Tensor2<T>& out_tensor = out_tensors_[0];
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    Tensor2<T>& in_tensor = in_tensors_[0];
+    const Tensor2<T>& out_tensor = out_tensors_[0];
 
-  const int len = in_tensor.get_num_elements();
+    const int len = in_tensor.get_num_elements();
 
-  T alpha = alpha_;
-  auto bop = [alpha] __device__(T d_out, T d_in) {
-    return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
-  };
+    T alpha = alpha_;
+    auto bop = [alpha] __device__(T d_out, T d_in) {
+      return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
+    };
 
-  MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
-                             bop, get_gpu().get_stream());
+    MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
+                               bop, get_gpu().get_stream());
+  } else {
+    const auto& input_tensor = input_tensors_[0];
+    auto& output_tensor = output_tensors_[0];
+
+    const int len = input_tensor.num_elements();
+
+    T alpha = alpha_;
+    auto bop = [alpha] __device__(T d_out, T d_in) {
+      return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
+    };
+
+    MLCommon::LinAlg::binaryOp(input_tensor.data<T>(), output_tensor.data<T>(),
+                               input_tensor.data<T>(), len, bop, get_gpu().get_stream());
+  }
 }
 
 template <>
 void EluLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  Tensor2<__half>& in_tensor = in_tensors_[0];
-  const Tensor2<__half>& out_tensor = out_tensors_[0];
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    Tensor2<__half>& in_tensor = in_tensors_[0];
+    const Tensor2<__half>& out_tensor = out_tensors_[0];
 
-  const int len = in_tensor.get_num_elements();
+    const int len = in_tensor.get_num_elements();
 
-  __half alpha = alpha_;
-  dim3 block_size(256, 1, 1);
-  dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
-  elu_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      out_tensor.get_ptr(), in_tensor.get_ptr(), len, alpha);
+    __half alpha = alpha_;
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
+    elu_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        out_tensor.get_ptr(), in_tensor.get_ptr(), len, alpha);
+  } else {
+    const auto& input_tensor = input_tensors_[0];
+    auto& output_tensor = output_tensors_[0];
+
+    const int len = input_tensor.num_elements();
+
+    __half alpha = alpha_;
+    dim3 block_size(256, 1, 1);
+    dim3 grid_size((len / 2 + block_size.x - 1) / block_size.x, 1, 1);
+    elu_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+        output_tensor.data<__half>(), input_tensor.data<__half>(), len, alpha);
+  }
 }
 
 template class EluLayer<float>;

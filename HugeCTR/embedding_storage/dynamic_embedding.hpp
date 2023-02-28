@@ -50,11 +50,13 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
 
   std::vector<size_t> remap_id_space(const Tensor &id_space_list, cudaStream_t stream);
 
+  std::vector<size_t> remap_id_space(const core23::Tensor &id_space_list, cudaStream_t stream);
+
   std::vector<size_t> remap_id_space(const std::vector<int> &idsl_cpu);
 
-  void lookup(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-              size_t num_id_space_offset, const Tensor &id_space,
-              TensorList &embedding_vec) override;
+  void lookup(const core23::Tensor &keys, size_t num_keys, const core23::Tensor &id_space_offset,
+              size_t num_id_space_offset, const core23::Tensor &id_space,
+              core23::Tensor &embedding_vec) override;
 
   void update(const Tensor &unique_keys, const Tensor &num_unique_keys, const Tensor &table_ids,
               const Tensor &ev_start_indices, const Tensor &wgrad) override;

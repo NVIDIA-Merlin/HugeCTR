@@ -454,7 +454,7 @@ void InferencePybind(pybind11::module& m) {
           pybind11::init<DatabaseType_t,
                          // Backend specific.
                          const std::string&, const std::string&, const std::string&, size_t, size_t,
-                         size_t, const std::string&, size_t, size_t, bool, const std::string&,
+                         size_t, const std::string&, bool, size_t, size_t, bool, const std::string&,
                          const std::string&, const std::string&, const std::string&,
                          // Overflow handling related.
                          size_t, DatabaseOverflowPolicy_t, double,
@@ -470,6 +470,7 @@ void InferencePybind(pybind11::module& m) {
           pybind11::arg("allocation_rate") = 256L * 1024L * 1024L,
           pybind11::arg("shared_memory_size") = 16L * 1024L * 1024L * 1024L,
           pybind11::arg("shared_memory_name") = "hctr_mp_hash_map_database",
+          pybind11::arg("shared_memory_auto_remove") = true,
           pybind11::arg("num_node_connections") = 5, pybind11::arg("max_batch_size") = 64L * 1024L,
           pybind11::arg("enable_tls") = false,
           pybind11::arg("tls_ca_certificate") = "cacertbundle.crt",

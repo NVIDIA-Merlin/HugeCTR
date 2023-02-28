@@ -16,6 +16,9 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/slice_layer.hpp>
 #include <memory>
 #include <set>
@@ -29,30 +32,36 @@ namespace {
 const float eps = 1e-5;
 
 template <typename T>
-void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, int>> ranges) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+void slice_layer_test(int64_t height, int64_t width, std::vector<std::pair<int, int>> ranges) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  std::vector<size_t> in_dims = {height, width};
-  Tensor2<T> in_tensor;
-  buff->reserve(in_dims, &in_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
 
-  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
 
-  std::vector<T> h_in(in_tensor.get_num_elements(), 0.0);
-  data_sim.fill(h_in.data(), h_in.size());
+  core23::Shape in_shape = {height, width};
 
-  Tensors2<T> out_tensors;
-  SliceLayer<T> slice_layer(in_tensor, out_tensors, buff, ranges, test::get_default_gpu());
+  core23::Tensor bottom_tensor(tensor_params.shape(in_shape));
 
-  buff->allocate();
+  std::vector<T> h_bottom(bottom_tensor.num_elements(), 0.0);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
+
+  std::vector<core23::Tensor> top_tensors;
+  SliceLayer<T> slice_layer(bottom_tensor, top_tensors, ranges, test::get_default_gpu());
+
   slice_layer.initialize();
 
-  size_t n_outs = out_tensors.size();
+  size_t n_outs = top_tensors.size();
 
   // fprop
   std::vector<std::vector<T>> h_refs;
   for (size_t i = 0; i < n_outs; i++) {
-    std::vector<T> h_ref(out_tensors[i].get_num_elements(), 0.0);
+    std::vector<T> h_ref(top_tensors[i].num_elements(), 0.0);
     h_refs.push_back(h_ref);
   }
 
@@ -63,32 +72,30 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
       for (int c = range.first; c < range.second; c++) {
         int in_idx = r * width + c;
         int out_idx = r * out_width + c - range.first;
-        h_refs[i][out_idx] = h_in[in_idx];
+        h_refs[i][out_idx] = h_bottom[in_idx];
       }
     }
     i++;
   }
 
-  T* d_in = in_tensor.get_ptr();
-  HCTR_LIB_THROW(
-      cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
 
   slice_layer.fprop(true);
 
   for (size_t i = 0; i < n_outs; i++) {
-    std::vector<T> h_out(out_tensors[i].get_num_elements(), 0.0);
-    T* d_out = out_tensors[i].get_ptr();
-    HCTR_LIB_THROW(cudaMemcpy(&h_out.front(), d_out, out_tensors[i].get_size_in_bytes(),
-                              cudaMemcpyDeviceToHost));
+    std::vector<T> h_top(top_tensors[i].num_elements(), 0.0);
+    core23::copy_sync(h_top.data(), top_tensors[i].data(), top_tensors[i].num_bytes(),
+                      core23::DeviceType::CPU, top_tensors[i].device());
     ASSERT_TRUE(
-        test::compare_array_approx<T>(&h_out.front(), &h_refs[i].front(), h_out.size(), eps));
+        test::compare_array_approx<T>(&h_top.front(), &h_refs[i].front(), h_top.size(), eps));
   }
 
   // bprop
   slice_layer.bprop();
 
-  for (unsigned int i = 0; i < h_in.size(); i++) {
-    h_in[i] = 0.0f;
+  for (unsigned int i = 0; i < h_bottom.size(); i++) {
+    h_bottom[i] = 0.0f;
   }
   i = 0;
   for (auto& range : ranges) {
@@ -97,15 +104,15 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
       for (int c = range.first; c < range.second; c++) {
         int in_idx = r * width + c;
         int out_idx = r * out_width + c - range.first;
-        h_in[in_idx] = h_in[in_idx] + h_refs[i][out_idx];
+        h_bottom[in_idx] = h_bottom[in_idx] + h_refs[i][out_idx];
       }
     }
     i++;
   }
-  std::vector<T> h_out(in_tensor.get_num_elements(), 0.0);
-  HCTR_LIB_THROW(
-      cudaMemcpy(&h_out.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_in.front(), h_out.size(), eps));
+  std::vector<T> h_top(bottom_tensor.num_elements(), 0.0);
+  core23::copy_sync(h_top.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
+  ASSERT_TRUE(test::compare_array_approx<T>(&h_top.front(), &h_bottom.front(), h_top.size(), eps));
 }
 
 }  // namespace

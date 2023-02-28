@@ -213,7 +213,7 @@ check_selene_idle:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${CONT}
     - docker run -d --rm --name selene_idle_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
-    - docker exec selene_idle_${CI_PIPELINE_ID} bash -cx "python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA}"
+    - docker exec selene_idle_${CI_PIPELINE_ID} bash -cx "python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA} --token \"${CLUSTER_TOKEN}\" "
   after_script:
     - docker stop selene_idle_${CI_PIPELINE_ID}
   variables:
@@ -230,7 +230,7 @@ check_selene_queued:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${CONT}
     - docker run -d --rm --name selene_queued_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
-    - docker exec selene_queued_${CI_PIPELINE_ID} bash -cx "!(python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA})"
+    - docker exec selene_queued_${CI_PIPELINE_ID} bash -cx "!(python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA} --token \"${CLUSTER_TOKEN}\") "
   after_script:
     - docker stop selene_queued_${CI_PIPELINE_ID}
   variables:
@@ -805,9 +805,10 @@ py_multi_node:
 
 # hugectr inference correctness test
 inference_model:
-  extends: .cluster_test_job_daily
+  extends: .cluster_test_job
   needs:
     - build_train_single_node
+    - check_selene_idle
   variables:
     GPFSFOLDER: $LOGDIR/inference_model
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}

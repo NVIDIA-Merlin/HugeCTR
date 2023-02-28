@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <base/debug/logger.hpp>
 #include <core23/buffer.hpp>
 #include <core23/buffer_client.hpp>
+#include <core23/device_guard.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {
@@ -76,6 +77,8 @@ void Buffer::unsubscribe(BufferClient* client) {
 }
 
 void Buffer::allocate() {
+  DeviceGuard device_guard(device_);
+
   if (!allocatable()) {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "The buffer is not at a state to do allocate().");
   }

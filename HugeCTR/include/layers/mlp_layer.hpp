@@ -100,4 +100,75 @@ class MLPLayer : public TrainableLayer<T> {
     }
   };
 };
+
+template <typename T>
+class Core23TempMLPLayer : public Core23TempTrainableLayer<T> {
+  std::vector<core23::Tensor> train_tensors_, mask_tensors_, dact_tensors_, db_tensors_;
+
+  std::vector<core23::Tensor> kernels_;
+  std::vector<core23::Tensor> biases_;
+  std::vector<core23::Tensor> kernels_grad_;
+
+  std::vector<int64_t> num_outputs_;
+  std::vector<Activation_t> acts_;
+
+  std::vector<bool> output_mask_;
+  std::vector<bool> use_bias_;
+
+  bool async_wgrad_;
+  bool fuse_wb_;
+  bool enable_tf32_compute_;
+  bool skip_head_dgrad_;
+  bool inner_sync_overlap_stream_;
+
+  bool event_overlap_created_;
+  cudaEvent_t event_overlap_;
+  std::vector<CublasFusedFCLayerDesc<T>> layer_desc_;
+  std::vector<CublasFusedFCLayerAlgo<T>> layer_algo_;
+  FusedFCLayerFunctors<T> layer_functors_;
+
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+
+ public:
+  Core23TempMLPLayer(const std::vector<core23::Tensor>& bottom_tensors,
+                     const std::vector<core23::Tensor>& top_tensors,
+                     const std::vector<int64_t>& num_outputs,
+                     const std::shared_ptr<GPUResource>& gpu_resource,
+                     const std::vector<Activation_t>& acts, const std::vector<bool>& use_bias,
+                     std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
+                     bool skip_head_dgrad = false, bool async_wgrad = false, bool fuse_wb = false,
+                     bool enable_tf32_compute = false);
+
+  Core23TempMLPLayer(const Core23TempMLPLayer& C) = delete;
+  Core23TempMLPLayer& operator=(const Core23TempMLPLayer&);
+
+  void fprop(bool is_train) final;
+
+  void bprop() final;
+
+  void search_algorithm() final;
+
+  void initialize() final;
+
+  /*
+   * Interfaces for unit tests to debug
+   */
+  auto& get_kernel(int index) { return kernels_[index]; }
+  auto& get_bias(int index) { return biases_[index]; }
+  auto& get_kernel_grad(int index) { return kernels_grad_[index]; }
+  auto& get_bias_grad(int index) { return db_tensors_[index]; }
+  auto& get_inner_tensors() { return train_tensors_; }
+  auto& get_input_tensors() { return this->input_tensors_; }
+  auto& get_output_tensors() { return this->output_tensors_; }
+
+  ~Core23TempMLPLayer() {
+    CudaDeviceContext context(this->get_device_id());
+    if (event_overlap_created_) {
+      cudaEventDestroy(event_overlap_);
+    }
+  };
+};
 }  // namespace HugeCTR

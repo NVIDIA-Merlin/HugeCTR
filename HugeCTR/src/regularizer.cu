@@ -25,8 +25,8 @@ Regularizer<T>::Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>&
                             const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource)
     : weight_buff_(weight_buff),
       wgrad_buff_(wgrad_buff),
-      weight_tensors_({}),
-      wgrad_tensors_({}),
+      weight_tensors_(),
+      wgrad_tensors_(),
       batch_size_(batch_size),
       gpu_resource_(gpu_resource) {}
 

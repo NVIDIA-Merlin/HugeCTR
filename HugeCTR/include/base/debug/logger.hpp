@@ -488,7 +488,7 @@ class Logger final {
                           int level) const;
 
  private:
-  int rank_{0};
+  int rank_;
   int max_level_{DEFAULT_LOG_LEVEL};
   bool log_to_std_{true};
   bool log_to_file_{false};

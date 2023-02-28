@@ -26,23 +26,23 @@ WeightedModelForward::WeightedModelForward(std::shared_ptr<CoreResourceManager> 
                                            const std::vector<int> &local_embedding_list)
     : core_(core), num_gpus_(num_gpus), num_local_embedding_(local_embedding_list.size()) {}
 
-void WeightedModelForward::compute(const TensorList &mp_ev, const Tensor &model_offset,
-                                   TensorList &model_comm_buffer,
-                                   const Tensor &d_local_ev_size_list,
-                                   const Tensor &d_local_ev_size_offset, int batch_size,
-                                   int max_ev_size, const Tensor &sp_weight) {
+void WeightedModelForward::compute(const core23::Tensor &mp_ev, const core23::Tensor &model_offset,
+                                   core23::Tensor &model_comm_buffer,
+                                   const core23::Tensor &d_local_ev_size_list,
+                                   const core23::Tensor &d_local_ev_size_offset, int batch_size,
+                                   int max_ev_size, const core23::Tensor &sp_weight) {
   CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
   auto stream = core_->get_local_gpu()->get_stream();
 
   if (num_local_embedding_ > 0) {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
-      const uint32_t *model_offset_ptr = model_offset.get<uint32_t>();
-      const int *d_local_ev_size_list_ptr = d_local_ev_size_list.get<int>();
-      const int *d_local_ev_size_offset_ptr = d_local_ev_size_offset.get<int>();
-      const float **mp_ev_ptr = mp_ev.get<float>();
-      emb_t **model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
-      const float *sp_weight_ptr = sp_weight.get<float>();
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffer.data_type().type(), emb_t, [&] {
+      const uint32_t *model_offset_ptr = model_offset.data<uint32_t>();
+      const int *d_local_ev_size_list_ptr = d_local_ev_size_list.data<int>();
+      const int *d_local_ev_size_offset_ptr = d_local_ev_size_offset.data<int>();
+      const float **mp_ev_ptr = static_cast<const float **>(mp_ev.data());
+      emb_t **model_comm_buffer_ptr = static_cast<emb_t **>(model_comm_buffer.data());
+      const float *sp_weight_ptr = sp_weight.data<float>();
 
       auto multi_to_one_desc = make_MultiToOneWeight<float, emb_t>(
           batch_size * num_local_embedding_, [=] __device__(int i) { return model_offset_ptr[i]; },

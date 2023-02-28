@@ -111,4 +111,58 @@ void UniformDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t&
 void GaussianDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t& gen) {
   HostNormalGenerator::fill(tensor, mu_, sigma_, gen);
 }
+
+template <>
+void UniformGenerator::fill<float>(core23::Tensor& tensor, float a, float b, size_t sm_count,
+                                   const curandGenerator_t& generator, const cudaStream_t& stream) {
+  UniformGenerator::fill<float>(tensor.data<float>(), tensor.num_elements(), a, b, sm_count,
+                                generator, stream);
+}
+
+template <>
+void HostUniformGenerator::fill<float>(core23::Tensor& tensor, float a, float b,
+                                       const curandGenerator_t& generator) {
+  if (a >= b) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "a must be smaller than b");
+  }
+  HCTR_LIB_THROW(curandGenerateUniform(
+      generator, tensor.data<float>(),
+      tensor.num_elements() % 2 != 0 ? tensor.num_elements() + 1 : tensor.num_elements()));
+  float* p = tensor.data<float>();
+  for (int64_t i = 0; i < tensor.num_elements(); i++) {
+    p[i] = p[i] * (b - a) + a;
+  }
+}
+
+template <>
+void NormalGenerator::fill<float>(core23::Tensor& tensor, float mean, float stddev, size_t sm_count,
+                                  const curandGenerator_t& generator, const cudaStream_t& stream) {
+  HCTR_LIB_THROW(
+      curandGenerateNormal(generator, tensor.data<float>(), tensor.num_elements(), mean, stddev));
+}
+
+template <>
+void HostNormalGenerator::fill<float>(core23::Tensor& tensor, float mean, float stddev,
+                                      const curandGenerator_t& gen) {
+  HCTR_LIB_THROW(curandGenerateNormal(
+      gen, tensor.data<float>(),
+      tensor.num_elements() % 2 != 0 ? tensor.num_elements() + 1 : tensor.num_elements(), mean,
+      stddev));
+}
+
+void ConstantDataSimulator::fill(core23::Tensor& tensor, const curandGenerator_t& gen) {
+  float* p = tensor.data<float>();
+  for (int64_t i = 0; i < tensor.num_elements(); i++) {
+    p[i] = value_;
+  }
+}
+
+void UniformDataSimulator::fill(core23::Tensor& tensor, const curandGenerator_t& gen) {
+  HostUniformGenerator::fill<float>(tensor, min_, max_, gen);
+}
+
+void GaussianDataSimulator::fill(core23::Tensor& tensor, const curandGenerator_t& gen) {
+  HostNormalGenerator::fill<float>(tensor, mu_, sigma_, gen);
+}
+
 }  // namespace HugeCTR

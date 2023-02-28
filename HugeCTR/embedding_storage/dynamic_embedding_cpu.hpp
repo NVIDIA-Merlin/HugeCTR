@@ -168,26 +168,32 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     return w;
   }
 
-  void lookup(const Tensor& keys, size_t num_keys, const Tensor& id_space_offsets,
-              size_t num_id_space_offsets, const Tensor& id_spaces,
-              TensorList& emb_vectors) override {
+  void lookup(const core23::Tensor& keys, size_t num_keys,
+              const core23::Tensor& num_keys_per_table_offset, size_t num_table_offset,
+              const core23::Tensor& table_id_list, core23::Tensor& embedding_vec) override {
     // Move to CPU.
-    auto k = keys.to_vector<Key>();
+    std::vector<Key> k(keys.num_elements());
+    core23::copy_sync(k, keys);
+    //    auto k = keys.to_vector<Key>();
     HCTR_CHECK(num_keys <= k.size());
     k.resize(num_keys);
 
-    auto is_off = id_space_offsets.to_vector<uint32_t>();
-    HCTR_CHECK(num_id_space_offsets <= is_off.size());
-    is_off.resize(num_id_space_offsets);
+    std::vector<uint32_t> is_off(num_keys_per_table_offset.num_elements());
+    core23::copy_sync(is_off, num_keys_per_table_offset);
+    //    auto is_off = id_space_offsets.to_vector<uint32_t>();
+    HCTR_CHECK(num_table_offset <= is_off.size());
+    is_off.resize(num_table_offset);
 
-    auto is = id_spaces.to_vector<int32_t>();
+    std::vector<int32_t> is(table_id_list.num_elements());
+    core23::copy_sync(is, table_id_list);
+    //    auto is = id_spaces.to_vector<int32_t>();
     HCTR_CHECK(is.size() + 1 == is_off.size());
     remap_id_space(is);
 
     std::vector<float*> w_dev;
     w_dev.resize(k.size());
-    HCTR_LIB_THROW(cudaMemcpy(w_dev.data(), emb_vectors.get<float>(), w_dev.size() * sizeof(float*),
-                              cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(w_dev.data(), embedding_vec.data<float*>(),
+                              w_dev.size() * sizeof(float*), cudaMemcpyDeviceToHost));
 
     // Perform actual lookup.
     for (size_t i = 0; i < is.size(); ++i) {
@@ -201,7 +207,6 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
       }
     }
   }
-
   void assign(const Tensor& unique_key, size_t num_unique_key,
               const Tensor& num_unique_key_per_table_offset, size_t num_table_offset,
               const Tensor& table_id_list, Tensor& embeding_vector,

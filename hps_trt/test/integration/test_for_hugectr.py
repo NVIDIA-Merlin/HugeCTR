@@ -230,7 +230,6 @@ def test_build_engine_for_hugectr():
 
 
 def test_run_engine():
-
     hps_plugin_creator = create_hps_plugin_creator()
     hps_plugin = create_hps_plugin(hps_plugin_creator)
 

@@ -16,7 +16,7 @@
 #pragma once
 
 #include <core/buffer.hpp>
-#include <core/registry.hpp>
+#include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
 namespace embedding {
@@ -27,16 +27,17 @@ class PreprocessInput {
   EmbeddingLayout input_layout_;
   int num_lookup_;
 
-  Tensor feature_major_key_;
-  Tensor feature_major_bucket_range_;
-  Tensor d_temp_scan_storage_;
+  core23::Tensor feature_major_key_;
+  core23::Tensor feature_major_bucket_range_;
+  core23::Tensor d_temp_scan_storage_;
 
  public:
   PreprocessInput(std::shared_ptr<CoreResourceManager> core,
                   const EmbeddingCollectionParam &ebc_param);
 
-  void compute(const Tensor &key, const Tensor &bucket_range, Tensor *feature_major_key,
-               Tensor *feature_major_bucket_range, int batch_size);
+  void compute(const core23::Tensor &key, const core23::Tensor &bucket_range,
+               core23::Tensor *feature_major_key, core23::Tensor *feature_major_bucket_range,
+               int batch_size);
 };
 
 }  // namespace embedding

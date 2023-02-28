@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,19 @@ void zeros_sync(Tensor& data);
 void zeros_async(Tensor& data, CUDAStream stream = CUDAStream());
 void copy_sync(Tensor& dst, const Tensor& src);
 void copy_async(Tensor& dst, const Tensor& src, CUDAStream stream = CUDAStream());
+
+template <typename T>
+void copy_sync(std::vector<T>& dst, const Tensor& src);
+
+template <typename T>
+void copy_async(std::vector<T>& dst, const Tensor& src, CUDAStream stream = CUDAStream());
+
+template <typename T>
+void copy_sync(Tensor& dst, const std::vector<T>& src);
+
+template <typename T>
+void copy_async(Tensor& dst, const std::vector<T>& src, CUDAStream stream = CUDAStream());
+
 void convert_async(Tensor& dst, const Tensor& src, CUDAStream stream = CUDAStream());
 void uniform_async(Tensor& data, const float a, const float b, CURANDGenerator generator,
                    CUDAStream stream = CUDAStream());

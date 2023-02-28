@@ -22,7 +22,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     v = sok.DynamicVariable(dimension=3, initializer="13")
     print("v.shape:", v.shape)
     print("v.size:", v.size)

@@ -52,12 +52,17 @@ class ReshapeLayer : public Layer {
   size_t n_active_slot_;
   Tensor2<int> selected_tensor_;
   std::vector<int> selected_;
+  core23::Tensor selected_slots_tensor_;
 
   void prop_common(bool forward, bool is_train, cudaStream_t stream);
 
   Tensors2<T>& get_in_tensors(bool is_train);
 
  public:
+  ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
+               const std::shared_ptr<GPUResource>& gpu_resource);
+  ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
+               std::vector<int>& selected, const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * General Purpose Ctor of ReshapeLayer.
    * @param in_tensor the input tensor

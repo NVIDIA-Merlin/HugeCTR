@@ -176,13 +176,13 @@ struct AdaGradOptimizer {
 
 template <typename key_t, typename index_t, typename emb_t, typename OptimizerFunc,
           typename KeyToIndicesFunc>
-__global__ void update_kernel(const key_t *keys, const size_t *num_keys_ptr, const int *table_ids,
+__global__ void update_kernel(const key_t *keys, const uint64_t *num_keys_ptr, const int *table_ids,
                               const emb_t *grad_ev, const uint32_t *ev_start_indices,
                               KeyToIndicesFunc key_to_indices_func, float *emb_table,
                               OptimizerFunc optimizer, float lr, float scaler) {
-  size_t num_steps = (*num_keys_ptr - 1) / (blockDim.x * gridDim.x) + 1;
+  uint64_t num_steps = (*num_keys_ptr - 1) / (blockDim.x * gridDim.x) + 1;
   for (size_t step = 0; step < num_steps; step++) {
-    size_t tid = step * blockDim.x * gridDim.x + (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    uint64_t tid = step * blockDim.x * gridDim.x + (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     uint64_t emb_table_ev_start_indices_frag;
     int ev_size_frag = std::numeric_limits<int>::max();
     uint32_t grad_ev_offset_frag;
@@ -291,8 +291,8 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
   auto index_type = ebc_param.index_type;
   auto emb_type = ebc_param.emb_type;
 
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(index_type.type(), index_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION(data_type_core23_to_core[key_type.type()], key_t, [&] {
+    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION_CORE23(index_type.type(), index_t, [&] {
       std::vector<key_t> h_key_list;
       std::vector<index_t> h_num_key_per_table_offset{0};
       h_emb_table_ev_offset_.push_back(0);
@@ -364,9 +364,11 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
       auto buffer_ptr = GetBuffer(core);
       table_ids_ =
           buffer_ptr->reserve(h_table_ids_.size(), DeviceType::GPU, TensorScalarType::Int32);
-      keys_ = buffer_ptr->reserve(h_key_list.size(), DeviceType::GPU, key_type);
+      keys_ = buffer_ptr->reserve(h_key_list.size(), DeviceType::GPU,
+                                  data_type_core23_to_core[key_type.type()]);
       num_key_per_table_offset_ =
-          buffer_ptr->reserve(h_num_key_per_table_offset.size(), DeviceType::GPU, index_type);
+          buffer_ptr->reserve(h_num_key_per_table_offset.size(), DeviceType::GPU,
+                              data_type_core23_to_core[index_type.type()]);
       emb_table_ = buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, TensorScalarType::Float32);
       emb_table_ev_offset_ = buffer_ptr->reserve(h_emb_table_ev_offset_.size(), DeviceType::GPU,
                                                  TensorScalarType::UInt64);
@@ -379,7 +381,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
       emb_table_ev_offset_.copy_from(h_emb_table_ev_offset_);
       local_ev_size_list_.copy_from(h_local_ev_sizes_);
       if (opt_param.optimizer == HugeCTR::Optimizer_t::AdaGrad) {
-        DISPATCH_FLOAT_AND_HALF_FUNCTION(emb_type.type(), emb_t, [&] {
+        DISPATCH_FLOAT_AND_HALF_FUNCTION(data_type_core23_to_core[emb_type.type()], emb_t, [&] {
           auto accum_tensor =
               buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, TensorScalarType::Float32);
           buffer_ptr->allocate();
@@ -445,25 +447,27 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
   });
 }
 
-void RaggedStaticEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
-                                        const Tensor &id_space_offset, size_t num_id_space_offset,
-                                        const Tensor &id_space_list, TensorList &emb_vec) {
+void RaggedStaticEmbeddingTable::lookup(const core23::Tensor &keys, size_t num_keys,
+                                        const core23::Tensor &id_space_offset,
+                                        size_t num_id_space_offset,
+                                        const core23::Tensor &id_space_list,
+                                        core23::Tensor &emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
 
-  DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
     DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(num_key_per_table_offset_.dtype().type(), index_t, [&] {
       cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-      if (num_keys > 0) {  // batch size is small there can be situation that we do not need have
-                           // key for lookup
+      if (num_keys > 0) {  // batch size is small there can be situation that we do not need
+                           // have key for lookup
         constexpr int block_size = 256;
         int grid_size = (num_keys - 1) / block_size + 1;
         ragged_static_embedding_table_lookup_kernel<<<grid_size, block_size, 0, stream>>>(
-            keys.get<key_t>(), num_keys, id_space_offset.get<uint32_t>(), num_id_space_offset,
-            id_space_list.get<int>(), table_ids_.get<int>(), table_ids_.get_num_elements(),
+            keys.data<key_t>(), num_keys, id_space_offset.data<uint32_t>(), num_id_space_offset,
+            id_space_list.data<int>(), table_ids_.get<int>(), table_ids_.get_num_elements(),
             keys_.get<key_t>(), num_key_per_table_offset_.get<index_t>(), emb_table_.get<float>(),
             emb_table_ev_offset_.get<uint64_t>(), local_ev_size_list_.get<int>(),
-            emb_vec.get<float>());
+            static_cast<float **>(emb_vec.data()));
       }
 
       HCTR_LIB_THROW(cudaPeekAtLastError());
@@ -479,7 +483,7 @@ void RaggedStaticEmbeddingTable::update(const Tensor &unique_keys, const Tensor 
 
   HCTR_CHECK_HINT(opt_param_.optimizer != HugeCTR::Optimizer_t::NOT_INITIALIZED,
                   "optimizer not initialized");
-  HCTR_CHECK(num_unique_keys.dtype() == core::TensorScalarType::Size_t);
+  HCTR_CHECK(num_unique_keys.dtype() == core::TensorScalarType::UInt64);
   HCTR_CHECK(table_ids.dtype() == core::TensorScalarType::Int32);
   HCTR_CHECK(ev_start_indices.dtype() == core::TensorScalarType::UInt32);
   HCTR_CHECK(wgrad.dtype() == core::TensorScalarType::Float32);
@@ -501,7 +505,7 @@ void RaggedStaticEmbeddingTable::update(const Tensor &unique_keys, const Tensor 
           constexpr int block_size = 256;
           constexpr int grid_size = 144 * 8;
           update_kernel<key_t, index_t, emb_t><<<grid_size, block_size, 0, stream>>>(
-              unique_keys.get<key_t>(), num_unique_keys.get<size_t>(), table_ids.get<int>(),
+              unique_keys.get<key_t>(), num_unique_keys.get<uint64_t>(), table_ids.get<int>(),
               wgrad.get<emb_t>(), ev_start_indices.get<uint32_t>(), key_to_indices_func,
               emb_table_.get<float>(), optimizer, opt_param_.lr, opt_param_.scaler);
         });
@@ -530,7 +534,7 @@ void RaggedStaticEmbeddingTable::update(const Tensor &unique_keys, const Tensor 
                 constexpr int block_size = 256;
                 constexpr int grid_size = 8 * 144;
                 update_kernel<key_t, index_t, emb_t><<<grid_size, block_size, 0, stream>>>(
-                    unique_keys.get<key_t>(), num_unique_keys.get<size_t>(), table_ids.get<int>(),
+                    unique_keys.get<key_t>(), num_unique_keys.get<uint64_t>(), table_ids.get<int>(),
                     wgrad.get<emb_t>(), ev_start_indices.get<uint32_t>(), key_to_indices_func,
                     emb_table_.get<float>(), optimizer, opt_param_.lr, opt_param_.scaler);
               });

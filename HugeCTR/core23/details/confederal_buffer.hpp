@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ class OffsettedBuffer;
 
 class ConfederalBuffer final : public Buffer {
  public:
-  ConfederalBuffer(std::unique_ptr<Allocator> allocator);
+  ConfederalBuffer(const Device& device, std::unique_ptr<Allocator> allocator);
   ~ConfederalBuffer() override;
 
   bool subscribable() const;

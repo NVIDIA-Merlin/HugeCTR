@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace HugeCTR {
 namespace core23 {
 
 class Buffer;
-class BufferParams;
+struct BufferParams;
 class Allocator;
 class Device;
 
@@ -34,6 +34,7 @@ class BufferChannel {
     friend std::shared_ptr<Buffer> GetBuffer(const BufferParams& buffer_params,
                                              const Device& device,
                                              std::unique_ptr<Allocator> allocator);
+    friend bool AllocateBuffers(const Device& device);
 
    private:
     Key() {}

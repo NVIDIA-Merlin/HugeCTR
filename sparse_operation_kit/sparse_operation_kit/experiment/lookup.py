@@ -376,6 +376,25 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
     """
     # `is_list` determines whether to return a list or a tensor in the end
     #
+
+    # check every gpu have lookup
+    gpu_flag = [0] * num_gpus()
+    all_gpu_allocate = False
+    for param in params:
+        tmp_target_gpu = param.target_gpu
+        if tmp_target_gpu == -1:
+            all_gpu_allocate = True
+            break
+        if isinstance(tmp_target_gpu, int):
+            tmp_target_gpu = [tmp_target_gpu]
+        for tmp_gpu_id in tmp_target_gpu:
+            gpu_flag[tmp_gpu_id] += 1
+
+    if all_gpu_allocate == False:
+        for tmp_gpu_flag in gpu_flag:
+            if tmp_gpu_flag == 0:
+                raise Exception("every gpu must have table!")
+
     is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple) or isinstance(sp_weights, tuple)
 
     params = to_list(params)

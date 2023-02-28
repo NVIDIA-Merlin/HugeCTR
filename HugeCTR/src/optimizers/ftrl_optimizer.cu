@@ -50,6 +50,7 @@ FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2
                                 float scaler)
     : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
       wgrad_(wgrad),
+      wgrad_tensors_({}),
       beta_(beta),
       lambda1_(lambda1),
       lambda2_(lambda2) {
@@ -59,32 +60,73 @@ FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2
   opt_buf->reserve({weight_main.get_num_elements()}, &n_);
   opt_buf->reserve({weight_main.get_num_elements()}, &z_);
 }
+template <typename T>
+FtrlOptimizer<T>::FtrlOptimizer(std::vector<core23::Tensor> weight_tensors,
+                                std::vector<core23::Tensor> wgrad_tensors,
+                                const std::shared_ptr<GPUResource>& gpu_resource,
+                                float learning_rate, float beta, float lambda1, float lambda2,
+                                float scaler)
+    : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
+      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
+          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      beta_(beta),
+      lambda1_(lambda1),
+      lambda2_(lambda2) {
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(core23::Device(core23::DeviceType::GPU, gpu_resource->get_device_id()))
+          .data_type(core23::ScalarType::Float)
+          .shape(core23::Shape({weight_tensors_->flatten().size(0)}))
+          .buffer_channel(GetOptStateBufferChannnel());
 
+  z_tensor_ = core23::Tensor(tensor_params);
+  n_tensor_ = core23::Tensor(tensor_params);
+}
 template <typename T>
 void FtrlOptimizer<T>::initialize() {
-  HCTR_LIB_THROW(
-      cudaMemsetAsync(n_.get_ptr(), 0, n_.get_size_in_bytes(), gpu_resource_->get_stream()));
-  HCTR_LIB_THROW(
-      cudaMemsetAsync(z_.get_ptr(), 0, z_.get_size_in_bytes(), gpu_resource_->get_stream()));
+  if (!wgrad_tensors_) {
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(n_.get_ptr(), 0, n_.get_size_in_bytes(), gpu_resource_->get_stream()));
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(z_.get_ptr(), 0, z_.get_size_in_bytes(), gpu_resource_->get_stream()));
+  } else {
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(n_tensor_.data(), 0, n_tensor_.num_bytes(), gpu_resource_->get_stream()));
+    HCTR_LIB_THROW(
+        cudaMemsetAsync(z_tensor_.data(), 0, z_tensor_.num_bytes(), gpu_resource_->get_stream()));
+  }
 }
 
 template <typename T>
 void FtrlOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
-  const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
-  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  // const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
+  if (!wgrad_tensors_) {
+    const size_t len = weight_main_.get_num_elements();
+    const size_t grid_dim = (len - 1) / block_dim + 1;
+    float* weight = weight_main_.get_ptr();
 
-  float* weight = weight_main_.get_ptr();
+    float* z = z_.get_ptr();
+    float* n = n_.get_ptr();
+    const T* wgrad = wgrad_.get_ptr();
+    ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
+  } else {
+    auto flat_weight_tensor = weight_tensors_->flatten();
+    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+    float* weight = flat_weight_tensor.data();
+    const T* wgrad = flat_wgrad_tensor.data();
 
-  float* z = z_.get_ptr();
-  float* n = n_.get_ptr();
-  const T* wgrad = wgrad_.get_ptr();
-  ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-      len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
+    auto len = flat_weight_tensor.size(0);
+    const size_t grid_dim = (len - 1) / block_dim + 1;
+
+    float* z = z_tensor_.data<float>();
+    float* n = n_tensor_.data<float>();
+    ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
+  }
 #ifndef NDEBUG
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   HCTR_LIB_THROW(cudaGetLastError());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,12 @@ class Shape : private std::vector<int64_t> {
   Shape() {}
   Shape(int64_t dims) : std::vector<int64_t>(dims, 0) {}
   Shape(std::initializer_list<int64_t> l) : std::vector<int64_t>(l) {}
+  Shape(const std::vector<int64_t> &l) : std::vector<int64_t>(l) {}
   bool valid() const { return size() != 0; }
   int64_t dims() const { return std::vector<int64_t>::size(); }
   int64_t size(int64_t dim) const { return empty() ? 0 : at(dim); }
+  int64_t &operator[](const int64_t dim) { return at(dim); }
+  const int64_t &operator[](const int64_t dim) const { return at(dim); }
   int64_t size() const {
     if (empty()) {
       return 0;
@@ -43,6 +46,7 @@ class Shape : private std::vector<int64_t> {
     }
     return sum;
   }
+  void set(int64_t dim, int64_t size) { at(dim) = size; }
   const int64_t *data() const { return std::vector<int64_t>::data(); }
 
   bool operator==(const Shape &other) const;

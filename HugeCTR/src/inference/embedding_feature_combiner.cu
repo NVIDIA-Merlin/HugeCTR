@@ -187,8 +187,8 @@ void launch_embedding_feature_combine_kernel(const float* input, TypeEmbedding* 
 
 template <typename TypeEmbedding>
 EmbeddingFeatureCombiner<TypeEmbedding>::EmbeddingFeatureCombiner(
-    const std::shared_ptr<Tensor2<float>>& in_tensor,
-    const std::shared_ptr<Tensor2<int>>& row_ptrs_tensor, Tensor2<TypeEmbedding>& out_tensor,
+    const std::shared_ptr<core23::Tensor>& in_tensor,
+    const std::shared_ptr<core23::Tensor>& row_ptrs_tensor, Tensor2<TypeEmbedding>& out_tensor,
     int batch_size, int slot_num, EmbeddingFeatureCombiner_t combiner_type,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
     const std::shared_ptr<GPUResource>& gpu_resource)
@@ -198,34 +198,33 @@ EmbeddingFeatureCombiner<TypeEmbedding>::EmbeddingFeatureCombiner(
       combiner_type_(combiner_type) {
   try {
     // error input checking
-    const auto& in_dims = in_tensor->get_dimensions();
-    const auto& row_ptrs_dims = row_ptrs_tensor->get_dimensions();
-    if ((int)in_dims.size() != 2) {
+    const auto& in_shape = in_tensor->shape();
+    const auto& row_ptrs_shape = row_ptrs_tensor->shape();
+
+    if (in_shape.dims() != 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "The input tensor must be 2D");
     }
-    for (auto i : in_dims) {
-      if (i == 0) {
+    for (int64_t i{0}; i < in_shape.dims(); ++i) {
+      if (in_shape.size(i) == 0) {
         HCTR_OWN_THROW(Error_t::WrongInput, "The input dims can not be 0");
       }
     }
 
-    if ((int)row_ptrs_dims.size() != 1) {
+    if (row_ptrs_shape.dims() != 1) {
       HCTR_OWN_THROW(Error_t::WrongInput, "The row pointers tensor must be 1D");
     }
-    if ((int)row_ptrs_dims[0] != batch_size * slot_num + 1) {
+    if (row_ptrs_shape.size(0) != batch_size * slot_num + 1) {
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "The dimension of row pointers tensor mismatch number of samples");
     }
 
-    embedding_vec_size_ = in_dims[1];
-    std::vector<size_t> out_dims{static_cast<size_t>(batch_size_), static_cast<size_t>(slot_num_),
-                                 static_cast<size_t>(embedding_vec_size_)};
-    blobs_buff->reserve(out_dims, &out_tensor);
+    embedding_vec_size_ = in_shape.size(1);
+    std::vector<size_t> out_shape{static_cast<size_t>(batch_size_), static_cast<size_t>(slot_num_),
+                                  static_cast<size_t>(embedding_vec_size_)};
+    blobs_buff->reserve(out_shape, &out_tensor);
     out_tensors_.push_back(out_tensor);
     in_tensors_.push_back(in_tensor);
     row_ptrs_tensors_.push_back(row_ptrs_tensor);
-    const Tensor2<float>* iptr1 = in_tensor.get();
-    Tensor2<float>* iptr2 = in_tensors_[0].get();
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -240,12 +239,10 @@ void EmbeddingFeatureCombiner<TypeEmbedding>::fprop(bool is_train) {
   }
 
   CudaDeviceContext context(get_device_id());
-  float* input = in_tensors_[0]->get_ptr();
+  float* input = in_tensors_[0]->data<float>();
+  int* row_ptrs = row_ptrs_tensors_[0]->data<int>();
   TypeEmbedding* output = out_tensors_[0].get_ptr();
-  int* row_ptrs = row_ptrs_tensors_[0]->get_ptr();
 
-  auto in_dims = in_tensors_[0]->get_dimensions();
-  auto out_dims = out_tensors_[0].get_dimensions();
   launch_embedding_feature_combine_kernel(input, output, row_ptrs, batch_size_, slot_num_,
                                           embedding_vec_size_, combiner_type_,
                                           get_gpu().get_stream());

@@ -69,10 +69,10 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
                                      shard_matrix,
                                      grouped_emb_params,
                                      universal_batch_size,
-                                     key_type,
-                                     index_type,
-                                     HugeCTR::TensorScalarTypeFunc<uint32_t>::get_type(),
-                                     HugeCTR::TensorScalarTypeFunc<float>::get_type(),
+                                     data_type_core_to_core23[key_type],
+                                     data_type_core_to_core23[index_type],
+                                     HugeCTR::core23::ToScalarType<uint32_t>::value,
+                                     HugeCTR::core23::ToScalarType<float>::value,
                                      EmbeddingLayout::BatchMajor,
                                      EmbeddingLayout::FeatureMajor,
                                      indices_only};
@@ -135,13 +135,15 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
     buffer_ptr->allocate();
 
     // CPU Impl needs to have valid storage destination.
-    std::unique_ptr<TensorList> embs_ptrs_buf;
+    core23::Tensor embs_ptrs_buf;
     if (!strcmp(table_type, "Dynamic_CPU") || table.get() == ref_table.get()) {
-      embs_ptrs_buf =
-          std::make_unique<TensorList>(core.get(), emb_buf_, device, TensorScalarType::Float32);
+      std::vector<core23::Tensor> core23_emb_buf;
+      for (auto& t : emb_buf_) {
+        core23_emb_buf.push_back(embedding::convert_core_tensor_to_core23_tensor(t));
+      }
+      embs_ptrs_buf = core23::init_tensor_list<float>(core23_emb_buf, core->get_device_id());
     } else {
-      embs_ptrs_buf = std::make_unique<TensorList>(core.get(), keys_vec.size(), device,
-                                                   TensorScalarType::Float32);
+      embs_ptrs_buf = core23::init_tensor_list<float>(keys_vec.size(), core->get_device_id());
     }
 
     keys_buf.copy_from(keys_vec);
@@ -149,12 +151,15 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
     id_spaces_buf.copy_from(id_spaces_vec);
 
     // Lookup and download values.
-    table->lookup(keys_buf, keys_buf.get_num_elements(), id_space_offsets_buf,
-                  id_space_offsets_buf.get_num_elements(), id_spaces_buf, *embs_ptrs_buf);
+    table->lookup(embedding::convert_core_tensor_to_core23_tensor(keys_buf),
+                  keys_buf.get_num_elements(),
+                  embedding::convert_core_tensor_to_core23_tensor(id_space_offsets_buf),
+                  id_space_offsets_buf.get_num_elements(),
+                  embedding::convert_core_tensor_to_core23_tensor(id_spaces_buf), embs_ptrs_buf);
 
     HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
     std::vector<float*> embs_ptrs_vec(keys_vec.size());
-    HCTR_LIB_THROW(cudaMemcpy(embs_ptrs_vec.data(), embs_ptrs_buf->get<float>(),
+    HCTR_LIB_THROW(cudaMemcpy(embs_ptrs_vec.data(), (float**)embs_ptrs_buf.data(),
                               embs_ptrs_vec.size() * sizeof(float*), cudaMemcpyDeviceToHost));
 
     std::vector<std::tuple<int32_t, Key, std::vector<float>>> records;
@@ -339,7 +344,7 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
     // Get GPU memory.
     auto buffer_ptr = GetBuffer(core);
     auto keys_buf = buffer_ptr->reserve(keys_vec.size(), device, key_type);
-    auto num_keys_buf = buffer_ptr->reserve({1}, device, core::TensorScalarType::Size_t);
+    auto num_keys_buf = buffer_ptr->reserve({1}, device, core::TensorScalarType::UInt64);
     auto table_ids_buf =
         buffer_ptr->reserve(table_ids_vec.size(), device, core::TensorScalarType::Int32);
     auto grad_buf = buffer_ptr->reserve(grad_vec.size(), device, TensorScalarType::Float32);

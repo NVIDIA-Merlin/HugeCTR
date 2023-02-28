@@ -22,7 +22,9 @@
 #include <base/debug/logger.hpp>
 #include <chrono>
 #include <common.hpp>
-#include <core/mpi_lifetime_service.hpp>
+#ifdef ENABLE_MPI
+#include <core23/mpi_init_service.hpp>
+#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -30,10 +32,6 @@
 #include <iostream>
 #include <string>
 #include <thread>
-
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
 
 namespace HugeCTR {
 
@@ -197,16 +195,11 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
 #define HCTR_LEVEL_MAP_(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
 #endif
 
-Logger::Logger() {
-  hctr_set_thread_name("main");
-
+Logger::Logger() : rank_{0} {
 #ifdef ENABLE_MPI
-  MPILifetimeService::init();
-  if (MPI_Comm_rank(MPI_COMM_WORLD, &rank_) != MPI_SUCCESS) {
-    std::cerr << "MPI rank initialization failed!" << std::endl;
-    std::abort();
-  }
+  rank_ = core23::MpiInitService::get().world_rank();
 #endif
+  hctr_set_thread_name("main");
 
   const char* const max_level_str = std::getenv("HUGECTR_LOG_LEVEL");
   if (max_level_str != nullptr && max_level_str[0] != '\0') {

@@ -31,13 +31,16 @@ if __name__ == "__main__":
     sess = tf.compat.v1.Session(config=config)
     sok.init()
 
-    rows = [65536 * 10, 65536]
-    cols = [128, 4]
-    hotness = [10, 3]
-    combiners = ["sum", "sum"]
+    gpu_num = hvd.size()
+    rows = [65536] * gpu_num
+    cols = [128 - 8 * x for x in range(gpu_num)]
+    hotness = [1 + x for x in range(gpu_num)]
+    combiners = ["mean"] * np.floor(gpu_num / 2).astype(np.int32) + ["sum"] * np.ceil(
+        gpu_num - gpu_num / 2
+    ).astype(np.int32)
     batch_size = 65536
     iters = 100
-    gpus = [0, min(1, hvd.size() - 1)]
+    gpus = np.arange(gpu_num)
 
     # initial value of embedding table
     weights = []

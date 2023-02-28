@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <HugeCTR/embedding/operators/communication.hpp>
 #include <cub/cub.cuh>
 #include <embedding/operators/dp_index_calculation.hpp>
 #include <embedding/operators/generic_lookup.cuh>
@@ -27,7 +28,7 @@ template <typename key_t>
 __global__ void cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel(
     const key_t* unique_indices, int num_elements, const uint32_t* table_range,
     const int* unique_table_ids, const int* table_id_to_allreduce_buffer_start_indices,
-    const uint32_t* ev_start_indices_in_allreduce_buffer, const size_t* num_unique_key,
+    const uint32_t* ev_start_indices_in_allreduce_buffer, const uint64_t* num_unique_key,
     int vocabulary_size, uint32_t* ev_start_indices_for_local_reduce) {
   uint32_t num_keys = static_cast<uint32_t>(*num_unique_key);
   CUDA_1D_KERNEL_LOOP_T(uint32_t, i, num_elements) {
@@ -48,26 +49,24 @@ __global__ void cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel(
 }  // namespace
 
 void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
-    const EmbeddingInput& embedding_input, const Tensor& table_id_to_allreduce_buffer_start_indices,
-    const Tensor& ev_start_indices_in_allreduce_buffer, ReductionIndices& reduction_indices,
+    const EmbeddingInput& embedding_input,
+    const core23::Tensor& table_id_to_allreduce_buffer_start_indices,
+    const core23::Tensor& ev_start_indices_in_allreduce_buffer, ReductionIndices& reduction_indices,
     Wgrad& wgrad, int batch_size) {
-  int gpu_id = core_->get_global_gpu_id();
-  int num_gpus = core_->get_global_gpu_count();
-
   auto cal_ev_start_indices_in_allreduce_wgrad =
       [&](const WgradEvStartIndicesCalculationInput& input,
           WgradEvStartIndicesCalculationOutput& output, cudaStream_t stream) {
-        auto key_type = input.unique_keys.dtype();
+        auto key_type = input.unique_keys.data_type();
 
-        DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+        DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
           cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel<<<144 * 8, 256, 0, stream>>>(
-              input.unique_keys.get<key_t>(), input.unique_keys.get_num_elements(),
-              input.table_range.get<uint32_t>(), input.table_ids.get<int>(),
-              table_id_to_allreduce_buffer_start_indices.get<int>(),
-              ev_start_indices_in_allreduce_buffer.get<uint32_t>(),
-              input.num_unique_keys.get<size_t>(),
-              ev_start_indices_in_allreduce_buffer.get_num_elements() - 1,
-              output.ev_start_indices.get<uint32_t>());
+              input.unique_keys.data<key_t>(), input.unique_keys.num_elements(),
+              input.table_range.data<uint32_t>(), input.table_ids.data<int>(),
+              table_id_to_allreduce_buffer_start_indices.data<int>(),
+              ev_start_indices_in_allreduce_buffer.data<uint32_t>(),
+              input.num_unique_keys.data<uint64_t>(),
+              ev_start_indices_in_allreduce_buffer.num_elements() - 1,
+              output.ev_start_indices.data<uint32_t>());
         });
       };
 
@@ -79,34 +78,41 @@ void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
 
 SparseAllreduceCalEVStartIndicesStorage::SparseAllreduceCalEVStartIndicesStorage(
     std::shared_ptr<CoreResourceManager> core, int num_table, int local_hotness_sum, int batch_size,
-    DataType key_type) {
-  auto buffer_ptr = core::GetBuffer(core);
+    core23::DataType key_type) {
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
   int num_gpus = core->get_global_gpu_count();
 
   // BroadcastResult
-  broadcast_result_.allgather_table_range_ = buffer_ptr->reserve(
-      {num_gpus * (num_table + 1)}, core::DeviceType::GPU, core::TensorScalarType::UInt32);
-  broadcast_result_.h_table_range_ =
-      buffer_ptr->reserve({num_table + 1}, core::DeviceType::CPU, core::TensorScalarType::UInt32);
-  broadcast_result_.reordered_allgather_table_range_ = buffer_ptr->reserve(
-      {num_gpus * num_table + 1}, core::DeviceType::GPU, core::TensorScalarType::UInt32);
-  broadcast_result_.h_reordered_allgather_table_range_ = buffer_ptr->reserve(
-      {num_gpus * num_table + 1}, core::DeviceType::CPU, core::TensorScalarType::UInt32);
-  broadcast_result_.allgather_unique_keys_ = buffer_ptr->reserve(
-      {local_hotness_sum * batch_size * num_gpus}, core::DeviceType::GPU, key_type);
+  broadcast_result_.allgather_table_range_ = core23::Tensor(
+      params.shape({num_gpus * (num_table + 1)}).data_type(core23::ScalarType::UInt32));
+  broadcast_result_.h_table_range_ = core23::Tensor(params.shape({num_table + 1})
+                                                        .data_type(core23::ScalarType::UInt32)
+                                                        .device(core23::DeviceType::CPU));
+  broadcast_result_.reordered_allgather_table_range_ = core23::Tensor(
+      params.shape({num_gpus * num_table + 1}).data_type(core23::ScalarType::UInt32));
+  broadcast_result_.h_reordered_allgather_table_range_ =
+      core23::Tensor(params.shape({num_gpus * num_table + 1})
+                         .data_type(core23::ScalarType::UInt32)
+                         .device(core23::DeviceType::CPU));
+  broadcast_result_.allgather_unique_keys_ =
+      core23::Tensor(params.shape({local_hotness_sum * batch_size * num_gpus}).data_type(key_type));
 
   // HashTable
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     hash_table_.hash_table_ =
-        buffer_ptr->reserve({local_hotness_sum * batch_size * num_gpus * sizeof(TableEntry<key_t>)},
-                            core::DeviceType::GPU, core::TensorScalarType::Void);
+        core23::Tensor(params
+                           .shape({static_cast<int64_t>(local_hotness_sum * batch_size * num_gpus *
+                                                        sizeof(TableEntry<key_t>))})
+                           .data_type(core23::ScalarType::Char));
   });
   {
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
                                   num_table + 1);
-    hash_table_.d_temp_scan_table_range_storage_ =
-        buffer_ptr->reserve({temp_bytes}, core::DeviceType::GPU, TensorScalarType::Void);
+    hash_table_.d_temp_scan_table_range_storage_ = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
 
   // Tempstorage
@@ -114,31 +120,32 @@ SparseAllreduceCalEVStartIndicesStorage::SparseAllreduceCalEVStartIndicesStorage
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
                                   local_hotness_sum * batch_size * num_gpus + 1);
-    temp_storage_.d_temp_scan_ev_start_indices_storage_ =
-        buffer_ptr->reserve({temp_bytes}, core::DeviceType::GPU, TensorScalarType::Void);
+    temp_storage_.d_temp_scan_ev_start_indices_storage_ = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
-  temp_storage_.mask_unique_keys_in_allgather_unique_keys_ = buffer_ptr->reserve(
-      {local_hotness_sum * batch_size * num_gpus}, core::DeviceType::GPU, TensorScalarType::Int32);
+  temp_storage_.mask_unique_keys_in_allgather_unique_keys_ =
+      core23::Tensor(params.shape({local_hotness_sum * batch_size * num_gpus})
+                         .data_type(core23::ScalarType::Int32));
   {
     size_t temp_bytes = 0;
-    DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
       cub::DeviceSelect::Flagged(nullptr, temp_bytes, (key_t*)nullptr, (int*)nullptr,
                                  (key_t*)nullptr, (size_t*)nullptr,
                                  local_hotness_sum * batch_size * num_gpus + 1);
     });
-    temp_storage_.d_temp_select_temp_storage_ =
-        buffer_ptr->reserve({temp_bytes}, core::DeviceType::GPU, TensorScalarType::Void);
+    temp_storage_.d_temp_select_temp_storage_ = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
   {
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
                                   local_hotness_sum * batch_size * num_gpus + 1);
-    temp_storage_.d_temp_scan_unique_idx_temp_storage_ =
-        buffer_ptr->reserve({temp_bytes}, core::DeviceType::GPU, TensorScalarType::Void);
+    temp_storage_.d_temp_scan_unique_idx_temp_storage_ = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   }
-  temp_storage_.unique_idx_ = buffer_ptr->reserve({local_hotness_sum * batch_size * num_gpus},
-                                                  core::DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
+  temp_storage_.unique_idx_ =
+      core23::Tensor(params.shape({local_hotness_sum * batch_size * num_gpus})
+                         .data_type(core23::ScalarType::Int32));
 }
 
 namespace {
@@ -344,26 +351,26 @@ void broadcast_unique_keys(const embedding::WgradEvStartIndicesCalculationInput&
                            BroadcastResult& broadcast_result, int num_table, int num_gpus,
                            cudaStream_t stream, ncclComm_t comm) {
   // 1. collect table range
-  HCTR_LIB_THROW(ncclAllGather(input.table_range.get<uint32_t>(),
-                               broadcast_result.allgather_table_range_.get<uint32_t>(),
-                               input.table_range.get_num_elements(), ncclUint32, comm, stream));
-  input.table_range.copy_to(broadcast_result.h_table_range_, stream);
+  HCTR_LIB_THROW(ncclAllGather(input.table_range.data<uint32_t>(),
+                               broadcast_result.allgather_table_range_.data<uint32_t>(),
+                               input.table_range.num_elements(), ncclUint32, comm, stream));
+  core23::copy_async(broadcast_result.h_table_range_, input.table_range, stream);
 
   // 2. calculate num_unique_keys on each gpu
   reorder_allgather_table_range_kernel<128><<<1, 128, 0, stream>>>(
-      broadcast_result.allgather_table_range_.get<uint32_t>(), num_table, num_gpus,
-      broadcast_result.reordered_allgather_table_range_.get<uint32_t>());
-  broadcast_result.reordered_allgather_table_range_.copy_to(
-      broadcast_result.h_reordered_allgather_table_range_, stream);
+      broadcast_result.allgather_table_range_.data<uint32_t>(), num_table, num_gpus,
+      broadcast_result.reordered_allgather_table_range_.data<uint32_t>());
+  core23::copy_async(broadcast_result.h_reordered_allgather_table_range_,
+                     broadcast_result.reordered_allgather_table_range_, stream);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  auto key_type = input.unique_keys.dtype();
+  auto key_type = input.unique_keys.data_type();
   // 3. broadcast unique keys
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     HCTR_LIB_THROW(ncclGroupStart());
-    const uint32_t* h_table_range_ptr = broadcast_result.h_table_range_.get<uint32_t>();
+    const uint32_t* h_table_range_ptr = broadcast_result.h_table_range_.data<uint32_t>();
     const uint32_t* h_reordered_allgather_table_range_ptr =
-        broadcast_result.h_reordered_allgather_table_range_.get<uint32_t>();
+        broadcast_result.h_reordered_allgather_table_range_.data<uint32_t>();
 
     for (int table_id = 0; table_id < num_table; ++table_id) {
       for (int dst_gpu_id = 0; dst_gpu_id < num_gpus; ++dst_gpu_id) {
@@ -371,10 +378,10 @@ void broadcast_unique_keys(const embedding::WgradEvStartIndicesCalculationInput&
             h_reordered_allgather_table_range_ptr[table_id * num_gpus + dst_gpu_id + 1] -
             h_reordered_allgather_table_range_ptr[table_id * num_gpus + dst_gpu_id];
         HCTR_LIB_THROW(ncclBroadcast(
-            input.unique_keys.get<key_t>() + h_table_range_ptr[table_id],
-            broadcast_result.allgather_unique_keys_.get<key_t>() +
+            input.unique_keys.data<key_t>() + h_table_range_ptr[table_id],
+            broadcast_result.allgather_unique_keys_.data<key_t>() +
                 h_reordered_allgather_table_range_ptr[table_id * num_gpus + dst_gpu_id],
-            num_unique_keys, core::get_nccl_dtype_from_tensor_scalar_type(key_type.type()),
+            num_unique_keys, core23::get_nccl_dtype_from_tensor_scalar_type_core23(key_type.type()),
             dst_gpu_id, comm, stream));
       }
     }
@@ -386,25 +393,25 @@ void unique_broadcast_result_using_hash_table(
     const embedding::WgradEvStartIndicesCalculationInput& input,
     const BroadcastResult& broadcast_result, HashTable& hash_table, Wgrad& allreduce_wgrad,
     int num_table, int num_gpus, cudaStream_t stream) {
-  auto key_type = input.unique_keys.dtype();
+  auto key_type = input.unique_keys.data_type();
   // 4. cal table capacity range
   // 5. insert allgather_unique_keys to hash table & get allreduce_wgrad table_range
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(hash_table.hash_table_.get(), 0, hash_table.hash_table_.nbytes(), stream));
-    HCTR_LIB_THROW(cudaMemsetAsync(allreduce_wgrad.table_range.get(), 0,
-                                   allreduce_wgrad.table_range.nbytes(), stream));
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    HCTR_LIB_THROW(cudaMemsetAsync(hash_table.hash_table_.data(), 0,
+                                   hash_table.hash_table_.num_bytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(allreduce_wgrad.table_range.data(), 0,
+                                   allreduce_wgrad.table_range.num_bytes(), stream));
     dim3 grid_size(num_table, num_gpus, 1);
     constexpr int block_size = 512;
-    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.get());
+    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.data());
     hash_table_insert_key_and_index_kernel<key_t, DirectHash><<<grid_size, block_size, 0, stream>>>(
-        broadcast_result.allgather_unique_keys_.get<key_t>(),
-        broadcast_result.reordered_allgather_table_range_.get<uint32_t>(), num_table, num_gpus,
-        table_ptr, allreduce_wgrad.table_range.get<uint32_t>());
-    size_t temp_nbytes = hash_table.d_temp_scan_table_range_storage_.nbytes();
-    cub::DeviceScan::InclusiveSum(hash_table.d_temp_scan_table_range_storage_.get(), temp_nbytes,
-                                  allreduce_wgrad.table_range.get<uint32_t>(),
-                                  allreduce_wgrad.table_range.get<uint32_t>(), num_table + 1,
+        broadcast_result.allgather_unique_keys_.data<key_t>(),
+        broadcast_result.reordered_allgather_table_range_.data<uint32_t>(), num_table, num_gpus,
+        table_ptr, allreduce_wgrad.table_range.data<uint32_t>());
+    size_t temp_nbytes = hash_table.d_temp_scan_table_range_storage_.num_bytes();
+    cub::DeviceScan::InclusiveSum(hash_table.d_temp_scan_table_range_storage_.data(), temp_nbytes,
+                                  allreduce_wgrad.table_range.data<uint32_t>(),
+                                  allreduce_wgrad.table_range.data<uint32_t>(), num_table + 1,
                                   stream);
   });
 }
@@ -416,63 +423,63 @@ void cal_indices_for_sparse_allreduce(const embedding::WgradEvStartIndicesCalcul
                                       Wgrad& allreduce_wgrad,
                                       WgradEvStartIndicesCalculationOutput& output, int num_table,
                                       int num_gpus, cudaStream_t stream) {
-  auto key_type = input.unique_keys.dtype();
+  auto key_type = input.unique_keys.data_type();
   //   6. select allreduce unique_keys
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    HCTR_LIB_THROW(cudaMemsetAsync(temp_storage.mask_unique_keys_in_allgather_unique_keys_.get(), 0,
-                                   temp_storage.mask_unique_keys_in_allgather_unique_keys_.nbytes(),
-                                   stream));
-    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.get());
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    HCTR_LIB_THROW(cudaMemsetAsync(
+        temp_storage.mask_unique_keys_in_allgather_unique_keys_.data(), 0,
+        temp_storage.mask_unique_keys_in_allgather_unique_keys_.num_bytes(), stream));
+    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.data());
     dim3 grid_size(num_table, 1, 1);
     constexpr int block_size = 512;
     hash_table_dump_index_mask_kernel<<<grid_size, block_size, 0, stream>>>(
-        table_ptr, broadcast_result.reordered_allgather_table_range_.get<uint32_t>(), num_gpus,
-        num_table, temp_storage.mask_unique_keys_in_allgather_unique_keys_.get<int>());
-    size_t temp_nbytes = temp_storage.d_temp_select_temp_storage_.nbytes();
-    cub::DeviceSelect::Flagged(temp_storage.d_temp_select_temp_storage_.get(), temp_nbytes,
-                               broadcast_result.allgather_unique_keys_.get<key_t>(),
-                               temp_storage.mask_unique_keys_in_allgather_unique_keys_.get<int>(),
-                               allreduce_wgrad.unique_keys.get<key_t>(),
-                               allreduce_wgrad.num_unique_keys.get<size_t>(),
-                               allreduce_wgrad.unique_keys.get_num_elements(), stream);
+        table_ptr, broadcast_result.reordered_allgather_table_range_.data<uint32_t>(), num_gpus,
+        num_table, temp_storage.mask_unique_keys_in_allgather_unique_keys_.data<int>());
+    size_t temp_nbytes = temp_storage.d_temp_select_temp_storage_.num_bytes();
+    cub::DeviceSelect::Flagged(temp_storage.d_temp_select_temp_storage_.data(), temp_nbytes,
+                               broadcast_result.allgather_unique_keys_.data<key_t>(),
+                               temp_storage.mask_unique_keys_in_allgather_unique_keys_.data<int>(),
+                               allreduce_wgrad.unique_keys.data<key_t>(),
+                               allreduce_wgrad.num_unique_keys.data<size_t>(),
+                               allreduce_wgrad.unique_keys.num_elements(), stream);
   });
 
   // 7. cal allreduce wgrad table_ids & ev start indices from table_range
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     // not sure if this memset can be removed
-    HCTR_LIB_THROW(cudaMemsetAsync(allreduce_wgrad.ev_start_indices.get(), 0,
-                                   allreduce_wgrad.ev_start_indices.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(allreduce_wgrad.ev_start_indices.data(), 0,
+                                   allreduce_wgrad.ev_start_indices.num_bytes(), stream));
     dim3 grid_size(num_table, 1, 1);
     constexpr int block_size = 512;
     table_range_to_table_ids_and_ev_start_indices_kernel<<<grid_size, block_size, 0, stream>>>(
-        num_table, allreduce_wgrad.table_range.get<uint32_t>(), input.unique_table_ids.get<int>(),
-        allreduce_wgrad.attr.table_id_to_ev_size.get<int>(), allreduce_wgrad.table_ids.get<int>(),
-        allreduce_wgrad.ev_start_indices.get<uint32_t>());
-    size_t temp_nbytes = temp_storage.d_temp_scan_ev_start_indices_storage_.nbytes();
-    cub::DeviceScan::InclusiveSum(temp_storage.d_temp_scan_ev_start_indices_storage_.get(),
-                                  temp_nbytes, allreduce_wgrad.ev_start_indices.get<uint32_t>(),
-                                  allreduce_wgrad.ev_start_indices.get<uint32_t>(),
-                                  allreduce_wgrad.ev_start_indices.get_num_elements(), stream);
+        num_table, allreduce_wgrad.table_range.data<uint32_t>(), input.unique_table_ids.data<int>(),
+        allreduce_wgrad.attr.table_id_to_ev_size.data<int>(), allreduce_wgrad.table_ids.data<int>(),
+        allreduce_wgrad.ev_start_indices.data<uint32_t>());
+    size_t temp_nbytes = temp_storage.d_temp_scan_ev_start_indices_storage_.num_bytes();
+    cub::DeviceScan::InclusiveSum(temp_storage.d_temp_scan_ev_start_indices_storage_.data(),
+                                  temp_nbytes, allreduce_wgrad.ev_start_indices.data<uint32_t>(),
+                                  allreduce_wgrad.ev_start_indices.data<uint32_t>(),
+                                  allreduce_wgrad.ev_start_indices.num_elements(), stream);
   });
 
   // 8. cal localreduce ev_start_indices
-  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
-    size_t temp_nbytes = temp_storage.d_temp_scan_unique_idx_temp_storage_.nbytes();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    size_t temp_nbytes = temp_storage.d_temp_scan_unique_idx_temp_storage_.num_bytes();
     cub::DeviceScan::InclusiveSum(
-        temp_storage.d_temp_scan_unique_idx_temp_storage_.get(), temp_nbytes,
-        temp_storage.mask_unique_keys_in_allgather_unique_keys_.get<int>(),
-        temp_storage.unique_idx_.get<int>(), temp_storage.unique_idx_.get_num_elements(), stream);
+        temp_storage.d_temp_scan_unique_idx_temp_storage_.data(), temp_nbytes,
+        temp_storage.mask_unique_keys_in_allgather_unique_keys_.data<int>(),
+        temp_storage.unique_idx_.data<int>(), temp_storage.unique_idx_.num_elements(), stream);
 
-    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.get());
+    auto table_ptr = reinterpret_cast<TableEntry<key_t>*>(hash_table.hash_table_.data());
     dim3 grid_size(num_table, 1, 1);
     constexpr int block_size = 512;
     hash_table_lookup_key_and_map_ev_start_indices<key_t, DirectHash>
         <<<grid_size, block_size, 0, stream>>>(
-            input.unique_keys.get<key_t>(), input.table_range.get<uint32_t>(), num_table, num_gpus,
-            table_ptr, broadcast_result.reordered_allgather_table_range_.get<uint32_t>(),
-            temp_storage.unique_idx_.get<int>(), allreduce_wgrad.table_range.get<uint32_t>(),
-            allreduce_wgrad.ev_start_indices.get<uint32_t>(),
-            output.ev_start_indices.get<uint32_t>());
+            input.unique_keys.data<key_t>(), input.table_range.data<uint32_t>(), num_table,
+            num_gpus, table_ptr, broadcast_result.reordered_allgather_table_range_.data<uint32_t>(),
+            temp_storage.unique_idx_.data<int>(), allreduce_wgrad.table_range.data<uint32_t>(),
+            allreduce_wgrad.ev_start_indices.data<uint32_t>(),
+            output.ev_start_indices.data<uint32_t>());
   });
 }
 
@@ -483,11 +490,10 @@ void SparseAllreduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput&
   auto sparse_allreduce_cal_ev_start_indices = [&](const WgradEvStartIndicesCalculationInput& input,
                                                    WgradEvStartIndicesCalculationOutput& output,
                                                    cudaStream_t stream) {
-    int gpu_id = core_->get_global_gpu_id();
     int num_gpus = core_->get_global_gpu_count();
     auto comm = core_->get_nccl();
 
-    int num_table = input.unique_table_ids.get_num_elements();
+    int num_table = input.unique_table_ids.num_elements();
 
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     broadcast_unique_keys(input, cal_ev_start_indices_storage_.broadcast_result_, num_table,
