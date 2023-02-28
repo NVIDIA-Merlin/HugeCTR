@@ -930,7 +930,7 @@ namespace tensorflow {
 template <typename KeyType, typename OffsetType, typename DType>
 class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, OffsetType, DType> {
  private:
-  using VarType = EmbeddingVarGPU<KeyType, float>;
+  using VarType = EmbeddingVar<KeyType, float>;
   EmbeddingVarGPUAdapter<KeyType, float> adapter_;
 
  public:

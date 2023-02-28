@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <core23/mpi_init_service.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 #include <io/filesystem.hpp>
 #include <io/io_utils.hpp>
@@ -324,8 +325,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
     }
 #ifdef ENABLE_MPI
     {
-      int num_processor;
-      HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_processor));
+      const int num_processor{core23::MpiInitService::get().world_size()};
       if (num_processor > 1) {
         throw std::runtime_error(
             std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
@@ -634,8 +634,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
     }
 #ifdef ENABLE_MPI
     {
-      int num_processor;
-      HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_processor));
+      const int num_processor{core23::MpiInitService::get().world_size()};
       if (num_processor > 1) {
         throw std::runtime_error(
             "[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot cannot "

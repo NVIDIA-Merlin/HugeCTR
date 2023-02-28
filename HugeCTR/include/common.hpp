@@ -251,13 +251,12 @@ typedef struct DataSetHeader_ {
 } DataSetHeader;
 
 #ifdef ENABLE_MPI
-#define HCTR_PRINT_FUNC_NAME_()                                                             \
-  do {                                                                                      \
-    int __PID{-1}, __NUM_PROCS{-1};                                                         \
-    HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &__PID));                                  \
-    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &__NUM_PROCS));                            \
-    HCTR_LOG_S(DEBUG, WORLD) << "[CALL] " << __FUNCTION__ << " in pid: " << __PID << " of " \
-                             << __NUM_PROCS << " processes." << std::endl;                  \
+#define HCTR_PRINT_FUNC_NAME_()                                                           \
+  do {                                                                                    \
+    const int pid{core23::MpiInitService::get().world_rank()};                            \
+    const int num_procs{core23::MpiInitService::get().world_size()};                      \
+    HCTR_LOG_S(DEBUG, WORLD) << "[CALL] " << __FUNCTION__ << " in pid: " << pid << " of " \
+                             << num_procs << " processes." << std::endl;                  \
   } while (0)
 #else
 #define HCTR_PRINT_FUNC_NAME_()                                         \

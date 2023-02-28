@@ -33,6 +33,7 @@ link_directories(${CONDA_PREFIX}/lib)
 
 add_executable(dlrm_raw ${dlrm_raw_src})
 
+target_link_libraries(dlrm_raw PUBLIC hugectr_core23)
 if(MPI_FOUND)
   target_link_libraries(dlrm_raw PUBLIC cudart cudf ${MPI_CXX_LIBRARIES})
 else()
