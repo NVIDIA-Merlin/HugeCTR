@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,15 @@
 #include <core23/allocator.hpp>
 #include <core23/buffer_client.hpp>
 #include <core23/details/confederal_buffer.hpp>
+#include <core23/device.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-ConfederalBuffer::ConfederalBuffer(std::unique_ptr<Allocator> allocator)
-    : Buffer(std::move(allocator)), current_offset_(0LL) {}
+ConfederalBuffer::ConfederalBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
+    : Buffer(device, std::move(allocator)), current_offset_(0LL) {}
 
 ConfederalBuffer::~ConfederalBuffer() {
   for (auto [offset, ptr] : offset_to_ptr_) {

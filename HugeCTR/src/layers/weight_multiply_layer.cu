@@ -239,4 +239,131 @@ void WeightMultiplyLayer<T>::bprop() {
 template class WeightMultiplyLayer<float>;
 template class WeightMultiplyLayer<__half>;
 
+template <typename T>
+Core23TempWeightMultiplyLayer<T>::Core23TempWeightMultiplyLayer(
+    const core23::Tensor& in_tensor, core23::Tensor& out_tensor, const core23::Shape& weight_dims,
+    const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
+    : Core23TempTrainableLayer<T>({in_tensor}, {}, gpu_resource, initializer_types) {
+  try {
+    const auto& in_dims = in_tensor.shape();
+    if (in_dims.dims() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be multiplied");
+    }
+    if (weight_dims.dims() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D weights is allowed for weight_multiply layer");
+    }
+    if (weight_dims.size(0) != in_dims.size(1)) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "weight_dims[0] must be equal to in_dims.size(1)");
+    }
+
+    batch_size_ = in_dims.size(0);
+    slot_num_ = weight_dims.size(0);
+    embedding_vec_size_ = weight_dims.size(1);
+
+    core23::Shape out_dims{batch_size_, slot_num_ * embedding_vec_size_};
+
+    core23::BufferParams blobs_buffer_params = {};
+    blobs_buffer_params.channel = GetBlobsBufferChannel();
+    core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
+
+    out_tensor = core23::Tensor(core23::TensorParams()
+                                    .data_type(core23::ToScalarType<T>::value)
+                                    .shape(out_dims)
+                                    .device(device)
+                                    .buffer_params(blobs_buffer_params));
+
+    this->output_tensors_.push_back(out_tensor);
+
+    this->set_weight(0, weight_dims);
+    this->set_wgrad(0, weight_dims);
+
+    wgrad_tmp_trans_ = core23::Tensor(core23::TensorParams()
+                                          .data_type(core23::ToScalarType<T>::value)
+                                          .shape(out_dims)
+                                          .device(device)
+                                          .buffer_params(blobs_buffer_params));
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempWeightMultiplyLayer<T>::get_uniform_initializer(
+    const int index) {
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
+
+  float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
+  return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempWeightMultiplyLayer<T>::get_xavier_uniform_initializer(
+    const int index) {
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
+
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Uniform,
+                                                    0 == index ? bottom_dim : 0, top_dim);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempWeightMultiplyLayer<T>::get_xavier_norm_initializer(
+    const int index) {
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
+
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Norm,
+                                                    0 == index ? bottom_dim : 0, top_dim);
+}
+
+template <typename T>
+std::unique_ptr<DataSimulator> Core23TempWeightMultiplyLayer<T>::get_default_initializer(
+    const int index) {
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
+
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Uniform,
+                                                    0 == index ? bottom_dim : 0, top_dim);
+}
+
+template <typename T>
+void Core23TempWeightMultiplyLayer<T>::fprop(bool is_train) {
+  CudaDeviceContext context(this->get_device_id());
+
+  T* input = this->input_tensors_[0].template data<T>();
+  const T* weight = this->get_weight(0).template data<T>();
+  T* output = this->output_tensors_[0].template data<T>();
+
+  dim3 blockSize(embedding_vec_size_, 1, 1);
+  dim3 gridSize(batch_size_, 1, 1);
+  weight_multiply_kernel<<<gridSize, blockSize, 0, this->get_gpu().get_stream()>>>(
+      input, weight, output, batch_size_, slot_num_, embedding_vec_size_);
+}
+
+template <typename T>
+void Core23TempWeightMultiplyLayer<T>::bprop() {
+  CudaDeviceContext context(this->get_device_id());
+
+  const T* weight = this->get_weight(0).template data<T>();
+  T* wgrad = this->get_wgrad(0).template data<T>();
+  T* wgrad_tmp_trans = wgrad_tmp_trans_.data<T>();
+  T* input = this->input_tensors_[0].template data<T>();
+  T* output = this->output_tensors_[0].template data<T>();
+
+  weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
+                        embedding_vec_size_, this->get_gpu().get_stream());
+
+  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
+  weight_multiply_dgrad(output, weight, input, batch_size_, slot_num_, embedding_vec_size_,
+                        this->get_gpu().get_stream());
+}
+
+template class Core23TempWeightMultiplyLayer<float>;
+template class Core23TempWeightMultiplyLayer<__half>;
+
 }  // namespace HugeCTR

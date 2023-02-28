@@ -21,12 +21,17 @@ function(hadoop_setup HDFS_BUILD_MODE)
   else()
     message(STATUS "HDFS was not installed, will install it first!")
     execute_process(
+      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/install-jdk-and-maven.sh
+      COMMAND_ECHO STDOUT
+    )
+
+    execute_process(
       COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/build-hadoop.sh "${HDFS_BUILD_MODE}"
       COMMAND_ECHO STDOUT
     )
 
     execute_process(
-      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/install-hadoop.sh
+      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/install-hadoop.sh "${HDFS_BUILD_MODE}"
       COMMAND_ECHO STDOUT
     )
 

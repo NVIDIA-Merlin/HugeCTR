@@ -98,8 +98,8 @@ void EmbeddingParameterIO::get_parameter_info_from_model(
     struct EmbeddingParameterInfo tmp_epi;
     tmp_epi.embedding_collection_id = i;
     tmp_epi.table_nums = tmp_ebc_param.num_table;
-    tmp_epi.key_type = tmp_ebc_param.key_type;
-    tmp_epi.embedding_value_type = tmp_ebc_param.emb_type;
+    tmp_epi.key_type = data_type_core23_to_core[tmp_ebc_param.key_type.type()];
+    tmp_epi.embedding_value_type = data_type_core23_to_core[tmp_ebc_param.emb_type.type()];
 
     if (embedding_collections_[i]->embedding_optimizers_.size() > 0)
       tmp_epi.optimizer_type = embedding_collections_[i]->embedding_optimizers_[0];

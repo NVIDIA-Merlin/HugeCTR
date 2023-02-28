@@ -45,6 +45,8 @@ class ReduceSumLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  ReduceSumLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor, int axis,
+                 const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of ReduceSumLayer.
    * @param in_tensor the input tensor, could be 2D or 3D

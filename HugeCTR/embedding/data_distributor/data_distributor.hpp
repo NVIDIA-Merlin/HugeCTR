@@ -34,22 +34,23 @@ class DataDistributor {
  public:
   using Result = std::vector<embedding::EmbeddingInput>;
 
-  DataDistributor(size_t batch_size, core::DataType scalar_type,
+  DataDistributor(size_t batch_size, core23::DataType scalar_type,
                   std::shared_ptr<ResourceManager> resource_manager,
                   std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
                   const embedding::EmbeddingCollectionParam& ebc_param);
 
   ~DataDistributor();
 
-  void distribute(int gpu_id, const std::vector<core::Tensor>& dp_keys,
-                  const std::vector<core::Tensor>& dp_bucket_range, Result& output, int batch_size);
+  void distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
+                  const std::vector<core23::Tensor>& dp_bucket_range, Result& output,
+                  int batch_size);
 
-  void distribute(int gpu_id, const core::Tensor& fullbatch_keys,
-                  const core::Tensor& fullbatch_bucket_range, Result& output, int batch_size);
+  void distribute(int gpu_id, const core23::Tensor& fullbatch_keys,
+                  const core23::Tensor& fullbatch_bucket_range, Result& output, int batch_size);
 
   // TODO: remove when enable table filtering. This function is just to set the bucket ranges
   // because we return a global batch
-  void init_fixed_bucket_ranges(core::Tensor& output_bucket_ranges) const;
+  void init_fixed_bucket_ranges(core23::Tensor& output_bucket_ranges) const;
 
  private:
   struct GpuCommData {
@@ -57,9 +58,9 @@ class DataDistributor {
     // This is a performance optimization to prevent us from computing bucket ranges each iteration.
     // If the current_batch_size == last_batch_size then the bucket_ranges are the same.
     int last_batch_size;
-    core::Tensor hotness_bucket_range;
-    core::Tensor features;
-    core::Tensor bucket_range;
+    core23::Tensor hotness_bucket_range;
+    core23::Tensor features;
+    core23::Tensor bucket_range;
   };
 
   size_t feature_id_to_group_id(size_t feature_id) const;
@@ -70,7 +71,8 @@ class DataDistributor {
 
   void init_batch_major_fullbatch_input_preprocessor();
 
-  void communicate_data(std::vector<core::Tensor> feature_shards, int gpu_id, cudaStream_t stream);
+  void communicate_data(std::vector<core23::Tensor> feature_shards, int gpu_id,
+                        cudaStream_t stream);
 
   std::shared_ptr<ResourceManager> resource_manager_;
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_managers_;
@@ -80,7 +82,7 @@ class DataDistributor {
   std::vector<GpuCommData> gpu_comm_data_;
 
   size_t batch_size_;
-  core::DataType scalar_type_;
+  core23::DataType scalar_type_;
 
   embedding::EmbeddingCollectionParam ebc_param_;
   std::unordered_map<size_t, size_t> feature_id_to_group_id_map_;
@@ -100,9 +102,9 @@ class DataDistributor {
     int num_hotness;
     int num_local_hotness;
 
-    core::Tensor d_local_lookup_ids;
-    core::Tensor d_local_shard_ids;
-    core::Tensor d_local_num_shards;
+    core23::Tensor d_local_lookup_ids;
+    core23::Tensor d_local_shard_ids;
+    core23::Tensor d_local_num_shards;
 
     KeyFilterInitParams(const std::shared_ptr<core::CoreResourceManager>& core_resource_manager,
                         const embedding::EmbeddingCollectionParam& ebc_param, size_t grouped_id);

@@ -34,8 +34,10 @@ class FileSource : public Source {
   unsigned int counter_{0};
 
  public:
+  std::string get_current_file_name() { return file_name_; }
   FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
       : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {
+    file_name_ = "__empty.bin";
     HCTR_CHECK_HINT(
         file_list_.get_num_of_files() >= stride_,
         "The number of data reader workers should be no greater than the number of files in the "
@@ -76,6 +78,7 @@ class FileSource : public Source {
         in_file_stream_.close();
       }
       std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
+      file_name_ = file_name;
       counter_++;  // counter_ should be accum for every source.
       if (file_name.empty()) {
         return Error_t::EndOfFile;

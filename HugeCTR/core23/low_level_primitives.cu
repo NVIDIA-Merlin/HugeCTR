@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include <core23/details/host_launch_helpers.hpp>
 #include <core23/details/pool_cuda_allocator.hpp>
 #include <core23/device.hpp>
+#include <core23/device_guard.hpp>
 #include <core23/low_level_primitives.hpp>
 
 namespace HugeCTR {
@@ -66,6 +67,7 @@ void fill_gpu(Type* data, int64_t num_elements, const Type val, const Device& de
 template <typename Type>
 void fill_common(Type* data, int64_t num_elements, const Type val, const Device& device,
                  std::optional<CUDAStream> stream_or) {
+  DeviceGuard device_guard(device);
   if (device.type() == DeviceType::CPU) {
     fill_cpu(data, num_elements, val, device, stream_or);
   } else {
@@ -88,6 +90,7 @@ template <typename DstType, typename SrcType, typename Op>
 void transform_async_common(DstType* dst, const SrcType* src, int64_t num_elements,
                             const Device& dst_device, const Device& src_device, CUDAStream stream,
                             Op op) {
+  DeviceGuard device_guard(src_device.type() == DeviceType::CPU ? dst_device : src_device);
   if (dst_device == src_device) {
     if (src_device.type() == DeviceType::CPU) {
       TransformParams<DstType, SrcType, Op>* params =
@@ -155,6 +158,7 @@ void uniform_async(Type* data, int64_t num_elements, const Type a, const Type b,
                    const Device& device, CURANDGenerator generator, CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
 
+  DeviceGuard device_guard(device);
   generator.set_stream(stream);
   if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
     HCTR_LIB_THROW(curandGenerateUniform(generator(), data, num_elements));
@@ -171,12 +175,17 @@ void normal_async(Type* data, int64_t num_elements, const Type mean, const Type 
                   const Device& device, CURANDGenerator generator, CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
 
+  DeviceGuard device_guard(device);
   generator.set_stream(stream);
+  int64_t even_length = num_elements / 2 * 2;
   if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
-    HCTR_LIB_THROW(curandGenerateNormal(generator(), data, num_elements, mean, stddev));
+    HCTR_LIB_THROW(curandGenerateNormal(generator(), data, even_length, mean, stddev));
   } else {
     static_assert(std::is_same<Type, double>::value);
-    HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), data, num_elements, mean, stddev));
+    HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), data, even_length, mean, stddev));
+  }
+  if (auto odd_length = num_elements - even_length) {
+    copy_async(data + even_length, data, odd_length, device, device, stream);
   }
 }
 
@@ -188,6 +197,7 @@ void variance_scaling_async(Type* data, int64_t num_elements, Type scale,
                             CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
 
+  DeviceGuard device_guard(device);
   generator.set_stream(stream);
   const Type n = (mode == VarianceScalingMode::FanIn)
                      ? fan_in

@@ -43,44 +43,55 @@ WeightedModelBackward::WeightedModelBackward(std::shared_ptr<CoreResourceManager
       std::accumulate(num_unique_key_list.begin(), num_unique_key_list.end(), 0);
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
-  auto buffer_ptr = GetBuffer(core);
-  grad_ev_ = buffer_ptr->reserve({universal_batch_size, max_unique_key_ev_buffer_size},
-                                 DeviceType::GPU, TensorScalarType::Float32);
-  partial_grad_ev_ = buffer_ptr->reserve({num_sms_ * 4 * max_ev_size_}, DeviceType::GPU,
-                                         TensorScalarType::Float32);
-  partial_key_ = buffer_ptr->reserve({num_sms_ * 4}, DeviceType::GPU, TensorScalarType::UInt32);
-  partial_ev_length_ =
-      buffer_ptr->reserve({num_sms_ * 4}, DeviceType::GPU, TensorScalarType::Int32);
-  partial_dst_offset_array_ =
-      buffer_ptr->reserve({num_sms_ * 4}, DeviceType::GPU, TensorScalarType::UInt32);
+  int tensor_device_id = core_->get_device_id();
+  core23::Device device(core23::DeviceType::GPU, tensor_device_id);
+  core23::TensorParams params = core23::TensorParams();
 
-  buffer_ptr->allocate();
+  grad_ev_ = core23::Tensor(params.shape({universal_batch_size, max_unique_key_ev_buffer_size})
+                                .device(device)
+                                .data_type(core23::ScalarType::Float));
+
+  partial_grad_ev_ = core23::Tensor(params.shape({num_sms_ * 4 * max_ev_size_})
+                                        .device(device)
+                                        .data_type(core23::ScalarType::Float));
+
+  partial_key_ = core23::Tensor(
+      params.shape({num_sms_ * 4}).device(device).data_type(core23::ScalarType::UInt32));
+
+  partial_ev_length_ = core23::Tensor(
+      params.shape({num_sms_ * 4}).device(device).data_type(core23::ScalarType::Int32));
+
+  partial_dst_offset_array_ = core23::Tensor(
+      params.shape({num_sms_ * 4}).device(device).data_type(core23::ScalarType::UInt32));
 }
 
-void WeightedModelBackward::compute(
-    const TensorList& model_comm_buffer, const Tensor& unique_dst_idx,
-    const Tensor& sorted_bucket_id_list, const Tensor& sorted_bucket_id_offset,
-    size_t num_unique_key, const Tensor& corrdinate_key, const Tensor& coordinate_wgrad_dst_idx,
-    const Tensor& d_local_ev_size_offset, int batch_size, int max_ev_size, size_t num_model_key,
-    Tensor* grad_ev, const Tensor& coordinate_sp_weight) {
+void WeightedModelBackward::compute(const core23::Tensor& model_comm_buffer,
+                                    const core23::Tensor& unique_dst_idx,
+                                    const core23::Tensor& sorted_bucket_id_list,
+                                    const core23::Tensor& sorted_bucket_id_offset,
+                                    uint64_t num_unique_key, const core23::Tensor& corrdinate_key,
+                                    const core23::Tensor& coordinate_wgrad_dst_idx,
+                                    const core23::Tensor& d_local_ev_size_offset, int batch_size,
+                                    int max_ev_size, size_t num_model_key, core23::Tensor* grad_ev,
+                                    const core23::Tensor& coordinate_sp_weight) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / num_gpus_;
 
-  cudaMemsetAsync(grad_ev_.get(), 0, grad_ev_.nbytes(), stream);
-  DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
-    const uint32_t* unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
-    const emb_t** model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
-    const int* local_ev_offset_list_ptr = d_local_ev_size_offset.get<int>();
-    const uint32_t* corrdinate_key_ptr = corrdinate_key.get<uint32_t>();
-    const float* corrdinate_sp_weight_ptr = coordinate_sp_weight.get<float>();
-    const uint32_t* sorted_bucket_id_list_ptr = sorted_bucket_id_list.get<uint32_t>();
-    const uint32_t* coordinate_wgrad_dst_idx_ptr = coordinate_wgrad_dst_idx.get<uint32_t>();
-    auto partial_grad_ev_ptr = partial_grad_ev_.get<float>();
-    auto partial_key_ptr = partial_key_.get<uint32_t>();
-    auto partial_ev_length_ptr = partial_ev_length_.get<int32_t>();
-    auto partial_dst_offset_array_ptr = partial_dst_offset_array_.get<uint32_t>();
-    float* grad_ev_ptr = grad_ev_.get<float>();
+  cudaMemsetAsync(grad_ev_.data(), 0, grad_ev_.num_bytes(), stream);
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffer.data_type().type(), emb_t, [&] {
+    const uint32_t* unique_dst_idx_ptr = unique_dst_idx.data<uint32_t>();
+    const emb_t** model_comm_buffer_ptr = static_cast<const emb_t**>(model_comm_buffer.data());
+    const int* local_ev_offset_list_ptr = d_local_ev_size_offset.data<int>();
+    const uint32_t* corrdinate_key_ptr = corrdinate_key.data<uint32_t>();
+    const float* corrdinate_sp_weight_ptr = coordinate_sp_weight.data<float>();
+    const uint32_t* sorted_bucket_id_list_ptr = sorted_bucket_id_list.data<uint32_t>();
+    const uint32_t* coordinate_wgrad_dst_idx_ptr = coordinate_wgrad_dst_idx.data<uint32_t>();
+    auto partial_grad_ev_ptr = partial_grad_ev_.data<float>();
+    auto partial_key_ptr = partial_key_.data<uint32_t>();
+    auto partial_ev_length_ptr = partial_ev_length_.data<int32_t>();
+    auto partial_dst_offset_array_ptr = partial_dst_offset_array_.data<uint32_t>();
+    float* grad_ev_ptr = grad_ev_.data<float>();
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_weight<emb_t, float>(
         num_model_key, [=] __device__(int i) { return corrdinate_key_ptr[i]; },
@@ -133,9 +144,9 @@ void WeightedModelBackward::compute(
         [=] __device__(int i) { return 1.0; });
 
     multi_to_one_reduce_weight(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
-                               (float*)partial_grad_ev_.get(), (uint32_t*)partial_key_.get(),
-                               (int*)partial_ev_length_.get(),
-                               (uint32_t*)partial_dst_offset_array_.get(), num_sms_, max_ev_size,
+                               (float*)partial_grad_ev_.data(), (uint32_t*)partial_key_.data(),
+                               (int*)partial_ev_length_.data(),
+                               (uint32_t*)partial_dst_offset_array_.data(), num_sms_, max_ev_size,
                                stream);
   });
 

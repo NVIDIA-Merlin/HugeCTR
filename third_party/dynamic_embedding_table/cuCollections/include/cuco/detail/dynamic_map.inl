@@ -45,7 +45,7 @@ void dynamic_map<Key, Element, Initializer>::initialize(cudaStream_t stream) {
     h_reclaimed_size_per_submap_[i] = 0;
   }
   CUCO_CUDA_TRY(
-      cudaMemcpyAsync(ptr, h_ptr, sizeof(atomic_ctr_type) * 2, cudaMemcpyHostToDevice, stream));
+      cudaMemcpyAsync(ptr, h_ptr, sizeof(atomic_ctr_type) * 2 * max_num_submaps, cudaMemcpyHostToDevice, stream));
 }
 
 template <typename Key, typename Element, typename Initializer>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ class OffsettedBuffer;
 
 class UnitaryBuffer final : public Buffer {
  public:
-  UnitaryBuffer(std::unique_ptr<Allocator> allocator);
+  UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator);
   ~UnitaryBuffer() override;
 
   bool subscribable() const;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 namespace HugeCTR {
 namespace core23 {
 
-BufferChannel GetRandomBufferChannel() {
+std::string GetRandomBufferChannelName() {
   static const char alpha[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "abcdefghijklmnopqrstuvwxyz"
@@ -37,8 +37,10 @@ BufferChannel GetRandomBufferChannel() {
   std::string name(length_dist(e), 0);
   std::generate_n(name.begin(), name.length(), []() { return alpha[alpha_dist(e)]; });
 
-  return BufferChannel(name);
+  return name;
 }
+
+BufferChannel GetRandomBufferChannel() { return GetRandomBufferChannelName(); }
 
 }  // namespace core23
 }  // namespace HugeCTR

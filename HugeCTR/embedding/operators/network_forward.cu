@@ -19,25 +19,6 @@
 #include <utils.hpp>
 
 namespace embedding {
-using namespace core;
-
-std::vector<size_t> cal_network_comm_buffer_size(
-    int universal_batch_size, int num_gpus,
-    const std::vector<std::vector<int>>& global_lookup_id_list,
-    const std::vector<int>& ev_size_list) {
-  int batch_size_per_gpu = universal_batch_size / num_gpus;
-
-  std::vector<size_t> network_comm_buffer_size;
-  for (int global_gpu_id = 0; global_gpu_id < num_gpus; ++global_gpu_id) {
-    auto& remote_lookup_id_list = global_lookup_id_list[global_gpu_id];
-    size_t num_ev_elements = 0;
-    for (int lookup_id : remote_lookup_id_list) {
-      num_ev_elements += ev_size_list[lookup_id] * batch_size_per_gpu;
-    }
-    network_comm_buffer_size.push_back(num_ev_elements);
-  }
-  return network_comm_buffer_size;
-}
 
 void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
                           const std::vector<std::vector<int>>& h_global_lookup_ids) {
@@ -87,27 +68,47 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
   }
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
-  this->network_ids =
-      buffer_ptr->reserve({h_network_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->network_gpu_ids =
-      buffer_ptr->reserve({h_network_gpu_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->network_offsets =
-      buffer_ptr->reserve({h_network_offsets.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  this->network_dst_lookup_ids = buffer_ptr->reserve({h_network_dst_lookup_ids.size()},
-                                                     DeviceType::GPU, TensorScalarType::Int32);
-  buffer_ptr->allocate();
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
-  this->network_ids.copy_from(h_network_ids);
-  this->network_gpu_ids.copy_from(h_network_gpu_ids);
-  this->network_offsets.copy_from(h_network_offsets);
-  this->network_dst_lookup_ids.copy_from(h_network_dst_lookup_ids);
+  this->network_ids = core23::Tensor(params.shape({static_cast<int64_t>(h_network_ids.size())})
+                                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->network_ids, h_network_ids);
+  this->network_gpu_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_network_gpu_ids.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->network_gpu_ids, h_network_gpu_ids);
+  this->network_offsets =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_network_offsets.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->network_offsets, h_network_offsets);
+  this->network_dst_lookup_ids =
+      core23::Tensor(params.shape({static_cast<int64_t>(h_network_dst_lookup_ids.size())})
+                         .data_type(core23::ScalarType::Int32));
+  core23::copy_sync(this->network_dst_lookup_ids, h_network_dst_lookup_ids);
+
+  //  auto buffer_ptr = GetBuffer(core);
+  //  this->network_ids =
+  //      buffer_ptr->reserve({h_network_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  //  this->network_gpu_ids =
+  //      buffer_ptr->reserve({h_network_gpu_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  //  this->network_offsets =
+  //      buffer_ptr->reserve({h_network_offsets.size()}, DeviceType::GPU, TensorScalarType::Int32);
+  //  this->network_dst_lookup_ids = buffer_ptr->reserve({h_network_dst_lookup_ids.size()},
+  //                                                     DeviceType::GPU, TensorScalarType::Int32);
+  //  buffer_ptr->allocate();
+
+  //  this->network_ids.copy_from(h_network_ids);
+  //  this->network_gpu_ids.copy_from(h_network_gpu_ids);
+  //  this->network_offsets.copy_from(h_network_offsets);
+  //  this->network_dst_lookup_ids.copy_from(h_network_dst_lookup_ids);
 }
 
 void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam& ebc_param, size_t grouped_id,
                              const std::vector<std::vector<int>>& h_global_lookup_ids) {
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
@@ -131,22 +132,27 @@ void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                      std::back_inserter(h_id_ev_start_indices[ggpu_id]));
   }
 
-  auto buffer_ptr = GetBuffer(core);
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
+
   for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    this->id_to_ev_size_list.push_back(buffer_ptr->reserve(
-        {h_id_to_ev_size[ggpu_id].size()}, DeviceType::GPU, TensorScalarType::Int32));
-    this->id_to_ev_start_indices_list.push_back(buffer_ptr->reserve(
-        {h_id_ev_start_indices[ggpu_id].size()}, DeviceType::GPU, TensorScalarType::Int32));
-  }
-  buffer_ptr->allocate();
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    this->id_to_ev_size_list[ggpu_id].copy_from(h_id_to_ev_size[ggpu_id]);
-    this->id_to_ev_start_indices_list[ggpu_id].copy_from(h_id_ev_start_indices[ggpu_id]);
+    this->id_to_ev_size_list.emplace_back(
+        params.shape({static_cast<int64_t>(h_id_to_ev_size[ggpu_id].size())})
+            .data_type(core23::ScalarType::Int32));
+    this->id_to_ev_start_indices_list.emplace_back(
+        params.shape({static_cast<int64_t>(h_id_ev_start_indices[ggpu_id].size())})
+            .data_type(core23::ScalarType::Int32));
+
+    core23::copy_sync(this->id_to_ev_size_list[ggpu_id], h_id_to_ev_size[ggpu_id]);
+    core23::copy_sync(this->id_to_ev_start_indices_list[ggpu_id], h_id_ev_start_indices[ggpu_id]);
   }
   this->id_to_ev_size =
-      TensorList(core.get(), id_to_ev_size_list, DeviceType::GPU, TensorScalarType::Int32);
+      core23::init_tensor_list<int32_t>(this->id_to_ev_size_list, params.device().index());
   this->id_to_ev_start_indices =
-      TensorList(core.get(), id_to_ev_start_indices_list, DeviceType::GPU, TensorScalarType::Int32);
+      core23::init_tensor_list<int32_t>(this->id_to_ev_start_indices_list, params.device().index());
 
   this->gpu_id_to_max_ev_elements.clear();
   for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
@@ -176,14 +182,20 @@ void NetworkBuffer::init(std::shared_ptr<CoreResourceManager> core, const Networ
 
   int batch_size_per_gpu = batch_size / attr.num_gpus;
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
   for (int ggpu_id = 0; ggpu_id < attr.num_gpus; ++ggpu_id) {
-    this->data_list.push_back(buffer_ptr->reserve(
-        batch_size_per_gpu * attr.gpu_id_to_max_ev_elements[ggpu_id], DeviceType::GPU, attr.type));
+    if (attr.gpu_id_to_max_ev_elements[ggpu_id] == 0) {
+      this->data_list.emplace_back();
+    } else {
+      this->data_list.emplace_back(
+          params.shape({batch_size_per_gpu * attr.gpu_id_to_max_ev_elements[ggpu_id]})
+              .data_type(attr.type));
+    }
   }
-  buffer_ptr->allocate();
-
-  this->data = TensorList(core.get(), data_list, DeviceType::GPU, attr.type);
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(attr.type.type(), emb_t, [&] {
+    this->data = core23::init_tensor_list<emb_t>(data_list, params.device().index());
+  });
 }
 
 NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
@@ -191,7 +203,7 @@ NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core, int nu
 
 namespace {
 
-void network_forward_to_batch_major_output(const Tensor& bucket_range,
+void network_forward_to_batch_major_output(const core23::Tensor& bucket_range,
                                            const NetworkBuffer& network_buffer,
                                            const NetworkIndices& network_indices,
                                            EmbeddingOutput& embedding_output, int batch_size,
@@ -202,23 +214,24 @@ void network_forward_to_batch_major_output(const Tensor& bucket_range,
   auto& network_attr = network_buffer.attr;
   auto& output_attr = embedding_output.attr;
   int max_ev_size = output_attr.max_ev_size;
-  int num_lookup = output_attr.id_to_ev_size.get_num_elements();
+  int num_lookup = output_attr.id_to_ev_size.num_elements();
 
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(network_comm_buffer.dtype().type(), emb_t, [&] {
-      DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), dst_emb_t, [&] {
-        const offset_t* bucket_range_ptr = bucket_range.get<offset_t>();
-        const int* network_ids_ptr = network_indices.network_ids.get<int>();
-        const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.get<int>();
-        const int* network_offsets_ptr = network_indices.network_offsets.get<int>();
-        const int* network_dst_lookup_ids_ptr = network_indices.network_dst_lookup_ids.get<int>();
-        const int** network_ev_sizes_ptr = network_attr.id_to_ev_size.get<int>();
-        const int** network_ev_offsets_ptr = network_attr.id_to_ev_start_indices.get<int>();
-        const emb_t** network_comm_buffer_ptr = network_comm_buffer.get<emb_t>();
-        const int* dst_ev_start_indices_ptr = output_attr.id_to_ev_start_indices.get<int>();
-        const char* dst_combiner_ptr = output_attr.id_to_combiner.get<char>();
-        dst_emb_t* output_buffer_ptr = output_buffer.get<dst_emb_t>();
-        int num_network_dst_lookup_ids = network_indices.network_dst_lookup_ids.get_num_elements();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_comm_buffer.data_type().type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), dst_emb_t, [&] {
+        const offset_t* bucket_range_ptr = bucket_range.data<offset_t>();
+        const int* network_ids_ptr = network_indices.network_ids.data<int>();
+        const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.data<int>();
+        const int* network_offsets_ptr = network_indices.network_offsets.data<int>();
+        const int* network_dst_lookup_ids_ptr = network_indices.network_dst_lookup_ids.data<int>();
+        const int** network_ev_sizes_ptr = (const int**)network_attr.id_to_ev_size.data();
+        const int** network_ev_offsets_ptr =
+            (const int**)network_attr.id_to_ev_start_indices.data();
+        const emb_t** network_comm_buffer_ptr = (const emb_t**)network_comm_buffer.data();
+        const int* dst_ev_start_indices_ptr = output_attr.id_to_ev_start_indices.data<int>();
+        const char* dst_combiner_ptr = output_attr.id_to_combiner.data<char>();
+        dst_emb_t* output_buffer_ptr = output_buffer.data<dst_emb_t>();
+        int num_network_dst_lookup_ids = network_indices.network_dst_lookup_ids.num_elements();
 
         auto multi_to_one_desc = make_MultiToOne<emb_t, dst_emb_t>(
             num_network_dst_lookup_ids * batch_size_per_gpu,
@@ -269,7 +282,7 @@ void network_forward_to_batch_major_output(const Tensor& bucket_range,
   });
 }
 
-void network_forward_to_feature_major_output(const Tensor& bucket_range,
+void network_forward_to_feature_major_output(const core23::Tensor& bucket_range,
                                              const NetworkBuffer& network_buffer,
                                              const NetworkIndices& network_indices,
                                              EmbeddingOutput& embedding_output, int batch_size,
@@ -281,21 +294,22 @@ void network_forward_to_feature_major_output(const Tensor& bucket_range,
   auto& output_attr = embedding_output.attr;
   int max_ev_size = output_attr.max_ev_size;
 
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(network_comm_buffer.dtype().type(), emb_t, [&] {
-      DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), dst_emb_t, [&] {
-        const offset_t* bucket_range_ptr = bucket_range.get<offset_t>();
-        const int* network_ids_ptr = network_indices.network_ids.get<int>();
-        const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.get<int>();
-        const int* network_offsets_ptr = network_indices.network_offsets.get<int>();
-        const int* network_dst_lookup_ids_ptr = network_indices.network_dst_lookup_ids.get<int>();
-        const int** network_ev_sizes_ptr = network_attr.id_to_ev_size.get<int>();
-        const int** network_ev_offsets_ptr = network_attr.id_to_ev_start_indices.get<int>();
-        const emb_t** network_comm_buffer_ptr = network_comm_buffer.get<emb_t>();
-        const int* dst_ev_start_indices_ptr = output_attr.id_to_ev_start_indices.get<int>();
-        const char* dst_combiner_ptr = output_attr.id_to_combiner.get<char>();
-        dst_emb_t* output_buffer_ptr = output_buffer.get<dst_emb_t>();
-        int num_network_dst_lookup_ids = network_indices.network_dst_lookup_ids.get_num_elements();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_comm_buffer.data_type().type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), dst_emb_t, [&] {
+        const offset_t* bucket_range_ptr = bucket_range.data<offset_t>();
+        const int* network_ids_ptr = network_indices.network_ids.data<int>();
+        const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.data<int>();
+        const int* network_offsets_ptr = network_indices.network_offsets.data<int>();
+        const int* network_dst_lookup_ids_ptr = network_indices.network_dst_lookup_ids.data<int>();
+        const int** network_ev_sizes_ptr = (const int**)network_attr.id_to_ev_size.data();
+        const int** network_ev_offsets_ptr =
+            (const int**)network_attr.id_to_ev_start_indices.data();
+        const emb_t** network_comm_buffer_ptr = (const emb_t**)network_comm_buffer.data();
+        const int* dst_ev_start_indices_ptr = output_attr.id_to_ev_start_indices.data<int>();
+        const char* dst_combiner_ptr = output_attr.id_to_combiner.data<char>();
+        dst_emb_t* output_buffer_ptr = output_buffer.data<dst_emb_t>();
+        int num_network_dst_lookup_ids = network_indices.network_dst_lookup_ids.num_elements();
 
         auto multi_to_one_desc = make_MultiToOne<emb_t, dst_emb_t>(
             num_network_dst_lookup_ids * batch_size_per_gpu,
@@ -350,7 +364,8 @@ void network_forward_to_feature_major_output(const Tensor& bucket_range,
 
 }  // namespace
 
-void NetworkForward::compute(const Tensor& bucket_range, const NetworkBuffer& network_buffer,
+void NetworkForward::compute(const core23::Tensor& bucket_range,
+                             const NetworkBuffer& network_buffer,
                              const NetworkIndices& network_indices,
                              EmbeddingOutput& embedding_output, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
@@ -368,32 +383,32 @@ void NetworkForward::compute(const Tensor& bucket_range, const NetworkBuffer& ne
   }
 }
 
-void NetworkForward::compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
-                             const TensorList& network_comm_buffer, const Tensor& network_ids,
-                             const Tensor& network_gpu_ids, const Tensor& network_offsets,
-                             const Tensor& network_dst_lookup_ids,
-                             const TensorList& network_ev_sizes,
-                             const TensorList& network_ev_offsets, TensorList& output_buffer,
-                             const Tensor& d_ev_size_offset, int batch_size, int max_ev_size) {
+void NetworkForward::compute(
+    const core23::Tensor& row_lengths, const core23::Tensor& d_combiner_list,
+    const core23::Tensor& network_comm_buffer, const core23::Tensor& network_ids,
+    const core23::Tensor& network_gpu_ids, const core23::Tensor& network_offsets,
+    const core23::Tensor& network_dst_lookup_ids, const core23::Tensor& network_ev_sizes,
+    const core23::Tensor& network_ev_offsets, core23::Tensor& output_buffer,
+    const core23::Tensor& d_ev_size_offset, int batch_size, int max_ev_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / num_gpus_;
-  DISPATCH_INTEGRAL_FUNCTION(row_lengths.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(network_comm_buffer.dtype().type(), emb_t, [&] {
-      DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), dst_emb_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(row_lengths.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_comm_buffer.data_type().type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), dst_emb_t, [&] {
         auto stream = core_->get_local_gpu()->get_stream();
 
-        const offset_t** row_lengths_ptr = row_lengths.get<offset_t>();
-        const int* network_ids_ptr = network_ids.get<int>();
-        const int* network_gpu_ids_ptr = network_gpu_ids.get<int>();
-        const int* network_offsets_ptr = network_offsets.get<int>();
-        const int* network_dst_lookup_ids_ptr = network_dst_lookup_ids.get<int>();
-        const int** network_ev_sizes_ptr = network_ev_sizes.get<int>();
-        const int** network_ev_offsets_ptr = network_ev_offsets.get<int>();
-        const emb_t** network_comm_buffer_ptr = network_comm_buffer.get<emb_t>();
-        const int* d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
-        const char* combiner_ptr = d_combiner_list.get<char>();
-        dst_emb_t** output_buffer_ptr = output_buffer.get<dst_emb_t>();
-        int num_network_dst_lookup_ids = network_dst_lookup_ids.get_num_elements();
+        const offset_t** row_lengths_ptr = (const offset_t**)row_lengths.data();
+        const int* network_ids_ptr = network_ids.data<int>();
+        const int* network_gpu_ids_ptr = network_gpu_ids.data<int>();
+        const int* network_offsets_ptr = network_offsets.data<int>();
+        const int* network_dst_lookup_ids_ptr = network_dst_lookup_ids.data<int>();
+        const int** network_ev_sizes_ptr = (const int**)network_ev_sizes.data();
+        const int** network_ev_offsets_ptr = (const int**)network_ev_offsets.data();
+        const emb_t** network_comm_buffer_ptr = (const emb_t**)network_comm_buffer.data();
+        const int* d_ev_size_offset_ptr = d_ev_size_offset.data<int>();
+        const char* combiner_ptr = d_combiner_list.data<char>();
+        dst_emb_t** output_buffer_ptr = (dst_emb_t**)output_buffer.data();
+        int num_network_dst_lookup_ids = network_dst_lookup_ids.num_elements();
         int gpu_id = core_->get_global_gpu_id();
 
         auto multi_to_one_desc = make_MultiToOne<emb_t, dst_emb_t>(

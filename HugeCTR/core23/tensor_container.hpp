@@ -21,30 +21,36 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   using View = TensorView<TargetTensorView, ContainerDims>;
 
   TensorContainer(void* d_workspace, std::vector<Tensor>&& tensors, Shape shape)
-      : Base(tensors.data(), shape.data()),  // this is safe because we "move" the std::vector
-                                             // tensors while adding no element to tensors
+      : Base(tensors.data(), shape.data()),
         tensors_(std::move(tensors)),
         shape_(shape),
         tensor_view_ptrs_(static_cast<TargetTensorView*>(d_workspace)),
-        initialized_(false) {
-    HCTR_THROW_IF(tensors_.empty(), HugeCTR::Error_t::IllegalCall,
-                  "A TensorContainer cannot be empty");
-    HCTR_THROW_IF(ContainerDims != shape_.dims(), HugeCTR::Error_t::IllegalCall,
-                  "ContainerDims is inconsistent with the specified Shape's");
-    HCTR_THROW_IF(static_cast<int64_t>(tensors_.size()) != shape_.size(),
-                  HugeCTR::Error_t::IllegalCall,
-                  "The number of Tensors is inconsistent with the specified Shape");
-
-    if (tensor_view_ptrs_ == nullptr) {
-      allocator_ = create_allocator();
-    }
-
-    std::sort(tensors.begin(), tensors.end(), [](const Tensor& lhs, const Tensor& rhs) {
-      return !(lhs.num_bytes() < rhs.num_bytes());
-    });
+        viewed_(false) {
+    initialize();
   }
   TensorContainer(std::vector<Tensor>&& tensors, Shape shape)
       : TensorContainer(nullptr, std::move(tensors), shape) {}
+  TensorContainer(void* d_workspace, const std::vector<Tensor>& tensors, Shape shape)
+      : Base(nullptr, shape.data()),
+        tensors_(tensors),
+        shape_(shape),
+        tensor_view_ptrs_(static_cast<TargetTensorView*>(d_workspace)),
+        viewed_(false) {
+    Base::data_ = tensors_.data();
+    initialize();
+  }
+  TensorContainer(const std::vector<Tensor>& tensors, Shape shape)
+      : TensorContainer(nullptr, tensors, shape) {}
+  TensorContainer(const TensorContainer& other)
+      : TensorContainer(other.tensor_view_ptrs_, other.tensors_, other.shape_) {
+    viewed_ = other.viewed_;
+  }
+  TensorContainer(TensorContainer&& other) = delete;
+  TensorContainer& operator=(const TensorContainer& other) = delete;
+  TensorContainer& operator=(TensorContainer&& other) = delete;
+  // TODO: we should remove this constructor which is a kind of temporary WAR
+  TensorContainer() : Base(nullptr, nullptr), tensor_view_ptrs_(nullptr), viewed_(false) {}
+
   ~TensorContainer() {
     if (allocator_) {
       allocator_->deallocate(tensor_view_ptrs_);
@@ -52,6 +58,9 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   }
 
   FlattenedTensorView flatten() const {
+    HCTR_THROW_IF(tensors_.empty() || Base::data_ == nullptr, HugeCTR::Error_t::IllegalCall,
+                  "This empty TensorContainer cannot be flattened");
+
     std::vector<Tensor> tensors = tensors_;
     std::sort(tensors.begin(), tensors.end(),
               [](const Tensor& lhs, const Tensor& rhs) { return lhs.data() < rhs.data(); });
@@ -79,7 +88,10 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
   }
 
   View view() const {
-    if (initialized_ == false) {
+    HCTR_THROW_IF(tensors_.empty() || Base::data_ == nullptr, HugeCTR::Error_t::IllegalCall,
+                  "This empty TensorContainer cannot be flattened");
+
+    if (viewed_ == false) {
       std::vector<TargetTensorView> host_tensor_views;
       std::transform(tensors_.begin(), tensors_.end(), std::back_inserter(host_tensor_views),
                      [](const Tensor& tensor) { return tensor.view<BuiltInType, TensorDims>(); });
@@ -90,7 +102,7 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
       auto dst_device = tensors_.begin()->device();
       auto src_device = Device(DeviceType::CPU);
       copy_sync(tensor_view_ptrs_, host_tensor_views.data(), size, dst_device, src_device);
-      initialized_ = true;
+      viewed_ = true;
     }
     return View(tensor_view_ptrs_, shape_.data());
   }
@@ -110,10 +122,24 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
     return GetAllocator(allocator_params, device);
   }
 
+  void initialize() {
+    HCTR_THROW_IF(tensors_.empty(), HugeCTR::Error_t::IllegalCall,
+                  "A TensorContainer cannot be empty");
+    HCTR_THROW_IF(ContainerDims != shape_.dims(), HugeCTR::Error_t::IllegalCall,
+                  "ContainerDims is inconsistent with the specified Shape's");
+    HCTR_THROW_IF(static_cast<int64_t>(tensors_.size()) != shape_.size(),
+                  HugeCTR::Error_t::IllegalCall,
+                  "The number of Tensors is inconsistent with the specified Shape");
+
+    if (tensor_view_ptrs_ == nullptr) {
+      allocator_ = create_allocator();
+    }
+  }
+
   std::vector<Tensor> tensors_;
   Shape shape_;
   mutable TargetTensorView* tensor_view_ptrs_;
-  mutable bool initialized_;
+  mutable bool viewed_;
 
   std::unique_ptr<Allocator> allocator_;
 };

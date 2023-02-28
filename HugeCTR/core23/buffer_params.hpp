@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ namespace core23 {
 class Buffer;
 
 struct BufferParams {
-  using CustomFactory =
-      std::function<std::shared_ptr<Buffer>(const BufferParams&, std::unique_ptr<Allocator>)>;
+  using CustomFactory = std::function<std::shared_ptr<Buffer>(
+      const BufferParams&, const Device& device, std::unique_ptr<Allocator>)>;
 
   BufferChannel channel = GetRandomBufferChannel();
   bool unitary = true;

@@ -34,6 +34,8 @@ class SigmoidLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  SigmoidLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+               const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of SigmoidLayer.
    * @param in_tensor the input tensor

@@ -16,13 +16,9 @@
 #pragma once
 
 #include <core/buffer.hpp>
-#include <core/registry.hpp>
 
 namespace embedding {
 using core::CoreResourceManager;
-using core::Device;
-using core::Tensor;
-using core::TensorList;
 
 struct NetworkIndices;
 struct NetworkBuffer;
@@ -36,16 +32,16 @@ class NetworkBackward {
   NetworkBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
       : core_(core), num_gpus_(num_gpus) {}
 
-  void compute(const Tensor& bucket_range, const EmbeddingOutput& top_grad,
-               const NetworkIndices& network_indices, NetworkBuffer& network_buffer,
+  void compute(const core23::Tensor &bucket_range, const EmbeddingOutput &top_grad,
+               const NetworkIndices &network_indices, NetworkBuffer &network_buffer,
                int batch_size);
 
-  void compute(const TensorList& row_lengths, const Tensor& d_combiner_list,
-               const TensorList& top_grad, const Tensor& network_ids, const Tensor& network_gpu_ids,
-               const Tensor& network_offsets, const Tensor& network_dst_lookup_ids,
-               const TensorList& network_ev_sizes, const TensorList& network_ev_offsets,
-               TensorList& network_comm_buffer, const Tensor& d_ev_size_offset, int batch_size,
-               int max_ev_size);
+  void compute(const core23::Tensor &row_lengths, const core23::Tensor &d_combiner_list,
+               const core23::Tensor &top_grad, const core23::Tensor &network_ids,
+               const core23::Tensor &network_gpu_ids, const core23::Tensor &network_offsets,
+               const core23::Tensor &network_dst_lookup_ids, const core23::Tensor &network_ev_sizes,
+               const core23::Tensor &network_ev_offsets, core23::Tensor &network_comm_buffer,
+               const core23::Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
 };
 
 }  // namespace embedding

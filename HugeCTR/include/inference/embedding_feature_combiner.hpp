@@ -17,6 +17,7 @@
 
 #include <cooperative_groups.h>
 
+#include <core23/tensor.hpp>
 #include <layer.hpp>
 
 namespace HugeCTR {
@@ -30,17 +31,17 @@ enum class EmbeddingFeatureCombiner_t { Sum, Mean };
 template <typename T>
 class EmbeddingFeatureCombiner : public Layer {
   /*
-   * stores the references to the input tensors of this layer.
+   * stores the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor2<float>>> in_tensors_;
+  std::vector<std::shared_ptr<core23::Tensor>> in_tensors_;
+  /*
+   * stores the row pointers tensors of this layer.
+   */
+  std::vector<std::shared_ptr<core23::Tensor>> row_ptrs_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
   Tensors2<T> out_tensors_;
-  /*
-   * stores the references to the row pointers tensors of this layer.
-   */
-  std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_;
 
  public:
   /**
@@ -56,8 +57,8 @@ class EmbeddingFeatureCombiner : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param gpu_resource available gpu resource
    */
-  EmbeddingFeatureCombiner(const std::shared_ptr<Tensor2<float>>& in_tensor,
-                           const std::shared_ptr<Tensor2<int>>& row_ptrs_tensor,
+  EmbeddingFeatureCombiner(const std::shared_ptr<core23::Tensor>& in_tensor,
+                           const std::shared_ptr<core23::Tensor>& row_ptrs_tensor,
                            Tensor2<T>& out_tensor, int batch_size, int slot_num,
                            EmbeddingFeatureCombiner_t combiner_type,
                            const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,

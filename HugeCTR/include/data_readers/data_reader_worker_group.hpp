@@ -201,9 +201,7 @@ class DataReaderWorkerGroup {
       data_readers_[worker_id]->set_source(
           create_source(worker_id, num_workers, file_name, repeat, data_source_params));
     }
-    if (!data_reader_loop_flag_->load()) {
-      start();
-    }
+    // Has no impact if data_reader_loop_flag_->load() == false
     for (size_t i = 0; i < num_workers; ++i) {
       std::unique_lock<std::mutex> lck(this->epoch_mtx_[i]);
       // awken
@@ -211,9 +209,11 @@ class DataReaderWorkerGroup {
       lck.unlock();
       this->epoch_cv_[i].notify_all();
     }
-
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
       data_readers_[worker_id]->post_set_source();
+    }
+    if (!data_reader_loop_flag_->load()) {
+      start();
     }
   }
 

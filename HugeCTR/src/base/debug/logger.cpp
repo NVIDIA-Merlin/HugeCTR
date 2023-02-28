@@ -22,7 +22,9 @@
 #include <base/debug/logger.hpp>
 #include <chrono>
 #include <common.hpp>
+#ifdef ENABLE_MPI
 #include <core23/mpi_init_service.hpp>
+#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -193,7 +195,10 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
 #define HCTR_LEVEL_MAP_(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
 #endif
 
-Logger::Logger() : rank_{core23::MpiInitService::get().world_rank()} {
+Logger::Logger() : rank_{0} {
+#ifdef ENABLE_MPI
+  rank_ = core23::MpiInitService::get().world_rank();
+#endif
   hctr_set_thread_name("main");
 
   const char* const max_level_str = std::getenv("HUGECTR_LOG_LEVEL");

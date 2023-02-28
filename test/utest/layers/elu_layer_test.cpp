@@ -16,6 +16,9 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/elu_layer.hpp>
 #include <utest/test_utils.hpp>
 #include <vector>
@@ -54,59 +57,69 @@ void elu_bprop_cpu(const T* d_out, T* d_in, int len, T alpha) {
 }
 
 template <typename T>
-void elu_test(size_t dim0, size_t dim1, T alpha) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, dim1};
+void elu_test(int64_t dim0, int64_t dim1, T alpha) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  Tensor2<T> in_tensor;
-  buf->reserve(dims, &in_tensor);
-  Tensor2<T> out_tensor;
-  buf->reserve(dims, &out_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::CUDAStream stream(cudaStreamDefault, 0);
 
-  EluLayer<T> elu_layer(in_tensor, out_tensor, alpha, test::get_default_gpu());
+  auto shape = core23::Shape({dim0, dim1});
 
-  buf->allocate();
+  core23::TensorParams tensor_params =
+      core23::TensorParams(shape)
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+  core23::Tensor bottom_tensor(tensor_params);
+  core23::Tensor top_tensor(tensor_params);
+
+  EluLayer<T> elu_layer(bottom_tensor, top_tensor, alpha, test::get_default_gpu());
+
   elu_layer.initialize();
 
-  const int len = dim0 * dim1;
-  T* d_in = in_tensor.get_ptr();
-  T* d_out = out_tensor.get_ptr();
-  std::unique_ptr<T[]> h_in(new T[len]);
-  std::unique_ptr<T[]> h_out(new T[len]);
-  std::unique_ptr<T[]> h_expected(new T[len]);
+  const int64_t len = dim0 * dim1;
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  std::vector<T> h_bottom(len);
+  std::vector<T> h_top(len);
+  std::vector<T> h_expected(len);
+
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
   // fprop
-  simulator.fill(h_in.get(), len);
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  core23::copy_async(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                     bottom_tensor.device(), core23::DeviceType::CPU, stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
   elu_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  elu_cpu(h_in.get(), h_expected.get(), len, alpha);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len, Eps<T>::value()));
+  elu_cpu(h_bottom.data(), h_expected.data(), len, alpha);
+  ASSERT_TRUE(test::compare_array_approx<T>(h_top.data(), h_expected.data(), len, Eps<T>::value()));
 
   // bprop
-  simulator.fill(h_in.get(), len);
-  simulator.fill(h_out.get(), len);
-  for (int i = 0; i < len; ++i) {
-    h_expected[i] = h_in[i];
-  }
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
+  test::normal_sync_cpu(h_top.data(), h_top.size(), 0.f, 1.f, generator);
 
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  core23::copy_async(h_expected.data(), h_bottom.data(), h_bottom.size() * sizeof(T),
+                     core23::DeviceType::CPU, core23::DeviceType::CPU, stream);
+
+  core23::copy_async(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                     bottom_tensor.device(), core23::DeviceType::CPU, stream);
+  core23::copy_async(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
+                     core23::DeviceType::CPU, stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream()));
+
   elu_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
+  core23::copy_sync(h_bottom.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
-
-  elu_bprop_cpu(h_out.get(), h_expected.get(), len, alpha);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len, Eps<T>::value()));
+  elu_bprop_cpu(h_top.data(), h_expected.data(), len, alpha);
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(h_bottom.data(), h_expected.data(), len, Eps<T>::value()));
 }
 
 }  // namespace

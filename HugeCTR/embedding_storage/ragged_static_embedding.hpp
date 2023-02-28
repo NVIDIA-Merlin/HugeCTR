@@ -16,6 +16,7 @@
 #pragma once
 
 #include <core/registry.hpp>
+#include <core23/registry.hpp>
 #include <embedding_storage/embedding_table.hpp>
 #include <variant>
 
@@ -58,9 +59,9 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
                              const EmbeddingCollectionParam &ebc_param, size_t grouped_id,
                              const HugeCTR::OptParams &opt_param);
 
-  void lookup(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-              size_t num_id_space_offset, const Tensor &id_space,
-              TensorList &embedding_vec) override;
+  void lookup(const core23::Tensor &keys, size_t num_keys, const core23::Tensor &id_space_offset,
+              size_t num_id_space_offset, const core23::Tensor &id_space,
+              core23::Tensor &embedding_vec) override;
 
   void update(const Tensor &unique_keys, const Tensor &num_unique_keys, const Tensor &table_ids,
               const Tensor &ev_start_indices, const Tensor &wgrad) override;

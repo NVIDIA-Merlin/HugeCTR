@@ -80,13 +80,13 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
                                     int max_nnz, EmbeddingFeatureCombiner_t combiner_type) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
-  std::shared_ptr<Tensor2<int>> row_ptrs_tensor = std::make_shared<Tensor2<int>>();
-  std::vector<size_t> row_ptrs_dims = {static_cast<size_t>(batch_size * slot_num + 1)};  // 1D
-  buff->reserve(row_ptrs_dims, row_ptrs_tensor.get());
-  size_t row_ptrs_size = 1;
-  for (auto dim : row_ptrs_dims) {
-    row_ptrs_size *= dim;
-  }
+  core23::Device device_gpu(core23::DeviceType::GPU, 0);
+  core23::TensorParams tensor_params = core23::TensorParams().device(device_gpu);
+  std::shared_ptr<core23::Tensor> row_ptrs_tensor_new = std::make_shared<core23::Tensor>(
+      tensor_params.shape({static_cast<int64_t>(batch_size * slot_num + 1)})
+          .data_type(core23::ScalarType::Int32));
+
+  size_t row_ptrs_size = row_ptrs_tensor_new->shape().size();
   std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size]);
   std::shared_ptr<IDataSimulator<int>> ldata_sim;
   ldata_sim.reset(new IntUniformDataSimulator<int>(0, max_nnz));
@@ -96,28 +96,25 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
   }
 
   size_t feature_num = h_row_ptrs[row_ptrs_size - 1];
-  std::shared_ptr<Tensor2<float>> in_tensor = std::make_shared<Tensor2<float>>();
-  std::vector<size_t> in_dims = {static_cast<size_t>(feature_num),
-                                 static_cast<size_t>(embedding_vec_size)};  // 2D
-  buff->reserve(in_dims, in_tensor.get());
+  std::shared_ptr<core23::Tensor> in_tensor_new = std::make_shared<core23::Tensor>(
+      tensor_params
+          .shape({static_cast<int64_t>(feature_num), static_cast<int64_t>(embedding_vec_size)})
+          .data_type(core23::ScalarType::Float));
 
   Tensor2<TypeEmbedding> out_tensor;
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
   EmbeddingFeatureCombiner<TypeEmbedding> embedding_feature_combiner(
-      in_tensor, row_ptrs_tensor, out_tensor, batch_size, slot_num, combiner_type, buff,
+      in_tensor_new, row_ptrs_tensor_new, out_tensor, batch_size, slot_num, combiner_type, buff,
       test::get_default_gpu());
   buff->allocate();
-  size_t in_size = 1;
-  for (auto dim : in_dims) {
-    in_size *= dim;
-  }
+  size_t in_size = in_tensor_new->shape().size();
   auto out_dims = out_tensor.get_dimensions();
   size_t out_size = 1;
   for (auto dim : out_dims) {
     out_size *= dim;
   }
-  int* d_row_ptrs = row_ptrs_tensor->get_ptr();
-  float* d_in = in_tensor->get_ptr();
+  int* d_row_ptrs = row_ptrs_tensor_new->data<int>();
+  float* d_in = in_tensor_new->data<float>();
   TypeEmbedding* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[in_size]);
   std::unique_ptr<TypeEmbedding[]> h_out(new TypeEmbedding[out_size]);

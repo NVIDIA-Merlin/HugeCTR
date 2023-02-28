@@ -42,6 +42,22 @@ class AdaGradOptimizer : public Optimizer {
                    const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                    const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                    float initial_accu_value = 0., float epsilon = 1e-7, float scaler = 1.f);
+  /**
+   * Constructor of AdaGradOptimizer.
+   * names of hyper-parameters are the same as in AdaGrad paper
+   * (https://jmlr.org/papers/volume12/duchi11a/duchi11a.pdf)
+   * @param weight_tensors a list of weights in dense layers
+   * @param wgrad_tensors a list of wgrad tensors
+   * @param gpu_resource the GPU where update kernel is launched
+   * @param learning_rate learning rate
+   * @param initial_accu_value  initial value for the accumulation
+   * @param epsilon
+   * @param scaler scaler for gradient values
+   */
+  AdaGradOptimizer(std::vector<core23::Tensor> weight_tensors,
+                   std::vector<core23::Tensor> wgrad_tensors,
+                   const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
+                   float initial_accu_value = 0., float epsilon = 1e-7, float scaler = 1.f);
 
   void initialize() override;
 
@@ -53,7 +69,9 @@ class AdaGradOptimizer : public Optimizer {
 
  private:
   Tensor2<T> wgrad_;
+  std::optional<WgradTensors<T>> wgrad_tensors_;
   Tensor2<float> accum_;
+  core23::Tensor accum_tensor_;
 
   float initial_accumulator_value_;
   const float epsilon_;

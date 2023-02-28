@@ -34,7 +34,7 @@
 // clang-format on
 
 namespace sok {
-
+namespace core23 = HugeCTR::core23;
 template <typename KeyType, typename DType>
 class TFAdapter : public ::embedding::ILookup {
  public:
@@ -45,9 +45,9 @@ class TFAdapter : public ::embedding::ILookup {
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 
-  void lookup(const ::core::Tensor& keys, size_t num_keys, const ::core::Tensor& id_space_offset,
-              size_t num_id_space_offset, const ::core::Tensor& id_space,
-              ::core::TensorList& embedding_vec) override;
+  void lookup(const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offset,
+              size_t num_id_space_offset, const core23::Tensor& id_space,
+              core23::Tensor& embedding_vec) override;
 
  private:
   int sm_count_;
@@ -74,9 +74,9 @@ class DummyVarAdapter : public ::embedding::ILookup {
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 
-  void lookup(const ::core::Tensor& keys, size_t num_keys, const ::core::Tensor& id_space_offset,
-              size_t num_id_space_offset, const ::core::Tensor& id_space,
-              ::core::TensorList& embedding_vec) override;
+  void lookup(const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offset,
+              size_t num_id_space_offset, const core23::Tensor& id_space,
+              core23::Tensor& embedding_vec) override;
 
  private:
   int sm_count_;

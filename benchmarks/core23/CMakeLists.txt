@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -20,6 +20,7 @@ function(configureBenchmark executableName)
   add_executable(${executableName} ${ARGN})
   target_compile_features(${executableName} PUBLIC cxx_std_17)
   target_link_libraries(${executableName} PUBLIC hugectr_core23)
+  target_link_libraries(${executableName} PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
   set_target_properties(${executableName} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON
                                                      CUDA_ARCHITECTURES OFF
                                                      POSITION_INDEPENDENT_CODE ON)

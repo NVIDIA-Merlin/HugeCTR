@@ -42,6 +42,22 @@ class FtrlOptimizer : public Optimizer {
                 const std::shared_ptr<BufferBlock2<float>>& opt_buf,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta = 0.0f, float lambda1 = 0.0f, float lambda2 = 0.0f, float scaler = 1.f);
+  /**
+   * Constructor of FtrlOptimizer.
+   * names of hyper-parameters are the same as in FTRL paper "Ad Click Prediction: a View from the
+   * Trenches"
+   * @param weight_tensors a list of dense layer weight tensors
+   * @param wgrad_tensors gradient for weight_tensors
+   * @param gpu_resource the GPU where update kernel is launched
+   * @param learning_rate learning rate alpha in FTRL paper
+   * @param beta beta in FTRL paper
+   * @param lambda1 lambda1 in FTRL paper
+   * @param lambda2 lambda2 in FTRL paper
+   */
+  FtrlOptimizer(std::vector<core23::Tensor> weight_tensors,
+                std::vector<core23::Tensor> wgrad_tensors,
+                const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
+                float beta = 0.0f, float lambda1 = 0.0f, float lambda2 = 0.0f, float scaler = 1.f);
   /*Initialization:
   ```python
   n = 0
@@ -74,6 +90,10 @@ class FtrlOptimizer : public Optimizer {
   Tensor2<T> wgrad_;
   Tensor2<float> z_;
   Tensor2<float> n_;
+
+  std::optional<WgradTensors<T>> wgrad_tensors_;
+  core23::Tensor z_tensor_;
+  core23::Tensor n_tensor_;
   // uint64_t t_;
   const float beta_;
   const float lambda1_;

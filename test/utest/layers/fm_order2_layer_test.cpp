@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/low_level_primitives.hpp>
 #include <layers/fm_order2_layer.hpp>
 #include <utest/test_utils.hpp>
 
@@ -116,67 +117,71 @@ void fm_order2_bprop_cpu(const __half* in, const __half* top_grad, __half* dgrad
 }
 
 template <typename T>
-void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+void fm_order2_test(int64_t batch_size, int64_t slot_num, int64_t emb_vec_size) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
 
-  std::vector<size_t> in_dims = {batch_size, slot_num * emb_vec_size};
-  Tensor2<T> in_tensor;
-  buf->reserve(in_dims, &in_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
 
-  std::vector<size_t> out_dims = {batch_size, emb_vec_size};
-  Tensor2<T> out_tensor;
-  buf->reserve(out_dims, &out_tensor);
+  core23::Shape in_shape = {batch_size, slot_num * emb_vec_size};
+  core23::Tensor bottom_tensor(tensor_params.shape(in_shape));
 
-  FmOrder2Layer<T> fm_order2_layer(in_tensor, out_tensor, test::get_default_gpu());
+  core23::Shape out_shape = {batch_size, emb_vec_size};
+  core23::Tensor top_tensor(tensor_params.shape(out_shape));
 
-  buf->allocate();
+  FmOrder2Layer<T> fm_order2_layer(bottom_tensor, top_tensor, test::get_default_gpu());
+
   fm_order2_layer.initialize();
 
-  T* d_in = in_tensor.get_ptr();
-  T* d_out = out_tensor.get_ptr();
+  const auto in_len = batch_size * slot_num * emb_vec_size;
+  const auto out_len = batch_size * emb_vec_size;
+  std::vector<T> h_bottom(in_len);
+  std::vector<T> h_top(out_len);
+  std::vector<T> h_expected(out_len);
+  std::vector<T> h_expected_dgrad(in_len);
 
-  const size_t in_len = batch_size * slot_num * emb_vec_size;
-  const size_t out_len = batch_size * emb_vec_size;
-  std::unique_ptr<T[]> h_in(new T[in_len]);
-  std::unique_ptr<T[]> h_out(new T[out_len]);
-  std::unique_ptr<T[]> h_expected(new T[out_len]);
-  std::unique_ptr<T[]> h_expected_dgrad(new T[in_len]);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-
-  simulator.fill(h_in.get(), in_len);
-
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fm_order2_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_top.data(), top_tensor.data(), top_tensor.num_bytes(),
+                    core23::DeviceType::CPU, top_tensor.device());
 
-  fm_order2_fprop_cpu(h_in.get(), h_expected.get(), batch_size, slot_num, emb_vec_size);
+  fm_order2_fprop_cpu(h_bottom.data(), h_expected.data(), batch_size, slot_num, emb_vec_size);
   ASSERT_TRUE(
-      test::compare_array_approx<T>(h_out.get(), h_expected.get(), out_len, Eps<T>::value()));
+      test::compare_array_approx<T>(h_top.data(), h_expected.data(), out_len, Eps<T>::value()));
 
-  simulator.fill(h_in.get(), in_len);
-  for (size_t i = 0; i < in_len; i++) {
-    h_expected_dgrad[i] = h_in[i];
-  }
-  simulator.fill(h_out.get(), out_len);
+  test::normal_sync_cpu(h_bottom.data(), h_bottom.size(), 0.f, 1.f, generator);
+  core23::copy_sync(h_expected_dgrad.data(), h_bottom.data(), h_expected_dgrad.size() * sizeof(T),
+                    core23::DeviceType::CPU, core23::DeviceType::CPU);
+  test::normal_sync_cpu(h_top.data(), h_top.size(), 0.f, 1.f, generator);
 
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.data(), bottom_tensor.num_bytes(),
+                    bottom_tensor.device(), core23::DeviceType::CPU);
+  core23::copy_sync(top_tensor.data(), h_top.data(), top_tensor.num_bytes(), top_tensor.device(),
+                    core23::DeviceType::CPU);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fm_order2_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, in_len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_bottom.data(), bottom_tensor.data(), bottom_tensor.num_bytes(),
+                    core23::DeviceType::CPU, bottom_tensor.device());
 
-  fm_order2_bprop_cpu(h_expected_dgrad.get(), h_out.get(), h_expected_dgrad.get(), batch_size,
+  fm_order2_bprop_cpu(h_expected_dgrad.data(), h_top.data(), h_expected_dgrad.data(), batch_size,
                       slot_num, emb_vec_size);
-  ASSERT_TRUE(
-      test::compare_array_approx<T>(h_in.get(), h_expected_dgrad.get(), in_len, Eps<T>::value()));
+  ASSERT_TRUE(test::compare_array_approx<T>(h_bottom.data(), h_expected_dgrad.data(), in_len,
+                                            Eps<T>::value()));
 }
 
 }  // end of namespace

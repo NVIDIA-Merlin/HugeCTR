@@ -72,7 +72,7 @@ EmbeddingCollection::EmbeddingCollection(
 
 void EmbeddingCollection::forward_per_gpu(bool is_train, int gpu_id,
                                           const HugeCTR::DataDistributor::Result &input,
-                                          Tensor &output_buffer, int batch_size) {
+                                          core23::Tensor &output_buffer, int batch_size) {
   auto &embeddings = is_train ? embeddings_[gpu_id] : eval_embeddings_[gpu_id];
 
   for (size_t grouped_id = 0; grouped_id < embeddings.size(); ++grouped_id) {
@@ -86,7 +86,7 @@ void EmbeddingCollection::forward_per_gpu(bool is_train, int gpu_id,
 
 void EmbeddingCollection::backward_per_gpu(int gpu_id,
                                            const HugeCTR::DataDistributor::Result &input,
-                                           const Tensor &top_grad, int batch_size) {
+                                           const core23::Tensor &top_grad, int batch_size) {
   for (size_t grouped_id = 0; grouped_id < embeddings_[gpu_id].size(); ++grouped_id) {
     EmbeddingOutput top_grad_buffer{top_grad, embedding_output_attrs[gpu_id][grouped_id]};
     embeddings_[gpu_id][grouped_id]->backward_per_gpu(input[grouped_id], top_grad_buffer,
@@ -97,9 +97,12 @@ void EmbeddingCollection::backward_per_gpu(int gpu_id,
 void EmbeddingCollection::update_per_gpu(int gpu_id) {
   for (size_t grouped_id = 0; grouped_id < embedding_tables_[gpu_id].size(); ++grouped_id) {
     auto &wgrad = wgrad_list_[gpu_id][grouped_id];
-    embedding_tables_[gpu_id][grouped_id]->update(wgrad.unique_keys, wgrad.num_unique_keys,
-                                                  wgrad.table_ids, wgrad.ev_start_indices,
-                                                  wgrad.data);
+    embedding_tables_[gpu_id][grouped_id]->update(
+        convert_core23_tensor_to_core_tensor(wgrad.unique_keys),
+        convert_core23_tensor_to_core_tensor(wgrad.num_unique_keys),
+        convert_core23_tensor_to_core_tensor(wgrad.table_ids),
+        convert_core23_tensor_to_core_tensor(wgrad.ev_start_indices),
+        convert_core23_tensor_to_core_tensor(wgrad.data));
   }
 }
 

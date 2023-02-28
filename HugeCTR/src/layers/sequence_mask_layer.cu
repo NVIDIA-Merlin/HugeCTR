@@ -43,6 +43,14 @@ __global__ void build_sequence_mask_kernel(T* attention_mask, const T* sequence_
 }  // namespace
 
 template <typename T>
+SequenceMaskLayer<T>::SequenceMaskLayer(const core23::Tensor& input_tensor,
+                                        const core23::Tensor& output_tensor, int max_sequence_len,
+                                        const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource), max_sequence_len_(max_sequence_len) {
+  assert(input_tensors_[0].shape().dims() == 2);
+}
+
+template <typename T>
 SequenceMaskLayer<T>::SequenceMaskLayer(
     const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, int max_sequence_len,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
@@ -57,16 +65,27 @@ SequenceMaskLayer<T>::SequenceMaskLayer(
 template <typename T>
 void SequenceMaskLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
+  // TODO: this block will be removed later
   int max_sequence_len = max_sequence_len_;
+  if (input_tensors_.empty()) {
+    T* input = in_tensor_.get_ptr();
+    T* output = out_tensor_.get_ptr();
 
-  T* input = in_tensor_.get_ptr();
-  T* output = out_tensor_.get_ptr();
+    const size_t batch_size = in_tensor_.get_dimensions()[0];
+    const size_t block_dim = 512;
 
-  const size_t batch_size = in_tensor_.get_dimensions()[0];
-  const size_t block_dim = 512;
+    build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
+        output, input, max_sequence_len);
+  } else {
+    auto* input = input_tensors_[0].data<T>();
+    auto* output = output_tensors_[0].data<T>();
 
-  build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
-      output, input, max_sequence_len);
+    const auto batch_size = input_tensors_[0].shape().size(0);
+    const size_t block_dim = 512;
+
+    build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
+        output, input, max_sequence_len);
+  }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

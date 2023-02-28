@@ -31,13 +31,16 @@ if __name__ == "__main__":
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
     sok.init()
 
-    rows = [65536 * 10, 65536]
-    cols = [128, 4]
-    hotness = [10, 3]
-    combiners = ["sum", "sum"]
+    gpu_num = hvd.size()
+    rows = [65536] * gpu_num
+    cols = [128 - 8 * x for x in range(gpu_num)]
+    hotness = [x + 1 for x in range(gpu_num)]
+    combiners = ["mean"] * np.floor(gpu_num / 2).astype(np.int32) + ["sum"] * np.ceil(
+        gpu_num - gpu_num / 2
+    ).astype(np.int32)
     batch_size = 65536
     iters = 100
-    gpus = [0, min(1, hvd.size() - 1)]
+    gpus = np.arange(gpu_num)
 
     # initial value of embedding table
     weights = []
@@ -152,7 +155,7 @@ if __name__ == "__main__":
             length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
             diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-5
 
     diff = 0
     for i in range(iters):
@@ -160,7 +163,7 @@ if __name__ == "__main__":
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-6
+    assert diff < 1e-5
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]

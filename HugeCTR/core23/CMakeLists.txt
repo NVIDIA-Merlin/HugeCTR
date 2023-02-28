@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -18,12 +18,14 @@ set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB core23_src 
 allocator_factory.cpp
+allocator_params.cpp
 buffer.cpp
 buffer_client.cpp
 buffer_channel.cpp
 buffer_channel_helpers.cpp
 buffer_factory.cpp
 device.cpp
+device_guard.cpp
 device_type.cpp
 data_type.cpp
 offsetted_buffer.cpp

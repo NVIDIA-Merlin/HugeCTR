@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <core23/allocator.hpp>
 #include <core23/buffer_requirements.hpp>
+#include <core23/device.hpp>
 #include <map>
 #include <memory>
 
@@ -39,14 +40,17 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   };
 
  public:
-  Buffer(std::unique_ptr<Allocator> allocator) : allocator_(std::move(allocator)) {}
+  Buffer(const Device& device, std::unique_ptr<Allocator> allocator)
+      : device_(device), allocator_(std::move(allocator)) {}
   virtual ~Buffer();
 
   void subscribe(BufferClient* client, BufferRequirements requirements);
   void allocate();
 
   bool subscribable() const { return allocator_ && subscribable_impl(); }
-  bool allocatable() const { return allocator_ && allocatable_impl(); }
+  bool allocatable() const {
+    return allocator_ && !new_client_requirements_.empty() && allocatable_impl();
+  }
 
   inline void* data(int64_t offset, AccessKey) const { return data_impl(offset); }
 
@@ -73,6 +77,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   ClientRequirements new_client_requirements_;
   ClientOffsets client_offsets_;
 
+  Device device_;
   std::unique_ptr<Allocator> allocator_;
 };
 

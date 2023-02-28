@@ -17,17 +17,39 @@
 #include <embedding/operators/communication.hpp>
 #include <utils.hpp>
 
+namespace HugeCTR {
+namespace core23 {
+
+ncclDataType_t get_nccl_dtype_from_tensor_scalar_type_core23(core23::ScalarType scalar_type) {
+  switch (scalar_type) {
+    case core23::ScalarType::Float:
+      return ncclFloat32;
+    case core23::ScalarType::Half:
+      return ncclHalf;
+    case core23::ScalarType::Int64:
+      return ncclInt64;
+    case core23::ScalarType::UInt64:
+      return ncclUint64;
+    case core23::ScalarType::Int32:
+      return ncclInt32;
+    case core23::ScalarType::UInt32:
+      return ncclUint32;
+    case core23::ScalarType::Char:
+      return ncclChar;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "Not supported core23::ScalarType to NcclDataType_t");
+  }
+  return ncclInt;
+}
+}  // namespace core23
+}  // namespace HugeCTR
+
 namespace embedding {
-
-using core::CoreResourceManager;
-using core::get_nccl_dtype_from_tensor_scalar_type;
-
 NcclAll2AllComm::NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
-void NcclAll2AllComm::communicate(const std::vector<Tensor> &send_tensors,
-                                  const std::vector<size_t> &send_offsets,
-                                  std::vector<Tensor> &recv_tensors,
-                                  const std::vector<size_t> &recv_offsets) {
+void NcclAll2AllComm::communicate(const std::vector<core23::Tensor> &send_tensors,
+                                  std::vector<core23::Tensor> &recv_tensors) {
   int device_id = core_->get_device_id();
   auto &comm = core_->get_nccl();
 
@@ -36,11 +58,11 @@ void NcclAll2AllComm::communicate(const std::vector<Tensor> &send_tensors,
   int num_total_gpu = core_->get_global_gpu_count();
   for (int p = 0; p < num_total_gpu; ++p) {
     ncclDataType_t nccl_dtype =
-        get_nccl_dtype_from_tensor_scalar_type(send_tensors[p].dtype().type());
-    HCTR_LIB_THROW(ncclSend(send_tensors[p].get(), send_offsets[p], nccl_dtype, p, comm,
-                            core_->get_local_gpu()->get_stream()));
-    HCTR_LIB_THROW(ncclRecv(recv_tensors[p].get(), recv_offsets[p], nccl_dtype, p, comm,
-                            core_->get_local_gpu()->get_stream()));
+        core23::get_nccl_dtype_from_tensor_scalar_type_core23(send_tensors[p].data_type().type());
+    HCTR_LIB_THROW(ncclSend(send_tensors[p].data(), send_tensors[p].num_elements(), nccl_dtype, p,
+                            comm, core_->get_local_gpu()->get_stream()));
+    HCTR_LIB_THROW(ncclRecv(recv_tensors[p].data(), recv_tensors[p].num_elements(), nccl_dtype, p,
+                            comm, core_->get_local_gpu()->get_stream()));
   }
   HCTR_LIB_THROW(ncclGroupEnd());
 }
@@ -48,12 +70,13 @@ void NcclAll2AllComm::communicate(const std::vector<Tensor> &send_tensors,
 NcclAllReduceInplaceComm::NcclAllReduceInplaceComm(std::shared_ptr<CoreResourceManager> core)
     : core_(core) {}
 
-void NcclAllReduceInplaceComm::communicate(Tensor &tensor, size_t count) {
+void NcclAllReduceInplaceComm::communicate(core23::Tensor &tensor, size_t count) {
   int device_id = core_->get_device_id();
   HugeCTR::CudaDeviceContext ctx(device_id);
-  ncclDataType_t nccl_dtype = get_nccl_dtype_from_tensor_scalar_type(tensor.dtype().type());
+  ncclDataType_t nccl_dtype =
+      core23::get_nccl_dtype_from_tensor_scalar_type_core23(tensor.data_type().type());
 
-  HCTR_LIB_THROW(ncclAllReduce(tensor.get(), tensor.get(), count, nccl_dtype, ncclSum,
+  HCTR_LIB_THROW(ncclAllReduce(tensor.data(), tensor.data(), count, nccl_dtype, ncclSum,
                                core_->get_nccl(), core_->get_local_gpu()->get_stream()));
 }
 

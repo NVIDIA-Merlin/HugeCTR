@@ -16,11 +16,21 @@
 #pragma once
 
 #include <common.hpp>
+#include <core23/buffer_channel_helpers.hpp>
+#include <core23/data_type.hpp>
+#include <core23/tensor_container.hpp>
 #include <general_buffer2.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
+#include <network_buffer_channels.hpp>
+#include <optional>
 
 namespace HugeCTR {
+
+using WeightTensors = core23::TensorContainer<float, 1, 1>;
+using WeightHalfTensors = core23::TensorContainer<__half, 1, 1>;
+template <typename T>
+using WgradTensors = core23::TensorContainer<T, 1, 1>;
 
 struct FtrlOptHyperParams {
   static constexpr size_t num_parameters_per_weight = 2;
@@ -202,6 +212,17 @@ class Optimizer {
                                            const std::shared_ptr<BufferBlock2<float>>& opt_buff,
                                            const std::shared_ptr<GPUResource>& gpu_resource,
                                            bool use_mixed_precision);
+  /**
+   * Helper to create a speicifed Optimizer object
+   */
+  template <typename T>
+  static std::unique_ptr<Optimizer> Create(const OptParams& params,
+                                           std::vector<core23::Tensor> weight_tensors,
+                                           std::vector<core23::Tensor> weight_half_tensors,
+                                           std::vector<core23::Tensor> wgrade_tensors,
+                                           const float scaler,
+                                           const std::shared_ptr<GPUResource>& gpu_resource,
+                                           bool use_mixed_precision);
 
   /**
    * Constructor of Optimizer.
@@ -213,6 +234,28 @@ class Optimizer {
   Optimizer(const Tensor2<float>& weight_main, const std::shared_ptr<GPUResource>& gpu_resource,
             float learning_rate, float scaler)
       : weight_main_(weight_main),
+
+        weight_tensors_({}),
+        gpu_resource_(gpu_resource),
+        lr_(learning_rate),
+        scaler_(scaler),
+        optimizer_type_(Optimizer_t::DEFAULT) {
+    if (lr_ < 0.) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "lr < 0");
+    }
+  }
+  /*
+   * Constructor of Optimizer with new Tensor
+   * @param weight_tensors TensorContainer of all the layers' weights
+   * @param gpu_resource GPU where update kernel is launched
+   * @param learning_rate learning rate
+   * @param scaler scaler for the gradients
+   */
+  Optimizer(std::vector<core23::Tensor> weight_tensors,
+            const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float scaler)
+      : weight_tensors_(std::make_optional<WeightTensors>(
+            std::move(weight_tensors),
+            core23::Shape({static_cast<int64_t>(weight_tensors.size())}))),
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler),
@@ -256,6 +299,7 @@ class Optimizer {
 
  protected:
   Tensor2<float> weight_main_;
+  std::optional<WeightTensors> weight_tensors_;
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;

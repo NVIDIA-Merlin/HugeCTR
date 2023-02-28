@@ -20,28 +20,32 @@
 namespace HugeCTR {
 
 core23::BufferChannel GetBlobsBufferChannel() {
-  static auto buffer_channel = core23::GetRandomBufferChannel();
-  return buffer_channel;
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
 }
 
 core23::BufferChannel GetWeightBufferChannel() {
-  static auto buffer_channel = core23::GetRandomBufferChannel();
-  return buffer_channel;
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
 }
 
 core23::BufferChannel GetWeightHalfBufferChannel() {
-  static auto buffer_channel = core23::GetRandomBufferChannel();
-  return buffer_channel;
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
 }
 
 core23::BufferChannel GetWgradBufferChannel() {
-  static auto buffer_channel = core23::GetRandomBufferChannel();
-  return buffer_channel;
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
 }
 
 core23::BufferChannel GetWgradHalfBufferChannel() {
-  static auto buffer_channel = core23::GetRandomBufferChannel();
-  return buffer_channel;
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
+}
+core23::BufferChannel GetOptStateBufferChannnel() {
+  static auto name = core23::GetRandomBufferChannelName();
+  return core23::BufferChannel(name);
 }
 
 }  // namespace HugeCTR

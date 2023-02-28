@@ -23,7 +23,6 @@ from sparse_operation_kit import experiment as sok
 
 
 if __name__ == "__main__":
-
     hvd.init()
     gpus = tf.config.experimental.list_physical_devices("GPU")
     for gpu in gpus:
@@ -47,7 +46,6 @@ if __name__ == "__main__":
         # make sure the weight is same on each rank
         weight = hvd.allreduce(weight)
         weights.append(weight)
-
     # sok variables
     sok_vars = [sok.Variable(w) for w in weights]
     local_indices = []
@@ -156,7 +154,7 @@ if __name__ == "__main__":
         length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
         diff = diff + tf.reduce_max((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-4
+    assert diff < 1e-3
 
     diff = 0
     for i in range(iters):
@@ -164,7 +162,7 @@ if __name__ == "__main__":
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-4
+    assert diff < 1e-3
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]

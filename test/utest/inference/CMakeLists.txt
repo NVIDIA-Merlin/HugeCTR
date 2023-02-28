@@ -25,6 +25,6 @@ file(GLOB inference_test_src
 
 add_executable(inference_test ${inference_test_src})
 target_compile_features(inference_test PUBLIC cxx_std_17)
-target_link_libraries(inference_test PUBLIC cpu_inference_shared gtest gtest_main stdc++fs)
+target_link_libraries(inference_test PUBLIC huge_ctr_inference cpu_inference_shared gtest gtest_main stdc++fs)
 set_target_properties(inference_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(inference_test PROPERTIES CUDA_ARCHITECTURES OFF)

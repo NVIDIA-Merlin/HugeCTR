@@ -29,6 +29,9 @@ namespace HugeCTR {
 template <typename T>
 class SliceLayer : public Layer {
  public:
+  SliceLayer(const core23::Tensor& input_tensor, std::vector<core23::Tensor>& output_tensors,
+             std::vector<std::pair<int, int>>& ranges,
+             const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of SliceLayer.
    * @param in_tensor input tensor

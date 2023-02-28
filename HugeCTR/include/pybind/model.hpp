@@ -591,19 +591,19 @@ class Model {
   std::map<std::string, int> hotness_map_;
   std::vector<std::unique_ptr<embedding::EmbeddingCollection>> ebc_list_;
 
-  std::vector<core::Tensor> train_ebc_key_list_;
-  std::vector<core::Tensor> train_ebc_bucket_range_list_;
+  std::vector<core23::Tensor> train_ebc_key_list_;
+  std::vector<core23::Tensor> train_ebc_bucket_range_list_;
   std::vector<size_t*> train_ebc_num_keys_list_;
-  std::vector<core::Tensor> evaluate_ebc_key_list_;
-  std::vector<core::Tensor> evaluate_ebc_bucket_range_list_;
+  std::vector<core23::Tensor> evaluate_ebc_key_list_;
+  std::vector<core23::Tensor> evaluate_ebc_bucket_range_list_;
   std::vector<size_t*> evaluate_ebc_num_keys_list_;
-  std::vector<core::Tensor> evaluate_ebc_sparse_weight_list_;
+  std::vector<core23::Tensor> evaluate_ebc_sparse_weight_list_;
 
   std::vector<DataDistributor::Result> train_ddl_output_;
   std::vector<DataDistributor::Result> evaluate_ddl_output_;
 
-  std::vector<core::Tensor> train_ebc_outptut_;
-  std::vector<core::Tensor> evaluate_ebc_outptut_;
+  std::vector<core23::Tensor> train_ebc_outptut_;
+  std::vector<core23::Tensor> evaluate_ebc_outptut_;
 
   std::shared_ptr<EmbeddingTrainingCache>
       embedding_training_cache_; /**< embedding training cache for model oversubscribing. */

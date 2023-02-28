@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <core23/tensor_container.hpp>
 #include <layer.hpp>
 #include <vector>
 
@@ -44,6 +45,8 @@ class AddLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  AddLayer(const std::vector<core23::Tensor>& input_tensors, const core23::Tensor& output_tensor,
+           const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of AddLayer.
    * @param in_tensor the input tensor
@@ -72,6 +75,7 @@ class AddLayer : public Layer {
   size_t num_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
+  core23::TensorContainer<T, 1, 1> input_tensor_container_;
 };
 
 }  // namespace HugeCTR

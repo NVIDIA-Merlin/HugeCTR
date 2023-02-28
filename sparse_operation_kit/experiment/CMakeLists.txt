@@ -71,4 +71,4 @@ list(APPEND files $ENV{DeepRecWorkdir}/addons/sparse_operation_kit/core/adapter/
 endif()
 
 add_library(sok_experiment SHARED ${files})
-target_link_libraries(sok_experiment PUBLIC ${TF_LINK_FLAGS} core embedding)
+target_link_libraries(sok_experiment PUBLIC ${TF_LINK_FLAGS} core embedding hugectr_core23)
