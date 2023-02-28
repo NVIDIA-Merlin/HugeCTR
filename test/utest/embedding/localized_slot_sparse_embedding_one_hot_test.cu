@@ -19,6 +19,7 @@
 #include <nvToolsExt.h>
 
 #include <algorithm>
+#include <core23/mpi_init_service.hpp>
 #include <data_generator.hpp>
 #include <data_readers/data_reader.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
@@ -189,10 +190,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
 
   test::mpi_init();
-  int numprocs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
+  const int numprocs{core23::MpiInitService::get().world_size()};
 
   // if there are multi-node, we assume each node has the same gpu device_list
   std::vector<std::vector<int>> vvgpu;

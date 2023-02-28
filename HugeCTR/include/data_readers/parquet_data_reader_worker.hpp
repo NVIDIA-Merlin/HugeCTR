@@ -46,9 +46,6 @@
 #include <data_readers/parquet_data_converter.hpp>
 #include <memory>
 #include <mutex>
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
 
 namespace HugeCTR {
 

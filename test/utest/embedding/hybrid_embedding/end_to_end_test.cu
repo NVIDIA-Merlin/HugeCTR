@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/mpi_init_service.hpp>
 #include <general_buffer2.hpp>
 #include <map>
 #include <memory>
@@ -42,11 +43,9 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
                      size_t seed, size_t num_evals) {
   constexpr double epsilon = sizeof(emtype) < 4 ? 1e-2 : 1e-3;
 
-  int rank = 0, num_procs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
+  const int rank{core23::MpiInitService::get().world_rank()};
+  const int num_procs{core23::MpiInitService::get().world_size()};
+
   HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
@@ -623,10 +622,7 @@ template <typename dtype, typename emtype>
 void end_to_end(std::vector<int> device_list, size_t num_tables, size_t total_categories,
                 size_t batch_size, size_t embedding_vec_size, double bw_ratio_a2a_over_ar,
                 size_t seed = 42, size_t num_evals = 1) {
-  int num_procs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
+  const int num_procs{core23::MpiInitService::get().world_size()};
   size_t num_total_gpus = num_procs * device_list.size();
 
   HybridEmbeddingConfig<dtype> test_config = {
@@ -650,10 +646,7 @@ template <typename dtype, typename emtype>
 void end_to_end(std::vector<int> device_list, std::vector<size_t> table_sizes, size_t batch_size,
                 size_t embedding_vec_size, double bw_ratio_a2a_over_ar, size_t seed = 42,
                 size_t num_evals = 1) {
-  int num_procs = 1;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
+  const int num_procs{core23::MpiInitService::get().world_size()};
   size_t num_total_gpus = num_procs * device_list.size();
 
   HybridEmbeddingConfig<dtype> test_config = {

@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/mpi_init_service.hpp>
 #include <cstdio>
 #include <fstream>
 #include <functional>
@@ -35,11 +36,9 @@ const float eps = 2.0e-6;
 template <typename T>
 float sklearn_ref(size_t num_total_samples, size_t num_classes, const std::vector<float>& labels,
                   const std::vector<T>& scores, bool auc) {
-  int num_procs = 1, rank = 0;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
+  const int num_procs{core23::MpiInitService::get().world_size()};
+  const int rank{core23::MpiInitService::get().world_rank()};
+
   std::string temp_name = "tmpdata.bin";
 
   char *labels_ptr, *scores_ptr;
@@ -189,11 +188,8 @@ static int execution_number = 0;
 template <typename T, typename Generator>
 void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
                  Generator gen, bool auc, size_t num_evals = 1, size_t num_classes = 1) {
-  int num_procs = 1, rank = 0;
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
+  const int num_procs{core23::MpiInitService::get().world_size()};
+  const int rank{core23::MpiInitService::get().world_rank()};
 
   std::vector<std::vector<int>> vvgpu;
   int num_local_gpus = device_list.size();

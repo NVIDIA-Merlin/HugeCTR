@@ -186,12 +186,6 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, size_t num_iterations_statistics,
                           GpuLearningRateSchedulers& gpu_lr_sches) {
-#ifdef ENABLE_MPI
-  int num_procs = 1, pid = 0;
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
-#endif
-
   Embedding_t embedding_type = sparse_embedding.embedding_type;
   std::string bottom_name = sparse_embedding.bottom_name;
   std::string top_name = sparse_embedding.sparse_embedding_name;

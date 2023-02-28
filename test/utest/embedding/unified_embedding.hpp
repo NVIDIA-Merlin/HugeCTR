@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/mpi_init_service.hpp>
 #include <cstring>
 #include <data_generator.hpp>
 #include <embedding.hpp>
@@ -174,8 +175,7 @@ void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type>
   };
 
 #ifdef ENABLE_MPI
-  int num_procs;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  const int num_procs{core23::MpiInitService::get().world_size()};
 
   std::vector<int> global_total_nnz(num_procs);
   HCTR_MPI_THROW(MPI_Allgather(&local_total_nnz, sizeof(int), MPI_CHAR, global_total_nnz.data(),

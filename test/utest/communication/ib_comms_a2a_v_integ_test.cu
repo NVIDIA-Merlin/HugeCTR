@@ -15,11 +15,13 @@
  */
 
 #ifdef ENABLE_MPI
+
 #include <gtest/gtest.h>
 
 #include <chrono>
 #include <collectives/ib_comm.hpp>
 #include <common.hpp>
+#include <core23/mpi_init_service.hpp>
 #include <general_buffer2.hpp>
 #include <random>
 #include <resource_managers/resource_manager_ext.hpp>
@@ -100,9 +102,10 @@ template <typename TypeEmbeddingComp>
 struct IbCommsTest {
  public:
   IbCommsTest(const std::vector<int>& device_list, size_t max_size, bool use_cuda_graph = false)
-      : num_gpus_(device_list.size()), max_size_(max_size), use_cuda_graph_(use_cuda_graph) {
-    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
-
+      : num_gpus_(device_list.size()),
+        max_size_(max_size),
+        use_cuda_graph_(use_cuda_graph),
+        num_procs_{core23::MpiInitService::get().world_size()} {
     // Align max_size
     max_elems_per_dest_ = max_size_ / (num_procs_ * num_gpus_) / sizeof(TypeEmbeddingComp);
     max_size_ = (max_elems_per_dest_) * (num_procs_ * num_gpus_) * sizeof(TypeEmbeddingComp);
@@ -581,8 +584,7 @@ struct IbCommsTest {
 
 template <typename TypeEmbeddingComp>
 void test_ib_comm(const std::vector<int>& device_list, bool use_cuda_graph = false) {
-  int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  const int num_procs{core23::MpiInitService::get().world_size()};
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 16 * 1024 * 1024;
@@ -611,8 +613,7 @@ void test_ib_comm(const std::vector<int>& device_list, bool use_cuda_graph = fal
 
 template <typename TypeEmbeddingComp>
 void test_ib_comm_perf(const std::vector<int>& device_list, bool use_cuda_graph = false) {
-  int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  const int num_procs{core23::MpiInitService::get().world_size()};
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 16 * 1024 * 1024;

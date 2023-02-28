@@ -488,10 +488,11 @@ class Logger final {
                           int level) const;
 
  private:
-  int rank_{0};
+  int rank_;
   int max_level_{DEFAULT_LOG_LEVEL};
   bool log_to_std_{true};
   bool log_to_file_{false};
+
   std::map<int, FILE*> log_std_;
   std::map<int, FILE*> log_file_;
   std::map<int, std::string> level_name_;
