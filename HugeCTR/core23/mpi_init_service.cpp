@@ -70,10 +70,10 @@ MpiInitService::MpiInitService() {
               << std::endl;
   } else {
     HCTR_MPI_CHECK_(MPI_Init(nullptr, nullptr));
-    HCTR_MPI_CHECK_(MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_));
-    HCTR_MPI_CHECK_(MPI_Comm_size(MPI_COMM_WORLD, &world_size_));
     std::cerr << "MpiInitService: Initialized!" << std::endl;
   }
+  HCTR_MPI_CHECK_(MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_));
+  HCTR_MPI_CHECK_(MPI_Comm_size(MPI_COMM_WORLD, &world_size_));
 #endif
 }
 
