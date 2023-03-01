@@ -31,6 +31,7 @@ data_type.cpp
 offsetted_buffer.cpp
 low_level_primitives.cpp
 low_level_primitives.cu
+mpi_init_service.cpp
 details/simple_cuda_allocator.cpp
 details/managed_cuda_allocator.cpp
 details/low_level_cuda_allocator.cpp
