@@ -99,6 +99,7 @@ void regularizer_test_common(size_t batch_size, std::vector<core23::Shape> shape
 
   // initialize wgard with (lambda / m) * w
   regularizer->initialize_wgrad();
+  HCTR_LIB_THROW(cudaStreamSynchronize(test::get_default_gpu()->get_stream()));
   std::vector<float> out_wgrad(flat_wgrad_tensor.size(0));
   core23::copy_sync(out_wgrad.data(), flat_wgrad_tensor.data(),
                     flat_wgrad_tensor.size(0) * sizeof(float), core23::DeviceType::CPU, device);
