@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS Pretrained Model Training Demo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_pretrained_model_training_demo.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="SOK to HPS DLRM Demo" href="sok_to_hps_dlrm_demo.html" />
+    <link rel="prev" title="HPS for Multiple Tables and Sparse Inputs" href="hps_multi_table_sparse_input_demo.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_database_backend.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_multi_table_sparse_input_demo.html">HPS for Multiple Tables and Sparse Inputs</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">HPS Pretrained Model Training Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sok_to_hps_dlrm_demo.html">SOK to HPS DLRM Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html">Deploy SavedModel using HPS with Triton TensorFlow Backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_api/index.html">API Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_user_guide.html">HPS Plugin for TensorRT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Hierarchical Parameter Server Notebooks</a></li>
+      <li class="breadcrumb-item active">HPS Pretrained Model Training Demo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-pretrained-model-training-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-pretrained-model-training-demo/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hps-pretrained-model-training-demo">
+<h1>HPS Pretrained Model Training Demo<a class="headerlink" href="#hps-pretrained-model-training-demo" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>This notebook demonstrates how to use HPS to load pre-trained embedding tables. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
+<p>For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="get-hps-from-ngc">
+<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this headline"></a></h3>
+<p>The HPS Python module is preinstalled in the 22.12 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.12</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="configurations">
+<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this headline"></a></h2>
+<p>First of all we specify the required configurations, e.g., the arguments needed for generating the dataset, the model parameters and the paths to save the model. We will use a deep neural network (DNN) model which has one embedding table and several dense layers. Please note that the input to the embedding layer will be a sparse key tensor.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="n">args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">4</span>                               <span class="c1"># the number of available GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>                             <span class="c1"># the number of training iteration</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>                             <span class="c1"># the number of feature fields in this embedding layer</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">16</span>                       <span class="c1"># the dimension of embedding vectors</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>                            <span class="c1"># the dimension of dense features</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1024</span>                  <span class="c1"># the globally batchsize for all GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100000</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[[</span><span class="n">i</span><span class="o">*</span><span class="mi">10000</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">10000</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span> 
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span>                <span class="c1"># the max number of non-zeros for all slots</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dnn.json&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dnn_dense.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dnn_sparse.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;saved_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dnn_tf_saved_model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">])))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[INFO] hierarchical_parameter_server is imported
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_random_samples</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">generate_sparse_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">,</span> <span class="n">key_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]):</span>
+        <span class="n">slot_num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vocabulary_range_per_slot</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slot_num</span><span class="p">):</span>
+                <span class="n">vocab_range</span> <span class="o">=</span> <span class="n">vocabulary_range_per_slot</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">nnz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">max_nnz</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">entries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">max_nnz</span><span class="p">,</span> <span class="n">nnz</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+                    <span class="n">indices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">entry</span><span class="p">])</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nnz</span><span class="p">,</span> <span class="p">)))</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key_dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">,</span>
+                                    <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="p">,</span>
+                                    <span class="n">dense_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">slot_num</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">))</span>
+
+    
+    <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">generate_sparse_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">)</span>
+    <span class="n">dense_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span>
+
+<span class="k">def</span> <span class="nf">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">((</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">drop_remainder</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dataset</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="train-with-native-tf-layers">
+<h2>Train with native TF layers<a class="headerlink" href="#train-with-native-tf-layers" title="Permalink to this headline"></a></h2>
+<p>We define the model graph for training with native TF layers, i.e., <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code> and <code class="docutils literal notranslate"><span class="pre">tf.keras.layers.Dense</span></code>. Besides, the embedding weights are stored in <code class="docutils literal notranslate"><span class="pre">tf.Variable</span></code>. We can then train the model and extract the trained weights of the embedding table.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">DNN</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">init_tensors</span><span class="p">,</span>
+                 <span class="n">combiner</span><span class="p">,</span>
+                 <span class="n">embed_vec_size</span><span class="p">,</span>
+                 <span class="n">slot_num</span><span class="p">,</span>
+                 <span class="n">max_nnz</span><span class="p">,</span>
+                 <span class="n">dense_dim</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DNN</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">combiner</span> <span class="o">=</span> <span class="n">combiner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span> <span class="o">=</span> <span class="n">embed_vec_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="n">slot_num</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span> <span class="o">=</span> <span class="n">max_nnz</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span> <span class="o">=</span> <span class="n">dense_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">initial_value</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">init_tensors</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc1&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc2&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc3&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">input_cat</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">input_dense</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c1"># SparseTensor of keys, shape: (batch_size*slot_num, max_nnz)</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup_sparse</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">sp_ids</span><span class="o">=</span><span class="n">input_cat</span><span class="p">,</span> <span class="n">sp_weights</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">combiner</span><span class="p">),</span>
+                                <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span><span class="p">])</span>
+        <span class="n">concat_feas</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">input_dense</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">concat_feas</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span><span class="p">,</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]),</span> 
+                  <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span><span class="p">,</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">init_tensors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">])</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">MirroredStrategy</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">strategy</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">DNN</span><span class="p">(</span><span class="n">init_tensors</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>    
+
+    <span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">Reduction</span><span class="o">.</span><span class="n">NONE</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_replica_loss</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logits</span><span class="p">):</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">loss_fn</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logits</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">compute_average_loss</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">global_batch_size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+    
+    <span class="k">def</span> <span class="nf">_reshape_input</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sparse_keys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="n">sparse_keys</span>
+    
+    <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+            <span class="n">logit</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">_replica_loss</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logit</span><span class="p">)</span>
+        <span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">)</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">loss</span>
+
+    <span class="k">def</span> <span class="nf">_dataset_fn</span><span class="p">(</span><span class="n">input_context</span><span class="p">):</span>
+        <span class="n">replica_batch_size</span> <span class="o">=</span> <span class="n">input_context</span><span class="o">.</span><span class="n">get_per_replica_batch_size</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+        <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span>  <span class="o">*</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">replica_batch_size</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="n">input_context</span><span class="o">.</span><span class="n">num_input_pipelines</span><span class="p">,</span> <span class="n">input_context</span><span class="o">.</span><span class="n">input_pipeline_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dataset</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">distribute_datasets_from_function</span><span class="p">(</span><span class="n">_dataset_fn</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_reshape_input</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,))</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">]</span>  
+        <span class="n">_</span><span class="p">,</span> <span class="n">loss</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_train_step</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">, loss: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">loss</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">trained_model</span> <span class="o">=</span> <span class="n">train</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+<span class="n">weights_list</span> <span class="o">=</span> <span class="n">trained_model</span><span class="o">.</span><span class="n">get_weights</span><span class="p">()</span>
+<span class="n">embedding_weights</span> <span class="o">=</span> <span class="n">weights_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-07-29 06:41:55.554588: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2022-07-29 06:41:57.606412: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30989 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+2022-07-29 06:41:57.608128: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:1 with 30989 MB memory:  -&gt; device: 1, name: Tesla V100-SXM2-32GB, pci bus id: 0000:07:00.0, compute capability: 7.0
+2022-07-29 06:41:57.609468: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:2 with 30989 MB memory:  -&gt; device: 2, name: Tesla V100-SXM2-32GB, pci bus id: 0000:0a:00.0, compute capability: 7.0
+2022-07-29 06:41:57.610818: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:3 with 30989 MB memory:  -&gt; device: 3, name: Tesla V100-SXM2-32GB, pci bus id: 0000:0b:00.0, compute capability: 7.0
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Using MirroredStrategy with devices (&#39;/job:localhost/replica:0/task:0/device:GPU:0&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:1&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:2&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:3&#39;)
+WARNING:tensorflow:The following Variables were used in a Lambda layer&#39;s call (tf.compat.v1.nn.embedding_lookup_sparse), but are not present in its tracked objects:   &lt;tf.Variable &#39;Variable:0&#39; shape=(100000, 16) dtype=float32&gt;. This is a strong indication that the Lambda layer should be rewritten as a subclassed Layer.
+Model: &quot;model&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, 5)]          0           []                               
+                                                                                                  
+ tf.compat.v1.nn.embedding_look  (None, 16)          0           [&#39;input_1[0][0]&#39;]                
+ up_sparse (TFOpLambda)                                                                           
+                                                                                                  
+ tf.reshape (TFOpLambda)        (None, 160)          0           [&#39;tf.compat.v1.nn.embedding_looku
+                                                                 p_sparse[0][0]&#39;]                 
+                                                                                                  
+ input_2 (InputLayer)           [(None, 10)]         0           []                               
+                                                                                                  
+ tf.concat (TFOpLambda)         (None, 170)          0           [&#39;tf.reshape[0][0]&#39;,             
+                                                                  &#39;input_2[0][0]&#39;]                
+                                                                                                  
+ fc1 (Dense)                    (None, 1024)         175104      [&#39;tf.concat[0][0]&#39;]              
+                                                                                                  
+ fc2 (Dense)                    (None, 256)          262400      [&#39;fc1[0][0]&#39;]                    
+                                                                                                  
+ fc3 (Dense)                    (None, 1)            257         [&#39;fc2[0][0]&#39;]                    
+                                                                                                  
+==================================================================================================
+Total params: 437,761
+Trainable params: 437,761
+Non-trainable params: 0
+__________________________________________________________________________________________________
+WARNING:tensorflow:Using MirroredStrategy eagerly has significant overhead currently. We will be working on improving this in the future, but for now please wrap `call_for_each_replica` or `experimental_run` or `run` inside a tf.function to get the best performance.
+WARNING:tensorflow:Using MirroredStrategy eagerly has significant overhead currently. We will be working on improving this in the future, but for now please wrap `call_for_each_replica` or `experimental_run` or `run` inside a tf.function to get the best performance.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/dist-packages/tensorflow/python/util/dispatch.py:1082: UserWarning: &quot;`binary_crossentropy` received `from_logits=True`, but the `output` argument was produced by a sigmoid or softmax activation and thus does not represent logits. Was this intended?&quot;
+  return dispatch_target(*args, **kwargs)
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:batch_all_reduce: 6 all-reduces with algorithm = nccl, num_packs = 1
+WARNING:tensorflow:Efficient allreduce is not supported for 1 IndexedSlices
+INFO:tensorflow:Reduce to /job:localhost/replica:0/task:0/device:GPU:0 then broadcast to (&#39;/job:localhost/replica:0/task:0/device:GPU:0&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:1&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:2&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:3&#39;).
+-------------------- Step 0, loss: PerReplica:{
+  0: tf.Tensor(0.1950232, shape=(), dtype=float32),
+  1: tf.Tensor(0.20766959, shape=(), dtype=float32),
+  2: tf.Tensor(0.2006835, shape=(), dtype=float32),
+  3: tf.Tensor(0.21188965, shape=(), dtype=float32)
+} --------------------
+WARNING:tensorflow:Using MirroredStrategy eagerly has significant overhead currently. We will be working on improving this in the future, but for now please wrap `call_for_each_replica` or `experimental_run` or `run` inside a tf.function to get the best performance.
+WARNING:tensorflow:Using MirroredStrategy eagerly has significant overhead currently. We will be working on improving this in the future, but for now please wrap `call_for_each_replica` or `experimental_run` or `run` inside a tf.function to get the best performance.
+INFO:tensorflow:batch_all_reduce: 6 all-reduces with algorithm = nccl, num_packs = 1
+WARNING:tensorflow:Efficient allreduce is not supported for 1 IndexedSlices
+INFO:tensorflow:Reduce to /job:localhost/replica:0/task:0/device:GPU:0 then broadcast to (&#39;/job:localhost/replica:0/task:0/device:GPU:0&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:1&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:2&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:3&#39;).
+-------------------- Step 1, loss: PerReplica:{
+  0: tf.Tensor(681.73474, shape=(), dtype=float32),
+  1: tf.Tensor(691.33826, shape=(), dtype=float32),
+  2: tf.Tensor(588.15265, shape=(), dtype=float32),
+  3: tf.Tensor(622.72485, shape=(), dtype=float32)
+} --------------------
+WARNING:tensorflow:Using MirroredStrategy eagerly has significant overhead currently. We will be working on improving this in the future, but for now please wrap `call_for_each_replica` or `experimental_run` or `run` inside a tf.function to get the best performance.
+INFO:tensorflow:batch_all_reduce: 6 all-reduces with algorithm = nccl, num_packs = 1
+WARNING:tensorflow:Efficient allreduce is not supported for 1 IndexedSlices
+INFO:tensorflow:Reduce to /job:localhost/replica:0/task:0/device:GPU:0 then broadcast to (&#39;/job:localhost/replica:0/task:0/device:GPU:0&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:1&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:2&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:3&#39;).
+-------------------- Step 2, loss: PerReplica:{
+  0: tf.Tensor(6.9260483, shape=(), dtype=float32),
+  1: tf.Tensor(8.509967, shape=(), dtype=float32),
+  2: tf.Tensor(7.0374002, shape=(), dtype=float32),
+  3: tf.Tensor(7.1059036, shape=(), dtype=float32)
+} --------------------
+INFO:tensorflow:batch_all_reduce: 6 all-reduces with algorithm = nccl, num_packs = 1
+-------------------- Step 3, loss: PerReplica:{
+  0: tf.Tensor(3.002458, shape=(), dtype=float32),
+  1: tf.Tensor(3.7079678, shape=(), dtype=float32),
+  2: tf.Tensor(3.333396, shape=(), dtype=float32),
+  3: tf.Tensor(3.6451607, shape=(), dtype=float32)
+} --------------------
+WARNING:tensorflow:5 out of the last 5 calls to &lt;function _apply_all_reduce.&lt;locals&gt;._all_reduce at 0x7fba4c2dc1f0&gt; triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+-------------------- Step 4, loss: PerReplica:{
+  0: tf.Tensor(0.8326673, shape=(), dtype=float32),
+  1: tf.Tensor(0.79405844, shape=(), dtype=float32),
+  2: tf.Tensor(0.85364443, shape=(), dtype=float32),
+  3: tf.Tensor(0.92679256, shape=(), dtype=float32)
+} --------------------
+WARNING:tensorflow:6 out of the last 6 calls to &lt;function _apply_all_reduce.&lt;locals&gt;._all_reduce at 0x7fba4c2dcdc0&gt; triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+-------------------- Step 5, loss: PerReplica:{
+  0: tf.Tensor(0.5796976, shape=(), dtype=float32),
+  1: tf.Tensor(0.54752666, shape=(), dtype=float32),
+  2: tf.Tensor(0.57471323, shape=(), dtype=float32),
+  3: tf.Tensor(0.54845804, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 6, loss: PerReplica:{
+  0: tf.Tensor(0.61678064, shape=(), dtype=float32),
+  1: tf.Tensor(0.647662, shape=(), dtype=float32),
+  2: tf.Tensor(0.6421599, shape=(), dtype=float32),
+  3: tf.Tensor(0.6278339, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 7, loss: PerReplica:{
+  0: tf.Tensor(0.28049487, shape=(), dtype=float32),
+  1: tf.Tensor(0.2768654, shape=(), dtype=float32),
+  2: tf.Tensor(0.2943622, shape=(), dtype=float32),
+  3: tf.Tensor(0.2805586, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 8, loss: PerReplica:{
+  0: tf.Tensor(1.2102679, shape=(), dtype=float32),
+  1: tf.Tensor(1.368755, shape=(), dtype=float32),
+  2: tf.Tensor(1.4997649, shape=(), dtype=float32),
+  3: tf.Tensor(1.5143406, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 9, loss: PerReplica:{
+  0: tf.Tensor(0.413176, shape=(), dtype=float32),
+  1: tf.Tensor(0.42411563, shape=(), dtype=float32),
+  2: tf.Tensor(0.38453132, shape=(), dtype=float32),
+  3: tf.Tensor(0.4314984, shape=(), dtype=float32)
+} --------------------
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="load-the-pre-trained-embeddings-via-hps">
+<h2>Load the pre-trained embeddings via HPS<a class="headerlink" href="#load-the-pre-trained-embeddings-via-hps" title="Permalink to this headline"></a></h2>
+<p>In order to use HPS to load the pre-trained embeddings, they should be converted to the formats required by HPS. After that, we can train a new model which leverages the pre-trained embeddings and only updates the weights of dense layers. Please note that  <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer</span></code> and <code class="docutils literal notranslate"> <span class="pre">hps.LookupLayer</span></code> are not trainable.</p>
+<p>In order to initialize the lookup service provided by HPS, we also need to create a JSON configuration file and specify the details of the embedding tables for the models to be deployed. We deploy a model that has one embedding table here, and it can support multiple models with multiple embedding tables actually. Please note how <code class="docutils literal notranslate"><span class="pre">maxnum_catfeature_query_per_table_per_sample</span></code> is specified for the embedding table: the <code class="docutils literal notranslate"><span class="pre">max_nnz</span></code> is 5 for all the slots and there are 10 slots, so this entry is configured as 50.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">convert_to_sparse_model</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="p">,</span> <span class="n">embedding_table_path</span><span class="p">,</span> <span class="n">embedding_vec_size</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;mkdir -p </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/key&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">,</span> \
+        <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/emb_vector&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">vec_file</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="n">embeddings_weights</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">key_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="n">vec_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">embedding_vec_size</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">vec</span><span class="p">)</span>
+        <span class="n">key_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">key_struct</span><span class="p">)</span>
+        <span class="n">vec_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">vec_struct</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> dnn.json
+<span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;dnn&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dnn_sparse.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting dnn.json
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">PreTrainedEmbedding</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">combiner</span><span class="p">,</span>
+                 <span class="n">embed_vec_size</span><span class="p">,</span>
+                 <span class="n">slot_num</span><span class="p">,</span>
+                 <span class="n">max_nnz</span><span class="p">,</span>
+                 <span class="n">dense_dim</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">PreTrainedEmbedding</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">combiner</span> <span class="o">=</span> <span class="n">combiner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span> <span class="o">=</span> <span class="n">embed_vec_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="n">slot_num</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span> <span class="o">=</span> <span class="n">max_nnz</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span> <span class="o">=</span> <span class="n">dense_dim</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">sparse_lookup_layer</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">SparseLookupLayer</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dnn&quot;</span><span class="p">,</span> 
+                                                         <span class="n">table_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                                                         <span class="n">emb_vec_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span><span class="p">,</span>
+                                                         <span class="n">emb_vec_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">])</span>
+        <span class="c1"># Only use one FC layer when leveraging pre-trained embeddings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">new_fc</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;new_fc&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">input_cat</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">input_dense</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c1"># SparseTensor of keys, shape: (batch_size*slot_num, max_nnz)</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparse_lookup_layer</span><span class="p">(</span><span class="n">sp_ids</span><span class="o">=</span><span class="n">input_cat</span><span class="p">,</span> <span class="n">sp_weights</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">combiner</span><span class="p">),</span>
+                                <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span><span class="p">])</span>
+        <span class="n">concat_feas</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">input_dense</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_fc</span><span class="p">(</span><span class="n">concat_feas</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span><span class="p">,</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]),</span> 
+                  <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span><span class="p">,</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">train_with_pretrained_embeddings</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">MirroredStrategy</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">strategy</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
+        <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="n">global_batch_size</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span> <span class="n">ps_config_file</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">])</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">PreTrainedEmbedding</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+        
+    <span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">Reduction</span><span class="o">.</span><span class="n">NONE</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_replica_loss</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logits</span><span class="p">):</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">loss_fn</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logits</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">compute_average_loss</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">global_batch_size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+    
+    <span class="k">def</span> <span class="nf">_reshape_input</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sparse_keys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="n">sparse_keys</span>
+    
+    <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+            <span class="n">logit</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">_replica_loss</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logit</span><span class="p">)</span>
+        <span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">)</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">loss</span>
+    
+    <span class="k">def</span> <span class="nf">_dataset_fn</span><span class="p">(</span><span class="n">input_context</span><span class="p">):</span>
+        <span class="n">replica_batch_size</span> <span class="o">=</span> <span class="n">input_context</span><span class="o">.</span><span class="n">get_per_replica_batch_size</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+        <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span>  <span class="o">*</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">replica_batch_size</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="n">input_context</span><span class="o">.</span><span class="n">num_input_pipelines</span><span class="p">,</span> <span class="n">input_context</span><span class="o">.</span><span class="n">input_pipeline_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dataset</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">distribute_datasets_from_function</span><span class="p">(</span><span class="n">_dataset_fn</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_reshape_input</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,))</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">loss</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_train_step</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">, loss: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">loss</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">convert_to_sparse_model</span><span class="p">(</span><span class="n">embedding_weights</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size&quot;</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">train_with_pretrained_embeddings</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Using MirroredStrategy with devices (&#39;/job:localhost/replica:0/task:0/device:GPU:0&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:1&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:2&#39;, &#39;/job:localhost/replica:0/task:0/device:GPU:3&#39;)
+=====================================================HPS Parse====================================================
+You are using the plugin with MirroredStrategy.
+[HCTR][06:42:16.707][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][06:42:16.707][INFO][RK0][main]: num_of_refresher_buffer_in_pool is not specified using default: 1
+[HCTR][06:42:16.707][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][06:42:16.707][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][06:42:16.707][INFO][RK0][main]: refresh_interval is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][06:42:16.707][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][06:42:16.707][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][06:42:16.707][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][06:42:17.153][INFO][RK0][main]: Table: hps_et.dnn.sparse_embedding0; cached 100000 / 100000 embeddings in volatile database (PreallocatedHashMapBackend); load: 100000 / 18446744073709551615 (0.00%).
+[HCTR][06:42:17.153][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][06:42:17.153][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][06:42:17.160][INFO][RK0][main]: Model name: dnn
+[HCTR][06:42:17.160][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][06:42:17.160][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][06:42:17.160][INFO][RK0][main]: Use I64 input key: True
+[HCTR][06:42:17.160][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][06:42:17.160][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][06:42:17.160][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][06:42:17.160][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][06:42:17.170][INFO][RK0][main]: Creating embedding cache in device 1.
+[HCTR][06:42:17.177][INFO][RK0][main]: Model name: dnn
+[HCTR][06:42:17.177][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][06:42:17.177][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][06:42:17.177][INFO][RK0][main]: Use I64 input key: True
+[HCTR][06:42:17.177][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][06:42:17.177][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][06:42:17.177][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][06:42:17.177][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][06:42:17.180][INFO][RK0][main]: Creating embedding cache in device 2.
+[HCTR][06:42:17.188][INFO][RK0][main]: Model name: dnn
+[HCTR][06:42:17.188][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][06:42:17.188][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][06:42:17.188][INFO][RK0][main]: Use I64 input key: True
+[HCTR][06:42:17.188][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][06:42:17.188][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][06:42:17.188][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][06:42:17.188][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][06:42:17.191][INFO][RK0][main]: Creating embedding cache in device 3.
+[HCTR][06:42:17.197][INFO][RK0][main]: Model name: dnn
+[HCTR][06:42:17.197][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][06:42:17.197][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][06:42:17.197][INFO][RK0][main]: Use I64 input key: True
+[HCTR][06:42:17.197][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][06:42:17.197][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][06:42:17.197][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][06:42:17.197][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][06:42:17.300][INFO][RK0][main]: Creating lookup session for dnn on device: 0
+[HCTR][06:42:17.300][INFO][RK0][main]: Creating lookup session for dnn on device: 1
+[HCTR][06:42:17.300][INFO][RK0][main]: Creating lookup session for dnn on device: 2
+[HCTR][06:42:17.300][INFO][RK0][main]: Creating lookup session for dnn on device: 3
+Model: &quot;model_1&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_3 (InputLayer)           [(None, 5)]          0           []                               
+                                                                                                  
+ sparse_lookup_layer (SparseLoo  (None, 16)          0           [&#39;input_3[0][0]&#39;]                
+ kupLayer)                                                                                        
+                                                                                                  
+ tf.reshape_1 (TFOpLambda)      (None, 160)          0           [&#39;sparse_lookup_layer[0][0]&#39;]    
+                                                                                                  
+ input_4 (InputLayer)           [(None, 10)]         0           []                               
+                                                                                                  
+ tf.concat_1 (TFOpLambda)       (None, 170)          0           [&#39;tf.reshape_1[0][0]&#39;,           
+                                                                  &#39;input_4[0][0]&#39;]                
+                                                                                                  
+ new_fc (Dense)                 (None, 1)            171         [&#39;tf.concat_1[0][0]&#39;]            
+                                                                                                  
+==================================================================================================
+Total params: 171
+Trainable params: 171
+Non-trainable params: 0
+__________________________________________________________________________________________________
+-------------------- Step 0, loss: PerReplica:{
+  0: tf.Tensor(0.17934436, shape=(), dtype=float32),
+  1: tf.Tensor(0.17969523, shape=(), dtype=float32),
+  2: tf.Tensor(0.18917403, shape=(), dtype=float32),
+  3: tf.Tensor(0.18102707, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 1, loss: PerReplica:{
+  0: tf.Tensor(1.7858478, shape=(), dtype=float32),
+  1: tf.Tensor(1.68311, shape=(), dtype=float32),
+  2: tf.Tensor(1.66279, shape=(), dtype=float32),
+  3: tf.Tensor(1.5826445, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 2, loss: PerReplica:{
+  0: tf.Tensor(0.7325904, shape=(), dtype=float32),
+  1: tf.Tensor(0.7331751, shape=(), dtype=float32),
+  2: tf.Tensor(0.7210605, shape=(), dtype=float32),
+  3: tf.Tensor(0.7671325, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 3, loss: PerReplica:{
+  0: tf.Tensor(0.62144834, shape=(), dtype=float32),
+  1: tf.Tensor(0.5696643, shape=(), dtype=float32),
+  2: tf.Tensor(0.5946336, shape=(), dtype=float32),
+  3: tf.Tensor(0.64713424, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 4, loss: PerReplica:{
+  0: tf.Tensor(0.88115656, shape=(), dtype=float32),
+  1: tf.Tensor(0.9079187, shape=(), dtype=float32),
+  2: tf.Tensor(0.98161024, shape=(), dtype=float32),
+  3: tf.Tensor(0.97925556, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 5, loss: PerReplica:{
+  0: tf.Tensor(0.6572284, shape=(), dtype=float32),
+  1: tf.Tensor(0.6304919, shape=(), dtype=float32),
+  2: tf.Tensor(0.66552734, shape=(), dtype=float32),
+  3: tf.Tensor(0.6695935, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 6, loss: PerReplica:{
+  0: tf.Tensor(0.2002374, shape=(), dtype=float32),
+  1: tf.Tensor(0.19162768, shape=(), dtype=float32),
+  2: tf.Tensor(0.1874283, shape=(), dtype=float32),
+  3: tf.Tensor(0.19209734, shape=(), dtype=float32)
+} --------------------
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>-------------------- Step 7, loss: PerReplica:{
+  0: tf.Tensor(0.5284709, shape=(), dtype=float32),
+  1: tf.Tensor(0.6028371, shape=(), dtype=float32),
+  2: tf.Tensor(0.5635803, shape=(), dtype=float32),
+  3: tf.Tensor(0.5773235, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 8, loss: PerReplica:{
+  0: tf.Tensor(0.74001855, shape=(), dtype=float32),
+  1: tf.Tensor(0.71915305, shape=(), dtype=float32),
+  2: tf.Tensor(0.619328, shape=(), dtype=float32),
+  3: tf.Tensor(0.7890761, shape=(), dtype=float32)
+} --------------------
+-------------------- Step 9, loss: PerReplica:{
+  0: tf.Tensor(0.55197906, shape=(), dtype=float32),
+  1: tf.Tensor(0.5565746, shape=(), dtype=float32),
+  2: tf.Tensor(0.52792, shape=(), dtype=float32),
+  3: tf.Tensor(0.6230979, shape=(), dtype=float32)
+} --------------------
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hps_multi_table_sparse_input_demo.html" class="btn btn-neutral float-left" title="HPS for Multiple Tables and Sparse Inputs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sok_to_hps_dlrm_demo.html" class="btn btn-neutral float-right" title="SOK to HPS DLRM Demo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v23.02.00
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="hps_pretrained_model_training_demo.html">v23.02.00</a></dd>
+      <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

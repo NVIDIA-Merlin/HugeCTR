@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR End-end Example with NVTabular &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hugectr_e2e_demo.html" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Multi-modal Example Notebooks" href="multi-modal-data/index.html" />
+    <link rel="prev" title="HugeCTR Embedding Collection" href="embedding_collection.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_and_inference_with_remote_filesystem.html">HugeCTR Training and Inference with Remote File System Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR End-end Example with NVTabular</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">HugeCTR Example Notebooks</a></li>
+      <li class="breadcrumb-item active">HugeCTR End-end Example with NVTabular</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-end-end-example-with-nvtabular">
+<h1>HugeCTR End-end Example with NVTabular<a class="headerlink" href="#hugectr-end-end-example-with-nvtabular" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>In this sample notebook, we are going to:</p>
+<ol class="arabic simple">
+<li><p>Preprocess data using <strong>NVTabular</strong></p></li>
+<li><p>Training model with <strong>HugeCTR</strong></p></li>
+<li><p>Do offline inference using <strong>HugeCTR HPS</strong></p></li>
+</ol>
+</div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
+</div>
+<div class="section" id="data-preparation">
+<h2>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p /hugectr_e2e
+<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/train
+<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/val
+<span class="o">!</span>mkdir -p /hugectr_e2e/model
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">BASE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;BASE_DIR&quot;</span><span class="p">,</span> <span class="s2">&quot;/hugectr_e2e&quot;</span><span class="p">)</span>
+<span class="n">DATA_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DATA_DIR&quot;</span><span class="p">,</span> <span class="n">BASE_DIR</span> <span class="o">+</span> <span class="s2">&quot;/criteo&quot;</span><span class="p">)</span>
+<span class="n">TRAIN_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TRAIN_DIR&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span><span class="s2">&quot;/train&quot;</span><span class="p">)</span>
+<span class="n">VAL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;VAL_DIR&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span><span class="s2">&quot;/val&quot;</span><span class="p">)</span>
+<span class="n">MODEL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MODEL_DIR&quot;</span><span class="p">,</span> <span class="n">BASE_DIR</span> <span class="o">+</span> <span class="s2">&quot;/model&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p><strong>Download the Criteo data for 1 day:</strong></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!wget -P $DATA_DIR https://storage.googleapis.com/criteo-cail-datasets/day_0.gz  #decomment this line to download, otherwise soft link the data.</span>
+<span class="c1">#!gzip -d -c $DATA_DIR/day_0.gz &gt; $DATA_DIR/day_0</span>
+<span class="n">INPUT_DATA</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;INPUT_DATA&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span> <span class="s2">&quot;/day_0&quot;</span><span class="p">)</span>
+<span class="o">!</span>ln -s <span class="nv">$INPUT_DATA</span> <span class="nv">$DATA_DIR</span>/day_0
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ln: failed to create symbolic link &#39;/hugectr_e2e/criteo/day_0&#39;: File exists
+</pre></div>
+</div>
+</div>
+</div>
+<p><strong>Unzip and split data</strong></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>head -n <span class="m">10000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/train/train.txt
+<span class="o">!</span>tail -n <span class="m">2000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/val/test.txt 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="data-preprocessing-using-nvtabular">
+<h2>Data Preprocessing using NVTabular<a class="headerlink" href="#data-preprocessing-using-nvtabular" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">numba</span>
+
+<span class="kn">import</span> <span class="nn">dask_cudf</span>
+<span class="kn">import</span> <span class="nn">cudf</span>
+<span class="kn">import</span> <span class="nn">nvtabular</span> <span class="k">as</span> <span class="nn">nvt</span>
+<span class="kn">from</span> <span class="nn">nvtabular.io</span> <span class="kn">import</span> <span class="n">Shuffle</span>
+<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">Categorify</span><span class="p">,</span> <span class="n">Clip</span><span class="p">,</span> <span class="n">FillMissing</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">get_embedding_sizes</span>
+<span class="kn">from</span> <span class="nn">dask_cuda</span> <span class="kn">import</span> <span class="n">LocalCUDACluster</span>
+<span class="kn">from</span> <span class="nn">dask.distributed</span> <span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span> <span class="nn">nvtabular.utils</span> <span class="kn">import</span> <span class="n">pynvml_mem_size</span><span class="p">,</span> <span class="n">device_mem_size</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">NOTSET</span><span class="p">)</span>
+
+<span class="c1"># define dataset schema</span>
+<span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span>
+<span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
+<span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
+<span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1">#/samples/criteo mode doesn&#39;t have dense features</span>
+<span class="n">criteo_COLUMN</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1">#For new feature cross columns</span>
+<span class="n">CROSS_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;C1_C2&quot;</span><span class="p">,</span> <span class="s2">&quot;C3_C4&quot;</span><span class="p">]</span>
+
+<span class="n">NUM_INTEGER_COLUMNS</span> <span class="o">=</span> <span class="mi">13</span>
+<span class="n">NUM_CATEGORICAL_COLUMNS</span> <span class="o">=</span> <span class="mi">26</span>
+<span class="n">NUM_TOTAL_COLUMNS</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">NUM_INTEGER_COLUMNS</span> <span class="o">+</span> <span class="n">NUM_CATEGORICAL_COLUMNS</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dask dashboard</span>
+<span class="n">dashboard_port</span> <span class="o">=</span> <span class="s2">&quot;8787&quot;</span>
+
+<span class="c1"># Deploy a Single-Machine Multi-GPU Cluster</span>
+<span class="n">protocol</span> <span class="o">=</span> <span class="s2">&quot;tcp&quot;</span>  <span class="c1"># &quot;tcp&quot; or &quot;ucx&quot;</span>
+<span class="k">if</span> <span class="n">numba</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+    <span class="n">NUM_GPUS</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">numba</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">gpus</span><span class="p">)))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">NUM_GPUS</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">visible_devices</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">NUM_GPUS</span><span class="p">])</span>  <span class="c1"># Delect devices to place workers</span>
+<span class="n">device_limit_frac</span> <span class="o">=</span> <span class="mf">0.7</span>  <span class="c1"># Spill GPU-Worker memory to host at this limit.</span>
+<span class="n">device_pool_frac</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">part_mem_frac</span> <span class="o">=</span> <span class="mf">0.15</span>
+
+<span class="c1"># Use total device size to calculate args.device_limit_frac</span>
+<span class="n">device_size</span> <span class="o">=</span> <span class="n">device_mem_size</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;total&quot;</span><span class="p">)</span>
+<span class="n">device_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_limit_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+<span class="n">device_pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_pool_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+<span class="n">part_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+
+<span class="c1"># Check if any device memory is already occupied</span>
+<span class="k">for</span> <span class="n">dev</span> <span class="ow">in</span> <span class="n">visible_devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
+    <span class="n">fmem</span> <span class="o">=</span> <span class="n">pynvml_mem_size</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dev</span><span class="p">))</span>
+    <span class="n">used</span> <span class="o">=</span> <span class="p">(</span><span class="n">device_size</span> <span class="o">-</span> <span class="n">fmem</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+    <span class="k">if</span> <span class="n">used</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BEWARE - </span><span class="si">{</span><span class="n">used</span><span class="si">}</span><span class="s2"> GB is already occupied on device </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+
+<span class="n">cluster</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (Optional) Specify existing scheduler port</span>
+<span class="k">if</span> <span class="n">cluster</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
+        <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">visible_devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+        <span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="n">visible_devices</span><span class="p">,</span>
+        <span class="n">device_memory_limit</span><span class="o">=</span><span class="n">device_limit</span><span class="p">,</span>
+        <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">dashboard_port</span><span class="p">,</span>
+        <span class="n">rmm_pool_size</span><span class="o">=</span><span class="p">(</span><span class="n">device_pool_size</span> <span class="o">//</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span>
+    <span class="p">)</span>
+
+<span class="c1"># Create the distributed client</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+<span class="n">client</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-01-06 04:03:09,380 Using selector: EpollSelector
+2023-01-06 04:03:11,334 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,334 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,343 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,344 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,362 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,362 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,381 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,381 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,402 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,402 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,411 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,411 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,413 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,413 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-01-06 04:03:11,419 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-01-06 04:03:11,419 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+</pre></div>
+</div>
+<div class="output text_html"><div>
+    <div style="width: 24px; height: 24px; background-color: #e1e1e1; border: 3px solid #9D9D9D; border-radius: 5px; position: absolute;"> </div>
+    <div style="margin-left: 48px;">
+        <h3 style="margin-bottom: 0px;">Client</h3>
+        <p style="color: #9D9D9D; margin-bottom: 0px;">Client-0a63fe32-8d77-11ed-88dd-54ab3adac0a5</p>
+        <table style="width: 100%; text-align: left;">
+
+        <tr>
+        
+            <td style="text-align: left;"><strong>Connection method:</strong> Cluster object</td>
+            <td style="text-align: left;"><strong>Cluster type:</strong> dask_cuda.LocalCUDACluster</td>
+        
+        </tr>
+
+        
+            <tr>
+                <td style="text-align: left;">
+                    <strong>Dashboard: </strong> <a href="http://127.0.0.1:8787/status" target="_blank">http://127.0.0.1:8787/status</a>
+                </td>
+                <td style="text-align: left;"></td>
+            </tr>
+        
+
+        </table>
+
+        
+            <details>
+            <summary style="margin-bottom: 20px;"><h3 style="display: inline;">Cluster Info</h3></summary>
+            <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-mod-trusted jp-OutputArea-output">
+    <div style="width: 24px; height: 24px; background-color: #e1e1e1; border: 3px solid #9D9D9D; border-radius: 5px; position: absolute;">
+    </div>
+    <div style="margin-left: 48px;">
+        <h3 style="margin-bottom: 0px; margin-top: 0px;">LocalCUDACluster</h3>
+        <p style="color: #9D9D9D; margin-bottom: 0px;">46ea38f1</p>
+        <table style="width: 100%; text-align: left;">
+            <tr>
+                <td style="text-align: left;">
+                    <strong>Dashboard:</strong> <a href="http://127.0.0.1:8787/status" target="_blank">http://127.0.0.1:8787/status</a>
+                </td>
+                <td style="text-align: left;">
+                    <strong>Workers:</strong> 8
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align: left;">
+                    <strong>Total threads:</strong> 8
+                </td>
+                <td style="text-align: left;">
+                    <strong>Total memory:</strong> 503.79 GiB
+                </td>
+            </tr>
+            
+            <tr>
+    <td style="text-align: left;"><strong>Status:</strong> running</td>
+    <td style="text-align: left;"><strong>Using processes:</strong> True</td>
+</tr>
+
+            
+        </table>
+
+        <details>
+            <summary style="margin-bottom: 20px;">
+                <h3 style="display: inline;">Scheduler Info</h3>
+            </summary>
+
+            <div style="">
+    <div>
+        <div style="width: 24px; height: 24px; background-color: #FFF7E5; border: 3px solid #FF6132; border-radius: 5px; position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+            <h3 style="margin-bottom: 0px;">Scheduler</h3>
+            <p style="color: #9D9D9D; margin-bottom: 0px;">Scheduler-5770dfa1-869c-4143-a327-dd59936a928a</p>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Comm:</strong> tcp://127.0.0.1:44759
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Workers:</strong> 8
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard:</strong> <a href="http://127.0.0.1:8787/status" target="_blank">http://127.0.0.1:8787/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Total threads:</strong> 8
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Started:</strong> Just now
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Total memory:</strong> 503.79 GiB
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <details style="margin-left: 48px;">
+        <summary style="margin-bottom: 20px;">
+            <h3 style="display: inline;">Workers</h3>
+        </summary>
+
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 0</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:41549
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:44715/status" target="_blank">http://127.0.0.1:44715/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:35427
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-j9o6tjnq
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 1</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:33573
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:36839/status" target="_blank">http://127.0.0.1:36839/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:43633
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-g048l4_5
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 2</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:40435
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:37093/status" target="_blank">http://127.0.0.1:37093/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:41905
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-nb0yv_rz
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 3</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:41707
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:37285/status" target="_blank">http://127.0.0.1:37285/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:43925
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-8vibnk55
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 4</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:40165
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:46549/status" target="_blank">http://127.0.0.1:46549/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:40305
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-p9qwcklg
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 5</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:36597
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:42895/status" target="_blank">http://127.0.0.1:42895/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:41439
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-y00valwq
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 6</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:45495
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:44953/status" target="_blank">http://127.0.0.1:44953/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:37091
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-4lj3i2cp
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="width: 24px; height: 24px; background-color: #DBF5FF; border: 3px solid #4CC9FF; border-radius: 5px; position: absolute;"> </div>
+            <div style="margin-left: 48px;">
+            <details>
+                <summary>
+                    <h4 style="margin-bottom: 0px; display: inline;">Worker: 7</h4>
+                </summary>
+                <table style="width: 100%; text-align: left;">
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Comm: </strong> tcp://127.0.0.1:46123
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Total threads: </strong> 1
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Dashboard: </strong> <a href="http://127.0.0.1:40675/status" target="_blank">http://127.0.0.1:40675/status</a>
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>Memory: </strong> 62.97 GiB
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>Nanny: </strong> tcp://127.0.0.1:36179
+                        </td>
+                        <td style="text-align: left;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">
+                            <strong>Local directory: </strong> /tmp/dask-worker-space/worker-dvzzo2d1
+                        </td>
+                    </tr>
+
+                    
+                    <tr>
+                        <td style="text-align: left;">
+                            <strong>GPU: </strong>Tesla V100-SXM2-32GB
+                        </td>
+                        <td style="text-align: left;">
+                            <strong>GPU memory: </strong> 31.75 GiB
+                        </td>
+                    </tr>
+                    
+
+                    
+
+                </table>
+            </details>
+            </div>
+        </div>
+        
+
+    </details>
+</div>
+
+        </details>
+    </div>
+</div>
+            </details>
+        
+
+    </div>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Training output data: &quot;</span><span class="o">+</span><span class="n">train_output</span><span class="p">)</span>
+<span class="n">val_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Validation output data: &quot;</span><span class="o">+</span><span class="n">val_output</span><span class="p">)</span>
+<span class="n">train_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;train/train.txt&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Training dataset: &quot;</span><span class="o">+</span><span class="n">train_input</span><span class="p">)</span>
+<span class="n">val_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;val/test.txt&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESS_DIR_temp_train</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s1">&#39;train/temp-parquet-after-conversion&#39;</span><span class="p">)</span>  
+<span class="n">PREPROCESS_DIR_temp_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;val/temp-parquet-after-conversion&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">)</span>
+
+<span class="n">PREPROCESS_DIR_temp</span> <span class="o">=</span> <span class="p">[</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="n">PREPROCESS_DIR_temp_val</span><span class="p">]</span>
+
+<span class="c1"># Make sure we have a clean parquet space for cudf conversion</span>
+<span class="k">for</span> <span class="n">one_path</span> <span class="ow">in</span> <span class="n">PREPROCESS_DIR_temp</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">one_path</span><span class="p">):</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
+
+<span class="c1">#calculate the total processing time</span>
+<span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<span class="c1">## train/valid txt to parquet</span>
+<span class="n">train_valid_paths</span> <span class="o">=</span> <span class="p">[(</span><span class="n">train_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">),(</span><span class="n">val_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">)]</span>
+
+<span class="k">for</span> <span class="nb">input</span><span class="p">,</span> <span class="n">temp_output</span> <span class="ow">in</span> <span class="n">train_valid_paths</span><span class="p">:</span>
+
+    <span class="n">ddf</span> <span class="o">=</span> <span class="n">dask_cudf</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">names</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+
+    <span class="n">ddf</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+    <span class="n">ddf</span><span class="p">[</span><span class="n">CONTINUOUS_COLUMNS</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="n">CONTINUOUS_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save it as parquet format for better memory usage</span>
+    <span class="n">ddf</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">temp_output</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1">##-----------------------------------##</span>
+
+<span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="n">train_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
+<span class="n">valid_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
+
+<span class="n">categorify_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">()</span>
+<span class="n">cat_features</span> <span class="o">=</span> <span class="n">CATEGORICAL_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">categorify_op</span>
+<span class="n">cont_features</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">FillMissing</span><span class="p">()</span> <span class="o">&gt;&gt;</span> <span class="n">Clip</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">Normalize</span><span class="p">()</span>
+<span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">encode_type</span><span class="o">=</span><span class="s2">&quot;combo&quot;</span><span class="p">)</span>
+
+<span class="n">features</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span>
+
+<span class="n">features</span> <span class="o">+=</span> <span class="n">cont_features</span>
+<span class="k">if</span> <span class="n">CROSS_COLUMNS</span><span class="p">:</span>
+    <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
+        <span class="n">features</span> <span class="o">+=</span> <span class="p">[</span><span class="n">pair</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
+
+<span class="n">features</span> <span class="o">+=</span> <span class="n">cat_features</span>
+
+<span class="n">workflow</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Workflow</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preprocessing&quot;</span><span class="p">)</span>
+
+<span class="n">output_format</span> <span class="o">=</span> <span class="s1">&#39;parquet&#39;</span>
+
+<span class="c1"># just for /samples/criteo model</span>
+<span class="n">train_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">train_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">)</span>
+<span class="n">valid_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">valid_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">)</span>
+
+<span class="n">shuffle</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Train Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+
+<span class="n">dict_dtypes</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CONTINUOUS_COLUMNS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">LABEL_COLUMNS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">conts</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span>
+
+<span class="n">workflow</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+            <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
+
+<span class="c1">###Getting slot size###    </span>
+<span class="c1">#--------------------##</span>
+<span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+<span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+<span class="c1">##--------------------##</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Valid Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+            <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
+
+<span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+<span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
+<span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+<span class="c1">##--------------------##</span>
+
+<span class="c1">## Shutdown clusters</span>
+<span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">runtime</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Dask-NVTabular Criteo Preprocessing Done!&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Runtime[s]         | </span><span class="si">{</span><span class="n">runtime</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;======================================</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Training output data: /hugectr_e2e/criteo/train
+Validation output data: /hugectr_e2e/criteo/val
+Training dataset: /hugectr_e2e/criteo/train/train.txt
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-01-06 04:03:19,407 Preprocessing
+2023-01-06 04:03:19,749 Train Datasets Preprocessing.....
+/usr/local/lib/python3.8/dist-packages/merlin/io/dataset.py:867: UserWarning: Only creating 5 files. Did not have enough partitions to create 8 files.
+  warnings.warn(
+2023-01-06 04:03:25,189 Valid Datasets Preprocessing.....
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[1234907, 19683, 13780, 6867, 18490, 4, 6264, 1235, 50, 854680, 114026, 75736, 11, 2159, 7533, 61, 4, 919, 15, 1307783, 404742, 1105613, 87714, 9032, 77, 34, 1581605, 1093030]
+[1234907, 19683, 13780, 6867, 18490, 4, 6264, 1235, 50, 854680, 114026, 75736, 11, 2159, 7533, 61, 4, 919, 15, 1307783, 404742, 1105613, 87714, 9032, 77, 34, 1581605, 1093030]
+
+Dask-NVTabular Criteo Preprocessing Done!
+Runtime[s]         | 11.454381227493286
+======================================
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">client</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="n">cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">### Record the slot size array</span>
+<span class="n">SLOT_SIZE_ARRAY</span> <span class="o">=</span> <span class="n">embeddings</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="training-a-wdl-model-with-hugectr">
+<h2>Training a WDL model with HugeCTR<a class="headerlink" href="#training-a-wdl-model-with-hugectr" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;./train.py&#39;
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;HugeCTR Training&quot;</span><span class="p">))</span>
+<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--data_path&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Input dataset path (Required)&quot;</span><span class="p">)</span>
+<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--model_path&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Directory path to write output (Required)&quot;</span><span class="p">)</span>
+<span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+<span class="n">SLOT_SIZE_ARRAY</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1234907</span><span class="p">,</span> <span class="mi">19683</span><span class="p">,</span> <span class="mi">13780</span><span class="p">,</span> <span class="mi">6867</span><span class="p">,</span> <span class="mi">18490</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6264</span><span class="p">,</span> <span class="mi">1235</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">854680</span><span class="p">,</span> <span class="mi">114026</span><span class="p">,</span> <span class="mi">75736</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2159</span><span class="p">,</span> <span class="mi">7533</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">919</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">1307783</span><span class="p">,</span> <span class="mi">404742</span><span class="p">,</span> <span class="mi">1105613</span><span class="p">,</span> <span class="mi">87714</span><span class="p">,</span> <span class="mi">9032</span><span class="p">,</span> <span class="mi">77</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">1581605</span><span class="p">,</span> <span class="mi">1093030</span><span class="p">]</span>
+
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;train/_file_list.txt&quot;</span><span class="p">)],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;val/_file_list.txt&quot;</span><span class="p">),</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="n">SLOT_SIZE_ARRAY</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
+                                    <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
+                                    <span class="n">beta1</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+                                    <span class="n">beta2</span> <span class="o">=</span> <span class="mf">0.999</span><span class="p">,</span>
+                                    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.0000001</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;wide_data&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;wide_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">1350</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;deep_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReduceSum</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wide_redn&quot;</span><span class="p">],</span>
+                            <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Add</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span> <span class="s2">&quot;wide_redn&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">21000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;wdl/&quot;</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting ./train.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python train.py --data_path <span class="nv">$DATA_DIR</span> --model_path <span class="nv">$MODEL_DIR</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 4.2
+====================================================Model Init=====================================================
+[HCTR][04:03:34.493][WARNING][RK0][main]: The model name is not specified when creating the solver.
+[HCTR][04:03:34.493][INFO][RK0][main]: Global seed is 1268002110
+[HCTR][04:03:34.495][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][04:03:36.281][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][04:03:36.281][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.1804 
+[HCTR][04:03:36.281][INFO][RK0][main]: Start all2all warmup
+[HCTR][04:03:36.281][INFO][RK0][main]: End all2all warmup
+[HCTR][04:03:36.282][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][04:03:36.282][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB
+[HCTR][04:03:36.283][INFO][RK0][main]: num of DataReader workers for train: 1
+[HCTR][04:03:36.283][INFO][RK0][main]: num of DataReader workers for eval: 1
+[HCTR][04:03:36.283][DEBUG][RK0][main]: [device 0] allocating 0.0054 GB, available 29.9246 
+[HCTR][04:03:36.283][DEBUG][RK0][main]: [device 0] allocating 0.0054 GB, available 29.9187 
+[HCTR][04:03:36.284][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9187 
+[HCTR][04:03:36.284][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9187 
+[HCTR][04:03:36.284][INFO][RK0][main]: Vocabulary size: 7946054
+[HCTR][04:03:36.285][INFO][RK0][main]: max_vocabulary_size_per_gpu_=6990506
+[HCTR][04:03:36.298][DEBUG][RK0][main]: [device 0] allocating 0.0788 GB, available 29.5886 
+[HCTR][04:03:36.298][INFO][RK0][main]: max_vocabulary_size_per_gpu_=7372800
+[HCTR][04:03:36.305][DEBUG][RK0][main]: [device 0] allocating 1.3516 GB, available 28.1101 
+[HCTR][04:03:36.306][INFO][RK0][main]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HCTR][04:03:36.308][DEBUG][RK0][main]: [device 0] allocating 0.2162 GB, available 27.8777 
+[HCTR][04:03:36.309][DEBUG][RK0][main]: [device 0] allocating 0.0056 GB, available 27.8718 
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][04:03:44.735][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][04:03:44.738][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][04:03:44.738][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 27.8718 
+[HCTR][04:03:44.740][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][04:03:44.744][INFO][RK0][main]: Warm-up done
+===================================================Model Summary===================================================
+[HCTR][04:03:44.745][INFO][RK0][main]: Model structure on each GPU
+Label                                   Dense                         Sparse                        
+label                                   dense                          wide_data,deep_data           
+(2720,1)                                (2720,13)                               
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (2720,2,1)                    
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (2720,26,16)                  
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding1             reshape1                      (2720,416)                    
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding2             reshape2                      (2720,2)                      
+------------------------------------------------------------------------------------------------------------------
+ReduceSum                               reshape2                      wide_redn                     (2720,1)                      
+------------------------------------------------------------------------------------------------------------------
+Concat                                  reshape1                      concat1                       (2720,429)                    
+                                        dense                                                                                     
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            concat1                       fc1                           (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+ReLU                                    fc1                           relu1                         (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+Dropout                                 relu1                         dropout1                      (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            dropout1                      fc2                           (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+ReLU                                    fc2                           relu2                         (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+Dropout                                 relu2                         dropout2                      (2720,1024)                   
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            dropout2                      fc3                           (2720,1)                      
+------------------------------------------------------------------------------------------------------------------
+Add                                     fc3                           add1                          (2720,1)                      
+                                        wide_redn                                                                                 
+------------------------------------------------------------------------------------------------------------------
+BinaryCrossEntropyLoss                  add1                          loss                                                        
+                                        label                                                                                     
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[HCTR][04:03:44.745][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
+[HCTR][04:03:44.745][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
+[HCTR][04:03:44.745][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
+[HCTR][04:03:44.745][INFO][RK0][main]: Dense network trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
+[HCTR][04:03:44.745][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HCTR][04:03:44.745][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][04:03:44.745][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][04:03:44.745][INFO][RK0][main]: Training source file: /hugectr_e2e/criteo/train/_file_list.txt
+[HCTR][04:03:44.745][INFO][RK0][main]: Evaluation source file: /hugectr_e2e/criteo/val/_file_list.txt
+[HCTR][04:03:53.398][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 8.64913s Loss: 0.121202 lr:0.001
+[HCTR][04:04:02.135][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 8.73203s Loss: 0.119842 lr:0.001
+[HCTR][04:04:11.063][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 8.92374s Loss: 0.140827 lr:0.001
+[HCTR][04:04:20.136][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 9.06817s Loss: 0.112631 lr:0.001
+[HCTR][04:04:24.719][INFO][RK0][main]: Evaluation, AUC: 0.740936
+[HCTR][04:04:24.719][INFO][RK0][main]: Eval Time for 4000 iters: 4.58235s
+[HCTR][04:04:33.827][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 13.687s Loss: 0.0898167 lr:0.001
+[HCTR][04:04:42.918][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 9.0867s Loss: 0.0845359 lr:0.001
+[HCTR][04:04:52.021][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 9.09826s Loss: 0.103367 lr:0.001
+[HCTR][04:05:01.114][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 9.0885s Loss: 0.0986205 lr:0.001
+[HCTR][04:05:05.659][INFO][RK0][main]: Evaluation, AUC: 0.697036
+[HCTR][04:05:05.659][INFO][RK0][main]: Eval Time for 4000 iters: 4.5436s
+[HCTR][04:05:14.755][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 13.6362s Loss: 0.0968494 lr:0.001
+[HCTR][04:05:23.829][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 9.06979s Loss: 0.107726 lr:0.001
+[HCTR][04:05:32.906][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 9.07225s Loss: 0.0775421 lr:0.001
+[HCTR][04:05:42.011][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 9.10076s Loss: 0.0998987 lr:0.001
+[HCTR][04:05:46.553][INFO][RK0][main]: Evaluation, AUC: 0.695771
+[HCTR][04:05:46.554][INFO][RK0][main]: Eval Time for 4000 iters: 4.54159s
+[HCTR][04:05:55.651][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 13.636s Loss: 0.0899532 lr:0.001
+[HCTR][04:06:04.757][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 9.1015s Loss: 0.0869383 lr:0.001
+[HCTR][04:06:13.862][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 9.10059s Loss: 0.0718445 lr:0.001
+[HCTR][04:06:22.967][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 9.10076s Loss: 0.0784668 lr:0.001
+[HCTR][04:06:27.514][INFO][RK0][main]: Evaluation, AUC: 0.68094
+[HCTR][04:06:27.514][INFO][RK0][main]: Eval Time for 4000 iters: 4.54556s
+[HCTR][04:06:36.619][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 13.6469s Loss: 0.0711678 lr:0.001
+[HCTR][04:06:45.710][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 9.08659s Loss: 0.0941869 lr:0.001
+[HCTR][04:06:54.800][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 9.08513s Loss: 0.0780168 lr:0.001
+[HCTR][04:07:03.884][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 9.07991s Loss: 0.0978516 lr:0.001
+[HCTR][04:07:08.432][INFO][RK0][main]: Evaluation, AUC: 0.67476
+[HCTR][04:07:08.432][INFO][RK0][main]: Eval Time for 4000 iters: 4.54741s
+[HCTR][04:07:08.433][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.456][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][04:07:08.473][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.627][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][04:07:08.799][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][04:07:08.814][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:08.814][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.829][INFO][RK0][main]: Done
+[HCTR][04:07:08.832][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:08.832][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:08.845][INFO][RK0][main]: Done
+[HCTR][04:07:09.109][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:09.109][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.318][INFO][RK0][main]: Done
+[HCTR][04:07:09.597][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][04:07:09.597][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.808][INFO][RK0][main]: Done
+[HCTR][04:07:09.825][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][04:07:09.826][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.829][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][04:07:09.831][INFO][RK0][main]: Using Local file system backend.
+[HCTR][04:07:09.837][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][04:07:18.897][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 214.15s.
+[HCTR][04:07:18.897][INFO][RK0][main]: Save the model graph to /hugectr_e2e/model/wdl.json successfully
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="load-model-to-hps-and-inference-with-hugectr">
+<h2>Load model to HPS and inference with HugeCTR<a class="headerlink" href="#load-model-to-hps-and-inference-with-hugectr" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceModel</span><span class="p">,</span> <span class="n">InferenceParams</span>
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="n">model_config</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">,</span>
+    <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/_dense_20000.model&quot;</span><span class="p">),</span>
+    <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/0_sparse_20000.model&quot;</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s2">&quot;wdl/1_sparse_20000.model&quot;</span><span class="p">)],</span>
+    <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span>
+<span class="n">inference_model</span> <span class="o">=</span> <span class="n">InferenceModel</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="mi">10</span><span class="p">,</span>
+    <span class="s2">&quot;/hugectr_e2e/criteo/val/_file_list.txt&quot;</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+    <span class="n">SLOT_SIZE_ARRAY</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][05:22:53.279][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][05:22:53.279][INFO][RK0][main]: Global seed is 2968606722
+[HCTR][05:22:53.279][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][05:22:53.317][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:22:53.317][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.8757 
+[HCTR][05:22:53.317][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:22:53.317][INFO][RK0][main]: End all2all warmup
+[HCTR][05:22:53.318][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][05:22:53.318][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][05:22:53.318][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][05:22:53.318][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][05:22:53.318][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][05:22:53.318][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][05:22:53.318][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:22:53.318][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:22:53.659][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 2327936 / 2327936 embeddings in volatile database (HashMapBackend); load: 2327936 / 18446744073709551615 (0.00%).
+[HCTR][05:22:53.659][INFO][RK0][main]: Using Local file system backend.
+[HCTR][05:22:54.219][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 4169063 / 4169063 embeddings in volatile database (HashMapBackend); load: 4169063 / 18446744073709551615 (0.00%).
+[HCTR][05:22:54.235][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][05:22:54.235][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][05:22:54.239][INFO][RK0][main]: Model name: wdl
+[HCTR][05:22:54.239][INFO][RK0][main]: Max batch size: 1024
+[HCTR][05:22:54.239][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][05:22:54.239][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][05:22:54.239][INFO][RK0][main]: Use static table: False
+[HCTR][05:22:54.239][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:22:54.239][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][05:22:54.239][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][05:22:54.239][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][05:22:54.246][INFO][RK0][main]: Model name: wdl
+[HCTR][05:22:54.246][INFO][RK0][main]: Use mixed precision: False
+[HCTR][05:22:54.246][INFO][RK0][main]: Use cuda graph: True
+[HCTR][05:22:54.247][INFO][RK0][main]: Max batchsize: 1024
+[HCTR][05:22:54.247][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:22:54.247][INFO][RK0][main]: start create embedding for inference
+[HCTR][05:22:54.247][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][05:22:54.247][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][05:22:54.247][INFO][RK0][main]: create embedding for inference success
+[HCTR][05:22:54.247][DEBUG][RK0][main]: [device 0] allocating 0.0049 GB, available 29.2468 
+[HCTR][05:22:54.248][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][05:22:54.248][DEBUG][RK0][main]: [device 0] allocating 0.0388 GB, available 29.2000 
+[HCTR][05:22:55.955][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 29.1960 
+[HCTR][05:22:56.325][INFO][RK0][main]: Create inference data reader on 1 GPU(s)
+[HCTR][05:22:56.325][INFO][RK0][main]: num of DataReader workers: 1
+[HCTR][05:22:56.325][DEBUG][RK0][main]: [device 0] allocating 0.0020 GB, available 29.9617 
+[HCTR][05:22:56.325][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 29.9617 
+[HCTR][05:22:56.326][INFO][RK0][main]: Vocabulary size: 79460(10240, 1)
+[[2.0730977e-07]
+ [2.4348024e-05]
+ [4.8165547e-04]
+ ...
+ [1.3334073e-10]
+ [8.7153958e-03]
+ [2.7467359e-02]]
+54
+
+[HCTR][05:22:56.352][INFO][RK0][main]: Inference time for 10 batches: 0.02287
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="embedding_collection.html" class="btn btn-neutral float-left" title="HugeCTR Embedding Collection" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="multi-modal-data/index.html" class="btn btn-neutral float-right" title="Multi-modal Example Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v23.02.00
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="hugectr_e2e_demo.html">v23.02.00</a></dd>
+      <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
