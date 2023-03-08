@@ -15,18 +15,11 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
-#include <core/registry.hpp>
 #include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
 namespace embedding {
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
 
 class WeightedNetworkForward {
   std::shared_ptr<CoreResourceManager> core_;

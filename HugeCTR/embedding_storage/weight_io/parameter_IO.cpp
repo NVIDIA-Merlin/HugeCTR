@@ -56,15 +56,15 @@ void EmbeddingParameterIO::load_metadata(const std::string& parameters_folder_pa
   int* buffer_ev_length = (int*)(buffer + (start_offset + epi.table_nums) * sizeof(int) +
                                  epi.table_nums * sizeof(size_t));
   if (buffer_head[1] == 0) {
-    epi.key_type = core::DataType(core::TensorScalarType::UInt32);
+    epi.key_type = core23::ScalarType::UInt32;
   } else if (buffer_head[1] == 1) {
-    epi.key_type = core::DataType(core::TensorScalarType::Int64);
+    epi.key_type = core23::ScalarType::Int64;
   }
 
   if (buffer_head[2] == 0) {
-    epi.embedding_value_type = core::DataType(core::TensorScalarType::Float32);
+    epi.embedding_value_type = core23::ScalarType::Float;
   } else if (buffer_head[2] == 1) {
-    epi.embedding_value_type = core::DataType(core::TensorScalarType::Float16);
+    epi.embedding_value_type = core23::ScalarType::Half;
   }
   epi.max_embedding_vector_length = buffer_head[4];
 
@@ -98,8 +98,8 @@ void EmbeddingParameterIO::get_parameter_info_from_model(
     struct EmbeddingParameterInfo tmp_epi;
     tmp_epi.embedding_collection_id = i;
     tmp_epi.table_nums = tmp_ebc_param.num_table;
-    tmp_epi.key_type = data_type_core23_to_core[tmp_ebc_param.key_type.type()];
-    tmp_epi.embedding_value_type = data_type_core23_to_core[tmp_ebc_param.emb_type.type()];
+    tmp_epi.key_type = tmp_ebc_param.key_type;
+    tmp_epi.embedding_value_type = tmp_ebc_param.emb_type;
 
     if (embedding_collections_[i]->embedding_optimizers_.size() > 0)
       tmp_epi.optimizer_type = embedding_collections_[i]->embedding_optimizers_[0];
@@ -219,15 +219,15 @@ void EmbeddingParameterIO::dump_metadata(const std::string& parameters_folder_pa
 
   int* buffer_head = (int*)buffer;
   buffer_head[0] = (int)table_ids_update.size();
-  if (epi.key_type.type() == core::TensorScalarType::UInt32) {
+  if (epi.key_type.type() == core23::ScalarType::UInt32) {
     buffer_head[1] = 0;
-  } else if (epi.key_type.type() == core::TensorScalarType::Int64) {
+  } else if (epi.key_type.type() == core23::ScalarType::Int64) {
     buffer_head[1] = 1;
   }
 
-  if (epi.embedding_value_type.type() == core::TensorScalarType::Float32) {
+  if (epi.embedding_value_type.type() == core23::ScalarType::Float) {
     buffer_head[2] = 0;
-  } else if (epi.embedding_value_type.type() == core::TensorScalarType::Float16) {
+  } else if (epi.embedding_value_type.type() == core23::ScalarType::Half) {
     buffer_head[2] = 1;
   }
 
@@ -288,7 +288,7 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
     }
   }
 
-  DISPATCH_INTEGRAL_FUNCTION(epi.key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(epi.key_type.type(), key_t, [&] {
     for (int table_id = 0; table_id < table_ids_update.size(); ++table_id) {
       std::string ebc_key_path = ebc_path + "/key" + std::to_string(table_id);
       std::string ebc_weight_path = ebc_path + "/weight" + std::to_string(table_id);
@@ -305,12 +305,14 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
         size_t table_key_num = epi.gemb_distribution->get(global_gpu_id, table_id);
         size_t weight_length = table_key_num * table_ev_length;
 
-        auto buffer_ptr = core::GetBuffer(core_list_[0]);
-        Tensor key_tensor_tmp = buffer_ptr->reserve(table_key_num, DeviceType::CPU, epi.key_type);
-        Tensor weight_tensor_tmp =
-            buffer_ptr->reserve(weight_length, DeviceType::CPU, epi.embedding_value_type);
+        core23::Device device(core23::DeviceType::CPU);
+        core23::TensorParams params = core23::TensorParams().device(device);
 
-        buffer_ptr->allocate();
+        core23::Tensor key_tensor_tmp{
+            params.shape({static_cast<int64_t>(table_key_num)}).data_type(epi.key_type)};
+        core23::Tensor weight_tensor_tmp{params.shape({static_cast<int64_t>(weight_length)})
+                                             .data_type(epi.embedding_value_type)};
+
         int group_nums = group_embedding_tables.size();
         int group_index = -1;
         for (int group_id = 0; group_id < group_nums; ++group_id) {
@@ -328,8 +330,8 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
         }
         group_embedding_tables[0][group_index]->dump_by_id(&key_tensor_tmp, &weight_tensor_tmp,
                                                            table_id);
-        char* table_key_ptr = (char*)key_tensor_tmp.get();
-        char* table_weight_ptr = (char*)weight_tensor_tmp.get();
+        char* table_key_ptr = (char*)key_tensor_tmp.data();
+        char* table_weight_ptr = (char*)weight_tensor_tmp.data();
 #ifdef ENABLE_MPI
         if (resource_manager_->get_process_id() == 0) {
           file_system->write_to(ebc_key_path, table_key_ptr, 0, table_key_num * sizeof(key_t),
@@ -406,20 +408,22 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
 
             key_t* tmp_table_key_ptr = table_key_ptr + tmp_offset;
             float* tmp_table_weight_ptr = table_weight_ptr + tmp_offset * table_ev_length;
-            auto buffer_ptr = core::GetBuffer(core_list_[hit_gpu_id]);
-            Tensor key_tensor_tmp =
-                buffer_ptr->reserve(tmp_local_key_num, DeviceType::CPU, epi.key_type);
-            Tensor weight_tensor_tmp = buffer_ptr->reserve(
-                tmp_local_key_num * table_ev_length, DeviceType::CPU, epi.embedding_value_type);
 
-            buffer_ptr->allocate();
+            core23::Device device(core23::DeviceType::CPU);
+            core23::TensorParams params = core23::TensorParams().device(device);
+
+            core23::Tensor key_tensor_tmp{
+                params.shape({static_cast<int64_t>(tmp_local_key_num)}).data_type(epi.key_type)};
+            core23::Tensor weight_tensor_tmp{
+                params.shape({static_cast<int64_t>(tmp_local_key_num * table_ev_length)})
+                    .data_type(epi.embedding_value_type)};
 
             HugeCTR::CudaDeviceContext context(core_list_[hit_gpu_id]->get_device_id());
 
             group_embedding_tables[hit_gpu_id][group_index]->dump_by_id(
                 &key_tensor_tmp, &weight_tensor_tmp, table_id);
-            key_t* tmp_table_key_ptr_part = key_tensor_tmp.get<key_t>();
-            float* tmp_table_weight_ptr_part = weight_tensor_tmp.get<float>();
+            key_t* tmp_table_key_ptr_part = key_tensor_tmp.data<key_t>();
+            float* tmp_table_weight_ptr_part = weight_tensor_tmp.data<float>();
 
             memcpy(tmp_table_key_ptr, tmp_table_key_ptr_part, tmp_local_key_num * sizeof(key_t));
             memcpy(tmp_table_weight_ptr, tmp_table_weight_ptr_part,
@@ -467,16 +471,16 @@ std::shared_ptr<EmbeddingWeightIO> EmbeddingParameterIO::get_fs_object(const std
 }
 
 void EmbeddingParameterIO::load_embedding_weight(
-    const struct EmbeddingParameterInfo& epi, int fs_table_id, Tensor& keys,
-    Tensor& embedding_weights, embeddingFilter key_select,
-    std::shared_ptr<core::CoreResourceManager> core_resource, const core::DataType& target_key_type,
-    const core::DataType& target_value_type) {
+    const struct EmbeddingParameterInfo& epi, int fs_table_id, core23::Tensor& keys,
+    core23::Tensor& embedding_weights, embeddingFilter key_select,
+    std::shared_ptr<core::CoreResourceManager> core_resource,
+    const core23::DataType& target_key_type, const core23::DataType& target_value_type) {
   auto file_system = get_fs_object(epi.parameter_folder_path, SparseFSType::FS);
   std::string ebc_path = epi.parameter_folder_path + "/embedding_collection_" +
                          std::to_string(epi.embedding_collection_id);
   std::string ebc_key_path = epi.parameter_folder_path + "/key" + std::to_string(fs_table_id);
   std::string ebc_weight_path = epi.parameter_folder_path + "/weight" + std::to_string(fs_table_id);
-  DISPATCH_INTEGRAL_FUNCTION(epi.key_type.type(), key_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(epi.key_type.type(), key_t, [&] {
     // TODO::need to check file head , safety check
     size_t ev_length = epi.table_embedding_vector_lengths.at(fs_table_id);
     size_t key_file_length = file_system->get_file_size(ebc_key_path);
@@ -487,10 +491,15 @@ void EmbeddingParameterIO::load_embedding_weight(
       HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
                      "Error: key num is not equal with embedding vector num");
 
-    auto buffer_ptr = core::GetBuffer(core_resource);
-    Tensor key_tensor_tmp = buffer_ptr->reserve(key_num, DeviceType::CPU, epi.key_type);
-    buffer_ptr->allocate();
-    key_t* key_tensor_ptr = key_tensor_tmp.get<key_t>();
+    core23::Device device(core23::DeviceType::CPU);
+    core23::TensorParams params = core23::TensorParams().device(device);
+    core23::BufferParams buffer_prams;
+    buffer_prams.unitary = false;
+    core23::Tensor key_tensor_tmp{params.shape({static_cast<int64_t>(key_num)})
+                                      .data_type(epi.key_type)
+                                      .buffer_params(buffer_prams)};
+
+    key_t* key_tensor_ptr = key_tensor_tmp.data<key_t>();
     file_system->read_from(ebc_key_path, key_tensor_ptr, key_num * sizeof(key_t), FileHeadNbytes);
     size_t target_key_num = 0;
     for (int i = 0; i < key_num; ++i) {
@@ -499,28 +508,18 @@ void EmbeddingParameterIO::load_embedding_weight(
       }
     }
 
-    Tensor weight_tensor_tmp =
-        buffer_ptr->reserve(weight_num * ev_length, DeviceType::CPU, epi.embedding_value_type);
-    Tensor target_key_tensor_tmp;
-    Tensor target_weight_tensor_tmp;
-    if (target_key_type.type() == core::TensorScalarType::None) {
-      keys = buffer_ptr->reserve(target_key_num, DeviceType::CPU, epi.key_type);
-    } else {
-      keys = buffer_ptr->reserve(target_key_num, DeviceType::CPU, target_key_type);
-    }
+    core23::Tensor weight_tensor_tmp{params.shape({static_cast<int64_t>(weight_num * ev_length)})
+                                         .data_type(epi.embedding_value_type)};
+    keys = core23::Tensor(
+        params.shape({static_cast<int64_t>(target_key_num)}).data_type(target_key_type));
 
-    if (target_value_type.type() == core::TensorScalarType::None) {
-      embedding_weights = buffer_ptr->reserve(target_key_num * ev_length, DeviceType::CPU,
-                                              epi.embedding_value_type);
-    } else {
-      embedding_weights =
-          buffer_ptr->reserve(target_key_num * ev_length, DeviceType::CPU, target_value_type);
-    }
+    embedding_weights =
+        core23::Tensor(params.shape({static_cast<int64_t>(target_key_num * ev_length)})
+                           .data_type(target_value_type));
 
-    buffer_ptr->allocate();
-    key_t* keys_ptr = keys.get<key_t>();
-    float* weight_tensor_ptr = weight_tensor_tmp.get<float>();
-    float* embedding_weights_ptr = embedding_weights.get<float>();
+    key_t* keys_ptr = keys.data<key_t>();
+    float* weight_tensor_ptr = weight_tensor_tmp.data<float>();
+    float* embedding_weights_ptr = embedding_weights.data<float>();
 
     file_system->read_from(ebc_weight_path, weight_tensor_ptr, key_num * ev_length * sizeof(key_t),
                            FileHeadNbytes);
@@ -542,11 +541,11 @@ void EmbeddingParameterIO::load_embedding_weight(
 }
 
 void EmbeddingParameterIO::load_opt_state(const struct EmbeddingParameterInfo& epi, int fs_table_id,
-                                          Tensor& keys, Tensor& optimizer_buffer,
+                                          core23::Tensor& keys, core23::Tensor& optimizer_buffer,
                                           embeddingFilter key_select,
                                           std::shared_ptr<core::CoreResourceManager> core_resource,
-                                          const core::DataType& target_key_type,
-                                          const core::DataType& target_value_type) {
+                                          const core23::DataType& target_key_type,
+                                          const core23::DataType& target_value_type) {
   HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "wait 3G embedding optimizer complete");
 }
 void EmbeddingParameterIO::write_file_head(const std::string& path, EmbeddingFileType file_type,

@@ -40,28 +40,28 @@ class EmbeddingTableCPU {
     for (int gpu_id = 0; gpu_id < static_cast<int>(emb_storages.size()); ++gpu_id) {
       for (int storage_id = 0; storage_id < static_cast<int>(emb_storages[gpu_id].size());
            ++storage_id) {
-        core::Tensor keys;
-        core::Tensor num_key_per_table_offset;
-        core::Tensor emb_table;
-        core::Tensor emb_table_ev_size;
-        core::Tensor emb_table_ids;
+        core23::Tensor keys;
+        core23::Tensor num_key_per_table_offset;
+        core23::Tensor emb_table;
+        core23::Tensor emb_table_ev_size;
+        core23::Tensor emb_table_ids;
         emb_storages[gpu_id][storage_id]->dump(&keys, &num_key_per_table_offset, &emb_table,
                                                &emb_table_ev_size, &emb_table_ids);
 
-        std::vector<key_t> cpu_keys;
-        keys.to(&cpu_keys);
+        std::vector<key_t> cpu_keys(keys.num_elements());
+        core23::copy_sync(cpu_keys, keys);
 
-        std::vector<index_t> cpu_num_key_per_table_offset;
-        num_key_per_table_offset.to(&cpu_num_key_per_table_offset);
+        std::vector<index_t> cpu_num_key_per_table_offset(num_key_per_table_offset.num_elements());
+        core23::copy_sync(cpu_num_key_per_table_offset, num_key_per_table_offset);
 
-        std::vector<float> cpu_emb_table;
-        emb_table.to(&cpu_emb_table);
+        std::vector<float> cpu_emb_table(emb_table.num_elements());
+        core23::copy_sync(cpu_emb_table, emb_table);
 
-        std::vector<int> cpu_emb_table_ev_size;
-        emb_table_ev_size.to(&cpu_emb_table_ev_size);
+        std::vector<int> cpu_emb_table_ev_size(emb_table_ev_size.num_elements());
+        core23::copy_sync(cpu_emb_table_ev_size, emb_table_ev_size);
 
-        std::vector<int> cpu_emb_table_ids;
-        emb_table_ids.to(&cpu_emb_table_ids);
+        std::vector<int> cpu_emb_table_ids(emb_table_ids.num_elements());
+        core23::copy_sync(cpu_emb_table_ids, emb_table_ids);
 
         int ev_start = 0;
         for (size_t i = 0; i < cpu_emb_table_ids.size(); ++i) {

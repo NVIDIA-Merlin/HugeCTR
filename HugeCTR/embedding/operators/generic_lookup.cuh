@@ -224,7 +224,7 @@ __global__ void multi_to_one_cta_per_ev_kernel(CopyDesc copy_desc) {
   int i_ev = blockIdx.x;
 
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
 
@@ -266,7 +266,7 @@ __global__ void multi_to_one_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
 
     int start = copy_desc.get_offset(i_ev);
@@ -320,7 +320,7 @@ __global__ void multi_to_one_weight_cta_per_ev_kernel(CopyDesc copy_desc) {
   int i_ev = blockIdx.x;
 
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     float average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
 
@@ -364,7 +364,7 @@ __global__ void multi_to_one_weight_warp_per_ev_vec4_kernel(CopyDesc copy_desc) 
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     float average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
 
     int start = copy_desc.get_offset(i_ev);
@@ -424,7 +424,7 @@ __global__ void multi_to_one_weight_warp_per_ev_vec4_network_kernel(CopyDesc cop
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     float average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
 
     int start = copy_desc.get_offset(i_ev);
@@ -483,7 +483,7 @@ __global__ void multi_to_one_weight_warp_per_ev_vec4_model_kernel(CopyDesc copy_
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
 
     int start = copy_desc.get_offset(i_ev);
     int end = copy_desc.get_offset(i_ev + 1);
@@ -529,7 +529,7 @@ __global__ void one_to_multi_cta_per_ev_kernel(CopyDesc copy_desc) {
   int i_ev = blockIdx.x;
 
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
     float accum[kMaxElemPerThread] = {0.f};
@@ -564,7 +564,7 @@ __global__ void one_to_multi_weight_cta_per_ev_kernel(CopyDesc copy_desc) {
   int i_ev = blockIdx.x;
 
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     float average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
     float accum[kMaxElemPerThread] = {0.f};
@@ -604,7 +604,7 @@ __global__ void one_to_multi_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
     Vec4T<float> accum[kMaxElemPerThread];
@@ -659,7 +659,7 @@ __global__ void one_to_multi_weight_warp_per_ev_vec4_kernel(CopyDesc copy_desc) 
   int warp_id = threadIdx.y;
   int i_ev = blockIdx.x * blockDim.y + warp_id;
   if (i_ev < copy_desc.num_vec_) {
-    vec_length_type vec_length = copy_desc.get_vec_length_(i_ev);
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
     float average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
     const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
     Vec4T<float> accum[kMaxElemPerThread];
@@ -867,7 +867,6 @@ make_MultiToOne_reduce(int num_vec, LambdaKey get_key, LambdaSrcVecLength get_sr
 template <typename SrcType, typename DstType, typename LambdaKey, typename LambdaSrcVecLength,
           typename LambdaDstVecLength, typename LambdaDstUniqueId, typename LambdaSrcTensor,
           typename LambdaDstTensor, typename LambdaWeightTensor>
-
 struct MultiToOne_reduce_weight {
   using SrcT = SrcType;
   using DstT = DstType;

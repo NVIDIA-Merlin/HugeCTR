@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/registry.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>
 #include <core23/tensor_params.hpp>

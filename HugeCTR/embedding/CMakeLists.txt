@@ -20,13 +20,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB embedding_src
-*.cpp
-*.cu
-operators/*.cpp
-operators/*.cu
-data_distributor/*.cpp
-data_distributor/*.cu
-)
+        *.cpp
+        *.cu
+        operators/*.cpp
+        operators/*.cu
+        data_distributor/*.cpp
+        data_distributor/*.cu
+        gpu_barrier/*.cpp
+        gpu_barrier/*.cu
+        )
 
 add_library(embedding SHARED ${embedding_src})
 

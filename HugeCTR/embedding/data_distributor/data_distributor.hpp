@@ -17,12 +17,14 @@
 
 #include <nccl.h>
 
-#include <core/buffer.hpp>
 #include <core/core.hpp>
 #include <embedding/common.hpp>
+#include <embedding/operators/compress_offset.hpp>
 #include <embedding/operators/dp_index_calculation.hpp>
+#include <embedding/operators/keys_to_indices.hpp>
 #include <embedding/operators/mp_index_calculation.hpp>
 #include <embedding/operators/transpose_input.hpp>
+#include <embedding_storage/ragged_static_embedding.hpp>
 #include <optional>
 #include <resource_manager.hpp>
 #include <unordered_map>
@@ -37,7 +39,8 @@ class DataDistributor {
   DataDistributor(size_t batch_size, core23::DataType scalar_type,
                   std::shared_ptr<ResourceManager> resource_manager,
                   std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
-                  const embedding::EmbeddingCollectionParam& ebc_param);
+                  const embedding::EmbeddingCollectionParam& ebc_param,
+                  const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list);
 
   ~DataDistributor();
 
@@ -54,7 +57,6 @@ class DataDistributor {
 
  private:
   struct GpuCommData {
-    int local_rank;
     // This is a performance optimization to prevent us from computing bucket ranges each iteration.
     // If the current_batch_size == last_batch_size then the bucket_ranges are the same.
     int last_batch_size;
@@ -65,20 +67,21 @@ class DataDistributor {
 
   size_t feature_id_to_group_id(size_t feature_id) const;
 
-  void init_nccl_comms();
-
   void init_comm_data();
 
   void init_batch_major_fullbatch_input_preprocessor();
 
-  void communicate_data(std::vector<core23::Tensor> feature_shards, int gpu_id,
+  void communicate_data(std::vector<core23::Tensor> feature_shards, int batch_size, int gpu_id,
                         cudaStream_t stream);
+
+  int compute_device_batch_size(int current_batch_size, int global_gpu_id) const;
+
+  void init_indices_converter();
 
   std::shared_ptr<ResourceManager> resource_manager_;
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_managers_;
   std::vector<int> feature_pooling_factors_;
   std::vector<std::vector<int>> resident_feature_tables_;  // [gpu_id][feature_id]
-  std::vector<ncclComm_t> comms_;
   std::vector<GpuCommData> gpu_comm_data_;
 
   size_t batch_size_;
@@ -88,10 +91,14 @@ class DataDistributor {
   std::unordered_map<size_t, size_t> feature_id_to_group_id_map_;
   std::unordered_map<size_t, size_t> feature_id_to_table_id_map_;
 
+  std::vector<embedding::CompressOffset> compress_offsets_;
+  std::vector<core23::Tensor> d_local_table_id_lists_;
+  std::vector<embedding::EmbeddingTableParam> emb_table_param_list_;
+  std::vector<embedding::KeysToIndicesConverter> indices_converters_;
+
   size_t num_local_gpus_;
+  size_t num_global_gpus_;
   size_t num_features_;
-  int my_rank_;
-  int n_ranks_;
 
   struct KeyFilterInitParams {
     int num_lookup;

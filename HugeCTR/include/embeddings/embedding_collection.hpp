@@ -15,9 +15,11 @@
  */
 #pragma once
 
+#include <HugeCTR/include/optimizer.hpp>
 #include <embedding/common.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding/embedding.hpp>
+#include <embedding/gpu_barrier/gpu_barrier.hpp>
 #include <embedding/operators/transpose_input.hpp>
 #include <embedding_storage/embedding_table.hpp>
 #include <optimizer.hpp>
@@ -242,10 +244,12 @@ inline std::vector<embedding::GroupedEmbeddingParam> create_grouped_embedding_pa
 namespace embedding {
 
 class EmbeddingCollection {
+ private:
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_, eval_embeddings_;
 
   std::vector<std::vector<EmbeddingOutputAttr>> embedding_output_attrs;
   std::vector<std::vector<Wgrad>> wgrad_list_;
+  std::unique_ptr<HugeCTR::GPUBarrier> gpu_barrier_;
 
  public:
   // Fix:load and dump use these , put it on public temporary

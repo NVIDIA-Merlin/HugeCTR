@@ -36,7 +36,6 @@
 namespace sok {
 namespace core23 = HugeCTR::core23;
 // clang-format off
-using Tensor              = ::core::Tensor;
 using CoreResourceManager = ::core::CoreResourceManager;
 using TFCoreResourceManager = ::tf_internal::TFCoreResourceManager;
 using EmbeddingCollectionParam = ::embedding::EmbeddingCollectionParam;
@@ -45,16 +44,6 @@ using TablePlacementStrategy   = ::embedding::TablePlacementStrategy;
 
 using Tensor23 = core23::Tensor;
 // clang-foramt on
-
-template <typename T>
-std::shared_ptr<::core::TensorImpl> convert_tensor(const tensorflow::Tensor* tensor) {
-  auto storage =
-      std::make_shared<::tf_internal::TFStorageWrapper>(tensor->data(), tensor->NumElements());
-  std::vector<int64_t> shape{tensor->NumElements()};
-  auto impl = std::make_shared<::core::TensorImpl>(storage, 0, shape, ::core::DeviceType::GPU,
-                                                   ::HugeCTR::TensorScalarTypeFunc<T>::get_type());
-  return impl;
-}
 
 template <typename T>
 core23::Tensor convert_tensor_core23(const tensorflow::Tensor* tensor,int device_id) {

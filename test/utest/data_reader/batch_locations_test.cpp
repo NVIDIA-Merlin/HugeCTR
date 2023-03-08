@@ -36,7 +36,7 @@ TEST(static_batch_locations, single_thread) {
   size_t n_epochs = 5;
 
   for (size_t i = 0; i < num_batches * n_epochs; ++i) {
-    BatchFileLocation location = *it;
+    auto location = *it;
     ASSERT_EQ(location.i, i % num_batches);
     ASSERT_EQ(location.id, i % num_batches);
     it++;
@@ -65,7 +65,7 @@ TEST(static_batch_locations, multiple_threads) {
 
   for (size_t epoch = 0; epoch < n_epochs; ++epoch) {
     for (size_t batch = 0; batch < num_batches; ++batch) {
-      BatchFileLocation location = *thread_iterators[batch % num_threads];
+      auto location = *thread_iterators[batch % num_threads];
       ASSERT_EQ(location.i, batch);
       ASSERT_EQ(location.id, batch);
       ASSERT_EQ(location.offset, batch * batch_size_bytes);
@@ -108,12 +108,12 @@ TEST(static_batch_locations, single_thread_sharded) {
 
         ASSERT_EQ(__locations->count(), num_batches);
 
-        BatchFileLocation location = *it;
+        auto location = *it;
         ASSERT_EQ(location.i, batch);
         ASSERT_EQ(location.id, batch);
 
         //        printf("batch: %zu, shard: %zu, offset: %zu, size: %zu\n", batch, shard,
-        //        location.offset, location.size_bytes);
+        //        location.offset, location.shard_size_bytes);
 
         const size_t expected_offset = batch * batch_size_bytes + (shard * shard_size);
         ASSERT_EQ(location.offset, expected_offset >= end_offset ? SIZE_MAX : expected_offset);
@@ -124,7 +124,7 @@ TEST(static_batch_locations, single_thread_sharded) {
             expected_offset >= end_offset
                 ? 0
                 : std::min({end_offset, batch_end, shard_end}) - expected_offset;
-        ASSERT_EQ(location.size_bytes, expected_size);
+        ASSERT_EQ(location.shard_size_bytes, expected_size);
       }
     }
   }
@@ -169,13 +169,13 @@ TEST(static_batch_locations, multiple_threads_sharded) {
       for (size_t shard = 0; shard < sharded_locations.size(); ++shard) {
         auto it = iterators[shard][batch % num_threads]++;
 
-        BatchFileLocation location = *it;
+        auto location = *it;
         ASSERT_EQ(location.i, batch);
         ASSERT_EQ(location.id, batch);
 
         //        printf("thread: %zu, batch: %zu, shard: %zu, offset: %zu, size: %zu\n", batch %
         //        num_threads,
-        //               batch, shard, location.offset, location.size_bytes);
+        //               batch, shard, location.offset, location.shard_size_bytes);
 
         const size_t expected_offset = batch * batch_size_bytes + (shard * shard_size);
         ASSERT_EQ(location.offset, expected_offset >= end_offset ? SIZE_MAX : expected_offset);
@@ -186,7 +186,7 @@ TEST(static_batch_locations, multiple_threads_sharded) {
             expected_offset >= end_offset
                 ? 0
                 : std::min({end_offset, batch_end, shard_end}) - expected_offset;
-        ASSERT_EQ(location.size_bytes, expected_size);
+        ASSERT_EQ(location.shard_size_bytes, expected_size);
       }
     }
   }

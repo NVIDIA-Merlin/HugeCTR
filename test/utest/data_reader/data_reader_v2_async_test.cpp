@@ -89,7 +89,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
       auto host_data = batch.get_host_data(i, slot);
       auto device_data = batch.get_device_data(i, slot);
-      auto size_bytes = batch.get_size_bytes(i, slot);
+      auto size_bytes = batch.get_local_batch_size_bytes(i, slot);
 
       std::vector<uint8_t> local_ref_data(ref_data + total_sz, ref_data + total_sz + size_bytes);
       std::vector<uint8_t> local_data(host_data, host_data + size_bytes);

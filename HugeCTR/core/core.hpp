@@ -22,28 +22,6 @@
 #include <memory>
 
 namespace core {
-class Device;
-class BufferBlockImpl;
-class BufferImpl;
-
-using BufferBlockPtr = std::shared_ptr<BufferBlockImpl>;
-using BufferPtr = std::shared_ptr<BufferImpl>;
-
-class IStorageImpl {
- public:
-  virtual ~IStorageImpl() = default;
-
-  virtual void *get_ptr() = 0;
-
-  virtual size_t nbytes() const = 0;
-
-  virtual void extend(size_t nbytes) = 0;
-
-  virtual void allocate() = 0;
-};
-
-using Storage = std::shared_ptr<IStorageImpl>;
-
 class GPUResourceBase {
  public:
   virtual ~GPUResourceBase() = default;
@@ -72,8 +50,6 @@ class CoreResourceManager {
   virtual std::shared_ptr<GPUResourceBase> get_local_gpu() = 0;
 
   virtual const ncclComm_t &get_nccl() const = 0;
-
-  virtual Storage CreateStorage(Device device) = 0;
 
   virtual int get_local_gpu_id() const = 0;
 

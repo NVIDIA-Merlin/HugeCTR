@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,4 +14,22 @@
  * limitations under the License.
  */
 #pragma once
-#include <embedding/gpu_barrier/gpu_barrier.hpp>
+
+#include <HugeCTR/core/core.hpp>
+
+#include "../embedding_table.hpp"
+
+namespace embedding {
+
+struct IntraModelCommBufferAttr;
+struct IntraModelReductionBuffer;
+struct ModelCommBuffer;
+
+struct IntraModelBackward {
+  std::shared_ptr<CoreResourceManager> core_;
+
+  void backward(const IntraModelCommBufferAttr &intra_model_comm_buffer_attr,
+                const IntraModelReductionBuffer &reduction_buffer,
+                ModelCommBuffer &model_comm_buffer, int batch_size);
+};
+}  // namespace embedding

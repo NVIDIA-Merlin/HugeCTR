@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
-#include <core/registry.hpp>
 #include <embedding/common.hpp>
 
 namespace embedding {
@@ -81,6 +79,7 @@ struct SortInput {
   core23::Tensor src_ids;
   core23::Tensor table_range;
   core23::Tensor unique_table_ids;
+  size_t h_num_key;
 };
 
 struct SortOutput {
@@ -88,7 +87,7 @@ struct SortOutput {
   core23::Tensor sorted_src_ids;
 };
 
-using SortKeyAndSrcIdOp = std::function<void(const SortInput &, SortOutput &, cudaStream_t)>;
+using SortKeyAndSrcIdOp = std::function<void(SortInput &, SortOutput &, cudaStream_t)>;
 
 struct SegmentedSortDevice {
   size_t max_key_num_;
@@ -107,7 +106,6 @@ struct IndicesSort {
   core23::Tensor table_id_to_global_start_indices;
   int end_bit;  // Question by hkang: is int type enough
 
-  core23::Tensor temp_global_indices;
   core23::Tensor d_temp_sort_storage;
 
   IndicesSort() = default;
@@ -116,7 +114,7 @@ struct IndicesSort {
               const core23::Tensor &table_id_to_global_start_indices, int end_bit, int max_num_keys,
               int batch_size, core23::DataType key_type);
 
-  void operator()(const SortInput &input, SortOutput &output, cudaStream_t stream);
+  void operator()(SortInput &input, SortOutput &output, cudaStream_t stream);
 };
 
 struct SegmentdUnique {
@@ -140,7 +138,7 @@ struct SegmentdUnique {
   void operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
                   const core23::Tensor &key_num, core23::Tensor &unique_keys,
                   core23::Tensor &unique_table_ids, core23::Tensor &num_unique_keys,
-                  core23::Tensor &dst_ids, cudaStream_t stream);
+                  core23::Tensor &dst_ids, size_t h_num_key, cudaStream_t stream);
 };
 
 struct CalDstIds {

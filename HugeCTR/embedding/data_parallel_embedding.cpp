@@ -255,8 +255,8 @@ void UniformDPEmbedding::backward_per_gpu_for_indices_only(
                             local_reduce_indices_.table_range,
                             wgrad.data};
   local_reduce_index_calculation_.dense_allreduce_index_calculation.cal_for_sparse_indices(
-      embedding_input, meta_.table_id_to_allreduce_buffer_start_indices, wgrad.ev_start_indices,
-      reduction_indices_, local_reduce_buffer, batch_size / num_gpus);
+      embedding_input, wgrad.ev_start_indices, reduction_indices_, local_reduce_buffer,
+      batch_size / num_gpus);
 
   EmbeddingOutput top_grad_after_average_combiner = top_grad;
   if (std::find(meta_.h_local_combiner_list_.begin(), meta_.h_local_combiner_list_.end(),

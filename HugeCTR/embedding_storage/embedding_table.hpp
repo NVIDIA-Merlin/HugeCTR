@@ -26,24 +26,29 @@ class IGroupedEmbeddingTable : public ILookup {
  public:
   virtual ~IGroupedEmbeddingTable() = default;
 
-  virtual void update(const Tensor &unique_keys, const Tensor &num_unique_keys,
-                      const Tensor &table_ids, const Tensor &ev_start_indices,
-                      const Tensor &wgrad) = 0;
+  virtual void update(const core23::Tensor &unique_keys, const core23::Tensor &num_unique_keys,
+                      const core23::Tensor &table_ids, const core23::Tensor &ev_start_indices,
+                      const core23::Tensor &wgrad) = 0;
 
-  virtual void assign(const Tensor &unique_key, size_t num_unique_key,
-                      const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
-                      const Tensor &table_id_list, Tensor &embeding_vector,
-                      const Tensor &embedding_vector_offset) = 0;
+  virtual void assign(const core23::Tensor &unique_key, size_t num_unique_key,
+                      const core23::Tensor &num_unique_key_per_table_offset,
+                      size_t num_table_offset, const core23::Tensor &table_id_list,
+                      core23::Tensor &embeding_vector,
+                      const core23::Tensor &embedding_vector_offset) = 0;
 
-  virtual void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table,
-                    Tensor &ev_size_list, Tensor &id_space) = 0;
+  virtual void load(core23::Tensor &keys, core23::Tensor &id_space_offset,
+                    core23::Tensor &embedding_table, core23::Tensor &ev_size_list,
+                    core23::Tensor &id_space) = 0;
 
-  virtual void dump(Tensor *keys, Tensor *id_space_offset, Tensor *embedding_table,
-                    Tensor *ev_size_list, Tensor *id_space) = 0;
+  virtual void dump(core23::Tensor *keys, core23::Tensor *id_space_offset,
+                    core23::Tensor *embedding_table, core23::Tensor *ev_size_list,
+                    core23::Tensor *id_space) = 0;
 
-  virtual void dump_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) = 0;
+  virtual void dump_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                          int table_id) = 0;
 
-  virtual void load_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) = 0;
+  virtual void load_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                          int table_id) = 0;
 
   virtual size_t size() const = 0;
 
@@ -67,8 +72,9 @@ class IGroupedEmbeddingTable : public ILookup {
 };
 
 class IDynamicEmbeddingTable : public IGroupedEmbeddingTable {
-  virtual void evict(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-                     size_t num_id_space_offset, const Tensor &id_space_list) = 0;
+  virtual void evict(const core23::Tensor &keys, size_t num_keys,
+                     const core23::Tensor &id_space_offset, size_t num_id_space_offset,
+                     const core23::Tensor &id_space_list) = 0;
 };
 
 std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_tables(

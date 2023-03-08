@@ -16,7 +16,6 @@
 #pragma once
 
 #include <common.hpp>
-#include <core/datatype.hpp>
 #include <optimizer.hpp>
 #include <unordered_map>
 
@@ -28,6 +27,8 @@
 using embeddingFilter = std::function<bool(size_t)>;
 
 namespace embedding {
+
+namespace core23 = HugeCTR::core23;
 
 template <typename LambdaFilter>
 struct LoadFilter {
@@ -155,12 +156,12 @@ struct GlobalEmbeddingDistribution {
 
 struct EmbeddingParameterInfo {
   // for train and inference dump and load
-  std::string parameter_folder_path;    // parameter saved folder path
-  int table_nums = 0;                   // number of all table
-  core::DataType key_type;              // data type of key
-  core::DataType embedding_value_type;  // data type of embedding_value_type
-  HugeCTR::OptParams optimizer_type;    // type of optimizer_type
-  int max_embedding_vector_length;      // max_length of all embedding_vector_length
+  std::string parameter_folder_path;      // parameter saved folder path
+  int table_nums = 0;                     // number of all table
+  core23::DataType key_type;              // data type of key
+  core23::DataType embedding_value_type;  // data type of embedding_value_type
+  HugeCTR::OptParams optimizer_type;      // type of optimizer_type
+  int max_embedding_vector_length;        // max_length of all embedding_vector_length
   std::vector<int> table_ids;
   std::unordered_map<int, size_t> table_key_nums;  // store all table's key numbers
   std::unordered_map<int, size_t>

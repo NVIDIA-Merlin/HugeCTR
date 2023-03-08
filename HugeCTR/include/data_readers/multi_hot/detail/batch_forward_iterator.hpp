@@ -20,11 +20,11 @@
 namespace HugeCTR {
 
 class IBatchLocations;
-class BatchFileLocation;
+class BatchDescriptor;
 
 class BatchForwardIterator {
  public:
-  using value_type = BatchFileLocation;
+  using value_type = BatchDescriptor;
   using reference = value_type&;
   using const_reference = const value_type&;
   using iterator_category = std::forward_iterator_tag;

@@ -16,6 +16,9 @@
 
 #include <embeddings/embedding_collection.hpp>
 
+#include "embedding/hier_model_parallel_embedding.hpp"
+#include "embedding/model_parallel_embedding.hpp"
+
 namespace embedding {
 
 EmbeddingCollection::EmbeddingCollection(
@@ -48,6 +51,7 @@ EmbeddingCollection::EmbeddingCollection(
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     for (size_t grouped_id = 0; grouped_id < wgrad_list_[gpu_id].size(); ++grouped_id) {
       embedding_output_attrs[gpu_id][grouped_id].init(core[gpu_id], ebc_param);
+      embedding_output_attrs[gpu_id][grouped_id].update_mutable_data(core[gpu_id], ebc_param);
 
       auto &wgrad = wgrad_list_[gpu_id][grouped_id];
       if (ebc_param.indices_only_ &&
@@ -66,6 +70,40 @@ EmbeddingCollection::EmbeddingCollection(
             .init_indices()
             .init_data();
       }
+    }
+  }
+
+  // collective init peer buffer
+  gpu_barrier_ = std::make_unique<HugeCTR::GPUBarrier>(
+      resource_manager->get_local_gpu_count(), resource_manager->get_local_gpu_device_id_list());
+
+  auto init_hierarchical_embedding =
+      [&](std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> &embeddings,
+          size_t grouped_id) {
+        std::vector<ModelCommBuffer *> model_comm_buffers;
+        std::vector<IntraModelCommBuffer *> intra_model_comm_buffers;
+
+        for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+          HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
+          auto embedding =
+              dynamic_cast<HierModelParallelEmbedding *>(embeddings[gpu_id][grouped_id].get());
+          model_comm_buffers.push_back(embedding->get_model_comm_buffer());
+          intra_model_comm_buffers.push_back(embedding->get_intra_model_comm_buffer());
+
+          embedding->set_gpu_barrier(gpu_barrier_.get());
+        }
+        collective_init_peer_buffer(core, model_comm_buffers);
+        collective_init_peer_buffer(core, intra_model_comm_buffers);
+      };
+
+  for (size_t grouped_id = 0; grouped_id < ebc_param.grouped_emb_params.size(); ++grouped_id) {
+    if (ebc_param.grouped_emb_params[grouped_id].comm_strategy ==
+            CommunicationStrategy::Hierarchical &&
+        ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+            TablePlacementStrategy::ModelParallel) {
+      HCTR_CHECK(resource_manager->all_p2p_enabled());
+      init_hierarchical_embedding(embeddings_, grouped_id);
+      init_hierarchical_embedding(eval_embeddings_, grouped_id);
     }
   }
 }
@@ -97,12 +135,9 @@ void EmbeddingCollection::backward_per_gpu(int gpu_id,
 void EmbeddingCollection::update_per_gpu(int gpu_id) {
   for (size_t grouped_id = 0; grouped_id < embedding_tables_[gpu_id].size(); ++grouped_id) {
     auto &wgrad = wgrad_list_[gpu_id][grouped_id];
-    embedding_tables_[gpu_id][grouped_id]->update(
-        convert_core23_tensor_to_core_tensor(wgrad.unique_keys),
-        convert_core23_tensor_to_core_tensor(wgrad.num_unique_keys),
-        convert_core23_tensor_to_core_tensor(wgrad.table_ids),
-        convert_core23_tensor_to_core_tensor(wgrad.ev_start_indices),
-        convert_core23_tensor_to_core_tensor(wgrad.data));
+    embedding_tables_[gpu_id][grouped_id]->update(wgrad.unique_keys, wgrad.num_unique_keys,
+                                                  wgrad.table_ids, wgrad.ev_start_indices,
+                                                  wgrad.data);
   }
 }
 

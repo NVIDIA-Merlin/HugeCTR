@@ -47,9 +47,10 @@ class BatchFileReader {
     friend class BatchFileReader;
 
    public:
-    Batch(BatchFileReader* __reader, uint8_t* __data, size_t __size_bytes, size_t __slot)
+    Batch(BatchFileReader* __reader, uint8_t* __data, size_t __slot)
         : data(nullptr),
-          size_bytes(__size_bytes),
+          shard_size_bytes(0),
+          batch_size_bytes(0),
           slot_id(__slot),
           batch_id(0),
           batch_i(0),
@@ -59,7 +60,8 @@ class BatchFileReader {
     void release() { reader->release_batch(this); }
 
     uint8_t* data = nullptr;
-    size_t size_bytes = 0;
+    size_t shard_size_bytes = 0;
+    size_t batch_size_bytes = 0;
     size_t slot_id = 0;
     size_t batch_id = 0;
     size_t batch_i = 0;

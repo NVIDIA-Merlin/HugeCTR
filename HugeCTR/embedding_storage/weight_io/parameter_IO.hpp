@@ -40,16 +40,18 @@ class EmbeddingParameterIO {
   void load_metadata(const std::string& parameters_folder_path, int ebc_id,
                      struct EmbeddingParameterInfo& epi);
   void load_embedding_weight(const struct EmbeddingParameterInfo& epi, int fs_table_id,
-                             Tensor& keys, Tensor& embedding_weights, embeddingFilter key_select,
+                             core23::Tensor& keys, core23::Tensor& embedding_weights,
+                             embeddingFilter key_select,
                              std::shared_ptr<core::CoreResourceManager> core_resource,
-                             const core::DataType& target_key_type = core::DataType(),
-                             const core::DataType& target_value_type = core::DataType());
+                             const core23::DataType& target_key_type,
+                             const core23::DataType& target_value_type);
 
-  void load_opt_state(const struct EmbeddingParameterInfo& epi, int fs_table_id, Tensor& keys,
-                      Tensor& optimizer_buffer, embeddingFilter key_select,
+  void load_opt_state(const struct EmbeddingParameterInfo& epi, int fs_table_id,
+                      core23::Tensor& keys, core23::Tensor& optimizer_buffer,
+                      embeddingFilter key_select,
                       std::shared_ptr<core::CoreResourceManager> core_resource,
-                      const core::DataType& target_key_type = core::DataType(),
-                      const core::DataType& target_value_type = core::DataType());
+                      const core23::DataType& target_key_type,
+                      const core23::DataType& target_value_type);
 
   void get_parameter_info_from_model(const std::string& path,
                                      std::vector<struct EmbeddingParameterInfo>& epis);

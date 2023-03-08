@@ -16,8 +16,8 @@
 
 #include <embedding/data_parallel_embedding.hpp>
 #include <embedding/embedding.hpp>
+#include <embedding/hier_model_parallel_embedding.hpp>
 #include <embedding/model_parallel_embedding.hpp>
-
 namespace embedding {
 
 std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
@@ -30,8 +30,18 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
         embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
         break;
       case TablePlacementStrategy::ModelParallel:
-        embeddings.push_back(
-            std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
+        switch (ebc_param.grouped_emb_params[emb_id].comm_strategy) {
+          case CommunicationStrategy::Uniform:
+            embeddings.push_back(
+                std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
+            break;
+          case CommunicationStrategy::Hierarchical:
+            embeddings.push_back(
+                std::make_unique<HierModelParallelEmbedding>(core, ebc_param, emb_id));
+            break;
+          default:
+            HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "grouped embedding create fail.");
+        }
         break;
       default:
         HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "grouped embedding create fail.");
@@ -39,5 +49,4 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
   }
   return embeddings;
 }
-
 }  // namespace embedding

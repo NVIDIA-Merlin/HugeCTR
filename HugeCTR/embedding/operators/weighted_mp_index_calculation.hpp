@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
-#include <core/registry.hpp>
 #include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
@@ -24,13 +22,6 @@ namespace embedding {
 
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::DeviceType;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
-using core::TensorScalarType;
 
 class WeightedModelIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;

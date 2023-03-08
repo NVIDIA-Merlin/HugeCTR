@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/registry.hpp>
 #include <embedding_storage/embedding_table.hpp>
 #include <map>
 #include <mutex>
@@ -26,7 +25,7 @@ using HugeCTR::CudaDeviceContext;
 
 class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
   std::shared_ptr<CoreResourceManager> core_;
-  core::DataType key_type_;
+  core23::DataType key_type_;
 
   mutable std::mutex write_mutex_;
 
@@ -38,8 +37,8 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
   HugeCTR::OptParams opt_param_;
   void *table_opt_states_;
 
-  std::unique_ptr<TensorList> opt_state_view_;
-  std::unique_ptr<TensorList> weight_view_;
+  std::unique_ptr<core23::Tensor> opt_state_view_;
+  std::unique_ptr<core23::Tensor> weight_view_;
 
  public:
   DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
@@ -47,8 +46,6 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
                         const std::vector<EmbeddingTableParam> &table_params,
                         const EmbeddingCollectionParam &ebc_param, size_t grouped_id,
                         const HugeCTR::OptParams &opt_param);
-
-  std::vector<size_t> remap_id_space(const Tensor &id_space_list, cudaStream_t stream);
 
   std::vector<size_t> remap_id_space(const core23::Tensor &id_space_list, cudaStream_t stream);
 
@@ -58,23 +55,26 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
               size_t num_id_space_offset, const core23::Tensor &id_space,
               core23::Tensor &embedding_vec) override;
 
-  void update(const Tensor &unique_keys, const Tensor &num_unique_keys, const Tensor &table_ids,
-              const Tensor &ev_start_indices, const Tensor &wgrad) override;
+  void update(const core23::Tensor &unique_keys, const core23::Tensor &num_unique_keys,
+              const core23::Tensor &table_ids, const core23::Tensor &ev_start_indices,
+              const core23::Tensor &wgrad) override;
 
-  void assign(const Tensor &unique_key, size_t num_unique_key,
-              const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
-              const Tensor &table_id_list, Tensor &embeding_vector,
-              const Tensor &embedding_vector_offset) override;
+  void assign(const core23::Tensor &unique_key, size_t num_unique_key,
+              const core23::Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
+              const core23::Tensor &table_id_list, core23::Tensor &embeding_vector,
+              const core23::Tensor &embedding_vector_offset) override;
 
-  void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table, Tensor &ev_size_list,
-            Tensor &id_space) override;
+  void load(core23::Tensor &keys, core23::Tensor &id_space_offset, core23::Tensor &embedding_table,
+            core23::Tensor &ev_size_list, core23::Tensor &id_space) override;
 
-  void dump(Tensor *keys, Tensor *id_space_offset, Tensor *embedding_table, Tensor *ev_size_list,
-            Tensor *id_space) override;
+  void dump(core23::Tensor *keys, core23::Tensor *id_space_offset, core23::Tensor *embedding_table,
+            core23::Tensor *ev_size_list, core23::Tensor *id_space) override;
 
-  void dump_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) override;
+  void dump_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                  int table_id) override;
 
-  void load_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) override;
+  void load_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                  int table_id) override;
 
   size_t size() const override;
 
@@ -94,8 +94,8 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
 
   void clear() override;
 
-  void evict(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-             size_t num_id_space_offset, const Tensor &id_space_list) override;
+  void evict(const core23::Tensor &keys, size_t num_keys, const core23::Tensor &id_space_offset,
+             size_t num_id_space_offset, const core23::Tensor &id_space_list) override;
 
   void set_learning_rate(float lr) override { opt_param_.lr = lr; }
 };

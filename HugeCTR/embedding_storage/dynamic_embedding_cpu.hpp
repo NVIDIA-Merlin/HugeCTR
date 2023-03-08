@@ -16,7 +16,6 @@
 #pragma once
 
 #include <base/debug/logger.hpp>
-#include <core/tensor.hpp>
 #include <embedding_storage/optimizers.hpp>
 #include <map>
 #include <mutex>
@@ -207,10 +206,10 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
       }
     }
   }
-  void assign(const Tensor& unique_key, size_t num_unique_key,
-              const Tensor& num_unique_key_per_table_offset, size_t num_table_offset,
-              const Tensor& table_id_list, Tensor& embeding_vector,
-              const Tensor& embedding_vector_offset) override {
+  void assign(const core23::Tensor& unique_key, size_t num_unique_key,
+              const core23::Tensor& num_unique_key_per_table_offset, size_t num_table_offset,
+              const core23::Tensor& table_id_list, core23::Tensor& embeding_vector,
+              const core23::Tensor& embedding_vector_offset) override {
     throw std::runtime_error("Not implemented yet!");
   }
 
@@ -227,16 +226,20 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     table_range->push_back(cnt);
   }
 
-  void update(const Tensor& unique_keys, const Tensor& num_unique_keys, const Tensor& table_ids,
-              const Tensor& ev_start_indices, const Tensor& wgrad) override {
+  void update(const core23::Tensor& unique_keys, const core23::Tensor& num_unique_keys,
+              const core23::Tensor& table_ids, const core23::Tensor& ev_start_indices,
+              const core23::Tensor& wgrad) override {
     // Move to CPU.
-    auto k = unique_keys.to_vector<Key>();
-    auto num_keys_vec = num_unique_keys.to_vector<size_t>();
+    std::vector<Key> k(unique_keys.num_elements());
+    core23::copy_sync(k, unique_keys);
+    std::vector<uint64_t> num_keys_vec(num_unique_keys.num_elements());
+    core23::copy_sync(num_keys_vec, num_unique_keys);
     HCTR_CHECK(num_keys_vec.size() == 1);
     auto num_keys = num_keys_vec[0];
     HCTR_CHECK(num_keys <= k.size());
     k.resize(num_keys);
-    auto table_ids_vec = table_ids.to_vector<int>();
+    std::vector<int> table_ids_vec(table_ids.num_elements());
+    core23::copy_sync(table_ids_vec, table_ids);
     HCTR_CHECK(num_keys <= table_ids_vec.size());
 
     std::vector<int> is;
@@ -244,8 +247,12 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     this->compress_table_ids(table_ids_vec, num_keys, &is, &is_off);
     remap_id_space(is);
 
-    auto g = wgrad.to_vector<float>();
-    auto g_off = ev_start_indices.to_vector<uint32_t>();
+    std::vector<float> g(wgrad.num_elements());
+    core23::copy_sync(g, wgrad);
+
+    std::vector<uint32_t> g_off(ev_start_indices.num_elements());
+    core23::copy_sync(g_off, ev_start_indices);
+
     HCTR_CHECK(k.size() + 1 == g_off.size());
 
     // Request exclusive access to avoid update race.
@@ -351,20 +358,26 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     }
   }
 
-  void load(Tensor& keys, Tensor& id_space_offsets, Tensor& embeddings, Tensor& embedding_sizes,
-            Tensor& id_spaces) override {
+  void load(core23::Tensor& keys, core23::Tensor& id_space_offsets, core23::Tensor& embeddings,
+            core23::Tensor& embedding_sizes, core23::Tensor& id_spaces) override {
     // Move to CPU.
-    auto k = keys.to_vector<Key>();
+    std::vector<Key> k(keys.num_elements());
+    core23::copy_sync(k, keys);
 
-    auto is_off = id_space_offsets.to_vector<uint32_t>();
+    std::vector<uint32_t> is_off(id_space_offsets.num_elements());
+    core23::copy_sync(is_off, id_space_offsets);
     HCTR_CHECK(is_off.back() <= k.size());
 
-    auto is = id_spaces.to_vector<int32_t>();
+    std::vector<int32_t> is(id_spaces.num_elements());
+    core23::copy_sync(is, id_spaces);
     HCTR_CHECK(is.size() + 1 == is_off.size());
     remap_id_space(is);
 
-    auto v = embeddings.to_vector<float>();
-    auto v_sizes = embedding_sizes.to_vector<uint32_t>();
+    std::vector<float> v(embeddings.num_elements());
+    core23::copy_sync(v, embeddings);
+
+    std::vector<uint32_t> v_sizes(embedding_sizes.num_elements());
+    core23::copy_sync(v_sizes, embedding_sizes);
     HCTR_CHECK(v_sizes.size() == k.size());
 
     // Insert embeddings.
@@ -381,16 +394,18 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     }
   }
 
-  void dump_by_id(Tensor* h_keys_tensor, Tensor* h_embedding_table, int table_id) override {
+  void dump_by_id(core23::Tensor* h_keys_tensor, core23::Tensor* h_embedding_table,
+                  int table_id) override {
     throw std::runtime_error("Not implemented yet!");
   }
 
-  void load_by_id(Tensor* h_keys_tensor, Tensor* h_embedding_table, int table_id) override {
+  void load_by_id(core23::Tensor* h_keys_tensor, core23::Tensor* h_embedding_table,
+                  int table_id) override {
     throw std::runtime_error("Not implemented yet!");
   }
 
-  void dump(Tensor* keys, Tensor* id_space_offset, Tensor* embedding_table, Tensor* ev_size_list,
-            Tensor* id_space) override {
+  void dump(core23::Tensor* keys, core23::Tensor* id_space_offset, core23::Tensor* embedding_table,
+            core23::Tensor* ev_size_list, core23::Tensor* id_space) override {
     throw std::runtime_error("Not implemented yet!");
   }
 
@@ -433,18 +448,21 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
     }
   }
 
-  void evict(const Tensor& keys, size_t num_keys, const Tensor& id_space_offsets,
-             size_t num_id_space_offsets, const Tensor& id_spaces) override {
+  void evict(const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offsets,
+             size_t num_id_space_offsets, const core23::Tensor& id_spaces) override {
     // Move to CPU.
-    auto k = keys.to_vector<Key>();
+    std::vector<Key> k(keys.num_elements());
+    core23::copy_sync(k, keys);
     HCTR_CHECK(num_keys <= k.size());
     k.resize(num_keys);
 
-    auto is_off = id_space_offsets.to_vector<uint32_t>();
+    std::vector<uint32_t> is_off(id_space_offsets.num_elements());
+    core23::copy_sync(is_off, id_space_offsets);
     HCTR_CHECK(num_id_space_offsets <= is_off.size());
     is_off.resize(num_id_space_offsets);
 
-    auto is = id_spaces.to_vector<int32_t>();
+    std::vector<int32_t> is(id_spaces.num_elements());
+    core23::copy_sync(is, id_spaces);
     HCTR_CHECK(is.size() + 1 == is_off.size());
     remap_id_space(is);
 

@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>
 #include <core23/tensor_params.hpp>
@@ -29,15 +28,6 @@ namespace embedding {
 
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
-using core::DataType;
-using core::Device;
-using core::DeviceType;
-using core::GetBuffer;
-using core::GetBufferBlock;
-using core::Shape;
-using core::Tensor;
-using core::TensorList;
-using core::TensorScalarType;
 
 struct UniformParams {
   float up_bound;

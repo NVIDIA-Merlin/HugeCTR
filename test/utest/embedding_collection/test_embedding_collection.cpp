@@ -199,10 +199,21 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     core_resource_manager_list.push_back(core);
   }
 
-  std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
-      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
-                                                 resource_manager, core_resource_manager_list,
-                                                 ebc_param);
+  std::shared_ptr<HugeCTR::DataDistributor> data_distributor;
+  if (indices_only) {
+    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
+        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
+        core_resource_manager_list, ebc_param, table_param_list);
+  } else {
+    // Now the ragged_static_embedding only supports indices_only table.
+    // Must have a data distributor with indices == true;
+    auto copy_ebc_param = ebc_param;
+    copy_ebc_param.indices_only_ = true;
+
+    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
+        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
+        core_resource_manager_list, copy_ebc_param, table_param_list);
+  }
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {

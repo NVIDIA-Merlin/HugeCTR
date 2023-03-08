@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
-
 namespace embedding {
 using core::CoreResourceManager;
 
