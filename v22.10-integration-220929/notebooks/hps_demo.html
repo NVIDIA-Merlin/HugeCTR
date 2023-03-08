@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hierarchical Parameter Server Demo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hps_demo.html" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR training with HDFS example" href="training_with_hdfs.html" />
+    <link rel="prev" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">HugeCTR Example Notebooks</a></li>
+      <li class="breadcrumb-item active">Hierarchical Parameter Server Demo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-demo">
+<h1>Hierarchical Parameter Server Demo<a class="headerlink" href="#hierarchical-parameter-server-demo" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>In HugeCTR version 3.5, we provide Python APIs for embedding table lookup with <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server (HPS)</a>
+HPS supports different database backends and GPU embedding caches.</p>
+<p>This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="get-hugectr-from-ngc">
+<h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
+<p>The HugeCTR Python module is preinstalled in the 22.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.09</span></code>.</p>
+<p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+</pre></div>
+</div>
+<p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a>.</p>
+<blockquote>
+<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, please refer to the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>
+documentation.</p>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+<p>HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different file formats and different distributions. We will generate one-hot Parquet datasets with power-law distribution for this notebook:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">hugectr.tools</span> <span class="kn">import</span> <span class="n">DataGeneratorParams</span><span class="p">,</span> <span class="n">DataGenerator</span>
+
+<span class="n">data_generator_params</span> <span class="o">=</span> <span class="n">DataGeneratorParams</span><span class="p">(</span>
+  <span class="nb">format</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+  <span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+  <span class="n">num_slot</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+  <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">nnz_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+  <span class="n">source</span> <span class="o">=</span> <span class="s2">&quot;./data_parquet/file_list.txt&quot;</span><span class="p">,</span>
+  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./data_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">],</span>
+  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+  <span class="n">dist_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Distribution_t</span><span class="o">.</span><span class="n">PowerLaw</span><span class="p">,</span>
+  <span class="n">power_law_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">PowerLaw_t</span><span class="o">.</span><span class="n">Short</span><span class="p">,</span>
+  <span class="n">num_files</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+  <span class="n">eval_num_files</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+  <span class="n">num_samples_per_file</span> <span class="o">=</span> <span class="mi">40960</span><span class="p">)</span>
+<span class="n">data_generator</span> <span class="o">=</span> <span class="n">DataGenerator</span><span class="p">(</span><span class="n">data_generator_params</span><span class="p">)</span>
+<span class="n">data_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][11:15:15][INFO][RK0][main]: Generate Parquet dataset
+[HCTR][11:15:15][INFO][RK0][main]: train data folder: ./data_parquet, eval data folder: ./data_parquet, slot_size_array: 10000, 10000, 10000, 10000, nnz array: 1, 1, 1, 1, #files for train: 16, #files for eval: 4, #samples per file: 40960, Use power law distribution: 1, alpha of power law: 1.3
+[HCTR][11:15:15][INFO][RK0][main]: ./data_parquet exist
+[HCTR][11:15:15][INFO][RK0][main]: ./data_parquet exist
+[HCTR][11:15:15][INFO][RK0][main]: ./data_parquet/train exist
+[HCTR][11:15:15][INFO][RK0][main]: ./data_parquet/train/gen_0.parquet
+[HCTR][11:15:17][INFO][RK0][main]: ./data_parquet/train/gen_1.parquet
+[HCTR][11:15:17][INFO][RK0][main]: ./data_parquet/train/gen_2.parquet
+[HCTR][11:15:17][INFO][RK0][main]: ./data_parquet/train/gen_3.parquet
+[HCTR][11:15:17][INFO][RK0][main]: ./data_parquet/train/gen_4.parquet
+[HCTR][11:15:18][INFO][RK0][main]: ./data_parquet/train/gen_5.parquet
+[HCTR][11:15:18][INFO][RK0][main]: ./data_parquet/train/gen_6.parquet
+[HCTR][11:15:18][INFO][RK0][main]: ./data_parquet/train/gen_7.parquet
+[HCTR][11:15:18][INFO][RK0][main]: ./data_parquet/train/gen_8.parquet
+[HCTR][11:15:18][INFO][RK0][main]: ./data_parquet/train/gen_9.parquet
+[HCTR][11:15:19][INFO][RK0][main]: ./data_parquet/train/gen_10.parquet
+[HCTR][11:15:19][INFO][RK0][main]: ./data_parquet/train/gen_11.parquet
+[HCTR][11:15:19][INFO][RK0][main]: ./data_parquet/train/gen_12.parquet
+[HCTR][11:15:19][INFO][RK0][main]: ./data_parquet/train/gen_13.parquet
+[HCTR][11:15:19][INFO][RK0][main]: ./data_parquet/train/gen_14.parquet
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/train/gen_15.parquet
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/file_list.txt done!
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/val exist
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/val/gen_0.parquet
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/val/gen_1.parquet
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/val/gen_2.parquet
+[HCTR][11:15:20][INFO][RK0][main]: ./data_parquet/val/gen_3.parquet
+[HCTR][11:15:21][INFO][RK0][main]: ./data_parquet/file_list_test.txt done!
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="train-from-scratch">
+<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
+<p>We can train fom scratch by performing the following steps with Python APIs:</p>
+<ol class="arabic simple">
+<li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
+<li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
+<li><p>Compile the model and have an overview of the model graph.</p></li>
+<li><p>Dump the model graph to the JSON file.</p></li>
+<li><p>Fit the model, save the model weights and optimizer states implicitly.</p></li>
+<li><p>Dump one batch of evaluation results to files.</p></li>
+</ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> train.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span>
+                              <span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./data_parquet/file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./data_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">])</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data2&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data2&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">32</span><span class="p">))</span>                            
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">))</span>                            
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;reshape2&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span> <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="s2">&quot;hps_demo.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">1100</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">export_predictions</span><span class="p">(</span><span class="s2">&quot;hps_demo_pred_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="s2">&quot;hps_demo_label_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting train.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 train.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 3.4
+====================================================Model Init=====================================================
+[HCTR][11:15:26][INFO][RK0][main]: Initialize model: hps_demo
+[HCTR][11:15:26][INFO][RK0][main]: Global seed is 156170895
+[HCTR][11:15:26][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+[HCTR][11:15:27][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][11:15:27][INFO][RK0][main]: Start all2all warmup
+[HCTR][11:15:27][INFO][RK0][main]: End all2all warmup
+[HCTR][11:15:27][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][11:15:27][INFO][RK0][main]: Device 0: Tesla V100-SXM2-32GB
+[HCTR][11:15:27][INFO][RK0][main]: num of DataReader workers: 1
+[HCTR][11:15:27][INFO][RK0][main]: Vocabulary size: 40000
+[HCTR][11:15:27][INFO][RK0][main]: max_vocabulary_size_per_gpu_=21845
+[HCTR][11:15:27][INFO][RK0][main]: max_vocabulary_size_per_gpu_=21845
+[HCTR][11:15:27][INFO][RK0][main]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HCTR][11:15:29][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][11:15:29][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][11:15:29][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][11:15:29][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][11:15:29][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][11:15:29][INFO][RK0][main]: Warm-up done
+===================================================Model Summary===================================================
+[HCTR][11:15:29][INFO][RK0][main]: label                                   Dense                         Sparse                        
+label                                   dense                          data1,data2                   
+(None, 1)                               (None, 10)                              
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (None, 2, 16)                 
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      data2                         sparse_embedding2             (None, 2, 32)                 
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding1             reshape1                      (None, 32)                    
+------------------------------------------------------------------------------------------------------------------
+Reshape                                 sparse_embedding2             reshape2                      (None, 64)                    
+------------------------------------------------------------------------------------------------------------------
+Concat                                  reshape1                      concat1                       (None, 106)                   
+                                        reshape2                                                                                  
+                                        dense                                                                                     
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            concat1                       fc1                           (None, 1024)                  
+------------------------------------------------------------------------------------------------------------------
+ReLU                                    fc1                           relu1                         (None, 1024)                  
+------------------------------------------------------------------------------------------------------------------
+InnerProduct                            relu1                         fc2                           (None, 1)                     
+------------------------------------------------------------------------------------------------------------------
+BinaryCrossEntropyLoss                  fc2                           loss                                                        
+                                        label                                                                                     
+------------------------------------------------------------------------------------------------------------------
+[HCTR][11:15:29][INFO][RK0][main]: Save the model graph to hps_demo.json successfully
+=====================================================Model Fit=====================================================
+[HCTR][11:15:29][INFO][RK0][main]: Use non-epoch mode with number of iterations: 1100
+[HCTR][11:15:29][INFO][RK0][main]: Training batchsize: 1024, evaluation batchsize: 1024
+[HCTR][11:15:29][INFO][RK0][main]: Evaluation interval: 1000, snapshot interval: 1000
+[HCTR][11:15:29][INFO][RK0][main]: Dense network trainable: True
+[HCTR][11:15:29][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][11:15:29][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
+[HCTR][11:15:29][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HCTR][11:15:29][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][11:15:29][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][11:15:29][INFO][RK0][main]: Training source file: ./data_parquet/file_list.txt
+[HCTR][11:15:29][INFO][RK0][main]: Evaluation source file: ./data_parquet/file_list_test.txt
+[HCTR][11:15:29][INFO][RK0][main]: Iter: 200 Time(200 iters): 0.211451s Loss: 0.694128 lr:0.001
+[HCTR][11:15:29][INFO][RK0][main]: Iter: 400 Time(200 iters): 0.267199s Loss: 0.689953 lr:0.001
+[HCTR][11:15:29][INFO][RK0][main]: Iter: 600 Time(200 iters): 0.216242s Loss: 0.689657 lr:0.001
+[HCTR][11:15:29][INFO][RK0][main]: Iter: 800 Time(200 iters): 0.215779s Loss: 0.677149 lr:0.001
+[HCTR][11:15:30][INFO][RK0][main]: Iter: 1000 Time(200 iters): 0.219875s Loss: 0.681208 lr:0.001
+[HCTR][11:15:30][INFO][RK0][main]: Evaluation, AUC: 0.49589
+[HCTR][11:15:30][INFO][RK0][main]: Eval Time for 1 iters: 0.000359s
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][11:15:30][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][11:15:30][INFO][RK0][main]: Done
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][11:15:30][INFO][RK0][main]: Done
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][11:15:30][INFO][RK0][main]: Done
+[HCTR][11:15:30][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][11:15:30][INFO][RK0][main]: Done
+[HCTR][11:15:30][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][11:15:30][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][11:15:30][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][11:15:30][INFO][RK0][main]: Finish 1100 iterations with batchsize: 1024 in 1.53s.
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="convert-hugectr-to-onnx">
+<h2>Convert HugeCTR to ONNX<a class="headerlink" href="#convert-hugectr-to-onnx" title="Permalink to this headline"></a></h2>
+<p>We will convert the saved HugeCTR models to ONNX using the HugeCTR to ONNX Converter. For more information about the converter, refer to the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">onnx_converter</a> directory of the repository.</p>
+<p>For the sake of double checking the correctness, we will investigate both cases of conversion depending on whether or not to convert the sparse embedding models.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr2onnx</span>
+<span class="n">hugectr2onnx</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">onnx_model_path</span> <span class="o">=</span> <span class="s2">&quot;hps_demo_with_embedding.onnx&quot;</span><span class="p">,</span>
+                            <span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;hps_demo.json&quot;</span><span class="p">,</span>
+                            <span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;hps_demo_dense_1000.model&quot;</span><span class="p">,</span>
+                            <span class="n">convert_embedding</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;hps_demo0_sparse_1000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;hps_demo1_sparse_1000.model&quot;</span><span class="p">])</span>
+
+<span class="n">hugectr2onnx</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">onnx_model_path</span> <span class="o">=</span> <span class="s2">&quot;hps_demo_without_embedding.onnx&quot;</span><span class="p">,</span>
+                            <span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;hps_demo.json&quot;</span><span class="p">,</span>
+                            <span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;hps_demo_dense_1000.model&quot;</span><span class="p">,</span>
+                            <span class="n">convert_embedding</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>The model is checked!
+The model is saved at hps_demo_with_embedding.onnx
+Skip sparse embedding layers in converted ONNX model
+Skip sparse embedding layers in converted ONNX model
+The model is checked!
+The model is saved at hps_demo_without_embedding.onnx
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="inference-with-hps-onnx">
+<h2>Inference with HPS &amp; ONNX<a class="headerlink" href="#inference-with-hps-onnx" title="Permalink to this headline"></a></h2>
+<p>We will make inference by performing the following steps with Python APIs:</p>
+<ol class="arabic simple">
+<li><p>Configure the HPS hyperparameters.</p></li>
+<li><p>Initialize the HPS object, which is responsible for embedding table lookup.</p></li>
+<li><p>Loading the Parquet data.</p></li>
+<li><p>Make inference with the HPS object and the ONNX inference session of <code class="docutils literal notranslate"><span class="pre">hps_demo_without_embedding.onnx</span></code>.</p></li>
+<li><p>Check the correctness by comparing with dumped evaluation results.</p></li>
+<li><p>Make inference with the ONNX inference session of <code class="docutils literal notranslate"><span class="pre">hps_demo_with_embedding.onnx</span></code> (double check).</p></li>
+</ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">HPS</span><span class="p">,</span> <span class="n">ParameterServerConfig</span><span class="p">,</span> <span class="n">InferenceParams</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
+<span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">]</span>
+<span class="n">key_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">slot_size_array</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">1024</span>
+
+<span class="c1"># 1. Configure the HPS hyperparameters</span>
+<span class="n">ps_config</span> <span class="o">=</span> <span class="n">ParameterServerConfig</span><span class="p">(</span>
+           <span class="n">emb_table_name</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">]},</span>
+           <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">]},</span>
+           <span class="n">max_feature_num_per_sample_per_emb_table</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]},</span>
+           <span class="n">inference_params_array</span> <span class="o">=</span> <span class="p">[</span>
+              <span class="n">InferenceParams</span><span class="p">(</span>
+                <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span>
+                <span class="n">max_batchsize</span> <span class="o">=</span> <span class="n">batch_size</span><span class="p">,</span>
+                <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;hps_demo0_sparse_1000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;hps_demo1_sparse_1000.model&quot;</span><span class="p">],</span>
+                <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+                <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+           <span class="p">])</span>
+
+<span class="c1"># 2. Initialize the HPS object</span>
+<span class="n">hps</span> <span class="o">=</span> <span class="n">HPS</span><span class="p">(</span><span class="n">ps_config</span><span class="p">)</span>
+
+<span class="c1"># 3. Loading the Parquet data.</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;data_parquet/val/gen_0.parquet&quot;</span><span class="p">)</span>
+<span class="n">dense_input_columns</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">11</span><span class="p">]</span>
+<span class="n">cat_input1_columns</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">11</span><span class="p">:</span><span class="mi">13</span><span class="p">]</span>
+<span class="n">cat_input2_columns</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">13</span><span class="p">:</span><span class="mi">15</span><span class="p">]</span>
+<span class="n">dense_input</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">dense_input_columns</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">batch_size</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">cat_input1</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cat_input1_columns</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">batch_size</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">key_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">cat_input2</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cat_input2_columns</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">batch_size</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">key_offset</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="c1"># 4. Make inference from the HPS object and the ONNX inference session of `hps_demo_without_embedding.onnx`.</span>
+<span class="n">embedding1</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="n">embedding2</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="s2">&quot;hps_demo_without_embedding.onnx&quot;</span><span class="p">)</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="n">sess</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+               <span class="n">input_feed</span><span class="o">=</span><span class="p">{</span><span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">dense_input</span><span class="p">,</span>
+               <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">embedding1</span><span class="p">,</span>
+               <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">embedding2</span><span class="p">})</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># 5. Check the correctness by comparing with dumped evaluation results.</span>
+<span class="n">ground_truth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="s2">&quot;hps_demo_pred_1000&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ground_truth: &quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="p">)</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">-</span><span class="n">ground_truth</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">diff</span><span class="o">*</span><span class="n">diff</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pred: &quot;</span><span class="p">,</span> <span class="n">pred</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mse between pred and ground_truth: &quot;</span><span class="p">,</span> <span class="n">mse</span><span class="p">)</span>
+
+<span class="c1"># 6. Make inference with the ONNX inference session of `hps_demo_with_embedding.onnx` (double check).</span>
+<span class="n">sess_ref</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="s2">&quot;hps_demo_with_embedding.onnx&quot;</span><span class="p">)</span>
+<span class="n">res_ref</span> <span class="o">=</span> <span class="n">sess_ref</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="n">sess_ref</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+                   <span class="n">input_feed</span><span class="o">=</span><span class="p">{</span><span class="n">sess_ref</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">dense_input</span><span class="p">,</span>
+                   <span class="n">sess_ref</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">cat_input1</span><span class="p">,</span>
+                   <span class="n">sess_ref</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">cat_input2</span><span class="p">})</span>
+<span class="n">pred_ref</span> <span class="o">=</span> <span class="n">res_ref</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">diff_ref</span> <span class="o">=</span> <span class="n">pred_ref</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">-</span><span class="n">ground_truth</span>
+<span class="n">mse_ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">diff_ref</span><span class="o">*</span><span class="n">diff_ref</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pred_ref: &quot;</span><span class="p">,</span> <span class="n">pred_ref</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mse between pred_ref and ground_truth: &quot;</span><span class="p">,</span> <span class="n">mse_ref</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][11:17:13][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][11:17:13][INFO][RK0][main]: Creating ParallelHashMap CPU database backend...
+[HCTR][11:17:13][INFO][RK0][main]: Created parallel (16 partitions) blank database backend in local memory!
+[HCTR][11:17:13][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][11:17:13][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][11:17:13][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding1; cached 15749 / 15749 embeddings in volatile database (ParallelHashMap); load: 15749 / 18446744073709551615 (0.00%).
+[HCTR][11:17:13][INFO][RK0][main]: Table: hps_et.hps_demo.sparse_embedding2; cached 15781 / 15781 embeddings in volatile database (ParallelHashMap); load: 15781 / 18446744073709551615 (0.00%).
+[HCTR][11:17:13][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][11:17:13][INFO][RK0][main]: Create embedding cache in device 0.
+[HCTR][11:17:13][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.500000
+[HCTR][11:17:13][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][11:17:13][INFO][RK0][main]: Create inference session on device: 0
+[HCTR][11:17:13][INFO][RK0][main]: Model name: hps_demo
+[HCTR][11:17:13][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][11:17:13][INFO][RK0][main]: Use I64 input key: True
+ground_truth:  [0.456111 0.417843 0.428037 ... 0.336745 0.53599  0.508711]
+pred:  [[0.45611122]
+ [0.4178428 ]
+ [0.42803708]
+ ...
+ [0.3367453 ]
+ [0.53599   ]
+ [0.5087108 ]]
+mse between pred and ground_truth:  8.241691052249094e-14
+pred_ref:  [[0.45611122]
+ [0.4178428 ]
+ [0.42803708]
+ ...
+ [0.3367453 ]
+ [0.53599   ]
+ [0.5087108 ]]
+mse between pred_ref and ground_truth:  7.573986338301264e-05
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-03-31 11:17:13.779336470 [W:onnxruntime:, graph.cc:3559 CleanUnusedInitializersAndNodeArgs] Removing initializer &#39;key_to_indice_hash_all_tables&#39;. It is not used by any node and should be removed from the model.
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="lookup-the-embedding-vector-from-dlpack">
+<h2>Lookup the Embedding Vector from DLPack<a class="headerlink" href="#lookup-the-embedding-vector-from-dlpack" title="Permalink to this headline"></a></h2>
+<p>We also provide a <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface that could query embedding keys on the <code class="docutils literal notranslate"><span class="pre">CPU</span></code> and return the embedding vectors on the <code class="docutils literal notranslate"><span class="pre">GPU/CPU</span></code>.</p>
+<ol class="arabic simple">
+<li><p>Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.</p></li>
+<li><p>Convert the embedding key tensor to DLPack capsule through the corresponding platform’s <code class="docutils literal notranslate"><span class="pre">to_dlpack</span></code> function.</p></li>
+<li><p>Creates an empty tensor as a buffer to store embedding vectors.</p></li>
+<li><p>Convert a buffer tensor to DLPack capsule.</p></li>
+<li><p>Lookup the embedding vector of the corresponding embedding key directly through <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface, and output it to the embedding vector buffer tensor</p></li>
+<li><p>If the output capsule is allocated on the GPU, then a  <code class="docutils literal notranslate"><span class="pre">device_id</span></code> needs to be specified in <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface for corresponding embedding cache. If not specified, the default value is device 0</p></li>
+</ol>
+<p>Note: Please make sure that tensorflow or pytorch have been installed correctly in the container</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embedding1</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="n">embedding2</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+
+<span class="c1"># 1. Look up from dlpack for Pytorch tensor on CPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot; Look up from dlpack for Pytorch tensor&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">torch.utils.dlpack</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;************Look up from pytorch dlpack on CPU&quot;</span><span class="p">)</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">key_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the keys: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+<span class="n">out_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+<span class="c1"># Lookup the embedding vectors from dlpack</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span> <span class="n">out_capsule</span><span class="p">,</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">out_put</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_capsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out_put</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out_put</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out_put</span><span class="o">-</span><span class="n">embedding1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between pytorch dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    
+
+<span class="c1"># 2. Look up from dlpack for Pytorch tensor on GPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;************Look up from pytorch dlpack on GPU&quot;</span><span class="p">)</span>
+<span class="n">cuda_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">cuda_device</span><span class="p">)</span>
+<span class="n">out_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span> <span class="n">out_capsule</span><span class="p">,</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">out_put</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_capsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out_put</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out_put</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out_put</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">-</span><span class="n">embedding1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between pytorch dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> Look up from dlpack for Pytorch tensor
+************Look up from pytorch dlpack on CPU
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the keys: tensor([    0, 10000,     0,  ..., 10037,    57, 10057])
+[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]])
+
+Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: 0.0
+************Look up from pytorch dlpack on GPU
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cuda:0, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]],
+       device=&#39;cuda:0&#39;)
+
+
+Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: 0.0
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># 3. Look up from dlpack for tensorflow tensor on CPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Look up from dlpack for Tensorflow tensor&quot;</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.dlpack</span> <span class="kn">import</span> <span class="n">dlpack</span>  
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.eager</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">dtypes</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;***************Look up from tensorflow dlpack on CPU**********&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;/CPU:0&#39;</span><span class="p">):</span>
+    <span class="n">key_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: </span><span class="si">{}</span><span class="s2">, the keys: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key_tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">key_tensor</span><span class="p">))</span>
+    <span class="n">key_capsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
+    <span class="n">out_dlcapsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span><span class="n">out_dlcapsule</span><span class="p">,</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">out</span><span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_dlcapsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out</span><span class="o">-</span><span class="n">embedding2</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">)</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_mean</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">mse</span><span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between tensorflow dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    
+<span class="c1"># 4. Look up from dlpack for tensorflow tensor on GPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;***************Look up from tensorflow dlpack on GPU**********&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;/GPU:0&#39;</span><span class="p">):</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">key_capsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
+    <span class="n">out_dlcapsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span><span class="n">out_dlcapsule</span><span class="p">,</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">out</span><span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_dlcapsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out</span><span class="o">-</span><span class="n">embedding2</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">)</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_mean</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">mse</span><span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between tensorflow dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Look up from dlpack for Tensorflow tensor
+***************Look up from tensorflow dlpack on CPU**********
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the keys: [20000 30000 20000 ... 30037 20057 30057]
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
+  -0.06696524]]
+
+tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
+***************Look up from tensorflow dlpack on GPU**********
+[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: /job:localhost/replica:0/task:0/device:GPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
+  -0.06696524]]
+
+tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: 0.0
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="multi_gpu_offline_inference.html" class="btn btn-neutral float-left" title="Multi-GPU Offline Inference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="training_with_hdfs.html" class="btn btn-neutral float-right" title="HugeCTR training with HDFS example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v22.10-integration-220929
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="hps_demo.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

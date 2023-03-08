@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MovieLens Data Enrichment &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/multi-modal-data/02-Data-Enrichment.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Movie Poster Feature Extraction with ResNet" href="03-Feature-Extraction-Poster.html" />
+    <link rel="prev" title="MovieLens-25M: Download and Convert" href="01-Download-Convert.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Example Notebooks</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Multi-modal Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">MovieLens Data Enrichment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-Create-Feature-Store.html">Creating Multi-Modal Movie Feature Store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-Training-with-HugeCTR.html">Training HugeCTR Model with Pre-trained Embeddings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Multi-modal Example Notebooks</a></li>
+      <li class="breadcrumb-item active">MovieLens Data Enrichment</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-2-data-enrichment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-2-data-enrichment/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="movielens-data-enrichment">
+<h1>MovieLens Data Enrichment<a class="headerlink" href="#movielens-data-enrichment" title="Permalink to this headline"></a></h1>
+<p>In this notebook, we will enrich the MovieLens 25M dataset with poster and movie sypnopsis scrapped from IMDB. If you wish to use synthetic multi-modal data, then proceed to <a class="reference internal" href="05-Create-Feature-Store.html"><span class="doc std std-doc">05-Create-Feature-Store.ipynb</span></a>, synthetic data section.</p>
+<p>First, we will need to install some extra package for IMDB data collection.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install imdbpy
+</pre></div>
+</div>
+</div>
+</div>
+<p>Note: restart the kernel for the new package to take effect.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">IPython</span>
+
+<span class="n">IPython</span><span class="o">.</span><span class="n">Application</span><span class="o">.</span><span class="n">instance</span><span class="p">()</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">do_shutdown</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="scraping-data-from-imdb">
+<h2>Scraping data from IMDB<a class="headerlink" href="#scraping-data-from-imdb" title="Permalink to this headline"></a></h2>
+<p>The IMDB API allows the collection of a rich set of multi-modal meta data from the IMDB database, including link to poster, synopsis and plots.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">imdb</span> <span class="kn">import</span> <span class="n">IMDb</span>
+
+<span class="c1"># create an instance of the IMDb class</span>
+<span class="n">ia</span> <span class="o">=</span> <span class="n">IMDb</span><span class="p">()</span>
+
+<span class="c1"># get a movie and print its director(s)</span>
+<span class="n">the_matrix</span> <span class="o">=</span> <span class="n">ia</span><span class="o">.</span><span class="n">get_movie</span><span class="p">(</span><span class="s1">&#39;0114709&#39;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">director</span> <span class="ow">in</span> <span class="n">the_matrix</span><span class="p">[</span><span class="s1">&#39;directors&#39;</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">director</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span>
+
+<span class="c1"># show all information that are currently available for a movie</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">the_matrix</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+
+<span class="c1"># show all information sets that can be fetched for a movie</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ia</span><span class="o">.</span><span class="n">get_movie_infoset</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">the_matrix</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;plot&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">the_matrix</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;synopsis&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="collect-synopsis-for-all-movies">
+<h2>Collect synopsis for all movies<a class="headerlink" href="#collect-synopsis-for-all-movies" title="Permalink to this headline"></a></h2>
+<p>Next, we will collect meta data, including the synopsis, for all movies in the dataset. Note that this process will take a while to complete.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">links</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;./data/ml-25m/links.csv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">links</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">links</span><span class="o">.</span><span class="n">imdbId</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Process</span><span class="p">,</span> <span class="n">cpu_count</span>
+<span class="kn">from</span> <span class="nn">multiprocessing.managers</span> <span class="kn">import</span> <span class="n">BaseManager</span><span class="p">,</span> <span class="n">DictProxy</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">movies</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">links</span><span class="p">[</span><span class="s1">&#39;imdbId&#39;</span><span class="p">])</span>
+<span class="n">movies_id</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">links</span><span class="p">[</span><span class="s1">&#39;movieId&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">movies_infos</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">def</span> <span class="nf">task</span><span class="p">(</span><span class="n">movies</span><span class="p">,</span> <span class="n">movies_ids</span><span class="p">,</span> <span class="n">movies_infos</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">movie</span><span class="p">,</span> <span class="n">movies_id</span><span class="p">)</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">movies</span><span class="p">,</span> <span class="n">movies_ids</span><span class="p">)),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">movies</span><span class="p">)):</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">movie_info</span> <span class="o">=</span> <span class="n">ia</span><span class="o">.</span><span class="n">get_movie</span><span class="p">(</span><span class="n">movie</span><span class="p">)</span>
+            <span class="n">movies_infos</span><span class="p">[</span><span class="n">movies_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">movie_info</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Movie </span><span class="si">%d</span><span class="s2"> download error: &quot;</span><span class="o">%</span><span class="k">movies_id</span>, e)
+
+<span class="c1">#task(movies, movies_ids, movies_infos)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We will now collect the movie metadata from IMDB using parallel threads.</p>
+<p>Please note: with higher thread counts, there is a risk of being blocked by IMDB DoS software.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Gathering movies information from IMDB...&#39;</span><span class="p">)</span>
+<span class="n">BaseManager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;dict&#39;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">DictProxy</span><span class="p">)</span>
+<span class="n">manager</span> <span class="o">=</span> <span class="n">BaseManager</span><span class="p">()</span>
+<span class="n">manager</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="n">movies_infos</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+
+<span class="n">num_jobs</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">movies</span><span class="p">)</span>
+<span class="n">chunk_size</span> <span class="o">=</span> <span class="n">total</span> <span class="o">//</span> <span class="n">num_jobs</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">):</span>
+    <span class="n">proc</span> <span class="o">=</span> <span class="n">Process</span><span class="p">(</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+        <span class="n">args</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">movies</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>
+            <span class="n">movies_id</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>
+            <span class="n">movies_infos</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">processes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+    <span class="n">proc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+    <span class="n">proc</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">movies_infos</span> <span class="o">=</span> <span class="n">movies_infos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">movies_infos</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;movies_info.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">({</span><span class="s2">&quot;movies_infos&quot;</span><span class="p">:</span> <span class="n">movies_infos</span><span class="p">},</span> <span class="n">f</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="scraping-movie-posters">
+<h2>Scraping movie posters<a class="headerlink" href="#scraping-movie-posters" title="Permalink to this headline"></a></h2>
+<p>The movie metadata also contains link to poster images. We next collect these posters where available.</p>
+<p>Note: this process will take some time to complete.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Process</span><span class="p">,</span> <span class="n">cpu_count</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;movies_info.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">movies_infos</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="s1">&#39;movies_infos&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">COLLECT_LARGE_POSTER</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">filelist</span><span class="p">,</span> <span class="n">targetlist</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+<span class="n">largefilelist</span><span class="p">,</span> <span class="n">largetargetlist</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">movie</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">movies_infos</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">movies_infos</span><span class="p">)):</span>
+    <span class="k">if</span> <span class="s1">&#39;cover url&#39;</span> <span class="ow">in</span> <span class="n">movie</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">target_path</span> <span class="o">=</span> <span class="s1">&#39;./poster_small/</span><span class="si">%s</span><span class="s1">.jpg&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">movie</span><span class="p">[</span><span class="s1">&#39;imdbID&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">target_path</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">targetlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_path</span><span class="p">)</span>
+        <span class="n">filelist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">movie</span><span class="p">[</span><span class="s1">&#39;cover url&#39;</span><span class="p">])</span>
+                
+    <span class="c1"># Optionally, collect high-res poster images </span>
+    <span class="k">if</span> <span class="n">COLLECT_LARGE_POSTER</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s1">&#39;full-size cover url&#39;</span> <span class="ow">in</span> <span class="n">movie</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">target_path</span> <span class="o">=</span> <span class="s1">&#39;&quot;./poster_large/</span><span class="si">%s</span><span class="s1">.jpg&quot;&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">movie</span><span class="p">[</span><span class="s1">&#39;imdbID&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">target_path</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">largetargetlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_path</span><span class="p">)</span>
+            <span class="n">largefilelist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">movie</span><span class="p">[</span><span class="s1">&#39;full-size cover url&#39;</span><span class="p">])</span>                                
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">download_task</span><span class="p">(</span><span class="n">filelist</span><span class="p">,</span> <span class="n">targetlist</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">filelist</span><span class="p">,</span> <span class="n">targetlist</span><span class="p">)),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">targetlist</span><span class="p">)):</span>        
+        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39;wget &quot;</span><span class="si">%s</span><span class="s1">&quot; -O </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">popen</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Gathering small posters...&#39;</span><span class="p">)</span>
+<span class="o">!</span>mkdir ./poster_small
+
+<span class="n">num_jobs</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">filelist</span><span class="p">)</span>
+<span class="n">chunk_size</span> <span class="o">=</span> <span class="n">total</span> <span class="o">//</span> <span class="n">num_jobs</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">):</span>
+    <span class="n">proc</span> <span class="o">=</span> <span class="n">Process</span><span class="p">(</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">download_task</span><span class="p">,</span>
+        <span class="n">args</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">filelist</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>
+            <span class="n">targetlist</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>            
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">processes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+    <span class="n">proc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+    <span class="n">proc</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">COLLECT_LARGE_POSTER</span><span class="p">:</span>
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Gathering large posters...&#39;</span><span class="p">)</span>
+    <span class="o">!</span>mkdir ./poster_large
+
+    <span class="n">num_jobs</span> <span class="o">=</span> <span class="mi">32</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">largefilelist</span><span class="p">)</span>
+    <span class="n">chunk_size</span> <span class="o">=</span> <span class="n">total</span> <span class="o">//</span> <span class="n">num_jobs</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">):</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="n">Process</span><span class="p">(</span>
+            <span class="n">target</span><span class="o">=</span><span class="n">download_task</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">largefilelist</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>
+                <span class="n">largetargetlist</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">chunk_size</span><span class="p">],</span>            
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">processes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l poster_small<span class="p">|</span>wc -l
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="01-Download-Convert.html" class="btn btn-neutral float-left" title="MovieLens-25M: Download and Convert" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="03-Feature-Extraction-Poster.html" class="btn btn-neutral float-right" title="Movie Poster Feature Extraction with ResNet" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v22.10-integration-220929
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="02-Data-Enrichment.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/index.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
