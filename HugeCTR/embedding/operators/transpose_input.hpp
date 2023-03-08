@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
 #include <core23/registry.hpp>
 #include <embedding/common.hpp>
 

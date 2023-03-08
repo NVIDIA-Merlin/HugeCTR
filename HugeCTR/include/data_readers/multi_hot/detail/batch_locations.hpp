@@ -28,11 +28,12 @@ T round_up(T x, T y) {
   return ((x + y - 1) / y) * y;
 }
 
-struct BatchFileLocation {
+struct BatchDescriptor {
   size_t i;
   size_t id;
   size_t offset;
-  size_t size_bytes;
+  size_t shard_size_bytes;
+  size_t batch_size_bytes;
 };
 
 /**
@@ -53,7 +54,7 @@ class IBatchLocations {
       size_t n, size_t min_batch_size_bytes) const = 0;
 
  private:
-  virtual BatchFileLocation at(size_t i) = 0;
+  virtual BatchDescriptor at(size_t i) = 0;
 };
 
 /**
@@ -67,6 +68,7 @@ class BatchLocations : public IBatchLocations {
         batch_size_bytes_(batch_size_bytes),
         start_offset_(start_offset),
         end_offset_(end_offset),
+        shard_id_(0),
         ids_(((end_offset - start_offset) + batch_size_bytes - 1) / batch_size_bytes),
         order_(ids_.size()) {
     std::iota(ids_.begin(), ids_.end(), 0);
@@ -107,7 +109,7 @@ class BatchLocations : public IBatchLocations {
     for (size_t i = 0; i < required_shards; ++i) {
       auto other = new BatchLocations(*this);
       other->shard_size_bytes_ = shard_size_bytes;
-      other->start_offset_ = start_offset_ + i * shard_size_bytes;
+      other->shard_id_ = i;
       batch_locations.emplace_back(other);
     }
     return batch_locations;
@@ -120,26 +122,30 @@ class BatchLocations : public IBatchLocations {
   size_t count() { return this->end() - this->begin(); }
 
  private:
-  BatchFileLocation at(size_t i) {
+  BatchDescriptor at(size_t i) {
     size_t batch_id = ids_[i % ids_.size()];
-    BatchFileLocation batch;
-    batch.i = order_[i % order_.size()];
-    batch.id = batch_id;
-    batch.offset = start_offset_ + batch_id * batch_size_bytes_;
-    batch.offset = batch.offset >= end_offset_ ? SIZE_MAX : batch.offset;
+    BatchDescriptor desc;
+    desc.i = order_[i % order_.size()];
+    desc.id = batch_id;
+    desc.offset = start_offset_ + (batch_id * batch_size_bytes_) + (shard_id_ * shard_size_bytes_);
+    desc.offset = desc.offset >= end_offset_ ? SIZE_MAX : desc.offset;
 
     // size can be clamped by end of file, end of batch, or end of shard.
     size_t batch_end = (batch_id + 1) * batch_size_bytes_;
-    size_t shard_end = batch.offset + shard_size_bytes_;
-    size_t size = std::min(end_offset_, std::min(batch_end, shard_end)) - batch.offset;
-    batch.size_bytes = batch.offset >= end_offset_ ? 0 : size;
-    return batch;
+    size_t shard_end = desc.offset + shard_size_bytes_;
+    size_t size = std::min(end_offset_, std::min(batch_end, shard_end)) - desc.offset;
+    desc.shard_size_bytes = desc.offset >= end_offset_ ? 0 : size;
+
+    size_t global_offset = start_offset_ + batch_id * batch_size_bytes_;
+    desc.batch_size_bytes = std::min(end_offset_, batch_end) - global_offset;
+    return desc;
   }
 
   size_t shard_size_bytes_;
   size_t batch_size_bytes_;
   size_t start_offset_;
   size_t end_offset_;
+  size_t shard_id_;
   std::vector<size_t> ids_;    // for shuffle
   std::vector<size_t> order_;  // global iteration order
 };

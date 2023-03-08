@@ -22,7 +22,11 @@ namespace embedding {
 
 void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
                           const std::vector<std::vector<int>>& h_global_lookup_ids) {
-  int num_gpus = core->get_global_gpu_count();
+  int num_gpus = static_cast<int>(h_global_lookup_ids.size());
+  h_network_ids.clear();
+  h_network_gpu_ids.clear();
+  h_network_offsets.clear();
+  h_network_dst_lookup_ids.clear();
 
   std::vector<std::tuple<int, int, int>> h_network_buffer_meta_info;
   for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
@@ -34,10 +38,8 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
   }
 
   std::sort(h_network_buffer_meta_info.begin(), h_network_buffer_meta_info.end(),
-            [](const auto& lhs, const auto& rhs) { return std::get<2>(lhs) <= std::get<2>(rhs); });
+            [](const auto& lhs, const auto& rhs) { return std::get<2>(lhs) < std::get<2>(rhs); });
 
-  std::vector<int> h_network_ids;
-  std::vector<int> h_network_gpu_ids;
   for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
     const auto& meta_info = h_network_buffer_meta_info[i];
     int network_gpu_id = std::get<0>(meta_info);
@@ -46,7 +48,6 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
     h_network_gpu_ids.push_back(network_gpu_id);
   }
 
-  std::vector<int> h_network_offsets;
   int network_offset = 0;
   for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
     const auto& meta_info = h_network_buffer_meta_info[i];
@@ -58,7 +59,6 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
   }
   h_network_offsets.push_back(network_offset);
 
-  std::vector<int> h_network_dst_lookup_ids;
   for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
     const auto& meta_info = h_network_buffer_meta_info[i];
     int lookup_id = std::get<2>(meta_info);
@@ -88,22 +88,6 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
       core23::Tensor(params.shape({static_cast<int64_t>(h_network_dst_lookup_ids.size())})
                          .data_type(core23::ScalarType::Int32));
   core23::copy_sync(this->network_dst_lookup_ids, h_network_dst_lookup_ids);
-
-  //  auto buffer_ptr = GetBuffer(core);
-  //  this->network_ids =
-  //      buffer_ptr->reserve({h_network_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  //  this->network_gpu_ids =
-  //      buffer_ptr->reserve({h_network_gpu_ids.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  //  this->network_offsets =
-  //      buffer_ptr->reserve({h_network_offsets.size()}, DeviceType::GPU, TensorScalarType::Int32);
-  //  this->network_dst_lookup_ids = buffer_ptr->reserve({h_network_dst_lookup_ids.size()},
-  //                                                     DeviceType::GPU, TensorScalarType::Int32);
-  //  buffer_ptr->allocate();
-
-  //  this->network_ids.copy_from(h_network_ids);
-  //  this->network_gpu_ids.copy_from(h_network_gpu_ids);
-  //  this->network_offsets.copy_from(h_network_offsets);
-  //  this->network_dst_lookup_ids.copy_from(h_network_dst_lookup_ids);
 }
 
 void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
@@ -113,7 +97,7 @@ void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
-  this->num_gpus = core->get_global_gpu_count();
+  this->num_gpus = static_cast<int>(h_global_lookup_ids.size());
 
   std::vector<std::vector<int>> h_id_to_ev_size;
   h_id_to_ev_size.resize(num_gpus);
@@ -180,7 +164,7 @@ void NetworkBuffer::init(std::shared_ptr<CoreResourceManager> core, const Networ
   this->attr = attr;
   this->data_list.clear();
 
-  int batch_size_per_gpu = batch_size / attr.num_gpus;
+  int batch_size_per_gpu = batch_size / core->get_global_gpu_count();
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);

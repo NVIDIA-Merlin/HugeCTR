@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <core/hctr_impl/hctr_backend.hpp>
+#include <embedding/operators/keys_to_indices.hpp>
 #include <embedding_storage/dynamic_embedding.hpp>
 #include <embedding_storage/ragged_static_embedding.hpp>
 #include <resource_managers/resource_manager_ext.hpp>
@@ -46,6 +47,7 @@ int universal_batch_size = 1024;
 template <typename key_t, typename index_t>
 void test_embedding_table(int device_id, int table_type) {
   std::vector<int> device_list{device_id};
+  HugeCTR::CudaDeviceContext context(device_id);
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
 
@@ -104,6 +106,12 @@ void test_embedding_table(int device_id, int table_type) {
   core23::copy_sync(searched_keys, cpu_searched_key);
   core23::copy_sync(searched_id_space_offset, cpu_searched_id_space_offset);
   core23::copy_sync(searched_id_space_list, cpu_searched_id_space_list);
+
+  if (table_type == 0) {
+    KeysToIndicesConverter converter(core, table_param_list, ebc_param, 0);
+    converter.convert(searched_keys, searched_keys.num_elements(), searched_id_space_offset,
+                      searched_id_space_offset.num_elements() - 1, searched_id_space_list);
+  }
 
   embedding_table->lookup(searched_keys, searched_keys.num_elements(), searched_id_space_offset,
                           searched_id_space_offset.num_elements(), searched_id_space_list, emb_vec);

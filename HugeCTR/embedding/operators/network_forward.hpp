@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
 #include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
@@ -23,6 +22,11 @@ namespace embedding {
 using core::CoreResourceManager;
 
 struct NetworkIndices {
+  std::vector<int> h_network_ids;
+  std::vector<int> h_network_gpu_ids;
+  std::vector<int> h_network_offsets;
+  std::vector<int> h_network_dst_lookup_ids;
+
   core23::Tensor network_ids;
   core23::Tensor network_gpu_ids;
   core23::Tensor network_offsets;
@@ -32,7 +36,7 @@ struct NetworkIndices {
             const std::vector<std::vector<int>> &h_global_lookup_ids);
 };
 
-struct NetworkBufferAttr : public EVBufferAttr {
+struct NetworkBufferAttr {
   std::vector<core23::Tensor> id_to_ev_size_list;
   core23::Tensor id_to_ev_size;
 
@@ -42,6 +46,11 @@ struct NetworkBufferAttr : public EVBufferAttr {
   int num_gpus;
   std::vector<int> gpu_id_to_max_ev_elements;
 
+  EmbeddingLayout layout;
+  int max_ev_size;
+  bool is_ragged;
+  bool is_aligned;
+  core23::DataType type;
   void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
             size_t grouped_id, const std::vector<std::vector<int>> &h_global_lookup_ids);
 };

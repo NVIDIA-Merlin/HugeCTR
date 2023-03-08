@@ -37,15 +37,9 @@ struct AtomicWrapper {
     return *this;
   }
 
-  AtomicWrapper &operator++() {
-    raw++;
-    return *this;
-  }
+  T operator++() { return ++raw; }
 
-  AtomicWrapper operator++(int)  // post-increment
-  {
-    AtomicWrapper<size_t> copy(*this);
-    ++(*this);  // pre-increment here seems logical
-    return copy;
+  T operator++(int) {  // post-incremen
+    return raw++;
   }
 };

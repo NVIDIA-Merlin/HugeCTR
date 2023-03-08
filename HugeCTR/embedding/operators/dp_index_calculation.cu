@@ -26,10 +26,9 @@ namespace {
 
 template <typename key_t>
 __global__ void cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel(
-    const key_t* unique_indices, int num_elements, const uint32_t* table_range,
-    const int* unique_table_ids, const int* table_id_to_allreduce_buffer_start_indices,
-    const uint32_t* ev_start_indices_in_allreduce_buffer, const uint64_t* num_unique_key,
-    int vocabulary_size, uint32_t* ev_start_indices_for_local_reduce) {
+    const key_t* unique_indices, int num_elements,
+    const uint32_t* ev_start_indices_in_allreduce_buffer, const size_t* num_unique_key,
+    uint32_t* ev_start_indices_for_local_reduce) {
   uint32_t num_keys = static_cast<uint32_t>(*num_unique_key);
   CUDA_1D_KERNEL_LOOP_T(uint32_t, i, num_elements) {
     if (i >= num_keys) {
@@ -38,9 +37,7 @@ __global__ void cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel(
     }
     uint32_t idx = i;
 
-    int table_id = unique_table_ids[idx];
-    int idx_in_allreduce_buffer = static_cast<int>(unique_indices[idx]) +
-                                  table_id_to_allreduce_buffer_start_indices[table_id];
+    int idx_in_allreduce_buffer = static_cast<int>(unique_indices[idx]);
 
     ev_start_indices_for_local_reduce[i] =
         ev_start_indices_in_allreduce_buffer[idx_in_allreduce_buffer];
@@ -50,9 +47,11 @@ __global__ void cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel(
 
 void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
     const EmbeddingInput& embedding_input,
-    const core23::Tensor& table_id_to_allreduce_buffer_start_indices,
     const core23::Tensor& ev_start_indices_in_allreduce_buffer, ReductionIndices& reduction_indices,
     Wgrad& wgrad, int batch_size) {
+  int gpu_id = core_->get_global_gpu_id();
+  int num_gpus = core_->get_global_gpu_count();
+
   auto cal_ev_start_indices_in_allreduce_wgrad =
       [&](const WgradEvStartIndicesCalculationInput& input,
           WgradEvStartIndicesCalculationOutput& output, cudaStream_t stream) {
@@ -61,12 +60,8 @@ void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
         DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
           cal_ev_start_indices_in_allreduce_wgrad_using_indices_kernel<<<144 * 8, 256, 0, stream>>>(
               input.unique_keys.data<key_t>(), input.unique_keys.num_elements(),
-              input.table_range.data<uint32_t>(), input.table_ids.data<int>(),
-              table_id_to_allreduce_buffer_start_indices.data<int>(),
               ev_start_indices_in_allreduce_buffer.data<uint32_t>(),
-              input.num_unique_keys.data<uint64_t>(),
-              ev_start_indices_in_allreduce_buffer.num_elements() - 1,
-              output.ev_start_indices.data<uint32_t>());
+              input.num_unique_keys.data<size_t>(), output.ev_start_indices.data<uint32_t>());
         });
       };
 

@@ -267,7 +267,7 @@ long long AsyncDataReader<SparseType>::read_a_batch_to_device_delay_release() {
   BatchTensors& batch_tensors = inflight_batch_tensors_.at(inflight_id_);
 
   size_t current_batch_id = static_cast<size_t>(batch.get_id());
-  current_batch_size_ = batch.get_total_size_bytes() / (sample_size_items_ * sizeof(InputType));
+  current_batch_size_ = batch.get_batch_size_bytes() / (sample_size_items_ * sizeof(InputType));
   current_sparse_tensors_ = batch_tensors.sparse_tensors;
   current_batch_cached_ = (current_batch_id == batch_tensors.tag) && cache_buffers_;
 
@@ -280,7 +280,7 @@ long long AsyncDataReader<SparseType>::read_a_batch_to_device_delay_release() {
     const cudaStream_t& stream = s3w_streams_[i];
 
     size_t current_batch_size_per_device =
-        batch.get_size_bytes(i, slot_id) / (sample_size_items_ * sizeof(InputType));
+        batch.get_local_batch_size_bytes(i, slot_id) / (sample_size_items_ * sizeof(InputType));
 
     // schedule at correct place in iteration
     HCTR_LIB_THROW(cudaStreamWaitEvent(stream, split_schedule_events_[i]));

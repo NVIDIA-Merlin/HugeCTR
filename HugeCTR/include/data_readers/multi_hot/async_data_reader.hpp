@@ -118,7 +118,7 @@ class AsyncDataReader : public SchedulableDataReader {
 
   const std::shared_ptr<ResourceManager> resource_manager_;
   std::unique_ptr<DataReaderImpl> reader_impl_;
-  size_t sample_size_items_, current_batch_size_;
+  size_t sample_size_items_, current_batch_size_;  // current global batch size
   bool mixed_precision_;
   size_t batch_size_, batch_size_per_dev_;
   size_t label_dim_, dense_dim_, sparse_dim_;

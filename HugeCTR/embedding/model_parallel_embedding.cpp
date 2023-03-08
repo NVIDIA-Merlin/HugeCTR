@@ -47,28 +47,14 @@ UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
 
     h_ev_size_list_.push_back(ev_size);
     h_combiner_list_.push_back(combiner);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) {
       continue;
     }
-
-    if (ebc_param.shard_matrix[gpu_id][table_id] == 0) {
-      continue;
-    }
-
-    std::vector<int> shard_gpus;
-    for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-      if (ebc_param.shard_matrix[ggpu_id][table_id] == 1) {
-        shard_gpus.push_back(ggpu_id);
-      }
-    }
-    auto find_shard_id_iter = std::find(shard_gpus.begin(), shard_gpus.end(), gpu_id);
-    HCTR_CHECK_HINT(find_shard_id_iter != shard_gpus.end(),
-                    "ModelParallelEmbeddingMeta does not find shard id");
-    int shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
+    int shard_id, num_shard;
+    ebc_param.get_table_shard_id(gpu_id, table_id, &shard_id, &num_shard);
 
     h_local_shard_id_list_.push_back(shard_id);
-    h_local_num_shards_list_.push_back(static_cast<int>(shard_gpus.size()));
+    h_local_num_shards_list_.push_back(num_shard);
     h_local_table_id_list_.push_back(table_id);
     h_local_lookup_id_list_.push_back(lookup_id);
     h_local_ev_size_list_.push_back(ev_size);

@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/registry.hpp>
 #include <core23/registry.hpp>
 #include <embedding/common.hpp>
 
@@ -38,12 +37,22 @@ class DPModelForward {
                int batch_size_per_gpu);
 };
 
-struct ModelCommBufferAttr : public EVBufferAttr {
+struct ModelCommBufferAttr {
+  std::vector<int> h_id_to_ev_size;
   core23::Tensor id_to_ev_size;
+
+  std::vector<int> h_id_to_ev_start_indices;
   core23::Tensor id_to_ev_start_indices;
+
   int num_lookup;
   int num_gpus;
   int max_ev_elements;
+
+  EmbeddingLayout layout;
+  int max_ev_size;
+  bool is_ragged;
+  bool is_aligned;
+  core23::DataType type;
 
   void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
             size_t grouped_id);
@@ -52,6 +61,7 @@ struct ModelCommBufferAttr : public EVBufferAttr {
 struct ModelCommBuffer {
   std::vector<core23::Tensor> data_list;
   core23::Tensor data;
+  core23::Tensor peer_data;
 
   ModelCommBufferAttr attr;
 
@@ -62,6 +72,9 @@ struct ModelCommBuffer {
                                const std::vector<core23::Tensor> &data_buffer_list,
                                const ModelCommBufferAttr &attr);
 };
+
+void collective_init_peer_buffer(const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
+                                 std::vector<ModelCommBuffer *> &model_comm_buffers);
 
 struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;

@@ -35,7 +35,8 @@ using namespace HugeCTR;
 
 // const std::string fname = "/40m.limit_preshuffled/train_data.bin";
 // const std::string fname = "/criteo_kaggle/dlrm/test_data.bin";
-const std::string fname = "/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin";
+// const std::string fname = "/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin";
+const std::string fname = "/data_multihot/val_data.bin";
 
 __global__ void gpu_sleep(int64_t num_cycles) {
   int64_t cycles = 0;
@@ -104,7 +105,7 @@ void reader_test(std::vector<int> device_list, size_t batch_size_bytes, int num_
   size_t total_sz = 0;
   while (true) {
     const MultiHot::DataReaderImpl::Batch& batch = data_reader.get_batch();
-    total_sz += batch.get_total_size_bytes();
+    total_sz += batch.get_batch_size_bytes();
 
 #pragma omp parallel for num_threads(device_list.size())
     for (size_t i = 0; i < device_list.size(); i++) {

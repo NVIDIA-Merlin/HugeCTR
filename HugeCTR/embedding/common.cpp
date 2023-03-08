@@ -17,40 +17,10 @@
 #include <cuda_runtime.h>
 
 #include <core/hctr_impl/hctr_backend.hpp>
-#include <core/registry.hpp>
 #include <embedding/common.hpp>
 #include <utils.hpp>
 
 namespace embedding {
-
-core::Tensor convert_core23_tensor_to_core_tensor(core23::Tensor native_tensor) {
-  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
-      native_tensor.data(), native_tensor.num_bytes());
-  std::vector<size_t> tmp_shape = {static_cast<size_t>(native_tensor.shape().size())};
-
-  core::DeviceType device_type;
-  if (native_tensor.device().type() == core23::DeviceType::GPU) {
-    device_type = core::DeviceType::GPU;
-  } else {
-    device_type = core::DeviceType::CPU;
-  }
-  core::Device device{device_type, native_tensor.device().index()};
-  auto t_impl = std::make_shared<core::TensorImpl>(
-      storage, 0, tmp_shape, device, data_type_core23_to_core[native_tensor.data_type().type()]);
-  return core::Tensor(t_impl);
-}
-
-core23::Tensor convert_core_tensor_to_core23_tensor(core::Tensor native_tensor) {
-  core23::DeviceType device_type;
-  if (native_tensor.device().is_gpu()) {
-    device_type = core23::DeviceType::GPU;
-  } else {
-    device_type = core23::DeviceType::CPU;
-  }
-  core23::Device device{device_type, native_tensor.device().index()};
-  return core23::Tensor::bind(native_tensor.get(), {native_tensor.get_num_elements()},
-                              {data_type_core_to_core23[native_tensor.dtype().type()]}, device);
-}
 
 std::ostream &operator<<(std::ostream &os, const Combiner &p) {
   switch (p) {
@@ -109,10 +79,12 @@ void KernelParams::init() {
 
 void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
                                const EmbeddingCollectionParam &ebc_param) {
+  this->num_lookup = ebc_param.num_lookup;
   const auto &lookup_params = ebc_param.lookup_params;
+  h_id_to_ev_size.clear();
+  h_id_to_combiner.clear();
+  h_id_to_ev_start_indices = {0};
 
-  std::vector<int> h_id_to_ev_size;
-  std::vector<char> h_id_to_combiner;
   for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     int ev_size = lookup_params[lookup_id].ev_size;
     h_id_to_ev_size.push_back(ev_size);
@@ -121,7 +93,6 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
     h_id_to_combiner.push_back(combiner);
   }
 
-  std::vector<int> h_id_to_ev_start_indices{0};
   std::partial_sum(h_id_to_ev_size.begin(), h_id_to_ev_size.end(),
                    std::back_inserter(h_id_to_ev_start_indices));
 
@@ -148,9 +119,11 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
   this->num_elements_per_sample = h_id_to_ev_start_indices.back();
 
   this->layout = ebc_param.output_layout_;
-  this->max_ev_size = h_id_to_ev_size.size()
+  this->max_ev_size = !h_id_to_ev_size.empty()
                           ? *std::max_element(h_id_to_ev_size.begin(), h_id_to_ev_size.end())
                           : 0;
+  this->kernel_params.init();
+
   this->is_ragged =
       (h_id_to_ev_size.size() == 0)
           ? false
@@ -163,6 +136,26 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
   this->is_aligned = is_aligned;
 
   this->type = ebc_param.emb_type;
+}
+
+void EmbeddingOutputAttr::update_mutable_data(std::shared_ptr<CoreResourceManager> core,
+                                              const EmbeddingCollectionParam &ebc_param) const {
+  h_id_to_hotness.clear();
+
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  const auto &lookup_params = ebc_param.lookup_params;
+
+  size_t num_gpus = core->get_global_gpu_count();
+
+  HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
+                  "shard matrix should contain num_gpus row.");
+
+  for (int lookup_id = 0; lookup_id < this->num_lookup; ++lookup_id) {
+    int max_hotness = lookup_params[lookup_id].max_hotness;
+
+    h_id_to_hotness.push_back(max_hotness);
+  }
+  hotness_sum = std::accumulate(h_id_to_hotness.begin(), h_id_to_hotness.end(), 0);
 }
 
 std::vector<int> get_lookup_id_table_id(const EmbeddingCollectionParam &ebc_param,
@@ -344,7 +337,7 @@ WgradInitializer &WgradInitializer::init_data() {
   int batch_size = ebc_param.universal_batch_size;
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
-  auto buffer_ptr = GetBuffer(core);
+
   int max_buffer_size = 0;
   for (size_t i = 0; i < local_max_hotness_list.size(); ++i) {
     max_buffer_size += local_max_hotness_list[i] * local_ev_size_list[i];
@@ -399,17 +392,13 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   // FIXME: move those initialization on GPU
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     std::vector<key_t> h_unique_keys;
+    size_t num_keys = 0;
     for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
-      int num_keys = h_local_num_keys_list[i];
-
-      std::vector<key_t> indices(num_keys);
-      std::iota(indices.begin(), indices.end(), 0);
-      h_unique_keys.insert(h_unique_keys.end(), indices.begin(), indices.end());
+      num_keys += h_local_num_keys_list[i];
     }
-    core23::copy_sync(wgrad->unique_keys.data(), h_unique_keys.data(),
-                      wgrad->unique_keys.num_bytes(), wgrad->unique_keys.device(),
-                      core23::DeviceType::CPU);
-
+    h_unique_keys.resize(num_keys);
+    std::iota(h_unique_keys.begin(), h_unique_keys.end(), 0);
+    core23::copy_sync(wgrad->unique_keys, h_unique_keys);
     std::vector<size_t> h_num_unqiue_keys{h_unique_keys.size()};
     core23::copy_sync(wgrad->num_unique_keys.data(), h_num_unqiue_keys.data(),
                       wgrad->num_unique_keys.num_bytes(), wgrad->num_unique_keys.device(),

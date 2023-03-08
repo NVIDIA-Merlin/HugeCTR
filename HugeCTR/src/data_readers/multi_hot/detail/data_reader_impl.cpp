@@ -22,50 +22,52 @@
 namespace HugeCTR {
 namespace MultiHot {
 
-DataReaderImpl::DataReaderImpl(const std::vector<FileSource>& data_files,
+DataReaderImpl::DataReaderImpl(const std::vector<FileSource>& source_files,
                                const std::shared_ptr<ResourceManager>& resource_manager,
                                size_t batch_size, size_t num_reader_threads_per_device,
                                size_t num_batches_per_thread, bool shuffle, bool schedule_uploads)
     : resource_manager_(resource_manager), schedule_uploads_(schedule_uploads) {
-  size_t ios_per_batch = 0;
-  size_t local_gpu_count = resource_manager->get_local_gpu_count();
+  const size_t local_gpu_count = resource_manager->get_local_gpu_count();
+  const size_t global_gpu_count = resource_manager->get_global_gpu_count();
+  const size_t num_slots = source_files.size();
 
-  for (auto data_file : data_files) {
-    if (batch_size % local_gpu_count) {
+  for (auto source : source_files) {
+    if (batch_size % global_gpu_count) {
       throw std::invalid_argument("Batch size not divisible by number of GPUs");
     }
 
-    std::unique_ptr<IBatchLocations> locations =
-        configure_locations(data_file, batch_size, shuffle);
+    std::unique_ptr<IBatchLocations> locations = configure_locations(source, batch_size, shuffle);
     if (num_batches_ == 0) {
       num_batches_ = locations->count();
     } else if (num_batches_ != locations->count()) {
       throw std::invalid_argument("files do not contain the same number of batches");
     }
 
-    size_t batch_size_bytes_per_device =
-        (batch_size / local_gpu_count) * data_file.sample_size_bytes;
+    // TODO: refactor this for dynamic pooling
+    const size_t local_batch_size_bytes =
+        (batch_size / global_gpu_count) * source.sample_size_bytes;
 
-    auto device_locations = locations->shard(local_gpu_count, batch_size_bytes_per_device);
-    ios_per_batch += device_locations.size();
-    for (size_t i = 0; i < device_locations.size(); ++i) {
-      CudaCPUDeviceContext ctx(
-          resource_manager->get_local_gpu(i)->get_device_id());  // moves thread to correct numa
-      auto thread_locations = device_locations[i]->distribute(num_reader_threads_per_device);
+    auto device_locations = locations->shard(global_gpu_count, local_batch_size_bytes);
+
+    for (size_t i = 0; i < local_gpu_count; ++i) {
+      // move thread to correct numa
+      CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(i)->get_device_id());
+
+      int global_gpu_id = resource_manager->get_local_gpu(i)->get_global_id();
+      assert(global_gpu_id < device_locations.size() && "Invalid global gpu id");
+      auto thread_locations =
+          device_locations[global_gpu_id]->distribute(num_reader_threads_per_device);
 
       for (size_t thread = 0; thread < thread_locations.size(); ++thread) {
-        auto reader = new BatchFileReader(data_file.name, data_file.slot_id, num_batches_per_thread,
+        auto reader = new BatchFileReader(source.name, source.slot_id, num_batches_per_thread,
                                           std::move(thread_locations[thread]));
         file_readers_[i].emplace_back(reader);
       }
     }
   }
 
-  // queue depth will be same across all devices so only query one of the devices
-  const auto& device_0_readers = file_readers_.begin()->second;
-  const size_t num_inflight_batches =
-      std::accumulate(device_0_readers.begin(), device_0_readers.end(), 0,
-                      [](size_t sum, auto& fr) { return sum + fr->get_queue_depth(); });
+  size_t num_inflight_batches =
+      std::min(num_reader_threads_per_device * num_batches_per_thread, num_batches_);
 
   // Init batches
   batch_buffers_.resize(num_inflight_batches);
@@ -73,10 +75,10 @@ DataReaderImpl::DataReaderImpl(const std::vector<FileSource>& data_files,
     auto batch = std::make_unique<Batch>();
 
     batch->id = -1;  // Invalid
-    batch->ready_to_upload = false;
-    batch->ready_to_consume = SystemLatch(resource_manager->get_local_gpu_count());
-    batch->total_ios = ios_per_batch;
+    batch->total_ios = local_gpu_count * num_slots;
+    batch->state = BatchState::NOT_READY;
     batch->num_completed_io = {0};
+    batch->num_completed_uploads = {0};
     batch->in_use_count = {resource_manager->get_local_gpu_count()};
 
     batch->local_batches.resize(resource_manager->get_local_gpu_count());
@@ -84,16 +86,16 @@ DataReaderImpl::DataReaderImpl(const std::vector<FileSource>& data_files,
     for (auto& local_batch : batch->local_batches) {
       CudaDeviceContext ctx(resource_manager->get_local_gpu(gpu)->get_device_id());
 
-      local_batch.io_batches.resize(data_files.size());
-      local_batch.device_transfers.reserve(data_files.size());
+      local_batch.io_batches.resize(num_slots);
+      local_batch.device_transfers.resize(num_slots);
+      local_batch.num_transfers = 0;
 
       // Allocate buffer for each slot
-      for (auto data_file : data_files) {
+      for (auto source : source_files) {
         uint8_t* ptr = nullptr;
-        size_t batch_size_bytes_per_dev =
-            (batch_size / local_gpu_count) * data_file.sample_size_bytes;
-        HCTR_LIB_THROW(cudaMalloc(&ptr, batch_size_bytes_per_dev));
-        HCTR_LIB_THROW(cudaMemset(ptr, 0, batch_size_bytes_per_dev));
+        size_t local_batch_size_bytes = (batch_size / global_gpu_count) * source.sample_size_bytes;
+        HCTR_LIB_THROW(cudaMalloc(&ptr, local_batch_size_bytes));
+        HCTR_LIB_THROW(cudaMemset(ptr, 0, local_batch_size_bytes));
         local_batch.device_data.push_back(ptr);
       }
 
@@ -136,14 +138,14 @@ DataReaderImpl::~DataReaderImpl() {
   // TODO: free GPU mem
 }
 
-std::unique_ptr<IBatchLocations> DataReaderImpl::configure_locations(FileSource data_file,
+std::unique_ptr<IBatchLocations> DataReaderImpl::configure_locations(FileSource source,
                                                                      size_t batch_size,
                                                                      bool shuffle) const {
-  const size_t file_size = std::filesystem::file_size(data_file.name);
+  const size_t file_size = std::filesystem::file_size(source.name);
   assert(file_size > 0);
 
   auto locations = std::make_unique<BatchLocations>(
-      batch_size * data_file.sample_size_bytes, 0, file_size, shuffle,
+      batch_size * source.sample_size_bytes, 0, file_size, shuffle,
       resource_manager_->get_local_cpu()->get_replica_uniform_seed());
   return locations;
 }
@@ -151,23 +153,23 @@ std::unique_ptr<IBatchLocations> DataReaderImpl::configure_locations(FileSource 
 void DataReaderImpl::start() {
   running_ = true;
   for (const auto& entry : file_readers_) {
-    int device = entry.first;
+    int device_id = entry.first;
     for (const auto& file_reader : entry.second) {
       file_reader_threads_.emplace_back(&DataReaderImpl::read_batches, this,
-                                        std::ref(*file_reader.get()), device);
+                                        std::ref(*file_reader.get()), device_id);
     }
   }
 
 #ifndef BENCH_IO
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); ++i) {
-    placement_threads_.emplace_back(&DataReaderImpl::place_batches, this, i);
+    placement_threads_.emplace_back(&DataReaderImpl::upload_batches, this, i);
   }
 #endif
 
   // Make sure first batch is ready to consume
-  batch_buffers_[0]->ready_to_consume.wait();
-
-  printf("finish start\n");
+  while (batch_buffers_[0]->state != BatchState::READY_TO_CONSUME) {
+    // spin
+  }
 }
 
 const DataReaderImpl::Batch& DataReaderImpl::get_batch() {
@@ -175,11 +177,13 @@ const DataReaderImpl::Batch& DataReaderImpl::get_batch() {
 
   Batch* batch = batch_buffers_[buf_pos].get();
 
-  batch->ready_to_consume.wait();
-  // needs to be reset on calling thread, not callback thread, otherwise there will be race
-  // condition where CPU runs ahead and the next batch could be ready to consume from the previous
-  // iteration.
-  batch->ready_to_consume.reset();
+  // needs to be set to NOT_READY on calling thread, not callback thread, otherwise there will be
+  // race condition where CPU runs ahead and the next batch could be ready to consume from the
+  // previous iteration.
+  while (batch->state.load(std::memory_order_acquire) != BatchState::READY_TO_CONSUME) {
+    // spin
+  }
+  batch->state = BatchState::NOT_READY;
 
   compute_batch_stats(batch);
 
@@ -233,103 +237,102 @@ void DataReaderImpl::read_batches(BatchFileReader& file_reader, int device_id) {
     const std::vector<const BatchFileReader::Batch*>& io_batches = file_reader.read_batches(10);
     for (const auto io_batch : io_batches) {
       Batch& batch = get_parent(io_batch->batch_i);
+      auto& local_batch = batch.local_batches[device_id];
 
-      // thread safe assigment
-      const size_t num_completed_ios = ++batch.num_completed_io;
-      batch.local_batches[device_id].io_batches[io_batch->slot_id] = io_batch;
+      local_batch.io_batches[io_batch->slot_id] = io_batch;
 
-      if (num_completed_ios == batch.total_ios) {  // All IOs complete
+      DeviceTransfer* transfer = nullptr;
+      if (io_batch->shard_size_bytes > 0)  // incomplete batch may not have local batch on all GPUs
+      {
+        transfer = new DeviceTransfer(device_id,
+                                      io_batch->data,                              // src
+                                      local_batch.device_data[io_batch->slot_id],  // dst
+                                      io_batch->shard_size_bytes);
+      }
+
+      size_t buf_idx = local_batch.num_transfers++;  // atomic
+      local_batch.device_transfers[buf_idx] = transfer;
+
+      if (++batch.num_completed_io == batch.total_ios) {  // All IOs complete
 
 #ifdef BENCH_IO
         const bool batch_uploaded = true;
 #else
-        const bool batch_uploaded =
-            batch.id == batch.local_batches[device_id].io_batches.at(0)->batch_id;
+        /// TODO
+        const bool batch_uploaded = false;  // batch.id == local_batch.io_batches.at(0)->batch_id;
 #endif
         if (batch_uploaded) {
-          // don't upload again
-          batch.ready_to_consume.reset(1);
-          batch.ready_to_consume.count_down();
+          // unblock upload threads and allow them to move into next batch
+          // TODO: batch.state.store(BatchState::READY_TO_UPLOAD, std::memory_order_release);
         } else {
           // Batch ID will be the same across all devices and all io_batches
-          batch.id = batch.local_batches[device_id].io_batches[0]->batch_id;
-
-          size_t num_devices_to_transfer = 0;
-          for (auto& local_batch : batch.local_batches) {
-            // create transfer for each slot
-            size_t idx = 0;
-            for (auto& io_batch : local_batch.io_batches) {
-              auto transfer = new DeviceTransfer(
-                  device_id, io_batch->data, local_batch.device_data[idx], io_batch->size_bytes);
-              local_batch.device_transfers.emplace_back(transfer);
-              idx++;
-            }
-            num_devices_to_transfer += !local_batch.device_transfers.empty();
-          }
-
-          // Set the number of dependencies / devices to wait on
-          batch.ready_to_consume.reset(num_devices_to_transfer);
+          batch.id = local_batch.io_batches[0]->batch_id;
 
           // Release fence, and perform atomic write to indicate that the batch is ready to upload
-          // we need a fence to ensure the device transfers are visible (i.e not re-ordered)
-          std::atomic_store_explicit(&batch.ready_to_upload, true, std::memory_order_release);
+          // we need a fence to ensure previous writes are visible (i.e device transfers)
+          batch.state.store(BatchState::READY_TO_UPLOAD, std::memory_order_release);
         }
       }
     }
   }
 }
 
-void DataReaderImpl::place_batches(size_t device_i) {
+void DataReaderImpl::upload_batches(size_t device_id) {
   // move thread to correct numa
-  CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(device_i)->get_device_id());
+  CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(device_id)->get_device_id());
 
   // FIXME: Need to initialize in thread, otherwise cache coherency initialization problem.
   //  placement_barriers_[device_i].sem_[0] = 1;
-  pending_transfers_[device_i].raw =
+  pending_transfers_[device_id].raw =
       std::min(2ul, batch_buffers_.size());  // TODO: allocate based on credit
 
-  cudaStream_t& stream = placement_streams_[device_i];
+  cudaStream_t& stream = placement_streams_[device_id];
 
   size_t batch_i = 0;
 
   while (running_) {
     // Process uploads in order
     Batch* batch = batch_buffers_[batch_i % batch_buffers_.size()].get();
+    auto& local_batch = batch->local_batches[device_id];
 
-    if (batch->ready_to_upload.load(std::memory_order_relaxed)) {
-      // guaranteed to observe everything done in the writer thread before the
-      // atomic_store_explicit()
-      std::atomic_thread_fence(std::memory_order_acquire);
-
+    // acquire so we guarantee all previous writes before memory_order_release of state are visible
+    if (batch->state.load(std::memory_order_acquire) == BatchState::READY_TO_UPLOAD &&
+        local_batch.num_transfers.raw.load(std::memory_order_relaxed) > 0) {
       // Schedule transfers at correct place in iteration
       if (schedule_uploads_) {
-        while (pending_transfers_[device_i].raw == 0) {
+        while (pending_transfers_[device_id].raw == 0) {
           // spin
         }
 
-        pending_transfers_[device_i].raw--;
-        HCTR_LIB_THROW(cudaStreamWaitEvent(stream, placement_events_[device_i]));
+        pending_transfers_[device_id].raw--;
+        HCTR_LIB_THROW(cudaStreamWaitEvent(stream, placement_events_[device_id]));
       }
 
-      auto& transfers = batch->local_batches[device_i].device_transfers;
-      if (!transfers.empty()) {
-        // upload all slots
-        for (DeviceTransfer* transfer : transfers) {
+      // H2D for each slot
+      size_t num_transfers = local_batch.num_transfers.raw;
+      assert(num_transfers <= local_batch.device_transfers.size());
+      for (size_t i = 0; i < num_transfers; ++i) {
+        DeviceTransfer* transfer = local_batch.device_transfers[i];
+        if (transfer) {  // might be empty on incomplete batch
           transfer->execute(stream);
           delete transfer;
         }
-
-        // reset so we don't iterate again and upload this batch
-        transfers.clear();
-
-        // necessary for barrier.can_acquire() because it is checked on the host
-        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-        // since we have streamSync we can use host count_down() instead of
-        // device_count_down(stream)
-        batch->ready_to_consume.count_down();
       }
 
-      batch_i++;  // move to next batch
+      // It's possible that this local batch has been uploaded but the other local batches haven't.
+      // In this case we will attempt to upload again because state == READY_TO_UPLOAD. Therefore,
+      // set num_transfers to 0 to prevent uploading this local batch again.
+      local_batch.num_transfers = 0;
+
+      // necessary for decrement of num_completed_uploads because it is checked on the host
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+
+      // all devices have uploaded their local batch, main thread can now consume
+      if (++batch->num_completed_uploads == batch->local_batches.size()) {
+        batch->state.store(BatchState::READY_TO_CONSUME, std::memory_order_release);
+      }
+
+      batch_i = (batch_i + 1) % num_batches_;  // move to next batch
     } else {
       std::this_thread::yield();
     }
@@ -343,11 +346,10 @@ void DataReaderImpl::release_batch_callback(cudaStream_t stream, cudaError_t sta
   auto batch = reinterpret_cast<Batch*>(user_data);
   if (--(batch->in_use_count) == 0) {
     batch->num_completed_io = 0;
-    batch->in_use_count.store(batch->local_batches.size());
-    batch->ready_to_upload = false;
+    batch->num_completed_uploads = 0;
+    batch->in_use_count = batch->local_batches.size();
 
     for (auto& local_batch : batch->local_batches) {
-      local_batch.device_transfers.clear();
       for (auto& io_batch : local_batch.io_batches) {
         const_cast<BatchFileReader::Batch*>(io_batch)->release();
       }

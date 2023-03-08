@@ -48,7 +48,7 @@ BatchFileReader::BatchFileReader(const std::string& fname, size_t slot, size_t m
         buf_size_);  // aligned_alloc(io_ctx_->get_alignment(), buf_size);
     HCTR_LIB_THROW(cudaHostRegister(data, buf_size_, 0));
 
-    batches_.emplace_back(this, data, batch_locations_->get_batch_size_bytes(), slot);
+    batches_.emplace_back(this, data, slot);
   }
 
   for (size_t i = 0; i < max_batches_inflight_; ++i) {
@@ -98,30 +98,31 @@ void BatchFileReader::submit_reads() {
     }
 
     if (free_batches_.try_pop(batch)) {
-      BatchFileLocation location = *batch_locations_iterator_;
+      BatchDescriptor descriptor = *batch_locations_iterator_;
       batch_locations_iterator_++;
 
       num_inflight_++;
 
-      batch->size_bytes = location.size_bytes;
-      batch->batch_id = location.id;
-      batch->batch_i = location.i;
+      batch->shard_size_bytes = descriptor.shard_size_bytes;
+      batch->batch_size_bytes = descriptor.batch_size_bytes;
+      batch->batch_id = descriptor.id;
+      batch->batch_i = descriptor.i;
       batch->start_time = 0.f;
       batch->end_time = 0.f;
 
       // Why an empty batch? This is an edge case where we have batch_size/num_gpus and when the
       // batch is sharded, some GPUs may not have local batches to read.
-      const bool empty_batch = location.size_bytes == 0;
+      const bool empty_batch = descriptor.shard_size_bytes == 0;
       if (empty_batch) {
         batch->data = nullptr;  // no data to return
         empty_batches_.emplace_back(const_cast<const Batch*>(batch));
       } else {
         // Our data will start further into the buffer if the offset is not aligned
-        size_t misalignment = location.offset % io_ctx_->get_alignment();
+        size_t misalignment = descriptor.offset % io_ctx_->get_alignment();
         batch->data = batch->aligned_data + misalignment;
         batch->start_time = time_double();
 
-        IORequest io_req{fd_, batch->aligned_data, location.size_bytes, location.offset,
+        IORequest io_req{fd_, batch->aligned_data, descriptor.shard_size_bytes, descriptor.offset,
                          (void*)batch};
         io_ctx_->submit(io_req);
       }

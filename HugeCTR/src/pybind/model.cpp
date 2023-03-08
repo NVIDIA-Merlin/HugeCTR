@@ -1118,9 +1118,10 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
 
   // create data distributors
   train_data_distributor_ = std::make_shared<DataDistributor>(
-      solver_.batchsize, key_type, resource_manager_, core_list, ebc_param);
-  eval_data_distributor_ = std::make_shared<DataDistributor>(
-      solver_.batchsize_eval, key_type, resource_manager_, core_list, eval_ebc_param);
+      solver_.batchsize, key_type, resource_manager_, core_list, ebc_param, emb_table_list);
+  eval_data_distributor_ =
+      std::make_shared<DataDistributor>(solver_.batchsize_eval, key_type, resource_manager_,
+                                        core_list, eval_ebc_param, emb_table_list);
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
@@ -1700,14 +1701,13 @@ void Model::embedding_load(const std::string& path, const std::vector<std::strin
 
     if (target_placement == embedding::TablePlacementStrategy::DataParallel) {
       auto tmp_filter = [=](size_t key) { return true; };
-      core::Tensor keys;
-      core::Tensor embedding_weights;
+      core23::Tensor keys;
+      core23::Tensor embedding_weights;
       auto& target_key_type = tmp_ebc_param.key_type;
       auto& target_value_type = tmp_ebc_param.emb_type;
-      embedding_para_io_->load_embedding_weight(
-          tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
-          embedding::data_type_core23_to_core[target_key_type.type()],
-          embedding::data_type_core23_to_core[target_value_type.type()]);
+      embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                tmp_filter, core_list[0], target_key_type,
+                                                target_value_type);
       for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
         HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
         auto& grouped_table =
@@ -1737,12 +1737,11 @@ void Model::embedding_load(const std::string& path, const std::vector<std::strin
         int shard_id = static_cast<int>(std::distance(shard_gpu_list.begin(), find_shard_id_iter));
 
         auto tmp_filter = [=](size_t key) { return key % num_shards == shard_id; };
-        core::Tensor keys;
-        core::Tensor embedding_weights;
-        embedding_para_io_->load_embedding_weight(
-            tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
-            embedding::data_type_core23_to_core[target_key_type.type()],
-            embedding::data_type_core23_to_core[target_value_type.type()]);
+        core23::Tensor keys;
+        core23::Tensor embedding_weights;
+        embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                  tmp_filter, core_list[0], target_key_type,
+                                                  target_value_type);
         auto& grouped_table =
             tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
         grouped_table->load_by_id(&keys, &embedding_weights, model_table_id);
@@ -2176,6 +2175,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 
     this->start_data_reading();
     this->init_data_reader_.reset();
+
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
       if (!this->use_gpu_learning_rate_scheduling()) {
@@ -2205,7 +2205,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         timer_train.start();
       }
-      if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+      if (eval_interval > 0 && (iter + 1) % eval_interval == 0) {
         if (solver_.all_reduce_algo == AllReduceAlgo::NCCL) {
 #pragma omp parallel num_threads(networks_.size())
           {
@@ -2250,7 +2250,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                 timer_log.stop();
               }
               HCTR_LOG(INFO, ROOT,
-                       "Hit target accuracy AUC %.4f at "
+                       "Hit target accuracy AUC %.5f at "
                        "%d / %d iterations with batchsize %d "
                        "in %.2fs. Average speed %f "
                        "records/s.\n",
@@ -2440,7 +2440,7 @@ bool Model::eval(bool is_first_batch) {
     }
 
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release();
-    assert(current_batchsize > 0 && "Received batch of size 0");
+    assert(current_batchsize > 0 && "Received batch of  size 0");
 
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
+#include <core/core.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>
 #include <core23/tensor_params.hpp>
@@ -39,8 +39,11 @@ class NcclAll2AllComm {
 
   NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core);
 
-  void communicate(const std::vector<core23::Tensor> &send_tensors,
-                   std::vector<core23::Tensor> &recv_tensors);
+  void communicate(const std::vector<core23::Tensor>& send_tensors,
+                   std::vector<core23::Tensor>& recv_tensors);
+
+  void hier_communicate(const std::vector<core23::Tensor>& send_tensors,
+                        std::vector<core23::Tensor>& recv_tensors);
 };
 
 class NcclAllReduceInplaceComm {
@@ -51,7 +54,7 @@ class NcclAllReduceInplaceComm {
 
   NcclAllReduceInplaceComm(std::shared_ptr<CoreResourceManager> core);
 
-  void communicate(core23::Tensor &tensors, size_t count);
+  void communicate(core23::Tensor& tensors, size_t count);
 };
 
 }  // namespace embedding

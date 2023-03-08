@@ -16,7 +16,6 @@
 #pragma once
 
 #include <HugeCTR/embedding/common.hpp>
-#include <core/buffer.hpp>
 #include <core23/registry.hpp>
 
 namespace embedding {

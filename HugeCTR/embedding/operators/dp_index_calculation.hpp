@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
 #include <core23/registry.hpp>
 #include <embedding/operators/index_calculation.hpp>
 
@@ -44,7 +43,6 @@ struct DenseAllreduceIndexCalculation {
   SegmentdUnique segmented_unique_;
 
   void cal_for_sparse_indices(const EmbeddingInput& embedding_input,
-                              const core23::Tensor& table_id_to_allreduce_buffer_start_indices,
                               const core23::Tensor& ev_start_indices_in_allreduce_buffer,
                               ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
 };

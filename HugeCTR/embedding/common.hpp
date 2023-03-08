@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
+#include <core/core.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/registry.hpp>
 #include <core23/tensor.hpp>
@@ -73,35 +73,6 @@ namespace embedding {
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
 
-#define ALL_DATA_TYPES_CONVERTED_CORE_TO_CORE23()                   \
-  {core::TensorScalarType::Float16, core23::ScalarType::Half},      \
-      {core::TensorScalarType::Float32, core23::ScalarType::Float}, \
-      {core::TensorScalarType::Char, core23::ScalarType::Char},     \
-      {core::TensorScalarType::Int32, core23::ScalarType::Int32},   \
-      {core::TensorScalarType::UInt32, core23::ScalarType::UInt32}, \
-      {core::TensorScalarType::Int64, core23::ScalarType::Int64}, { \
-    core::TensorScalarType::UInt64, core23::ScalarType::UInt64      \
-  }
-
-static std::unordered_map<core::TensorScalarType, core23::ScalarType> data_type_core_to_core23{
-    ALL_DATA_TYPES_CONVERTED_CORE_TO_CORE23()};
-
-#define ALL_DATA_TYPES_CONVERTED_CORE23_TO_CORE()                   \
-  {core23::ScalarType::Half, core::TensorScalarType::Float16},      \
-      {core23::ScalarType::Float, core::TensorScalarType::Float32}, \
-      {core23::ScalarType::Char, core::TensorScalarType::Char},     \
-      {core23::ScalarType::Int32, core::TensorScalarType::Int32},   \
-      {core23::ScalarType::UInt32, core::TensorScalarType::UInt32}, \
-      {core23::ScalarType::Int64, core::TensorScalarType::Int64}, { \
-    core23::ScalarType::UInt64, core::TensorScalarType::UInt64      \
-  }
-
-static std::unordered_map<core23::ScalarType, core::TensorScalarType> data_type_core23_to_core{
-    ALL_DATA_TYPES_CONVERTED_CORE23_TO_CORE()};
-
-core::Tensor convert_core23_tensor_to_core_tensor(core23::Tensor native_tensor);
-core23::Tensor convert_core_tensor_to_core23_tensor(core::Tensor native_tensor);
-
 // enum class which means pooling operation after lookup. Can be Sum, Average, Concat
 enum class Combiner : char { Sum, Average, Concat };
 std::ostream &operator<<(std::ostream &os, const Combiner &p);
@@ -109,6 +80,7 @@ std::ostream &operator<<(std::ostream &os, const Combiner &p);
 enum class TablePlacementStrategy : int8_t { DataParallel, ModelParallel, Hybrid };
 enum class EmbeddingLayout : int8_t { FeatureMajor, BatchMajor };
 std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p);
+enum class CommunicationStrategy : int8_t { Uniform, Hierarchical };
 
 const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
     {"dp", TablePlacementStrategy::DataParallel},
@@ -134,10 +106,19 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p);
 struct GroupedEmbeddingParam {
   TablePlacementStrategy table_placement_strategy;
   std::vector<int> table_ids;
+  CommunicationStrategy comm_strategy;
 
   GroupedEmbeddingParam(TablePlacementStrategy _table_placement_strategy,
                         const std::vector<int> &_table_ids)
-      : table_placement_strategy(_table_placement_strategy), table_ids(_table_ids) {}
+      : table_placement_strategy(_table_placement_strategy),
+        table_ids(_table_ids),
+        comm_strategy(CommunicationStrategy::Uniform) {
+    const auto comm_env = std::getenv("HCTR_HIER_COMM");
+    if (nullptr != comm_env && 1 == std::atoi(comm_env)) {
+      comm_strategy = CommunicationStrategy::Hierarchical;
+      HCTR_LOG(INFO, ROOT, "Using Hier Communication Strategy\n");
+    }
+  }
 };
 
 struct EmbeddingCollectionParam {
@@ -195,6 +176,22 @@ struct EmbeddingCollectionParam {
     return this->lookup_id_in_group(grouped_id, lookup_id) && has_portion;
   }
 
+  void get_table_shard_id(int gpu_id, int table_id, int *shard_id, int *num_shard) const {
+    size_t num_gpus = shard_matrix.size();
+
+    std::vector<int> shard_gpus;
+    for (size_t ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+      if (this->shard_matrix[ggpu_id][table_id] == 1) {
+        shard_gpus.push_back(ggpu_id);
+      }
+    }
+    auto find_shard_id_iter = std::find(shard_gpus.begin(), shard_gpus.end(), gpu_id);
+    HCTR_CHECK_HINT(find_shard_id_iter != shard_gpus.end(),
+                    "get_table_shard_id does not find shard id");
+    *shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
+    *num_shard = static_cast<int>(shard_gpus.size());
+  }
+
   std::vector<int> get_table_id_to_global_start_indices() const;
 };
 
@@ -202,14 +199,6 @@ struct KernelParams {
   int num_sms;
 
   void init();
-};
-
-struct EVBufferAttr {
-  EmbeddingLayout layout;
-  int max_ev_size;
-  bool is_ragged;
-  bool is_aligned;
-  core23::DataType type;
 };
 
 struct EmbeddingInput {
@@ -220,13 +209,33 @@ struct EmbeddingInput {
   core23::Tensor fullbatch_bucket_range;
 };
 
-struct EmbeddingOutputAttr : public EVBufferAttr {
+struct EmbeddingOutputAttr {
+  mutable std::vector<int> h_id_to_hotness;
+  mutable int hotness_sum;
+
+  int num_lookup;
+
+  std::vector<int> h_id_to_ev_size;
+  std::vector<char> h_id_to_combiner;
+  std::vector<int> h_id_to_ev_start_indices{0};
+
   core23::Tensor id_to_ev_size;
   core23::Tensor id_to_ev_start_indices;
   core23::Tensor id_to_combiner;
   int num_elements_per_sample;
 
+  KernelParams kernel_params;
+
+  EmbeddingLayout layout;
+  int max_ev_size;
+  bool is_ragged;
+  bool is_aligned;
+  core23::DataType type;
+
   void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param);
+
+  void update_mutable_data(std::shared_ptr<CoreResourceManager> core,
+                           const EmbeddingCollectionParam &ebc_param) const;
 };
 
 struct EmbeddingOutput {

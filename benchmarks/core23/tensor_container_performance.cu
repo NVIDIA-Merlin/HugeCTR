@@ -25,8 +25,6 @@
 #include <cstdint>
 #include <random>
 
-#include "HugeCTR/core/tensor.hpp"
-
 namespace {
 
 using namespace HugeCTR::core23;

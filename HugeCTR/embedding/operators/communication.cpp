@@ -48,10 +48,10 @@ ncclDataType_t get_nccl_dtype_from_tensor_scalar_type_core23(core23::ScalarType 
 namespace embedding {
 NcclAll2AllComm::NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
-void NcclAll2AllComm::communicate(const std::vector<core23::Tensor> &send_tensors,
-                                  std::vector<core23::Tensor> &recv_tensors) {
+void NcclAll2AllComm::communicate(const std::vector<core23::Tensor>& send_tensors,
+                                  std::vector<core23::Tensor>& recv_tensors) {
   int device_id = core_->get_device_id();
-  auto &comm = core_->get_nccl();
+  auto& comm = core_->get_nccl();
 
   HugeCTR::CudaDeviceContext ctx(device_id);
   HCTR_LIB_THROW(ncclGroupStart());
@@ -67,10 +67,36 @@ void NcclAll2AllComm::communicate(const std::vector<core23::Tensor> &send_tensor
   HCTR_LIB_THROW(ncclGroupEnd());
 }
 
+void NcclAll2AllComm::hier_communicate(const std::vector<core23::Tensor>& send_tensors,
+                                       std::vector<core23::Tensor>& recv_tensors) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+
+  auto& comm = core_->get_nccl();
+  auto stream = core_->get_local_gpu()->get_stream();
+
+  int num_total_gpu = core_->get_global_gpu_count();
+  int num_local_gpu = core_->get_local_gpu_count();
+  int local_gpu_id = core_->get_local_gpu_id();
+  int num_node = num_total_gpu / num_local_gpu;
+  HCTR_CHECK(send_tensors.size() == static_cast<size_t>(num_node));
+  HCTR_CHECK(recv_tensors.size() == static_cast<size_t>(num_node));
+
+  HCTR_LIB_THROW(ncclGroupStart());
+  for (int node_id = 0; node_id < num_node; ++node_id) {
+    ncclDataType_t nccl_dtype = core23::get_nccl_dtype_from_tensor_scalar_type_core23(
+        send_tensors[node_id].data_type().type());
+    HCTR_LIB_THROW(ncclSend(send_tensors[node_id].data(), send_tensors[node_id].num_elements(),
+                            nccl_dtype, node_id * num_local_gpu + local_gpu_id, comm, stream));
+    HCTR_LIB_THROW(ncclRecv(recv_tensors[node_id].data(), recv_tensors[node_id].num_elements(),
+                            nccl_dtype, node_id * num_local_gpu + local_gpu_id, comm, stream));
+  }
+  HCTR_LIB_THROW(ncclGroupEnd());
+}
+
 NcclAllReduceInplaceComm::NcclAllReduceInplaceComm(std::shared_ptr<CoreResourceManager> core)
     : core_(core) {}
 
-void NcclAllReduceInplaceComm::communicate(core23::Tensor &tensor, size_t count) {
+void NcclAllReduceInplaceComm::communicate(core23::Tensor& tensor, size_t count) {
   int device_id = core_->get_device_id();
   HugeCTR::CudaDeviceContext ctx(device_id);
   ncclDataType_t nccl_dtype =

@@ -118,10 +118,10 @@ __global__ void get_unique_index_kernel(const key_t* key_list, size_t num_key,
   hasher_t hasher;
 
   if (idx < num_key) {
-    uint32_t idx_id_space = binary_search_index_lower_bound(id_space_offset, num_id_space + 1, idx);
+    uint32_t idx_id_space = bs_upper_bound_sub_one(id_space_offset, num_id_space + 1, idx);
     int id_space = id_space_list[idx_id_space];
     int idx_unique_id_space =
-        binary_search_index_lower_bound(unique_id_space_list, num_unique_id_space, id_space);
+        bs_upper_bound_sub_one(unique_id_space_list, num_unique_id_space, id_space);
 
     uint32_t start = hash_offset[idx_unique_id_space];
     uint32_t end = hash_offset[idx_unique_id_space + 1];
@@ -161,7 +161,7 @@ __global__ void extract_wgrad_ev_dst_idx_kernel(const uint32_t* hash_offset,
     uint32_t local_index = unique_local_index[idx];
 
     uint32_t idx_id_space =
-        binary_search_index_lower_bound(hash_offset, num_unique_id_space_list + 1, local_index);
+        bs_upper_bound_sub_one(hash_offset, num_unique_id_space_list + 1, local_index);
 
     wgrad_dst_idx[1 + idx] = (idx == 0 || unique_local_index[idx - 1] != local_index)
                                  ? ev_size_per_table[idx_id_space]

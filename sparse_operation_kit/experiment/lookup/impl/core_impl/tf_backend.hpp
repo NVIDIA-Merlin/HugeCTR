@@ -19,9 +19,7 @@
 #include <nccl.h>
 
 #include "HugeCTR/core/core.hpp"
-#include "HugeCTR/core/tensor.hpp"
 #include "lookup/impl/core_impl/gpu_resource_impl.hpp"
-#include "lookup/impl/core_impl/storage_impl.hpp"
 
 namespace tf_internal {
 
@@ -40,8 +38,6 @@ class TFCoreResourceManager : public core::CoreResourceManager {
   std::shared_ptr<core::GPUResourceBase> get_local_gpu() override { return gpu_resource_; }
 
   const ncclComm_t &get_nccl() const override { return comm_; }  // TODO
-
-  core::Storage CreateStorage(Device device) { return std::make_shared<TFStorageImpl>(device); }
 
   int get_local_gpu_id() const override {
     // return ctx_->device()->tensorflow_gpu_device_info()->gpu_id;

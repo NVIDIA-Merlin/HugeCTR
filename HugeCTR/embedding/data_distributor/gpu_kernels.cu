@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <core/registry.hpp>
 #include <embedding/data_distributor/gpu_kernels.hpp>
 #include <utils.cuh>
 

@@ -31,6 +31,43 @@ DPModelForward::DPModelForward(std::shared_ptr<CoreResourceManager> core, int nu
 
 namespace {
 
+template <typename SrcType, typename DstType, typename offset_t>
+struct DPForwardToFeatureMajorOutputMultiToOneDesc {
+  using SrcT = SrcType;
+  using DstT = DstType;
+
+  HOST_DEVICE_INLINE int get_offset(int i) { return bucket_range_ptr[i]; }
+  HOST_DEVICE_INLINE int get_vec_length(int i) {
+    int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
+    return dst_id_to_ev_size_ptr[lookup_id];
+  }
+  HOST_DEVICE_INLINE int get_average_pooling_factor(int i) {
+    int pooling_factor = static_cast<int>(bucket_range_ptr[i + 1] - bucket_range_ptr[i]);
+    int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
+    return dst_id_to_combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)
+               ? pooling_factor
+               : 1;
+  }
+  HOST_DEVICE_INLINE const SrcType *get_src_ptr(int i) { return lookup_res_ptr[i]; }
+  HOST_DEVICE_INLINE DstType *get_dst_ptr(int i) {
+    int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
+    int bid = i % batch_size_per_gpu;
+    int ev_size = dst_id_to_ev_size_ptr[lookup_id];
+    return output_buffer_ptr + batch_size_per_gpu * dst_id_to_ev_start_indices_ptr[lookup_id] +
+           bid * ev_size;
+  }
+
+  int num_vec_;
+  int batch_size_per_gpu;
+  const int *__restrict__ local_lookup_ids_ptr;
+  const offset_t *__restrict__ bucket_range_ptr;
+  const int *__restrict__ dst_id_to_ev_size_ptr;
+  const int *__restrict__ dst_id_to_ev_start_indices_ptr;
+  const char *__restrict__ dst_id_to_combiner_ptr;
+  const float **__restrict__ lookup_res_ptr;
+  DstType *output_buffer_ptr;
+};
+
 void dp_forward_to_feature_major_output(const core23::Tensor &lookup_res,
                                         const core23::Tensor &dp_feature_major_bucket_range,
                                         const core23::Tensor &local_lookup_ids,
@@ -44,41 +81,16 @@ void dp_forward_to_feature_major_output(const core23::Tensor &lookup_res,
   DISPATCH_INTEGRAL_FUNCTION_CORE23(
       dp_feature_major_bucket_range.data_type().type(), offset_t, [&] {
         DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), emb_t, [&] {
-          const int *local_lookup_ids_ptr = local_lookup_ids.data<int>();
-          const offset_t *bucket_range_ptr = dp_feature_major_bucket_range.data<offset_t>();
-          const int *dst_id_to_ev_size_ptr = embedding_output_attr.id_to_ev_size.data<int>();
-          const int *dst_id_to_ev_start_indices_ptr =
-              embedding_output_attr.id_to_ev_start_indices.data<int>();
-          const char *dst_id_to_combiner_ptr = embedding_output_attr.id_to_combiner.data<char>();
-
-          const float **lookup_res_ptr = (const float **)lookup_res.data();
-          emb_t *output_buffer_ptr = output_buffer.data<emb_t>();
-
-          auto multi_to_one_desc = make_MultiToOne<float, emb_t>(
-              batch_size_per_gpu * num_local_lookup,
-              [=] __device__(int i) { return bucket_range_ptr[i]; },
-              [=] __device__(int i) {
-                int pooling_factor =
-                    static_cast<int>(bucket_range_ptr[i + 1] - bucket_range_ptr[i]);
-
-                int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
-                return dst_id_to_combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)
-                           ? pooling_factor
-                           : 1;
-              },
-              [=] __device__(int i) {
-                int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
-                return dst_id_to_ev_size_ptr[lookup_id];
-              },
-              [=] __device__(int i) { return lookup_res_ptr[i]; },
-              [=] __device__(int i) {
-                int lookup_id = local_lookup_ids_ptr[i / batch_size_per_gpu];
-                int bid = i % batch_size_per_gpu;
-                int ev_size = dst_id_to_ev_size_ptr[lookup_id];
-                return output_buffer_ptr +
-                       batch_size_per_gpu * dst_id_to_ev_start_indices_ptr[lookup_id] +
-                       bid * ev_size;
-              });
+          using CopyDesc = DPForwardToFeatureMajorOutputMultiToOneDesc<float, emb_t, offset_t>;
+          CopyDesc multi_to_one_desc{batch_size_per_gpu * num_local_lookup,
+                                     batch_size_per_gpu,
+                                     local_lookup_ids.data<int>(),
+                                     dp_feature_major_bucket_range.data<offset_t>(),
+                                     embedding_output_attr.id_to_ev_size.data<int>(),
+                                     embedding_output_attr.id_to_ev_start_indices.data<int>(),
+                                     embedding_output_attr.id_to_combiner.data<char>(),
+                                     (const float **)lookup_res.data(),
+                                     output_buffer.data<emb_t>()};
           copy_multi_to_one(multi_to_one_desc, embedding_output_attr.max_ev_size, stream);
         });
       });
@@ -199,9 +211,11 @@ void ModelForward::compute(const core23::Tensor &mp_ev, const core23::Tensor &bu
 void ModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                                const EmbeddingCollectionParam &ebc_param, size_t grouped_id) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
+  h_id_to_ev_size.clear();
+  h_id_to_ev_start_indices = {0};
+
   int gpu_id = core->get_global_gpu_id();
 
-  std::vector<int> h_id_to_ev_size;
   for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
 
@@ -209,7 +223,6 @@ void ModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
     int ev_size = lookup_params[lookup_id].ev_size;
     h_id_to_ev_size.push_back(ev_size);
   }
-  std::vector<int> h_id_to_ev_start_indices{0};
   std::partial_sum(h_id_to_ev_size.begin(), h_id_to_ev_size.end(),
                    std::back_inserter(h_id_to_ev_start_indices));
 
@@ -278,4 +291,27 @@ void ModelCommBuffer::init_from_device_buffer(std::shared_ptr<CoreResourceManage
   this->attr = attr;
 }
 
+void collective_init_peer_buffer(const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
+                                 std::vector<ModelCommBuffer *> &model_comm_buffers) {
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffers[0]->attr.type.type(), emb_t, [&] {
+    int num_local_gpus = static_cast<int>(cores.size());
+    std::vector<emb_t **> peer_data_vec;
+    for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
+      peer_data_vec.push_back((emb_t **)model_comm_buffers[gpu_id]->data.data());
+    }
+
+    for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+      HugeCTR::CudaDeviceContext context(cores[local_gpu_id]->get_device_id());
+      core23::Device device(core23::DeviceType::GPU, cores[local_gpu_id]->get_device_id());
+      core23::TensorParams params = core23::TensorParams().device(device);
+
+      model_comm_buffers[local_gpu_id]->peer_data = core23::init_tensor_list<emb_t>(
+          peer_data_vec.size(), cores[local_gpu_id]->get_device_id());
+
+      HCTR_LIB_THROW(cudaMemcpy(model_comm_buffers[local_gpu_id]->peer_data.data(),
+                                peer_data_vec.data(), peer_data_vec.size() * sizeof(emb_t **),
+                                cudaMemcpyHostToDevice));
+    }
+  });
+}
 }  // namespace embedding

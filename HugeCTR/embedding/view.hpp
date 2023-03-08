@@ -17,16 +17,17 @@
 
 #include <cuda_runtime.h>
 
+#include <cassert>
 #include <core/macro.hpp>
 
 namespace embedding {
 
 template <typename T>
-HOST_DEVICE_INLINE int binary_search_index_lower_bound(const T *const arr, int num, T target) {
-  int start = 0;
-  int end = num;
+HOST_DEVICE_INLINE int64_t bs_upper_bound_sub_one(const T *const arr, int64_t num, T target) {
+  int64_t start = 0;
+  int64_t end = num;
   while (start < end) {
-    int middle = start + (end - start) / 2;
+    int64_t middle = start + (end - start) / 2;
     T value = arr[middle];
     if (value <= target) {
       start = middle + 1;
@@ -34,25 +35,7 @@ HOST_DEVICE_INLINE int binary_search_index_lower_bound(const T *const arr, int n
       end = middle;
     }
   }
-  return start - 1;
-}
-
-HOST_DEVICE_INLINE bool binary_search_index(const int *arr, int num, int target) {
-  int start = 0;
-  int end = num;
-  while (start < end) {
-    int middle = start + (end - start) / 2;
-    int value = arr[middle];
-    if (value == target) {
-      return true;
-    }
-    if (value <= target) {
-      start = middle + 1;
-    } else {
-      end = middle;
-    }
-  }
-  return false;
+  return (start == num && arr[start - 1] != target) ? num : start - 1;
 }
 
 template <typename T>

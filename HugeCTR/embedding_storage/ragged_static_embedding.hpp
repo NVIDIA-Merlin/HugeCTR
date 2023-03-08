@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <core/registry.hpp>
 #include <core23/registry.hpp>
 #include <embedding_storage/embedding_table.hpp>
 #include <variant>
@@ -24,7 +23,7 @@ namespace embedding {
 using HugeCTR::CudaDeviceContext;
 
 struct AdaGradOptBuffer {
-  Tensor opt_accum_tensor;
+  core23::Tensor opt_accum_tensor;
 };
 
 using OptBuffer = std::variant<AdaGradOptBuffer>;
@@ -40,17 +39,21 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   std::vector<int> h_table_ids_;
   std::vector<int> h_table_max_vocabulary_size_;
 
-  Tensor table_ids_;
+  core23::Tensor table_ids_;
   size_t emb_table_size_;
-  Tensor keys_;
-  Tensor num_key_per_table_offset_;
+  core23::Tensor keys_;
+  core23::Tensor num_key_per_table_offset_;
 
-  Tensor emb_table_;
-  Tensor emb_table_ev_offset_;  // num_local_id_space + 1
-  Tensor local_ev_size_list_;   // num_local_id_space
+  core23::Tensor emb_table_;
+  core23::Tensor emb_table_ev_offset_;  // num_local_id_space + 1
+  core23::Tensor local_ev_size_list_;   // num_local_id_space
+  bool use_vectorized_kernel_;
 
   HugeCTR::OptParams opt_param_;
   OptBuffer opt_buffer_;
+
+  void cal_dp_storage_meta();
+  void cal_mp_storage_meta();
 
  public:
   RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
@@ -63,23 +66,26 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
               size_t num_id_space_offset, const core23::Tensor &id_space,
               core23::Tensor &embedding_vec) override;
 
-  void update(const Tensor &unique_keys, const Tensor &num_unique_keys, const Tensor &table_ids,
-              const Tensor &ev_start_indices, const Tensor &wgrad) override;
+  void update(const core23::Tensor &unique_keys, const core23::Tensor &num_unique_keys,
+              const core23::Tensor &table_ids, const core23::Tensor &ev_start_indices,
+              const core23::Tensor &wgrad) override;
 
-  void assign(const Tensor &unique_key, size_t num_unique_key,
-              const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
-              const Tensor &table_id_list, Tensor &embeding_vector,
-              const Tensor &embedding_vector_offset) override;
+  void assign(const core23::Tensor &unique_key, size_t num_unique_key,
+              const core23::Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
+              const core23::Tensor &table_id_list, core23::Tensor &embeding_vector,
+              const core23::Tensor &embedding_vector_offset) override;
 
-  void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table, Tensor &ev_size_list,
-            Tensor &id_space) override;
+  void load(core23::Tensor &keys, core23::Tensor &id_space_offset, core23::Tensor &embedding_table,
+            core23::Tensor &ev_size_list, core23::Tensor &id_space) override;
 
-  void dump(Tensor *keys, Tensor *id_space_offset, Tensor *embedding_table, Tensor *ev_size_list,
-            Tensor *id_space) override;
+  void dump(core23::Tensor *keys, core23::Tensor *id_space_offset, core23::Tensor *embedding_table,
+            core23::Tensor *ev_size_list, core23::Tensor *id_space) override;
 
-  void dump_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) override;
+  void dump_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                  int table_id) override;
 
-  void load_by_id(Tensor *h_keys_tensor, Tensor *h_embedding_table, int table_id) override;
+  void load_by_id(core23::Tensor *h_keys_tensor, core23::Tensor *h_embedding_table,
+                  int table_id) override;
 
   size_t size() const override;
 

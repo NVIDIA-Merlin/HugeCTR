@@ -104,14 +104,13 @@ class EmbeddingIO {
 
       if (target_placement == embedding::TablePlacementStrategy::DataParallel) {
         auto tmp_filter = [=](size_t key) { return true; };
-        core::Tensor keys;
-        core::Tensor embedding_weights;
+        core23::Tensor keys;
+        core23::Tensor embedding_weights;
         auto& target_key_type = tmp_ebc_param.key_type;
         auto& target_value_type = tmp_ebc_param.emb_type;
-        embedding_para_io_->load_embedding_weight(
-            tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
-            embedding::data_type_core23_to_core[target_key_type.type()],
-            embedding::data_type_core23_to_core[target_value_type.type()]);
+        embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                  tmp_filter, core_list[0], target_key_type,
+                                                  target_value_type);
         for (size_t local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
           HugeCTR::CudaDeviceContext context(core_list[local_gpu_id]->get_device_id());
           auto& grouped_table =
@@ -142,12 +141,11 @@ class EmbeddingIO {
               static_cast<int>(std::distance(shard_gpu_list.begin(), find_shard_id_iter));
 
           auto tmp_filter = [=](size_t key) { return key % num_shards == shard_id; };
-          core::Tensor keys;
-          core::Tensor embedding_weights;
-          embedding_para_io_->load_embedding_weight(
-              tmp_epi, file_table_id, keys, embedding_weights, tmp_filter, core_list[0],
-              embedding::data_type_core23_to_core[target_key_type.type()],
-              embedding::data_type_core23_to_core[target_value_type.type()]);
+          core23::Tensor keys;
+          core23::Tensor embedding_weights;
+          embedding_para_io_->load_embedding_weight(tmp_epi, file_table_id, keys, embedding_weights,
+                                                    tmp_filter, core_list[0], target_key_type,
+                                                    target_value_type);
 
           auto& grouped_table =
               tmp_embedding_collection->embedding_tables_[local_gpu_id][target_grouped_id];
@@ -235,7 +233,7 @@ const std::vector<LookupParam> lookup_params_with_shared_table = {
 const std::vector<int> device_list = {0, 1};
 bool debug_verbose_io = false;
 
-std::vector<EmbeddingTableParam> get_table_param_list_io(core::DataType emb_type) {
+std::vector<EmbeddingTableParam> get_table_param_list_io(core23::DataType emb_type) {
   std::vector<EmbeddingTableParam> table_param_list;
 
   HugeCTR::OptParams opt_param;
@@ -244,7 +242,7 @@ std::vector<EmbeddingTableParam> get_table_param_list_io(core::DataType emb_type
   // members
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
-  opt_param.scaler = (emb_type == TensorScalarType::Float16) ? 1024 : 1;
+  opt_param.scaler = (emb_type == core23::ScalarType::Half) ? 1024 : 1;
   opt_param.hyperparams = HugeCTR::OptHyperParams{};
   opt_param.update_type = HugeCTR::Update_t::Local;
 
@@ -263,7 +261,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                  const std::vector<GroupedEmbeddingParam>& grouped_emb_params) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
   ASSERT_EQ(table_ev_size_list.size(), num_table);
-
+  bool indices_only = false;
   EmbeddingCollectionParam ebc_param{num_table,
                                      table_max_vocabulary_list,
                                      static_cast<int>(lookup_params.size()),
@@ -277,9 +275,8 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      HugeCTR::core23::ToScalarType<emb_t>::value,
                                      EmbeddingLayout::FeatureMajor,
                                      EmbeddingLayout::FeatureMajor,
-                                     false};
-  auto table_param_list =
-      get_table_param_list_io(embedding::data_type_core23_to_core[ebc_param.emb_type.type()]);
+                                     indices_only};
+  auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   EmbeddingIO emb_io = EmbeddingIO(resource_manager);
@@ -374,10 +371,21 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
     core_resource_manager_list.push_back(core);
   }
 
-  std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
-      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
-                                                 resource_manager, core_resource_manager_list,
-                                                 ebc_param);
+  std::shared_ptr<HugeCTR::DataDistributor> data_distributor;
+  if (indices_only) {
+    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
+        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
+        core_resource_manager_list, ebc_param, table_param_list);
+  } else {
+    // Now the ragged_static_embedding only supports indices_only table.
+    // Must have a data distributor with indices == true;
+    auto copy_ebc_param = ebc_param;
+    copy_ebc_param.indices_only_ = true;
+
+    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
+        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
+        core_resource_manager_list, copy_ebc_param, table_param_list);
+  }
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {

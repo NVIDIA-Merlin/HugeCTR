@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <core/buffer.hpp>
-#include <core/registry.hpp>
 #include <embedding/common.hpp>
 #include <embedding/operators/index_calculation.hpp>
 
