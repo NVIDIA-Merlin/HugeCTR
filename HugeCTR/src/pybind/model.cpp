@@ -2245,7 +2245,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop", float(iter) / max_iter);
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 0);
-                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop", "success");
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
                 timer_log.stop();
               }
@@ -2274,7 +2274,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     }  // end for iter
     if (solver_.perf_logging) {
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 0);
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop", "aborted");
       size_t train_samples = static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
       timer_log.stop();
