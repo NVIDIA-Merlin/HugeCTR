@@ -477,7 +477,7 @@ dlrm_dcnv2_benchmark_1node:
     GPFSFOLDER: $LOGDIR/dlrm_dcnv2_benchmark_1node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw_v3.0:/data_multihot
+    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data,/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data_val
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
     DGXNNODES: 1
