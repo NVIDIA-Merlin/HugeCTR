@@ -21,7 +21,7 @@ log_pattern = {
         "result_log": r"/ 58527 iterations with batchsize 71680 in (\d+\.?\d*)s. Average",
     },
     "dlrm_dcnv2_1node": {
-        "cmd_log": r"python3 train_dcnv2.py",
+        "cmd_log": r"python3 train.py",
         "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average",
     },
     "inference_benchmark": {
