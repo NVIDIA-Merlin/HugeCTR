@@ -36,8 +36,7 @@ template <typename TypeHashKey>
 class HierParameterServer : public HierParameterServerBase {
  public:
   virtual ~HierParameterServer();
-  HierParameterServer(const parameter_server_config& ps_config,
-                      std::vector<InferenceParams>& inference_params_array);
+  HierParameterServer(const parameter_server_config& ps_config);
   HierParameterServer(HierParameterServer const&) = delete;
   HierParameterServer& operator=(HierParameterServer const&) = delete;
 

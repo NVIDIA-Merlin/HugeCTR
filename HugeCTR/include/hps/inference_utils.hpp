@@ -263,6 +263,10 @@ struct InferenceParams {
   bool use_static_table;
   // Whether to use context stream for HPS TensorFlow/TensorRT plugins
   bool use_context_stream;
+  bool fuse_embedding_table;
+  std::vector<std::vector<std::string>> fused_sparse_model_files;
+  std::map<size_t, size_t> original_table_id_to_fused_table_id_map;
+  std::map<size_t, std::vector<size_t>> fused_table_id_to_original_table_id_map;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -287,7 +291,7 @@ struct InferenceParams {
                   const std::vector<std::string>& embedding_table_names = {""},
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
                   const std::string& non_trainable_params_file = "", bool use_static_table = false,
-                  bool use_context_stream = true);
+                  bool use_context_stream = true, bool fuse_embedding_table = false);
 };
 
 struct parameter_server_config {
@@ -314,6 +318,11 @@ struct parameter_server_config {
   std::map<std::string, std::vector<size_t>>
       embedding_key_count_;  // The number of keys per embedding table per model
 
+  std::map<std::string, std::map<size_t, size_t>>
+      original_table_id_to_fused_table_id_map_for_all_models;
+  std::map<std::string, std::map<size_t, std::vector<size_t>>>
+      fused_table_id_to_original_table_id_map_for_all_models;
+
   // Database backend.
   VolatileDatabaseParams volatile_db;
   PersistentDatabaseParams persistent_db;
@@ -330,6 +339,7 @@ struct parameter_server_config {
   parameter_server_config(const std::string& hps_json_config_file);
   parameter_server_config(const char* hps_json_config_file);
   void init(const std::string& hps_json_config_file);
+  void fuse_embedding_table_in_json_config(nlohmann::json& hps_config);
   std::optional<size_t> find_model_id(const std::string& model_name) const;
 };
 

@@ -105,7 +105,9 @@ ThreadPool& ThreadPool::get() {
 }
 
 void ThreadPool::run_(const size_t thread_index) {
-  hctr_set_thread_name(name_ + " #" + std::to_string(thread_index));
+  if (name_ != "") {
+    hctr_set_thread_name(name_ + " #" + std::to_string(thread_index));
+  }
   while (true) {
     thread_local std::packaged_task<void()> package;
 

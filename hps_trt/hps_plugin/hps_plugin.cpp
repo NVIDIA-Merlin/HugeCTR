@@ -124,19 +124,15 @@ int32_t HpsPlugin::enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc c
                            void const* const* inputs, void* const* outputs, void* workspace,
                            cudaStream_t stream) noexcept {
   try {
-    // This stream synchronization is needed since HPS embedding lookup currently does not use the
-    // CUDA stream in the TensorRT context, in case that there are some operations processing the
-    // device keys on this stream before HPS embedding lookup
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-
     auto num_elements = inputDesc->dims.d[0];
     for (size_t i{1}; i < inputDesc->dims.nbDims; i++) {
       num_elements *= inputDesc->dims.d[i];
     }
     int32_t device_id;
     HCTR_LIB_THROW(cudaGetDevice(&device_id));
+    bool i64_input_key = !(inputDesc->type == DataType::kINT32);
     Facade::instance()->forward(model_name.c_str(), table_id, device_id, num_elements, emb_vec_size,
-                                inputs[0], outputs[0]);
+                                inputs[0], outputs[0], i64_input_key, stream);
     return 0;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;

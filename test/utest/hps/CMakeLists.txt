@@ -31,6 +31,10 @@ file(GLOB db_backend_test_src
   db_backend_test.cpp
 )
 
+file(GLOB lookup_session_fusing_table_test_src
+  lookup_session_fusing_table_test.cpp
+)
+
 add_executable(embedding_cache_test ${embedding_cache_test_src})
 target_compile_features(embedding_cache_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_cache_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
@@ -45,4 +49,8 @@ target_link_libraries(parameter_server_test PUBLIC hugectr_core23 huge_ctr_hps c
 
 add_executable(db_backend_test ${db_backend_test_src})
 target_compile_features(db_backend_test PUBLIC cxx_std_17)
-target_link_libraries(db_backend_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
+target_link_libraries(db_backend_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)
+
+add_executable(lookup_session_fusing_table_test ${lookup_session_fusing_table_test_src})
+target_compile_features(lookup_session_fusing_table_test PUBLIC cxx_std_17)
+target_link_libraries(lookup_session_fusing_table_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)

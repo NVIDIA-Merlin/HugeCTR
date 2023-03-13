@@ -40,10 +40,7 @@ class Facade final {
   // global_batch_size and num_replicas_in_sync only valid for TensorFlow plugin
   void init(const char* ps_config_file, const pluginType_t plugin_type,
             const int32_t global_batch_size = 1, const int32_t num_replicas_in_sync = 1);
-  // TODO: remove this method
-  void forward(const char* model_name, const int32_t table_id, const int32_t global_replica_id,
-               const size_t num_keys, const size_t emb_vec_size, const void* d_keys,
-               void* d_vectors);
+
   void forward(const char* model_name, const int32_t table_id, const int32_t global_replica_id,
                const size_t num_keys, const size_t emb_vec_size, const void* d_keys,
                void* d_vectors, bool i64_input_tensor, cudaStream_t context_stream);

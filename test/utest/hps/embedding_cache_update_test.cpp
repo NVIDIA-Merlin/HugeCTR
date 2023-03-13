@@ -131,7 +131,7 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
   // Create parameter server and get embedding cache
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config, inference_params);
+      HierParameterServerBase::create(ps_config);
   auto embedding_cache = parameter_server->get_embedding_cache(model, 0);
 
   // Read embedding files as ground truth

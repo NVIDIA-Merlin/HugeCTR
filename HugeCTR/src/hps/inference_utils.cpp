@@ -191,7 +191,7 @@ InferenceParams::InferenceParams(
     const std::vector<size_t>& embedding_vecsize_per_table,
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
     const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file,
-    bool use_static_table, bool use_context_stream)
+    bool use_static_table, bool use_context_stream, bool fuse_embedding_table)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -227,7 +227,9 @@ InferenceParams::InferenceParams(
       slot_num(slot_num),
       non_trainable_params_file(non_trainable_params_file),
       use_static_table(use_static_table),
-      use_context_stream(use_context_stream) {
+      use_context_stream(use_context_stream),
+      fuse_embedding_table(fuse_embedding_table) {
+  // this code path is only used by hps python interface!
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
         WARNING, ROOT,
@@ -248,6 +250,109 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
   init(hps_json_config_file);
 }
 
+void parameter_server_config::fuse_embedding_table_in_json_config(nlohmann::json& hps_config) {
+  HCTR_LOG_S(INFO, WORLD) << "Table fusion is enabled for HPS. Please ensure that there is no key "
+                             "value overlap in different tables and the embedding lookup layer has "
+                             "no dependency in the model graph. For more information, see "
+                             "https://nvidia-merlin.github.io/HugeCTR/main/"
+                             "hierarchical_parameter_server/hps_database_backend.html#configuration"
+                          << std::endl;
+  // Search forsparse_files all model configuration
+  nlohmann::json& models = hps_config.find("models").value();
+  for (size_t j = 0; j < models.size(); j++) {
+    nlohmann::json& model = models[j];
+    // [0] model_name -> std::string
+    std::string model_name = get_value_from_json_soft<std::string>(model, "model", "");
+
+    std::map<size_t, size_t> original_table_id_to_fused_table_id_map;
+    std::map<size_t, std::vector<size_t>> emb_vec_size_to_original_id_map;
+    std::map<size_t, std::vector<size_t>> fused_table_id_to_original_table_id_map;
+
+    auto embedding_vecsize_per_table = get_json(model, "embedding_vecsize_per_table");
+    auto sparse_files = get_json(model, "sparse_files");
+    auto maxnum_catfeature_query_per_table_per_sample =
+        get_json(model, "maxnum_catfeature_query_per_table_per_sample");
+    auto default_value_for_each_table = get_json(model, "default_value_for_each_table");
+    auto number_of_worker_buffers_in_pool =
+        get_value_from_json_soft<int>(model, "num_of_worker_buffer_in_pool", 1);
+
+    for (size_t original_id{0}; original_id < embedding_vecsize_per_table.size(); ++original_id) {
+      const auto emb_vec_size = embedding_vecsize_per_table[original_id];
+      if (emb_vec_size_to_original_id_map.find(emb_vec_size) ==
+          emb_vec_size_to_original_id_map.end()) {
+        emb_vec_size_to_original_id_map[emb_vec_size] = std::vector<size_t>{original_id};
+      } else {
+        emb_vec_size_to_original_id_map[emb_vec_size].push_back(original_id);
+      }
+    }
+
+    size_t fused_table_id = 0;
+    std::vector<size_t> emb_vec_size_for_fused_tables;
+    std::vector<std::string> emb_table_names_for_fused_tables;
+    std::vector<size_t> max_query_per_table_for_fused_tables;
+    for (auto it = emb_vec_size_to_original_id_map.begin();
+         it != emb_vec_size_to_original_id_map.end(); ++it) {
+      emb_vec_size_for_fused_tables.emplace_back(it->first);
+      emb_table_names_for_fused_tables.emplace_back("fused_embedding" +
+                                                    std::to_string(fused_table_id));
+      fused_table_id_to_original_table_id_map[fused_table_id] = std::vector<size_t>();
+      size_t max_query_sum{0};
+      for (auto id : it->second) {
+        original_table_id_to_fused_table_id_map[id] = fused_table_id;
+        fused_table_id_to_original_table_id_map[fused_table_id].emplace_back(id);
+        max_query_sum += maxnum_catfeature_query_per_table_per_sample[id].get<size_t>();
+      }
+      max_query_per_table_for_fused_tables.emplace_back(max_query_sum);
+      ++fused_table_id;
+    }
+
+    size_t num_fused_tables = emb_vec_size_for_fused_tables.size();
+    nlohmann::json sparse_files_for_fused_tables;
+    for (size_t fused_id{0}; fused_id < num_fused_tables; ++fused_id) {
+      std::vector<std::string> sparse_files_for_current_fused_table;
+      for (auto id : fused_table_id_to_original_table_id_map[fused_id]) {
+        sparse_files_for_current_fused_table.emplace_back(sparse_files[id].get<std::string>());
+      }
+      sparse_files_for_fused_tables[emb_table_names_for_fused_tables[fused_id]] =
+          sparse_files_for_current_fused_table;
+    }
+
+    std::vector<float> default_value_for_fused_tables;
+    if (sparse_files.size() == default_value_for_each_table.size()) {
+      for (size_t fused_id{0}; fused_id < num_fused_tables; ++fused_id) {
+        float default_value_for_current_fused_table{0.0};
+        size_t idx{0};
+        for (auto id : fused_table_id_to_original_table_id_map[fused_id]) {
+          auto default_value = default_value_for_each_table[id].get<float>();
+          if (default_value != default_value_for_current_fused_table && idx > 0) {
+            HCTR_LOG(WARNING, ROOT,
+                     "Inconsistent default embedding values for tables to be fused\n");
+          }
+          default_value_for_current_fused_table = default_value;
+          ++idx;
+        }
+        default_value_for_fused_tables.emplace_back(default_value_for_current_fused_table);
+      }
+    }
+
+    model["sparse_files"] = sparse_files_for_fused_tables;
+    model["embedding_table_names"] = emb_table_names_for_fused_tables;
+    model["embedding_vecsize_per_table"] = emb_vec_size_for_fused_tables;
+    model["maxnum_catfeature_query_per_table_per_sample"] = max_query_per_table_for_fused_tables;
+    model["num_of_worker_buffer_in_pool"] =
+        std::max(number_of_worker_buffers_in_pool,
+                 static_cast<int>(original_table_id_to_fused_table_id_map.size()));
+    if (sparse_files.size() == default_value_for_each_table.size()) {
+      model["default_value_for_each_table"] = default_value_for_fused_tables;
+    }
+
+    original_table_id_to_fused_table_id_map_for_all_models[model_name] =
+        original_table_id_to_fused_table_id_map;
+    fused_table_id_to_original_table_id_map_for_all_models[model_name] =
+        fused_table_id_to_original_table_id_map;
+  }
+}
+
 void parameter_server_config::init(const std::string& hps_json_config_file) {
   HCTR_PRINT(INFO,
              "=====================================================HPS "
@@ -256,6 +361,14 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
   // Initialize for each model
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));
+
+  // Try to fuse embedding table in the JSON configuration
+  bool fuse_embedding_table =
+      get_value_from_json_soft<bool>(hps_config, "fuse_embedding_table", false);
+
+  if (fuse_embedding_table) {
+    fuse_embedding_table_in_json_config(hps_config);
+  }
 
   bool i64_input_key = get_value_from_json<bool>(hps_config, "supportlonglong");
 
@@ -395,11 +508,13 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     // [1] max_batch_size -> size_t
     size_t max_batch_size = get_value_from_json_soft<size_t>(model, "max_batch_size", 64);
     // [2] sparse_model_files -> std::vector<std::string>
-    auto sparse_model_files = get_json(model, "sparse_files");
+    auto sparse_model_files_in_json = get_json(model, "sparse_files");
     std::vector<std::string> sparse_files;
-    if (sparse_model_files.is_array()) {
-      for (size_t sparse_id = 0; sparse_id < sparse_model_files.size(); ++sparse_id) {
-        sparse_files.emplace_back(sparse_model_files[sparse_id].get<std::string>());
+    if (!fuse_embedding_table) {
+      if (sparse_model_files_in_json.is_array()) {
+        for (size_t sparse_id = 0; sparse_id < sparse_model_files_in_json.size(); ++sparse_id) {
+          sparse_files.emplace_back(sparse_model_files_in_json[sparse_id].get<std::string>());
+        }
       }
     }
     // [3] use_gpu_embedding_cache -> bool
@@ -439,17 +554,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
       }
     }
     params.device_id = params.deployed_devices.back();
-    // [12] default_value_for_each_table -> std::vector<float>
-    auto default_value_for_each_table = get_json(model, "default_value_for_each_table");
-    params.default_value_for_each_table.clear();
-    if (default_value_for_each_table.is_array()) {
-      for (size_t default_index = 0; default_index < default_value_for_each_table.size();
-           ++default_index) {
-        params.default_value_for_each_table.emplace_back(
-            default_value_for_each_table[default_index].get<float>());
-      }
-    }
-    // [13] maxnum_catfeature_query_per_table_per_sample -> std::vector<int>
+
+    // [12] maxnum_catfeature_query_per_table_per_sample -> std::vector<int>
     auto maxnum_catfeature_query_per_table_per_sample =
         get_json(model, "maxnum_catfeature_query_per_table_per_sample");
     params.maxnum_catfeature_query_per_table_per_sample.clear();
@@ -461,7 +567,7 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
       }
     }
 
-    // [14] embedding_vecsize_per_table -> std::vector<size_t>
+    // [13] embedding_vecsize_per_table -> std::vector<size_t>
     auto embedding_vecsize_per_table = get_json(model, "embedding_vecsize_per_table");
     params.embedding_vecsize_per_table.clear();
     if (embedding_vecsize_per_table.is_array()) {
@@ -469,6 +575,24 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
            ++vecsize_index) {
         params.embedding_vecsize_per_table.emplace_back(
             embedding_vecsize_per_table[vecsize_index].get<size_t>());
+      }
+    }
+
+    // [14] default_value_for_each_table -> std::vector<float>
+    auto default_value_for_each_table = get_json(model, "default_value_for_each_table");
+    size_t num_tables = params.embedding_vecsize_per_table.size();
+
+    params.default_value_for_each_table.clear();
+    if (default_value_for_each_table.is_array()) {
+      for (size_t default_index = 0;
+           default_index < std::min(num_tables, default_value_for_each_table.size());
+           ++default_index) {
+        params.default_value_for_each_table.emplace_back(
+            default_value_for_each_table[default_index].get<float>());
+      }
+      for (size_t idx{std::min(num_tables, default_value_for_each_table.size())}; idx < num_tables;
+           ++idx) {
+        params.default_value_for_each_table.emplace_back(0.f);
       }
     }
 
@@ -494,15 +618,27 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
       }
     } else {
       params.embedding_table_names.clear();
-      for (size_t i = 0; i < sparse_model_files.size(); ++i) {
+      for (size_t i = 0; i < sparse_model_files_in_json.size(); ++i) {
         params.embedding_table_names.emplace_back("sparse_embedding" + std::to_string(i));
       }
     }
 
-    // [19] use_static_table -> bool
+    // [19] fused_sparse_model_files -> std::vector<std::vector<std::string>>
+    params.fuse_embedding_table = fuse_embedding_table;
+    if (fuse_embedding_table) {
+      for (auto name : params.embedding_table_names) {
+        params.fused_sparse_model_files.emplace_back(sparse_model_files_in_json[name]);
+      }
+      params.original_table_id_to_fused_table_id_map =
+          original_table_id_to_fused_table_id_map_for_all_models[model_name];
+      params.fused_table_id_to_original_table_id_map =
+          fused_table_id_to_original_table_id_map_for_all_models[model_name];
+    }
+
+    // [20] use_static_table -> bool
     params.use_static_table = get_value_from_json_soft<bool>(model, "use_static_table", false);
 
-    // [20] use_context_stream -> bool
+    // [21] use_context_stream -> bool
     params.use_context_stream = get_value_from_json_soft<bool>(model, "use_context_stream", true);
 
     params.volatile_db = volatile_db_params;
@@ -538,6 +674,10 @@ parameter_server_config::parameter_server_config(
   }
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     const auto& inference_params = inference_params_array[i];
+    if (inference_params.fuse_embedding_table) {
+      HCTR_LOG_S(WARNING, WORLD)
+          << "Embedding table fusion can only be used with HPS JSON configuration" << std::endl;
+    }
     if (emb_table_name.find(inference_params.model_name) == emb_table_name.end() ||
         embedding_vec_size.find(inference_params.model_name) == embedding_vec_size.end() ||
         max_feature_num_per_sample_per_emb_table.find(inference_params.model_name) ==
@@ -579,6 +719,7 @@ parameter_server_config::parameter_server_config(
   this->persistent_db = persistent_db;
   this->update_source = update_source;
   for (auto& inference_params : this->inference_params_array) {
+    inference_params.fuse_embedding_table = false;
     inference_params.volatile_db = volatile_db;
     inference_params.persistent_db = persistent_db;
     inference_params.update_source = update_source;
@@ -596,6 +737,11 @@ parameter_server_config::parameter_server_config(
   for (size_t i = 0; i < model_config_path_array.size(); i++) {
     const auto& model_config_path = model_config_path_array[i];
     const auto& inference_params = inference_params_array[i];
+    if (inference_params.fuse_embedding_table) {
+      HCTR_LOG_S(WARNING, WORLD)
+          << "Embedding table fusion can only be used with HPS JSON configuration" << std::endl;
+    }
+
     // Initialize <model_name, id> map
     if (model_name_id_map_.count(inference_params.model_name) == 0) {
       model_name_id_map_.emplace(inference_params.model_name, (size_t)model_name_id_map_.size());
@@ -663,6 +809,9 @@ parameter_server_config::parameter_server_config(
     default_emb_vec_value_.emplace_back(default_emb_vec_value);
   }  // end for
   this->inference_params_array = inference_params_array;
+  for (auto& inference_params : this->inference_params_array) {
+    inference_params.fuse_embedding_table = false;
+  }
 }
 
 DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string& key,

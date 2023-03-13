@@ -36,11 +36,14 @@ class HierParameterServerBase {
                                    const std::string& embedding_table_name,
                                    const bool check_arguments = true);
 
-  static std::shared_ptr<HierParameterServerBase> create(
-      const parameter_server_config& ps_config,
-      std::vector<InferenceParams>& inference_params_array);
+  static std::shared_ptr<HierParameterServerBase> create(const parameter_server_config& ps_config);
 
   static std::shared_ptr<HierParameterServerBase> create(const std::string& hps_json_config_file);
+
+  // TODO: remove this static method after merging hugectr_inference_backend
+  static std::shared_ptr<HierParameterServerBase> create(
+      const parameter_server_config& ps_config,
+      const std::vector<InferenceParams>& inference_params_array);
 
   virtual void update_database_per_model(const InferenceParams& inference_params) = 0;
   virtual void create_embedding_cache_per_model(InferenceParams& inference_params) = 0;

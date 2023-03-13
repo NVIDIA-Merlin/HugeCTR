@@ -225,7 +225,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   std::vector<std::string> model_config_path{config_file};
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config, inference_params);
+      HierParameterServerBase::create(ps_config);
   InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
                                         parameter_server);
   timer_inference.start();
@@ -313,7 +313,7 @@ void session_inference_generated_test(const std::string& config_file, const std:
   std::vector<std::string> model_config_path{config_file};
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config, inference_params);
+      HierParameterServerBase::create(ps_config);
   InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
                                         parameter_server);
   timer_inference.start();

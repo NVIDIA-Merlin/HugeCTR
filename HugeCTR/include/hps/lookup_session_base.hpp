@@ -22,6 +22,15 @@
 namespace HugeCTR {
 
 class LookupSessionBase {
+ private:
+  virtual void lookup_with_table_fusion_impl(const void* keys, float* d_vectors, size_t num_keys,
+                                             size_t table_id, bool key_on_gpu,
+                                             cudaStream_t stream) = 0;
+  virtual void lookup_from_device_impl(const void* d_keys, float* d_vectors, size_t num_keys,
+                                       size_t table_id, cudaStream_t stream) = 0;
+  virtual void lookup_impl(const void* const h_keys, float* const d_vectors, const size_t num_keys,
+                           const size_t table_id, cudaStream_t stream) = 0;
+
  public:
   virtual ~LookupSessionBase() = 0;
   LookupSessionBase() = default;
@@ -29,6 +38,8 @@ class LookupSessionBase {
   LookupSessionBase& operator=(LookupSessionBase const&) = delete;
 
   virtual void lookup(const void* h_keys, float* d_vectors, size_t num_keys, size_t table_id) = 0;
+  virtual void lookup(const void* const h_keys, float* const d_vectors, const size_t num_keys,
+                      const size_t table_id, cudaStream_t stream) = 0;
   virtual void lookup(const std::vector<const void*>& h_keys_per_table,
                       const std::vector<float*>& d_vectors_per_table,
                       const std::vector<size_t>& num_keys_per_table) = 0;

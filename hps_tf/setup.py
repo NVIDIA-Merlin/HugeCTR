@@ -51,6 +51,7 @@ def get_cmake_args():
     cmake_args = [
         "-DSM='{}'".format(";".join(gpu_capabilities)),
         "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type),
+        "-DHPS_ASYNC_OP=ON",
     ]
     return cmake_args
 

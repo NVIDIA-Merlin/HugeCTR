@@ -141,13 +141,15 @@ HPS_Metrics::HPS_Metrics(const std::string& hps_json_config_file, metrics_argues
 }
 
 void HPS_Metrics::initialize() {
-  parameter_server_ =
-      HierParameterServerBase::create(ps_config_, ps_config_.inference_params_array);
+  parameter_server_ = HierParameterServerBase::create(ps_config_);
   if (metrics_config_.database_backend) {
     parameter_server_->set_profiler(metrics_config_.iterations, metrics_config_.warmup, true);
   }
 
   for (auto& inference_params : ps_config_.inference_params_array) {
+    HCTR_CHECK_HINT(!inference_params.fuse_embedding_table,
+                    "HPS profiler does not support table fusion");
+    HCTR_CHECK_HINT(inference_params.i64_input_key, "HPS profiler requires input keys of int64_t");
     std::map<int64_t, std::shared_ptr<LookupSessionBase>> lookup_sessions;
     for (const auto& device_id : inference_params.deployed_devices) {
       inference_params.device_id = device_id;

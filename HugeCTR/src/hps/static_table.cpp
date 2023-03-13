@@ -30,17 +30,10 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
                                       const parameter_server_config& ps_config,
                                       HierParameterServerBase* const parameter_server)
     : EmbeddingCacheBase(), parameter_server_(parameter_server) {
-  auto b2s = [](const char val) { return val ? "True" : "False"; };
-  HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
-  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
-           inference_params.sparse_model_files.size());
-  HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
-  HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
-           inference_params.number_of_refresh_buffers_in_pool);
-  HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
-
   // Store the configuration
-  cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
+  cache_config_.num_emb_table_ = inference_params.fuse_embedding_table
+                                     ? inference_params.fused_sparse_model_files.size()
+                                     : inference_params.sparse_model_files.size();
   cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
   cache_config_.cache_refresh_percentage_per_iteration =
       inference_params.cache_refresh_percentage_per_iteration;
@@ -48,6 +41,20 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
   cache_config_.model_name_ = inference_params.model_name;
   cache_config_.cuda_dev_id_ = inference_params.device_id;
   cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
+
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
+  HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
+  HCTR_LOG(INFO, ROOT, "Max batch size: %lu\n", inference_params.max_batchsize);
+  HCTR_LOG(INFO, ROOT, "Fuse embedding tables: %s\n", b2s(inference_params.fuse_embedding_table));
+  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n", cache_config_.num_emb_table_);
+  HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
+  HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
+  HCTR_LOG(INFO, ROOT, "The size of worker memory pool: %u\n",
+           inference_params.number_of_worker_buffers_in_pool);
+  HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
+           inference_params.number_of_refresh_buffers_in_pool);
+  HCTR_LOG(INFO, ROOT, "The refresh percentage : %f\n",
+           inference_params.cache_refresh_percentage_per_iteration);
 
   // initialize the profiler
   ec_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::EC);
@@ -73,8 +80,9 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
     }
   }
 
+  // This is the only two places to set the cuda context in static table
   CudaDeviceContext dev_restorer;
-  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  dev_restorer.set_device(cache_config_.cuda_dev_id_);
 
   // Allocate resources.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
@@ -362,8 +370,9 @@ void StaticTable<TypeHashKey>::destroy_refreshspace(
 
 template <typename TypeHashKey>
 StaticTable<TypeHashKey>::~StaticTable() {
+  // This is the only two places to set the cuda context in static table
   CudaDeviceContext dev_restorer;
-  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  dev_restorer.set_device(cache_config_.cuda_dev_id_);
   // Destroy resources.
   for (auto& stream : refresh_streams_) {
     cudaStreamDestroy(stream);

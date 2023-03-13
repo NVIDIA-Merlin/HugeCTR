@@ -31,7 +31,8 @@ RawModelLoader<TKey, TValue>::RawModelLoader() : IModelLoader() {
 }
 
 template <typename TKey, typename TValue>
-void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std::string& path) {
+void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std::string& path,
+                                        bool load_with_offset) {
   const std::string emb_file_prefix = path + "/";
   const std::string key_file = emb_file_prefix + "key";
   const std::string vec_file = emb_file_prefix + "emb_vector";
@@ -57,23 +58,42 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
   }
 
   const size_t num_key = key_file_size_in_byte / key_size_in_byte;
-  embedding_table_->key_count = num_key;
-
   const size_t num_float_val_in_vec_file = vec_file_size_in_byte / vec_size_in_byte;
 
-  // The temp embedding table
-  embedding_table_->keys.resize(num_key);
+  size_t key_offset_in_elements = load_with_offset ? embedding_table_->key_count : 0;
+  size_t vec_offset_in_elements = load_with_offset ? embedding_table_->vec_elem_count : 0;
+  if (load_with_offset) {
+    embedding_table_->key_count += num_key;
+    embedding_table_->vec_elem_count += num_float_val_in_vec_file;
+  } else {
+    embedding_table_->key_count = num_key;
+    embedding_table_->vec_elem_count = num_float_val_in_vec_file;
+  }
+  embedding_table_->keys.resize(embedding_table_->key_count);
+  embedding_table_->vectors.resize(embedding_table_->vec_elem_count);
+
   if (std::is_same<TKey, long long>::value) {
-    fs->read(key_file, embedding_table_->keys.data(), key_file_size_in_byte, 0);
+    fs->read(key_file, embedding_table_->keys.data() + key_offset_in_elements,
+             key_file_size_in_byte, 0);
   } else {
     std::vector<long long> i64_key_vec(num_key, 0);
     fs->read(key_file, i64_key_vec.data(), key_file_size_in_byte, 0);
-    std::transform(i64_key_vec.begin(), i64_key_vec.end(), embedding_table_->keys.begin(),
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(),
+                   embedding_table_->keys.begin() + key_offset_in_elements,
                    [](long long key) { return static_cast<unsigned>(key); });
   }
+  fs->read(vec_file, embedding_table_->vectors.data() + vec_offset_in_elements,
+           vec_file_size_in_byte, 0);
+}
 
-  embedding_table_->vectors.resize(num_float_val_in_vec_file);
-  fs->read(vec_file, embedding_table_->vectors.data(), vec_file_size_in_byte, 0);
+template <typename TKey, typename TValue>
+void RawModelLoader<TKey, TValue>::load(const std::string& table_name,
+                                        const std::vector<std::string>& path_list) {
+  embedding_table_->key_count = 0;
+  embedding_table_->vec_elem_count = 0;
+  for (auto path : path_list) {
+    this->load(table_name, path, true);
+  }
 }
 
 template <typename TKey, typename TValue>

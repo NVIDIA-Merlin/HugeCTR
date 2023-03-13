@@ -55,6 +55,8 @@ hps_config = {
             "hit_rate_threshold": 1.0,
             "gpucacheper": 1.0,
             "gpucache": True,
+            "use_static_table": False,
+            "use_context_stream": False,
         },
         {
             "model": "bar",
@@ -70,6 +72,8 @@ hps_config = {
             "hit_rate_threshold": 1.0,
             "gpucacheper": 1.0,
             "gpucache": True,
+            "use_static_table": True,
+            "use_context_stream": True,
         },
     ],
 }
