@@ -817,6 +817,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 }
 
 void copy_backward_key_and_emb_vec(std::shared_ptr<CoreResourceManager> core,
+                                   const std::vector<int> &num_unique_keys,
                                    const core23::Tensor &continous_unique_key,
                                    const core23::Tensor &continous_emb_vec,
                                    std::vector<core23::Tensor> &unique_key,
@@ -824,7 +825,7 @@ void copy_backward_key_and_emb_vec(std::shared_ptr<CoreResourceManager> core,
   size_t nbytes_key_offsets = 0ul;
   size_t nbytes_emb_vec_offsets = 0ul;
   for (size_t i = 0; i < unique_key.size(); ++i) {
-    if (unique_key[i].empty() || emb_vec[i].empty()) continue;
+    if (num_unique_keys[i] == 0) continue;
     HCTR_LIB_THROW(cudaMemcpyAsync(
         unique_key[i].data(),
         reinterpret_cast<char *>(continous_unique_key.data()) + nbytes_key_offsets,

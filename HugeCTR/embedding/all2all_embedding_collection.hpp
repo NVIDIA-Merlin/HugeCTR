@@ -131,6 +131,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                              core23::Tensor *ret_continous_emb_vec);
 
 void copy_backward_key_and_emb_vec(std::shared_ptr<CoreResourceManager> core,
+                                   const std::vector<int> &num_unique_keys,
                                    const core23::Tensor &continous_unique_key,
                                    const core23::Tensor &continous_emb_vec,
                                    std::vector<core23::Tensor> &unique_key,
