@@ -64,13 +64,13 @@ To build HPS profiler from source, do the following:
 Pull the container using the following command:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.03
 ```
 
 Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --gpus all --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u root -v $(pwd):/HugeCTR -w /HugeCTR -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+   docker run --gpus all --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u root -v $(pwd):/HugeCTR -w /HugeCTR -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:23.03
    ```  
 
 3. Here is an example of how you can build HPS Profiler  using the build options:

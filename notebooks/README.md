@@ -19,16 +19,16 @@ git clone https://github.com/NVIDIA/HugeCTR
 Pull the container using the following command:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.03
 ```
 
 Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --gpus all --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u root -v $(pwd):/HugeCTR -w /HugeCTR -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+   docker run --gpus all --rm -it --cap-add SYS_NICE --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -u root -v $(pwd):/HugeCTR -w /HugeCTR -p 8888:8888 nvcr.io/nvidia/merlin/merlin-hugectr:23.03
    ```  
 
-   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow:22.12` container.
+   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow:23.03` container.
 
 ## 3. Customized Building (Optional)
 
