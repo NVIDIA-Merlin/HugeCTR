@@ -101,4 +101,4 @@ We provide a collection of examples as [Jupyter Notebooks](../hps_tf/notebooks) 
 
 ## Benchmark
 
-We benchmark the DLRM TF model with HPS plugin in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).
+We benchmark the DLRM TensorFlow model with HPS Plugin for TensorFlow in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).

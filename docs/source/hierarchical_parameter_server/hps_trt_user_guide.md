@@ -12,7 +12,7 @@ backlinks: none
 
 Hierarchical Parameter Server (HPS) is a distributed inference framework that is dedicated to deploying large embedding tables and realizing the low-latency retrieval of embeddings.
 The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture that encompasses different types of database backends.
-The HPS plugin for TensorRT can be integrated into the TensorRT network as a custom layer to build the engine. The HPS-integrated engine can perform low-latency embedding lookup for large tables and TensorRT-accelerated forward propagation for dense network at the same time.
+The HPS plugin for TensorRT can be integrated into the TensorRT network as a custom layer to build the engine. The TensorRT engine with HPS Plugin for TensorRT can perform low-latency embedding lookup for large tables and accelerated forward propagation for dense network at the same time.
 
 ## Workflow
 
@@ -22,9 +22,9 @@ The workflow to leverage the HPS plugin for TensorRT can be summarized as:
 
 * **Perform ONNX graph surgery**: The node for embedding lookup in the ONNX graph is replaced by the placeholder of HPS plugin for TensorRT using the tool [ONNX GraphSurgeon](https://github.com/NVIDIA/TensorRT/tree/main/tools/onnx-graphsurgeon), as shown in Fig. 1.
 
-* **Build the HPS-integrated TensorRT engine**: We can build the TensorRT engine based on the modified ONNX graph where the HPS can leveraged as a custom plugin layer.
+* **Build the TensorRT engine with HPS Plugin for TensorRT**: We can build the TensorRT engine based on the modified ONNX graph where the HPS can leveraged as a custom plugin layer.
 
-* **Deploy the engine with Triton Inference Server TensorRT backend**: The HPS-integrated TensorRT engine is deployed with Triton Inference Server TensorRT backend. Set the `LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so` environment variable to load the plugin shared library when you start Triton Inference Server.
+* **Deploy the engine on the Triton backend for TensorRT**: The TensorRT engine with HPS Plugin for TensorRT is deployed on the Triton backend for TensorRT. Set the `LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so` environment variable to load the plugin shared library when you start Triton Inference Server.
 
 <img src="hps_trt_user_guide_src/graph_surgeon.png" alt="Logical diagram of using ONNX GraphSurgeon to set the embedding lookup to the HPS plugin for TensorRT" width="720px" style="display:block;margin-left:auto;margin-right:auto;"/>
 
@@ -80,8 +80,8 @@ handle = ctypes.CDLL("/usr/local/hps_trt/lib/libhps_plugin.so", mode=ctypes.RTLD
 
 ## Example Notebooks
 
-We provide a collection of examples as [Jupyter Notebooks](../hps_trt/notebooks/index.md) that demonstrate how to build the HPS-integrated TensorRT engine for models trained with TensorFlow, PyTorch, or HugeCTR.
+We provide a collection of examples as [Jupyter Notebooks](../hps_trt/notebooks/index.md) that demonstrate how to build the TensorRT engine with HPS Plugin for TensorRT for models trained with TensorFlow, PyTorch, or HugeCTR.
 
 ## Benchmark
 
-We benchmark the DLRM TRT engine with HPS plugin in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).
+We benchmark the DLRM TensorRT engine with HPS Plugin for TensorRT in [hps_dlrm_benchmark.md](./hps_dlrm_benchmark.md).
