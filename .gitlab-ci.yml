@@ -350,6 +350,21 @@ utests_inference:
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest_inference.sub
 
+utests_hps:
+  extends: .cluster_test_job
+  needs:
+    - build_train_inference
+    - check_selene_idle
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_hps
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_INFER_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_hps.sub
+
 criteo:
   extends: .cluster_test_job
   needs:

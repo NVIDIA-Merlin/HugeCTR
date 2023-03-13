@@ -44,39 +44,47 @@ std::string HierParameterServerBase::make_tag_name(const std::string& model_name
   return os.str();
 }
 
+// TODO: remove this static method after merging hugectr_inference_backend
 std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
     const parameter_server_config& ps_config,
-    std::vector<InferenceParams>& inference_params_array) {
-  HCTR_CHECK_HINT(inference_params_array.size() > 0, "inference_params_array should not be empty");
-  for (size_t i = 0; i < inference_params_array.size(); i++) {
-    if (inference_params_array[i].i64_input_key != inference_params_array[0].i64_input_key) {
+    const std::vector<InferenceParams>& inference_params_array) {
+  return HierParameterServerBase::create(ps_config);
+}
+
+std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
+    const parameter_server_config& ps_config) {
+  HCTR_CHECK_HINT(ps_config.inference_params_array.size() > 0,
+                  "ps_config.inference_params_array should not be empty");
+  for (size_t i = 0; i < ps_config.inference_params_array.size(); i++) {
+    if (ps_config.inference_params_array[i].i64_input_key !=
+        ps_config.inference_params_array[0].i64_input_key) {
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Inconsistent key types for different models. Parameter server does not "
                      "support hybrid key types.");
     }
   }
-  if (inference_params_array[0].i64_input_key) {
-    return std::make_shared<HierParameterServer<long long>>(ps_config, inference_params_array);
+  if (ps_config.inference_params_array[0].i64_input_key) {
+    return std::make_shared<HierParameterServer<long long>>(ps_config);
   } else {
-    return std::make_shared<HierParameterServer<unsigned int>>(ps_config, inference_params_array);
+    return std::make_shared<HierParameterServer<unsigned int>>(ps_config);
   }
 }
 
 std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
     const std::string& hps_json_config_file) {
   parameter_server_config ps_config{hps_json_config_file};
-  return HierParameterServerBase::create(ps_config, ps_config.inference_params_array);
+  return HierParameterServerBase::create(ps_config);
 }
 
 HierParameterServerBase::~HierParameterServerBase() = default;
 
 template <typename TypeHashKey>
-HierParameterServer<TypeHashKey>::HierParameterServer(
-    const parameter_server_config& ps_config, std::vector<InferenceParams>& inference_params_array)
+HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_config& ps_config)
     : HierParameterServerBase(), ps_config_(ps_config) {
   HCTR_PRINT(INFO,
              "====================================================HPS "
              "Create====================================================\n");
+  auto inference_params_array = ps_config.inference_params_array;
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if (inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
         inference_params_array[i].persistent_db != inference_params_array[0].persistent_db) {
@@ -86,6 +94,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
           "database deployment.");
     }
   }
+
   if (ps_config_.embedding_vec_size_.size() != inference_params_array.size() ||
       ps_config_.default_emb_vec_value_.size() != inference_params_array.size()) {
     HCTR_OWN_THROW(Error_t::WrongInput,
@@ -198,7 +207,6 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
     update_database_per_model(inference_params_array[i]);
   }
 
-  std::vector<std::string> model_config_path(inference_params_array.size());
   // Initilize embedding cache for each embedding table of each model
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     create_embedding_cache_per_model(inference_params_array[i]);
@@ -235,18 +243,25 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
     const InferenceParams& inference_params) {
   IModelLoader* rawreader =
       ModelLoader<TypeHashKey, float>::CreateLoader(DatabaseTableDumpFormat_t::Raw);
+  size_t num_tables = inference_params.fuse_embedding_table
+                          ? inference_params.fused_sparse_model_files.size()
+                          : inference_params.sparse_model_files.size();
   // Create input file stream to read the embedding file
-  for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
-    if (ps_config_.embedding_vec_size_[inference_params.model_name].size() !=
-        inference_params.sparse_model_files.size()) {
+  for (size_t j = 0; j < num_tables; j++) {
+    if (ps_config_.embedding_vec_size_[inference_params.model_name].size() != num_tables) {
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Wrong input: The number of embedding tables in network json file for model " +
                          inference_params.model_name +
-                         " doesn't match the size of 'sparse_model_files' in configuration.");
+                         " doesn't match the number of model files in configuration.");
     }
     // Get raw format model loader
-    rawreader->load(inference_params.embedding_table_names[j],
-                    inference_params.sparse_model_files[j]);
+    if (inference_params.fuse_embedding_table) {
+      rawreader->load(inference_params.embedding_table_names[j],
+                      inference_params.fused_sparse_model_files[j]);
+    } else {
+      rawreader->load(inference_params.embedding_table_names[j],
+                      inference_params.sparse_model_files[j], false);
+    }
     ps_config_.embedding_key_count_.at(inference_params.model_name)
         .emplace_back(rawreader->getkeycount());
     const std::string tag_name = make_tag_name(
@@ -399,15 +414,24 @@ void HierParameterServer<TypeHashKey>::init_ec(
     std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map) {
   IModelLoader* rawreader =
       ModelLoader<TypeHashKey, float>::CreateLoader(DatabaseTableDumpFormat_t::Raw);
+  size_t num_tables = inference_params.fuse_embedding_table
+                          ? inference_params.fused_sparse_model_files.size()
+                          : inference_params.sparse_model_files.size();
 
-  for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
-    rawreader->load(inference_params.embedding_table_names[j],
-                    inference_params.sparse_model_files[j]);
-    HCTR_LOG(INFO, ROOT, "EC initialization for model: \"%s\", num_tables: %d\n",
-             inference_params.model_name.c_str(), inference_params.sparse_model_files.size());
+  for (size_t j = 0; j < num_tables; j++) {
+    if (inference_params.fuse_embedding_table) {
+      rawreader->load(inference_params.embedding_table_names[j],
+                      inference_params.fused_sparse_model_files[j]);
+    } else {
+      rawreader->load(inference_params.embedding_table_names[j],
+                      inference_params.sparse_model_files[j], false);
+    }
+    const std::string tag_name = make_tag_name(
+        inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
     for (auto device_id : inference_params.deployed_devices) {
       CudaDeviceContext dev_restorer{device_id};
-      HCTR_LOG(INFO, ROOT, "EC initialization on device: %d\n", device_id);
+      HCTR_LOG_S(INFO, ROOT) << "EC initialization on device " << device_id << " for " << tag_name
+                             << std::endl;
       cudaStream_t stream = embedding_cache_map[device_id]->get_refresh_streams()[j];
       embedding_cache_config cache_config = embedding_cache_map[device_id]->get_cache_config();
       // apply the memory block for embedding cache refresh workspace
@@ -595,6 +619,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   const std::string& embedding_table_name = ps_config_.emb_table_name_[model_name][table_id];
   const std::string& tag_name = make_tag_name(model_name, embedding_table_name);
   const float default_vec_value = ps_config_.default_emb_vec_value_[*model_id][table_id];
+
 #ifdef ENABLE_INFERENCE
   HCTR_LOG_S(TRACE, WORLD) << "Looking up " << length << " embeddings (each with " << embedding_size
                            << " values)..." << std::endl;

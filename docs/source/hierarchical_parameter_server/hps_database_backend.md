@@ -98,7 +98,7 @@ If you deploy HugeCTR as a backend for NVIDIA [Triton Inference Server](https://
 ```json
 {
   "supportlonglong": true,
-
+  "fuse_embedding_table": false,
   // ...
   "volatile_db": {
     // ...
@@ -116,6 +116,8 @@ If you deploy HugeCTR as a backend for NVIDIA [Triton Inference Server](https://
 Set the `supportlonglong` field to `True` when you need to use a 64-bit integer input key.
 You must set this field to `true` if you specify `True` for the `i64_input_key` parameter.
 The default value is `True`.
+
+Set the `fuse_embedding_table` field to `True` when you want to fuse embedding tables. The tables with the same embedding vector size will be fused in storage during HPS initialization. At each iteration, orignal lookup queires are packed into one via CPU multi-thread synchronization and the packed query is forward to the fused embedding table. To use this feature, please ensure that key values in different tables have no overlap and the embedding lookup layers have no dependency to each other in the model graph. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend). The default value is `False`.
 
 The following sections describe the configuration parameters.
 Generally speaking, each node in your HugeCTR cluster should deploy the same configuration.
@@ -296,8 +298,7 @@ The default value is `10`.
 * `use_static_table`: Boolean, whether to use static table to store embeddings on GPU.
 The default value is `False`.
 
-* `use_context_stream`: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Plugin for TensorRT](hps_trt_user_guide.md).
-The default value is `True`.
+* `use_context_stream`: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Plugin for TensorRT](hps_trt_user_guide.md). The default value is `True`.
 
 #### Parameter Server Configuration: Models
 
@@ -305,6 +306,7 @@ The following JSON shows a sample configuration for the `models` key in a parame
 
 ```json
 "supportlonglong": true,
+"fuse_embedding_table": false,
 "models":[
   {
     "model":"wdl",

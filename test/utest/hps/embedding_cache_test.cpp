@@ -248,7 +248,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
   std::vector<InferenceParams> inference_params{infer_param};
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config, inference_params);
+      HierParameterServerBase::create(ps_config);
   auto embedding_cache = parameter_server->get_embedding_cache(model, 0);
 
   // Each worker start to do inference

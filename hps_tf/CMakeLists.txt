@@ -62,6 +62,13 @@ if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "Setting default CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 endif()
 
+# whether make ops to be asynchronous
+option(HPS_ASYNC_OP "Make Ops to be asynchronous")
+if (HPS_ASYNC_OP)
+    message(STATUS "Make Ops to be asynchronous")
+    add_definitions(-DHPS_ASYNC_OP)
+endif()
+
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR 
         arch_name STREQUAL 75 OR 

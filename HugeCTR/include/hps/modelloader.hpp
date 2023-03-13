@@ -39,6 +39,7 @@ struct UnifiedEmbeddingTable {
   std::vector<TypeHashValue> vectors;
   std::vector<TypeHashValue> meta;
   size_t key_count = 0;
+  size_t vec_elem_count = 0;
 };
 
 /**
@@ -56,8 +57,19 @@ class IModelLoader {
    *
    * @param table_name The destination table into which to insert the data.
    * @param path File system path under which the embedding file should be parsed.
+   * @param load_with_offset Whether to load into destination table with offset.
    */
-  virtual void load(const std::string& table_name, const std::string& path) = 0;
+  virtual void load(const std::string& table_name, const std::string& path,
+                    bool load_with_offset) = 0;
+  /**
+   * Load the contents of the model file with difference format into a into a
+   * UnifiedEmbeddingTable(data member) of an inherited class.
+   *
+   * @param table_name The destination table into which to insert the data.
+   * @param path_list File system path lists under which the multiple embedding folders should be
+   * parsed.
+   */
+  virtual void load(const std::string& table_name, const std::vector<std::string>& path_list) = 0;
   /**
    * free the UnifiedEmbeddingTable(data member) of an inherited class.
    *
@@ -101,7 +113,8 @@ class RawModelLoader : public IModelLoader {
 
  public:
   RawModelLoader();
-  virtual void load(const std::string& table_name, const std::string& path);
+  virtual void load(const std::string& table_name, const std::string& path, bool load_with_offset);
+  virtual void load(const std::string& table_name, const std::vector<std::string>& path_list);
   virtual void delete_table();
   virtual void* getkeys();
   virtual void* getvectors();

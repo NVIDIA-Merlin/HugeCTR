@@ -120,7 +120,7 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
   std::vector<std::string> model_config_path{config_file};
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config, inference_params);
+      HierParameterServerBase::create(ps_config);
   validate_lookup_result_per_table<long long>(config_file, infer_param, embedding_vec_size,
                                               parameter_server);
 }

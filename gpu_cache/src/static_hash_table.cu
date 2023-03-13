@@ -253,6 +253,7 @@ __global__ void LookupKernel(key_type *table_keys, size_type *table_indices, siz
     for (int i = 0; i < WARP_SIZE / tile_size; i++) {
       auto slot_to_read = warp_tile.shfl(slot, i * tile_size);
       int idx_to_write = warp_tile.shfl(key_num, 0) + i;
+      if (idx_to_write >= num_keys) break;
       if (slot_to_read == invalid_slot) {
         warp_tile_copy<WARP_SIZE>(warp_tile.thread_rank(), value_dim,
                                   output + (size_t)value_dim * idx_to_write, default_value);

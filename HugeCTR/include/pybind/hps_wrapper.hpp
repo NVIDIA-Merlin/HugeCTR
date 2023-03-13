@@ -98,8 +98,7 @@ HPS::HPS(const std::string& hps_json_config_file) : ps_config_{hps_json_config_f
 HPS::HPS(parameter_server_config& ps_config) : ps_config_(ps_config) { initialize(); }
 
 void HPS::initialize() {
-  parameter_server_ =
-      HierParameterServerBase::create(ps_config_, ps_config_.inference_params_array);
+  parameter_server_ = HierParameterServerBase::create(ps_config_);
   for (auto& inference_params : ps_config_.inference_params_array) {
     std::map<int64_t, std::shared_ptr<LookupSessionBase>> lookup_sessions;
     for (const auto& device_id : inference_params.deployed_devices) {

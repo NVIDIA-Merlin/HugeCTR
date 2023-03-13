@@ -41,7 +41,7 @@ InferenceModel::InferenceModel(const std::string& model_config_path,
   std::vector<std::string> model_config_path_array{model_config_path};
   std::vector<InferenceParams> inference_params_array{inference_params_};
   parameter_server_config ps_config{model_config_path_array, inference_params_array};
-  parameter_server_ = HierParameterServerBase::create(ps_config, inference_params_array);
+  parameter_server_ = HierParameterServerBase::create(ps_config);
 
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     inference_params_.device_id = resource_manager_->get_local_gpu(i)->get_device_id();

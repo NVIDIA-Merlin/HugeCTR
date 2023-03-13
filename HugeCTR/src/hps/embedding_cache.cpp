@@ -86,11 +86,26 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
       insert_workers_("EC insert",
                       std::max(static_cast<unsigned int>(inference_params.thread_pool_size),
                                std::thread::hardware_concurrency())) {
+  // initialize the profiler
+  ec_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::EC);
+
+  // Store the configuration
+  cache_config_.num_emb_table_ = inference_params.fuse_embedding_table
+                                     ? inference_params.fused_sparse_model_files.size()
+                                     : inference_params.sparse_model_files.size();
+  cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
+  cache_config_.cache_refresh_percentage_per_iteration =
+      inference_params.cache_refresh_percentage_per_iteration;
+  cache_config_.default_value_for_each_table = inference_params.default_value_for_each_table;
+  cache_config_.model_name_ = inference_params.model_name;
+  cache_config_.cuda_dev_id_ = inference_params.device_id;
+  cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
+
   auto b2s = [](const char val) { return val ? "True" : "False"; };
   HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
   HCTR_LOG(INFO, ROOT, "Max batch size: %lu\n", inference_params.max_batchsize);
-  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
-           inference_params.sparse_model_files.size());
+  HCTR_LOG(INFO, ROOT, "Fuse embedding tables: %s\n", b2s(inference_params.fuse_embedding_table));
+  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n", cache_config_.num_emb_table_);
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
            b2s(inference_params.use_gpu_embedding_cache), inference_params.cache_size_percentage);
   HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
@@ -106,19 +121,6 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
            inference_params.number_of_refresh_buffers_in_pool);
   HCTR_LOG(INFO, ROOT, "The refresh percentage : %f\n",
            inference_params.cache_refresh_percentage_per_iteration);
-
-  // initialize the profiler
-  ec_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::EC);
-
-  // Store the configuration
-  cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
-  cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
-  cache_config_.cache_refresh_percentage_per_iteration =
-      inference_params.cache_refresh_percentage_per_iteration;
-  cache_config_.default_value_for_each_table = inference_params.default_value_for_each_table;
-  cache_config_.model_name_ = inference_params.model_name;
-  cache_config_.cuda_dev_id_ = inference_params.device_id;
-  cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
 
   if (ps_config.embedding_vec_size_.find(inference_params.model_name) ==
           ps_config.embedding_vec_size_.end() ||
@@ -352,8 +354,8 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
     bool async_insert_flag{workspace_handler.h_hit_rate_[table_id] >= hit_rate_threshold};
     start = profiler::start(workspace_handler.h_hit_rate_[table_id], ProfilerType_t::Occupancy);
     ec_profiler_->end(start, "The hit rate of Embedding Cache", ProfilerType_t::Occupancy);
-    // Handle the missing keys
-    // mode 1: synchronous
+
+    // Handle the missing keys mode 1: synchronous
     if (!async_insert_flag) {
       start = profiler::start();
       parameter_server_->insert_embedding_cache(table_id, this->shared_from_this(),
