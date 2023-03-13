@@ -150,20 +150,20 @@ You can access the ONNX converter as well as HugeCTR Python interface anywhere w
 <h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+$<span class="w"> </span>wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
 </li>
 <li><p>Preprocessing by Pandas using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">1</span><span class="w"> </span>wdl_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">100</span>
 </pre></div>
 </div>
 <p>The first argument represents the dataset postfix. It is 1 here since day_1 is used. The second argument wdl_data is where the preprocessed data is stored. The fourth argument (one after pandas) 1 embodies that the normalization is applied to dense features. The fifth argument 1 means that the feature crossing is applied. The last argument 100 means the number of data files in each file list.</p>
 </li>
 <li><p>Create a soft link to the dataset folder using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
 </pre></div>
 </div>
 </li>
@@ -281,7 +281,7 @@ If it is <code class="docutils literal notranslate"><span class="pre">False</spa
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_train.py
 </pre></div>
 </div>
 </div>
@@ -529,19 +529,19 @@ Max absolute error:  1.1920929e-07
 <div class="section" id="api-signature-for-hugectr2onnx-converter">
 <h2>API Signature for hugectr2onnx.converter<a class="headerlink" href="#api-signature-for-hugectr2onnx-converter" title="Permalink to this headline"></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>NAME
-    hugectr2onnx.converter
+<span class="w">    </span>hugectr2onnx.converter
 
 FUNCTIONS
-    convert<span class="o">(</span>onnx_model_path, graph_config, dense_model, <span class="nv">convert_embedding</span><span class="o">=</span>False, <span class="nv">sparse_models</span><span class="o">=[]</span>, <span class="nv">ntp_file</span><span class="o">=</span>None, <span class="nv">graph_name</span><span class="o">=</span><span class="s1">&#39;hugectr&#39;</span><span class="o">)</span>
-        Convert a HugeCTR model to an ONNX model
-        Args:
-            onnx_model_path: the path to store the ONNX model
-            graph_config: the graph configuration JSON file of the HugeCTR model
-            dense_model: the file of the dense weights <span class="k">for</span> the HugeCTR model
-            convert_embedding: whether to convert the sparse embeddings <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
-            sparse_models: the files of the sparse embeddings <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
-            ntp_file: the file of the non-trainable parameters <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
-            graph_name: the graph name <span class="k">for</span> the ONNX model <span class="o">(</span>optional<span class="o">)</span>
+<span class="w">    </span>convert<span class="o">(</span>onnx_model_path,<span class="w"> </span>graph_config,<span class="w"> </span>dense_model,<span class="w"> </span><span class="nv">convert_embedding</span><span class="o">=</span>False,<span class="w"> </span><span class="nv">sparse_models</span><span class="o">=[]</span>,<span class="w"> </span><span class="nv">ntp_file</span><span class="o">=</span>None,<span class="w"> </span><span class="nv">graph_name</span><span class="o">=</span><span class="s1">&#39;hugectr&#39;</span><span class="o">)</span>
+<span class="w">        </span>Convert<span class="w"> </span>a<span class="w"> </span>HugeCTR<span class="w"> </span>model<span class="w"> </span>to<span class="w"> </span>an<span class="w"> </span>ONNX<span class="w"> </span>model
+<span class="w">        </span>Args:
+<span class="w">            </span>onnx_model_path:<span class="w"> </span>the<span class="w"> </span>path<span class="w"> </span>to<span class="w"> </span>store<span class="w"> </span>the<span class="w"> </span>ONNX<span class="w"> </span>model
+<span class="w">            </span>graph_config:<span class="w"> </span>the<span class="w"> </span>graph<span class="w"> </span>configuration<span class="w"> </span>JSON<span class="w"> </span>file<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>HugeCTR<span class="w"> </span>model
+<span class="w">            </span>dense_model:<span class="w"> </span>the<span class="w"> </span>file<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>dense<span class="w"> </span>weights<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>HugeCTR<span class="w"> </span>model
+<span class="w">            </span>convert_embedding:<span class="w"> </span>whether<span class="w"> </span>to<span class="w"> </span>convert<span class="w"> </span>the<span class="w"> </span>sparse<span class="w"> </span>embeddings<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>HugeCTR<span class="w"> </span>model<span class="w"> </span><span class="o">(</span>optional<span class="o">)</span>
+<span class="w">            </span>sparse_models:<span class="w"> </span>the<span class="w"> </span>files<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>sparse<span class="w"> </span>embeddings<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>HugeCTR<span class="w"> </span>model<span class="w"> </span><span class="o">(</span>optional<span class="o">)</span>
+<span class="w">            </span>ntp_file:<span class="w"> </span>the<span class="w"> </span>file<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>non-trainable<span class="w"> </span>parameters<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>HugeCTR<span class="w"> </span>model<span class="w"> </span><span class="o">(</span>optional<span class="o">)</span>
+<span class="w">            </span>graph_name:<span class="w"> </span>the<span class="w"> </span>graph<span class="w"> </span>name<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>ONNX<span class="w"> </span>model<span class="w"> </span><span class="o">(</span>optional<span class="o">)</span>
 </pre></div>
 </div>
 </div>
@@ -584,6 +584,10 @@ FUNCTIONS
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="hugectr2onnx_demo.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

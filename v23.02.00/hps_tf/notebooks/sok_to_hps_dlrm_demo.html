@@ -150,8 +150,8 @@
 <h3>Get SOK from NGC<a class="headerlink" href="#get-sok-from-ngc" title="Permalink to this headline"></a></h3>
 <p>Both SOK and HPS Python modules are preinstalled in the 22.12 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.12</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import sparse_operation_kit as sok&quot;</span>
-$ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sparse_operation_kit as sok&quot;</span>
+$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -538,11 +538,11 @@ WARNING:absl:Found untraced functions such as bottom_0_layer_call_fn, bottom_0_l
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p dlrm_sparse.model
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>dlrm_sparse.model
 <span class="n">embedding_saver</span><span class="o">.</span><span class="n">dump_to_file</span><span class="p">(</span><span class="n">trained_model</span><span class="o">.</span><span class="n">embedding_layer</span><span class="o">.</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">])</span>
-<span class="o">!</span>mv dlrm_sparse.model/EmbeddingVariable_keys.file dlrm_sparse.model/key
-<span class="o">!</span>mv dlrm_sparse.model/EmbeddingVariable_values.file dlrm_sparse.model/emb_vector
-<span class="o">!</span>ls -l dlrm_sparse.model
+<span class="o">!</span>mv<span class="w"> </span>dlrm_sparse.model/EmbeddingVariable_keys.file<span class="w"> </span>dlrm_sparse.model/key
+<span class="o">!</span>mv<span class="w"> </span>dlrm_sparse.model/EmbeddingVariable_values.file<span class="w"> </span>dlrm_sparse.model/emb_vector
+<span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>dlrm_sparse.model
 </pre></div>
 </div>
 </div>
@@ -895,6 +895,10 @@ tf.Tensor(
       <dd><a href="../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="sok_to_hps_dlrm_demo.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

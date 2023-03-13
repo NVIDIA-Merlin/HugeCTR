@@ -181,7 +181,7 @@ We show how to produce prediction results based on different types of local data
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$train_path</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span><span class="nv">$train_path</span>
 </pre></div>
 </div>
 </div>
@@ -196,14 +196,14 @@ We show how to produce prediction results based on different types of local data
 <h3>Download the original Criteo dataset<a class="headerlink" href="#download-the-original-criteo-dataset" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt-get install wget
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt-get<span class="w"> </span>install<span class="w"> </span>wget
 </pre></div>
 </div>
 </div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget -P <span class="nv">$train_path</span> https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget<span class="w"> </span>-P<span class="w"> </span><span class="nv">$train_path</span><span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
 </pre></div>
 </div>
 </div>
@@ -212,8 +212,8 @@ We show how to produce prediction results based on different types of local data
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!gzip -d -c $train_path/day_0.gz &gt; day_0</span>
-<span class="o">!</span>head -n <span class="m">45840617</span> day_0 &gt; <span class="nv">$train_path</span>/train.txt
-<span class="o">!</span>tail -n <span class="m">2000000</span> day_0 &gt; <span class="nv">$val_path</span>/test.txt 
+<span class="o">!</span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">45840617</span><span class="w"> </span>day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$train_path</span>/train.txt
+<span class="o">!</span>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">2000000</span><span class="w"> </span>day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$val_path</span>/test.txt<span class="w"> </span>
 </pre></div>
 </div>
 </div>
@@ -487,7 +487,7 @@ We show how to produce prediction results based on different types of local data
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------------------------&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data_path          | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output_path        | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;partition size     | </span><span class="si">{</span><span class="s1">&#39;</span><span class="si">%.2f</span><span class="s1"> GB&#39;</span><span class="o">%</span><span class="n">bytesto</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">),</span><span class="s1">&#39;g&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;partition size     | </span><span class="si">{</span><span class="s1">&#39;</span><span class="si">%.2f</span><span class="s1"> GB&#39;</span><span class="o">%</span><span class="n">bytesto</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">device_size</span><span class="p">),</span><span class="s1">&#39;g&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;protocol           | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;device(s)          | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rmm-pool-frac      | </span><span class="si">{</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -695,7 +695,7 @@ Runtime[s]         | 92.90126419067383
 <h4>Check the preprocessed training data<a class="headerlink" href="#check-the-preprocessed-training-data" title="Permalink to this headline"></a></h4>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -ll /wdl_train/train
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-ll<span class="w"> </span>/wdl_train/train
 </pre></div>
 </div>
 </div>
@@ -824,7 +824,7 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python ./model.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>./model.py
 </pre></div>
 </div>
 </div>
@@ -983,7 +983,7 @@ BinaryCrossEntropyLoss                  add1                          loss
 <h2>Prepare Inference Request<a class="headerlink" href="#prepare-inference-request" title="Permalink to this headline"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l /wdl_train/val
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>/wdl_train/val
 </pre></div>
 </div>
 </div>
@@ -1270,7 +1270,7 @@ drwxr-xr-x 2 root root        50 Feb 10 10:32 temp-parquet-after-conversion
 <h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python /wdl_train/wdl_predict.py <span class="s2">&quot;wdl&quot;</span> <span class="s2">&quot;./wdl.json&quot;</span> <span class="s2">&quot;./wdl_dense_20000.model&quot;</span> <span class="s2">&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot;</span> <span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span> <span class="s2">&quot;disabled&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>/wdl_train/wdl_predict.py<span class="w"> </span><span class="s2">&quot;wdl&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl.json&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl_dense_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span><span class="w"> </span><span class="s2">&quot;disabled&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -1337,7 +1337,7 @@ WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737
 <p>Create a RocksDB directory with read and write permissions for storing model embedded tables.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p -m <span class="m">700</span> /wdl_train/rocksdb
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>-m<span class="w"> </span><span class="m">700</span><span class="w"> </span>/wdl_train/rocksdb
 </pre></div>
 </div>
 </div>
@@ -1460,6 +1460,10 @@ WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="hugectr_wdl_prediction.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

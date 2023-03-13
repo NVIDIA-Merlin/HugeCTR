@@ -195,20 +195,20 @@ There are 2 steps:</p>
 <div class="section" id="how-to-set-data-clauses-if-there-are-two-embeddings-needed">
 <h2>18. How to set data clauses, if there are two embeddings needed?<a class="headerlink" href="#how-to-set-data-clauses-if-there-are-two-embeddings-needed" title="Permalink to this headline"></a></h2>
 <p>There should only be one source where the “sparse” is an array. Suppose there are 26 features (slots), first 13 features belong to the first embedding and the last 13 features belong to the second embedding, you can have two elements in “sparse” array as below:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;sparse&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data1&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="w"></span>
-<span class="p">},</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data2&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"></span>
-<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
-<span class="p">]</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;sparse&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="p">{</span>
+<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="p">},</span>
+<span class="p">{</span>
+<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data2&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div>
@@ -294,7 +294,7 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
 <div class="section" id="how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks">
 <h2>31. How to resolve the bus error when running HugeCTR samples and notebooks?<a class="headerlink" href="#how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks" title="Permalink to this headline"></a></h2>
 <p>HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. The bus error is related to the limited resources and can be resolved by issuing the following options in the docker run command.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--ipc<span class="o">=</span>host<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span>
 </pre></div>
 </div>
 </div>
@@ -347,6 +347,10 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
       <dd><a href="QAList.html">v22.10-integration-220929</a></dd>
       <dd><a href="../v23.02.00/QAList.html">v23.02.00</a></dd>
       <dd><a href="../v4.1.1/QAList.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../main/QAList.html">main</a></dd>
     </dl>
   </div>
 </div><script>

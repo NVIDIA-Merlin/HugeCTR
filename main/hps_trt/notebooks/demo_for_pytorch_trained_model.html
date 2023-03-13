@@ -679,8 +679,8 @@ Succesfully build the TensorRT engine
 <p>In order to deploy the TensorRT engine with the Triton TensorRT backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p model_repo/dlrm_pytorch_with_hps/1
-<span class="o">!</span>mv dlrm_pytorch_with_hps.trt model_repo/dlrm_pytorch_with_hps/1
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>model_repo/dlrm_pytorch_with_hps/1
+<span class="o">!</span>mv<span class="w"> </span>dlrm_pytorch_with_hps.trt<span class="w"> </span>model_repo/dlrm_pytorch_with_hps/1
 </pre></div>
 </div>
 </div>
@@ -731,7 +731,7 @@ Succesfully build the TensorRT engine
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/dlrm_pytorch_with_hps
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>model_repo/dlrm_pytorch_with_hps
 </pre></div>
 </div>
 </div>
@@ -753,22 +753,22 @@ Succesfully build the TensorRT engine
 </div></blockquote>
 <p>If you successfully started tritonserver, you should see a log similar to following:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+----------+--------------------------------+--------------------------------+
-<span class="p">|</span> Backend  <span class="p">|</span> Path                           <span class="p">|</span> Config                         <span class="p">|</span>
+<span class="p">|</span><span class="w"> </span>Backend<span class="w">  </span><span class="p">|</span><span class="w"> </span>Path<span class="w">                           </span><span class="p">|</span><span class="w"> </span>Config<span class="w">                         </span><span class="p">|</span>
 +----------+--------------------------------+--------------------------------+
-<span class="p">|</span> tensorrt <span class="p">|</span> /opt/tritonserver/backends/ten <span class="p">|</span> <span class="o">{</span><span class="s2">&quot;cmdline&quot;</span>:<span class="o">{</span><span class="s2">&quot;auto-complete-con |</span>
+<span class="p">|</span><span class="w"> </span>tensorrt<span class="w"> </span><span class="p">|</span><span class="w"> </span>/opt/tritonserver/backends/ten<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="s2">&quot;cmdline&quot;</span>:<span class="o">{</span><span class="s2">&quot;auto-complete-con |</span>
 <span class="s2">|          | sorrt/libtriton_tensorrt.so    | fig&quot;</span>:<span class="s2">&quot;true&quot;</span>,<span class="s2">&quot;min-compute-capab |</span>
 <span class="s2">|          |                                | ility&quot;</span>:<span class="s2">&quot;6.000000&quot;</span>,<span class="s2">&quot;backend-dir |</span>
 <span class="s2">|          |                                | ectory&quot;</span>:<span class="s2">&quot;/opt/tritonserver/bac |</span>
 <span class="s2">|          |                                | kends&quot;</span>,<span class="s2">&quot;default-max-batch-size |</span>
-<span class="s2">|          |                                | &quot;</span>:<span class="s2">&quot;4&quot;</span><span class="o">}}</span>                        <span class="p">|</span>
-<span class="p">|</span>          <span class="p">|</span>                                <span class="p">|</span>                                <span class="p">|</span>
+<span class="s2">|          |                                | &quot;</span>:<span class="s2">&quot;4&quot;</span><span class="o">}}</span><span class="w">                        </span><span class="p">|</span>
+<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w">                                </span><span class="p">|</span><span class="w">                                </span><span class="p">|</span>
 +----------+--------------------------------+--------------------------------+
 
 
 +-----------------------+---------+--------+
-<span class="p">|</span> Model                 <span class="p">|</span> Version <span class="p">|</span> Status <span class="p">|</span>
+<span class="p">|</span><span class="w"> </span>Model<span class="w">                 </span><span class="p">|</span><span class="w"> </span>Version<span class="w"> </span><span class="p">|</span><span class="w"> </span>Status<span class="w"> </span><span class="p">|</span>
 +-----------------------+---------+--------+
-<span class="p">|</span> dlrm_pytorch_with_hps <span class="p">|</span> <span class="m">1</span>       <span class="p">|</span> READY  <span class="p">|</span>
+<span class="p">|</span><span class="w"> </span>dlrm_pytorch_with_hps<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="m">1</span><span class="w">       </span><span class="p">|</span><span class="w"> </span>READY<span class="w">  </span><span class="p">|</span>
 +-----------------------+---------+--------+
 </pre></div>
 </div>
@@ -868,6 +868,7 @@ Response details:
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
     </dl>
     <dl>

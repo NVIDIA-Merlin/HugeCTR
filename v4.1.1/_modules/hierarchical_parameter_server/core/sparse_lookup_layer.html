@@ -94,7 +94,7 @@
              
   <h1>Source code for hierarchical_parameter_server.core.sparse_lookup_layer</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
+<span class="sd"> Copyright (c) 2023, NVIDIA CORPORATION.</span>
 
 <span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="sd"> you may not use this file except in compliance with the License.</span>
@@ -120,7 +120,7 @@
 
 
 <div class="viewcode-block" id="SparseLookupLayer"><a class="viewcode-back" href="../../../hierarchical_parameter_server/api/layers.html#hierarchical_parameter_server.SparseLookupLayer">[docs]</a><span class="k">class</span> <span class="nc">SparseLookupLayer</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.</span>
 
 <span class="sd">    This is a wrapper class for HPS sparse lookup layer, which basically performs</span>
@@ -188,7 +188,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">global_batch_size</span> <span class="o">=</span> <span class="n">global_batch_size</span>
 
 <div class="viewcode-block" id="SparseLookupLayer.call"><a class="viewcode-back" href="../../../hierarchical_parameter_server/api/layers.html#hierarchical_parameter_server.SparseLookupLayer.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sp_ids</span><span class="p">,</span> <span class="n">sp_weights</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Looks up embeddings for the given ids and weights from a list of tensors.</span>
 <span class="sd">        This op assumes that there is at least one ID for each row in the dense tensor</span>
 <span class="sd">        represented by ``sp_ids`` (i.e. there are no rows with empty features), and that</span>
@@ -201,7 +201,7 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        sp_ids:</span>
-<span class="sd">            N x M ``SparseTensor`` of ``int64`` IDs where N is typically batch size</span>
+<span class="sd">            N x M ``SparseTensor`` of ``int32`` or ``int64`` IDs where N is typically batch size</span>
 <span class="sd">            and M is arbitrary.</span>
 <span class="sd">        sp_weights:</span>
 <span class="sd">            Either a ``SparseTensor`` of float or double weights, or ``None`` to</span>
@@ -225,7 +225,7 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        emb_vector: ``tf.Tensor`` of int32</span>
+<span class="sd">        emb_vector: ``tf.Tensor`` of float32</span>
 <span class="sd">            A dense tensor representing the combined embeddings for the</span>
 <span class="sd">            sparse IDs. For each row in the dense tensor represented by ``sp_ids``, the op</span>
 <span class="sd">            looks up the embeddings for all IDs in that row, multiplies them by the</span>
@@ -276,9 +276,6 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">,</span> <span class="n">sparse_tensor</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sp_ids must be SparseTensor, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">sp_ids</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sp_ids.values must be tf.int64, got </span><span class="si">{</span><span class="n">sp_ids</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
         <span class="n">ignore_weights</span> <span class="o">=</span> <span class="n">sp_weights</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">ignore_weights</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_weights</span><span class="p">,</span> <span class="n">sparse_tensor</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">):</span>
@@ -300,13 +297,14 @@
 
         <span class="c1"># Query HPS for embeddings</span>
         <span class="n">embeddings</span> <span class="o">=</span> <span class="n">lookup_ops</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
-            <span class="n">values</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span>
+            <span class="n">ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span>
             <span class="n">model_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
             <span class="n">table_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
             <span class="n">emb_vec_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_size</span><span class="p">,</span>
             <span class="n">emb_vec_dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_dtype</span><span class="p">,</span>
             <span class="n">ps_config_file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ps_config_file</span><span class="p">,</span>
             <span class="n">global_batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">global_batch_size</span><span class="p">,</span>
+            <span class="n">max_norm</span><span class="o">=</span><span class="n">max_norm</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Handle weights and combiner</span>
@@ -411,6 +409,10 @@
       <dd><a href="../../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="sparse_lookup_layer.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

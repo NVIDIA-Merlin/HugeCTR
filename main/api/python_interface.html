@@ -389,29 +389,29 @@ The default value is an empty list.</p>
 <h5>Data Files<a class="headerlink" href="#data-files" title="Permalink to this headline"></a></h5>
 <p>A data file is the minimum reading granularity for a reading thread, so at least 10 files in each file list are required to achieve the best performance. A data file consists of a header and actual tabular data.</p>
 <p>Header Definition:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DataSetHeader_</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DataSetHeader_</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">error_check</span><span class="p">;</span><span class="w">        </span><span class="c1">// 0: no error check; 1: check_num</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">number_of_records</span><span class="p">;</span><span class="w">  </span><span class="c1">// the number of samples in this data file</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">label_dim</span><span class="p">;</span><span class="w">          </span><span class="c1">// dimension of label</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">dense_dim</span><span class="p">;</span><span class="w">          </span><span class="c1">// dimension of dense feature</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">slot_num</span><span class="p">;</span><span class="w">           </span><span class="c1">// slot_num for each embedding</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">reserved</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">        </span><span class="c1">// reserved for future use</span>
-<span class="p">}</span><span class="w"> </span><span class="n">DataSetHeader</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="n">DataSetHeader</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>Data Definition (each sample):</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Data_</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Data_</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">length</span><span class="p">;</span><span class="w">                   </span><span class="c1">// bytes in this sample (optional: only in check_sum mode )</span>
-<span class="w">  </span><span class="kt">float</span><span class="w"> </span><span class="n">label</span><span class="p">[</span><span class="n">label_dim</span><span class="p">];</span><span class="w"></span>
-<span class="w">  </span><span class="kt">float</span><span class="w"> </span><span class="n">dense</span><span class="p">[</span><span class="n">dense_dim</span><span class="p">];</span><span class="w"></span>
-<span class="w">  </span><span class="n">Slot</span><span class="w"> </span><span class="n">slots</span><span class="p">[</span><span class="n">slot_num</span><span class="p">];</span><span class="w"></span>
+<span class="w">  </span><span class="kt">float</span><span class="w"> </span><span class="n">label</span><span class="p">[</span><span class="n">label_dim</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">float</span><span class="w"> </span><span class="n">dense</span><span class="p">[</span><span class="n">dense_dim</span><span class="p">];</span>
+<span class="w">  </span><span class="n">Slot</span><span class="w"> </span><span class="n">slots</span><span class="p">[</span><span class="n">slot_num</span><span class="p">];</span>
 <span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">checkbits</span><span class="p">;</span><span class="w">                </span><span class="c1">// checkbit for this sample (optional: only in checksum mode)</span>
-<span class="p">}</span><span class="w"> </span><span class="n">Data</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="n">Data</span><span class="p">;</span>
 
-<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Slot_</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">nnz</span><span class="p">;</span><span class="w"></span>
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Slot_</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">nnz</span><span class="p">;</span>
 <span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="o">*</span><span class="w">  </span><span class="n">keys</span><span class="p">;</span><span class="w"> </span><span class="c1">// changeable to `long long` with `&quot;input_key_type&quot;` in `solver` object of the configuration file.</span>
-<span class="p">}</span><span class="w"> </span><span class="n">Slot</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="n">Slot</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>The Data field often has a lot of samples. Each sample starts with the labels formatted as integers and followed by <code class="docutils literal notranslate"><span class="pre">nnz</span></code> (number of nonzero) with the input key using the long long (or unsigned int) format as shown in Fig. 1 (a).</p>
@@ -420,7 +420,7 @@ The default value is an empty list.</p>
 <div class="section" id="file-list">
 <h5>File List<a class="headerlink" href="#file-list" title="Permalink to this headline"></a></h5>
 <p>The first line of a file list should be the number of data files in the dataset with the paths to those files listed below as shown here:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ cat simple_sparse_embedding_file_list.txt
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>simple_sparse_embedding_file_list.txt
 <span class="m">10</span>
 ./simple_sparse_embedding/simple_sparse_embedding0.data
 ./simple_sparse_embedding/simple_sparse_embedding1.data
@@ -469,56 +469,56 @@ The default value is an empty list.</p>
 <li><p>To obtain the required information from all the rows in each parquet file and column index mapping for each label, dense (numerical), and slot (categorical) feature, a separate <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> file is required.</p></li>
 </ul>
 <p>Example <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> file:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;file_stats&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file0.parquet&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file1.parquet&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;cats&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C1&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">4</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">5</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C3&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">6</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">7</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;conts&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I1&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">1</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I2&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">2</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I3&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">3</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;labels&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;label&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">0</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">   </span><span class="nt">&quot;file_stats&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file0.parquet&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file1.parquet&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;cats&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C1&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">4</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">5</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C3&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">6</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">7</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;conts&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I1&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">1</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I2&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">2</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I3&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">3</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;labels&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">0</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
@@ -531,44 +531,44 @@ The default value is an empty list.</p>
 <p>We provide an option to add offset for each slot by specifying <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>. <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is an array whose length is equal to the number of slots. To avoid duplicate keys after adding offset, we need to ensure that the key range of the i-th slot is between 0 and slot_size_array[i]. We will do the offset in this way: for i-th slot key, we add it with offset slot_size_array[0] + slot_size_array[1] + … + slot_size_array[i - 1]. In the configuration snippet noted above, for the 0th slot, offset 0 will be added. For the 1st slot, offset 10000 will be added. And for the third slot, offset 60000 will be added. The length of <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> should be equal to the length of <code class="docutils literal notranslate"><span class="pre">&quot;cats&quot;</span></code> entry in <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code>.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> is generated by <a class="reference external" href="https://github.com/NVIDIA-Merlin/NVTabular">NVTabular</a> preprocessing and reside in the same folder of the file list. Basically, it contain four entries of <code class="docutils literal notranslate"><span class="pre">&quot;file_stats&quot;</span></code> (file statistics), <code class="docutils literal notranslate"><span class="pre">&quot;cats&quot;</span></code> (categorical columns), <code class="docutils literal notranslate"><span class="pre">&quot;conts&quot;</span></code> (continuous columns), and <code class="docutils literal notranslate"><span class="pre">&quot;labels&quot;</span></code> (label columns). The <code class="docutils literal notranslate"><span class="pre">&quot;col_name&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;index&quot;</span></code> in <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> indicate the name and the index of a specific column in the parquet data frame. You can also edit the generated <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> to only read the desired columns for model training. For example, you can modify the above <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> and change the configuration correspondingly:</p>
 <p>Example <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> file after edits:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;file_stats&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file0.parquet&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file1.parquet&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;cats&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">5</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">7</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;conts&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I1&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">1</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I3&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">3</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">],</span><span class="w"></span>
-<span class="w">   </span><span class="nt">&quot;labels&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;label&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">0</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">   </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">   </span><span class="nt">&quot;file_stats&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file0.parquet&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="s2">&quot;file1.parquet&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;num_rows&quot;</span><span class="p">:</span><span class="mi">409600</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;cats&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">5</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">7</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;conts&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I1&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">1</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;I3&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">3</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">],</span>
+<span class="w">   </span><span class="nt">&quot;labels&quot;</span><span class="p">:[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">&quot;col_name&quot;</span><span class="p">:</span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;index&quot;</span><span class="p">:</span><span class="mi">0</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">   </span><span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
@@ -1369,6 +1369,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../v22.10-integration-220929/api/python_interface.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../v23.02.00/api/python_interface.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/api/python_interface.html">v4.1.1</a></dd>
     </dl>
     <dl>

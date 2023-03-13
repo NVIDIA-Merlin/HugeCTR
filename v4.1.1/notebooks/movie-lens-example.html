@@ -223,11 +223,11 @@ You can view the GPU information with the <code class="docutils literal notransl
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and installing &#39;tqdm&#39; package.&quot;</span><span class="p">)</span>
-<span class="o">!</span>pip3 -q install torch tqdm
+<span class="o">!</span>pip3<span class="w"> </span>-q<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>tqdm
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and installing &#39;unzip&#39; command&quot;</span><span class="p">)</span>
-<span class="o">!</span>apt-get update
-<span class="o">!</span>apt-get install -y zip
+<span class="o">!</span>apt-get<span class="w"> </span>update
+<span class="o">!</span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>zip
 </pre></div>
 </div>
 </div>
@@ -288,8 +288,8 @@ Processing triggers for mime-support (3.64ubuntu1) ...
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and extracting &#39;Movie Lens 20M&#39; dataset.&quot;</span><span class="p">)</span>
 <span class="c1">#!wget -nc http://files.grouplens.org/datasets/movielens/ml-20m.zip -P data -q --show-progress</span>
-<span class="o">!</span>unzip -n data/ml-20m.zip -d data
-<span class="o">!</span>ls ./data
+<span class="o">!</span>unzip<span class="w"> </span>-n<span class="w"> </span>data/ml-20m.zip<span class="w"> </span>-d<span class="w"> </span>data
+<span class="o">!</span>ls<span class="w"> </span>./data
 </pre></div>
 </div>
 </div>
@@ -667,8 +667,8 @@ The last movie each user has recently rated is used for the test set.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -rf ./data/hugeCTR
-<span class="o">!</span>mkdir ./data/hugeCTR
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm<span class="w"> </span>-rf<span class="w"> </span>./data/hugeCTR
+<span class="o">!</span>mkdir<span class="w"> </span>./data/hugeCTR
 
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">data_arr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">train_data_np</span><span class="p">,</span><span class="mi">10</span><span class="p">)):</span>
     <span class="n">write_hugeCTR_data</span><span class="p">(</span><span class="n">data_arr</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;./data/hugeCTR/train_huge_ctr_data_</span><span class="si">%d</span><span class="s1">.dat&#39;</span><span class="o">%</span><span class="k">i</span>)
@@ -911,15 +911,15 @@ The last movie each user has recently rated is used for the test set.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -rf ./hugeCTR_saved_model_DLRM/
-<span class="o">!</span>mkdir ./hugeCTR_saved_model_DLRM/
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm<span class="w"> </span>-rf<span class="w"> </span>./hugeCTR_saved_model_DLRM/
+<span class="o">!</span>mkdir<span class="w"> </span>./hugeCTR_saved_model_DLRM/
 </pre></div>
 </div>
 </div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 hugectr_dlrm_movielens.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>hugectr_dlrm_movielens.py
 </pre></div>
 </div>
 </div>
@@ -1372,6 +1372,10 @@ Similar movies:
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="movie-lens-example.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

@@ -119,7 +119,7 @@
 <h2>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h2>
 <p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching the container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
 </div>
 <blockquote>
@@ -133,7 +133,7 @@ documentation.</p>
 <p>Hadoop is not pre-installe din the Merlin Training Container. To help you build and install HDFS, we provide a script <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sbin">here</a>. Please build and install Hadoop using these two scripts. Make sure you have hadoop installed in your Container by running the following:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hadoop version
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hadoop<span class="w"> </span>version
 </pre></div>
 </div>
 </div>
@@ -154,7 +154,7 @@ This command was run using /opt/hadoop/share/hadoop/common/hadoop-common-3.3.2.j
 <p><strong>Firstly, we want to make sure that we have train and validation datasets ready:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs dfs -ls hdfs://10.19.172.76:9000/dlrm_parquet/train
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs<span class="w"> </span>dfs<span class="w"> </span>-ls<span class="w"> </span>hdfs://10.19.172.76:9000/dlrm_parquet/train
 </pre></div>
 </div>
 </div>
@@ -174,7 +174,7 @@ This command was run using /opt/hadoop/share/hadoop/common/hadoop-common-3.3.2.j
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs dfs -ls hdfs://10.19.172.76:9000/dlrm_parquet/val
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs<span class="w"> </span>dfs<span class="w"> </span>-ls<span class="w"> </span>hdfs://10.19.172.76:9000/dlrm_parquet/val
 </pre></div>
 </div>
 </div>
@@ -189,9 +189,9 @@ This command was run using /opt/hadoop/share/hadoop/common/hadoop-common-3.3.2.j
 <p><strong>Secondly, create <code class="docutils literal notranslate"><span class="pre">file_list.txt</span> <span class="pre">and</span> <span class="pre">file_list_test.txt</span></code>:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir /dlrm_parquet
-<span class="o">!</span>mkdir /dlrm_parquet/train
-<span class="o">!</span>mkdir /dlrm_parquet/val
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>/dlrm_parquet
+<span class="o">!</span>mkdir<span class="w"> </span>/dlrm_parquet/train
+<span class="o">!</span>mkdir<span class="w"> </span>/dlrm_parquet/val
 </pre></div>
 </div>
 </div>
@@ -415,7 +415,7 @@ This command was run using /opt/hadoop/share/hadoop/common/hadoop-common-3.3.2.j
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python train_with_hdfs.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>train_with_hdfs.py
 </pre></div>
 </div>
 </div>
@@ -530,7 +530,7 @@ BinaryCrossEntropyLoss                  fc8                           loss
 <p><strong>Check that our model files are saved in HDFS:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs dfs -ls hdfs://10.19.172.76:9000/model/dlrm
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>hdfs<span class="w"> </span>dfs<span class="w"> </span>-ls<span class="w"> </span>hdfs://10.19.172.76:9000/model/dlrm
 </pre></div>
 </div>
 </div>
@@ -552,8 +552,8 @@ drwxr-xr-x   - root supergroup          0 2022-07-27 07:52 hdfs://10.19.172.76:9
 <p><strong>Create <code class="docutils literal notranslate"><span class="pre">file_list.txt</span> <span class="pre">and</span> <span class="pre">file_list_test.txt</span></code>:</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p /hugectr-io-test/data/dcn_parquet/train
-<span class="o">!</span>mkdir -p /hugectr-io-test/data/dcn_parquet/val
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr-io-test/data/dcn_parquet/train
+<span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr-io-test/data/dcn_parquet/val
 </pre></div>
 </div>
 </div>
@@ -802,7 +802,7 @@ drwxr-xr-x   - root supergroup          0 2022-07-27 07:52 hdfs://10.19.172.76:9
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python train_with_s3.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>train_with_s3.py
 </pre></div>
 </div>
 </div>
@@ -944,6 +944,10 @@ BinaryCrossEntropyLoss                  fc2                           loss
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="training_with_remote_filesystem.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

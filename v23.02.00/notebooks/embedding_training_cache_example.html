@@ -157,7 +157,7 @@
 <p>First, make a folder to store our data:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir etc_data
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>etc_data
 </pre></div>
 </div>
 </div>
@@ -208,7 +208,7 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python generate_data.py --dir_name <span class="s2">&quot;file0&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>generate_data.py<span class="w"> </span>--dir_name<span class="w"> </span><span class="s2">&quot;file0&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -234,7 +234,7 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python generate_data.py --dir_name <span class="s2">&quot;file1&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>generate_data.py<span class="w"> </span>--dir_name<span class="w"> </span><span class="s2">&quot;file1&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -264,7 +264,7 @@
 <p>The HugeCTR repository on GitHub includes a keyset generator script for Parquet datasets. See the <code class="docutils literal notranslate"><span class="pre">generate_keyset.py</span></code> file in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts">keyset_scripts</a> directory of the repository. We can use the script to generate keyset for our training datasets.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python generate_keyset.py --src_dir_path ./etc_data/file0/train --keyset_path ./etc_data/file0/train/_hugectr.keyset  --slot_size_array <span class="m">12988</span> <span class="m">7129</span> <span class="m">8720</span> <span class="m">5820</span> <span class="m">15196</span> <span class="m">4</span> <span class="m">4914</span> <span class="m">1020</span> <span class="m">30</span> <span class="m">14274</span> <span class="m">10220</span> <span class="m">15088</span> <span class="m">10</span> <span class="m">1518</span> <span class="m">3672</span> <span class="m">48</span> <span class="m">4</span> <span class="m">820</span> <span class="m">15</span> <span class="m">12817</span> <span class="m">13908</span> <span class="m">13447</span> <span class="m">9447</span> <span class="m">5867</span> <span class="m">45</span> <span class="m">33</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>generate_keyset.py<span class="w"> </span>--src_dir_path<span class="w"> </span>./etc_data/file0/train<span class="w"> </span>--keyset_path<span class="w"> </span>./etc_data/file0/train/_hugectr.keyset<span class="w">  </span>--slot_size_array<span class="w"> </span><span class="m">12988</span><span class="w"> </span><span class="m">7129</span><span class="w"> </span><span class="m">8720</span><span class="w"> </span><span class="m">5820</span><span class="w"> </span><span class="m">15196</span><span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="m">4914</span><span class="w"> </span><span class="m">1020</span><span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="m">14274</span><span class="w"> </span><span class="m">10220</span><span class="w"> </span><span class="m">15088</span><span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="m">1518</span><span class="w"> </span><span class="m">3672</span><span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="m">820</span><span class="w"> </span><span class="m">15</span><span class="w"> </span><span class="m">12817</span><span class="w"> </span><span class="m">13908</span><span class="w"> </span><span class="m">13447</span><span class="w"> </span><span class="m">9447</span><span class="w"> </span><span class="m">5867</span><span class="w"> </span><span class="m">45</span><span class="w"> </span><span class="m">33</span>
 </pre></div>
 </div>
 </div>
@@ -277,7 +277,7 @@
 <p>Do the same thing for file2:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python generate_keyset.py --src_dir_path ./etc_data/file1/train --keyset_path ./etc_data/file1/train/_hugectr.keyset  --slot_size_array <span class="m">12988</span> <span class="m">7129</span> <span class="m">8720</span> <span class="m">5820</span> <span class="m">15196</span> <span class="m">4</span> <span class="m">4914</span> <span class="m">1020</span> <span class="m">30</span> <span class="m">14274</span> <span class="m">10220</span> <span class="m">15088</span> <span class="m">10</span> <span class="m">1518</span> <span class="m">3672</span> <span class="m">48</span> <span class="m">4</span> <span class="m">820</span> <span class="m">15</span> <span class="m">12817</span> <span class="m">13908</span> <span class="m">13447</span> <span class="m">9447</span> <span class="m">5867</span> <span class="m">45</span> <span class="m">33</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>generate_keyset.py<span class="w"> </span>--src_dir_path<span class="w"> </span>./etc_data/file1/train<span class="w"> </span>--keyset_path<span class="w"> </span>./etc_data/file1/train/_hugectr.keyset<span class="w">  </span>--slot_size_array<span class="w"> </span><span class="m">12988</span><span class="w"> </span><span class="m">7129</span><span class="w"> </span><span class="m">8720</span><span class="w"> </span><span class="m">5820</span><span class="w"> </span><span class="m">15196</span><span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="m">4914</span><span class="w"> </span><span class="m">1020</span><span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="m">14274</span><span class="w"> </span><span class="m">10220</span><span class="w"> </span><span class="m">15088</span><span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="m">1518</span><span class="w"> </span><span class="m">3672</span><span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="m">820</span><span class="w"> </span><span class="m">15</span><span class="w"> </span><span class="m">12817</span><span class="w"> </span><span class="m">13908</span><span class="w"> </span><span class="m">13447</span><span class="w"> </span><span class="m">9447</span><span class="w"> </span><span class="m">5867</span><span class="w"> </span><span class="m">45</span><span class="w"> </span><span class="m">33</span>
 </pre></div>
 </div>
 </div>
@@ -290,7 +290,7 @@
 <p>Run <code class="docutils literal notranslate"><span class="pre">ls</span> <span class="pre">-l</span> <span class="pre">./data</span></code> to make sure we have data and keyset ready:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l ./etc_data/file0/train
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>./etc_data/file0/train
 </pre></div>
 </div>
 </div>
@@ -312,7 +312,7 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l ./etc_data/file1/train
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>./etc_data/file1/train
 </pre></div>
 </div>
 </div>
@@ -433,7 +433,7 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 etc_sample.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>etc_sample.py
 </pre></div>
 </div>
 </div>
@@ -589,6 +589,10 @@ BinaryCrossEntropyLoss                  fc3                           loss
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="embedding_training_cache_example.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

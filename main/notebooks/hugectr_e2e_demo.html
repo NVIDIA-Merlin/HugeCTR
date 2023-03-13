@@ -160,10 +160,10 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p /hugectr_e2e
-<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/train
-<span class="o">!</span>mkdir -p /hugectr_e2e/criteo/val
-<span class="o">!</span>mkdir -p /hugectr_e2e/model
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr_e2e
+<span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr_e2e/criteo/train
+<span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr_e2e/criteo/val
+<span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>/hugectr_e2e/model
 </pre></div>
 </div>
 </div>
@@ -185,7 +185,7 @@
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!wget -P $DATA_DIR https://storage.googleapis.com/criteo-cail-datasets/day_0.gz  #decomment this line to download, otherwise soft link the data.</span>
 <span class="c1">#!gzip -d -c $DATA_DIR/day_0.gz &gt; $DATA_DIR/day_0</span>
 <span class="n">INPUT_DATA</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;INPUT_DATA&quot;</span><span class="p">,</span> <span class="n">DATA_DIR</span> <span class="o">+</span> <span class="s2">&quot;/day_0&quot;</span><span class="p">)</span>
-<span class="o">!</span>ln -s <span class="nv">$INPUT_DATA</span> <span class="nv">$DATA_DIR</span>/day_0
+<span class="o">!</span>ln<span class="w"> </span>-s<span class="w"> </span><span class="nv">$INPUT_DATA</span><span class="w"> </span><span class="nv">$DATA_DIR</span>/day_0
 </pre></div>
 </div>
 </div>
@@ -198,8 +198,8 @@
 <p><strong>Unzip and split data</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>head -n <span class="m">10000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/train/train.txt
-<span class="o">!</span>tail -n <span class="m">2000000</span> <span class="nv">$DATA_DIR</span>/day_0 &gt; <span class="nv">$DATA_DIR</span>/val/test.txt 
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">10000000</span><span class="w"> </span><span class="nv">$DATA_DIR</span>/day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$DATA_DIR</span>/train/train.txt
+<span class="o">!</span>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">2000000</span><span class="w"> </span><span class="nv">$DATA_DIR</span>/day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$DATA_DIR</span>/val/test.txt<span class="w"> </span>
 </pre></div>
 </div>
 </div>
@@ -1172,7 +1172,7 @@ Runtime[s]         | 11.454381227493286
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python train.py --data_path <span class="nv">$DATA_DIR</span> --model_path <span class="nv">$MODEL_DIR</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>train.py<span class="w"> </span>--data_path<span class="w"> </span><span class="nv">$DATA_DIR</span><span class="w"> </span>--model_path<span class="w"> </span><span class="nv">$MODEL_DIR</span>
 </pre></div>
 </div>
 </div>
@@ -1460,6 +1460,7 @@ BinaryCrossEntropyLoss                  add1                          loss
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
     </dl>
     <dl>

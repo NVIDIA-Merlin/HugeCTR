@@ -94,7 +94,7 @@
              
   <h1>Source code for hierarchical_parameter_server.core.lookup_layer</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
+<span class="sd"> Copyright (c) 2023, NVIDIA CORPORATION.</span>
 
 <span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="sd"> you may not use this file except in compliance with the License.</span>
@@ -114,7 +114,7 @@
 
 
 <div class="viewcode-block" id="LookupLayer"><a class="viewcode-back" href="../../../hierarchical_parameter_server/hps_tf_api/layers.html#hierarchical_parameter_server.LookupLayer">[docs]</a><span class="k">class</span> <span class="nc">LookupLayer</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.</span>
 
 <span class="sd">    This is a wrapper class for HPS lookup layer, which basically performs</span>
@@ -179,31 +179,35 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ps_config_file</span> <span class="o">=</span> <span class="n">ps_config_file</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_batch_size</span> <span class="o">=</span> <span class="n">global_batch_size</span>
 
-<div class="viewcode-block" id="LookupLayer.call"><a class="viewcode-back" href="../../../hierarchical_parameter_server/hps_tf_api/layers.html#hierarchical_parameter_server.LookupLayer.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="LookupLayer.call"><a class="viewcode-back" href="../../../hierarchical_parameter_server/hps_tf_api/layers.html#hierarchical_parameter_server.LookupLayer.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">,</span> <span class="n">max_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The forward logic of this wrapper class.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        inputs:</span>
-<span class="sd">                Keys are stored in Tensor. The data type must be ``tf.int64``.</span>
+<span class="sd">        ids:</span>
+<span class="sd">                Keys are stored in Tensor. The supported data types are ``tf.int32`` and ``tf.int64``.</span>
+<span class="sd">        max_norm:</span>
+<span class="sd">            if not ``None``, each embedding is clipped if its l2-norm is larger</span>
+<span class="sd">            than this value.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        emb_vector: ``tf.Tensor`` of int32</span>
+<span class="sd">        emb_vector: ``tf.Tensor`` of float32</span>
 <span class="sd">                the embedding vectors for the input keys. Its shape is</span>
-<span class="sd">                *inputs.get_shape() + emb_vec_size*.</span>
+<span class="sd">                *ids.get_shape() + emb_vec_size*.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">emb_vector</span> <span class="o">=</span> <span class="n">lookup_ops</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
-            <span class="n">values</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span>
             <span class="n">model_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
             <span class="n">table_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
             <span class="n">emb_vec_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_size</span><span class="p">,</span>
             <span class="n">emb_vec_dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_dtype</span><span class="p">,</span>
             <span class="n">ps_config_file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ps_config_file</span><span class="p">,</span>
             <span class="n">global_batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">global_batch_size</span><span class="p">,</span>
+            <span class="n">max_norm</span><span class="o">=</span><span class="n">max_norm</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">output_shape</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">get_shape</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_size</span>
+        <span class="n">output_shape</span> <span class="o">=</span> <span class="n">ids</span><span class="o">.</span><span class="n">get_shape</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_size</span>
         <span class="n">emb_vector</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">emb_vector</span></div></div>
 </pre></div>
@@ -239,6 +243,7 @@
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../../../v4.1.1/index.html">v4.1.1</a></dd>
     </dl>
     <dl>

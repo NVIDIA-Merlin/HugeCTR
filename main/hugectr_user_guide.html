@@ -201,7 +201,7 @@ The following table also identifies the containers:</p>
 <p>To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin Training container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="o">=</span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:23.03
 </pre></div>
 </div>
 </div>
@@ -222,22 +222,22 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 <p>The <a class="reference internal" href="api/python_interface.html#norm"><span class="std std-doc">Norm</span></a> (with Header) and <a class="reference internal" href="api/python_interface.html#raw"><span class="std std-doc">Raw</span></a> (without Header) datasets can be generated with <a class="reference internal" href="api/python_interface.html#datagenerator"><span class="std std-doc">hugectr.tools.DataGenerator</span></a>. For categorical features, you can configure the probability distribution to be uniform or power-law within <a class="reference internal" href="api/python_interface.html#datageneratorparams-class"><span class="std std-doc">hugectr.tools.DataGeneratorParam</span></a>. The default distribution is power law with alpha = 1.2.</p>
 <ul>
 <li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for DCN and start training the HugeCTR model: <br></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dcn_norm_generate_train.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>../tools/data_generator/dcn_norm_generate_train.py
 </pre></div>
 </div>
 </li>
 <li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for WDL and start training the HugeCTR model: <br></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/wdl_norm_generate_train.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>../tools/data_generator/wdl_norm_generate_train.py
 </pre></div>
 </div>
 </li>
 <li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Raw</span></code> dataset for DLRM and start training the HugeCTR model: <br></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dlrm_raw_generate_train.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>../tools/data_generator/dlrm_raw_generate_train.py
 </pre></div>
 </div>
 </li>
 <li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> dataset for DCN and start training the HugeCTR model: <br></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dcn_parquet_generate_train.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>../tools/data_generator/dcn_parquet_generate_train.py
 </pre></div>
 </div>
 </li>
@@ -247,8 +247,8 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 <h3>Downloading and Preprocessing Datasets<a class="headerlink" href="#downloading-and-preprocessing-datasets" title="Permalink to this headline"></a></h3>
 <p>Download the Criteo 1TB Click Logs dataset using <code class="docutils literal notranslate"><span class="pre">HugeCTR/tools/preprocess.sh</span></code> and preprocess it to train the DCN. The <code class="docutils literal notranslate"><span class="pre">file_list.txt</span></code>, <code class="docutils literal notranslate"><span class="pre">file_list_test.txt</span></code>, and preprocessed data files are available within the <code class="docutils literal notranslate"><span class="pre">criteo_data</span></code> directory. For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples">samples</a> directory on GitHub.</p>
 <p>For example:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> tools <span class="c1"># assume that the downloaded dataset is here</span>
-$ bash preprocess.sh <span class="m">1</span> criteo_data pandas <span class="m">1</span> <span class="m">0</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>tools<span class="w"> </span><span class="c1"># assume that the downloaded dataset is here</span>
+$<span class="w"> </span>bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">1</span><span class="w"> </span>criteo_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">0</span>
 </pre></div>
 </div>
 </div>
@@ -290,6 +290,7 @@ $ bash preprocess.sh <span class="m">1</span> criteo_data pandas <span class="m"
     <dl>
       <dt>Tags</dt>
       <dd><a href="../v22.10-integration-220929/hugectr_user_guide.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../v23.02.00/hugectr_user_guide.html">v23.02.00</a></dd>
       <dd><a href="../v4.1.1/hugectr_user_guide.html">v4.1.1</a></dd>
     </dl>
     <dl>

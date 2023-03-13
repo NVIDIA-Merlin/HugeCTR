@@ -282,7 +282,7 @@ HPS supports different database backends and GPU embedding caches.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>train.py
 </pre></div>
 </div>
 </div>
@@ -867,7 +867,7 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 multi_process_hps.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>multi_process_hps.py
 </pre></div>
 </div>
 </div>
@@ -1043,9 +1043,9 @@ Main process; exiting...
 <p><strong>Step 1: Get + build Redis</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -f <span class="m">7</span>.0.8.tar.gz <span class="o">&amp;&amp;</span> wget https://github.com/redis/redis/archive/7.0.8.tar.gz
-<span class="o">!</span>rm -rf redis-7.0.8 <span class="o">&amp;&amp;</span> tar -xf <span class="m">7</span>.0.8.tar.gz <span class="o">&amp;&amp;</span> ln -sf redis-7.0.8 redis
-<span class="o">!</span><span class="nb">cd</span> redis <span class="o">&amp;&amp;</span> make
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm<span class="w"> </span>-f<span class="w"> </span><span class="m">7</span>.0.8.tar.gz<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>wget<span class="w"> </span>https://github.com/redis/redis/archive/7.0.8.tar.gz
+<span class="o">!</span>rm<span class="w"> </span>-rf<span class="w"> </span>redis-7.0.8<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>tar<span class="w"> </span>-xf<span class="w"> </span><span class="m">7</span>.0.8.tar.gz<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ln<span class="w"> </span>-sf<span class="w"> </span>redis-7.0.8<span class="w"> </span>redis
+<span class="o">!</span><span class="nb">cd</span><span class="w"> </span>redis<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make
 </pre></div>
 </div>
 </div>
@@ -1632,12 +1632,12 @@ make[1]: Leaving directory &#39;/scratch/proj/hugectr/notebooks/redis-7.0.8/src&
 <p><em>WARNING: The following commands will erase the all contents in the following directories: <code class="docutils literal notranslate"><span class="pre">redis-server-1</span></code>, <code class="docutils literal notranslate"><span class="pre">redis-server-2</span></code> and <code class="docutils literal notranslate"><span class="pre">redis-server-3</span></code>.</em></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p redis-server-1 redis-server-2 redis-server-3
-<span class="o">!</span>rm -f redis-server-1/* redis-server-2/* redis-server-3/*
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>redis-server-1<span class="w"> </span>redis-server-2<span class="w"> </span>redis-server-3
+<span class="o">!</span>rm<span class="w"> </span>-f<span class="w"> </span>redis-server-1/*<span class="w"> </span>redis-server-2/*<span class="w"> </span>redis-server-3/*
 
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-1/redis-server
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-2/redis-server
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-3/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-1/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-2/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-3/redis-server
 </pre></div>
 </div>
 </div>
@@ -1898,7 +1898,7 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
 <p><strong>Step 5: Shutdown Redis cluster</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pkill redis-server
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pkill<span class="w"> </span>redis-server
 </pre></div>
 </div>
 </div>
@@ -1910,9 +1910,9 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
 <p><strong>Step 1: Build a TLS/SSL capable distribution of Redis</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -f <span class="m">7</span>.0.8.tar.gz <span class="o">&amp;&amp;</span> wget https://github.com/redis/redis/archive/7.0.8.tar.gz
-<span class="o">!</span>rm -rf redis-7.0.8 <span class="o">&amp;&amp;</span> tar -xf <span class="m">7</span>.0.8.tar.gz <span class="o">&amp;&amp;</span> ln -sf redis-7.0.8 redis
-<span class="o">!</span><span class="nb">cd</span> redis <span class="o">&amp;&amp;</span> make <span class="nv">BUILD_TLS</span><span class="o">=</span>yes
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm<span class="w"> </span>-f<span class="w"> </span><span class="m">7</span>.0.8.tar.gz<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>wget<span class="w"> </span>https://github.com/redis/redis/archive/7.0.8.tar.gz
+<span class="o">!</span>rm<span class="w"> </span>-rf<span class="w"> </span>redis-7.0.8<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>tar<span class="w"> </span>-xf<span class="w"> </span><span class="m">7</span>.0.8.tar.gz<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ln<span class="w"> </span>-sf<span class="w"> </span>redis-7.0.8<span class="w"> </span>redis
+<span class="o">!</span><span class="nb">cd</span><span class="w"> </span>redis<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span><span class="nv">BUILD_TLS</span><span class="o">=</span>yes
 </pre></div>
 </div>
 </div>
@@ -2580,24 +2580,24 @@ Getting CA Private Key
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p redis-server-1 redis-server-2 redis-server-3
-<span class="o">!</span>rm -f redis-server-1/* redis-server-2/* redis-server-3/*
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>redis-server-1<span class="w"> </span>redis-server-2<span class="w"> </span>redis-server-3
+<span class="o">!</span>rm<span class="w"> </span>-f<span class="w"> </span>redis-server-1/*<span class="w"> </span>redis-server-2/*<span class="w"> </span>redis-server-3/*
 
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-1/redis-server
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-2/redis-server
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/redis/src/redis-server redis-server-3/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-1/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-2/redis-server
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/redis/src/redis-server<span class="w"> </span>redis-server-3/redis-server
 
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/ca.crt redis-server-1/ca.crt
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/ca.crt redis-server-2/ca.crt
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/ca.crt redis-server-3/ca.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/ca.crt<span class="w"> </span>redis-server-1/ca.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/ca.crt<span class="w"> </span>redis-server-2/ca.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/ca.crt<span class="w"> </span>redis-server-3/ca.crt
 
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis-private.pem redis-server-1/private.pem
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis-private.pem redis-server-2/private.pem
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis-private.pem redis-server-3/private.pem
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis-private.pem<span class="w"> </span>redis-server-1/private.pem
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis-private.pem<span class="w"> </span>redis-server-2/private.pem
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis-private.pem<span class="w"> </span>redis-server-3/private.pem
 
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis.crt redis-server-1/redis.crt
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis.crt redis-server-2/redis.crt
-<span class="o">!</span>ln -sf <span class="nv">$PWD</span>/test_certs/redis.crt redis-server-3/redis.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis.crt<span class="w"> </span>redis-server-1/redis.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis.crt<span class="w"> </span>redis-server-2/redis.crt
+<span class="o">!</span>ln<span class="w"> </span>-sf<span class="w"> </span><span class="nv">$PWD</span>/test_certs/redis.crt<span class="w"> </span>redis-server-3/redis.crt
 </pre></div>
 </div>
 </div>
@@ -2884,7 +2884,7 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
 <p><strong>Step 5: Shutdown Redis cluster</strong></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pkill redis-server
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pkill<span class="w"> </span>redis-server
 </pre></div>
 </div>
 </div>
@@ -2927,6 +2927,7 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
     </dl>
     <dl>

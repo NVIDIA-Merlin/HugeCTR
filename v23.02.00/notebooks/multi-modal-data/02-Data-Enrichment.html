@@ -111,7 +111,7 @@
 <p>First, we will need to install some extra package for IMDB data collection.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install imdbpy
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>imdbpy
 </pre></div>
 </div>
 </div>
@@ -348,7 +348,7 @@
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Gathering small posters...&#39;</span><span class="p">)</span>
-<span class="o">!</span>mkdir ./poster_small
+<span class="o">!</span>mkdir<span class="w"> </span>./poster_small
 
 <span class="n">num_jobs</span> <span class="o">=</span> <span class="mi">10</span>
 <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">filelist</span><span class="p">)</span>
@@ -376,7 +376,7 @@
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">COLLECT_LARGE_POSTER</span><span class="p">:</span>
     <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Gathering large posters...&#39;</span><span class="p">)</span>
-    <span class="o">!</span>mkdir ./poster_large
+    <span class="o">!</span>mkdir<span class="w"> </span>./poster_large
 
     <span class="n">num_jobs</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">largefilelist</span><span class="p">)</span>
@@ -402,7 +402,7 @@
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l poster_small<span class="p">|</span>wc -l
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>poster_small<span class="p">|</span>wc<span class="w"> </span>-l
 </pre></div>
 </div>
 </div>
@@ -447,6 +447,10 @@
       <dd><a href="../../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="02-Data-Enrichment.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

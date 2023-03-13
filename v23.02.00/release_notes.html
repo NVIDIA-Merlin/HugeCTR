@@ -168,7 +168,7 @@ As a workaround, you can set environment variable <code class="docutils literal 
 But be cautious because the setting can reduce the performance of Parquet reading.</p></li>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue #243</a>.</p>
@@ -260,7 +260,7 @@ Now, if the specified <code class="docutils literal notranslate"><span class="pr
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -332,7 +332,7 @@ For more information, refer to the <a class="reference external" href="https://n
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -407,7 +407,7 @@ This change relates to GitHub issue <a class="reference external" href="https://
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -497,7 +497,7 @@ is fixed in this release.</p></li>
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -570,7 +570,7 @@ Refer to the GitHub issue <a class="reference external" href="https://github.com
 class does not work currently. We are working on fixing it. The other communication types have no issues.</p></li>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -640,7 +640,7 @@ The documentation details for <a class="reference external" href="https://nvidia
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -703,7 +703,7 @@ This issue is now fixed.</p></li>
 <ul>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
 </pre></div>
 </div>
 <p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
@@ -999,6 +999,10 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       <dd><a href="../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="release_notes.html">v23.02.00</a></dd>
       <dd><a href="../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

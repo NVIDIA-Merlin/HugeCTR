@@ -196,11 +196,11 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 <p>HPS is included in the Merlin Docker containers that are available from the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">NVIDIA container repository</a>. To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin TensorFlow container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
+$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="o">=</span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-tensorflow:23.02
 </pre></div>
 </div>
 <p>You can check the existence of the HPS Python toolkit after launching this container:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -259,6 +259,10 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
       <dd><a href="../../v22.10-integration-220929/hierarchical_parameter_server/hps_tf_user_guide.html">v22.10-integration-220929</a></dd>
       <dd><a href="hps_tf_user_guide.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/hierarchical_parameter_server/hps_tf_user_guide.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/hierarchical_parameter_server/hps_tf_user_guide.html">main</a></dd>
     </dl>
   </div>
 </div><script>

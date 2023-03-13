@@ -227,7 +227,7 @@ pip install gdown --user
     <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_year&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span>
     <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;./dataset/&#39;</span> <span class="o">+</span> <span class="n">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.gz&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     
-<span class="o">!</span>mkdir ./dataset
+<span class="o">!</span>mkdir<span class="w"> </span>./dataset
 <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">list_files</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
     <span class="n">process_files</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
@@ -284,7 +284,7 @@ pip install gdown --user
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l ./dataset/*.csv
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>./dataset/*.csv
 </pre></div>
 </div>
 </div>
@@ -342,7 +342,7 @@ pip install gdown --user
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p ./data
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>./data
 <span class="n">df_train</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/train.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">df_valid</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/valid.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">df_test</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/test.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -561,7 +561,7 @@ pip install gdown --user
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># define some information about where to get our data</span>
 <span class="n">BASE_DIR</span> <span class="o">=</span> <span class="s2">&quot;./nvtabular_temp&quot;</span>
-<span class="o">!</span>rm -r <span class="nv">$BASE_DIR</span> <span class="o">&amp;&amp;</span> mkdir <span class="nv">$BASE_DIR</span>
+<span class="o">!</span>rm<span class="w"> </span>-r<span class="w"> </span><span class="nv">$BASE_DIR</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mkdir<span class="w"> </span><span class="nv">$BASE_DIR</span>
 <span class="n">input_path</span> <span class="o">=</span> <span class="s1">&#39;./dataset&#39;</span>
 <span class="n">dask_workdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;workdir&quot;</span><span class="p">)</span>
 <span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">)</span>
@@ -1570,7 +1570,7 @@ distributed.preloading - INFO - Import preload module: dask_cuda.initialize
 <h3>Visualize workflow as a DAG<a class="headerlink" href="#visualize-workflow-as-a-dag" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt install -y graphviz
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>graphviz
 </pre></div>
 </div>
 </div>
@@ -1697,9 +1697,9 @@ Wall time: 26.8 s
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_train_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;train/&#39;</span><span class="p">)</span>
 <span class="n">output_valid_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;valid/&#39;</span><span class="p">)</span>
 <span class="n">output_test_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;test/&#39;</span><span class="p">)</span>
-<span class="o">!</span> rm -rf <span class="nv">$output_train_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_train_dir</span>
-<span class="o">!</span> rm -rf <span class="nv">$output_valid_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_valid_dir</span>
-<span class="o">!</span> rm -rf <span class="nv">$output_test_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_test_dir</span>
+<span class="o">!</span><span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$output_train_dir</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$output_train_dir</span>
+<span class="o">!</span><span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$output_valid_dir</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$output_valid_dir</span>
+<span class="o">!</span><span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$output_test_dir</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$output_test_dir</span>
 </pre></div>
 </div>
 </div>
@@ -1731,7 +1731,7 @@ Wall time: 5.79 s
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$output_train_dir</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span><span class="nv">$output_train_dir</span>
 </pre></div>
 </div>
 </div>
@@ -1769,7 +1769,7 @@ Wall time: 2.83 s
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$output_valid_dir</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span><span class="nv">$output_valid_dir</span>
 </pre></div>
 </div>
 </div>
@@ -1823,7 +1823,7 @@ Wall time: 2.75 s
 <p>Let’s quickly read the data back and verify that all fields have the expected format.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls <span class="nv">$output_train_dir</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span><span class="nv">$output_train_dir</span>
 </pre></div>
 </div>
 </div>
@@ -1997,7 +1997,7 @@ Wall time: 2.75 s
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls <span class="nv">$output_valid_dir</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span><span class="nv">$output_valid_dir</span>
 </pre></div>
 </div>
 </div>
@@ -2423,7 +2423,7 @@ Wall time: 2.75 s
 <p>Now we are ready to train a DLRM model with HugeCTR.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 hugectr_dlrm_ecommerce.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>hugectr_dlrm_ecommerce.py
 </pre></div>
 </div>
 </div>
@@ -2851,7 +2851,7 @@ BinaryCrossEntropyLoss                  fc8,label                     loss
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install tqdm
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>tqdm
 </pre></div>
 </div>
 </div>
@@ -2960,6 +2960,10 @@ Requirement already satisfied: tqdm in /usr/local/lib/python3.8/dist-packages (4
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="ecommerce-example.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

@@ -191,14 +191,14 @@ The notebook shows two different ETPS as reference.</p></li>
 </ol>
 <div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
 <h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">project_root</span><span class="o">=</span>/home/hugectr <span class="c1"># set this to the directory where hugectr is downloaded</span>
-<span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">project_root</span><span class="o">=</span>/home/hugectr<span class="w"> </span><span class="c1"># set this to the directory where hugectr is downloaded</span>
+<span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 <span class="c1"># Step 1</span>
-wget https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
 <span class="c1">#Step 2</span>
-bash preprocess.sh <span class="m">0</span> deepfm_data_nvt nvt <span class="m">1</span> <span class="m">0</span> <span class="m">0</span>
+bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">0</span><span class="w"> </span>deepfm_data_nvt<span class="w"> </span>nvt<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
 <span class="c1">#Step 3</span>
-ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/deepfm_data_nvt <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/deepfm_data_nvt
+ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/deepfm_data_nvt<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/deepfm_data_nvt
 </pre></div>
 </div>
 </div>
@@ -208,7 +208,7 @@ ln -s <span class="si">${</span><span class="nv">project_root</span><span class=
 <p>This notebook was developed with on single DGX-1 to run the DLRM model in this notebook. The GPU info in DGX-1 is as follows. It consists of 8 V100-SXM2 GPUs.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span> nvidia-smi
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>nvidia-smi
 </pre></div>
 </div>
 </div>
@@ -782,7 +782,7 @@ single_gpu_plan index = 7
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 dlrm_train.py ./dp_and_localized_plan.json
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>dlrm_train.py<span class="w"> </span>./dp_and_localized_plan.json
 </pre></div>
 </div>
 </div>
@@ -1240,7 +1240,7 @@ single_gpu_plan index = 7
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 dlrm_train.py ./distributed_plan.json
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>dlrm_train.py<span class="w"> </span>./distributed_plan.json
 </pre></div>
 </div>
 </div>
@@ -1557,6 +1557,10 @@ The results show that performance is better if you configure the embedding table
       <dd><a href="../../v22.10-integration-220929/index.html">v22.10-integration-220929</a></dd>
       <dd><a href="embedding_collection.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>
