@@ -1,5 +1,40 @@
 # Release Notes
 
+## What's New in Version 23.02
+
++ **HPS Enhancements**:
+  + Enabled [the HPS Tensorflow plugin](https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/hps_tf_user_guide.html).
+  + Enabled the max\_norm clipping for the HPS Tensorflow plugin.
+  + Optimized the performance of HPS HashMap fetch.
+  + Enabled [the HPS Profiler](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/HugeCTR/src/inference_benchmark/hps_profiler.md).
+
++ **Google Cloud Storage (GCS) Support**:
+  + Added the support of Google Cloud Storage(GCS) for both training and inference. For more details, check out the GCS section in [the **training with remote filesystem** notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/notebooks/training_and_inference_with_remote_filesystem.ipynb).
+
++ **Issues Fixed**:
+  + Fixed a bug in HPS static table, which leads to a wrong results when the batch size is larger than 256.
+  + Fixed a preprocessing issue in the `wdl_prediction` notebook.
+  + Corrected how devices are set and managed in HPS and InferenceModel.
+  + Fixed the debug build error.
+  + Fixed the build error related with the CUDA 12.0.
+  + Fixed reported issues with respect to Multi-Process HashMap in notebook and a couple of minor issues on the side.
+
++ **Known Issues**:
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
 ## What's New in Version 4.3
 
   ```{important}
