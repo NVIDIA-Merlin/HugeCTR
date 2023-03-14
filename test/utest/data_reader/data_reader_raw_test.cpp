@@ -71,10 +71,9 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::shared_ptr<ThreadBuffer> thread_buffer = std::make_shared<ThreadBuffer>();
+  std::shared_ptr<ThreadBuffer23> thread_buffer = std::make_shared<ThreadBuffer23>();
 
   CudaDeviceContext context(0);
-  auto buff = GeneralBuffer2<CudaAllocator>::create();
 
   thread_buffer->state.store(BufferState::ReadyForWrite);
   thread_buffer->batch_size = batchsize;
@@ -86,16 +85,15 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
   for (size_t i = 0; i < params.size(); ++i) {
     auto &param = params[i];
     thread_buffer->is_fixed_length.push_back(params[i].is_fixed_length);
-    SparseTensor<T> sparse_tensor;
-    buff->reserve({(size_t)batchsize, (size_t)param.max_feature_num}, param.slot_num,
-                  &sparse_tensor);
-    thread_buffer->device_sparse_buffers.push_back(sparse_tensor.shrink());
+    SparseTensor23 sparse_tensor = SparseTensor23(
+        {(int64_t)batchsize, (int64_t)param.max_feature_num}, core23::ToScalarType<T>::value,
+        core23::ToScalarType<T>::value, (int64_t)param.slot_num);
+    thread_buffer->device_sparse_buffers.push_back(sparse_tensor);
   }
 
-  Tensor2<float> label_dense_tensor;
-  buff->reserve({(size_t)batchsize, (size_t)(label_dim + dense_dim)}, &label_dense_tensor);
-  thread_buffer->device_dense_buffers = label_dense_tensor.shrink();
-  buff->allocate();
+  core23::Tensor label_dense_tensor = core23::Tensor(
+      {(int64_t)batchsize, (int64_t)(label_dim + dense_dim)}, core23::ScalarType::Float);
+  thread_buffer->device_dense_buffers = label_dense_tensor;
 
   // setup a data reader
   auto file_offset_list = std::make_shared<MmapOffsetList>(
@@ -103,8 +101,9 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
       repeat);
 
   std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
-  DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_offset_list,
-                                     repeat, params, float_label_dense);
+  core23_reader::DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer,
+                                                    file_offset_list, repeat, params,
+                                                    float_label_dense);
 
   int round = (num_samples - 1) / batchsize + 1;
 
@@ -120,8 +119,7 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
       ASSERT_TRUE(current_batch_size == batchsize);
     }
 
-    auto sparse_tensorbag = thread_buffer->device_sparse_buffers[0];
-    auto sparse_tensor = SparseTensor<T>::stretch_from(sparse_tensorbag);
+    auto sparse_tensor = thread_buffer->device_sparse_buffers[0];
     std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
     HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
                               current_batch_size * slot_num * sizeof(T), cudaMemcpyDeviceToHost));
@@ -145,12 +143,11 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
 
     ASSERT_TRUE(sparse_tensor.nnz() == static_cast<size_t>(current_batch_size * slot_num));
 
-    auto dense_tensorbag = thread_buffer->device_dense_buffers;
-    auto label_dense_tensor = Tensor2<float>::stretch_from(dense_tensorbag);
+    auto label_dense_tensor = thread_buffer->device_dense_buffers;
 
     std::unique_ptr<float[]> label_dense_vec(
         new float[current_batch_size * (dense_dim + label_dim)]);
-    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.data(),
                               current_batch_size * (dense_dim + label_dim) * sizeof(float),
                               cudaMemcpyDeviceToHost));
 
@@ -194,18 +191,16 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager,
-                                     repeat, num_threads, use_mixed_precision);
-
+  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+                                           resource_manager, repeat, num_threads,
+                                           use_mixed_precision);
   auto &sparse_tensorbag = data_reader.get_sparse_tensors("localized");
 
   data_reader.create_drwg_raw(file_name, num_samples, float_label_dense, false, true);
-
   int round = (num_samples - 1) / batchsize + 1;
 
   size_t batch_size_start_idx = resource_manager->get_gpu_global_id_from_local_id(0);
   DensePreprocess dense_preprocess{float_label_dense};
-
   for (int iter = 0; iter < 12; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
     HCTR_LOG_S(DEBUG, WORLD) << "current_batch_size:" << current_batch_size << std::endl;

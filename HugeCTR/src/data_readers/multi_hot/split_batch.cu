@@ -66,10 +66,19 @@ __global__ void split_feat_major_kernel(float* __restrict label, int label_dim,
     } else  // store in sparse tensors
     {
       auto col_data = label_dense_sparse[idx];  // Load column
-      const auto sparse_col = col - label_dim - dense_dim;
-      const auto bucket_id = bucket_ids[sparse_col];
-      const auto idx = row * max_hotnesses[bucket_id] + bucket_positions[sparse_col];
-      sparse_tensors[bucket_id][idx] = static_cast<SparseType>(col_data);
+      if constexpr (std::is_same<SparseType, long long>::value) {
+        const auto sparse_col = col - label_dim - dense_dim;
+        const auto bucket_id = bucket_ids[sparse_col / 2];
+        const auto bucket_idx =
+            (row * max_hotnesses[bucket_id] + bucket_positions[sparse_col / 2]) * 2 +
+            (sparse_col & 1);
+        reinterpret_cast<int**>(sparse_tensors)[bucket_id][bucket_idx] = col_data;
+      } else {
+        const auto sparse_col = col - label_dim - dense_dim;
+        const auto bucket_id = bucket_ids[sparse_col];
+        const auto bucket_idx = row * max_hotnesses[bucket_id] + bucket_positions[sparse_col];
+        sparse_tensors[bucket_id][bucket_idx] = static_cast<SparseType>(col_data);
+      }
     }
   }
 }
@@ -121,5 +130,53 @@ INSTANTIATE_SPLIT_3_WAY(float, uint32_t);
 INSTANTIATE_SPLIT_3_WAY(__half, uint32_t);
 INSTANTIATE_SPLIT_3_WAY(float, long long);
 INSTANTIATE_SPLIT_3_WAY(__half, long long);
+
+template <typename DenseType, typename SparseType>
+void split_3_way_feat_major(core23::Tensor label_tensor, core23::Tensor dense_tensor,
+                            core23::Tensor sparse_tensors, core23::Tensor label_dense_sparse_tensor,
+                            core23::Tensor bucket_ids, core23::Tensor bucket_positions,
+                            core23::Tensor max_hotnesses, cudaStream_t stream,
+                            bool dense_is_float) {
+  const auto batch_size = label_dense_sparse_tensor.size(0);
+  const auto label_dim = label_tensor.size(1);
+  const auto dense_dim = dense_tensor.size(1);
+  const auto sparse_dim = sparse_tensors.size(0);
+  const auto sample_dim = label_dense_sparse_tensor.size(1);
+  assert(label_dim > 0 && "label_dim is 0");
+  assert(dense_dim > 0 && "dense_dim is 0");
+  assert(sample_dim > 0 && "sample_dim is 0");
+
+  constexpr dim3 block_dim(128);
+  const dim3 grid_dim((batch_size * sample_dim + block_dim.x - 1) / block_dim.x);
+  if (dense_is_float) {
+    auto DOP = float_dense_op_t();
+    split_feat_major_kernel<<<grid_dim, block_dim, 0, stream>>>(
+        label_tensor.data<float>(), label_dim, dense_tensor.data<DenseType>(), dense_dim,
+        reinterpret_cast<SparseType**>(sparse_tensors.data()), sparse_dim,
+        label_dense_sparse_tensor.data<int>(), bucket_ids.data<int>(), bucket_positions.data<int>(),
+        max_hotnesses.data<int>(), batch_size, sample_dim, DOP);
+  } else {
+    auto DOP = int_dense_op_t();
+    split_feat_major_kernel<<<grid_dim, block_dim, 0, stream>>>(
+        label_tensor.data<float>(), label_dim, dense_tensor.data<DenseType>(), dense_dim,
+        reinterpret_cast<SparseType**>(sparse_tensors.data()), sparse_dim,
+        label_dense_sparse_tensor.data<int>(), bucket_ids.data<int>(), bucket_positions.data<int>(),
+        max_hotnesses.data<int>(), batch_size, sample_dim, DOP);
+  }
+
+  HCTR_LIB_THROW(cudaPeekAtLastError());
+}
+
+#define INSTANTIATE_SPLIT_3_WAY_23(DENSE_T, SPARSE_T)                                          \
+  template void split_3_way_feat_major<DENSE_T, SPARSE_T>(                                     \
+      core23::Tensor label_tensor, core23::Tensor dense_tensor, core23::Tensor sparse_tensors, \
+      core23::Tensor label_dense_sparse_tensor, core23::Tensor bucket_ids,                     \
+      core23::Tensor bucket_positions, core23::Tensor max_hotnesses, cudaStream_t stream,      \
+      bool float_dense)
+
+INSTANTIATE_SPLIT_3_WAY_23(float, uint32_t);
+INSTANTIATE_SPLIT_3_WAY_23(__half, uint32_t);
+INSTANTIATE_SPLIT_3_WAY_23(float, long long);
+INSTANTIATE_SPLIT_3_WAY_23(__half, long long);
 
 }  // namespace HugeCTR

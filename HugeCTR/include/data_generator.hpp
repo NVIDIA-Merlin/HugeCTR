@@ -210,8 +210,10 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
 
   std::ofstream file_list_stream(file_list_name, std::ofstream::out);
   file_list_stream << (std::to_string(num_files) + "\n");
+#pragma omp parallel for ordered
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
+#pragma omp ordered
     file_list_stream << (tmp_file_name + "\n");
     HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
     // data generation;

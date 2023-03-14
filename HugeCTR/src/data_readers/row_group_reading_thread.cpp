@@ -171,6 +171,7 @@ Error_t RowGroupReadingThread<T>::get_one_read_group(
   if (!source_->is_open()) {
     return Error_t::EndOfFile;
   }
+  CudaDeviceContext ctx(device_id_);
   auto tbl_w_metadata = source_->read_group(this->local_row_group_id_, this->memory_resource_);
   this->local_row_group_id_ += this->strict_order_of_batches_ ? this->num_workers_ : 1;
   tbl_w_metadata.tbl.swap(this->cached_df_);
@@ -192,6 +193,8 @@ void RowGroupReadingThread<T>::reset_source(ParquetFileSource* source) {
 
 template <typename T>
 RowGroupReadingThread<T>::~RowGroupReadingThread() {
+  CudaDeviceContext ctx(device_id_);
+  this->cached_df_.reset();
   this->stop();
 }
 template <typename T>

@@ -59,7 +59,7 @@ void create_datareader<TypeKey>::operator()(
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
-  DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+  core23_reader::DataReader<TypeKey>* data_reader_tk = new core23_reader::DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
       data_reader_sparse_param_array, resource_manager, true, 1, false, data_source_params);
   data_reader.reset(data_reader_tk);
@@ -179,7 +179,7 @@ void create_datareader<TypeKey>::operator()(
       data_reader_type == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 1;
   HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
 
-  DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+  core23_reader::DataReader<TypeKey>* data_reader_tk = new core23_reader::DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
       data_reader_sparse_param_array, resource_manager, repeat_dataset, num_workers, false,
       data_source_params);  // use_mixed_precision = false

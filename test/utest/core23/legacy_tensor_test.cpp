@@ -72,6 +72,9 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   void* data = allocator->allocate(size);
 
   auto tensor2 = Tensor::bind(data, tensor1.shape(), tensor1.data_type(), tensor1.device());
+
+  EXPECT_TRUE(data == tensor2.data());
+  EXPECT_TRUE(size == tensor2.num_bytes());
   EXPECT_TRUE(tensor1.data_type() == tensor2.data_type());
   EXPECT_TRUE(tensor1.device() == tensor2.device());
   EXPECT_TRUE(tensor1.shape() == tensor2.shape());

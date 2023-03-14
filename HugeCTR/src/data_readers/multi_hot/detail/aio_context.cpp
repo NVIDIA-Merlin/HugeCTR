@@ -67,7 +67,7 @@ void AIOContext::submit(const IORequest& request) {
 const std::vector<IOEvent>& AIOContext::collect(size_t min_reqs, size_t timeout_us) {
   timespec timeout = {0, (long)timeout_us * 1000};
 
-  io_event io_events[io_depth_];
+  io_event* io_events = (io_event*)alloca(sizeof(io_event) * io_depth_);
   int num_completed = io_getevents(ctx_, min_reqs, io_depth_, io_events, &timeout);
   if (num_completed < 0) {
     throw std::runtime_error("io_getevents failed");
@@ -78,8 +78,11 @@ const std::vector<IOEvent>& AIOContext::collect(size_t min_reqs, size_t timeout_
   tmp_events_.clear();
   for (int i = 0; i < num_completed; ++i) {
     iocb* cb = io_events[i].obj;
-    int64_t ret = io_events[i].res;
-    if (ret < 0) {
+    assert(cb);
+    int ret = io_events[i].res;
+    int ret2 = io_events[i].res2;
+
+    if (ret < 0 || ret2 != 0) {
       throw std::runtime_error("io_getevents returned failed event: " +
                                std::string(strerror(-ret)));
     }

@@ -22,7 +22,6 @@
 #include <numeric>
 #include <resource_manager.hpp>
 #include <stdexcept>
-
 namespace HugeCTR {
 
 ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* resource_mananager,
@@ -288,8 +287,8 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   if (buffer->num_submitted_broadcasts != (int)buffer->dev_data.size()) {
     if (device_id_ != buffer->num_submitted_broadcasts) {
       HCTR_LIB_THROW(cudaMemcpyAsync(buffer->dev_data[buffer->num_submitted_broadcasts],
-                                     buffer->dev_data[device_id_], buffer->size,
-                                     cudaMemcpyDeviceToDevice, stream_));
+                                     buffer->dev_data[device_id_], buffer->size, cudaMemcpyDefault,
+                                     stream_));
     }
     buffer->num_submitted_broadcasts++;
     return;

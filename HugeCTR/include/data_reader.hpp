@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <common.hpp>
+#include <core23/tensor.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <io/filesystem.hpp>

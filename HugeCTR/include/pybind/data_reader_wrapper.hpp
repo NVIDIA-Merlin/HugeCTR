@@ -45,6 +45,29 @@ void DataReaderPybind(pybind11::module& m) {
       .def("read_a_batch_to_device", &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device)
       .def("read_a_batch_to_device_delay_release",
            &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device_delay_release);
+
+  pybind11::class_<HugeCTR::core23_reader::DataReader<long long>,
+                   std::shared_ptr<HugeCTR::core23_reader::DataReader<long long>>,
+                   HugeCTR::IDataReader>(m, "Core23DataReader64")
+      .def("set_source", &HugeCTR::core23_reader::DataReader<long long>::set_source,
+           pybind11::arg("file_name") = std::string())
+      .def("is_started", &HugeCTR::core23_reader::DataReader<long long>::is_started)
+      .def("ready_to_collect", &HugeCTR::core23_reader::DataReader<long long>::ready_to_collect)
+      .def("read_a_batch_to_device",
+           &HugeCTR::core23_reader::DataReader<long long>::read_a_batch_to_device)
+      .def("read_a_batch_to_device_delay_release",
+           &HugeCTR::core23_reader::DataReader<long long>::read_a_batch_to_device_delay_release);
+  pybind11::class_<HugeCTR::core23_reader::DataReader<unsigned int>,
+                   std::shared_ptr<HugeCTR::core23_reader::DataReader<unsigned int>>,
+                   HugeCTR::IDataReader>(m, "Core23DataReader32")
+      .def("set_source", &HugeCTR::core23_reader::DataReader<unsigned int>::set_source,
+           pybind11::arg("file_name") = std::string())
+      .def("is_started", &HugeCTR::core23_reader::DataReader<unsigned int>::is_started)
+      .def("ready_to_collect", &HugeCTR::core23_reader::DataReader<unsigned int>::ready_to_collect)
+      .def("read_a_batch_to_device",
+           &HugeCTR::core23_reader::DataReader<unsigned int>::read_a_batch_to_device)
+      .def("read_a_batch_to_device_delay_release",
+           &HugeCTR::core23_reader::DataReader<unsigned int>::read_a_batch_to_device_delay_release);
 }
 
 }  // namespace python_lib

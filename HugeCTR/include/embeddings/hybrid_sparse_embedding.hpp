@@ -211,7 +211,7 @@ class HybridSparseEmbedding : public SchedulableEmbeding {
   // TODO: consider to merge it with init_params
   void init_model(const SparseTensors<dtype>& data, size_t& wgrad_offset);
 
-  void setup_buffered_indices(bool is_train, AsyncReader<dtype>* data_reader);
+  void setup_buffered_indices(bool is_train, core23_reader::AsyncReader<dtype>* data_reader);
 
   void forward(bool is_train) override;
   void backward() override;
