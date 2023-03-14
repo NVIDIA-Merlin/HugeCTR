@@ -30,19 +30,6 @@ class GPUResourceBase {
   virtual cudaStream_t get_stream() = 0;  // will return current stream
 };
 
-class StreamContext {
-  std::string origin_stream_name_;
-  std::shared_ptr<GPUResourceBase> local_gpu_;
-
- public:
-  StreamContext(const std::shared_ptr<GPUResourceBase> &local_gpu,
-                const std::string &new_stream_name)
-      : origin_stream_name_(local_gpu->get_current_stream_name()) {
-    local_gpu_->set_stream(new_stream_name);
-  }
-  ~StreamContext() { local_gpu_->set_stream(origin_stream_name_); }
-};
-
 class CoreResourceManager {
  public:
   virtual ~CoreResourceManager() = default;
