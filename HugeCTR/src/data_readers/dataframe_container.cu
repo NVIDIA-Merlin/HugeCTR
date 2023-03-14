@@ -512,6 +512,7 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
                         std::shared_ptr<DFContainer<T>> df_ptrs_dst,
                         std::vector<size_t>& dense_dim_array_, std::vector<int>& one_hot_slot_id,
                         std::vector<int>& sparse_nnz_array) {
+  // HCTR_LOG(INFO,WORLD,"dump_table_data_to sizeof(T) %zd\n",sizeof(T));
   CudaDeviceContext context(df_ptrs_dst->device_id_);
   size_t num_label_dense_ = dense_idx_to_parquet_col_.size();
   std::vector<int> nums_slots_;
@@ -612,8 +613,13 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
         HCTR_LOG_S(ERROR, WORLD) << "Parquet worker : cat m-hot KeyType should "
                                     "be uint64/int64/int32/uint32"
                                  << std::endl;
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }
-
+      if (cudf::size_of(value_view.type()) != sizeof(T)) {
+        HCTR_LOG(ERROR, WORLD, "Parquet col %d type is not consistent with solver.i64_input_key\n",
+                 col);
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
+      }
       size_t copy_bytes = cudf::size_of(value_view.type()) * value_view.size();
 
       df_ptrs_dst->sparse_offset_ptr_[col] = const_cast<int32_t*>(row_offset_view.data<int32_t>());
@@ -629,9 +635,14 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
         HCTR_LOG_S(ERROR, WORLD) << "Parquet worker : cat s-hot KeyType should "
                                     "be uint64/int64/int32/uint32"
                                  << std::endl;
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
+      }
+      if (cudf::size_of(col_view.type()) != sizeof(T)) {
+        HCTR_LOG(ERROR, WORLD, "Parquet col %d type is not consistent with solver.i64_input_key\n",
+                 col);
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }
       size_t copy_bytes = cudf::size_of(col_view.type()) * col_view.size();
-
       df_ptrs_dst->sparse_ptr_[col] = const_cast<T*>(col_view.data<T>());
       df_ptrs_dst->sparse_offset_ptr_[col] = nullptr;
       df_ptrs_dst->sparse_size_[col] = col_view.size();

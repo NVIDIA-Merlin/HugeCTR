@@ -27,7 +27,7 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr, cons
                                    T *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
-template <typename T>
+template <typename T, typename IndexType = int32_t>
 size_t convert_parquet_cat_columns(
     std::vector<T *> &cat_column_data_ptr, std::vector<int32_t *> &cat_column_row_offset_ptr,
     int view_offset, int num_params, int param_id, int max_nnz, int num_slots, int batch_size,

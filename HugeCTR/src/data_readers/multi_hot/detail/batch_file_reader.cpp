@@ -24,8 +24,6 @@
 
 namespace HugeCTR {
 
-#define round_up(x, y) ((((x) + ((y)-1)) / (y)) * (y))
-
 BatchFileReader::BatchFileReader(const std::string& fname, size_t slot, size_t max_batches_inflight,
                                  std::unique_ptr<IBatchLocations> batch_locations)
     : slot_id_(slot)
@@ -36,10 +34,7 @@ BatchFileReader::BatchFileReader(const std::string& fname, size_t slot, size_t m
       batch_locations_(std::move(batch_locations)),
       batch_locations_iterator_(batch_locations_->begin()),
       io_ctx_(new AIOContext(max_batches_inflight_)),
-      buf_size_(round_up(
-          batch_locations_->get_batch_size_bytes(),
-          io_ctx_->get_alignment() * 2))  // double alignment because it can fall across 2 sectors
-{
+      buf_size_(batch_locations_->get_batch_size_bytes() + io_ctx_->get_alignment()) {
   tmp_completed_batches_.reserve(max_batches_inflight_);
   empty_batches_.reserve(max_batches_inflight_);
 

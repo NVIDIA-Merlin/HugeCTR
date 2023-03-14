@@ -153,6 +153,52 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
 }
 
 template <typename DenseType, typename SparseType>
+void split_3_way(core23::Tensor& label_tensor_per_dev, core23::Tensor& dense_tensor_per_dev,
+                 core23::Tensor& sparse_tensor, const core23::Tensor& label_dense_sparse_buffer,
+                 size_t local_idx_start, size_t local_idx_end, cudaStream_t stream) {
+  if (label_dense_sparse_buffer.dims() > 0) {
+    assert(label_tensor_per_dev.size(0) == dense_tensor_per_dev.size(0));
+    assert(label_tensor_per_dev.size(0) == local_idx_end - local_idx_start);
+
+    const int batch_size = label_dense_sparse_buffer.size(0);
+    const int label_dim = label_tensor_per_dev.size(1);
+    const int dense_dim = dense_tensor_per_dev.size(1);
+    const int sparse_dim = sparse_tensor.size(1);
+    const int sample_size_int = label_dense_sparse_buffer.size(1);
+    cudaPointerAttributes attributes_src, attributes_dst;
+
+    int dense_dim_no_align = sample_size_int - label_dim - sparse_dim;
+
+    constexpr int block_dim = 128;
+    constexpr int samples_per_cta = 24;
+
+    int vec_width = sizeof(int4) / sizeof(int);
+    if (sizeof(SparseType) == 4 && batch_size % vec_width == 0 &&
+        local_idx_start % vec_width == 0 && local_idx_end % vec_width == 0 &&
+        samples_per_cta * sample_size_int * sizeof(int) <= 24 * 1024) {
+      const int grid_dim = (batch_size + samples_per_cta - 1) / samples_per_cta;
+      const int shmem = 2 * samples_per_cta * (label_dim + dense_dim + sparse_dim) * sizeof(int);
+
+      split_kernel_3_way_read4_write4<samples_per_cta, DenseType, SparseType>
+          <<<grid_dim, block_dim, shmem, stream>>>(
+              batch_size, label_tensor_per_dev.data<float>(), label_dim,
+              dense_tensor_per_dev.data<DenseType>(), dense_dim, dense_dim_no_align,
+              sparse_tensor.data<int>(), sparse_dim, label_dense_sparse_buffer.data<int>(),
+              sample_size_int, local_idx_start / vec_width, local_idx_end / vec_width);
+    } else {
+      const int grid_dim = (label_dense_sparse_buffer.num_elements() - 1) / block_dim + 1;
+      split_kernel_3_way<DenseType, SparseType><<<grid_dim, block_dim, 0, stream>>>(
+          batch_size, label_tensor_per_dev.data<float>(), label_dim,
+          dense_tensor_per_dev.data<DenseType>(), dense_dim, dense_dim_no_align,
+          sparse_tensor.data<SparseType>(), sparse_dim, label_dense_sparse_buffer.data<int>(),
+          sample_size_int, local_idx_start, local_idx_end);
+    }
+
+    HCTR_LIB_THROW(cudaPeekAtLastError());
+  }
+}
+
+template <typename DenseType, typename SparseType>
 void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_tensor_per_dev,
                  Tensor2<SparseType> sparse_tensor, Tensor2<int> label_dense_sparse_buffer,
                  size_t local_idx_start, size_t local_idx_end, cudaStream_t stream) {
@@ -195,6 +241,32 @@ void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_t
     HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }
+
+template void split_3_way<float, uint32_t>(core23::Tensor& label_tensor_per_dev,
+                                           core23::Tensor& dense_tensor_per_dev,
+                                           core23::Tensor& sparse_tensor,
+                                           const core23::Tensor& label_dense_sparse_buffer,
+                                           size_t local_idx_start, size_t local_idx_end,
+                                           cudaStream_t stream);
+template void split_3_way<__half, uint32_t>(core23::Tensor& label_tensor_per_dev,
+                                            core23::Tensor& dense_tensor_per_dev,
+                                            core23::Tensor& sparse_tensor,
+                                            const core23::Tensor& label_dense_sparse_buffer,
+                                            size_t local_idx_start, size_t local_idx_end,
+                                            cudaStream_t stream);
+
+template void split_3_way<float, long long>(core23::Tensor& label_tensor_per_dev,
+                                            core23::Tensor& dense_tensor_per_dev,
+                                            core23::Tensor& sparse_tensor,
+                                            const core23::Tensor& label_dense_sparse_buffer,
+                                            size_t local_idx_start, size_t local_idx_end,
+                                            cudaStream_t stream);
+template void split_3_way<__half, long long>(core23::Tensor& label_tensor_per_dev,
+                                             core23::Tensor& dense_tensor_per_dev,
+                                             core23::Tensor& sparse_tensor,
+                                             const core23::Tensor& label_dense_sparse_buffer,
+                                             size_t local_idx_start, size_t local_idx_end,
+                                             cudaStream_t stream);
 
 template void split_3_way<float, uint32_t>(Tensor2<float> label_tensor_per_dev,
                                            Tensor2<float> dense_tensor_per_dev,

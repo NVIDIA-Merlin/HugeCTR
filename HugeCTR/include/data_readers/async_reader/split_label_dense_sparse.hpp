@@ -15,13 +15,17 @@
  */
 #pragma once
 
+#include <core23/tensor.hpp>
 #include <tensor2.hpp>
-
 namespace HugeCTR {
-
 template <typename DenseType, typename SparseType>
 void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_tensor_per_dev,
                  Tensor2<SparseType> sparse_tensor, Tensor2<int> label_dense_sparse_buffer,
+                 size_t local_idx_start, size_t local_idx_end, cudaStream_t stream);
+
+template <typename DenseType, typename SparseType>
+void split_3_way(core23::Tensor& label_tensor_per_dev, core23::Tensor& dense_tensor_per_dev,
+                 core23::Tensor& sparse_tensor, const core23::Tensor& label_dense_sparse_buffer,
                  size_t local_idx_start, size_t local_idx_end, cudaStream_t stream);
 
 }  // namespace HugeCTR

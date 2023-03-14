@@ -31,6 +31,7 @@ namespace core23 {
   PH(float, Float)                   \
   PH(double, Double)                 \
   PH(char, Char)                     \
+  PH(long long, LongLong)            \
   PH(int8_t, Int8)                   \
   PH(uint8_t, UInt8)                 \
   PH(int32_t, Int32)                 \

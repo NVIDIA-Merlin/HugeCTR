@@ -464,8 +464,8 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::setup_buffered_indices(bool is_train,
-                                                                  AsyncReader<dtype> *data_reader) {
+void HybridSparseEmbedding<dtype, emtype>::setup_buffered_indices(
+    bool is_train, core23_reader::AsyncReader<dtype> *data_reader) {
   if (is_train) {
     // Double buffering for overlapping indices calculation between iterations
     data_reader->set_tensor_buffering(2);

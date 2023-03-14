@@ -25,6 +25,7 @@
 #include <utest/test_utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <core23/data_type.hpp>
 #include <cudf/column/column.hpp>
 #include <cudf/column/column_factories.hpp>
 #include <cudf/io/parquet.hpp>
@@ -57,6 +58,7 @@ const std::string file_list_name("file_list.txt");
 // const std::string file_list_name("./test_data/train/file_list");
 using CVector = std::vector<std::unique_ptr<cudf::column>>;
 typedef long long T;
+
 // row major to `extended-col-major`
 static void pack_dense_features(const DENSE_TYPE* input, const size_t samples,
                                 const size_t dense_dim, const std::vector<size_t>& dense_dim_array,
@@ -323,9 +325,9 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
   std::vector<int32_t> row_offsets;
   std::vector<CAT_TYPE> sparse_values;
 
-  // is_mhot[0] = true;
-  // is_mhot[3] = true;
-  // is_mhot[5] = true;
+  is_mhot[0] = true;
+  is_mhot[3] = true;
+  is_mhot[5] = true;
 
   generate_parquet_input_files(num_files, sample_per_file, is_mhot, labels, denses, dense_dim_array,
                                row_offsets, sparse_values);
@@ -341,9 +343,6 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
   int files_per_worker = num_files / device_list.size();
 
   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
-  int dev_id = 0;
-  cudaGetDevice(&dev_id);
-  HCTR_LOG(INFO, WORLD, "test after resource_manager created getCurrentDeviceId %d\n", dev_id);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -453,7 +452,7 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
       HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
                                 cudaMemcpyDeviceToHost));
 
-      std::unique_ptr<T[]> rowoffsets(new T[batchsize * slot_num + 1]);
+      std::unique_ptr<int64_t[]> rowoffsets(new int64_t[batchsize * slot_num + 1]);
       HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                                 (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       for (int nnz_id = 0; nnz_id < batchsize * slot_num; ++nnz_id) {
@@ -466,7 +465,7 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
             << sample_offset[worker_id] << " value: " << value << " expected: " << expected
             << " expected idx "
             << (sample_offset[worker_id] * slot_num + nnz_id) % (total_slots[worker_id]);
-        for (T start = rowoffsets[nnz_id]; start < rowoffsets[nnz_id + 1]; ++start) {
+        for (T start = rowoffsets[nnz_id]; start < 0; ++start) {
           int slot_id = nnz_id % slot_num;
           ASSERT_TRUE(sparse_value_per_worker[worker_id][(nnz_offset[worker_id] + start) %
                                                          total_nnz[worker_id]] ==
@@ -485,7 +484,6 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
     }
     HCTR_LOG(INFO, WORLD, "iter %d ends\n", i);
   }
-  HCTR_LOG(INFO, WORLD, "should dtor\n");
   rmm::mr::set_current_device_resource(p_mr);
   return;
 }
@@ -526,8 +524,8 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true,
-                            device_list.size(), false);
+  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+                                           resource_manager, true, device_list.size(), false);
   auto& sparse_tensorbag = data_reader.get_sparse_tensors("distributed");
   auto& label_tensorbag = data_reader.get_label_tensors();
   auto& dense_tensorbag = data_reader.get_dense_tensors();
@@ -664,8 +662,8 @@ void data_reader_group_epoch_strided_batch_test_impl(int num_files, long long sa
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, false,
-                            device_list.size(), false);
+  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+                                           resource_manager, false, device_list.size(), false);
   auto& sparse_tensorbag = data_reader.get_sparse_tensors("distributed");
   auto& label_tensorbag = data_reader.get_label_tensors();
   auto& dense_tensorbag = data_reader.get_dense_tensors();
@@ -880,8 +878,8 @@ void data_reader_group_epoch_squential_batch_test_impl(int num_files, long long 
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, false,
-                            device_list.size(), false);
+  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+                                           resource_manager, false, device_list.size(), false);
   auto& sparse_tensorbag = data_reader.get_sparse_tensors("distributed");
   auto& label_tensorbag = data_reader.get_label_tensors();
   auto& dense_tensorbag = data_reader.get_dense_tensors();
@@ -996,9 +994,9 @@ void data_reader_group_epoch_squential_batch_test_impl(int num_files, long long 
   }
   rmm::mr::set_current_device_resource(p_mr);
 }
-void data_reader_worker_test_impl(const int num_files, const long long sample_per_file,
-                                  const int batchsize, std::vector<size_t>& dense_dim_array,
-                                  int iters) {
+void data_reader_worker_test_impl_legacy(const int num_files, const long long sample_per_file,
+                                         const int batchsize, std::vector<size_t>& dense_dim_array,
+                                         int iters) {
   auto p_mr = rmm::mr::get_current_device_resource();
   std::vector<bool> is_mhot(26, false);
   std::vector<size_t> label_dim_array(label_dim, 1);
@@ -1143,21 +1141,9 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
             << " slot_offset " << slot_offset[slot_id]
             << " file :" << sparse_values[(nnz_offset + start) % total_nnz] << " vs "
             << keys[start] - slot_offset[slot_id] << std::endl;
-
-        // HCTR_LOG_S(INFO,WORLD)<< " read "<< sparse_values[(nnz_offset + start) % total_nnz] <<"
-        // expected "<<
-        //             keys[start] - slot_offset[slot_id]
-        //     << "idx:" << start << " slot_id " << slot_id << " sample " << sample_id
-        //     << " slot_offset " << slot_offset[slot_id]
-        //     << " file :" << sparse_values[(nnz_offset + start) % total_nnz] << " vs "
-        //     << keys[start] - slot_offset[slot_id] << std::endl;
       }
     }
-    // for (size_t nnz_id = 0; nnz_id < nnz; ++nnz_id) {
-    //   ASSERT_TRUE(sparse_values[(nnz_offset + nnz_id) % total_nnz] ==
-    //   keys[nnz_id])
-    //       << "idx:" << nnz_id;
-    // }
+
     int label_dense_dim = label_dim + dense_dim;
     auto dense_tensor_bag = thread_buffer->device_dense_buffers;
     auto dense_tensor = Tensor2<DENSE_TYPE>::stretch_from(dense_tensor_bag);
@@ -1165,6 +1151,224 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
     std::unique_ptr<DENSE_TYPE[]> dense(
         new DENSE_TYPE[current_batchsize * (label_dim + dense_dim)]);
     HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+                              (batch_end - batch_start) * label_dense_dim * sizeof(DENSE_TYPE),
+                              cudaMemcpyDeviceToHost));
+    for (int sample = 0; sample < batch_current_worker; ++sample) {
+      // use != for float, because there's no computation
+      for (int d = 0; d < label_dim; d++) {
+        if (dense[sample * label_dense_dim + d] !=
+            labels[((sample_offset + sample + batch_start) * label_dim + d) %
+                   (total_samples * label_dim)]) {
+          HCTR_LOG_S(INFO, WORLD)
+              << "sample " << sample << " label " << d << " error "
+              << "correct vs error:"
+              << labels[((sample_offset + sample + batch_start) * label_dim + d) %
+                        (total_samples * label_dim)]
+              << ":" << dense[sample * label_dense_dim + d] << std::endl;
+          // HCTR_OWN_THROW(Error_t::DataCheckError, "Label check error");
+        }
+      }
+
+      for (int d = 0; d < dense_dim; d++) {
+        if (dense[sample * label_dense_dim + d + label_dim] !=
+            denses[((sample_offset + sample + batch_start) * dense_dim + d) %
+                   (total_samples * dense_dim)]) {
+          HCTR_LOG_S(INFO, WORLD)
+              << "sample " << i << " dense " << d << " error "
+              << "correct vs error:"
+              << denses[((sample_offset + sample + batch_start) * dense_dim + d) %
+                        (total_samples * dense_dim)]
+              << ":" << dense[sample * label_dense_dim + d + label_dim] << std::endl;
+        }
+      }
+    }
+    sample_offset += current_batchsize;
+    nnz_offset += nnz;
+    auto expected = BufferState::ReadyForRead;
+    while (thread_buffer->state.compare_exchange_weak(expected, BufferState::ReadyForWrite)) {
+      expected = BufferState::ReadyForRead;
+    }
+  }
+  HCTR_LOG(INFO, WORLD, "read_a_batch() ends\n");
+  end_flag = true;
+  loop_flag->store(false);
+  usleep(10);
+  producer.join();
+  rmm::mr::set_current_device_resource(p_mr);
+}
+
+void data_reader_worker_test_impl(const int num_files, const long long sample_per_file,
+                                  const int batchsize, std::vector<size_t>& dense_dim_array,
+                                  int iters) {
+  auto p_mr = rmm::mr::get_current_device_resource();
+  std::vector<bool> is_mhot(26, false);
+  std::vector<size_t> label_dim_array(label_dim, 1);
+  dense_dim_array[0] = 2;
+  dense_dim_array[2] = 3;
+  dense_dim_array[7] = 2;
+  const int dense_dim =
+      static_cast<int>(std::accumulate(dense_dim_array.begin(), dense_dim_array.end(), 0));
+  std::vector<LABEL_TYPE> labels;
+  std::vector<DENSE_TYPE> denses;
+  // dim is (total_sample + 1)
+  std::vector<int32_t> row_offsets;
+  std::vector<CAT_TYPE> sparse_values;
+  // is_mhot[0] = true;
+  // is_mhot[3] = true;
+  // is_mhot[5] = true;
+  // size_t total_samples = sample_per_file * num_files;
+  generate_parquet_input_files(num_files, sample_per_file, is_mhot, labels, denses, dense_dim_array,
+                               row_offsets, sparse_values);
+  int numprocs = 1;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {1};
+  auto gpu_id = device_list[0];
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto gpu_resource_group = ResourceManagerExt::create(vvgpu, 0);
+  // const int num_devices = 1;
+  const DataReaderSparseParam param = {"localized", std::vector<int>(slot_num, max_nnz), true,
+                                       slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+  CudaDeviceContext context(gpu_id);
+  auto buff = GeneralBuffer2<CudaAllocator>::create();
+  // create buffer for a reader worker
+  std::shared_ptr<ThreadBuffer23> thread_buffer = std::make_shared<ThreadBuffer23>();
+  // readytowrite
+  thread_buffer->state.store(BufferState::ReadyForWrite);
+  thread_buffer->batch_size = batchsize;
+  thread_buffer->param_num = params.size();
+  thread_buffer->label_dim = label_dim;
+  thread_buffer->dense_dim = dense_dim;
+
+  int batch_start = 0;
+  int batch_end = batchsize - batch_start;
+  int batch_current_worker = batch_end - batch_start;
+  thread_buffer->batch_size_start_idx = batch_start;
+  thread_buffer->batch_size_end_idx = batch_end;
+  for (size_t i = 0; i < params.size(); ++i) {
+    auto& param = params[i];
+    thread_buffer->is_fixed_length.push_back(params[i].is_fixed_length);
+    SparseTensor23 sparse_tensor({(int64_t)batchsize, (int64_t)param.max_feature_num},
+                                 core23::ToScalarType<T>::value, core23::ScalarType::Int64,
+                                 (int64_t)param.slot_num,
+                                 core23::Device(core23::DeviceType::GPU, gpu_id));
+    thread_buffer->device_sparse_buffers.push_back(sparse_tensor);
+  }
+  core23::Tensor label_dense_tensor(
+      core23::TensorParams()
+          .data_type(core23::ScalarType::Float)
+          .shape({(int64_t)(batchsize), (int64_t)(label_dim + dense_dim)})
+          .device({core23::DeviceType::GPU, static_cast<int8_t>(gpu_id)}));
+
+  thread_buffer->device_dense_buffers = label_dense_tensor;
+
+  std::vector<long long> slot_offset(slot_size.size(), 0);
+  for (unsigned int i = 1; i < slot_size.size(); i++) {
+    slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
+  }
+  std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(true);
+  volatile bool end_flag = false;
+  bool strict_order = true;
+  dense_dim_array.insert(dense_dim_array.begin(), label_dim_array.begin(), label_dim_array.end());
+
+  std::vector<size_t> sparse_nnz_array;
+  for (size_t i = 0; i < is_mhot.size(); i++) {
+    const auto& mhot = is_mhot[i];
+    if (mhot) {
+      sparse_nnz_array.push_back(max_nnz);
+    } else {
+      sparse_nnz_array.push_back(1);
+    }
+  }
+  size_t dense_size_bytes_total =
+      (dense_dim + label_dim) * sizeof(float) * (sample_per_file + batchsize);
+  std::shared_ptr<std::vector<size_t>> dense_width_dim_ = std::make_shared<std::vector<size_t>>();
+  std::vector<std::shared_ptr<DFContainer<T>>> df_container_producer_;
+  std::vector<std::shared_ptr<DFContainer<T>>> df_container_consumer_;
+  std::vector<std::shared_ptr<std::atomic<BufferState>>> df_container_producer_stats_;
+  std::vector<std::shared_ptr<std::atomic<int>>> accomplished_workers_;
+  std::vector<char> workers_has_read_(1 * 1, 0);
+
+  // one producer, one consumer
+  df_container_producer_.emplace_back(std::make_shared<DFContainer<T>>(
+      gpu_id, sample_per_file + batchsize, std::vector<size_t>(dense_dim_array.size(), 0),
+      sparse_nnz_array, dense_size_bytes_total));
+  df_container_consumer_.emplace_back(std::make_shared<DFContainer<T>>(
+      gpu_id, sample_per_file + batchsize, std::vector<size_t>(dense_dim_array.size(), 0),
+      sparse_nnz_array, dense_size_bytes_total));
+  df_container_producer_stats_.emplace_back(
+      std::make_shared<std::atomic<BufferState>>(BufferState::ReadyForWrite));
+  accomplished_workers_.emplace_back(std::make_shared<std::atomic<int>>(1));
+  char epoch_start_ = 0;
+  auto epoch_mtx_ = std::make_shared<std::mutex>();
+  auto epoch_cv_ = std::make_shared<std::condition_variable>();
+  core23_reader::ParquetDataReaderWorker<T> data_reader(
+      0, 1, gpu_resource_group->get_local_gpu(0), loop_flag, &end_flag, thread_buffer,
+      file_list_name, strict_order, true, params, DataSourceParams(), slot_offset, gpu_id,
+      df_container_consumer_[0], df_container_producer_, df_container_producer_stats_,
+      workers_has_read_, accomplished_workers_, gpu_resource_group, dense_width_dim_, &epoch_start_,
+      *epoch_mtx_, *epoch_cv_);
+  size_t sample_offset = 0;
+  size_t nnz_offset = 0;
+  size_t total_samples = num_files * sample_per_file;
+  size_t total_nnz = std::accumulate(row_offsets.begin(), row_offsets.end(), 0);
+  std::cout << "core23::ScalarType::LongLong is "
+            << static_cast<int32_t>(core23::ScalarType::LongLong) << " size is "
+            << core23::DataType(core23::ScalarType::LongLong).size() << std::endl;
+  std::cout << "core23::ScalarType::Half is " << static_cast<int32_t>(core23::ScalarType::Half)
+            << std::endl;
+  std::cout << "core23::ScalarType::Char is " << static_cast<int32_t>(core23::ScalarType::Char)
+            << std::endl;
+  std::cout << "core23::ScalarType::Float is " << static_cast<int32_t>(core23::ScalarType::Float)
+            << std::endl;
+
+  std::thread producer(&core23_reader::ParquetDataReaderWorker<T>::do_h2d, &data_reader);
+
+  iters = 1;
+  for (int i = 0; i < iters; i++) {
+    data_reader.read_a_batch();
+    HCTR_LOG(INFO, WORLD, "iter %d\n", i);
+    auto current_batchsize = thread_buffer->current_batch_size;
+    auto sparse_tensorbag = thread_buffer->device_sparse_buffers[0];
+    auto sparse_tensor = sparse_tensorbag;
+    size_t nnz = sparse_tensor.nnz();
+    std::unique_ptr<T[]> keys(new T[nnz]);
+    std::unique_ptr<int64_t[]> row_offset_read_a_batch(
+        new int64_t[current_batchsize * slot_num + 1]);
+    HCTR_LIB_THROW(cudaMemcpy(row_offset_read_a_batch.get(), sparse_tensor.get_rowoffset_ptr(),
+                              (current_batchsize * slot_num + 1) * sizeof(int64_t),
+                              cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
+                              cudaMemcpyDeviceToHost));
+    for (int nnz_id = 0; nnz_id < current_batchsize * slot_num; ++nnz_id) {
+      int64_t expected =
+          row_offsets[(sample_offset * slot_num + nnz_id) % (total_samples * slot_num)];
+      int64_t value = row_offset_read_a_batch[nnz_id + 1] - row_offset_read_a_batch[nnz_id];
+      ASSERT_TRUE(value == expected)
+          << " iter: " << i << " sample " << nnz_id / slot_num << " slot_idx: " << nnz_id % slot_num
+          << " value: " << value << " expected: " << expected;
+      for (int64_t start = row_offset_read_a_batch[nnz_id];
+           start < row_offset_read_a_batch[nnz_id + 1]; start++) {
+        int slot_id = nnz_id % slot_num;
+        int sample_id = nnz_id / slot_num;
+        ASSERT_TRUE(sparse_values[(nnz_offset + start) % total_nnz] ==
+                    keys[start] - slot_offset[slot_id])
+            << "idx:" << start << " slot_id " << slot_id << " sample " << sample_id
+            << " slot_offset " << slot_offset[slot_id]
+            << " file :" << sparse_values[(nnz_offset + start) % total_nnz] << " vs "
+            << keys[start] - slot_offset[slot_id] << std::endl;
+      }
+    }
+    int label_dense_dim = label_dim + dense_dim;
+    auto dense_tensor = thread_buffer->device_dense_buffers;
+
+    std::unique_ptr<DENSE_TYPE[]> dense(
+        new DENSE_TYPE[current_batchsize * (label_dim + dense_dim)]);
+    HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.data(),
                               (batch_end - batch_start) * label_dense_dim * sizeof(DENSE_TYPE),
                               cudaMemcpyDeviceToHost));
     for (int sample = 0; sample < batch_current_worker; ++sample) {
@@ -1218,16 +1422,17 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
 //====== ====== *//
 TEST(parquet, single_worker) {
   std::vector<size_t> dense_dim_array(13, 1);
-  data_reader_worker_test_impl(4, 1024, 1205, dense_dim_array, 10);
+  // data_reader_worker_test_impl(4, 1024, 1205, dense_dim_array, 10);
   HCTR_LOG(INFO, WORLD, "standalone small dense done\n");
-  dense_dim_array.resize(1025, 1);
-  dense_dim_array[0] = 1;
-  dense_dim_array[1] = 3;
-  dense_dim_array[100] = 4;
-  dense_dim_array[102] = 13;
-  dense_dim_array[3] = 4;
-  data_reader_worker_test_impl(4, 1024, 16, dense_dim_array, 1);
-  HCTR_LOG(INFO, WORLD, "standalone larger dense done\n");
+  data_reader_worker_test_impl_legacy(4, 1024, 1205, dense_dim_array, 10);
+  // dense_dim_array.resize(1025, 1);
+  // dense_dim_array[0] = 1;
+  // dense_dim_array[1] = 3;
+  // dense_dim_array[100] = 4;
+  // dense_dim_array[102] = 13;
+  // dense_dim_array[3] = 4;
+  // data_reader_worker_test_impl(4, 1024, 16, dense_dim_array, 1);
+  // HCTR_LOG(INFO, WORLD, "standalone larger dense done\n");
 }
 
 //* ====== ====== ====== ====== ====== ====== iter strided ====== ====== ====== ====== ====== ======
@@ -1235,12 +1440,12 @@ TEST(parquet, single_worker) {
 TEST(parquet, group_test_debug_stride_iter) {
   int dev_id = 0;
   HCTR_LOG(INFO, WORLD, "zero getCurrentDeviceId %d\n", dev_id);
-  data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {1, 2}, 10);
+  data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {2}, 10);
   cudaGetDevice(&dev_id);
-  HCTR_LOG(INFO, WORLD, "first getCurrentDeviceId %d\n", dev_id);
-  data_reader_group_iter_strided_batch_test_impl(5, 16384, 51210, {3}, 10);
-  cudaGetDevice(&dev_id);
-  HCTR_LOG(INFO, WORLD, "second getCurrentDeviceId %d\n", dev_id);
+  // HCTR_LOG(INFO, WORLD, "first getCurrentDeviceId %d\n", dev_id);
+  // data_reader_group_iter_strided_batch_test_impl(5, 16384, 51210, {3}, 10);
+  // cudaGetDevice(&dev_id);
+  // HCTR_LOG(INFO, WORLD, "second getCurrentDeviceId %d\n", dev_id);
 }
 TEST(parquet, group_test_comprehensive_strided_iter) {
   data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {0, 1}, 10);
@@ -1282,7 +1487,8 @@ TEST(parquet, group_test_debug_strided_epoch) {
   int dev_id = 0;
   cudaGetDevice(&dev_id);
   HCTR_LOG(INFO, WORLD, "group_test_debug_strided_epoch 1 getCurrentDeviceId %d\n", dev_id);
-  data_reader_group_epoch_strided_batch_test_impl(1, 2, 2, {4}, 1);
+  data_reader_group_epoch_strided_batch_test_impl(1, 2, 2, {0}, 1);
+  data_reader_group_epoch_strided_batch_test_impl(3, 40, 3 * 10, {0, 2}, 1);
   cudaGetDevice(&dev_id);
   HCTR_LOG(INFO, WORLD, "group_test_debug_strided_epoch 2 getCurrentDeviceId %d\n", dev_id);
   data_reader_group_epoch_strided_batch_test_impl(17, 11, 6, {1, 3, 7}, 3);

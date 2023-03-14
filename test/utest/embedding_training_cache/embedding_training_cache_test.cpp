@@ -86,12 +86,12 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   std::vector<DataReaderSparseParam> data_reader_params;
   data_reader_params.push_back(param);
 
-  std::unique_ptr<DataReader<TypeKey>> data_reader_train(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params, resource_manager,
-                              true, num_workers, false));
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params, resource_manager,
-                              true, num_workers, false));
+  std::unique_ptr<core23_reader::DataReader<TypeKey>> data_reader_train(
+      new core23_reader::DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params,
+                                             resource_manager, true, num_workers, false));
+  std::unique_ptr<core23_reader::DataReader<TypeKey>> data_reader_eval(
+      new core23_reader::DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params,
+                                             resource_manager, true, num_workers, false));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);

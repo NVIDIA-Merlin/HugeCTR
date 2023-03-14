@@ -19,6 +19,7 @@
 
 // For the tensor bags
 #include <atomic>
+#include <core23/tensor.hpp>
 #include <tensor2.hpp>
 #include <vector>
 

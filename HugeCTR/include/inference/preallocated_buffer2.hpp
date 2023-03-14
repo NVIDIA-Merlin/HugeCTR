@@ -65,7 +65,11 @@ void bind_tensor_to_buffer(const std::vector<size_t> &dimensions,
     if (!buffer->allocated()) {
       HCTR_OWN_THROW(Error_t::IllegalCall, "Cannot bind tensor to buffer that is not allocated");
     }
+    if (!tensor) {
+      HCTR_OWN_THROW(Error_t::IllegalCall, "Trying to bind nullptr tensor to buffer");
+    }
     tensor->set_buffer(buffer);
+    tensor->reset_shape(dimensions);
   } catch (const std::runtime_error &rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;

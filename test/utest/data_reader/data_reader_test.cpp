@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/tensor.hpp>
 #include <data_generator.hpp>
 #include <data_readers/data_reader.hpp>
 #include <data_readers/data_reader_worker.hpp>
@@ -27,14 +28,15 @@
 using namespace HugeCTR;
 
 // configuration
-const int num_files = 10;
-const int batchsize = 32;
-const long long label_dim = 2;
-const long long dense_dim = 64;
-const long long slot_num = 10;
+const int num_files = 12;
+const int batchsize = 65536;
+constexpr int iters = 200;
+const long long label_dim = 1;
+const long long dense_dim = 13;
+const long long slot_num = 26;
 const long long num_samples_per_file = batchsize * 2 + 10;
 const long long num_samples = num_samples_per_file * num_files;
-const int max_nnz = 30;
+const int max_nnz = 1;
 typedef long long T;
 const int vocabulary_size = 511;
 // configurations for data_reader_worker
@@ -68,12 +70,11 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::shared_ptr<ThreadBuffer> thread_buffer = std::make_shared<ThreadBuffer>();
+  std::shared_ptr<ThreadBuffer23> thread_buffer = std::make_shared<ThreadBuffer23>();
 
   constexpr size_t buffer_length = max_nnz;
 
   CudaDeviceContext context(0);
-  auto buff = GeneralBuffer2<CudaAllocator>::create();
 
   thread_buffer->state.store(BufferState::ReadyForWrite);
   thread_buffer->batch_size = batchsize;
@@ -85,22 +86,19 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   for (size_t i = 0; i < params.size(); ++i) {
     auto &param = params[i];
     thread_buffer->is_fixed_length.push_back(params[i].is_fixed_length);
-    SparseTensor<T> sparse_tensor;
-    buff->reserve({(size_t)batchsize, (size_t)param.max_feature_num}, param.slot_num,
-                  &sparse_tensor);
-    thread_buffer->device_sparse_buffers.push_back(sparse_tensor.shrink());
+    SparseTensor23 sparse_tensor = SparseTensor23(
+        {(int64_t)batchsize, (int64_t)param.max_feature_num}, core23::ToScalarType<T>::value,
+        core23::ToScalarType<T>::value, (int64_t)param.slot_num);
+    thread_buffer->device_sparse_buffers.push_back(sparse_tensor);
   }
-
-  Tensor2<float> label_dense_tensor;
-  buff->reserve({(size_t)batchsize, (size_t)(label_dim + dense_dim)}, &label_dense_tensor);
-  thread_buffer->device_dense_buffers = label_dense_tensor.shrink();
-  buff->allocate();
-
+  core23::Tensor label_dense_tensor = core23::Tensor(
+      {(int64_t)batchsize, (int64_t)(label_dim + dense_dim)}, core23::ScalarType::Float);
+  thread_buffer->device_dense_buffers = label_dense_tensor;
   // setup a data reader
   std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
-  DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_list_name,
-                                  buffer_length, repeat, CHK, params);
-
+  core23_reader::DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer,
+                                                 file_list_name, buffer_length, repeat, CHK,
+                                                 params);
   // call read a batch
   size_t value_offset = 0;
   int round = (num_samples - 1) / batchsize + 1;
@@ -118,8 +116,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
         ASSERT_TRUE(current_batch_size == batchsize);
       }
     }
-    auto sparse_tensorbag = thread_buffer->device_sparse_buffers[0];
-    auto sparse_tensor = SparseTensor<T>::stretch_from(sparse_tensorbag);
+    auto sparse_tensor = thread_buffer->device_sparse_buffers[0];
     size_t nnz = sparse_tensor.nnz();
 
     std::unique_ptr<T[]> keys(new T[nnz]);
@@ -153,12 +150,11 @@ void data_reader_worker_norm_test_impl(bool repeat) {
 
     ASSERT_TRUE(nnz == static_cast<size_t>(generated_nnz));
 
-    auto dense_tensorbag = thread_buffer->device_dense_buffers;
-    auto label_dense_tensor = Tensor2<float>::stretch_from(dense_tensorbag);
+    auto label_dense_tensor = thread_buffer->device_dense_buffers;
 
     std::unique_ptr<float[]> label_dense_vec(
         new float[current_batch_size * (dense_dim + label_dim)]);
-    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.data(),
                               current_batch_size * (dense_dim + label_dim) * sizeof(float),
                               cudaMemcpyDeviceToHost));
 
@@ -181,9 +177,11 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     thread_buffer->state.store(BufferState::ReadyForWrite);
   }
 }
-
+template <bool NewReader = true>
 void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_threads, bool repeat,
                                 bool use_mixed_precision) {
+  using DataReaderType =
+      typename std::conditional<NewReader, core23_reader::DataReader<T>, DataReader<T>>::type;
   std::vector<T> generated_sparse_value;
   std::vector<T> generated_sparse_rowoffset;
   std::vector<float> generated_label_data;
@@ -208,16 +206,15 @@ void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_thr
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, repeat,
-                            num_threads, use_mixed_precision);
+  DataReaderType data_reader(batchsize, label_dim, dense_dim, params, resource_manager, repeat,
+                             num_threads, use_mixed_precision);
 
   // auto &sparse_tensorbag = data_reader.get_sparse_tensors("distributed");
-
   data_reader.create_drwg_norm(file_list_name, CHK);
-
   // int round = (num_samples - 1) / batchsize + 1;
+  auto start = std::chrono::high_resolution_clock::now();
 
-  for (int iter = 0; iter < 50; ++iter) {
+  for (int iter = 0; iter < iters; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
     if (current_batch_size == 0) break;
     HCTR_LOG_S(DEBUG, WORLD) << "iter:" << iter << ", current_batch_size:" << current_batch_size
@@ -226,6 +223,11 @@ void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_thr
       ASSERT_TRUE(current_batch_size == batchsize);
     }
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+  double gbs = ((double)iters * batchsize) / (double)(time_ms / 1000.f);
+  std::cout << "Time (ms): " << time_ms << ",  Throughput (samples/s): " << gbs << std::endl;
 }
 
 TEST(data_reader_worker, data_reader_worker_test_1) { data_reader_worker_norm_test_impl(true); }
@@ -256,6 +258,12 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
   data_reader_norm_test_impl({0, 1}, 4, false, false);
 }
 
+TEST(data_reader_test, legacy_reader_benchmark) {
+  data_reader_norm_test_impl<false>({0}, 12, true, false);
+}
+TEST(data_reader_test, core23_reader_benchmark) {
+  data_reader_norm_test_impl<true>({0}, 12, true, false);
+}
 // TEST(data_reader_test, data_reader_mixed_test) {
 //   const int batchsize = 2048;
 

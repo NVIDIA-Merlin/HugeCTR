@@ -792,16 +792,23 @@ std::vector<core23::Tensor> convert_sparse_tensors_to_core23_tensors(
   }
   return core_tensors;
 }
-
 std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::IDataReader* reader,
                                                                      int gpu_id) {
   int device_id;
   HCTR_LIB_THROW(cudaGetDevice(&device_id));
   core23::Device device(core23::DeviceType::GPU, device_id);
-  if (auto typed_reader = dynamic_cast<AsyncDataReader<uint32_t>*>(reader)) {
+  if (auto typed_reader = dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(reader)) {
     return convert_sparse_tensors_to_core23_tensors(
         typed_reader->get_current_sparse_tensors()[gpu_id], device);
-  } else if (auto typed_reader = dynamic_cast<AsyncDataReader<long long>*>(reader)) {
+  } else if (auto typed_reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(reader)) {
+    return convert_sparse_tensors_to_core23_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], device);
+  } else if (auto typed_reader =
+                 dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(reader)) {
+    return convert_sparse_tensors_to_core23_tensors(
+        typed_reader->get_current_sparse_tensors()[gpu_id], device);
+  } else if (auto typed_reader =
+                 dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(reader)) {
     return convert_sparse_tensors_to_core23_tensors(
         typed_reader->get_current_sparse_tensors()[gpu_id], device);
   } else {
@@ -1383,17 +1390,19 @@ void Model::compile() {
 
   size_t embed_wgrad_size = 0;
   if (!reader_params_.async_param.multi_hot_reader) {
-    auto train_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(train_data_reader_.get());
+    auto train_data_reader_ar_i64 =
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(train_data_reader_.get());
     auto eval_data_reader_ar_i64 =
-        dynamic_cast<AsyncReader<long long>*>(evaluate_data_reader_.get());
-    auto init_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(init_data_reader_.get());
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i64 =
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(init_data_reader_.get());
 
     auto train_data_reader_ar_i32 =
-        dynamic_cast<AsyncReader<unsigned int>*>(train_data_reader_.get());
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(train_data_reader_.get());
     auto eval_data_reader_ar_i32 =
-        dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
     auto init_data_reader_ar_i32 =
-        dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(init_data_reader_.get());
 
     // FIXME:
     // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
