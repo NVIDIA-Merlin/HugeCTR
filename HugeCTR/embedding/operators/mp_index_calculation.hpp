@@ -40,21 +40,15 @@ class MPLocalReduceIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
   LocalReduceIndexCalculation local_reduce_index_calculation_;
 
-  IndicesSort indices_sort_;
+  SortKeyAndSrcIdOp sort_op_;
   CalDstIds cal_dst_ids_;
   SegmentdUnique segmented_unique_;
   CalDstOffsetMP cal_dst_offset_mp_;
-  SegmentedSortDevice segmented_sort_device_;
 
  public:
   void init(std::shared_ptr<CoreResourceManager> core,
             const LocalReduceIndexCalculation& local_reduce_index_calculation,
-            const SegmentedSortDevice& segmented_sort_device, const CalDstIds& cal_dst_ids,
-            const SegmentdUnique& segmented_unique, const CalDstOffsetMP& cal_dst_offset_mp);
-
-  void init(std::shared_ptr<CoreResourceManager> core,
-            const LocalReduceIndexCalculation& local_reduce_index_calculation,
-            const IndicesSort& indices_sort, const CalDstIds& cal_dst_ids,
+            const SortKeyAndSrcIdOp& sort_op, const CalDstIds& cal_dst_ids,
             const SegmentdUnique& segmented_unique, const CalDstOffsetMP& cal_dst_offset_mp);
 
   void cal_for_sparse_input(const EmbeddingInput& embedding_input,

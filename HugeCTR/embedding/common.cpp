@@ -53,6 +53,62 @@ std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p) {
   return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const CommunicationStrategy &p) {
+  switch (p) {
+    case CommunicationStrategy::Uniform:
+      os << "Uniform";
+      break;
+    case CommunicationStrategy::Hierarchical:
+      os << "Hierarchical";
+      break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "CommunicationStrategy is not initialized");
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const SortStrategy &p) {
+  switch (p) {
+    case SortStrategy::Radix:
+      os << "Radix";
+      break;
+    case SortStrategy::Segmented:
+      os << "Segmented";
+      break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "SortStrategy is not initialized");
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p) {
+  switch (p) {
+    case KeysPreprocessStrategy::None:
+      os << "None";
+      break;
+    case KeysPreprocessStrategy::AddOffset:
+      os << "AddOffset";
+      break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "KeysPreprocessStrategy is not initialized");
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p) {
+  switch (p) {
+    case AllreduceStrategy::Dense:
+      os << "Dense";
+      break;
+    case AllreduceStrategy::Sparse:
+      os << "Sparse";
+      break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "AllreduceStrategy is not initialized");
+  }
+  return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   os << "lookup_id:" << p.lookup_id << ",";
   os << "table_id:" << p.table_id << ",";
@@ -352,10 +408,11 @@ WgradInitializer &WgradInitializer::init_data() {
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init(Wgrad &other) {
   HCTR_CHECK_HINT(
-      ebc_param.table_id_to_vocabulary_size.size() > 0 && ebc_param.indices_only_ &&
+      ebc_param.table_id_to_vocabulary_size.size() > 0 &&
+          ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense &&
           ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
               TablePlacementStrategy::DataParallel,
-      "allreduce buffer can only be initialized in indices_only and dataparallel embedding");
+      "allreduce buffer can only be initialized in Dense Allreduce and dataparallel embedding");
   this->wgrad = &other;
   wgrad->attr = wgrad_attr;
   return *this;

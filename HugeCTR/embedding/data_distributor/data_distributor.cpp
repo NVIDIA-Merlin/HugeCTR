@@ -262,7 +262,7 @@ void DataDistributor::init_batch_major_fullbatch_input_preprocessor() {
 }
 
 void DataDistributor::init_indices_converter() {
-  if (!ebc_param_.indices_only_) return;
+  if (ebc_param_.keys_preprocess_strategy_ != embedding::KeysPreprocessStrategy::AddOffset) return;
   int num_gpus = resource_manager_->get_local_gpu_count();
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     CudaDeviceContext context(core_resource_managers_[gpu_id]->get_device_id());
@@ -417,12 +417,15 @@ void DataDistributor::distribute(int gpu_id, const core23::Tensor& fullbatch_key
                             &feature_major_bucket_range, batch_size);
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); ++grouped_id) {
+    int batch_size_per_gpu = batch_size_;
+
     if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
         embedding::TablePlacementStrategy::ModelParallel) {
       key_filters_[gpu_id][grouped_id].mp_index_calculation.filter_sparse_input(
           feature_major_key, feature_major_bucket_range, output[grouped_id], batch_size);
     } else if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
                embedding::TablePlacementStrategy::DataParallel) {
+      batch_size_per_gpu /= num_local_gpus_;
       key_filters_[gpu_id][grouped_id].dp_index_calculation.filter_sparse_input(
           feature_major_key, feature_major_bucket_range, output[grouped_id], batch_size);
     } else {
@@ -430,6 +433,17 @@ void DataDistributor::distribute(int gpu_id, const core23::Tensor& fullbatch_key
     }
     core23::copy_async(output[grouped_id].fullbatch_bucket_range, fullbatch_bucket_range,
                        core_resource_managers_[gpu_id]->get_local_gpu()->get_stream());
+    int num_groups = ebc_param_.grouped_emb_params.size();
+    if (!indices_converters_.empty()) {
+      core23::Tensor num_keys_per_lookup_offset;
+      compress_offsets_[gpu_id * num_groups + grouped_id].compute(
+          output[grouped_id].bucket_range, batch_size_per_gpu, &num_keys_per_lookup_offset);
+
+      indices_converters_[gpu_id * num_groups + grouped_id].convert(
+          output[grouped_id].keys, output[grouped_id].h_num_keys, num_keys_per_lookup_offset,
+          num_keys_per_lookup_offset.num_elements() - 1,
+          d_local_table_id_lists_[gpu_id * num_groups + grouped_id]);
+    }
   }
 }
 

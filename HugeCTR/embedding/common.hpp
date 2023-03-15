@@ -81,6 +81,13 @@ enum class TablePlacementStrategy : int8_t { DataParallel, ModelParallel, Hybrid
 enum class EmbeddingLayout : int8_t { FeatureMajor, BatchMajor };
 std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p);
 enum class CommunicationStrategy : int8_t { Uniform, Hierarchical };
+std::ostream &operator<<(std::ostream &os, const CommunicationStrategy &p);
+enum class SortStrategy : int8_t { Radix, Segmented };
+std::ostream &operator<<(std::ostream &os, const SortStrategy &p);
+enum class KeysPreprocessStrategy : int8_t { None, AddOffset };
+std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p);
+enum class AllreduceStrategy : int8_t { Sparse, Dense };
+std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p);
 
 const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
     {"dp", TablePlacementStrategy::DataParallel},
@@ -106,19 +113,10 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p);
 struct GroupedEmbeddingParam {
   TablePlacementStrategy table_placement_strategy;
   std::vector<int> table_ids;
-  CommunicationStrategy comm_strategy;
 
   GroupedEmbeddingParam(TablePlacementStrategy _table_placement_strategy,
                         const std::vector<int> &_table_ids)
-      : table_placement_strategy(_table_placement_strategy),
-        table_ids(_table_ids),
-        comm_strategy(CommunicationStrategy::Uniform) {
-    const auto comm_env = std::getenv("HCTR_HIER_COMM");
-    if (nullptr != comm_env && 1 == std::atoi(comm_env)) {
-      comm_strategy = CommunicationStrategy::Hierarchical;
-      HCTR_LOG(INFO, ROOT, "Using Hier Communication Strategy\n");
-    }
-  }
+      : table_placement_strategy(_table_placement_strategy), table_ids(_table_ids) {}
 };
 
 struct EmbeddingCollectionParam {
@@ -139,7 +137,12 @@ struct EmbeddingCollectionParam {
 
   EmbeddingLayout input_layout_;   // Only work in HugeCTR, specified the input layout.
   EmbeddingLayout output_layout_;  // Only work in HugeCTR, specifies the output layout.
-  bool indices_only_;
+
+  SortStrategy sort_strategy_;
+  KeysPreprocessStrategy keys_preprocess_strategy_;
+  AllreduceStrategy allreduce_strategy_;
+  CommunicationStrategy comm_strategy_;
+
   EmbeddingCollectionParam(int num_table, const std::vector<int> &table_id_to_vocabulary_size,
                            int num_lookup, const std::vector<LookupParam> &lookup_params,
                            const std::vector<std::vector<int>> &shard_matrix,
@@ -147,7 +150,10 @@ struct EmbeddingCollectionParam {
                            int universal_batch_size, core23::DataType key_type,
                            core23::DataType index_type, core23::DataType offset_type,
                            core23::DataType emb_type, EmbeddingLayout input_layout_,
-                           EmbeddingLayout output_layout, bool indices_only)
+                           EmbeddingLayout output_layout, SortStrategy sort_strategy,
+                           KeysPreprocessStrategy keys_preprocess_strategy,
+                           AllreduceStrategy allreduce_strategy,
+                           CommunicationStrategy comm_strategy)
       : num_table(num_table),
         table_id_to_vocabulary_size(table_id_to_vocabulary_size),
         num_lookup(num_lookup),
@@ -161,7 +167,10 @@ struct EmbeddingCollectionParam {
         emb_type(emb_type),
         input_layout_(input_layout_),
         output_layout_(output_layout),
-        indices_only_(indices_only) {}
+        sort_strategy_(sort_strategy),
+        keys_preprocess_strategy_(keys_preprocess_strategy),
+        allreduce_strategy_(allreduce_strategy),
+        comm_strategy_(comm_strategy) {}
 
   bool lookup_id_in_group(size_t grouped_id, int lookup_id) const {
     const auto &group_param = this->grouped_emb_params[grouped_id];

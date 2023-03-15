@@ -28,7 +28,7 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
   HCTR_CHECK_HINT(
       group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel &&
-          group_params.comm_strategy == CommunicationStrategy::Hierarchical,
+          ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
       "HierModelParallelEmbeddingMeta must be initialized by ModelParallel & Hierarchical comm");
 
   size_t num_global_gpus = core->get_global_gpu_count();
@@ -87,17 +87,6 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   hier_network_buffer_attr.init(core, ebc_param, grouped_id, h_lookup_ids_in_current_rail);
 
   wgrad_attr.init(core, ebc_param, grouped_id);
-
-  if (ebc_param.indices_only_ && !ebc_param.table_id_to_vocabulary_size.empty()) {
-    this->h_table_id_to_global_start_indices = ebc_param.get_table_id_to_global_start_indices();
-
-    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-    core23::TensorParams params = core23::TensorParams().device(device);
-    table_id_to_global_start_indices = core23::Tensor(
-        params.shape({static_cast<int64_t>(h_table_id_to_global_start_indices.size())})
-            .data_type(core23::ScalarType::Int32));
-    core23::copy_sync(table_id_to_global_start_indices, h_table_id_to_global_start_indices);
-  }
 
   output_attr.init(core, ebc_param);
 
@@ -164,22 +153,17 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
   SegmentdUnique segmentd_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};
-  if (params.indices_only_) {
-    int vocubulary_size_sum = meta_.h_table_id_to_global_start_indices.back();
-    int end_bit = static_cast<int>(std::log2(static_cast<float>(vocubulary_size_sum) + 1));
-    IndicesSort indices_sort{core,
-                             meta_.table_id_to_global_start_indices,
-                             end_bit,
-                             meta_.num_local_hotness_,
-                             params.universal_batch_size,
-                             key_type};
+  if (params.sort_strategy_ == SortStrategy::Radix) {
+    IndicesSort indices_sort{core, meta_.num_local_hotness_, params.universal_batch_size, key_type};
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, indices_sort,
                                          cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
-  } else {
+  } else if (params.sort_strategy_ == SortStrategy::Segmented) {
     SegmentedSortDevice segmented_sort{core, meta_.num_local_hotness_, params.universal_batch_size,
                                        meta_.wgrad_attr.num_table, key_type};
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, segmented_sort,
                                          cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
   local_reduce_.init(core, meta_.output_attr.kernel_params, meta_.output_attr.max_ev_size,

@@ -261,7 +261,6 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                  const std::vector<GroupedEmbeddingParam>& grouped_emb_params) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
   ASSERT_EQ(table_ev_size_list.size(), num_table);
-  bool indices_only = false;
   EmbeddingCollectionParam ebc_param{num_table,
                                      table_max_vocabulary_list,
                                      static_cast<int>(lookup_params.size()),
@@ -275,7 +274,10 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      HugeCTR::core23::ToScalarType<emb_t>::value,
                                      EmbeddingLayout::FeatureMajor,
                                      EmbeddingLayout::FeatureMajor,
-                                     indices_only};
+                                     embedding::SortStrategy::Segmented,
+                                     embedding::KeysPreprocessStrategy::AddOffset,
+                                     embedding::AllreduceStrategy::Sparse,
+                                     CommunicationStrategy::Uniform};
   auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
@@ -371,21 +373,10 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
     core_resource_manager_list.push_back(core);
   }
 
-  std::shared_ptr<HugeCTR::DataDistributor> data_distributor;
-  if (indices_only) {
-    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
-        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
-        core_resource_manager_list, ebc_param, table_param_list);
-  } else {
-    // Now the ragged_static_embedding only supports indices_only table.
-    // Must have a data distributor with indices == true;
-    auto copy_ebc_param = ebc_param;
-    copy_ebc_param.indices_only_ = true;
-
-    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
-        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
-        core_resource_manager_list, copy_ebc_param, table_param_list);
-  }
+  std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
+      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
+                                                 resource_manager, core_resource_manager_list,
+                                                 ebc_param, table_param_list);
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {

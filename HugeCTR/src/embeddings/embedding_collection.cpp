@@ -54,7 +54,7 @@ EmbeddingCollection::EmbeddingCollection(
       embedding_output_attrs[gpu_id][grouped_id].update_mutable_data(core[gpu_id], ebc_param);
 
       auto &wgrad = wgrad_list_[gpu_id][grouped_id];
-      if (ebc_param.indices_only_ &&
+      if (ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense &&
           ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
               TablePlacementStrategy::DataParallel &&
           !ebc_param.table_id_to_vocabulary_size.empty()) {
@@ -74,6 +74,9 @@ EmbeddingCollection::EmbeddingCollection(
   }
 
   // collective init peer buffer
+  if (ebc_param.comm_strategy_ != CommunicationStrategy::Hierarchical) return;
+  HCTR_CHECK(resource_manager->all_p2p_enabled());
+
   gpu_barrier_ = std::make_unique<HugeCTR::GPUBarrier>(
       resource_manager->get_local_gpu_count(), resource_manager->get_local_gpu_device_id_list());
 
@@ -97,11 +100,8 @@ EmbeddingCollection::EmbeddingCollection(
       };
 
   for (size_t grouped_id = 0; grouped_id < ebc_param.grouped_emb_params.size(); ++grouped_id) {
-    if (ebc_param.grouped_emb_params[grouped_id].comm_strategy ==
-            CommunicationStrategy::Hierarchical &&
-        ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
-            TablePlacementStrategy::ModelParallel) {
-      HCTR_CHECK(resource_manager->all_p2p_enabled());
+    if (ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+        TablePlacementStrategy::ModelParallel) {
       init_hierarchical_embedding(embeddings_, grouped_id);
       init_hierarchical_embedding(eval_embeddings_, grouped_id);
     }

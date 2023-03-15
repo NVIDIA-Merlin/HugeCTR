@@ -80,7 +80,8 @@ template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                               const std::vector<std::vector<int>> &shard_matrix,
                               const std::vector<GroupedEmbeddingParam> &grouped_emb_params,
-                              EmbeddingLayout output_layout, bool indices_only) {
+                              EmbeddingLayout output_layout, SortStrategy sort_strategy,
+                              AllreduceStrategy allreduce_strategy) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
   ASSERT_EQ(table_ev_size_list.size(), num_table);
   auto key_type = HugeCTR::core23::ToScalarType<key_t>::value;
@@ -89,8 +90,8 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
   auto emb_type = HugeCTR::core23::ToScalarType<emb_t>::value;
 
   std::cout << "embedding_collection_e2e test. output_layout:" << output_layout
-            << ", indices_only:" << indices_only << ", key_type:" << key_type
-            << ", emb_type:" << emb_type << "\n";
+            << ", sort_strategy:" << sort_strategy << ", allreduce_strategy:" << allreduce_strategy
+            << ", key_type:" << key_type << ", emb_type:" << emb_type << "\n";
   EmbeddingCollectionParam ebc_param{num_table,
                                      table_max_vocabulary_list,
                                      static_cast<int>(lookup_params.size()),
@@ -104,7 +105,10 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                                      emb_type,
                                      EmbeddingLayout::FeatureMajor,
                                      output_layout,
-                                     indices_only};
+                                     sort_strategy,
+                                     embedding::KeysPreprocessStrategy::AddOffset,
+                                     allreduce_strategy,
+                                     CommunicationStrategy::Uniform};
   auto table_param_list = get_table_param_list(ebc_param.emb_type);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
@@ -199,21 +203,10 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     core_resource_manager_list.push_back(core);
   }
 
-  std::shared_ptr<HugeCTR::DataDistributor> data_distributor;
-  if (indices_only) {
-    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
-        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
-        core_resource_manager_list, ebc_param, table_param_list);
-  } else {
-    // Now the ragged_static_embedding only supports indices_only table.
-    // Must have a data distributor with indices == true;
-    auto copy_ebc_param = ebc_param;
-    copy_ebc_param.indices_only_ = true;
-
-    data_distributor = std::make_shared<HugeCTR::DataDistributor>(
-        ebc_param.universal_batch_size, ebc_param.key_type, resource_manager,
-        core_resource_manager_list, copy_ebc_param, table_param_list);
-  }
+  std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
+      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
+                                                 resource_manager, core_resource_manager_list,
+                                                 ebc_param, table_param_list);
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
@@ -453,36 +446,40 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
   }
 }
 
+// TODO: add int64_t/uint64_t test case
 #define EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, output_layout, \
-                             indices_only)                                                   \
+                             sort_strategy, allreduce_strategy)                              \
   embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(                             \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);         \
+      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,         \
+      allreduce_strategy);                                                                   \
   embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(                            \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);
-/*
-embedding_collection_e2e<uint64_t, uint32_t, uint32_t, float>(                                   \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);               \
-embedding_collection_e2e<int64_t, uint32_t, uint32_t, __half>(                                   \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);               \
-embedding_collection_e2e<uint32_t, uint64_t, uint32_t, float>(                                   \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);               \
-embedding_collection_e2e<uint32_t, int64_t, uint32_t, __half>(                                   \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);               \
-embedding_collection_e2e<uint64_t, uint64_t, uint32_t, float>(                                   \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);               \
-embedding_collection_e2e<int64_t, int64_t, uint32_t, __half>(                                    \
-lookup_params, shard_matrix, grouped_emb_params, output_layout, indices_only);
- * */
+      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,         \
+      allreduce_strategy);
 
-#define EBC_E2E_TEST(lookup_params, shard_matrix, grouped_emb_params)   \
-  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, \
-                       EmbeddingLayout::FeatureMajor, false)            \
-  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, \
-                       EmbeddingLayout::BatchMajor, false)              \
-  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, \
-                       EmbeddingLayout::FeatureMajor, true)             \
-  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, \
-                       EmbeddingLayout::BatchMajor, true)
+#define EBC_E2E_TEST(lookup_params, shard_matrix, grouped_emb_params)                              \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::FeatureMajor, SortStrategy::Radix,                         \
+                       AllreduceStrategy::Dense)                                                   \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::FeatureMajor, SortStrategy::Radix,                         \
+                       AllreduceStrategy::Sparse)                                                  \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::FeatureMajor, SortStrategy::Segmented,                     \
+                       AllreduceStrategy::Dense)                                                   \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::FeatureMajor, SortStrategy::Segmented,                     \
+                       AllreduceStrategy::Sparse)                                                  \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::BatchMajor, SortStrategy::Radix, AllreduceStrategy::Dense) \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::BatchMajor, SortStrategy::Radix,                           \
+                       AllreduceStrategy::Sparse)                                                  \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::BatchMajor, SortStrategy::Segmented,                       \
+                       AllreduceStrategy::Dense)                                                   \
+  EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
+                       EmbeddingLayout::BatchMajor, SortStrategy::Segmented,                       \
+                       AllreduceStrategy::Sparse)
 
 // dp
 namespace dp {

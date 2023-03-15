@@ -42,9 +42,6 @@ struct HierModelParallelEmbeddingMeta {
 
   WgradAttr wgrad_attr;
 
-  std::vector<int> h_table_id_to_global_start_indices;
-  core23::Tensor table_id_to_global_start_indices;
-
   EmbeddingOutputAttr output_attr;
   IntraModelCommBufferAttr intra_model_buffer_attr;
   std::vector<IntraModelReductionBufferAttr> intra_model_reduction_buffer_attr_in_all_nodes;

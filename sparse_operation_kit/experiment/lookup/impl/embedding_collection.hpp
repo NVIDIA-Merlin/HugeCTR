@@ -29,9 +29,9 @@
 // clang-format on
 
 #include "HugeCTR/core23/device.hpp"
-#include "HugeCTR/core23/tensor.hpp"
 #include "HugeCTR/core23/device_type.hpp"
 #include "HugeCTR/core23/shape.hpp"
+#include "HugeCTR/core23/tensor.hpp"
 
 namespace sok {
 namespace core23 = HugeCTR::core23;
@@ -91,7 +91,10 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
     core23::ToScalarType<DType>::value,
     ::embedding::EmbeddingLayout::FeatureMajor,
     ::embedding::EmbeddingLayout::FeatureMajor,
-    false
+    ::embedding::SortStrategy::Segmented,
+    ::embedding::KeysPreprocessStrategy::None,
+    ::embedding::AllreduceStrategy::Dense,
+    ::embedding::CommunicationStrategy::Uniform
   ));
 }
 }  // namespace sok

@@ -33,12 +33,27 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
            pybind11::arg("name"), pybind11::arg("max_vocabulary_size"), pybind11::arg("ev_size"),
            pybind11::arg("opt_params_or_empty") = std::nullopt,
            pybind11::arg("init_param_or_empty") = std::nullopt);
+  pybind11::enum_<::embedding::CommunicationStrategy>(m, "CommunicationStrategy")
+      .value("Uniform", ::embedding::CommunicationStrategy::Uniform)
+      .value("Hierarchical", ::embedding::CommunicationStrategy::Hierarchical)
+      .export_values();
   pybind11::class_<HugeCTR::EmbeddingCollectionConfig,
                    std::shared_ptr<HugeCTR::EmbeddingCollectionConfig>>(m,
                                                                         "EmbeddingCollectionConfig")
-      .def(pybind11::init<const std::string &, bool>(),
-           pybind11::arg("output_layout") = "feature_major", pybind11::arg("indices_only") = false)
-      .def("embedding_lookup", &HugeCTR::EmbeddingCollectionConfig::embedding_lookup,
+      .def(pybind11::init<bool, ::embedding::CommunicationStrategy>(),
+           pybind11::arg("use_exclusive_keys") = false,
+           pybind11::arg("comm_strategy") = ::embedding::CommunicationStrategy::Uniform)
+      .def("embedding_lookup",
+           pybind11::overload_cast<const EmbeddingTableConfig &, const std::string &,
+                                   const std::string &, const std::string &>(
+               &HugeCTR::EmbeddingCollectionConfig::embedding_lookup),
+           pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
+           pybind11::arg("combiner"))
+      .def("embedding_lookup",
+           pybind11::overload_cast<const std::vector<EmbeddingTableConfig> &,
+                                   const std::vector<std::string> &, const std::string &,
+                                   const std::vector<std::string> &>(
+               &HugeCTR::EmbeddingCollectionConfig::embedding_lookup),
            pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))
       .def("shard", &HugeCTR::EmbeddingCollectionConfig::shard, pybind11::arg("shard_matrix"),

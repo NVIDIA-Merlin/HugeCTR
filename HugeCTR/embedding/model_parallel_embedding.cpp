@@ -129,13 +129,6 @@ UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
   network_buffer_attr.init(core, ebc_param, grouped_id, h_global_lookup_id_list_);
   wgrad_attr.init(core, ebc_param, grouped_id);
 
-  if (ebc_param.indices_only_ && !ebc_param.table_id_to_vocabulary_size.empty()) {
-    this->h_table_id_to_global_start_indices = ebc_param.get_table_id_to_global_start_indices();
-    table_id_to_global_start_indices = core23::Tensor(
-        params.shape({static_cast<int64_t>(h_table_id_to_global_start_indices.size())})
-            .data_type(core23::ScalarType::Int32));
-    core23::copy_sync(table_id_to_global_start_indices, h_table_id_to_global_start_indices);
-  }
   update_mutable_meta(core, ebc_param, grouped_id);
 }
 
@@ -200,24 +193,19 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
                                                              params.universal_batch_size,
                                                              key_type};
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
-  SegmentdUnique segmentd_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
+  SegmentdUnique segmented_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};
-  if (params.indices_only_) {
-    int vocubulary_size_sum = meta_.h_table_id_to_global_start_indices.back();
-    int end_bit = static_cast<int>(std::log2(static_cast<float>(vocubulary_size_sum) + 1));
-    IndicesSort indices_sort{core,
-                             meta_.table_id_to_global_start_indices,
-                             end_bit,
-                             meta_.num_local_hotness_,
-                             params.universal_batch_size,
-                             key_type};
+  if (params.sort_strategy_ == SortStrategy::Radix) {
+    IndicesSort indices_sort{core, meta_.num_local_hotness_, params.universal_batch_size, key_type};
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, indices_sort,
-                                         cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
-  } else {
+                                         cal_dst_ids, segmented_unique, cal_dst_offset_mp);
+  } else if (params.sort_strategy_ == SortStrategy::Segmented) {
     SegmentedSortDevice segmented_sort{core, meta_.num_local_hotness_, params.universal_batch_size,
                                        meta_.wgrad_attr.num_table, key_type};
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, segmented_sort,
-                                         cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
+                                         cal_dst_ids, segmented_unique, cal_dst_offset_mp);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
   local_reduce_.init(core, meta_.kernel_params, meta_.max_ev_size_,

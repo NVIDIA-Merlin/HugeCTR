@@ -24,24 +24,11 @@ namespace embedding {
 void MPLocalReduceIndexCalculation::init(
     std::shared_ptr<CoreResourceManager> core,
     const LocalReduceIndexCalculation& local_reduce_index_calculation,
-    const SegmentedSortDevice& segmented_sort_device, const CalDstIds& cal_dst_ids,
+    const SortKeyAndSrcIdOp& sort_op, const CalDstIds& cal_dst_ids,
     const SegmentdUnique& segmented_unique, const CalDstOffsetMP& cal_dst_offset_mp) {
   core_ = core;
   local_reduce_index_calculation_ = local_reduce_index_calculation;
-  segmented_sort_device_ = segmented_sort_device;
-  cal_dst_ids_ = cal_dst_ids;
-  segmented_unique_ = segmented_unique;
-  cal_dst_offset_mp_ = cal_dst_offset_mp;
-}
-
-void MPLocalReduceIndexCalculation::init(
-    std::shared_ptr<CoreResourceManager> core,
-    const LocalReduceIndexCalculation& local_reduce_index_calculation,
-    const IndicesSort& indices_sort, const CalDstIds& cal_dst_ids,
-    const SegmentdUnique& segmented_unique, const CalDstOffsetMP& cal_dst_offset_mp) {
-  core_ = core;
-  local_reduce_index_calculation_ = local_reduce_index_calculation;
-  indices_sort_ = indices_sort;
+  sort_op_ = sort_op;
   cal_dst_ids_ = cal_dst_ids;
   segmented_unique_ = segmented_unique;
   cal_dst_offset_mp_ = cal_dst_offset_mp;
@@ -57,19 +44,11 @@ void MPLocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput& e
     cal_dst_offset_mp_(input.table_ids, input.table_id_to_ev_size, input.num_unique_keys,
                        output.ev_start_indices, stream);
   };
-  if (!indices_sort_.table_id_to_global_start_indices.empty()) {
-    local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, indices_sort_,
-                                                         segmented_unique_, cal_dst_ids_,
-                                                         reduction_indices, wgrad, batch_size);
-    if (need_cal_unique_range) local_reduce_index_calculation_.cal_unique_key_table_range(wgrad);
-    local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_local_wgrad);
-  } else {
-    local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, segmented_sort_device_,
-                                                         segmented_unique_, cal_dst_ids_,
-                                                         reduction_indices, wgrad, batch_size);
-    if (need_cal_unique_range) local_reduce_index_calculation_.cal_unique_key_table_range(wgrad);
-    local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_local_wgrad);
-  }
+  local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, sort_op_, segmented_unique_,
+                                                       cal_dst_ids_, reduction_indices, wgrad,
+                                                       batch_size);
+  if (need_cal_unique_range) local_reduce_index_calculation_.cal_unique_key_table_range(wgrad);
+  local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_local_wgrad);
 }
 
 }  // namespace embedding

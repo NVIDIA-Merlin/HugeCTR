@@ -528,8 +528,8 @@ SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManag
   });
 }
 
-void SegmentedSortDevice::operator()(const embedding::SortInput &input,
-                                     embedding::SortOutput &output, cudaStream_t stream) {
+void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::SortOutput &output,
+                                     cudaStream_t stream) {
   // sort
   DISPATCH_INTEGRAL_FUNCTION_CORE23(input.keys.data_type().type(), key_t, [&] {
     int num_table = input.unique_table_ids.num_elements();
@@ -541,12 +541,8 @@ void SegmentedSortDevice::operator()(const embedding::SortInput &input,
   });
 }
 
-IndicesSort::IndicesSort(const std::shared_ptr<CoreResourceManager> &core,
-                         const core23::Tensor &table_id_to_global_start_indices, int end_bit,
-                         int max_num_keys, int batch_size, core23::DataType key_type)
-    : table_id_to_global_start_indices(table_id_to_global_start_indices), end_bit(end_bit) {
-  HCTR_CHECK_HINT(end_bit > 0 && static_cast<int64_t>(end_bit) < key_type.size() * 8,
-                  "end_bit error");
+IndicesSort::IndicesSort(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
+                         int batch_size, core23::DataType key_type) {
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 

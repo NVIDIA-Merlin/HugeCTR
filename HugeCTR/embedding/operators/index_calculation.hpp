@@ -99,20 +99,16 @@ struct SegmentedSortDevice {
   SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                       int batch_size, int num_table, core23::DataType key_type);
 
-  void operator()(const SortInput &input, SortOutput &output, cudaStream_t stream);
+  void operator()(SortInput &input, SortOutput &output, cudaStream_t stream);
 };
 
 struct IndicesSort {
-  core23::Tensor table_id_to_global_start_indices;
-  int end_bit;  // Question by hkang: is int type enough
-
   core23::Tensor d_temp_sort_storage;
 
   IndicesSort() = default;
 
-  IndicesSort(const std::shared_ptr<CoreResourceManager> &core,
-              const core23::Tensor &table_id_to_global_start_indices, int end_bit, int max_num_keys,
-              int batch_size, core23::DataType key_type);
+  IndicesSort(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys, int batch_size,
+              core23::DataType key_type);
 
   void operator()(SortInput &input, SortOutput &output, cudaStream_t stream);
 };

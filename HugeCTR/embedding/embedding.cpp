@@ -30,7 +30,7 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
         embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
         break;
       case TablePlacementStrategy::ModelParallel:
-        switch (ebc_param.grouped_emb_params[emb_id].comm_strategy) {
+        switch (ebc_param.comm_strategy_) {
           case CommunicationStrategy::Uniform:
             embeddings.push_back(
                 std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
