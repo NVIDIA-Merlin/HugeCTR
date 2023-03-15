@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -36,12 +37,14 @@ int main(int argc, char *argv[]) {
   long embedding_vector_size = std::atoi(argv[2]);
   long num_of_floats = num_of_keys * embedding_vector_size;
   std::string filepath = argv[3];
-  std::cout << "Generate num_of_floats is " << num_of_floats << std::endl;
+  std::cout << "num_of_floats is " << num_of_floats << std::endl;
+  if (!std::filesystem::exists(filepath)) std::filesystem::create_directories(filepath);
   std::cout << "filepath is " << filepath << std::endl;
   uniform_real_distribution<float> u(-1, 1);
   default_random_engine e(time(NULL));
   auto start = chrono::system_clock::now();
   long bulk_size = 256000000;
+  std::cout << "Generating " << num_of_keys << " keys." << std::endl;
   for (int i = 0; i <= num_of_floats / bulk_size; i++) {
     long batch_size = std::min(bulk_size, num_of_floats - (i * bulk_size));
     if (batch_size == 0) break;
@@ -58,7 +61,6 @@ int main(int argc, char *argv[]) {
         emb_data[i] = u(e);
       }
     }
-    std::cout << "writing " << batch_size << " floats" << std::endl;
     //============ WRITING A VECTOR INTO A FILE ================
     if (i == 0) {
       std::ofstream emb_stream(filepath + "/emb_vector",
@@ -74,7 +76,6 @@ int main(int argc, char *argv[]) {
     //===========================================================
   }
 
-  std::cout << "Generating keys is " << num_of_keys << std::endl;
   std::vector<long long> key_data;
   for (long long i = 0; i < num_of_keys; ++i) {
     key_data.emplace_back(i);
