@@ -77,7 +77,9 @@ reader = hugectr.DataReaderParams(
     eval_num_samples=EVAL_NUM_SAMPLES,
     cache_eval_data=51,
     slot_size_array=SLOT_SIZE_ARRAY,
-    async_param=hugectr.AsyncParam(32, 4, 10, 2, 4096, True, hugectr.Alignment_t.Auto),
+    async_param=hugectr.AsyncParam(
+        32, 4, 10, 2, 4096, True, hugectr.Alignment_t.Auto, False, False
+    ),
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True

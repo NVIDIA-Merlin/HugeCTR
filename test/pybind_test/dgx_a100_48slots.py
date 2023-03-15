@@ -105,10 +105,14 @@ reader = hugectr.DataReaderParams(
         5000,
         30000,
     ],
-    async_param=hugectr.AsyncParam(32, 4, 10, 2, 4096, True, hugectr.Alignment_t.Auto),
+    async_param=hugectr.AsyncParam(
+        32, 4, 10, 2, 4096, True, hugectr.Alignment_t.Auto, False, False
+    ),
 )
 optimizer = hugectr.CreateOptimizer(
-    optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True
+    optimizer_type=hugectr.Optimizer_t.SGD,
+    update_type=hugectr.Update_t.Local,
+    atomic_update=True,
 )
 # 2. Initialize the Model instance
 model = hugectr.Model(solver, reader, optimizer)
@@ -287,5 +291,9 @@ model.graph_to_json(graph_config_file="dlrm.json")
 model.compile()
 model.summary()
 model.fit(
-    max_iter=75868, display=1000, eval_interval=3793, snapshot=2000000, snapshot_prefix="dlrm"
+    max_iter=75868,
+    display=1000,
+    eval_interval=3793,
+    snapshot=2000000,
+    snapshot_prefix="dlrm",
 )
