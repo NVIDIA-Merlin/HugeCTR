@@ -38,7 +38,7 @@ using DPIndexCalculation = IndexCalculation<DPKeySelector>;
 struct DenseAllreduceIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
   LocalReduceIndexCalculation local_reduce_index_calculation_;
-  IndicesSort indices_sort_;
+  SortKeyAndSrcIdOp indices_sort_;
   CalDstIds cal_dst_ids_;
   SegmentdUnique segmented_unique_;
 
@@ -89,7 +89,7 @@ struct SparseAllreduceCalEVStartIndicesStorage {
 struct SparseAllreduceIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
   LocalReduceIndexCalculation local_reduce_index_calculation_;
-  SegmentedSortDevice segmented_sort_device_;
+  SortKeyAndSrcIdOp segmented_sort_device_;
   CalDstIds cal_dst_ids_;
   SegmentdUnique segmented_unique_;
 

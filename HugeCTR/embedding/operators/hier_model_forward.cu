@@ -176,7 +176,7 @@ IntraModelReductionBufferAttr::IntraModelReductionBufferAttr(
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel &&
-                      group_params.comm_strategy == CommunicationStrategy::Hierarchical,
+                      ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
                   "IntraModelReductionBufferAttr must be initialized by ModelParallel & "
                   "Hierarchical communication");
 

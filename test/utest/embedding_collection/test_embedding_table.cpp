@@ -71,7 +71,10 @@ void test_embedding_table(int device_id, int table_type) {
                                      HugeCTR::core23::ToScalarType<float>::value,
                                      EmbeddingLayout::BatchMajor,
                                      EmbeddingLayout::FeatureMajor,
-                                     false};
+                                     embedding::SortStrategy::Radix,
+                                     embedding::KeysPreprocessStrategy::None,
+                                     embedding::AllreduceStrategy::Dense,
+                                     CommunicationStrategy::Uniform};
 
   IGroupedEmbeddingTable* embedding_table;
   if (table_type == 0) {

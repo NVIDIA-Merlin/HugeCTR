@@ -75,9 +75,6 @@ struct UniformModelParallelEmbeddingMeta {
 
   WgradAttr wgrad_attr;
 
-  std::vector<int> h_table_id_to_global_start_indices;
-  core23::Tensor table_id_to_global_start_indices;
-
   UniformModelParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
                                     const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
 

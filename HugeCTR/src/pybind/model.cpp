@@ -819,19 +819,19 @@ std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::ID
 }  // namespace core_helper
 
 template <typename emb_t>
-void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manager_,
-                                size_t batch_size_per_gpu,
-                                const EmbeddingCollectionConfig& ebc_config,
-                                const embedding::EmbeddingCollectionParam& ebc_param,
-                                std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-                                std::vector<core23::Tensor>& ebc_output) {
+void allocate_ebc_output_helper_for_feature_major(
+    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
+    const EmbeddingCollectionConfig& ebc_config,
+    const embedding::EmbeddingCollectionParam& ebc_param,
+    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
+    std::vector<core23::Tensor>& ebc_output) {
+  HCTR_CHECK(ebc_config.output_layout_ == embedding::EmbeddingLayout::FeatureMajor);
   int num_local_gpus = resource_manager_->get_local_gpu_count();
   for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
     CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
 
     auto buff = GeneralBuffer2<CudaAllocator>::create();
     auto block_buffer = buff->create_block<emb_t>();
-    std::vector<std::string> top_name_list;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       const embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
       std::string top_name = ebc_config.top_names_[lookup_id];
@@ -842,11 +842,7 @@ void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manage
 
       Tensor2<emb_t> emb_output;
       block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &emb_output);
-      if (ebc_param.output_layout_ == embedding::EmbeddingLayout::FeatureMajor) {
-        tensor_entries_list_[local_gpu_id].push_back({top_name, emb_output.shrink()});
-      } else {
-        top_name_list.push_back(top_name);
-      }
+      tensor_entries_list_[local_gpu_id].push_back({top_name, emb_output.shrink()});
     }
     buff->allocate();
     auto continous_emb_output = block_buffer->as_tensor();
@@ -856,44 +852,48 @@ void allocate_ebc_output_helper(std::shared_ptr<ResourceManager> resource_manage
                           resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
     ebc_output.push_back(
         core_helper::convert_tensor2_to_core23_tensor(continous_emb_output, device));
-
-    if (ebc_param.output_layout_ == embedding::EmbeddingLayout::BatchMajor) {
-      // a WAR since interaction layout only support 3d output
-      const auto ebc_3d_batch_major_output = std::getenv("HUGECTR_EBC_3D_BATCH_MAJOR_OUTPUT");
-      if (nullptr != ebc_3d_batch_major_output && 1 == std::atoi(ebc_3d_batch_major_output)) {
-        int concate_out_dims = continous_emb_output.get_num_elements();
-        HCTR_CHECK_HINT(concate_out_dims % ebc_param.num_lookup == 0,
-                        "Can not split batch major output to 3d");
-        continous_emb_output.reset_shape(
-            {batch_size_per_gpu, static_cast<size_t>(ebc_param.num_lookup),
-             concate_out_dims / batch_size_per_gpu / ebc_param.num_lookup});
-      }
-      // Use rules to generate a single name for batch-major output
-      std::string concat_top_name = join(top_name_list, ",");
-      tensor_entries_list_[local_gpu_id].push_back(
-          {concat_top_name, continous_emb_output.shrink()});
-    }
   }
 }
 
-template void allocate_ebc_output_helper<__half>(
+template <typename emb_t>
+void allocate_ebc_output_helper_for_batch_major(
     std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
     const EmbeddingCollectionConfig& ebc_config,
     const embedding::EmbeddingCollectionParam& ebc_param,
     std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core23::Tensor>& ebc_output);
+    std::vector<core23::Tensor>& ebc_output) {
+  int num_local_gpus = resource_manager_->get_local_gpu_count();
+  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+    CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
 
-template void allocate_ebc_output_helper<float>(
-    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
-    const EmbeddingCollectionConfig& ebc_config,
-    const embedding::EmbeddingCollectionParam& ebc_param,
-    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core23::Tensor>& ebc_output);
+    int64_t emb_out_dims = 0;
+    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+      const embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+
+      emb_out_dims += (lookup_param.combiner == embedding::Combiner::Concat)
+                          ? lookup_param.max_hotness * lookup_param.ev_size
+                          : lookup_param.ev_size;
+    }
+
+    auto buff = GeneralBuffer2<CudaAllocator>::create();
+    Tensor2<emb_t> continous_emb_output;
+    buff->reserve({batch_size_per_gpu, static_cast<size_t>(emb_out_dims)}, &continous_emb_output);
+    buff->allocate();
+
+    core23::Device device(core23::DeviceType::GPU,
+                          resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+    ebc_output.push_back(
+        core_helper::convert_tensor2_to_core23_tensor(continous_emb_output, device));
+
+    tensor_entries_list_[local_gpu_id].push_back(
+        {ebc_config.batch_major_output_name_, continous_emb_output.shrink()});
+  }
+}
 
 std::vector<int> get_table_id_to_vocabulary_size(
-    const std::vector<embedding::EmbeddingTableParam>& table_params, bool indices_only) {
+    const std::vector<embedding::EmbeddingTableParam>& table_params, bool need_vocabulary_size) {
   // indices only need to initialize table offset
-  if (!indices_only) {
+  if (!need_vocabulary_size) {
     return {};
   }
 
@@ -940,19 +940,15 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
           : embedding::EmbeddingLayout::BatchMajor;
 
   std::vector<std::string> bottom_name_list;
-  std::vector<std::string> top_name_list;
   for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
     auto bottom_name = ebc_config.bottom_names_[lookup_id];
-    auto top_name = ebc_config.top_names_[lookup_id];
     bottom_name_list.push_back(bottom_name);
-    top_name_list.push_back(top_name);
   }
 
   std::string bottom_name = join(bottom_name_list, ",");
   deactivate_tensor(tensor_active_, bottom_name);
 
   layer_info_.push_back("EmbeddingCollection" + std::to_string(ebc_list_.size()));
-  input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
 
   auto lookup_params = create_lookup_params_from_ebc_config(table_name_to_id_dict, ebc_config);
   for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
@@ -973,8 +969,11 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     }
   }
 
+  bool need_vocabulary_size =
+      (ebc_config.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) ||
+      (ebc_config.allreduce_strategy_ == embedding::AllreduceStrategy::Dense);
   std::vector<int> table_id_to_vocabulary_size =
-      get_table_id_to_vocabulary_size(emb_table_list, ebc_config.indices_only_);
+      get_table_id_to_vocabulary_size(emb_table_list, need_vocabulary_size);
   embedding::EmbeddingCollectionParam ebc_param{num_table,
                                                 table_id_to_vocabulary_size,
                                                 num_lookup,
@@ -987,8 +986,11 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 offset_type,
                                                 emb_type,
                                                 input_layout_,
-                                                ebc_config.outptu_layout_,
-                                                ebc_config.indices_only_};
+                                                ebc_config.output_layout_,
+                                                ebc_config.sort_strategy_,
+                                                ebc_config.keys_preprocess_strategy_,
+                                                ebc_config.allreduce_strategy_,
+                                                ebc_config.comm_strategy_};
 
   embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
                                                      table_id_to_vocabulary_size,
@@ -1002,8 +1004,11 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                      offset_type,
                                                      emb_type,
                                                      input_layout_,
-                                                     ebc_config.outptu_layout_,
-                                                     ebc_config.indices_only_};
+                                                     ebc_config.output_layout_,
+                                                     ebc_config.sort_strategy_,
+                                                     ebc_config.keys_preprocess_strategy_,
+                                                     ebc_config.allreduce_strategy_,
+                                                     ebc_config.comm_strategy_};
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 
@@ -1058,34 +1063,38 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     }
   }
 
-  // allocate output buffer
+  // activate_ebc_output_tensor
   size_t batch_size_per_gpu = solver_.batchsize / num_total_gpus;
   size_t eval_batch_size_per_gpu = solver_.batchsize_eval / num_total_gpus;
-  if (solver_.use_mixed_precision) {
-    allocate_ebc_output_helper<__half>(resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-                                       train_tensor_entries_list_, train_ebc_outptut_);
-    allocate_ebc_output_helper<__half>(resource_manager_, eval_batch_size_per_gpu, ebc_config,
-                                       ebc_param, evaluate_tensor_entries_list_,
-                                       evaluate_ebc_outptut_);
-  } else {
-    allocate_ebc_output_helper<float>(resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-                                      train_tensor_entries_list_, train_ebc_outptut_);
-    allocate_ebc_output_helper<float>(resource_manager_, eval_batch_size_per_gpu, ebc_config,
-                                      ebc_param, evaluate_tensor_entries_list_,
-                                      evaluate_ebc_outptut_);
-  }
-
-  // activate_ebc_output_tensor
   if (ebc_param.output_layout_ == embedding::EmbeddingLayout::FeatureMajor) {
+    std::vector<std::string> top_name_list;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-      std::string top_name = ebc_config.top_names_[lookup_id];
       int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
                              ? lookup_param.max_hotness * lookup_param.ev_size
                              : lookup_param.ev_size;
 
+      std::string top_name = ebc_config.top_names_[lookup_id];
+      top_name_list.push_back(top_name);
+
       activate_tensor(tensor_active_, top_name);
       tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
+    }
+    input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
+    if (solver_.use_mixed_precision) {
+      allocate_ebc_output_helper_for_feature_major<__half>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entries_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_feature_major<__half>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
+    } else {
+      allocate_ebc_output_helper_for_feature_major<float>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entries_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_feature_major<float>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
     }
   } else {
     int concate_out_dims = 0;
@@ -1098,19 +1107,26 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
       concate_out_dims += emb_out_dims;
     }
 
-    std::string concat_top_name = join(top_name_list, ",");
-    activate_tensor(tensor_active_, concat_top_name);
+    activate_tensor(tensor_active_, ebc_config.batch_major_output_name_);
+    tensor_shape_info_raw_.insert(
+        {ebc_config.batch_major_output_name_, {solver_.batchsize, concate_out_dims}});
+    input_output_info_.push_back(std::make_pair(bottom_name, ebc_config.batch_major_output_name_));
 
-    // a WAR since interaction layout only support 3d output
-    const auto ebc_3d_batch_major_output = std::getenv("HUGECTR_EBC_3D_BATCH_MAJOR_OUTPUT");
-    if (nullptr != ebc_3d_batch_major_output && 1 == std::atoi(ebc_3d_batch_major_output)) {
-      HCTR_CHECK_HINT(concate_out_dims % ebc_param.num_lookup == 0,
-                      "Can not split batch major output to 3d");
-      tensor_shape_info_raw_.insert(
-          {concat_top_name,
-           {solver_.batchsize, ebc_param.num_lookup, concate_out_dims / ebc_param.num_lookup}});
+    // allocate output buffer
+    if (solver_.use_mixed_precision) {
+      allocate_ebc_output_helper_for_batch_major<__half>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entries_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_batch_major<__half>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
     } else {
-      tensor_shape_info_raw_.insert({concat_top_name, {solver_.batchsize, concate_out_dims}});
+      allocate_ebc_output_helper_for_batch_major<float>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entries_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_batch_major<float>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
     }
   }
 

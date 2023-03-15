@@ -55,12 +55,9 @@ struct UniformDataParallelEmbeddingMeta {
 
   WgradAttr wgrad_attr;
 
-  std::vector<int> h_table_id_to_global_start_indices;
-  core23::Tensor table_id_to_global_start_indices;
-  core23::Tensor table_id_to_allreduce_buffer_start_indices;
-
   KernelParams kernel_params;
 
+  AllreduceStrategy allreduce_strategy_;
   UniformDataParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
                                    const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
 
@@ -85,13 +82,13 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
 
   core23::Tensor embedding_vec_;
 
-  void backward_per_gpu_for_indices_only(const EmbeddingInput &embedding_input,
-                                         const embedding::EmbeddingOutput &top_grad,
-                                         embedding::Wgrad &wgrad, int batch_size);
+  void backward_per_gpu_with_dense_allreduce(const EmbeddingInput &embedding_input,
+                                             const embedding::EmbeddingOutput &top_grad,
+                                             embedding::Wgrad &wgrad, int batch_size);
 
-  void backward_per_gpu_for_dynamic_table(const EmbeddingInput &embedding_input,
-                                          const embedding::EmbeddingOutput &top_grad,
-                                          embedding::Wgrad &wgrad, int batch_size);
+  void backward_per_gpu_with_sparse_allreduce(const EmbeddingInput &embedding_input,
+                                              const embedding::EmbeddingOutput &top_grad,
+                                              embedding::Wgrad &wgrad, int batch_size);
 
  public:
   UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core,

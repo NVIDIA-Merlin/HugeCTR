@@ -64,7 +64,6 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
       {2, 2, Combiner::Average, 10, table_params[2].ev_size},
   };
 
-  bool indices_only = false;
   EmbeddingCollectionParam ebc_param{static_cast<int>(table_params.size()),
                                      {10000, 20000, 4711},
                                      static_cast<int>(lookup_params.size()),
@@ -78,7 +77,10 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
                                      HugeCTR::core23::ToScalarType<float>::value,
                                      EmbeddingLayout::BatchMajor,
                                      EmbeddingLayout::FeatureMajor,
-                                     indices_only};
+                                     embedding::SortStrategy::Radix,
+                                     KeysPreprocessStrategy::None,
+                                     AllreduceStrategy::Dense,
+                                     CommunicationStrategy::Uniform};
 
   // Implementation to test.
   std::unique_ptr<IGroupedEmbeddingTable> test_table;
