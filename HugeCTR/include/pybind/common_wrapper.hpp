@@ -159,7 +159,7 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("max_num_requests_per_thread") = 0, pybind11::arg("io_depth") = 0,
            pybind11::arg("io_alignment") = 0, pybind11::arg("shuffle"),
            pybind11::arg("aligned_type") = Alignment_t::None,
-           pybind11::arg("multi_hot_reader") = false, pybind11::arg("is_dense_float") = false);
+           pybind11::arg("multi_hot_reader") = true, pybind11::arg("is_dense_float") = true);
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
       .def(pybind11::init<size_t, int64_t, double, double, double, double,
                           hybrid_embedding::CommunicationType,

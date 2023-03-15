@@ -151,21 +151,46 @@ A data reader can be optimized using asynchronous reading. This is done by creat
 
 * `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.
 
-* `max_num_requests_per_thread`: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value.
+* `max_num_requests_per_thread`: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value. Ignored when `multi_hot_reader=True`.
 
-* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.
+* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value. Ignored when `multi_hot_reader=True`.
 
-* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value.
+* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value. Ignored when `multi_hot_reader=True`.
 
 * `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.
 
-* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value.
+* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value. Ignored when `multi_hot_reader=True`.
 
-Example:
+* `multi_hot_reader`:  Boolean, if this option is enabled, multi-hot RawAsync reader is activated and static hotness for categorical feature is supported. The hotness information is obtained from `Input layer`. Meanwhile the dense data type can be either `float` or `unsigned int`. The default value is True.
+
+* `is_dense_float` : Boolean, if this option is enabled, data type of dense features is `float` otherwise `unsigned int`. The default value is True.
+
+**Note**  
+
+When `multi_hot_reader=False`, `is_dense_float` must be `False`, otherwise exception will be thrown. When `multi_hot_reader=False`, 
 ```python
-async_param = hugectr.AsyncParam(32, 4, 10, 2, 512, True, hugectr.Alignment_t.Non)
+max_num_requests_per_thread
+io_depth
+io_alignment
+aligned_type
 ```
+are ignored. In addition, when multi_hot_reader=True, the param num_threads actually refers to the number of IO threads per GPU.
 
+Example:`
+1. `one-hot` data reader AsyncParam
+```python
+async_param = hugectr.AsyncParam(32, 4, 10, 2, 512, True, hugectr.Alignment_t.Non, False, False)
+```
+2. `multi-hot` data reader AsyncParam
+```python
+async_param = hugectr.AsyncParam(
+        num_threads=1,
+        num_batches_per_thread=16,
+        shuffle=False,
+        multi_hot_reader=True,
+        is_dense_float=True)
+
+```
 ### HybridEmbeddingParam
 
 #### HybridEmbeddingParam class
@@ -227,7 +252,7 @@ Specify one of the following types:
   * `hugectr.DataReaderType_t.Norm`
   * `hugectr.DataReaderType_t.Raw`
   * `hugectr.DataReaderType_t.Parquet`
-  * `DataReaderType_t.RawAsync`
+  * `hugectr.DataReaderType_t.RawAsync`
 
 * `source`: List[str] or String, the training dataset source.
 For Norm or Parquet dataset, specify the file list of training data, such as `source = "file_list.txt"`.
@@ -293,7 +318,7 @@ We support the following dataset formats within our `DataReaderParams`.
 * [Raw](#raw)
 * [Parquet](#parquet)
 
-<img src ="/user_guide_src/dataset_format.png" width="80%" align="center"/>
+<img src ="/user_guide_src/dataset.png" width="80%" align="center"/>
 
 <div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
 
@@ -305,7 +330,9 @@ To maximize the data loading performance and minimize the storage, the Norm data
 
 ##### Data Files
 
-A data file is the minimum reading granularity for a reading thread, so at least 10 files in each file list are required to achieve the best performance. A data file consists of a header and actual tabular data.
+A data file is the minimum reading granularity for a reading thread, so it's better to have more files than the number of reading threads to achieve the best performance. A data file consists of a header and actual tabular data. A complete header always starts with a 4-byte constant **64** which is the size of header in bytes.
+
+Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all sigificant bytes of a sample (excluding the **nnz**). Users should be in charge of correctly specifying if Norm dataset supports checksum in [DataReaderParams](#DataReaderParams)
 
 Header Definition:
 
@@ -337,7 +364,6 @@ typedef struct Slot_ {
 } Slot;
 ```
 
-The Data field often has a lot of samples. Each sample starts with the labels formatted as integers and followed by `nnz` (number of nonzero) with the input key using the long long (or unsigned int) format as shown in Fig. 1 (a).
 
 The input keys for categorical are distributed to the slots with no overlap allowed. For example: `slot[0] = {0,10,32,45}, slot[1] = {1,2,5,67}`. If there is any overlap, it will cause an undefined behavior. For example, given `slot[0] = {0,10,32,45}, slot[1] = {1,10,5,67}`, the table looking up the `10` key will produce different results based on how the slots are assigned to the GPUs.
 
@@ -371,19 +397,42 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.No
 
 #### Raw
 
-The Raw dataset format is different from the Norm dataset format in that the training data appears in one binary file using int32. Fig. 1 (b) shows the structure of a Raw dataset sample.
+The Raw dataset format is different from the Norm dataset format in several aspects:
 
-**NOTE**: Only one-hot data is accepted with this format.
+1. Raw dataset only consists of a single binary file.
+2. Raw dataset file only supports static hotness.
+3. Raw dataset file only supports unsigned int datatype of categorical features.
+4. The datatype of dense features can be either float or unsigned int.
 
-The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.
+Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of data reader that can load data from disk to model, with respect to embeding types.
+
+|                         reader type                          |     hotness      |       specific embedding type        |      dense data type      |
+| :----------------------------------------------------------: | :--------------: | :----------------------------------: | :-----------------------: |
+|                `hugectr.DataReaderType_t.Raw`                |      1-hot       | `LocalizedSlotSparseEmbeddingOneHot` |      `unsigned int`       |
+| `hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=False` |      1-hot       |       `HybridSparseEmbedding`        |      `unsigned int`       |
+| `hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=True` | static multi-hot |            `embedding collection`            | `float ` or `unsigned int` |
+
+Please refer to [DataReaderParams](#DataReaderParams) for more details about `AsyncParam`.
+
+**NOTE**
+
+When the dense type of Raw dataset is `unsigned int`, the data reader will perform `log(x+1)` on dense features `x` before feeding them into model network.
+
+The `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding` are going to be incorporated into `3G embedding`, therefore the `hugectr.DataReaderType_t.Raw` and 
+`hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=False` will be deprecated as well. 
 
 Example:
 
 ```python
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
                                   source = ["./wdl_raw/train_data.bin"],
+                                  eval_source = "./wdl_raw/validation_data.bin")
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.RawAsync,
+                                  source = ["./wdl_raw/train_data.bin"],
                                   eval_source = "./wdl_raw/validation_data.bin",
-                                  check_type = hugectr.Check_t.Sum)
+                                  async_param=hugectr.AsyncParam(
+                                  multi_hot_reader=True,
+                                  is_dense_float=True))
 ```
 
 #### Parquet

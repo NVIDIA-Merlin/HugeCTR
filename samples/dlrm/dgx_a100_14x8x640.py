@@ -117,6 +117,8 @@ reader = hugectr.DataReaderParams(
         io_alignment,
         True,
         hugectr.Alignment_t.Auto,
+        multi_hot_reader=False,
+        is_dense_float=False,
     ),
 )
 optimizer = hugectr.CreateOptimizer(
