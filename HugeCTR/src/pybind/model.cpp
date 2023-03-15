@@ -1388,6 +1388,16 @@ void Model::compile() {
     }
   }
 
+  if (is_scheduled_datareader() && is_scheduled_embedding()) {
+    // will create pipeline for sparse embedding and dense network
+    create_train_pipeline();
+    create_evaluate_pipeline();
+  } else {
+    // will create pipeline for dense network.
+    create_train_network_pipeline();
+    create_eval_network_pipeline();
+  }
+
   size_t embed_wgrad_size = 0;
   if (!reader_params_.async_param.multi_hot_reader) {
     auto train_data_reader_ar_i64 =
@@ -1452,6 +1462,12 @@ void Model::compile() {
       }
     }
 
+    // start to touch dataset, so we can record run_start
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
+    }
+
     if (init_data_reader_ar_i32) {
       init_data_reader_ar_i32->start();
       init_data_reader_ar_i32->read_a_batch_to_device();
@@ -1486,22 +1502,11 @@ void Model::compile() {
         }
       }
     }
-  }
-
-  if (is_scheduled_datareader() && is_scheduled_embedding()) {
-    // will create pipeline for sparse embedding and dense network
-    create_train_pipeline();
-    create_evaluate_pipeline();
   } else {
-    // will create pipeline for dense network.
-    create_train_network_pipeline();
-    create_eval_network_pipeline();
-  }
-
-  // start to touch dataset, so we can record run_start
-  if (solver_.perf_logging) {
-    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
-    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
+    }
   }
 
   if (solver_.perf_logging) {
