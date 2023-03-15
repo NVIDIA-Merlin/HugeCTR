@@ -13,13 +13,19 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
-if(NOT DISABLE_CUDF)
-    add_subdirectory(criteo_script)
-    add_subdirectory(raw_script)
-    add_subdirectory(criteo_script_legacy)
-    add_subdirectory(dlrm_script)
-    add_subdirectory(io_benchmark)
-    add_subdirectory(db_benchmark)
-    add_subdirectory(inference_test_scripts)
-endif()
+cmake_minimum_required(VERSION 3.8)
+file(GLOB model_generator_src
+  model_generator/generate_embedding.cpp
+)
+
+file(GLOB triton_request_generator_src
+  request_generator/generate_triton_request.cpp
+)
+
+add_executable(model_generator ${model_generator_src})
+target_compile_features(model_generator PUBLIC cxx_std_17)
+target_link_libraries(model_generator PUBLIC huge_ctr_static)
+
+add_executable(request_generator ${triton_request_generator_src})
+target_compile_features(request_generator PUBLIC cxx_std_17)
+target_link_libraries(request_generator PUBLIC huge_ctr_static)
