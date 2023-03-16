@@ -172,7 +172,6 @@ __global__ void vector_fma4(T* pout, const T* pvec_a, const T* pvec_b, const T* 
   const int gtid = blockDim.x * blockIdx.x + threadIdx.x;
   if (gtid < len) pout[gtid] = pvec_a[gtid] * pvec_b[gtid] + pvec_c[gtid];
 }
-// TODO: unrolling
 template <typename T>
 __global__ void vector_fma4_align8(T* pout, const T* pvec_a, const T* pvec_b, const T* pvec_c,
                                    const int len) {
@@ -186,7 +185,6 @@ __global__ void vector_fma4_align8(T* pout, const T* pvec_a, const T* pvec_b, co
   }
 }
 
-// TODO: unrolling
 template <typename T>
 __global__ void vector_fma3_align8(T* __restrict__ pout, const T* __restrict__ pvec_a,
                                    const T* __restrict__ pvec_b, const int len) {
@@ -239,37 +237,39 @@ template <>
 __global__ void vector_mul_fma3_align<__half, 8, 3>(
     __half* __restrict__ pout0, __half* __restrict__ pout1, const __half* __restrict__ pvec_a,
     const __half* __restrict__ pvec_b, const __half* __restrict__ pvec_c, const int len) {
-  const int gtid = (blockDim.x * blockIdx.x + threadIdx.x) << 3;
-  if (gtid >= len) {
+  const int start = (blockDim.x * blockIdx.x + threadIdx.x) << 3;
+  if (start >= len) {
     return;
   }
   float4 a_8, b_8, c_8, acc_8;
   half2x4 out0, out1;
   half2x4 *out0_ptr, *out1_ptr;
-  out0_ptr = reinterpret_cast<half2x4*>(pout0 + gtid);
-  out1_ptr = reinterpret_cast<half2x4*>(pout1 + gtid);
-  // load
-  a_8 = *reinterpret_cast<const float4*>(pvec_a + gtid);
-  b_8 = *reinterpret_cast<const float4*>(pvec_b + gtid);
-  c_8 = *reinterpret_cast<const float4*>(pvec_c + gtid);
-  acc_8 = *reinterpret_cast<const float4*>(pout1 + gtid);
-  // mul
-  out0[0] = __hmul2(*reinterpret_cast<half2*>(&a_8.x), *reinterpret_cast<half2*>(&b_8.x));
-  out0[1] = __hmul2(*reinterpret_cast<half2*>(&a_8.y), *reinterpret_cast<half2*>(&b_8.y));
-  out0[2] = __hmul2(*reinterpret_cast<half2*>(&a_8.z), *reinterpret_cast<half2*>(&b_8.z));
-  out0[3] = __hmul2(*reinterpret_cast<half2*>(&a_8.w), *reinterpret_cast<half2*>(&b_8.w));
-  *out0_ptr = out0;
-  // add
-  out1[0] = __hfma2(*reinterpret_cast<half2*>(&a_8.x), *reinterpret_cast<half2*>(&c_8.x),
-                    *reinterpret_cast<half2*>(&acc_8.x));
-  out1[1] = __hfma2(*reinterpret_cast<half2*>(&a_8.y), *reinterpret_cast<half2*>(&c_8.y),
-                    *reinterpret_cast<half2*>(&acc_8.y));
-  out1[2] = __hfma2(*reinterpret_cast<half2*>(&a_8.z), *reinterpret_cast<half2*>(&c_8.z),
-                    *reinterpret_cast<half2*>(&acc_8.z));
-  out1[3] = __hfma2(*reinterpret_cast<half2*>(&a_8.w), *reinterpret_cast<half2*>(&c_8.w),
-                    *reinterpret_cast<half2*>(&acc_8.w));
-  // store
-  *out1_ptr = out1;
+  for (int gtid = start; gtid < len; gtid += blockDim.x * gridDim.x * 8) {
+    out0_ptr = reinterpret_cast<half2x4*>(pout0 + gtid);
+    out1_ptr = reinterpret_cast<half2x4*>(pout1 + gtid);
+    // load
+    a_8 = *reinterpret_cast<const float4*>(pvec_a + gtid);
+    b_8 = *reinterpret_cast<const float4*>(pvec_b + gtid);
+    c_8 = *reinterpret_cast<const float4*>(pvec_c + gtid);
+    acc_8 = *reinterpret_cast<const float4*>(pout1 + gtid);
+    // mul
+    out0[0] = __hmul2(*reinterpret_cast<half2*>(&a_8.x), *reinterpret_cast<half2*>(&b_8.x));
+    out0[1] = __hmul2(*reinterpret_cast<half2*>(&a_8.y), *reinterpret_cast<half2*>(&b_8.y));
+    out0[2] = __hmul2(*reinterpret_cast<half2*>(&a_8.z), *reinterpret_cast<half2*>(&b_8.z));
+    out0[3] = __hmul2(*reinterpret_cast<half2*>(&a_8.w), *reinterpret_cast<half2*>(&b_8.w));
+    *out0_ptr = out0;
+    // add
+    out1[0] = __hfma2(*reinterpret_cast<half2*>(&a_8.x), *reinterpret_cast<half2*>(&c_8.x),
+                      *reinterpret_cast<half2*>(&acc_8.x));
+    out1[1] = __hfma2(*reinterpret_cast<half2*>(&a_8.y), *reinterpret_cast<half2*>(&c_8.y),
+                      *reinterpret_cast<half2*>(&acc_8.y));
+    out1[2] = __hfma2(*reinterpret_cast<half2*>(&a_8.z), *reinterpret_cast<half2*>(&c_8.z),
+                      *reinterpret_cast<half2*>(&acc_8.z));
+    out1[3] = __hfma2(*reinterpret_cast<half2*>(&a_8.w), *reinterpret_cast<half2*>(&c_8.w),
+                      *reinterpret_cast<half2*>(&acc_8.w));
+    // store
+    *out1_ptr = out1;
+  }
 }
 // d = a * b + c
 template <>
@@ -356,6 +356,7 @@ void fused_mul_fma3(Tensor2<T>& Y0, Tensor2<T>& Y1, const Tensor2<T>& A, const T
   int GRID_DIM = (len + BLOCK_DIM - 1) / BLOCK_DIM;
   if (len % 8 == 0 && std::is_same<T, __half>::value) {
     GRID_DIM = (len / 8 + BLOCK_DIM - 1) / BLOCK_DIM;
+    // GRID_DIM = std::min((len / 8 + BLOCK_DIM - 1) / BLOCK_DIM, 216);
     vector_mul_fma3_align<T, 8, 3>
         <<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pmat_o0, pmat_o1, pmat_a, pmat_b, pmat_c, len);
   } else {
@@ -717,65 +718,89 @@ void MultiCrossBackwardFunctor<T>::operator()(
   }
   matrix_add(output_tensor, tmp_mat_tensors[2], tmp_mat_tensors[1], stream);
 }
+// dgrad_stream is the main compute stream
 template <typename T>
 void MultiCrossBackwardFunctorv2<T>::operator()(
-    cudaStream_t stream, const Tensor2<T>& input_tensor, const Tensors2<T>& kernel_tensors,
+    cudaStream_t dgrad_stream, cudaStream_t wgrad_stream, bool async_wgrad,
+    cudaEvent_t& event_overlap, const Tensor2<T>& input_tensor, const Tensors2<T>& kernel_tensors,
     const Tensors2<T>& layer_output_tensors, const Tensors2<T>& layer_hidden_tensors,
-    const Tensor2<T>& grad_tensor, Tensor2<T>& output_tensor, Tensors2<T>& kernel_output_tensors,
-    Tensors2<T>& bias_output_tensors, Tensors2<T>& XU_tensors, Tensor2<T> tmp_mat_tensors[],
-    int num_layers, const std::vector<CublasDesc<T>>& xu_descr_,
-    const std::vector<CublasDesc<T>>& xuvb_descr_,
+    Tensors2<T>& kernel_output_tensors, Tensors2<T>& grad_tensors, Tensors2<T>& bias_output_tensors,
+    Tensors2<T>& XU_tensors, Tensor2<T> accum_dx_tensor_, Tensors2<T> bprop_bottoms, int num_layers,
+    const std::vector<CublasDesc<T>>& xu_descr_, const std::vector<CublasDesc<T>>& xuvb_descr_,
     const std::vector<CublasDesc<T>>& du_descrs_bprop_,
     const std::vector<CublasDesc<T>>& dhidden_descrs_bprop_,
     const std::vector<CublasAlgo<T>>& xu_bprop_algo_,
     const std::vector<CublasAlgo<T>>& xuvb_bprop_algo_,
     const std::vector<CublasAlgo<T>>& du_bprop_algos_,
     const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_, cublasLtHandle_t cublaslt_handle) {
-  cudaMemsetAsync(tmp_mat_tensors[2].get_ptr(), 0, tmp_mat_tensors[2].get_size_in_bytes(), stream);
+  cudaMemsetAsync(accum_dx_tensor_.get_ptr(), 0, accum_dx_tensor_.get_size_in_bytes(),
+                  dgrad_stream);
   auto batchsize = input_tensor.get_dimensions()[0];
   auto projection_dim = kernel_tensors[0].get_dimensions()[1];
   auto vec_length = input_tensor.get_dimensions()[1];
   auto U_row = kernel_tensors[0].get_dimensions()[0];
   auto V_col = kernel_tensors[1].get_dimensions()[1];
+  bool dgrad_act_shared = grad_tensors[0].get_ptr() == input_tensor.get_ptr();
   for (int i = num_layers - 1; i >= 0; i--) {
     // S0 = dY_i .* X , shape: (batchsize, w)
     // dX += dY_i .* H , shape: (batchsize, w)
-    fused_mul_fma3(tmp_mat_tensors[0], tmp_mat_tensors[2],
-                   i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1], input_tensor,
-                   layer_hidden_tensors[i], stream);
+    fused_mul_fma3(bprop_bottoms[2 * i], accum_dx_tensor_, grad_tensors[i + 1], input_tensor,
+                   layer_hidden_tensors[i], dgrad_stream);
+
     {
-      // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
-      const T* mat_a = XU_tensors[i].get_ptr();
-      const T* mat_b = tmp_mat_tensors[0].get_ptr();
-      T* mat_c = kernel_output_tensors[2 * i + 1].get_ptr();
-      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
-                          cublaslt_handle, stream);
+      if (async_wgrad) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
+      }
       // 2 dH = S1 = S0 * V^T shape: (batchsize, project_dim)
-      mat_a = tmp_mat_tensors[0].get_ptr();
-      mat_b = kernel_tensors[2 * i + 1].get_ptr();
-      mat_c = tmp_mat_tensors[3].get_ptr();
+      const T* mat_a = bprop_bottoms[2 * i].get_ptr();
+      const T* mat_b = kernel_tensors[2 * i + 1].get_ptr();
+      T* mat_c = bprop_bottoms[1 + 2 * i].get_ptr();
       this->gemm_functor_(1.0f, mat_a, mat_b, 0.0f, mat_c, mat_c, xuvb_descr_[i],
-                          xuvb_bprop_algo_[i], cublaslt_handle, stream);
+                          xuvb_bprop_algo_[i], cublaslt_handle, dgrad_stream);
+
+      // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
+      mat_a = XU_tensors[i].get_ptr();
+      mat_b = bprop_bottoms[2 * i].get_ptr();
+      mat_c = kernel_output_tensors[2 * i + 1].get_ptr();
+      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
+                          cublaslt_handle, async_wgrad ? wgrad_stream : dgrad_stream);
+
+      if (async_wgrad) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
+      }
+
       // 3  dU = X_{i-1} ^T * S1 shape: (w, project_dim)
       mat_a = i == 0 ? input_tensor.get_ptr() : layer_output_tensors[i - 1].get_ptr();
-      mat_b = tmp_mat_tensors[3].get_ptr();
+      mat_b = bprop_bottoms[1 + 2 * i].get_ptr();
       mat_c = kernel_output_tensors[2 * i].get_ptr();
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, du_descrs_bprop_[i],
-                          du_bprop_algos_[i], cublaslt_handle, stream);
+                          du_bprop_algos_[i], cublaslt_handle,
+                          async_wgrad ? wgrad_stream : dgrad_stream);
+
+      if (!i && async_wgrad && dgrad_act_shared) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, wgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(dgrad_stream, event_overlap));
+      }
       // 4 dY_{i-1} = S1 * U^T + dY_{i} shape: (batchsize, w)
-      mat_a = tmp_mat_tensors[3].get_ptr();
+      mat_a = bprop_bottoms[1 + 2 * i].get_ptr();
       mat_b = kernel_tensors[i * 2].get_ptr();
-      auto dgrad = (i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1]);
-      mat_c = dgrad.get_ptr();
-      T* mat_d = tmp_mat_tensors[1].get_ptr();
+      mat_c = grad_tensors[i + 1].get_ptr();
+      T* mat_d = grad_tensors[i].get_ptr();
       // gemm: mat_d = mat_a * mat_b + mat_c
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_d, dhidden_descrs_bprop_[i],
-                          dhidden_bprop_algos_[i], cublaslt_handle, stream);
+                          dhidden_bprop_algos_[i], cublaslt_handle, dgrad_stream);
     }
   }
-  matrix_add(output_tensor, tmp_mat_tensors[2], tmp_mat_tensors[1], stream);
+  matrix_add(grad_tensors[0], accum_dx_tensor_, grad_tensors[0], dgrad_stream);
+  if (async_wgrad) {
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap, wgrad_stream));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(dgrad_stream, event_overlap));
+  }
 }
 
+// TODO deprecate it
 template <typename T>
 MultiCrossLayer<T>::MultiCrossLayer(
     const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
@@ -783,13 +808,16 @@ MultiCrossLayer<T>::MultiCrossLayer(
     const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, const Tensor2<T>& in_tensor,
     const Tensor2<T>& out_tensor, const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
-    size_t projection_dim, std::vector<Initializer_t> initializer_types, bool enable_tf32_compute)
+    size_t projection_dim, std::vector<Initializer_t> initializer_types, bool enable_tf32_compute,
+    bool async_wgrad)
     : TrainableLayer<T>(master_weight_buff, weight_buff, wgrad_buff, gpu_resource,
                         initializer_types),
       num_layers_(num_layers),
       projection_dim_(projection_dim),
-      enable_tf32_compute_(enable_tf32_compute) {
+      enable_tf32_compute_(enable_tf32_compute),
+      async_wgrad_(async_wgrad) {
   try {
+    HCTR_CHECK_HINT(!async_wgrad_, "async wgrad needs separate input and gradient tensor");
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.get_dimensions();
     const auto& out_tensor_dim = out_tensor.get_dimensions();
@@ -798,6 +826,9 @@ MultiCrossLayer<T>::MultiCrossLayer(
     if (projection_dim_ == 0) {
       HCTR_LOG(WARNING, ROOT, "using multi-cross v1\n");
     }
+    CudaDeviceContext context(this->get_device_id());
+    wgrad_stream_ = gpu_resource->get_stream("cross_layer_wgrad");
+    event_fork_ = gpu_resource->get_event("cross_layer_overlap");
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
@@ -808,7 +839,6 @@ MultiCrossLayer<T>::MultiCrossLayer(
         HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor doesn't match");
       }
     }
-
     // check num_lyaers
     if (num_layers < 1) {
       HCTR_OWN_THROW(Error_t::WrongInput, "num_layers < 1");
@@ -867,19 +897,19 @@ MultiCrossLayer<T>::MultiCrossLayer(
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
     // setup blobs
-
     std::vector<size_t> blob_dim = {batchsize, vec_length};
 
-    // input
-    blob_tensors_.push_back(in_tensor);
-    // intermediate output
+    // forward input
+    activation_tensors_.push_back(in_tensor);
+    // intermediate output (activation)
     for (int i = 0; i < num_layers - 1; i++) {
       Tensor2<T> tensor;
       blobs_buff->reserve(blob_dim, &tensor);
-      blob_tensors_.push_back(tensor);
+      activation_tensors_.push_back(tensor);
     }
-    // output
-    blob_tensors_.push_back(out_tensor);
+    // forward output
+    activation_tensors_.push_back(out_tensor);
+    blobs_buff->reserve(blob_dim, &accum_dx_tensor_);
 
     for (int i = 0; i < 3; i++) {
       blobs_buff->reserve(blob_dim, &tmp_mat_tensors_[i]);
@@ -903,12 +933,212 @@ MultiCrossLayer<T>::MultiCrossLayer(
       blobs_buff->reserve(hidden_dim, &tensor);
       hidden_tensors_.push_back(tensor);
     }
+    // bprop buffer
+    /*
+      bottom[ 2*i ] => dY .* X (elementwise dot)
+      bottom[ 2*i+1] => dH
+    */
+    if (this->projection_dim_) {
+      for (int i = 0; i < num_layers; i++) {
+        Tensor2<T> tensor[2];
+        blobs_buff->reserve(blob_dim, &tensor[0]);
+        blobs_buff->reserve({batchsize, projection_dim_}, &tensor[1]);
+
+        bprop_bottom_.push_back(tensor[0]);
+        bprop_bottom_.push_back(tensor[1]);
+      }
+      // backward output
+      dgrads_.push_back(in_tensor);
+      for (int i = 0; i < num_layers - 1; i++) {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(blob_dim, &tensor);
+        dgrads_.push_back(tensor);
+      }
+      // backward input
+      dgrads_.push_back(out_tensor);
+    }
+
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
+template <typename T>
+MultiCrossLayer<T>::MultiCrossLayer(
+    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+    const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, const Tensors2<T>& in_tensors,
+    const Tensors2<T>& out_tensors, const std::shared_ptr<GPUResource>& gpu_resource,
+    int num_layers, size_t projection_dim, std::vector<Initializer_t> initializer_types,
+    bool enable_tf32_compute, bool async_wgrad)
+    : TrainableLayer<T>(master_weight_buff, weight_buff, wgrad_buff, gpu_resource,
+                        initializer_types),
+      num_layers_(num_layers),
+      projection_dim_(projection_dim),
+      enable_tf32_compute_(enable_tf32_compute),
+      async_wgrad_(async_wgrad) {
+  try {
+    const auto& in_tensor = in_tensors[0];
+    const auto& out_tensor = out_tensors[0];
+    // if (async_wgrad_) {
+    //   HCTR_CHECK_HINT(in_tensors.size() == 2, "async mlp requires 2 input tensors\n");
+    // }
+    // check the in_tensor and out_tensor
+    const auto& in_tensor_dim = in_tensor.get_dimensions();
+    const auto& out_tensor_dim = out_tensor.get_dimensions();
+    size_t vec_length = in_tensor_dim[1];
+    size_t batchsize = in_tensor_dim[0];
+    if (projection_dim_ == 0) {
+      HCTR_LOG(WARNING, ROOT, "using multi-cross v1\n");
+    }
+    CudaDeviceContext context(this->get_device_id());
+    wgrad_stream_ = gpu_resource->get_stream("cross_layer_wgrad");
+    event_fork_ = gpu_resource->get_event("cross_layer_overlap");
+    // event_joint_ = gpu_resource->get_event("cross_layer_overlap_joint");
 
+    // 1. two dim?
+    if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    }
+    // 2. same dim?
+    for (int i = 0; i < 2; i++) {
+      if (in_tensor_dim[i] != out_tensor_dim[i]) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor doesn't match");
+      }
+    }
+    // check num_lyaers
+    if (num_layers < 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "num_layers < 1");
+    }
+
+    std::vector<size_t> bias_dim = {1, vec_length};
+    std::vector<size_t> weight_dim = {vec_length, vec_length};
+    std::vector<size_t> U_dim = {vec_length, this->projection_dim_};
+    std::vector<size_t> V_dim = {this->projection_dim_, vec_length};
+    if (!this->projection_dim_) {
+      weight_dim[0] = 1ul;
+    }
+    for (int i = 0; i < num_layers; i++) {
+      // setup weights and bias
+      {
+        // dcnv2
+        if (this->projection_dim_) {
+          this->set_weight(3 * i, U_dim);
+          this->set_weight(3 * i + 1, V_dim);
+          this->set_weight(3 * i + 2, bias_dim);
+          // dcnv1
+        } else {
+          this->set_weight(2 * i, weight_dim);
+          this->set_weight(2 * i + 1, bias_dim);
+        }
+      }
+      // setup weight gradient
+      // dcnv2
+      if (this->projection_dim_) {
+        this->set_wgrad(3 * i, U_dim);
+        this->set_wgrad(3 * i + 1, V_dim);
+        this->set_wgrad(3 * i + 2, bias_dim);
+        // dcnv1
+      } else {
+        this->set_wgrad(2 * i, weight_dim);
+        this->set_wgrad(2 * i + 1, bias_dim);
+      }
+
+      if (this->projection_dim_) {
+        xu_descrs_fprop_.emplace_back();
+        xuvb_descrs_fprop_.emplace_back();
+        xu_descrs_bprop_.emplace_back();
+        xuvb_descrs_bprop_.emplace_back();
+        du_descrs_bprop_.emplace_back();
+        dhidden_descrs_bprop_.emplace_back();
+
+        xu_fprop_algos_.emplace_back();
+        xuvb_fprop_algos_.emplace_back();
+        xu_bprop_algos_.emplace_back();
+        xuvb_bprop_algos_.emplace_back();
+        du_bprop_algos_.emplace_back();
+        dhidden_bprop_algos_.emplace_back();
+      }
+    }
+
+    in_tensors_ = in_tensors;
+    out_tensors_ = out_tensors;
+    // setup blobs
+    std::vector<size_t> blob_dim = {batchsize, vec_length};
+
+    // forward input
+    activation_tensors_.push_back(in_tensor);
+    // intermediate output (activation)
+    for (int i = 0; i < num_layers - 1; i++) {
+      Tensor2<T> tensor;
+      blobs_buff->reserve(blob_dim, &tensor);
+      activation_tensors_.push_back(tensor);
+    }
+    // forward output
+    activation_tensors_.push_back(out_tensor);
+    blobs_buff->reserve(blob_dim, &accum_dx_tensor_);
+
+    for (int i = 0; i < 3; i++) {
+      blobs_buff->reserve(blob_dim, &tmp_mat_tensors_[i]);
+    }
+    if (projection_dim_) {
+      blobs_buff->reserve({batchsize, projection_dim_}, &tmp_mat_tensors_[3]);
+    }
+    std::vector<size_t> tmp_vec_dim = {batchsize, 1};
+    std::vector<size_t> hidden_dim = {batchsize, weight_dim[0]};
+    blobs_buff->reserve(tmp_vec_dim, &tmp_vec_tensor_);
+    if (this->projection_dim_) {
+      std::vector<size_t> XU_dim = {batchsize, this->projection_dim_};
+      for (int i = 0; i < num_layers; i++) {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(XU_dim, &tensor);
+        XU_tensors_.push_back(tensor);
+      }
+    }
+    for (int i = 0; i < num_layers; i++) {
+      Tensor2<T> tensor;
+      blobs_buff->reserve(hidden_dim, &tensor);
+      hidden_tensors_.push_back(tensor);
+    }
+    // bprop buffer
+    /*
+      bottom[ 2*i ] => dY .* X (elementwise dot)
+      bottom[ 2*i+1] => dH
+    */
+    if (this->projection_dim_) {
+      for (int i = 0; i < num_layers; i++) {
+        Tensor2<T> tensor[2];
+        blobs_buff->reserve(blob_dim, &tensor[0]);
+        blobs_buff->reserve({batchsize, projection_dim_}, &tensor[1]);
+
+        bprop_bottom_.push_back(tensor[0]);
+        bprop_bottom_.push_back(tensor[1]);
+      }
+      // backward output
+      if (in_tensors.size() == 2) {
+        dgrads_.push_back(in_tensors[1]);
+      } else {
+        dgrads_.push_back(in_tensors[0]);
+      }
+      for (int i = 0; i < num_layers - 1; i++) {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(blob_dim, &tensor);
+        dgrads_.push_back(tensor);
+      }
+      // backward input
+      if (out_tensors.size() == 2) {
+        dgrads_.push_back(out_tensors[1]);
+      } else {
+        dgrads_.push_back(out_tensors[0]);
+      }
+    }
+
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
 template <typename T>
 void MultiCrossLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
@@ -930,20 +1160,21 @@ void MultiCrossLayer<T>::fprop(bool is_train) {
     }
   }
   for (int i = 0; i < num_layers_; i++) {
-    output_tensors.push_back(blob_tensors_[i + 1]);
+    output_tensors.push_back(activation_tensors_[i + 1]);
     hidden_tensors.push_back(hidden_tensors_[i]);
   }
   if (this->projection_dim_ == 0) {
     // dcn v1
     MultiCrossForwardFunctor<T>()(this->get_gpu().get_stream(), this->get_gpu().get_cublas_handle(),
-                                  blob_tensors_[0], kernel_tensors, bias_tensors, output_tensors,
-                                  hidden_tensors, num_layers_);
+                                  activation_tensors_[0], kernel_tensors, bias_tensors,
+                                  output_tensors, hidden_tensors, num_layers_);
   } else {
     // dcn v2
-    this->dcnv2_forward_functor_(this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors,
-                                 bias_tensors, XU_tensors_, output_tensors, hidden_tensors,
-                                 num_layers_, xu_descrs_fprop_, xuvb_descrs_fprop_, xu_fprop_algos_,
-                                 xuvb_fprop_algos_, this->get_gpu().get_cublaslt_handle());
+    this->dcnv2_forward_functor_(this->get_gpu().get_stream(), activation_tensors_[0],
+                                 kernel_tensors, bias_tensors, XU_tensors_, output_tensors,
+                                 hidden_tensors, num_layers_, xu_descrs_fprop_, xuvb_descrs_fprop_,
+                                 xu_fprop_algos_, xuvb_fprop_algos_,
+                                 this->get_gpu().get_cublaslt_handle());
   }
 }
 
@@ -981,23 +1212,24 @@ void MultiCrossLayer<T>::bprop() {
   }
 
   for (int i = 0; i < num_layers_ - 1; i++) {
-    forward_output_tensors.push_back(blob_tensors_[i + 1]);
+    forward_output_tensors.push_back(activation_tensors_[i + 1]);
   }
   if (this->projection_dim_ == 0) {
     // dcn v1
-    MultiCrossBackwardFunctor<T>()(
-        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
-        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
-        bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
+    MultiCrossBackwardFunctor<T>()(this->get_gpu().get_stream(), activation_tensors_[0],
+                                   kernel_tensors, forward_output_tensors, forward_hidden_tensors,
+                                   activation_tensors_[num_layers_], activation_tensors_[0],
+                                   kernel_output_tensors, bias_output_tensors, tmp_vec_tensor_,
+                                   tmp_mat_tensors_, num_layers_);
   } else {
     // dcn v2
     this->dcnv2_backward_functor_(
-        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
-        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
-        bias_output_tensors, this->XU_tensors_, tmp_mat_tensors_, num_layers_, xu_descrs_bprop_,
-        xuvb_descrs_bprop_, du_descrs_bprop_, dhidden_descrs_bprop_, xu_bprop_algos_,
-        xuvb_bprop_algos_, du_bprop_algos_, dhidden_bprop_algos_,
-        this->get_gpu().get_cublaslt_handle());
+        this->get_gpu().get_stream(), this->wgrad_stream_, this->async_wgrad_, this->event_fork_,
+        activation_tensors_[0], kernel_tensors, forward_output_tensors, forward_hidden_tensors,
+        kernel_output_tensors, this->dgrads_, bias_output_tensors, this->XU_tensors_,
+        accum_dx_tensor_, bprop_bottom_, num_layers_, xu_descrs_bprop_, xuvb_descrs_bprop_,
+        du_descrs_bprop_, dhidden_descrs_bprop_, xu_bprop_algos_, xuvb_bprop_algos_,
+        du_bprop_algos_, dhidden_bprop_algos_, this->get_gpu().get_cublaslt_handle());
   }
 }
 template <typename T>
@@ -1010,7 +1242,7 @@ void MultiCrossLayer<T>::search_algorithm() {
     // setting up for fprop()
     {
       for (int i = 0; i < num_layers_; i++) {
-        const auto& tensor_input = blob_tensors_[i];
+        const auto& tensor_input = activation_tensors_[i];
         const T* mat_a = tensor_input.get_ptr();
         const T* mat_b = this->get_weight(3 * i).get_ptr();
         T* mat_c = XU_tensors_[i].get_ptr();
@@ -1030,28 +1262,31 @@ void MultiCrossLayer<T>::search_algorithm() {
       for (int i = 0; i < num_layers_; i++) {
         // 1
         const T* mat_a = XU_tensors_[i].get_ptr();
-        const T* mat_b = tmp_mat_tensors_[0].get_ptr();
+        const T* mat_b = bprop_bottom_[2 * i].get_ptr();
         T* mat_c = this->get_wgrad(3 * i + 1).get_ptr();
         this->xu_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   xu_descrs_bprop_[i], cublaslt_handle, stream);
         // 2
-        mat_a = tmp_mat_tensors_[0].get_ptr();
+        mat_a = bprop_bottom_[2 * i].get_ptr();
         mat_b = this->get_wgrad(3 * i + 1).get_ptr();
-        mat_c = tmp_mat_tensors_[3].get_ptr();
+        mat_c = bprop_bottom_[1 + 2 * i].get_ptr();
         this->xuvb_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 0.0, mat_c, mat_c,
                                                     xuvb_descrs_bprop_[i], cublaslt_handle, stream);
         // 3
-        mat_a = blob_tensors_[i].get_ptr();
-        mat_b = tmp_mat_tensors_[3].get_ptr();
+        mat_a = activation_tensors_[i].get_ptr();
+        mat_b = bprop_bottom_[1 + 2 * i].get_ptr();
         mat_c = this->get_wgrad(3 * i).get_ptr();
         this->du_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   du_descrs_bprop_[i], cublaslt_handle, stream);
 
         // 4
-        mat_a = tmp_mat_tensors_[3].get_ptr();
+        mat_a = bprop_bottom_[1 + 2 * i].get_ptr();
         mat_b = this->get_weight(3 * i).get_ptr();
-        mat_c = tmp_mat_tensors_[0].get_ptr();
-        this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
+        mat_c = this->dgrads_[i + 1].get_ptr();
+        // mat_c = i == num_layers_ - 1 ? activation_tensors_[i + 1].get_ptr()
+        //  : bprop_bottom_[3 * (i + 1) + 1].get_ptr();
+        T* mat_d = this->dgrads_[i].get_ptr();
+        this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_d,
                                                        dhidden_descrs_bprop_[i], cublaslt_handle,
                                                        stream);
       }
@@ -1066,7 +1301,7 @@ void MultiCrossLayer<T>::initialize() {
     // setting up for fprop()
     {
       for (int i = 0; i < num_layers_; i++) {
-        const auto& tensor_input = blob_tensors_[i];
+        const auto& tensor_input = activation_tensors_[i];
         std::vector<size_t> dims_a(tensor_input.get_dimensions());
         std::vector<size_t> dims_b(this->get_weight(3 * i).get_dimensions());
         this->xu_descrs_fprop_[i].set_fprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -1104,7 +1339,7 @@ void MultiCrossLayer<T>::initialize() {
         this->xuvb_bprop_algos_[i].init_algorithm(this->xuvb_descrs_bprop_[i], cublaslt_handle);
 
         // 3
-        dims_a = blob_tensors_[i].get_dimensions();
+        dims_a = activation_tensors_[i].get_dimensions();
         dims_b = XU_tensors_[i].get_dimensions();
         this->du_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_T, CUBLAS_OP_N,
                                                  CUBLASLT_ORDER_ROW, this->enable_tf32_compute_);
@@ -1120,6 +1355,12 @@ void MultiCrossLayer<T>::initialize() {
                                                      cublaslt_handle);
       }
     }
+
+    // new (&dcnv2_backward_functor_) MultiCrossBackwardFunctorv2<T>(
+    //     this->get_gpu().get_stream(), wgrad_stream_, async_wgrad_, event_fork_, event_joint_,
+    //     cublaslt_handle, xu_descrs_bprop_, xuvb_descrs_bprop_, du_descrs_bprop_,
+    //     dhidden_descrs_bprop_, xu_bprop_algos_, xuvb_bprop_algos_, du_bprop_algos_,
+    //     dhidden_bprop_algos_);
   }
 }
 template <typename T>
@@ -1626,74 +1867,90 @@ void Core23TempMultiCrossBackwardFunctor<T>::operator()(
 
 template <typename T>
 void Core23TempMultiCrossBackwardFunctorv2<T>::operator()(
-    cudaStream_t stream, const core23::Tensor& input_tensor,
+    cudaStream_t dgrad_stream, cudaStream_t wgrad_stream, bool async_wgrad,
+    cudaEvent_t& event_overlap, const core23::Tensor& input_tensor,
     const std::vector<core23::Tensor>& kernel_tensors,
     const std::vector<core23::Tensor>& layer_output_tensors,
     const std::vector<core23::Tensor>& layer_hidden_tensors, const core23::Tensor& grad_tensor,
     core23::Tensor& output_tensor, std::vector<core23::Tensor>& kernel_output_tensors,
     std::vector<core23::Tensor>& bias_output_tensors, std::vector<core23::Tensor>& XU_tensors,
-    core23::Tensor tmp_mat_tensors[], int num_layers, const std::vector<CublasDesc<T>>& xu_descr_,
-    const std::vector<CublasDesc<T>>& xuvb_descr_,
+    core23::Tensor accum_dx_tensor_, std::vector<core23::Tensor> bprop_bottoms, int num_layers,
+    const std::vector<CublasDesc<T>>& xu_descr_, const std::vector<CublasDesc<T>>& xuvb_descr_,
     const std::vector<CublasDesc<T>>& du_descrs_bprop_,
     const std::vector<CublasDesc<T>>& dhidden_descrs_bprop_,
     const std::vector<CublasAlgo<T>>& xu_bprop_algo_,
     const std::vector<CublasAlgo<T>>& xuvb_bprop_algo_,
     const std::vector<CublasAlgo<T>>& du_bprop_algos_,
     const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_, cublasLtHandle_t cublaslt_handle) {
-  cudaMemsetAsync(tmp_mat_tensors[2].data(), 0, tmp_mat_tensors[2].num_bytes(), stream);
-  auto batchsize = input_tensor.shape().size(0);
-  auto projection_dim = kernel_tensors[0].shape().size(1);
-  auto vec_length = input_tensor.shape().size(1);
-  auto U_row = kernel_tensors[0].shape().size(0);
-  auto V_col = kernel_tensors[1].shape().size(1);
+  cudaMemsetAsync(accum_dx_tensor_.data(), 0, accum_dx_tensor_.num_bytes(), dgrad_stream);
+  auto batchsize = input_tensor.shape()[0];
+  auto projection_dim = kernel_tensors[0].shape()[1];
+  auto vec_length = input_tensor.shape()[1];
+  auto U_row = kernel_tensors[0].shape()[0];
+  auto V_col = kernel_tensors[1].shape()[1];
   for (int i = num_layers - 1; i >= 0; i--) {
     // S0 = dY_i .* X , shape: (batchsize, w)
     // dX += dY_i .* H , shape: (batchsize, w)
-    fused_mul_fma3<T>(tmp_mat_tensors[0], tmp_mat_tensors[2],
-                      i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1], input_tensor,
-                      layer_hidden_tensors[i], stream);
+    fused_mul_fma3<T>(bprop_bottoms[3 * i], accum_dx_tensor_,
+                      i == num_layers - 1 ? grad_tensor : bprop_bottoms[3 * (i + 1) + 1],
+                      input_tensor, layer_hidden_tensors[i], dgrad_stream);
+
     {
+      if (async_wgrad) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
+      }
       // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
       const T* mat_a = XU_tensors[i].data<T>();
-      const T* mat_b = tmp_mat_tensors[0].data<T>();
+      const T* mat_b = bprop_bottoms[3 * i].data<T>();
       T* mat_c = kernel_output_tensors[2 * i + 1].data<T>();
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
-                          cublaslt_handle, stream);
+                          cublaslt_handle, async_wgrad ? wgrad_stream : dgrad_stream);
       // 2 dH = S1 = S0 * V^T shape: (batchsize, project_dim)
-      mat_a = tmp_mat_tensors[0].data<T>();
+      mat_a = bprop_bottoms[3 * i].data<T>();
       mat_b = kernel_tensors[2 * i + 1].data<T>();
-      mat_c = tmp_mat_tensors[3].data<T>();
+      mat_c = bprop_bottoms[2 + 3 * i].data<T>();
       this->gemm_functor_(1.0f, mat_a, mat_b, 0.0f, mat_c, mat_c, xuvb_descr_[i],
-                          xuvb_bprop_algo_[i], cublaslt_handle, stream);
+                          xuvb_bprop_algo_[i], cublaslt_handle, dgrad_stream);
+      if (async_wgrad) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
+      }
       // 3  dU = X_{i-1} ^T * S1 shape: (w, project_dim)
       mat_a = i == 0 ? input_tensor.data<T>() : layer_output_tensors[i - 1].data<T>();
-      mat_b = tmp_mat_tensors[3].data<T>();
+      mat_b = bprop_bottoms[2 + 3 * i].data<T>();
       mat_c = kernel_output_tensors[2 * i].data<T>();
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, du_descrs_bprop_[i],
-                          du_bprop_algos_[i], cublaslt_handle, stream);
+                          du_bprop_algos_[i], cublaslt_handle,
+                          async_wgrad ? wgrad_stream : dgrad_stream);
       // 4 dY_{i-1} = S1 * U^T + dY_{i} shape: (batchsize, w)
-      mat_a = tmp_mat_tensors[3].data<T>();
+      mat_a = bprop_bottoms[2 + 3 * i].data<T>();
       mat_b = kernel_tensors[i * 2].data<T>();
-      auto dgrad = (i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1]);
+      auto dgrad = (i == num_layers - 1 ? grad_tensor : bprop_bottoms[3 * (i + 1) + 1]);
       mat_c = dgrad.data<T>();
-      T* mat_d = tmp_mat_tensors[1].data<T>();
+      T* mat_d = bprop_bottoms[3 * i + 1].data<T>();
       // gemm: mat_d = mat_a * mat_b + mat_c
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_d, dhidden_descrs_bprop_[i],
-                          dhidden_bprop_algos_[i], cublaslt_handle, stream);
+                          dhidden_bprop_algos_[i], cublaslt_handle, dgrad_stream);
     }
   }
-  matrix_add<T>(output_tensor, tmp_mat_tensors[2], tmp_mat_tensors[1], stream);
+  matrix_add<T>(output_tensor, accum_dx_tensor_, bprop_bottoms[1], dgrad_stream);
+  if (async_wgrad) {
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap, wgrad_stream));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(dgrad_stream, event_overlap));
+  }
 }
 
 template <typename T>
 Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim,
-    std::vector<Initializer_t> initializer_types, bool enable_tf32_compute)
+    std::vector<Initializer_t> initializer_types, bool enable_tf32_compute, bool async_wgrad)
     : Core23TempTrainableLayer<T>({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
       num_layers_(num_layers),
       projection_dim_(projection_dim),
-      enable_tf32_compute_(enable_tf32_compute) {
+      enable_tf32_compute_(enable_tf32_compute),
+      async_wgrad_(async_wgrad) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.shape();
@@ -1703,6 +1960,9 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     if (projection_dim_ == 0) {
       HCTR_LOG(WARNING, ROOT, "using multi-cross v1\n");
     }
+    CudaDeviceContext context(this->get_device_id());
+    wgrad_stream_ = gpu_resource->get_stream("cross_layer_wgrad");
+    overlap_event_ = gpu_resource->get_event("cross_layer_overlap");
     // 1. two dim?
     if (in_tensor_dim.dims() != 2 || out_tensor_dim.dims() != 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
@@ -1778,7 +2038,7 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
 
     // input
-    blob_tensors_.push_back(in_tensor);
+    activation_tensors_.push_back(in_tensor);
     // intermediate output
     for (int i = 0; i < num_layers - 1; i++) {
       core23::Tensor tensor = core23::Tensor(core23::TensorParams()
@@ -1786,10 +2046,15 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
                                                  .shape(blob_dim)
                                                  .device(device)
                                                  .buffer_params(blobs_buffer_params));
-      blob_tensors_.push_back(tensor);
+      activation_tensors_.push_back(tensor);
     }
     // output
-    blob_tensors_.push_back(out_tensor);
+    activation_tensors_.push_back(out_tensor);
+    accum_dx_tensor_ = core23::Tensor(core23::TensorParams()
+                                          .data_type(core23::ToScalarType<T>::value)
+                                          .shape(blob_dim)
+                                          .device(device)
+                                          .buffer_params(blobs_buffer_params));
 
     for (int i = 0; i < 3; i++) {
       tmp_mat_tensors_[i] = core23::Tensor(core23::TensorParams()
@@ -1833,6 +2098,32 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
                                                  .buffer_params(blobs_buffer_params));
       hidden_tensors_.push_back(tensor);
     }
+    // bprop buffer
+    /*
+      bottom[ 3*i ] => dY .* X (elementwise dot)
+      bottom[ 3*i+1] => dgrad (dY)
+      bottom[ 3*i+2] => dH
+    */
+    if (this->projection_dim_) {
+      for (int i = 0; i < num_layers; i++) {
+        bprop_bottom_.emplace_back(core23::TensorParams()
+                                       .data_type(core23::ToScalarType<T>::value)
+                                       .shape(blob_dim)
+                                       .device(device)
+                                       .buffer_params(blobs_buffer_params));
+        bprop_bottom_.emplace_back(core23::TensorParams()
+                                       .data_type(core23::ToScalarType<T>::value)
+                                       .shape(blob_dim)
+                                       .device(device)
+                                       .buffer_params(blobs_buffer_params));
+        bprop_bottom_.emplace_back(core23::TensorParams()
+                                       .data_type(core23::ToScalarType<T>::value)
+                                       .shape({batchsize, projection_dim_})
+                                       .device(device)
+                                       .buffer_params(blobs_buffer_params));
+      }
+    }
+
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -1860,20 +2151,21 @@ void Core23TempMultiCrossLayer<T>::fprop(bool is_train) {
     }
   }
   for (int i = 0; i < num_layers_; i++) {
-    output_tensors.push_back(blob_tensors_[i + 1]);
+    output_tensors.push_back(activation_tensors_[i + 1]);
     hidden_tensors.push_back(hidden_tensors_[i]);
   }
   if (this->projection_dim_ == 0) {
     // dcn v1
     Core23TempMultiCrossForwardFunctor<T>()(
-        this->get_gpu().get_stream(), this->get_gpu().get_cublas_handle(), blob_tensors_[0],
+        this->get_gpu().get_stream(), this->get_gpu().get_cublas_handle(), activation_tensors_[0],
         kernel_tensors, bias_tensors, output_tensors, hidden_tensors, num_layers_);
   } else {
     // dcn v2
-    this->dcnv2_forward_functor_(this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors,
-                                 bias_tensors, XU_tensors_, output_tensors, hidden_tensors,
-                                 num_layers_, xu_descrs_fprop_, xuvb_descrs_fprop_, xu_fprop_algos_,
-                                 xuvb_fprop_algos_, this->get_gpu().get_cublaslt_handle());
+    this->dcnv2_forward_functor_(this->get_gpu().get_stream(), activation_tensors_[0],
+                                 kernel_tensors, bias_tensors, XU_tensors_, output_tensors,
+                                 hidden_tensors, num_layers_, xu_descrs_fprop_, xuvb_descrs_fprop_,
+                                 xu_fprop_algos_, xuvb_fprop_algos_,
+                                 this->get_gpu().get_cublaslt_handle());
   }
 }
 
@@ -1911,22 +2203,24 @@ void Core23TempMultiCrossLayer<T>::bprop() {
   }
 
   for (int i = 0; i < num_layers_ - 1; i++) {
-    forward_output_tensors.push_back(blob_tensors_[i + 1]);
+    forward_output_tensors.push_back(activation_tensors_[i + 1]);
   }
   if (this->projection_dim_ == 0) {
     // dcn v1
     Core23TempMultiCrossBackwardFunctor<T>()(
-        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
-        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
-        bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
+        this->get_gpu().get_stream(), activation_tensors_[0], kernel_tensors,
+        forward_output_tensors, forward_hidden_tensors, activation_tensors_[num_layers_],
+        activation_tensors_[0], kernel_output_tensors, bias_output_tensors, tmp_vec_tensor_,
+        tmp_mat_tensors_, num_layers_);
   } else {
     // dcn v2
     this->dcnv2_backward_functor_(
-        this->get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
-        forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
-        bias_output_tensors, this->XU_tensors_, tmp_mat_tensors_, num_layers_, xu_descrs_bprop_,
-        xuvb_descrs_bprop_, du_descrs_bprop_, dhidden_descrs_bprop_, xu_bprop_algos_,
-        xuvb_bprop_algos_, du_bprop_algos_, dhidden_bprop_algos_,
+        this->get_gpu().get_stream(), this->wgrad_stream_, this->async_wgrad_, this->overlap_event_,
+        activation_tensors_[0], kernel_tensors, forward_output_tensors, forward_hidden_tensors,
+        activation_tensors_[num_layers_], activation_tensors_[0], kernel_output_tensors,
+        bias_output_tensors, this->XU_tensors_, accum_dx_tensor_, bprop_bottom_, num_layers_,
+        xu_descrs_bprop_, xuvb_descrs_bprop_, du_descrs_bprop_, dhidden_descrs_bprop_,
+        xu_bprop_algos_, xuvb_bprop_algos_, du_bprop_algos_, dhidden_bprop_algos_,
         this->get_gpu().get_cublaslt_handle());
   }
 }
@@ -1940,7 +2234,7 @@ void Core23TempMultiCrossLayer<T>::search_algorithm() {
     // setting up for fprop()
     {
       for (int i = 0; i < num_layers_; i++) {
-        const auto& tensor_input = blob_tensors_[i];
+        const auto& tensor_input = activation_tensors_[i];
         const T* mat_a = tensor_input.data<T>();
         const T* mat_b = this->get_weight(3 * i).template data<T>();
         T* mat_c = XU_tensors_[i].data<T>();
@@ -1960,28 +2254,30 @@ void Core23TempMultiCrossLayer<T>::search_algorithm() {
       for (int i = 0; i < num_layers_; i++) {
         // 1
         const T* mat_a = XU_tensors_[i].data<T>();
-        const T* mat_b = tmp_mat_tensors_[0].data<T>();
+        const T* mat_b = bprop_bottom_[3 * i].data<T>();
         T* mat_c = this->get_wgrad(3 * i + 1).template data<T>();
         this->xu_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   xu_descrs_bprop_[i], cublaslt_handle, stream);
         // 2
-        mat_a = tmp_mat_tensors_[0].data<T>();
+        mat_a = bprop_bottom_[3 * i].data<T>();
         mat_b = this->get_wgrad(3 * i + 1).template data<T>();
-        mat_c = tmp_mat_tensors_[3].data<T>();
+        mat_c = bprop_bottom_[2 + 3 * i].data<T>();
         this->xuvb_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 0.0, mat_c, mat_c,
                                                     xuvb_descrs_bprop_[i], cublaslt_handle, stream);
         // 3
-        mat_a = blob_tensors_[i].data<T>();
-        mat_b = tmp_mat_tensors_[3].data<T>();
+        mat_a = activation_tensors_[i].data<T>();
+        mat_b = bprop_bottom_[2 + 3 * i].data<T>();
         mat_c = this->get_wgrad(3 * i).template data<T>();
         this->du_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   du_descrs_bprop_[i], cublaslt_handle, stream);
 
         // 4
-        mat_a = tmp_mat_tensors_[3].data<T>();
+        mat_a = bprop_bottom_[2 + 3 * i].data<T>();
         mat_b = this->get_weight(3 * i).template data<T>();
-        mat_c = tmp_mat_tensors_[0].data<T>();
-        this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
+        mat_c = i == num_layers_ - 1 ? activation_tensors_[i + 1].data<T>()
+                                     : bprop_bottom_[3 * (i + 1) + 1].data<T>();
+        T* mat_d = bprop_bottom_[3 * i + 1].data<T>();
+        this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_d,
                                                        dhidden_descrs_bprop_[i], cublaslt_handle,
                                                        stream);
       }
@@ -2004,7 +2300,7 @@ void Core23TempMultiCrossLayer<T>::initialize() {
     // setting up for fprop()
     {
       for (int i = 0; i < num_layers_; i++) {
-        const auto& tensor_input = blob_tensors_[i];
+        const auto& tensor_input = activation_tensors_[i];
         std::vector<size_t> dims_a = shape_to_vector(tensor_input.shape());
         std::vector<size_t> dims_b = shape_to_vector(this->get_weight(3 * i).shape());
         this->xu_descrs_fprop_[i].set_fprop_attr(dims_a, dims_b, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -2042,7 +2338,7 @@ void Core23TempMultiCrossLayer<T>::initialize() {
         this->xuvb_bprop_algos_[i].init_algorithm(this->xuvb_descrs_bprop_[i], cublaslt_handle);
 
         // 3
-        dims_a = shape_to_vector(blob_tensors_[i].shape());
+        dims_a = shape_to_vector(activation_tensors_[i].shape());
         dims_b = shape_to_vector(XU_tensors_[i].shape());
         this->du_descrs_bprop_[i].set_bprop_attr(dims_a, dims_b, CUBLAS_OP_T, CUBLAS_OP_N,
                                                  CUBLASLT_ORDER_ROW, this->enable_tf32_compute_);
