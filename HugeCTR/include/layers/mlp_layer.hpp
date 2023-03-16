@@ -46,7 +46,6 @@ class MLPLayer : public TrainableLayer<T> {
   bool fuse_wb_;
   bool enable_tf32_compute_;
   bool skip_head_dgrad_;
-  bool inner_sync_overlap_stream_;
 
   bool event_overlap_created_;
   cudaEvent_t event_overlap_;
@@ -119,7 +118,6 @@ class Core23TempMLPLayer : public Core23TempTrainableLayer<T> {
   bool fuse_wb_;
   bool enable_tf32_compute_;
   bool skip_head_dgrad_;
-  bool inner_sync_overlap_stream_;
 
   bool event_overlap_created_;
   cudaEvent_t event_overlap_;

@@ -550,9 +550,6 @@ static void mlp_test(std::vector<Layer_t> network,
           layers[bprop_idx]->bprop();
         }
       }
-      if (config_set.async_mlp_wgrad) {
-        gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
-      }
     };
 
     auto run_network = [&]() {
@@ -569,9 +566,6 @@ static void mlp_test(std::vector<Layer_t> network,
                ++layer_loop_idx) {
             layers[bprop_idx]->bprop();
           }
-        }
-        if (config_set.async_mlp_wgrad) {
-          gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
         }
       } else {
         cudaGraphLaunch(graph_exec, gpu_resource->get_stream());

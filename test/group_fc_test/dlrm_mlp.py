@@ -27,7 +27,6 @@ solver = hugectr.CreateSolver(
     vvgpu=[[0]],
     repeat_dataset=True,
     use_mixed_precision=True,
-    async_mlp_wgrad=True,
     use_cuda_graph=True,
     scaler=1024,
 )
@@ -55,6 +54,9 @@ model.add(
         data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 1, True, 26)],
     )
 )
+compute_config = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+)
 model.add(
     hugectr.SparseEmbedding(
         embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
@@ -72,6 +74,7 @@ model.add(
         bottom_names=["dense"],
         top_names=["mlp1"],
         num_outputs=[512, 256, 128],
+        compute_config=compute_config,
         act_type=hugectr.Activation_t.Relu,
         use_bias=True,
         # activations = [hugectr.Activation_t.Relu, hugectr.Activation_t.Relu, hugectr.Activation_t.Relu, hugectr.Activation_t.Relu, hugectr.Activation_t.Non],
@@ -91,6 +94,7 @@ model.add(
         bottom_names=["interaction1", "interaction_grad"],
         top_names=["mlp2"],
         num_outputs=[1024, 1024, 512, 256, 1],
+        compute_config=compute_config,
         use_bias=True,
         activations=[
             hugectr.Activation_t.Relu,

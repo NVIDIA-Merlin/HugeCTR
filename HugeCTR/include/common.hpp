@@ -341,10 +341,4 @@ struct DataReaderSparseParam {
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
   }
 };
-
-struct DenseLayerSwitchs {
-  bool fuse_wb;
-  DenseLayerSwitchs(bool fuse_wb_ = false) : fuse_wb(fuse_wb_) {}
-};
-
 }  // namespace HugeCTR

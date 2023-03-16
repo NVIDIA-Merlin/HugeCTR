@@ -83,7 +83,6 @@ struct Solver {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
-  bool async_mlp_wgrad;
   bool gen_loss_summary;
   bool train_intra_iteration_overlap;
   bool train_inter_iteration_overlap;

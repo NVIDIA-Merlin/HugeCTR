@@ -46,7 +46,6 @@ solver = hugectr.CreateSolver(
     use_mixed_precision=True,
     scaler=1024,
     use_cuda_graph=False,
-    async_mlp_wgrad=False,
     gen_loss_summary=False,
     train_intra_iteration_overlap=False,
     train_inter_iteration_overlap=False,

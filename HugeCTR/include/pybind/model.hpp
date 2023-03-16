@@ -228,6 +228,13 @@ struct EmbeddingTrainingCacheParams {
   EmbeddingTrainingCacheParams();
 };
 
+struct DenseLayerComputeConfig {
+  bool async_wgrad;
+  bool fuse_wb;
+  DenseLayerComputeConfig();
+  DenseLayerComputeConfig(bool async_wgrad, bool fuse_wb);
+};
+
 struct DenseLayer {
   Layer_t layer_type;
   std::vector<std::string> bottom_names;
@@ -264,11 +271,11 @@ struct DenseLayer {
   float lambda;
   FcPosition_t pos_type;
   Activation_t act_type;
-  DenseLayerSwitchs dense_layer_switches;
   std::vector<size_t> num_outputs;
   bool use_bias;
   std::vector<Activation_t> acts;
   std::vector<bool> biases;
+  DenseLayerComputeConfig compute_config;
 
   DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
              std::vector<std::string>& top_names, float factor = 1.0, float eps = 0.00001,
@@ -289,10 +296,10 @@ struct DenseLayer {
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
              Activation_t act_type = Activation_t::Relu,
-             DenseLayerSwitchs dense_layer_switches = {false},
              std::vector<size_t> num_outputs = std::vector<size_t>(), bool use_bias = true,
              std::vector<Activation_t> acts = std::vector<Activation_t>(),
-             std::vector<bool> biases = std::vector<bool>());
+             std::vector<bool> biases = std::vector<bool>(),
+             DenseLayerComputeConfig compute_config = DenseLayerComputeConfig());
 };
 
 struct GroupDenseLayer {
@@ -661,7 +668,7 @@ class Model {
       const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
       std::map<std::string, Tensor2<float>>& loss_tensor,
       std::vector<std::unique_ptr<Layer>>& layers,
-      std::map<std::string, std::unique_ptr<ILoss>>& loss, bool async_mlp_wgrad,
+      std::map<std::string, std::unique_ptr<ILoss>>& loss,
       std::map<std::string, metrics::RawMetricMap>* raw_metrics, int num_networks_in_global,
       const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
       bool enable_tf32_compute, float scaler, bool use_algorithm_search,

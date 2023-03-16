@@ -33,7 +33,6 @@ solver = hugectr.CreateSolver(
     use_mixed_precision=True,
     scaler=1024,
     use_cuda_graph=True,
-    async_mlp_wgrad=True,
     gen_loss_summary=False,
     train_intra_iteration_overlap=True,
     train_inter_iteration_overlap=True,
@@ -172,8 +171,17 @@ model.add(
         ),
     )
 )
-dense_layer_switchs_bottom = hugectr.DenseLayerSwitchs(False)
-dense_layer_switchs_top = hugectr.DenseLayerSwitchs(True)
+
+compute_config_bottom = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+    fuse_wb=False,
+)
+
+compute_config_top = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+    fuse_wb=True,
+)
+
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MLP,
@@ -181,7 +189,7 @@ model.add(
         top_names=["mlp1"],
         num_outputs=[512, 256, 128],
         act_type=hugectr.Activation_t.Relu,
-        dense_layer_switches=dense_layer_switchs_bottom,
+        compute_config=compute_config_bottom,
     )
 )
 model.add(
@@ -204,7 +212,7 @@ model.add(
             hugectr.Activation_t.Relu,
             hugectr.Activation_t.Non,
         ],
-        dense_layer_switches=dense_layer_switchs_top,
+        compute_config=compute_config_top,
     )
 )
 model.add(

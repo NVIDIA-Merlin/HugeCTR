@@ -1011,10 +1011,9 @@ void Model::add_dense_layer_internal(
     const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
     std::map<std::string, Tensor2<float>>& loss_tensors,
     std::vector<std::unique_ptr<Layer>>& layers,
-    std::map<std::string, std::unique_ptr<ILoss>>& losses, bool async_mlp_wgrad,
-    metrics::MultiLossMetricMap* raw_metrics, int num_networks_in_global,
-    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    std::map<std::string, std::unique_ptr<ILoss>>& losses, metrics::MultiLossMetricMap* raw_metrics,
+    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
     std::vector<Layer*>* embedding_dependent_layers,
     std::vector<Layer*>* embedding_independent_layers, bool embedding_dependent) {
   bool skip_dgrad = layers.size() == 0;
@@ -1347,13 +1346,14 @@ void Model::add_dense_layer_internal(
           layers.emplace_back(
               new MLPLayer(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensors,
                            train_out_tensors, dense_layer.num_outputs, gpu_resource, acts, biases,
-                           initializer_types, skip_dgrad, async_mlp_wgrad,
-                           dense_layer.dense_layer_switches.fuse_wb, enable_tf32_compute));
+                           initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
+                           dense_layer.compute_config.fuse_wb, enable_tf32_compute));
         } else if constexpr (std::is_same<T, float>::value) {
-          layers.emplace_back(new MLPLayer(
-              weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensors, train_out_tensors,
-              dense_layer.num_outputs, gpu_resource, acts, biases, initializer_types, skip_dgrad,
-              async_mlp_wgrad, dense_layer.dense_layer_switches.fuse_wb, enable_tf32_compute));
+          layers.emplace_back(
+              new MLPLayer(weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensors,
+                           train_out_tensors, dense_layer.num_outputs, gpu_resource, acts, biases,
+                           initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
+                           dense_layer.compute_config.fuse_wb, enable_tf32_compute));
         }
         if (output_size == 1) {
           output_tensor_entries.push_back(
@@ -1386,7 +1386,8 @@ void Model::add_dense_layer_internal(
             "FusedInnerProduct Head Layer should have only one input tensors when it is the "
             "first dense layer");
       }
-      if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
+      if (dense_layer.compute_config.async_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head &&
+          input_size == 1) {
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "FusedInnerProduct Head Layer should have two input tensors when turning on "
                        "async wgrad knob");
@@ -1394,8 +1395,8 @@ void Model::add_dense_layer_internal(
       if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
                  output_size == 4) {
-      } else if (!async_mlp_wgrad && pos_type == FcPosition_t::Head && !skip_dgrad &&
-                 input_size == 1 && output_size == 4) {
+      } else if (!dense_layer.compute_config.async_wgrad && pos_type == FcPosition_t::Head &&
+                 !skip_dgrad && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
@@ -1435,7 +1436,8 @@ void Model::add_dense_layer_internal(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
               mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
               dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
-              initializer_types, async_mlp_wgrad, head_mask_in, dense_layer.dense_layer_switches));
+              initializer_types, dense_layer.compute_config.async_wgrad, head_mask_in,
+              dense_layer.compute_config.fuse_wb));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
@@ -1566,7 +1568,8 @@ void Model::add_dense_layer_internal(
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "InteractionLayer should have one or two output tensors");
       }
-      if (input_output_info.output_names.size() == 1 && async_mlp_wgrad == true) {
+      if (input_output_info.output_names.size() == 1 &&
+          dense_layer.compute_config.async_wgrad == true) {
         HCTR_OWN_THROW(
             Error_t::WrongInput,
             "InteractionLayer should have two output tensors when turning on async wgrad knob");
@@ -2059,20 +2062,20 @@ void Model::add_dense_layer(DenseLayer& dense_layer) {
         dense_layer, train_tensor_entries_list_[i], blobs_buff_list_[i], train_weight_buff_list_[i],
         train_weight_buff_half_list_[i], wgrad_buff_list_[i], wgrad_buff_half_list_[i],
         networks_[i]->train_loss_tensors_, networks_[i]->train_layers_, networks_[i]->train_losses_,
-        solver_.async_mlp_wgrad, nullptr, resource_manager_->get_global_gpu_count(),
-        resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
-        solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search,
-        &networks_[i]->top_layers_, &networks_[i]->bottom_layers_, embedding_dependent_);
-    // add dense layer for evaluation
-    add_dense_layer_internal(
-        dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
-        evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
-        wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
-        networks_[i]->evaluate_loss_tensors_, networks_[i]->evaluate_layers_,
-        networks_[i]->evaluate_losses_, solver_.async_mlp_wgrad, &(networks_[i]->raw_metrics_),
-        resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
+        nullptr, resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
         solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
-        solver_.use_algorithm_search, nullptr, nullptr, false);
+        solver_.use_algorithm_search, &networks_[i]->top_layers_, &networks_[i]->bottom_layers_,
+        embedding_dependent_);
+    // add dense layer for evaluation
+    add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
+                             evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
+                             wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
+                             networks_[i]->evaluate_loss_tensors_, networks_[i]->evaluate_layers_,
+                             networks_[i]->evaluate_losses_, &(networks_[i]->raw_metrics_),
+                             resource_manager_->get_global_gpu_count(),
+                             resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
+                             solver_.enable_tf32_compute, solver_.scaler,
+                             solver_.use_algorithm_search, nullptr, nullptr, false);
   }
 }
 
