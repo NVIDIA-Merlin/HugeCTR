@@ -33,7 +33,6 @@ solver = hugectr.CreateSolver(
     use_mixed_precision=True,
     scaler=1024,
     use_cuda_graph=True,
-    async_mlp_wgrad=True,
     gen_loss_summary=False,
     train_intra_iteration_overlap=True,
     train_inter_iteration_overlap=True,
@@ -172,6 +171,11 @@ model.add(
         ),
     )
 )
+
+compute_config = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+)
+
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.FusedInnerProduct,
@@ -179,6 +183,7 @@ model.add(
         bottom_names=["dense"],
         top_names=["fc11", "fc12", "fc13", "fc14"],
         num_output=512,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -188,6 +193,7 @@ model.add(
         bottom_names=["fc11", "fc12", "fc13", "fc14"],
         top_names=["fc21", "fc22", "fc23", "fc24"],
         num_output=256,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -197,6 +203,7 @@ model.add(
         bottom_names=["fc21", "fc22", "fc23", "fc24"],
         top_names=["fc3"],
         num_output=128,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -213,6 +220,7 @@ model.add(
         bottom_names=["interaction1", "interaction_grad"],
         top_names=["fc41", "fc42", "fc43", "fc44"],
         num_output=1024,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -222,6 +230,7 @@ model.add(
         bottom_names=["fc41", "fc42", "fc43", "fc44"],
         top_names=["fc51", "fc52", "fc53", "fc54"],
         num_output=1024,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -231,6 +240,7 @@ model.add(
         bottom_names=["fc51", "fc52", "fc53", "fc54"],
         top_names=["fc61", "fc62", "fc63", "fc64"],
         num_output=512,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -240,6 +250,7 @@ model.add(
         bottom_names=["fc61", "fc62", "fc63", "fc64"],
         top_names=["fc71", "fc72", "fc73", "fc74"],
         num_output=256,
+        compute_config=compute_config,
     )
 )
 model.add(
@@ -250,6 +261,7 @@ model.add(
         bottom_names=["fc71", "fc72", "fc73", "fc74"],
         top_names=["fc8"],
         num_output=1,
+        compute_config=compute_config,
     )
 )
 model.add(

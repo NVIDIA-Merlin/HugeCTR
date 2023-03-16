@@ -55,7 +55,6 @@ solver = hugectr.CreateSolver(
     scaler=1024,
     repeat_dataset=True,
     use_cuda_graph=False,
-    async_mlp_wgrad=False,  # no interaction layer, thus this knob needs to be turned off
     gen_loss_summary=True,
     train_intra_iteration_overlap=True,
     train_inter_iteration_overlap=True,

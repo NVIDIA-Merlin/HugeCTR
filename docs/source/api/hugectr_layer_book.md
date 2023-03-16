@@ -245,26 +245,41 @@ The MLP layer is comprised of multiple fused fully-connected layers. The MLP lay
 
 **Arguments**
 
-* `num_outputs`: List[Integer], specifies the number of output elements for each fused fully-connected layer in the MLP layer. There is NO default value and it should be specified by users.
+* `num_outputs`: List[Integer], specifies the number of output elements for each fused fully-connected layer in the MLP. There is NO default value and it should be specified by users.
 
-* `act_type`: The activation type of the MLP layer. This argument is applied to all layers in the MLP layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. The default value is `Activation_t.Relu`.
+* `act_type`: The activation type of the MLP layer. This argument is applied to all layers in the MLP. The supported types include `Activation_t.Relu` and `Activation_t.Non`. The default value is `Activation_t.Relu`.
 
-* `use_bias`: Boolean, whether to use bias. This argument is applied to all layers in the MLP layer. The default value is True.
+* `use_bias`: Boolean, whether to use bias. This argument is applied to all layers in the MLP. The default value is True.
 
-* `activations`: List[Activation_t], specifies the activation type for each layer in the MLP Layer. This argument overrides the `act_type` argument.
+* `activations`: List[Activation_t], specifies the activation type for each layer in the MLP. This argument overrides the `act_type` argument.
 
 * `biases`: List[Boolean], specifies for each layer in the MLP Layer whether to use bias. This argument overrides the `use_bias` argument.
 
-* `weight_init_type`: Specifies how to initialize the weight array of all layers in the MLP layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+* `weight_init_type`: Specifies how to initialize the weight array of all layers in the MLP. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
 
-* `bias_init_type`: Specifies how to initialize the bias array of all layers in the MLP layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+* `bias_init_type`: Specifies how to initialize the bias array of all layers in the MLP. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
 
+* `compute_config`: hugectr.DenseLayerComputeConfig, specifies the computation configuration of all layers in the MLP. For MLP, the valid flags in compute_config are `hugectr.DenseLayerComputeConfig.async_wgrad` and `hugectr.DenseLayerComputeConfig.fuse_wb`. 
+    * `hugectr.DenseLayerComputeConfig.async_wgrad`: Specifies whether the wgrad compute is asynchronous to dgrad. The default value is False. 
+    * `hugectr.DenseLayerComputeConfig.fuse_wb`: Specifies whether to fuse wgrad with bgrad. The default value is False. 
+    
 * input: (batch_size, *) where * represents any number of elements
 * output: (batch_size, num_output of the last layer)
 
 Example:
 
 ```python
+
+compute_config_bottom = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+    fuse_wb=False,
+)
+
+compute_config_top = hugectr.DenseLayerComputeConfig(
+    async_wgrad=True,
+    fuse_wb=True,
+)
+
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MLP,
@@ -273,6 +288,7 @@ model.add(
         num_outputs=[512, 256, 128],
         act_type=hugectr.Activation_t.Relu,
         use_bias=True,
+        compute_config=compute_config_bottom,
     )
 )
 
@@ -298,6 +314,7 @@ model.add(
             hugectr.Activation_t.Non,
         ],
         biases = [True, True, True, True, True],
+        compute_config=compute_config_top,
     )
 )
 

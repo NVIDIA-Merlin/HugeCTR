@@ -52,13 +52,6 @@ MLPLayer<T>::MLPLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights
   layer_desc_.resize(num_layers);
   layer_algo_.resize(num_layers);
 
-  const auto sync_overlap_stream_env = std::getenv("HUGECTR_MLP_SYNC_OVERLAP_STREAM");
-  if (nullptr != sync_overlap_stream_env && 1 == std::atoi(sync_overlap_stream_env)) {
-    inner_sync_overlap_stream_ = true;
-  } else {
-    inner_sync_overlap_stream_ = false;
-  }
-
   for (int i = 0; i < num_layers; i++) {
     const auto& bottom_tensor_dim =
         i == 0 ? bottom_tensors_[0].get_dimensions() : train_tensors_[i - 1].get_dimensions();
@@ -163,14 +156,11 @@ void MLPLayer<T>::bprop() {
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),
                           this->get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
                           i == 0 ? skip_head_dgrad_ : false);
-    if (async_wgrad_ && i == 0) {
-      if (inner_sync_overlap_stream_) {
-        HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
-        HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
-      } else {
-        this->get_gpu().set_wgrad_event_sync(this->get_gpu().get_comp_overlap_stream());
-      }
-    }
+  }
+
+  if (async_wgrad_) {
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
 }
 
@@ -315,13 +305,6 @@ Core23TempMLPLayer<T>::Core23TempMLPLayer(
   layer_desc_.resize(num_layers);
   layer_algo_.resize(num_layers);
 
-  const auto sync_overlap_stream_env = std::getenv("HUGECTR_MLP_SYNC_OVERLAP_STREAM");
-  if (nullptr != sync_overlap_stream_env && 1 == std::atoi(sync_overlap_stream_env)) {
-    inner_sync_overlap_stream_ = true;
-  } else {
-    inner_sync_overlap_stream_ = false;
-  }
-
   for (int i = 0; i < num_layers; i++) {
     const auto& bottom_tensor_dim =
         i == 0 ? this->input_tensors_[0].shape() : train_tensors_[i - 1].shape();
@@ -447,14 +430,11 @@ void Core23TempMLPLayer<T>::bprop() {
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),
                           this->get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
                           i == 0 ? skip_head_dgrad_ : false);
-    if (async_wgrad_ && i == 0) {
-      if (inner_sync_overlap_stream_) {
-        HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
-        HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
-      } else {
-        this->get_gpu().set_wgrad_event_sync(this->get_gpu().get_comp_overlap_stream());
-      }
-    }
+  }
+
+  if (async_wgrad_) {
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
 }
 

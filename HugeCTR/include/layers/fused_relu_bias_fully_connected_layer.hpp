@@ -121,10 +121,14 @@ class FusedReluBiasFullyConnectedLayer : public TrainableLayer<__half> {
    * indicates whether overlap dgrad and wgrad
    */
   bool async_mlp_wgrad_;
+
   /*
-   * set of switches
+   * determines the kind of fusion pattern.
+   * There are two fuse patterns available:
+   * (fuse_wb_ == true)  DGRAD + DReLU, WGRAD + BGRAD
+   * (fuse_wb_ == false) DGRAD + DReLU + BGRAD, WGRAD
    */
-  DenseLayerSwitchs dense_layer_switches_;
+  bool fuse_wb_;
 
   /*
    * indicates whether there is mask in tensor for Head layer
@@ -207,7 +211,7 @@ class FusedReluBiasFullyConnectedLayer : public TrainableLayer<__half> {
       const Activation_t& act, const bool& skip_dgrad,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
       const bool async_mlp_wgrad = false, const bool head_mask_in = false,
-      const DenseLayerSwitchs& dense_layer_switches = {false});
+      const bool fuse_wb = false);
   FusedReluBiasFullyConnectedLayer(const FusedReluBiasFullyConnectedLayer&) = delete;
   FusedReluBiasFullyConnectedLayer& operator=(const FusedReluBiasFullyConnectedLayer&);
 
@@ -311,10 +315,14 @@ class Core23TempFusedReluBiasFullyConnectedLayer : public Core23TempTrainableLay
    * indicates whether overlap dgrad and wgrad
    */
   bool async_mlp_wgrad_;
+
   /*
-   * set of switches
+   * determines the kind of fusion pattern.
+   * There are two fuse patterns available:
+   * (fuse_wb_ == true)  DGRAD + DReLU, WGRAD + BGRAD
+   * (fuse_wb_ == false) DGRAD + DReLU + BGRAD, WGRAD
    */
-  DenseLayerSwitchs dense_layer_switches_;
+  bool fuse_wb_;
 
   /*
    * indicates whether there is mask in tensor for Head layer
@@ -391,7 +399,7 @@ class Core23TempFusedReluBiasFullyConnectedLayer : public Core23TempTrainableLay
       const Activation_t& act, const bool& skip_dgrad,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
       const bool async_mlp_wgrad = false, const bool head_mask_in = false,
-      const DenseLayerSwitchs& dense_layer_switches = {false});
+      const bool fuse_wb = false);
   Core23TempFusedReluBiasFullyConnectedLayer(const Core23TempFusedReluBiasFullyConnectedLayer&) =
       delete;
   Core23TempFusedReluBiasFullyConnectedLayer& operator=(

@@ -298,8 +298,7 @@ static void group_dense_layer_test(uint32_t* input_dims, uint32_t* output_dims, 
       master_weights_buff, weights_buff, weights_grad_buff, blobs_buff, train_in_tensor[0],
       mask_in_tensor[0], dRelu_in_tensor[0], db_in_tensor[0], train_out_tensor[0],
       mask_out_tensor[0], dRelu_out_tensor[0], db_out_tensor[0], gpu_resource, FcPosition_t::Head,
-      relu[0], false, std::vector<Initializer_t>(), config_set.async_mlp_wgrad, false,
-      DenseLayerSwitchs(fuse_wb[0]));
+      relu[0], false, std::vector<Initializer_t>(), config_set.async_mlp_wgrad, false, fuse_wb[0]);
   layers.push_back(fc_layers[0]);
   // Body layer and Tail layer
   for (uint32_t i = 1; i < n_layers; i++) {
@@ -342,21 +341,21 @@ static void group_dense_layer_test(uint32_t* input_dims, uint32_t* output_dims, 
           mask_in_tensor[i], dRelu_in_tensor[i], db_in_tensor[i], train_out_tensor[i],
           mask_out_tensor[i], dRelu_out_tensor[i], db_out_tensor[i], gpu_resource,
           FcPosition_t::Tail, relu[i], false, std::vector<Initializer_t>(),
-          config_set.async_mlp_wgrad, false, DenseLayerSwitchs(fuse_wb[i]));
+          config_set.async_mlp_wgrad, false, fuse_wb[i]);
     } else if (1 == head_body_tail[i]) {  // body
       fc_layers[i] = new FusedReluBiasFullyConnectedLayer(
           master_weights_buff, weights_buff, weights_grad_buff, blobs_buff, train_in_tensor[i],
           mask_in_tensor[i], dRelu_in_tensor[i], db_in_tensor[i], train_out_tensor[i],
           mask_out_tensor[i], dRelu_out_tensor[i], db_out_tensor[i], gpu_resource,
           FcPosition_t::Body, relu[i], false, std::vector<Initializer_t>(),
-          config_set.async_mlp_wgrad, false, DenseLayerSwitchs(fuse_wb[i]));
+          config_set.async_mlp_wgrad, false, fuse_wb[i]);
     } else {  // head
       fc_layers[i] = new FusedReluBiasFullyConnectedLayer(
           master_weights_buff, weights_buff, weights_grad_buff, blobs_buff, train_in_tensor[i],
           mask_in_tensor[i], dRelu_in_tensor[i], db_in_tensor[i], train_out_tensor[i],
           mask_out_tensor[i], dRelu_out_tensor[i], db_out_tensor[i], gpu_resource,
           FcPosition_t::Head, relu[i], false, std::vector<Initializer_t>(),
-          config_set.async_mlp_wgrad, false, DenseLayerSwitchs(fuse_wb[i]));
+          config_set.async_mlp_wgrad, false, fuse_wb[i]);
     }
     layers.push_back(fc_layers[i]);
   }
@@ -531,9 +530,6 @@ static void group_dense_layer_test(uint32_t* input_dims, uint32_t* output_dims, 
           layers[bprop_idx]->bprop();
         }
         if (config_set.use_nvtx) nvtxRangePop();
-      }
-      if (config_set.async_mlp_wgrad) {
-        gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
       }
       if (test_loop_idx == 1) {
         if (config_set.use_cuda_graph && !graph_inited) {

@@ -62,8 +62,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
-    const bool async_mlp_wgrad, const bool head_mask_in,
-    const DenseLayerSwitchs& dense_layer_switches)
+    const bool async_mlp_wgrad, const bool head_mask_in, const bool fuse_wb)
     : TrainableLayer<__half>(master_weights_buff, weights_buff, weights_grad_buff, gpu_resource,
                              initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -74,7 +73,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
       skip_dgrad_(skip_dgrad),
       async_mlp_wgrad_(async_mlp_wgrad),
       head_mask_in_(head_mask_in),
-      dense_layer_switches_(dense_layer_switches),
+      fuse_wb_(fuse_wb),
       event_overlap_created_(false) {
   const auto& bottom_tensor_dim = train_in_tensor.get_dimensions();
   const auto& top_tensor_dim = train_out_tensor.get_dimensions();
@@ -235,10 +234,10 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
     HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(
         cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
   } else if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
-    epi = dense_layer_switches_.fuse_wb ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
+    epi = fuse_wb_ ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi,
                                    sizeof(epi));
-    if (!dense_layer_switches_.fuse_wb) {
+    if (!fuse_wb_) {
       __half* bgrad = db_in_tensor_.get_ptr();
       cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_BIAS_POINTER,
                                      &bgrad, sizeof(bgrad));
@@ -310,8 +309,7 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSB,
                                                 &transB, sizeof(transB)));
   cublasLtEpilogue_t epi;
-  if (dense_layer_switches_.fuse_wb || pos_ == FcPosition_t::Tail ||
-      pos_ == FcPosition_t::Isolated) {
+  if (fuse_wb_ || pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     epi = CUBLASLT_EPILOGUE_BGRADA;
     __half* bgrad = db_out_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &bgrad,
@@ -470,7 +468,8 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   }
 
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
-    get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
 
 #ifndef NDEBUG
@@ -836,8 +835,7 @@ Core23TempFusedReluBiasFullyConnectedLayer::Core23TempFusedReluBiasFullyConnecte
     const core23::Tensor& dRelu_out_tensor, core23::Tensor& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
-    const bool async_mlp_wgrad, const bool head_mask_in,
-    const DenseLayerSwitchs& dense_layer_switches)
+    const bool async_mlp_wgrad, const bool head_mask_in, const bool fuse_wb)
     : Core23TempTrainableLayer<__half>({train_in_tensor}, {train_out_tensor}, gpu_resource,
                                        initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -848,7 +846,7 @@ Core23TempFusedReluBiasFullyConnectedLayer::Core23TempFusedReluBiasFullyConnecte
       skip_dgrad_(skip_dgrad),
       async_mlp_wgrad_(async_mlp_wgrad),
       head_mask_in_(head_mask_in),
-      dense_layer_switches_(dense_layer_switches),
+      fuse_wb_(fuse_wb),
       event_overlap_created_(false) {
   const auto& bottom_tensor_dim = train_in_tensor.shape();
   const auto& top_tensor_dim = train_out_tensor.shape();
@@ -1011,10 +1009,10 @@ void Core23TempFusedReluBiasFullyConnectedLayer::initialize_dgrad() {
     HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(
         cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
   } else if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
-    epi = dense_layer_switches_.fuse_wb ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
+    epi = fuse_wb_ ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi,
                                    sizeof(epi));
-    if (!dense_layer_switches_.fuse_wb) {
+    if (!fuse_wb_) {
       __half* bgrad = db_in_tensor_.data<__half>();
       cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_BIAS_POINTER,
                                      &bgrad, sizeof(bgrad));
@@ -1086,8 +1084,7 @@ void Core23TempFusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSB,
                                                 &transB, sizeof(transB)));
   cublasLtEpilogue_t epi;
-  if (dense_layer_switches_.fuse_wb || pos_ == FcPosition_t::Tail ||
-      pos_ == FcPosition_t::Isolated) {
+  if (fuse_wb_ || pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     epi = CUBLASLT_EPILOGUE_BGRADA;
     __half* bgrad = db_out_tensor_.data<__half>();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &bgrad,
@@ -1246,7 +1243,8 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
   }
 
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
-    get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
 
 #ifndef NDEBUG

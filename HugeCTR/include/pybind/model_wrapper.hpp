@@ -81,6 +81,9 @@ void ModelPybind(pybind11::module &m) {
                HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 2.6e11, 1.0,
                                     hybrid_embedding::CommunicationType::NVLink_SingleNode,
                                     hybrid_embedding::HybridEmbeddingType::Distributed});
+  pybind11::class_<HugeCTR::DenseLayerComputeConfig>(m, "DenseLayerComputeConfig")
+      .def(pybind11::init<bool, bool>(), pybind11::arg("async_wgrad") = false,
+           pybind11::arg("fuse_wb") = false);
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
       .def(pybind11::init<Layer_t, std::vector<std::string> &, std::vector<std::string> &, float,
                           float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
@@ -88,8 +91,8 @@ void ModelPybind(pybind11::module &m) {
                           std::vector<int> &, std::vector<std::pair<int, int>> &,
                           std::vector<int> &, std::vector<size_t> &, size_t, size_t, int, int, int,
                           bool, std::vector<float> &, bool, Regularizer_t, float, FcPosition_t,
-                          Activation_t, DenseLayerSwitchs, std::vector<size_t>, bool,
-                          std::vector<Activation_t>, std::vector<bool>>(),
+                          Activation_t, std::vector<size_t>, bool, std::vector<Activation_t>,
+                          std::vector<bool>, DenseLayerComputeConfig>(),
            pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
            pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
            pybind11::arg("gamma_init_type") = Initializer_t::Default,
@@ -113,10 +116,10 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
            pybind11::arg("pos_type") = FcPosition_t::None,
            pybind11::arg("act_type") = Activation_t::Relu,
-           pybind11::arg("dense_layer_switches") = DenseLayerSwitchs(false),
            pybind11::arg("num_outputs") = std::vector<size_t>(), pybind11::arg("use_bias") = true,
            pybind11::arg("activations") = std::vector<Activation_t>(),
-           pybind11::arg("biases") = std::vector<bool>());
+           pybind11::arg("biases") = std::vector<bool>(),
+           pybind11::arg("compute_config") = DenseLayerComputeConfig());
 
   pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
       m, "GroupDenseLayer")

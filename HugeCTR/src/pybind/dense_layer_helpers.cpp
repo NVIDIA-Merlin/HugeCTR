@@ -95,8 +95,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           std::vector<std::unique_ptr<Layer>>& layers,
                           std::map<std::string, core23::Tensor>& loss_tensors,
                           std::map<std::string, std::unique_ptr<ILoss>>& losses,
-                          bool async_mlp_wgrad, metrics::Core23MultiLossMetricMap* raw_metrics,
-                          int gpu_count_in_total, const std::shared_ptr<GPUResource>& gpu_resource,
+                          metrics::Core23MultiLossMetricMap* raw_metrics, int gpu_count_in_total,
+                          const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                           bool use_algorithm_search,
                           std::vector<Layer*>* embedding_dependent_layers,
@@ -335,13 +335,13 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       if (use_mixed_precision) {
         layers.emplace_back(new Core23TempMLPLayer<__half>(
             in_tensors, train_out_tensors, num_outputs, gpu_resource, acts, biases,
-            initializer_types, skip_dgrad, async_mlp_wgrad,
-            dense_layer.dense_layer_switches.fuse_wb, enable_tf32_compute));
+            initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
+            dense_layer.compute_config.fuse_wb, enable_tf32_compute));
       } else {
         layers.emplace_back(new Core23TempMLPLayer<float>(
             in_tensors, train_out_tensors, num_outputs, gpu_resource, acts, biases,
-            initializer_types, skip_dgrad, async_mlp_wgrad,
-            dense_layer.dense_layer_switches.fuse_wb, enable_tf32_compute));
+            initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
+            dense_layer.compute_config.fuse_wb, enable_tf32_compute));
       }
 
       if (output_size == 1) {
@@ -365,7 +365,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
             "FusedInnerProduct Head Layer should have only one input tensors when it is the "
             "first dense layer");
       }
-      if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
+      if (dense_layer.compute_config.async_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head &&
+          input_size == 1) {
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "FusedInnerProduct Head Layer should have two input tensors when turning on "
                        "async wgrad knob");
@@ -373,8 +374,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
                  output_size == 4) {
-      } else if (!async_mlp_wgrad && pos_type == FcPosition_t::Head && !skip_dgrad &&
-                 input_size == 1 && output_size == 4) {
+      } else if (!dense_layer.compute_config.async_wgrad && pos_type == FcPosition_t::Head &&
+                 !skip_dgrad && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
@@ -413,8 +414,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
           layers.emplace_back(new Core23TempFusedReluBiasFullyConnectedLayer(
               train_in_tensor, mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor,
               mask_out_tensor, dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type,
-              skip_dgrad, initializer_types, async_mlp_wgrad, head_mask_in,
-              dense_layer.dense_layer_switches));
+              skip_dgrad, initializer_types, dense_layer.compute_config.async_wgrad, head_mask_in,
+              dense_layer.compute_config.fuse_wb));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
@@ -499,7 +500,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         HCTR_OWN_THROW(Error_t::WrongInput,
                        "InteractionLayer should have one or two output tensors");
       }
-      if (input_output_info.output_names.size() == 1 && async_mlp_wgrad == true) {
+      if (input_output_info.output_names.size() == 1 &&
+          dense_layer.compute_config.async_wgrad == true) {
         HCTR_OWN_THROW(
             Error_t::WrongInput,
             "InteractionLayer should have two output tensors when turning on async wgrad knob");

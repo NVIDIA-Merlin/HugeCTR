@@ -49,15 +49,11 @@ void Model::create_train_network_pipeline() {
       networks_[local_id]->train(current_batchsize_per_device);
     });
 
-    auto async_mlp_syncback = std::make_shared<StreamContextScheduleable>([=] {
-      if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
-    });
-
     std::vector<std::shared_ptr<Scheduleable>> scheduleable_list;
     if (scheduled_reader) {
-      scheduleable_list = {BNET_input_ready_wait, network_forward_and_backward, async_mlp_syncback};
+      scheduleable_list = {BNET_input_ready_wait, network_forward_and_backward};
     } else {
-      scheduleable_list = {network_forward_and_backward, async_mlp_syncback};
+      scheduleable_list = {network_forward_and_backward};
     }
 
     graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};

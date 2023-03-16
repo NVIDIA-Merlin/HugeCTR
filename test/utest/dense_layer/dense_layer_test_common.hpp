@@ -29,9 +29,8 @@ namespace HugeCTR::test {
 
 template <typename LayerType>
 void dense_layer_test_common(std::vector<TensorEntity> tensor_entities, DenseLayer &dense_layer,
-                             bool use_mixed_precision, bool enable_tf32_compute,
-                             bool async_mlp_wgrad, float scaler, bool use_algorithm_search,
-                             bool embedding_dependent) {
+                             bool use_mixed_precision, bool enable_tf32_compute, bool async_wgrad,
+                             float scaler, bool use_algorithm_search, bool embedding_dependent) {
   int gpu_count_in_total = 1;
 
   std::vector<std::unique_ptr<Layer>> layers;
@@ -45,9 +44,11 @@ void dense_layer_test_common(std::vector<TensorEntity> tensor_entities, DenseLay
 
   int64_t num_tensors = dense_layer.bottom_names.size() + dense_layer.top_names.size();
 
-  add_dense_layer_impl(dense_layer, tensor_entities, layers, loss_tensors, losses, async_mlp_wgrad,
-                       &raw_metrics, gpu_count_in_total, test::get_default_gpu(),
-                       use_mixed_precision, enable_tf32_compute, scaler, use_algorithm_search,
+  dense_layer.compute_config.async_wgrad = async_wgrad;
+
+  add_dense_layer_impl(dense_layer, tensor_entities, layers, loss_tensors, losses, &raw_metrics,
+                       gpu_count_in_total, test::get_default_gpu(), use_mixed_precision,
+                       enable_tf32_compute, scaler, use_algorithm_search,
                        &embedding_dependent_layers, &embedding_independent_layers,
                        embedding_dependent);
 

@@ -169,8 +169,6 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("max_all_reduce_bandwidth"), pybind11::arg("max_all_to_all_bandwidth"),
            pybind11::arg("efficiency_bandwidth_ratio"), pybind11::arg("communication_type"),
            pybind11::arg("hybrid_embedding_type"));
-  pybind11::class_<HugeCTR::DenseLayerSwitchs>(m, "DenseLayerSwitchs")
-      .def(pybind11::init<bool>(), pybind11::arg("fuse_wb"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();

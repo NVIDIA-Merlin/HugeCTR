@@ -31,8 +31,8 @@ std::unique_ptr<Solver> CreateSolver(
     int max_eval_batches, int batchsize_eval, int batchsize,
     const std::vector<std::vector<int>>& vvgpu, bool repeat_dataset, bool use_mixed_precision,
     bool enable_tf32_compute, float scaler, std::map<metrics::Type, float> metrics_spec,
-    bool i64_input_key, bool use_algorithm_search, bool use_cuda_graph, bool async_mlp_wgrad,
-    bool gen_loss_summary, bool train_intra_iteration_overlap, bool train_inter_iteration_overlap,
+    bool i64_input_key, bool use_algorithm_search, bool use_cuda_graph, bool gen_loss_summary,
+    bool train_intra_iteration_overlap, bool train_inter_iteration_overlap,
     bool eval_intra_iteration_overlap, bool eval_inter_iteration_overlap,
     DeviceMap::Layout device_layout, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
     bool grouped_all_reduce, size_t num_iterations_statistics, bool perf_logging,
@@ -68,7 +68,6 @@ std::unique_ptr<Solver> CreateSolver(
   solver->i64_input_key = i64_input_key;
   solver->use_algorithm_search = use_algorithm_search;
   solver->use_cuda_graph = use_cuda_graph;
-  solver->async_mlp_wgrad = async_mlp_wgrad;
   solver->gen_loss_summary = gen_loss_summary;
   solver->train_intra_iteration_overlap = train_intra_iteration_overlap;
   solver->train_inter_iteration_overlap = train_inter_iteration_overlap;
@@ -109,7 +108,6 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("i64_input_key", &HugeCTR::Solver::i64_input_key)
       .def_readonly("use_algorithm_search", &HugeCTR::Solver::use_algorithm_search)
       .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
-      .def_readonly("async_mlp_wgrad", &HugeCTR::Solver::async_mlp_wgrad)
       .def_readonly("gen_loss_summary", &HugeCTR::Solver::gen_loss_summary)
       .def_readonly("train_intra_iteration_overlap",
                     &HugeCTR::Solver::train_intra_iteration_overlap)
@@ -135,8 +133,7 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("enable_tf32_compute") = false, pybind11::arg("scaler") = 1.f,
         pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC, 1.f}}),
         pybind11::arg("i64_input_key") = false, pybind11::arg("use_algorithm_search") = true,
-        pybind11::arg("use_cuda_graph") = true, pybind11::arg("async_mlp_wgrad") = false,
-        pybind11::arg("gen_loss_summary") = true,
+        pybind11::arg("use_cuda_graph") = true, pybind11::arg("gen_loss_summary") = true,
         pybind11::arg("train_intra_iteration_overlap") = false,
         pybind11::arg("train_inter_iteration_overlap") = false,
         pybind11::arg("eval_intra_iteration_overlap") = false,

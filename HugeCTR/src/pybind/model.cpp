@@ -138,6 +138,11 @@ EmbeddingTrainingCacheParams::EmbeddingTrainingCacheParams(
 EmbeddingTrainingCacheParams::EmbeddingTrainingCacheParams()
     : use_embedding_training_cache(false) {}
 
+DenseLayerComputeConfig::DenseLayerComputeConfig() : async_wgrad(false), fuse_wb(false){};
+
+DenseLayerComputeConfig::DenseLayerComputeConfig(bool async_wgrad, bool fuse_wb)
+    : async_wgrad(async_wgrad), fuse_wb(fuse_wb){};
+
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    std::vector<std::string> source, std::vector<std::string> keyset,
                                    std::string eval_source, Check_t check_type, int cache_eval_data,
@@ -279,9 +284,9 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        int axis, int max_sequence_len, int num_attention_heads, bool transpose_b,
                        std::vector<float> target_weight_vec, bool use_regularizer,
                        Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-                       Activation_t act_type, DenseLayerSwitchs dense_layer_switches,
-                       std::vector<size_t> num_outputs, bool use_bias,
-                       std::vector<Activation_t> acts, std::vector<bool> biases)
+                       Activation_t act_type, std::vector<size_t> num_outputs, bool use_bias,
+                       std::vector<Activation_t> acts, std::vector<bool> biases,
+                       DenseLayerComputeConfig compute_config)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -317,11 +322,11 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       lambda(lambda),
       pos_type(pos_type),
       act_type(act_type),
-      dense_layer_switches(dense_layer_switches),
       num_outputs(num_outputs),
       use_bias(use_bias),
       acts(acts),
-      biases(biases) {}
+      biases(biases),
+      compute_config(compute_config) {}
 
 GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
                                  std::vector<std::string>& bottom_name_list,
@@ -2322,8 +2327,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 void Model::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
-  if (solver_.async_mlp_wgrad && is_scheduled_datareader() && is_scheduled_embedding())
-    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   if (resource_manager_->get_global_gpu_count() > 1) {
     exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
   }
