@@ -42,8 +42,8 @@ class MultiCrossLayerTest {
   Tensor2<T> weight_;
   Tensor2<T> wgrad_;
 
-  Tensor2<T> d_input_;
-  Tensor2<T> d_output_;
+  Tensors2<T> d_inputs_;
+  Tensors2<T> d_outputs_;
 
   std::vector<T> h_input_;
   std::vector<T> h_input_grad_;
@@ -96,8 +96,8 @@ class MultiCrossLayerTest {
                      [](T data) { return std::min((T)0.01, std::max(data, T(-0.01))); });
     }
 
-    HCTR_LIB_THROW(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
-                              cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(d_inputs_.front().get_ptr(), h_input_.data(),
+                              d_inputs_.front().get_size_in_bytes(), cudaMemcpyHostToDevice));
     T* p = weight_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       if (this->projection_dim_) {
@@ -131,7 +131,7 @@ class MultiCrossLayerTest {
         b = 0.0f;
       }
     }
-    HCTR_LIB_THROW(cudaMemcpy(d_output_.get_ptr(), h_output_grad_.data(),
+    HCTR_LIB_THROW(cudaMemcpy(d_outputs_.back().get_ptr(), h_output_grad_.data(),
                               batchsize_ * w_ * sizeof(T), cudaMemcpyHostToDevice));
     T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
@@ -456,8 +456,8 @@ class MultiCrossLayerTest {
     std::vector<T> d2h_output;
     d2h_output.resize(batchsize_ * w_);
 
-    HCTR_LIB_THROW(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
-                              cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(d2h_output.data(), d_outputs_.front().get_ptr(),
+                              d_outputs_.front().get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
     ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_output.data(), h_outputs_.back().data(),
                                                   h_outputs_.back().size(), 0.1f, eps_()));
@@ -500,8 +500,8 @@ class MultiCrossLayerTest {
       d2h_bias_grads_.push_back(std::vector<T>(1 * w_));
     }
 
-    HCTR_LIB_THROW(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
-                              d_input_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(d2h_input_grad.data(), d_inputs_.front().get_ptr(),
+                              d_inputs_.front().get_size_in_bytes(), cudaMemcpyDeviceToHost));
     T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       HCTR_LIB_THROW(
@@ -537,8 +537,8 @@ class MultiCrossLayerTest {
       d2h_bias_grads_.push_back(std::vector<T>(1 * w_));
     }
 
-    HCTR_LIB_THROW(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
-                              d_input_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(d2h_input_grad.data(), d_inputs_.back().get_ptr(),
+                              d_inputs_.back().get_size_in_bytes(), cudaMemcpyDeviceToHost));
     T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       HCTR_LIB_THROW(cudaMemcpy(d2h_kernel_grads_u[i].data(), p,
@@ -572,7 +572,8 @@ class MultiCrossLayerTest {
   }
 
  public:
-  MultiCrossLayerTest(size_t batchsize, size_t w, int layers, size_t projection_dim = 0)
+  MultiCrossLayerTest(size_t batchsize, size_t w, int layers, size_t projection_dim = 0,
+                      bool grad_input_separate = false, bool async_wgrad = false)
       : batchsize_(batchsize),
         w_(w),
         layers_(layers),
@@ -582,9 +583,14 @@ class MultiCrossLayerTest {
     master_weight_buff_ = blob_buf_->create_block<float>();
     weight_buf_ = blob_buf_->create_block<T>();
     wgrad_buf_ = blob_buf_->create_block<T>();
-
-    blob_buf_->reserve({batchsize, w}, &d_input_);
-    blob_buf_->reserve({batchsize, w}, &d_output_);
+    d_inputs_.resize(grad_input_separate ? 2 : 1);
+    d_outputs_.resize(grad_input_separate ? 2 : 1);
+    blob_buf_->reserve({batchsize, w}, &d_inputs_.front());
+    blob_buf_->reserve({batchsize, w}, &d_outputs_.front());
+    if (grad_input_separate) {
+      blob_buf_->reserve({batchsize, w}, &d_inputs_.back());
+      blob_buf_->reserve({batchsize, w}, &d_outputs_.back());
+    }
 
     h_input_.resize(batchsize * w);
     h_output_grad_.resize(batchsize * w);
@@ -624,8 +630,8 @@ class MultiCrossLayerTest {
 
     // layer
     layer_.reset(new MultiCrossLayer<T>(master_weight_buff_, weight_buf_, wgrad_buf_, blob_buf_,
-                                        d_input_, d_output_, test::get_default_gpu(), layers,
-                                        projection_dim_));
+                                        d_inputs_, d_outputs_, test::get_default_gpu(), layers,
+                                        projection_dim_, {}, false, async_wgrad));
 
     blob_buf_->allocate();
     layer_->initialize();
@@ -637,8 +643,8 @@ class MultiCrossLayerTest {
   }
 
   void test() {
-    this->layer_->initialize();
-    // this->layer_->search_algorithm();
+    // this->layer_->initialize();
+    this->layer_->search_algorithm();
     // dcnv1
     if (this->projection_dim_ == 0) {
       reset_forward_();
@@ -651,10 +657,10 @@ class MultiCrossLayerTest {
       compare_backward_();
     } else {
       // constexpr int loops = 50;
-      // for(int i = 0 ; i < loops;i++){
+      // for (int i = 0; i < loops; i++) {
       //   gpu_fprop_();
       // }
-      // for(int i = 0 ; i < loops;i++){
+      // for (int i = 0; i < loops; i++) {
       //   gpu_bprop_();
       // }
       reset_forward_();
@@ -756,9 +762,15 @@ TEST(multi_cross_layer_v2, fp32_1x1024x1) {
   test3.test();
   test4.test();
 }
-TEST(multi_cross_layer_v2, fp32_4096x356x3) {
-  MultiCrossLayerTest<float> test(4096, 256, 3, 512);
-  test.test();
+TEST(multi_cross_layer_v2, fp32_4096x256x3) {
+  MultiCrossLayerTest<float> test1(4096, 256, 3, 512);
+  MultiCrossLayerTest<float> test2(4096, 256, 3, 512, true, true);
+  MultiCrossLayerTest<float> test3(4096, 256, 3, 512, true, false);
+  MultiCrossLayerTest<float> test4(4096, 256, 3, 512, false, true);
+  test1.test();
+  test2.test();
+  test3.test();
+  test4.test();
 }
 // MultiCrossLayerTest(size_t batchsize, size_t w, int layers, size_t projection_dim = 0)
 TEST(multi_cross_layer_v2, fp32_1x256x1) {
@@ -774,16 +786,23 @@ TEST(multi_cross_layer_v2, fp32_1x1024x2) {
 //   test.test();
 // }
 TEST(multi_cross_layer_v2, fp32_3x1024x3) {
-  MultiCrossLayerTest<float> test(3, 1024, 3, 256);
+  MultiCrossLayerTest<float> test(10, 1024, 3, 512);
   test.test();
 }
+
 TEST(multi_cross_layer_v2, fp32_3x1024x10) {
   MultiCrossLayerTest<float> test(3, 1024, 10, 64);
   test.test();
 }
 TEST(multi_cross_layer_v2, fp32_3x1024x2) {
-  MultiCrossLayerTest<float> test(3, 1024, 2, 256);
-  test.test();
+  MultiCrossLayerTest<float> test1(3, 1024, 2, 256);
+  MultiCrossLayerTest<float> test2(3, 1024, 1, 1024, false, true);
+  MultiCrossLayerTest<float> test3(3, 1024, 1, 1024, true, true);
+  MultiCrossLayerTest<float> test4(3, 1024, 1, 1024, true, false);
+  test1.test();
+  test2.test();
+  test3.test();
+  test4.test();
 }
 TEST(multi_cross_layer_v2, fp32_3x1024x4) {
   MultiCrossLayerTest<float> test(3, 1024, 4, 256);
@@ -835,9 +854,15 @@ TEST(multi_cross_layer_v2, fp16_debug) {
   std::cout << "Test13 \n";
 }
 
-TEST(multi_cross_layer_v2, fp16_3x1024x1) {
-  MultiCrossLayerTest<__half> test(3, 1024, 1, 1024);
-  test.test();
+TEST(multi_cross_layer_v2, fp16_3x1024x3) {
+  MultiCrossLayerTest<__half> test1(3, 1024, 3, 1024);
+  MultiCrossLayerTest<__half> test2(3, 1024, 3, 1024, false, true);
+  MultiCrossLayerTest<__half> test3(3, 1024, 3, 1024, true, true);
+  MultiCrossLayerTest<__half> test4(3, 1024, 3, 1024, true, false);
+  test1.test();
+  test2.test();
+  test3.test();
+  test4.test();
 }
 TEST(multi_cross_layer_v2, fp16_1x1024x2) {
   MultiCrossLayerTest<__half> test(1, 1024, 2, 1024);
@@ -847,7 +872,10 @@ TEST(multi_cross_layer_v2, fp16_3x1024x2) {
   MultiCrossLayerTest<__half> test(3, 1024, 2, 1024);
   test.test();
 }
-
+// TEST(multi_cross_layer_v2, fp16_384) {
+//   MultiCrossLayerTest<__half> test(384, 3456, 3, 512);
+//   test.test();
+// }
 // TEST(multi_cross_layer_v2, fp16_dlrm) {
 //   MultiCrossLayerTest<__half> test(65536, 3456, 3, 512);
 //   test.test();
