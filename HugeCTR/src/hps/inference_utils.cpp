@@ -191,7 +191,8 @@ InferenceParams::InferenceParams(
     const std::vector<size_t>& embedding_vecsize_per_table,
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
     const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file,
-    bool use_static_table, bool use_context_stream, bool fuse_embedding_table)
+    bool use_static_table, EmbeddingCacheType_t embedding_cache_type, bool use_context_stream,
+    bool fuse_embedding_table)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -227,6 +228,7 @@ InferenceParams::InferenceParams(
       slot_num(slot_num),
       non_trainable_params_file(non_trainable_params_file),
       use_static_table(use_static_table),
+      embedding_cache_type(embedding_cache_type),
       use_context_stream(use_context_stream),
       fuse_embedding_table(fuse_embedding_table) {
   // this code path is only used by hps python interface!
@@ -638,6 +640,14 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     // [20] use_static_table -> bool
     params.use_static_table = get_value_from_json_soft<bool>(model, "use_static_table", false);
 
+    // [21] Get embedding cache type
+    params.embedding_cache_type =
+        get_hps_embeddingcache_type(model, "embedding_cache_type", params.embedding_cache_type);
+
+    if (params.use_static_table) {
+      params.embedding_cache_type = EmbeddingCacheType_t::Static;
+    }
+
     // [21] use_context_stream -> bool
     params.use_context_stream = get_value_from_json_soft<bool>(model, "use_context_stream", true);
 
@@ -891,6 +901,33 @@ UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const s
     if (tmp == name) {
       return enum_value;
     }
+
+  return default_value;
+}
+
+EmbeddingCacheType_t get_hps_embeddingcache_type(const nlohmann::json& json, const std::string& key,
+                                                 const EmbeddingCacheType_t default_value) {
+  if (json.find(key) == json.end()) {
+    return default_value;
+  }
+  std::string tmp = get_value_from_json<std::string>(json, key);
+  EmbeddingCacheType_t enum_value;
+  std::unordered_set<const char*> names;
+
+  enum_value = EmbeddingCacheType_t::Dynamic;
+  if (hctr_enum_to_c_str(enum_value) == tmp) {
+    return enum_value;
+  }
+
+  enum_value = EmbeddingCacheType_t::Static;
+  if (hctr_enum_to_c_str(enum_value) == tmp) {
+    return enum_value;
+  }
+
+  enum_value = EmbeddingCacheType_t::UVM;
+  if (hctr_enum_to_c_str(enum_value) == tmp) {
+    return enum_value;
+  }
 
   return default_value;
 }

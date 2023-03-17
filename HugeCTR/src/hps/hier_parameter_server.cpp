@@ -218,7 +218,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if ((inference_params_array[i].use_gpu_embedding_cache &&
          inference_params_array[i].cache_refresh_percentage_per_iteration > 0) ||
-        inference_params_array[i].use_static_table) {
+        inference_params_array[i].embedding_cache_type != HugeCTR::EmbeddingCacheType_t::Dynamic) {
       init_ec(inference_params_array[i], model_cache_map_[inference_params_array[i].model_name]);
     }
   }
@@ -480,7 +480,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
       }
       EmbeddingCacheRefreshspace refreshspace_handler = memory_block->refresh_buffer;
 
-      if (!inference_params.use_static_table) {
+      if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic) {
         // initilize the embedding cache for each table
         const size_t stride_set =
             std::max(1.0f, floor(cache_config.num_set_in_cache_[j] *
@@ -522,6 +522,55 @@ void HierParameterServer<TypeHashKey>::init_ec(
           embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
           HCTR_LIB_THROW(cudaStreamSynchronize(stream));
           num_iteration++;
+        }
+      }
+      // For UVM solution
+      else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM) {
+        size_t length =
+            cache_config.num_set_in_cache_[j] * cache_config.cache_refresh_percentage_per_iteration;
+        length = std::max(length, cache_config.num_set_in_cache_[j] / 10);
+        std::pair<void*, size_t> key_result;
+        std::pair<void*, size_t> vec_result;
+
+        size_t num_iterations = (cache_config.num_set_in_cache_[j] - 1) / length + 1;
+
+        for (size_t it = 0; it < num_iterations; it++) {
+          refreshspace_handler.h_length_ = &length;
+          if (it == num_iterations - 1) {
+            length = cache_config.num_set_in_cache_[j] - length * it;
+          }
+          if (inference_params.fuse_embedding_table) {
+            size_t idx_set = it * length;
+            size_t table_id = idx_set % inference_params.fused_sparse_model_files[j].size();
+            rawreader->load(inference_params.embedding_table_names[j],
+                            inference_params.fused_sparse_model_files[j][table_id], length);
+            size_t iter_id = (idx_set / inference_params.fused_sparse_model_files[j].size()) %
+                             rawreader->get_num_iterations();
+            key_result = rawreader->getkeys(iter_id);
+            vec_result = rawreader->getvectors(iter_id, cache_config.embedding_vec_size_[j]);
+          } else {
+            rawreader->load(inference_params.embedding_table_names[j],
+                            inference_params.sparse_model_files[j], length);
+            key_result = rawreader->getkeys(it);
+            vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
+          }
+
+          std::pair<void*, size_t> key_result = rawreader->getkeys(it);
+          std::pair<void*, size_t> vec_result =
+              rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
+          HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_,
+                                         reinterpret_cast<const TypeHashKey*>(key_result.first),
+                                         *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
+                                         cudaMemcpyHostToHost, stream));
+
+          HCTR_LIB_THROW(cudaMemcpyAsync(
+              refreshspace_handler.h_refresh_emb_vec_,
+              reinterpret_cast<const float*>(vec_result.first),
+              *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
+              cudaMemcpyHostToHost, stream));
+
+          embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
+          HCTR_LIB_THROW(cudaStreamSynchronize(stream));
         }
       } else {
         HCTR_LOG(INFO, WORLD,

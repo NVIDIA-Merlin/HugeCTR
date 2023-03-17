@@ -35,6 +35,10 @@ file(GLOB lookup_session_fusing_table_test_src
   lookup_session_fusing_table_test.cpp
 )
 
+file(GLOB static_uvm_table_test_src
+  static_uvm_table_test.cu
+)
+
 add_executable(embedding_cache_test ${embedding_cache_test_src})
 target_compile_features(embedding_cache_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_cache_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
@@ -54,3 +58,8 @@ target_link_libraries(db_backend_test PUBLIC huge_ctr_hps cudart gtest gtest_mai
 add_executable(lookup_session_fusing_table_test ${lookup_session_fusing_table_test_src})
 target_compile_features(lookup_session_fusing_table_test PUBLIC cxx_std_17)
 target_link_libraries(lookup_session_fusing_table_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)
+target_link_libraries(db_backend_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
+
+add_executable(static_uvm_table_test ${static_uvm_table_test_src})
+target_compile_features(static_uvm_table_test PUBLIC cxx_std_17)
+target_link_libraries(static_uvm_table_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)

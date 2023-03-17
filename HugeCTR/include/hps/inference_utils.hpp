@@ -50,6 +50,11 @@ enum class UpdateSourceType_t {
   Null,
   KafkaMessageQueue,
 };
+enum class EmbeddingCacheType_t {
+  Dynamic,
+  Static,
+  UVM,
+};
 
 constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
   // Remark: Dependent functions assume lower-case, and underscore separated.
@@ -70,6 +75,20 @@ constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
       return "<unknown DatabaseType_t value>";
   }
 }
+constexpr const char* hctr_enum_to_c_str(const EmbeddingCacheType_t value) {
+  // Remark: Dependent functions assume lower-case, and underscore separated.
+  switch (value) {
+    case EmbeddingCacheType_t::Dynamic:
+      return "dynamic";
+    case EmbeddingCacheType_t::Static:
+      return "static";
+    case EmbeddingCacheType_t::UVM:
+      return "uvm";
+    default:
+      return "dynamic";
+  }
+}
+
 constexpr const char* hctr_enum_to_c_str(const DatabaseOverflowPolicy_t value) {
   // Remark: Dependent functions assume lower-case, and underscore separated.
   switch (value) {
@@ -105,12 +124,18 @@ inline std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value) {
   return os << hctr_enum_to_c_str(value);
 }
 
+inline std::ostream& operator<<(std::ostream& os, EmbeddingCacheType_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+
 DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string& key,
                                      DatabaseType_t default_value);
 UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string& key,
                                              UpdateSourceType_t default_value);
 DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string& key,
                                                  DatabaseOverflowPolicy_t default_value);
+EmbeddingCacheType_t get_hps_embeddingcache_type(const nlohmann::json& json, const std::string& key,
+                                                 EmbeddingCacheType_t default_value);
 
 struct VolatileDatabaseParams {
   DatabaseType_t type{DatabaseType_t::ParallelHashMap};
@@ -261,6 +286,7 @@ struct InferenceParams {
   size_t slot_num;
   std::string non_trainable_params_file;
   bool use_static_table;
+  EmbeddingCacheType_t embedding_cache_type;
   // Whether to use context stream for HPS TensorFlow/TensorRT plugins
   bool use_context_stream;
   bool fuse_embedding_table;
@@ -291,6 +317,7 @@ struct InferenceParams {
                   const std::vector<std::string>& embedding_table_names = {""},
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
                   const std::string& non_trainable_params_file = "", bool use_static_table = false,
+                  const EmbeddingCacheType_t embedding_cache_type = EmbeddingCacheType_t::Dynamic,
                   bool use_context_stream = true, bool fuse_embedding_table = false);
 };
 

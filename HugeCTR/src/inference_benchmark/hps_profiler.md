@@ -105,7 +105,6 @@ For configuration information about HPS, you can refer to [here](https://nvidia-
 			"hit_rate_threshold":1.0,
 			"gpucacheper":0.9,
 			"gpucache":true,
-			"use_static_table":false,
 			"maxnum_des_feature_per_sample": 0,
 			"maxnum_catfeature_query_per_table_per_sample" : [26],
 			"embedding_vecsize_per_table" : [16]

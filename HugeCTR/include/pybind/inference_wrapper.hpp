@@ -521,6 +521,12 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("poll_timeout_ms") = 500, pybind11::arg("max_batch_size") = 8 * 1024,
            pybind11::arg("failure_backoff_ms") = 50, pybind11::arg("max_commit_interval") = 32);
 
+  pybind11::enum_<EmbeddingCacheType_t>(infer, "EmbeddingCacheType_t")
+      .value("Dynamic", EmbeddingCacheType_t::Dynamic)
+      .value("UVM", EmbeddingCacheType_t::UVM)
+      .value("Static", EmbeddingCacheType_t::Static)
+      .export_values();
+
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(
       infer, "InferenceParams")
       .def(pybind11::init<const std::string&, const size_t, const float, const std::string&,
@@ -534,7 +540,7 @@ void InferencePybind(pybind11::module& m) {
                           const float, const float, const std::vector<size_t>&,
                           const std::vector<size_t>&, const std::vector<std::string>&,
                           const std::string&, const size_t, const size_t, const std::string&, bool,
-                          bool, bool>(),
+                          const EmbeddingCacheType_t&, bool, bool>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
@@ -561,7 +567,9 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("embedding_table_names") = std::vector<std::string>{""},
            pybind11::arg("network_file") = "", pybind11::arg("label_dim") = 1,
            pybind11::arg("slot_num") = 10, pybind11::arg("non_trainable_params_file") = "",
-           pybind11::arg("use_static_table") = false, pybind11::arg("use_context_stream") = true,
+           pybind11::arg("use_static_table") = false,
+           pybind11::arg("embedding_cache_type") = EmbeddingCacheType_t::Dynamic,
+           pybind11::arg("use_context_stream") = true,
            pybind11::arg("fuse_embedding_table") = false);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,

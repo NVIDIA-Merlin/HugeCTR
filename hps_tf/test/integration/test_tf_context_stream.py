@@ -52,7 +52,7 @@ hps_config = {
             "hit_rate_threshold": 1.0,
             "gpucacheper": 1.0,
             "gpucache": True,
-            "use_static_table": True,
+            "embedding_cache_type": "static",
             "use_context_stream": True,
         }
     ],

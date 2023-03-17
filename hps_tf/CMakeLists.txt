@@ -53,6 +53,7 @@ endif()
 find_package(CUDA REQUIRED)
 find_package(TensorFlow REQUIRED)
 find_package(Threads)
+find_package(OpenMP REQUIRED)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 
@@ -67,6 +68,13 @@ option(HPS_ASYNC_OP "Make Ops to be asynchronous")
 if (HPS_ASYNC_OP)
     message(STATUS "Make Ops to be asynchronous")
     add_definitions(-DHPS_ASYNC_OP)
+endif()
+
+if (OPENMP_FOUND)
+  message(STATUS "OPENMP FOUND")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
 foreach(arch_name ${SM})
@@ -105,6 +113,10 @@ else()
 endif()
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+
+if(OPENMP_FOUND)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
+endif()
 
 # setting output folder
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
