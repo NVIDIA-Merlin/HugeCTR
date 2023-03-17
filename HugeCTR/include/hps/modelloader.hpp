@@ -19,8 +19,8 @@
 #include <cuda_runtime_api.h>
 
 #include <cstdint>
-#include <filesystem>
 #include <hps/database_backend.hpp>
+#include <io/filesystem.hpp>
 #include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
@@ -37,9 +37,21 @@ template <typename TypeHashKey, typename TypeHashValue>
 struct UnifiedEmbeddingTable {
   std::vector<TypeHashKey> keys;
   std::vector<TypeHashValue> vectors;
-  std::vector<TypeHashValue> meta;
+  std::vector<TypeHashKey> meta;
+  std::vector<TypeHashKey> uvm_keys;
+  std::vector<TypeHashValue> uvm_vectors;
   size_t key_count = 0;
   size_t vec_elem_count = 0;
+  size_t total_key_count = 0;
+  size_t threshold = -1;
+  size_t cache_capacity = 0;
+  size_t uvm_key_count = 0;
+  void* get_cache_keys();
+  void* get_caceh_vecs();
+  size_t get_cache_key_count();
+  void* get_uvm_keys();
+  void* get_uvm_vecs();
+  size_t get_uvm_key_count();
 };
 
 /**
@@ -52,15 +64,26 @@ class IModelLoader {
  public:
   ~IModelLoader() = default;
   /**
+   * @brief Returns all embedding keys and vectors for a specific number of iterations for cache and
+   * uvm
+   *
+   * @param iteration
+   * @param emb_size
+   * @param cache_capacity
+   */
+  virtual void get_cache_uvm(size_t iteration, size_t emb_size, size_t cache_capacity) = 0;
+  /**
    * Load the contents of the model file with difference format into a into a
    * UnifiedEmbeddingTable(data member) of an inherited class.
    *
    * @param table_name The destination table into which to insert the data.
    * @param path File system path under which the embedding file should be parsed.
-   * @param load_with_offset Whether to load into destination table with offset.
+   * @param key_num_per_iteration The number of key-value pairs that need to be parsed per iteration
+   * @param threshold Threshold for filtering key-value pairs that need to be cached
+   * iteration.
    */
   virtual void load(const std::string& table_name, const std::string& path,
-                    bool load_with_offset) = 0;
+                    size_t key_num_per_iteration = 0, size_t threshold = -1) = 0;
   /**
    * Load the contents of the model file with difference format into a into a
    * UnifiedEmbeddingTable(data member) of an inherited class.
@@ -69,7 +92,9 @@ class IModelLoader {
    * @param path_list File system path lists under which the multiple embedding folders should be
    * parsed.
    */
-  virtual void load(const std::string& table_name, const std::vector<std::string>& path_list) = 0;
+  virtual void load_fused_emb(const std::string& table_name,
+                              const std::vector<std::string>& path_list) = 0;
+
   /**
    * free the UnifiedEmbeddingTable(data member) of an inherited class.
    *
@@ -96,6 +121,32 @@ class IModelLoader {
    *
    */
   virtual size_t getkeycount() = 0;
+  /**
+   * Returns the number of iterations to traverse all tables
+   *
+   */
+  virtual size_t get_num_iterations() = 0;
+
+  /**
+   * @brief Returns all embedding keys for a specific number of iterations
+   *
+   * @param iteration
+   */
+  virtual std::pair<void*, size_t> getkeys(size_t iteration) = 0;
+  /**
+   * Returns all embedding vectors for a specific number of iterations
+   *@param iteration
+   *@param embedding_vector_size
+   */
+  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size) = 0;
+
+  virtual void* get_cache_keys() = 0;
+  virtual void* get_caceh_vecs() = 0;
+  virtual size_t get_cache_key_count() = 0;
+  virtual void* get_uvm_keys() = 0;
+  virtual void* get_uvm_vecs() = 0;
+  virtual size_t get_uvm_key_count() = 0;
+
   IModelLoader() = default;
 };
 
@@ -110,16 +161,35 @@ template <typename TKey, typename TValue>
 class RawModelLoader : public IModelLoader {
  private:
   UnifiedEmbeddingTable<TKey, TValue>* embedding_table_;
+  size_t num_iterations;
+  std::unique_ptr<HugeCTR::FileSystem> fs_;
+  size_t key_iteration;
+  std::string embedding_folder_path;
+  size_t key_num_iteration = 0;
+  virtual void load_emb(const std::string& table_name, const std::string& path);
 
  public:
   RawModelLoader();
-  virtual void load(const std::string& table_name, const std::string& path, bool load_with_offset);
-  virtual void load(const std::string& table_name, const std::vector<std::string>& path_list);
+  virtual void load(const std::string& table_name, const std::string& path,
+                    size_t key_num_per_iteration, size_t threshold);
+
+  virtual void load_fused_emb(const std::string& table_name,
+                              const std::vector<std::string>& path_list);
   virtual void delete_table();
   virtual void* getkeys();
   virtual void* getvectors();
   virtual void* getmetas();
+  virtual void get_cache_uvm(size_t iteration, size_t emb_size, size_t cache_capacity);
   virtual size_t getkeycount();
+  virtual size_t get_num_iterations();
+  virtual std::pair<void*, size_t> getkeys(size_t iteration);
+  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size);
+  virtual void* get_cache_keys();
+  virtual void* get_caceh_vecs();
+  virtual size_t get_cache_key_count();
+  virtual void* get_uvm_keys();
+  virtual void* get_uvm_vecs();
+  virtual size_t get_uvm_key_count();
   ~RawModelLoader() { delete_table(); }
 };
 
