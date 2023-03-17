@@ -133,7 +133,7 @@ stages:
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
     # Install inference of target branch to overwrite the one in merlin-base
     - if [[ "$CI_JOB_NAME" != "build_sok_tf1" ]]; then
-        echo "RUN cd /workdir && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DENABLE_INFERENCE=ON .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80;90\" -DENABLE_INFERENCE=ON .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
         echo "RUN cd /workdir && rm -rf build && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};

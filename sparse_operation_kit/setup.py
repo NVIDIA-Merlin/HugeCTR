@@ -39,7 +39,7 @@ def _GetSOKVersion():
 
 
 def get_cmake_args():
-    gpu_capabilities = ["70", "75", "80"]
+    gpu_capabilities = ["70", "75", "80", "90"]
     if os.getenv("SOK_COMPILE_GPU_SM"):
         gpu_capabilities = os.getenv("SOK_COMPILE_GPU_SM")
         gpu_capabilities = str(gpu_capabilities).strip().split(";")
