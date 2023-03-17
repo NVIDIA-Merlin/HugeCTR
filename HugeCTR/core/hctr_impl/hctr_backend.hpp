@@ -26,31 +26,21 @@ namespace hctr_internal {
 using HugeCTR::CudaDeviceContext;
 
 class GPUResource final : public core::GPUResourceBase {
-  int device_id_;
-  std::string current_stream_name_;
-  std::unordered_map<std::string, cudaStream_t> stream_map_;
+  std::shared_ptr<HugeCTR::GPUResource> gpu_resource_;
 
  public:
   HCTR_DISALLOW_COPY_AND_MOVE(GPUResource);
 
-  GPUResource(int device_id, cudaStream_t default_stream)
-      : device_id_(device_id), current_stream_name_("default") {
-    stream_map_[current_stream_name_] = default_stream;
+  GPUResource(std::shared_ptr<HugeCTR::GPUResource> gpu_resource)
+      : gpu_resource_(std::move(gpu_resource)) {}
+
+  void set_stream(const std::string &name) override { gpu_resource_->set_stream(name); }
+
+  std::string get_current_stream_name() override {
+    return gpu_resource_->get_current_stream_name();
   }
 
-  void set_stream(const std::string &name) override { current_stream_name_ = name; }
-
-  std::string get_current_stream_name() override { return current_stream_name_; }
-
-  cudaStream_t get_stream() override {
-    if (stream_map_.find(current_stream_name_) == stream_map_.end()) {
-      CudaDeviceContext context(device_id_);
-      cudaStream_t stream;
-      HCTR_LIB_THROW(cudaStreamCreate(&stream));
-      stream_map_[current_stream_name_] = stream;
-    }
-    return stream_map_.at(current_stream_name_);
-  }
+  cudaStream_t get_stream() override { return gpu_resource_->get_stream(); }
 };
 
 class HCTRCoreResourceManager : public core::CoreResourceManager {
@@ -67,8 +57,7 @@ class HCTRCoreResourceManager : public core::CoreResourceManager {
         local_id_(local_id),
         global_id_(ext_->get_gpu_global_id_from_local_id(local_id)),
         device_id_(ext_->get_local_gpu_device_id_list()[local_id]),
-        gpu_resource_(std::make_shared<GPUResource>(device_id_,
-                                                    ext_->get_local_gpu(local_id)->get_stream())) {}
+        gpu_resource_(std::make_shared<GPUResource>(ext_->get_local_gpu(local_id))) {}
 
   std::shared_ptr<core::GPUResourceBase> get_local_gpu() override { return gpu_resource_; }
 
