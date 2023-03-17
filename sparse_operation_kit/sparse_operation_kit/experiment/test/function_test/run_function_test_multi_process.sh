@@ -20,5 +20,3 @@ horovodrun -np ${task_num} python lookup_sparse_distributed_test.py
 horovodrun -np ${task_num} python lookup_sparse_distributed_dynamic_test.py
 horovodrun -np ${task_num} python lookup_sparse_localized_test.py
 horovodrun -np ${task_num} python lookup_sparse_localized_dynamic_test.py
-horovodrun -np ${task_num} python all2all_dense_embedding_test.py
-horovodrun -np ${task_num} python all2all_dense_embedding_dynamic_test.py

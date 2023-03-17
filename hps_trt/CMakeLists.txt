@@ -69,8 +69,9 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 80 OR 
-        arch_name STREQUAL 75 OR 
+    if (arch_name STREQUAL 90 OR
+        arch_name STREQUAL 80 OR
+        arch_name STREQUAL 75 OR
         arch_name STREQUAL 70)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "Assign GPU architecture (sm=${arch_name})")
