@@ -171,7 +171,7 @@ which can be specified in the HPS configuration JSON file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sp_ids</strong> – N x M <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> of <code class="docutils literal notranslate"><span class="pre">int64</span></code> IDs where N is typically batch size
+<li><p><strong>sp_ids</strong> – N x M <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> of <code class="docutils literal notranslate"><span class="pre">int32</span></code> or <code class="docutils literal notranslate"><span class="pre">int64</span></code> IDs where N is typically batch size
 and M is arbitrary.</p></li>
 <li><p><strong>sp_weights</strong> – Either a <code class="docutils literal notranslate"><span class="pre">SparseTensor</span></code> of float or double weights, or <code class="docutils literal notranslate"><span class="pre">None</span></code> to
 indicate all weights should be taken to be <cite>1</cite>. If specified, <code class="docutils literal notranslate"><span class="pre">sp_weights</span></code>
@@ -221,7 +221,7 @@ In other words, if</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of int32</p>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of float32</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
@@ -281,18 +281,22 @@ by model_name and table_id.</p></li>
 </div>
 <dl class="py method">
 <dt id="hierarchical_parameter_server.LookupLayer.call">
-<code class="sig-name descname"><span class="pre">call</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/lookup_layer.html#LookupLayer.call"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.LookupLayer.call" title="Permalink to this definition"></a></dt>
+<code class="sig-name descname"><span class="pre">call</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/lookup_layer.html#LookupLayer.call"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.LookupLayer.call" title="Permalink to this definition"></a></dt>
 <dd><p>The forward logic of this wrapper class.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>inputs</strong> – Keys are stored in Tensor. The data type must be <code class="docutils literal notranslate"><span class="pre">tf.int64</span></code>.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ids</strong> – Keys are stored in Tensor. The supported data types are <code class="docutils literal notranslate"><span class="pre">tf.int32</span></code> and <code class="docutils literal notranslate"><span class="pre">tf.int64</span></code>.</p></li>
+<li><p><strong>max_norm</strong> – if not <code class="docutils literal notranslate"><span class="pre">None</span></code>, each embedding is clipped if its l2-norm is larger
+than this value.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><strong>emb_vector</strong> – the embedding vectors for the input keys. Its shape is
-<em>inputs.get_shape() + emb_vec_size</em>.</p>
+<em>ids.get_shape() + emb_vec_size</em>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of int32</p>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">tf.Tensor</span></code> of float32</p>
 </dd>
 </dl>
 </dd></dl>
@@ -336,7 +340,7 @@ by model_name and table_id.</p></li>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v23.02.00/hierarchical_parameter_server/hps_tf_api/layers.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="../../../v4.2/index.html">v4.2</a></dd>

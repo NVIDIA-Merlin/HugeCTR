@@ -253,21 +253,21 @@ The <code class="docutils literal notranslate"><span class="pre">VolatileDatabas
 If you want iterative or online model updating, you must also provide the <code class="docutils literal notranslate"><span class="pre">UpdateSourceParams</span></code> object to link the HPS database backend instance with your Kafka deployment.
 These objects are part of the <a class="reference internal" href="api/python_interface.html#inference-api"><span class="std std-doc">hugectr.inference</span></a> Python package.</p>
 <p>If you deploy HugeCTR as a backend for NVIDIA <a class="reference external" href="https://developer.nvidia.com/nvidia-triton-inference-server">Triton Inference Server</a>, you can also provide these configuration options by extending your Triton deployment’s JSON configuration:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 
-<span class="w">  </span><span class="c1">// ...</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="c1">// ...</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Set the <code class="docutils literal notranslate"><span class="pre">supportlonglong</span></code> field to <code class="docutils literal notranslate"><span class="pre">True</span></code> when you need to use a 64-bit integer input key.
@@ -418,32 +418,32 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <div class="section" id="parameter-server-configuration-models">
 <h4>Parameter Server Configuration: Models<a class="headerlink" href="#parameter-server-configuration-models" title="Permalink to this headline"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">models</span></code> key in a parameter server configuration file.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="nt">&quot;models&quot;</span><span class="p">:[</span><span class="w"></span>
-<span class="w">  </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="s2">&quot;wdl&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;sparse_files&quot;</span><span class="p">:[</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;dense_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;network_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl.json&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;num_of_refresher_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;deployed_device_list&quot;</span><span class="p">:[</span><span class="mi">0</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="mi">64</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;default_value_for_each_table&quot;</span><span class="p">:[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;maxnum_des_feature_per_sample&quot;</span><span class="p">:</span><span class="mi">26</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:[</span><span class="mi">2</span><span class="p">,</span><span class="mi">26</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:[</span><span class="mi">1</span><span class="p">,</span><span class="mi">15</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;table1&quot;</span><span class="p">,</span><span class="s2">&quot;table2&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;refresh_delay&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;refresh_interval&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;hit_rate_threshold&quot;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;gpucacheper&quot;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;gpucache&quot;</span><span class="p">:</span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;label_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="mi">10</span><span class="w"></span>
-<span class="w">  </span><span class="p">}</span><span class="w"></span>
-<span class="p">]</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="nt">&quot;models&quot;</span><span class="p">:[</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="s2">&quot;wdl&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sparse_files&quot;</span><span class="p">:[</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;dense_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;network_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl.json&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;num_of_refresher_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;deployed_device_list&quot;</span><span class="p">:[</span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="mi">64</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;default_value_for_each_table&quot;</span><span class="p">:[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;maxnum_des_feature_per_sample&quot;</span><span class="p">:</span><span class="mi">26</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:[</span><span class="mi">2</span><span class="p">,</span><span class="mi">26</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:[</span><span class="mi">1</span><span class="p">,</span><span class="mi">15</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;table1&quot;</span><span class="p">,</span><span class="s2">&quot;table2&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;refresh_delay&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;refresh_interval&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;hit_rate_threshold&quot;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;gpucacheper&quot;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;gpucache&quot;</span><span class="p">:</span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;label_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="mi">10</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div>
@@ -495,30 +495,30 @@ The assignment of which nodes update specific partition can change at runtime.</
 <div class="section" id="parameter-server-configuration-volatile-database">
 <h4>Parameter Server Configuration: Volatile Database<a class="headerlink" href="#parameter-server-configuration-volatile-database" title="Permalink to this headline"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">volatile_db</span></code> key in a parameter server configuration file.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:7003,127.0.0.1:7004,127.0.0.1:7005&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;user_name&quot;</span><span class="p">:</span><span class="w">  </span><span class="s2">&quot;default&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;num_partitions&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;allocation_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">268435456</span><span class="p">,</span><span class="w">  </span><span class="c1">// 256 MiB</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;shared_memory_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17179869184</span><span class="p">,</span><span class="w">  </span><span class="c1">// 16 GiB</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;shared_memory_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hctr_mp_hash_map_database&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;enable_tls&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;tls_ca_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cacertbundle.crt&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;tls_client_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_cert.pem&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;tls_client_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_key.pem&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;tls_server_name_identification&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis.localhost&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;overflow_margin&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;overflow_policy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;evict_oldest&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;overflow_resolution_target&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;initialize_after_startup&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;initial_cache_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;cache_missed_embeddings&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:7003,127.0.0.1:7004,127.0.0.1:7005&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;user_name&quot;</span><span class="p">:</span><span class="w">  </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;num_partitions&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;allocation_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">268435456</span><span class="p">,</span><span class="w">  </span><span class="c1">// 256 MiB</span>
+<span class="w">  </span><span class="nt">&quot;shared_memory_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17179869184</span><span class="p">,</span><span class="w">  </span><span class="c1">// 16 GiB</span>
+<span class="w">  </span><span class="nt">&quot;shared_memory_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hctr_mp_hash_map_database&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;enable_tls&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tls_ca_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cacertbundle.crt&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tls_client_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_cert.pem&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tls_client_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;client_key.pem&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tls_server_name_identification&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis.localhost&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;overflow_margin&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;overflow_policy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;evict_oldest&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;overflow_resolution_target&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;initialize_after_startup&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;initial_cache_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;cache_missed_embeddings&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -661,15 +661,15 @@ As a result, some configuration parameters can vary according to the specificati
 <div class="section" id="parameter-server-configuration-persistent-database">
 <h4>Parameter Server Configuration: Persistent Database<a class="headerlink" href="#parameter-server-configuration-persistent-database" title="Permalink to this headline"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">persistent_db</span></code> key in a parameter server configuration file.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rocks_db&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;read_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rocks_db&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;read_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65536</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -729,16 +729,16 @@ To ensure that all database layers are kept in sync, configure all the nodes in 
 <div class="section" id="parameter-server-configuration-update-source">
 <h4>Parameter Server Configuration: Update Source<a class="headerlink" href="#parameter-server-configuration-update-source" title="Permalink to this headline"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">update_source</span></code> key in a parameter server configuration file.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;brokers&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:9092&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;metadata_refresh_interval_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30000</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;poll_timeout_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;receive_buffer_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">262144</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8192</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;failure_backoff_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;max_commit_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;brokers&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:9092&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;metadata_refresh_interval_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;poll_timeout_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;receive_buffer_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">262144</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8192</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;failure_backoff_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;max_commit_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -814,7 +814,7 @@ The default value is <code class="docutils literal notranslate"><span class="pre
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v4.0/hugectr_parameter_server.html">v4.0</a></dd>
+      <dd><a href="../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../v4.1/hugectr_parameter_server.html">v4.1</a></dd>
       <dd><a href="../v4.1.1/hugectr_parameter_server.html">v4.1.1</a></dd>
       <dd><a href="../v4.2/hugectr_parameter_server.html">v4.2</a></dd>

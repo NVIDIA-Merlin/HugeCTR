@@ -474,25 +474,25 @@ Input and Output Shapes:</p></li>
 “snapshot_prefix” + “<em>dense</em>” + str(iter) + ”.model”</p>
 <p>Example: my_snapshot_dense_5000.model<br></p>
 <p>In the JSON file, you can find the batch norm parameters as shown below:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;layers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">-0.192325</span><span class="p">,</span><span class="w"> </span><span class="mf">0.003050</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.323447</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.034817</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.091861</span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.738942</span><span class="p">,</span><span class="w"> </span><span class="mf">0.410794</span><span class="p">,</span><span class="w"> </span><span class="mf">1.370279</span><span class="p">,</span><span class="w"> </span><span class="mf">1.156337</span><span class="p">,</span><span class="w"> </span><span class="mf">0.638146</span><span class="p">]</span><span class="w"></span>
-<span class="w">        </span><span class="p">},</span><span class="w"></span>
-<span class="w">        </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">-0.759954</span><span class="p">,</span><span class="w"> </span><span class="mf">0.251507</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.648882</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.176316</span><span class="p">,</span><span class="w"> </span><span class="mf">0.515163</span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">1.434012</span><span class="p">,</span><span class="w"> </span><span class="mf">1.422724</span><span class="p">,</span><span class="w"> </span><span class="mf">1.001451</span><span class="p">,</span><span class="w"> </span><span class="mf">1.756962</span><span class="p">,</span><span class="w"> </span><span class="mf">1.126412</span><span class="p">]</span><span class="w"></span>
-<span class="w">        </span><span class="p">},</span><span class="w"></span>
-<span class="w">        </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.851878</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.837513</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.694674</span><span class="p">,</span><span class="w"> </span><span class="mf">0.791046</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.849544</span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">1.694500</span><span class="p">,</span><span class="w"> </span><span class="mf">5.405566</span><span class="p">,</span><span class="w"> </span><span class="mf">4.211646</span><span class="p">,</span><span class="w"> </span><span class="mf">1.936811</span><span class="p">,</span><span class="w"> </span><span class="mf">5.659098</span><span class="p">]</span><span class="w"></span>
-<span class="w">        </span><span class="p">}</span><span class="w"></span>
-<span class="w">      </span><span class="p">]</span><span class="w"></span>
-<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;layers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">-0.192325</span><span class="p">,</span><span class="w"> </span><span class="mf">0.003050</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.323447</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.034817</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.091861</span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.738942</span><span class="p">,</span><span class="w"> </span><span class="mf">0.410794</span><span class="p">,</span><span class="w"> </span><span class="mf">1.370279</span><span class="p">,</span><span class="w"> </span><span class="mf">1.156337</span><span class="p">,</span><span class="w"> </span><span class="mf">0.638146</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">-0.759954</span><span class="p">,</span><span class="w"> </span><span class="mf">0.251507</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.648882</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.176316</span><span class="p">,</span><span class="w"> </span><span class="mf">0.515163</span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">1.434012</span><span class="p">,</span><span class="w"> </span><span class="mf">1.422724</span><span class="p">,</span><span class="w"> </span><span class="mf">1.001451</span><span class="p">,</span><span class="w"> </span><span class="mf">1.756962</span><span class="p">,</span><span class="w"> </span><span class="mf">1.126412</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BatchNorm&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.851878</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.837513</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.694674</span><span class="p">,</span><span class="w"> </span><span class="mf">0.791046</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.849544</span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;var&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">1.694500</span><span class="p">,</span><span class="w"> </span><span class="mf">5.405566</span><span class="p">,</span><span class="w"> </span><span class="mf">4.211646</span><span class="p">,</span><span class="w"> </span><span class="mf">1.936811</span><span class="p">,</span><span class="w"> </span><span class="mf">5.659098</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -1182,44 +1182,44 @@ For example, if lookup <code class="docutils literal notranslate"><span class="p
 <div class="section" id="sample-etps-plan-file-data-parallel">
 <h4>Sample ETPS Plan File: Data Parallel<a class="headerlink" href="#sample-etps-plan-file-data-parallel" title="Permalink to this headline"></a></h4>
 <p>The following sample plan file shows how to use two GPUs and a data parallel ETPS in four embedding tables:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
-<span class="w">  </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">]</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 <p>The plan file consists of a list that describes the table placement strategy in each GPU, in order.
@@ -1237,74 +1237,74 @@ Each group of sharded lookup operation is a dictionary with the following fields
 <h4>Sample ETPS Plan File: Model Parallel and Data Parallel Combined<a class="headerlink" href="#sample-etps-plan-file-model-parallel-and-data-parallel-combined" title="Permalink to this headline"></a></h4>
 <p>You can apply more complex strategies for ETPS.
 The following sample plan file demonstrates how to shared lookups <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code>, and <code class="docutils literal notranslate"><span class="pre">3</span></code> across two GPUs and lookup <code class="docutils literal notranslate"><span class="pre">4</span></code> is data parallel:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
-<span class="w">  </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">              </span><span class="mi">2</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">2</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">3</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">4</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">              </span><span class="mi">3</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">2</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">3</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">},</span><span class="w"></span>
-<span class="w">      </span><span class="p">{</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="mi">4</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">],</span><span class="w"></span>
-<span class="w">              </span><span class="p">[</span><span class="w"></span>
-<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
-<span class="w">              </span><span class="p">]</span><span class="w"></span>
-<span class="w">          </span><span class="p">],</span><span class="w"></span>
-<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">}</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">]</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">              </span><span class="mi">2</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                  </span><span class="mi">2</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                  </span><span class="mi">3</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">4</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">              </span><span class="mi">3</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                  </span><span class="mi">2</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                  </span><span class="mi">3</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="mi">4</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">],</span>
+<span class="w">              </span><span class="p">[</span>
+<span class="w">                  </span><span class="mi">4</span>
+<span class="w">              </span><span class="p">]</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div>
@@ -1382,7 +1382,7 @@ The following sample plan file demonstrates how to shared lookups <code class="d
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/api/hugectr_layer_book.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/api/hugectr_layer_book.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/api/hugectr_layer_book.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/api/hugectr_layer_book.html">v4.1.1</a></dd>
       <dd><a href="hugectr_layer_book.html">v4.2</a></dd>

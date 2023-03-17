@@ -143,10 +143,10 @@ docker run --gpus=all  --rm -it --net=host -v $PWD:/workspace --ipc=host hugging
 <p>First, we install some extra package.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install imdbpy
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>imdbpy
 
 <span class="c1"># Cuda 11 and A100 support</span>
-<span class="o">!</span>pip3 install <span class="nv">torch</span><span class="o">==</span><span class="m">1</span>.8.1+cu111 <span class="nv">torchvision</span><span class="o">==</span><span class="m">0</span>.9.1+cu111 <span class="nv">torchaudio</span><span class="o">==</span><span class="m">0</span>.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+<span class="o">!</span>pip3<span class="w"> </span>install<span class="w"> </span><span class="nv">torch</span><span class="o">==</span><span class="m">1</span>.8.1+cu111<span class="w"> </span><span class="nv">torchvision</span><span class="o">==</span><span class="m">0</span>.9.1+cu111<span class="w"> </span><span class="nv">torchaudio</span><span class="o">==</span><span class="m">0</span>.8.1<span class="w"> </span>-f<span class="w"> </span>https://download.pytorch.org/whl/torch_stable.html
 </pre></div>
 </div>
 </div>
@@ -276,7 +276,7 @@ docker run --gpus=all  --rm -it --net=host -v $PWD:/workspace --ipc=host hugging
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="04-Feature-Extraction-Text.html">v4.2</a></dd>

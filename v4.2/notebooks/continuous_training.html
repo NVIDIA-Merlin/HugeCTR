@@ -123,7 +123,7 @@
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
 <p>The continuous training module is preinstalled in the 22.10 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
 </div>
 <blockquote>
@@ -139,8 +139,8 @@ documentation.</p>
 <h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+$<span class="w"> </span>wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations:</p>
@@ -151,7 +151,7 @@ $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </ul>
 </li>
 <li><p>Preprocessing by Pandas using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">1</span><span class="w"> </span>wdl_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">100</span>
 </pre></div>
 </div>
 <p>Meanings of the command line arguments:</p>
@@ -166,7 +166,7 @@ $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 <p>For more details about the data preprocessing, please refer to the “Preprocess the Criteo Dataset” section of the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/criteo">samples/criteo</a> directory of the repository on GitHub.</p>
 </li>
 <li><p>Create a soft link of the dataset folder to the path of this notebook using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
 </pre></div>
 </div>
 </li>
@@ -297,7 +297,7 @@ $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_train.py
 </pre></div>
 </div>
 </div>
@@ -569,7 +569,7 @@ The program logic is the same as the preceding code sample.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_etc.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_etc.py
 </pre></div>
 </div>
 </div>
@@ -705,7 +705,7 @@ HugeCTR Version: 3.2
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="continuous_training.html">v4.2</a></dd>

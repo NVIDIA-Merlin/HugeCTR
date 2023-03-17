@@ -149,7 +149,7 @@
 <h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this headline"></a></h3>
 <p>The HPS Python module is preinstalled in the 22.12 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.12</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
 <p>The Triton TensorFlow backend is also available in this container.</p>
@@ -542,10 +542,10 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <p>In order to deploy the inference SavedModel with the Triton TensorFlow backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first. Please note that some required portions (i.e., the input and output tensors) of the model configuration are generated automatically by Triton (see <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_configuration.md#auto-generated-model-configuration">Auto-Generated Model Configuration</a>), so you do NOT need to specify them explicitly in <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p model_repo/hps_tf_triton/1
-<span class="o">!</span>mv hps_tf_triton_tf_saved_model model_repo/hps_tf_triton/1/model.savedmodel
-<span class="o">!</span>mv hps_tf_triton_sparse_0.model model_repo/hps_tf_triton
-<span class="o">!</span>mv hps_tf_triton.json model_repo/hps_tf_triton
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>model_repo/hps_tf_triton/1
+<span class="o">!</span>mv<span class="w"> </span>hps_tf_triton_tf_saved_model<span class="w"> </span>model_repo/hps_tf_triton/1/model.savedmodel
+<span class="o">!</span>mv<span class="w"> </span>hps_tf_triton_sparse_0.model<span class="w"> </span>model_repo/hps_tf_triton
+<span class="o">!</span>mv<span class="w"> </span>hps_tf_triton.json<span class="w"> </span>model_repo/hps_tf_triton
 </pre></div>
 </div>
 </div>
@@ -596,7 +596,7 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/hps_tf_triton
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>model_repo/hps_tf_triton
 </pre></div>
 </div>
 </div>
@@ -629,7 +629,7 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 <p>We can then send the requests to the Triton inference server using the HTTP client. Please note that HPS will be initialized implicitly when the first request is processed at the server side, and the latency can be higher than that of later requests.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl localhost:8000/v2/models/hps_tf_triton/config
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl<span class="w"> </span>localhost:8000/v2/models/hps_tf_triton/config
 </pre></div>
 </div>
 </div>
@@ -911,7 +911,7 @@ TRTEngineOp_000_000              device:GPU:0  10      2             1          
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree model_repo/hps_tf_triton
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>model_repo/hps_tf_triton
 </pre></div>
 </div>
 </div>
@@ -958,7 +958,7 @@ TRTEngineOp_000_000              device:GPU:0  10      2             1          
 <p>When the triton server is succesfully launched, we can then send the requests to it using the HTTP client again.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl localhost:8000/v2/models/hps_tf_triton/config
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl<span class="w"> </span>localhost:8000/v2/models/hps_tf_triton/config
 </pre></div>
 </div>
 </div>
@@ -1037,7 +1037,7 @@ Response details:
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="../../../v4.2/index.html">v4.2</a></dd>

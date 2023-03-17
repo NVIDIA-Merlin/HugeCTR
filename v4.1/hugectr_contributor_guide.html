@@ -178,9 +178,9 @@ I have no name!@56a762eae3f8:/hugectr
 <ol class="arabic">
 <li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git
-$ <span class="nb">cd</span> HugeCTR
-$ git submodule update --init --recursive
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
+$<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 </pre></div>
 </div>
 </li>
@@ -200,23 +200,23 @@ OFF by default. For building inference container, please refer to <a class="refe
 container or make sure you have correctly built Hadoop in your system before setting this    option to ON. This option is set to OFF by default</p></li>
 </ul>
 <p>Here are some examples of how you can build HugeCTR using these build options:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="m">70</span> .. <span class="c1"># Target is NVIDIA V100 with all others by default</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="m">70</span><span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 with all others by default</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_MULTINODES<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span><span class="w"> </span>-DENABLE_MULTINODES<span class="o">=</span>ON<span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Debug -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> .. <span class="c1"># Target is NVIDIA V100 / A100 with Debug mode.</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Debug<span class="w"> </span>-DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span><span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 / A100 with Debug mode.</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
 <p>By default, HugeCTR is installed at /usr/local. However, you can use CMAKE_INSTALL_PREFIX to install HugeCTR to non-default location:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ cmake -DCMAKE_INSTALL_PREFIX<span class="o">=</span>/opt/HugeCTR -DSM<span class="o">=</span><span class="m">70</span> ..
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_INSTALL_PREFIX<span class="o">=</span>/opt/HugeCTR<span class="w"> </span>-DSM<span class="o">=</span><span class="m">70</span><span class="w"> </span>..
 </pre></div>
 </div>
 </li>
@@ -228,16 +228,16 @@ $ make -j <span class="o">&amp;&amp;</span> make install
 <ol class="arabic">
 <li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git
-$ <span class="nb">cd</span> HugeCTR
-$ git submodule update --init --recursive
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
+$<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 </pre></div>
 </div>
 </li>
 <li><p>Here is an example of how you can build HugeCTR inference container using the build options:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_INFERENCE<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with Inference mode ON.</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span><span class="w"> </span>-DENABLE_INFERENCE<span class="o">=</span>ON<span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 / A100 with Inference mode ON.</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
 </li>
@@ -249,13 +249,13 @@ $ make -j <span class="o">&amp;&amp;</span> make install
 <ol class="arabic">
 <li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf">Merlin Tensorflow Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository by running the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git<span class="w"> </span>hugectr
 </pre></div>
 </div>
 </li>
 <li><p>Build and install libraries to the system paths by running the following commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> hugectr/sparse_operation_kit
-$ python setup.py install
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>hugectr/sparse_operation_kit
+$<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> </span>install
 </pre></div>
 </div>
 <p>You can config different environment variables for compiling SOK, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/env_vars/env_vars.html">this section</a> for more details.</p>
@@ -298,7 +298,7 @@ $ python setup.py install
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v4.0/hugectr_contributor_guide.html">v4.0</a></dd>
+      <dd><a href="../v23.02.00/hugectr_contributor_guide.html">v23.02.00</a></dd>
       <dd><a href="hugectr_contributor_guide.html">v4.1</a></dd>
       <dd><a href="../v4.1.1/hugectr_contributor_guide.html">v4.1.1</a></dd>
       <dd><a href="../v4.2/hugectr_contributor_guide.html">v4.2</a></dd>

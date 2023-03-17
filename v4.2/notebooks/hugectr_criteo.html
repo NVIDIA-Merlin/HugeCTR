@@ -134,7 +134,7 @@ For more details of the usage of the Python API, refer to the <a class="referenc
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
 <p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
 </div>
 <blockquote>
@@ -151,20 +151,20 @@ documentation.</p>
 <h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools
-$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools
+$<span class="w"> </span>wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
 </li>
 <li><p>Preprocessing by Pandas using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> dcn_data pandas <span class="m">1</span> <span class="m">0</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">1</span><span class="w"> </span>dcn_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">0</span>
 </pre></div>
 </div>
 <p>The first argument represents the dataset postfix. It is 1 here since day_1 is used. The second argument dcn_data is where the preprocessed data is stored. The fourth argument (one after pandas) 1 embodies that the normalization is applied to dense features. The last argument 0 means that the feature crossing is not applied.</p>
 </li>
 <li><p>Create a soft link to the dataset folder using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln <span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools/dcn_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/dcn_data
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ln<span class="w"> </span><span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools/dcn_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/dcn_data
 </pre></div>
 </div>
 </li>
@@ -280,7 +280,7 @@ If it is <code class="docutils literal notranslate"><span class="pre">False</spa
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 dcn_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>dcn_train.py
 </pre></div>
 </div>
 </div>
@@ -389,7 +389,7 @@ BinaryCrossEntropyLoss                  fc3,label                     loss
 </ol>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls *.model
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>*.model
 </pre></div>
 </div>
 </div>
@@ -440,7 +440,7 @@ emb_vector  key
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 dcn_continue.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>dcn_continue.py
 </pre></div>
 </div>
 </div>
@@ -542,7 +542,7 @@ This method requires dense features, embedding columns, and row pointers of slot
 We need to convert the Criteo data to inference format first.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 ../tools/criteo_predict/criteo2predict.py --src_csv_path<span class="o">=</span>dcn_data/val/test.txt --src_config<span class="o">=</span>../tools/criteo_predict/dcn_data.json --dst_path<span class="o">=</span>./dcn_csr.txt --batch_size<span class="o">=</span><span class="m">1024</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>../tools/criteo_predict/criteo2predict.py<span class="w"> </span>--src_csv_path<span class="o">=</span>dcn_data/val/test.txt<span class="w"> </span>--src_config<span class="o">=</span>../tools/criteo_predict/dcn_data.json<span class="w"> </span>--dst_path<span class="o">=</span>./dcn_csr.txt<span class="w"> </span>--batch_size<span class="o">=</span><span class="m">1024</span>
 </pre></div>
 </div>
 </div>
@@ -598,7 +598,7 @@ We need to convert the Criteo data to inference format first.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 dcn_inference.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>dcn_inference.py
 </pre></div>
 </div>
 </div>
@@ -626,20 +626,20 @@ We need to convert the Criteo data to inference format first.</p>
 <h3>Download and Preprocess Data<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+$<span class="w"> </span>wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
 </li>
 <li><p>Preprocessing by Pandas using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">1</span><span class="w"> </span>wdl_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">100</span>
 </pre></div>
 </div>
 <p>The first argument represents the dataset postfix. It is 1 here since day_1 is used. The second argument wdl_data is where the preprocessed data is stored. The fourth argument (one after pandas) 1 embodies that the normalization is applied to dense features. The fifth argument 1 means that the feature crossing is applied. The last argument 100 means the number of data files in each file list.</p>
 </li>
 <li><p>Create a soft link to the dataset folder using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ln<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
 </pre></div>
 </div>
 </li>
@@ -745,7 +745,7 @@ $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_train.py
 </pre></div>
 </div>
 </div>
@@ -952,7 +952,7 @@ BinaryCrossEntropyLoss                  add1                          loss
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_fine_tune.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_fine_tune.py
 </pre></div>
 </div>
 </div>
@@ -1177,7 +1177,7 @@ BinaryCrossEntropyLoss                  fc2                           loss
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_load_pretrained.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_load_pretrained.py
 </pre></div>
 </div>
 </div>
@@ -1350,7 +1350,7 @@ We will demonstrate how to write the low-level training scripts for non-epoch mo
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_non_epoch.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_non_epoch.py
 </pre></div>
 </div>
 </div>
@@ -1495,7 +1495,7 @@ Device 0: Tesla V100-SXM2-16GB
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_epoch.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_epoch.py
 </pre></div>
 </div>
 </div>
@@ -1605,7 +1605,7 @@ Device 0: Tesla V100-SXM2-16GB
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="hugectr_criteo.html">v4.2</a></dd>

@@ -125,7 +125,7 @@ For more details about the API, see the <a class="reference external" href="http
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
 <p>The HugeCTR Python module is preinstalled in the 22.10 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.10</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
 </div>
 <p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton Inference Server, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> documentation.</p>
@@ -307,7 +307,7 @@ We will generate multi-hot Parquet datasets with a power-law distribution for th
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 multi_hot_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>multi_hot_train.py
 </pre></div>
 </div>
 </div>
@@ -668,7 +668,7 @@ mse:  8.482603947165404e-14
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="multi_gpu_offline_inference.html">v4.2</a></dd>

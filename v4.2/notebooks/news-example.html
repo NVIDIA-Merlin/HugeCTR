@@ -123,8 +123,8 @@
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install packages required for this notebook</span>
-<span class="o">!</span>pip install tqdm graphviz
-<span class="o">!</span>apt install wget unzip graphviz -y
+<span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>tqdm<span class="w"> </span>graphviz
+<span class="o">!</span>apt<span class="w"> </span>install<span class="w"> </span>wget<span class="w"> </span>unzip<span class="w"> </span>graphviz<span class="w"> </span>-y
 </pre></div>
 </div>
 </div>
@@ -313,16 +313,16 @@
 <p>Let’s download the train and validation set, and unzip them to their respective directories.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget https://mind201910small.blob.core.windows.net/release/MINDlarge_train.zip
-<span class="o">!</span>wget https://mind201910small.blob.core.windows.net/release/MINDlarge_dev.zip
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget<span class="w"> </span>https://mind201910small.blob.core.windows.net/release/MINDlarge_train.zip
+<span class="o">!</span>wget<span class="w"> </span>https://mind201910small.blob.core.windows.net/release/MINDlarge_dev.zip
 </pre></div>
 </div>
 </div>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>unzip MINDlarge_train.zip -d <span class="nv">$BASE_DIR</span>/dataset/train
-<span class="o">!</span>unzip MINDlarge_dev.zip -d  <span class="nv">$BASE_DIR</span>/dataset/valid
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>unzip<span class="w"> </span>MINDlarge_train.zip<span class="w"> </span>-d<span class="w"> </span><span class="nv">$BASE_DIR</span>/dataset/train
+<span class="o">!</span>unzip<span class="w"> </span>MINDlarge_dev.zip<span class="w"> </span>-d<span class="w">  </span><span class="nv">$BASE_DIR</span>/dataset/valid
 </pre></div>
 </div>
 </div>
@@ -2967,7 +2967,7 @@ As an example, if there are 10 users and 10 items then HugeCTR expects the users
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="news-example.html">v4.2</a></dd>

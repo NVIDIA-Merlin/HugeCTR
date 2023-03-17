@@ -154,14 +154,14 @@
 </ol>
 <div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
 <h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">project_root</span><span class="o">=</span>/home/hugectr <span class="c1"># set this to the directory where hugectr is downloaded</span>
-<span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">project_root</span><span class="o">=</span>/home/hugectr<span class="w"> </span><span class="c1"># set this to the directory where hugectr is downloaded</span>
+<span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 <span class="c1"># Step 1</span>
-wget https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+wget<span class="w"> </span>https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
 <span class="c1">#Step 2</span>
-bash preprocess.sh <span class="m">0</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">10</span>
+bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m">0</span><span class="w"> </span>wdl_data<span class="w"> </span>pandas<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>
 <span class="c1">#Step 3</span>
-ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
 </pre></div>
 </div>
 </div>
@@ -292,7 +292,7 @@ ln -s <span class="si">${</span><span class="nv">project_root</span><span class=
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_train.py
 </pre></div>
 </div>
 </div>
@@ -529,7 +529,7 @@ The program logic is the same as the preceding code sample.</p>
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_etc.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3<span class="w"> </span>wdl_etc.py
 </pre></div>
 </div>
 </div>
@@ -651,7 +651,7 @@ HugeCTR Version: 4.1
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="../../v4.2/index.html">v4.2</a></dd>

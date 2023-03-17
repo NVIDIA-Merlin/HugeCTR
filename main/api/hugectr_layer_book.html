@@ -171,7 +171,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">data_reader_sparse_param_array</span></code>: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each <code class="docutils literal notranslate"><span class="pre">DataReaderSparseParam</span></code> instance should be constructed with  <code class="docutils literal notranslate"><span class="pre">sparse_name</span></code>, <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code>, <code class="docutils literal notranslate"><span class="pre">is_fixed_length</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_num</span></code>.</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">sparse_name</span></code> is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> is the maximum number of features for each slot for the specified spare input. The <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> can be an <code class="docutils literal notranslate"><span class="pre">int</span></code> which means average nnz per slot so the maximum number of features per sample should be <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span> <span class="pre">*</span> <span class="pre">slot_num</span></code>. Or you can use List[int] to initialize <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code>, then the maximum number of features per sample should be <code class="docutils literal notranslate"><span class="pre">sum(nnz_per_slot)</span></code> and in this case, the length of the array <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> should be the same with <code class="docutils literal notranslate"><span class="pre">slot_num</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> is the maximum hotness for input sparse features and is used by data reader. The <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> can be an <code class="docutils literal notranslate"><span class="pre">int</span></code> which will apply on every slot. It could be convenient if all slots have the same hotness. Or one can use List[int] to initialize <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> when hotness of slots differs, in which case the length of the array <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> should be identical to <code class="docutils literal notranslate"><span class="pre">slot_num</span></code>. Note that for <code class="docutils literal notranslate"><span class="pre">RawAsync</span></code> data reader, only static hotness is support. This parameter has no impact on <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> and <code class="docutils literal notranslate"><span class="pre">Raw</span></code> data reader.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">is_fixed_length</span></code> is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set <code class="docutils literal notranslate"><span class="pre">is_fixed_length</span> <span class="pre">=</span> <span class="pre">True</span></code> and HugeCTR can use this information to reduce data transferring time.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_num</span></code> specifies the number of slots used for this sparse input in the dataset.</p></li>
 </ul>
@@ -372,18 +372,35 @@ Input and Output Shapes:</p></li>
 <p>The MLP layer is comprised of multiple fused fully-connected layers. The MLP layer supports FP16, FP32, and TF32.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_outputs</span></code>: List[Integer], specifies the number of output elements for each fused fully-connected layer in the MLP layer. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">act_type</span></code>: The activation type of the MLP layer. This argument is applied to all layers in the MLP layer. The supported types include <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code> and <code class="docutils literal notranslate"><span class="pre">Activation_t.Non</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_bias</span></code>: Boolean, whether to use bias. This argument is applied to all layers in the MLP layer. The default value is True.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">activations</span></code>: List[Activation_t], specifies the activation type for each layer in the MLP Layer. This argument overrides the <code class="docutils literal notranslate"><span class="pre">act_type</span></code> argument.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_outputs</span></code>: List[Integer], specifies the number of output elements for each fused fully-connected layer in the MLP. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">act_type</span></code>: The activation type of the MLP layer. This argument is applied to all layers in the MLP. The supported types include <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code> and <code class="docutils literal notranslate"><span class="pre">Activation_t.Non</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_bias</span></code>: Boolean, whether to use bias. This argument is applied to all layers in the MLP. The default value is True.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">activations</span></code>: List[Activation_t], specifies the activation type for each layer in the MLP. This argument overrides the <code class="docutils literal notranslate"><span class="pre">act_type</span></code> argument.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">biases</span></code>: List[Boolean], specifies for each layer in the MLP Layer whether to use bias. This argument overrides the <code class="docutils literal notranslate"><span class="pre">use_bias</span></code> argument.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">weight_init_type</span></code>: Specifies how to initialize the weight array of all layers in the MLP layer. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bias_init_type</span></code>: Specifies how to initialize the bias array of all layers in the MLP layer. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weight_init_type</span></code>: Specifies how to initialize the weight array of all layers in the MLP. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bias_init_type</span></code>: Specifies how to initialize the bias array of all layers in the MLP. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_config</span></code>: hugectr.DenseLayerComputeConfig, specifies the computation configuration of all layers in the MLP. For MLP, the valid flags in compute_config are <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.async_wgrad</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.fuse_wb</span></code>.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.async_wgrad</span></code>: Specifies whether the wgrad compute is asynchronous to dgrad. The default value is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.fuse_wb</span></code>: Specifies whether to fuse wgrad with bgrad. The default value is False.</p></li>
+</ul>
+</li>
 <li><p>input: (batch_size, *) where * represents any number of elements</p></li>
 <li><p>output: (batch_size, num_output of the last layer)</p></li>
 </ul>
 <p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+<span class="n">compute_config_bottom</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayerComputeConfig</span><span class="p">(</span>
+    <span class="n">async_wgrad</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">fuse_wb</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">compute_config_top</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayerComputeConfig</span><span class="p">(</span>
+    <span class="n">async_wgrad</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">fuse_wb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
     <span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span>
         <span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MLP</span><span class="p">,</span>
         <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
@@ -391,6 +408,7 @@ Input and Output Shapes:</p></li>
         <span class="n">num_outputs</span><span class="o">=</span><span class="p">[</span><span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span>
         <span class="n">act_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">,</span>
         <span class="n">use_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">compute_config</span><span class="o">=</span><span class="n">compute_config_bottom</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="p">)</span>
 
@@ -416,6 +434,7 @@ Input and Output Shapes:</p></li>
             <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
         <span class="p">],</span>
         <span class="n">biases</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+        <span class="n">compute_config</span><span class="o">=</span><span class="n">compute_config_top</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="p">)</span>
 
@@ -1512,9 +1531,12 @@ The following sample plan file demonstrates how to shared lookups <code class="d
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v22.10-integration-220929/api/hugectr_layer_book.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../v23.02.00/api/hugectr_layer_book.html">v23.02.00</a></dd>
+      <dd><a href="../../v4.1/api/hugectr_layer_book.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/api/hugectr_layer_book.html">v4.1.1</a></dd>
+      <dd><a href="../../v4.2/api/hugectr_layer_book.html">v4.2</a></dd>
+      <dd><a href="../../v4.3/api/hugectr_layer_book.html">v4.3</a></dd>
+      <dd><a href="../../v4.3.1/api/hugectr_layer_book.html">v4.3.1</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

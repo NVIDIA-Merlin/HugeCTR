@@ -117,18 +117,18 @@ Docker images are available from the NVIDIA GPU Cloud (NGC).</p>
 <div class="section" id="clone-the-hugectr-repository">
 <h2>1. Clone the HugeCTR Repository<a class="headerlink" href="#clone-the-hugectr-repository" title="Permalink to this headline"></a></h2>
 <p>Use the following command to clone the HugeCTR repository:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/NVIDIA/HugeCTR
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR
 </pre></div>
 </div>
 </div>
 <div class="section" id="pull-the-ngc-docker-and-run-it">
 <h2>2. Pull the NGC Docker and run it<a class="headerlink" href="#pull-the-ngc-docker-and-run-it" title="Permalink to this headline"></a></h2>
 <p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:22.12
 </pre></div>
 </div>
 <p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --gpus all --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u root -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/HugeCTR -w /HugeCTR -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.12
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>--ipc<span class="o">=</span>host<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span><span class="w"> </span>-u<span class="w"> </span>root<span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/HugeCTR<span class="w"> </span>-w<span class="w"> </span>/HugeCTR<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:8888<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:22.12
 </pre></div>
 </div>
 <blockquote>
@@ -141,8 +141,8 @@ Docker images are available from the NVIDIA GPU Cloud (NGC).</p>
 <ol class="arabic simple">
 <li><p>Go to HugeCTR repo and update third party modules</p></li>
 </ol>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> HugeCTR
-$ git submodule update --init --recursive
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
+$<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 </pre></div>
 </div>
 <ol class="arabic simple" start="2">
@@ -150,15 +150,15 @@ $ git submodule update --init --recursive
 Here are some examples of how you can build HugeCTR using these build options:</p></li>
 </ol>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example 1</span>
-$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="m">70</span> .. <span class="c1"># Target is NVIDIA V100 with all others by default</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="m">70</span><span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 with all others by default</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example 2</span>
-$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_MULTINODES<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
-$ make -j <span class="o">&amp;&amp;</span> make install
+$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span><span class="w"> </span>-DENABLE_MULTINODES<span class="o">=</span>ON<span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
 <p>By default, HugeCTR is installed at <code class="docutils literal notranslate"><span class="pre">/usr/local</span></code>. However, you can use <code class="docutils literal notranslate"><span class="pre">CMAKE_INSTALL_PREFIX</span></code> to install HugeCTR to non-default location:</p>
@@ -173,8 +173,8 @@ documentation for more details on building HugeCTR From Source</p>
 <h2>4. Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h2>
 <ol class="arabic">
 <li><p>Start Jupyter using these commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /HugeCTR/notebooks
-jupyter-notebook --allow-root --ip <span class="m">0</span>.0.0.0 --port <span class="m">8888</span> --NotebookApp.token<span class="o">=</span><span class="s1">&#39;hugectr&#39;</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/HugeCTR/notebooks
+jupyter-notebook<span class="w"> </span>--allow-root<span class="w"> </span>--ip<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8888</span><span class="w"> </span>--NotebookApp.token<span class="o">=</span><span class="s1">&#39;hugectr&#39;</span>
 </pre></div>
 </div>
 </li>
@@ -339,7 +339,7 @@ The notebooks use the Movielens-25M dataset.</p>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v4.1/index.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
       <dd><a href="../../v4.2/index.html">v4.2</a></dd>

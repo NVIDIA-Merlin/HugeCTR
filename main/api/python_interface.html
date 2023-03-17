@@ -261,14 +261,40 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">num_threads</span></code>: Integer, the number of the data reading threads, should be at least 1 per GPU。 There is NO default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_batches_per_thread</span></code>: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_num_requests_per_thread</span></code>: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_depth</span></code>: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_alignment</span></code>: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_num_requests_per_thread</span></code>: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value. Ignored when <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_depth</span></code>: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value. Ignored when <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_alignment</span></code>: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value. Ignored when <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=True</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">shuffle</span></code>: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aligned_type</span></code>: The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Non</span></code>. If <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aligned_type</span></code>: The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Non</span></code>. If <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value. Ignored when <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">multi_hot_reader</span></code>:  Boolean, if this option is enabled, multi-hot RawAsync reader is activated and static hotness for categorical feature is supported. The hotness information is obtained from <code class="docutils literal notranslate"><span class="pre">Input</span> <span class="pre">layer</span></code>. Meanwhile the dense data type can be either <code class="docutils literal notranslate"><span class="pre">float</span></code> or <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code>. The default value is True.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_dense_float</span></code> : Boolean, if this option is enabled, data type of dense features is <code class="docutils literal notranslate"><span class="pre">float</span></code> otherwise <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code>. The default value is True.</p></li>
 </ul>
-<p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async_param</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Alignment_t</span><span class="o">.</span><span class="n">Non</span><span class="p">)</span>
+<p><strong>Note</strong></p>
+<p>When <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=False</span></code>, <code class="docutils literal notranslate"><span class="pre">is_dense_float</span></code> must be <code class="docutils literal notranslate"><span class="pre">False</span></code>, otherwise exception will be thrown. When <code class="docutils literal notranslate"><span class="pre">multi_hot_reader=False</span></code>,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">max_num_requests_per_thread</span>
+<span class="n">io_depth</span>
+<span class="n">io_alignment</span>
+<span class="n">aligned_type</span>
+</pre></div>
+</div>
+<p>are ignored. In addition, when multi_hot_reader=True, the param num_threads actually refers to the number of IO threads per GPU.</p>
+<p>Example:`</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">one-hot</span></code> data reader AsyncParam</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async_param</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Alignment_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><code class="docutils literal notranslate"><span class="pre">multi-hot</span></code> data reader AsyncParam</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async_param</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span>
+        <span class="n">num_threads</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">num_batches_per_thread</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">multi_hot_reader</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">is_dense_float</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
 </pre></div>
 </div>
 </div>
@@ -322,7 +348,7 @@ Specify one of the following types:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code></p></li>
 </ul>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: List[str] or String, the training dataset source.
@@ -379,7 +405,7 @@ The default value is an empty list.</p>
 <li><p><a class="reference internal" href="#raw"><span class="std std-doc">Raw</span></a></p></li>
 <li><p><a class="reference internal" href="#parquet"><span class="std std-doc">Parquet</span></a></p></li>
 </ul>
-<a class="reference internal image-reference" href="../_images/dataset_format.png"><img alt="../_images/dataset_format.png" class="align-center" src="../_images/dataset_format.png" style="width: 80%;" /></a>
+<a class="reference internal image-reference" href="../_images/dataset.png"><img alt="../_images/dataset.png" class="align-center" src="../_images/dataset.png" style="width: 80%;" /></a>
 <div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
 <p><br></br></p>
 <div class="section" id="norm">
@@ -387,7 +413,8 @@ The default value is an empty list.</p>
 <p>To maximize the data loading performance and minimize the storage, the Norm dataset format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 1 (a).</p>
 <div class="section" id="data-files">
 <h5>Data Files<a class="headerlink" href="#data-files" title="Permalink to this headline"></a></h5>
-<p>A data file is the minimum reading granularity for a reading thread, so at least 10 files in each file list are required to achieve the best performance. A data file consists of a header and actual tabular data.</p>
+<p>A data file is the minimum reading granularity for a reading thread, so it’s better to have more files than the number of reading threads to achieve the best performance. A data file consists of a header and actual tabular data. A complete header always starts with a 4-byte constant <strong>64</strong> which is the size of header in bytes.</p>
+<p>Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all sigificant bytes of a sample (excluding the <strong>nnz</strong>). Users should be in charge of correctly specifying if Norm dataset supports checksum in <span class="xref myst">DataReaderParams</span></p>
 <p>Header Definition:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DataSetHeader_</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">error_check</span><span class="p">;</span><span class="w">        </span><span class="c1">// 0: no error check; 1: check_num</span>
@@ -414,7 +441,6 @@ The default value is an empty list.</p>
 <span class="p">}</span><span class="w"> </span><span class="n">Slot</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>The Data field often has a lot of samples. Each sample starts with the labels formatted as integers and followed by <code class="docutils literal notranslate"><span class="pre">nnz</span></code> (number of nonzero) with the input key using the long long (or unsigned int) format as shown in Fig. 1 (a).</p>
 <p>The input keys for categorical are distributed to the slots with no overlap allowed. For example: <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,2,5,67}</span></code>. If there is any overlap, it will cause an undefined behavior. For example, given <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,10,5,67}</span></code>, the table looking up the <code class="docutils literal notranslate"><span class="pre">10</span></code> key will produce different results based on how the slots are assigned to the GPUs.</p>
 </div>
 <div class="section" id="file-list">
@@ -445,14 +471,55 @@ The default value is an empty list.</p>
 </div>
 <div class="section" id="raw">
 <h4>Raw<a class="headerlink" href="#raw" title="Permalink to this headline"></a></h4>
-<p>The Raw dataset format is different from the Norm dataset format in that the training data appears in one binary file using int32. Fig. 1 (b) shows the structure of a Raw dataset sample.</p>
-<p><strong>NOTE</strong>: Only one-hot data is accepted with this format.</p>
-<p>The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.</p>
+<p>The Raw dataset format is different from the Norm dataset format in several aspects:</p>
+<ol class="arabic simple">
+<li><p>Raw dataset only consists of a single binary file.</p></li>
+<li><p>Raw dataset file only supports static hotness.</p></li>
+<li><p>Raw dataset file only supports unsigned int datatype of categorical features.</p></li>
+<li><p>The datatype of dense features can be either float or unsigned int.</p></li>
+</ol>
+<p>Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of data reader that can load data from disk to model, with respect to embeding types.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-center head"><p>reader type</p></th>
+<th class="text-center head"><p>hotness</p></th>
+<th class="text-center head"><p>specific embedding type</p></th>
+<th class="text-center head"><p>dense data type</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code></p></td>
+<td class="text-center"><p>1-hot</p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code></p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=False</span></code></p></td>
+<td class="text-center"><p>1-hot</p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code></p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=True</span></code></p></td>
+<td class="text-center"><p>static multi-hot</p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">embedding</span> <span class="pre">collection</span></code></p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">float</span> </code> or <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Please refer to <span class="xref myst">DataReaderParams</span> for more details about <code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code>.</p>
+<p><strong>NOTE</strong></p>
+<p>When the dense type of Raw dataset is <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code>, the data reader will perform <code class="docutils literal notranslate"><span class="pre">log(x+1)</span></code> on dense features <code class="docutils literal notranslate"><span class="pre">x</span></code> before feeding them into model network.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code> are going to be incorporated into <code class="docutils literal notranslate"><span class="pre">3G</span> <span class="pre">embedding</span></code>, therefore the <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code> and
+<code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=False</span></code> will be deprecated as well.</p>
 <p>Example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span>
                                   <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_raw/train_data.bin&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_raw/validation_data.bin&quot;</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">RawAsync</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_raw/train_data.bin&quot;</span><span class="p">],</span>
                                   <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_raw/validation_data.bin&quot;</span><span class="p">,</span>
-                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+                                  <span class="n">async_param</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span>
+                                  <span class="n">multi_hot_reader</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                  <span class="n">is_dense_float</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1368,9 +1435,12 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v22.10-integration-220929/api/python_interface.html">v22.10-integration-220929</a></dd>
       <dd><a href="../../v23.02.00/api/python_interface.html">v23.02.00</a></dd>
+      <dd><a href="../../v4.1/api/python_interface.html">v4.1</a></dd>
       <dd><a href="../../v4.1.1/api/python_interface.html">v4.1.1</a></dd>
+      <dd><a href="../../v4.2/api/python_interface.html">v4.2</a></dd>
+      <dd><a href="../../v4.3/api/python_interface.html">v4.3</a></dd>
+      <dd><a href="../../v4.3.1/api/python_interface.html">v4.3.1</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
