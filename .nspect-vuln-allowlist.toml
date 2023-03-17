@@ -13,3 +13,13 @@ nspect_ids = ['NSPECT-OZP9-WUQA']
 paths = ['third_party/rocksdb/docs'] 
 comment = 'The package is for the RocksDB documentation and its hosting on the GitHub pages. We never use it.'
 nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/protobuf/third_party/googletest']
+comment = 'This is just the third_party googletest we never use and we don't rely on.'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/protobuf']
+comment = 'We never use protobuf-java'
+nspect_ids = ['NSPECT-OZP9-WUQA']
