@@ -19,6 +19,7 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/memory_pool.hpp>
 #include <hps/static_table.hpp>
+#include <hps/uvm_table.hpp>
 #include <io/filesystem.hpp>
 #include <memory>
 #include <mutex>
@@ -56,13 +57,30 @@ static void parameter_server_insert_thread_func_(
 std::shared_ptr<EmbeddingCacheBase> EmbeddingCacheBase::create(
     const InferenceParams& inference_params, const parameter_server_config& ps_config,
     HierParameterServerBase* const parameter_server) {
-  if (inference_params.use_static_table) {
+  if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Static) {
     if (inference_params.i64_input_key) {
       return std::make_shared<StaticTable<long long>>(inference_params, ps_config,
                                                       parameter_server);
     } else {
       return std::make_shared<StaticTable<unsigned int>>(inference_params, ps_config,
                                                          parameter_server);
+    }
+  } else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic) {
+    if (inference_params.i64_input_key) {
+      return std::make_shared<EmbeddingCache<long long>>(inference_params, ps_config,
+                                                         parameter_server);
+    } else {
+      return std::make_shared<EmbeddingCache<unsigned int>>(inference_params, ps_config,
+                                                            parameter_server);
+    }
+  }
+  // For UVM solution, which will be merged into dynamic near future
+  else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM) {
+    if (inference_params.i64_input_key) {
+      return std::make_shared<UvmTable<long long>>(inference_params, ps_config, parameter_server);
+    } else {
+      return std::make_shared<UvmTable<unsigned int>>(inference_params, ps_config,
+                                                      parameter_server);
     }
   } else {
     if (inference_params.i64_input_key) {
@@ -108,7 +126,8 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
   HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n", cache_config_.num_emb_table_);
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
            b2s(inference_params.use_gpu_embedding_cache), inference_params.cache_size_percentage);
-  HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
+  HCTR_LOG(INFO, ROOT, "Embedding cache type: %s\n",
+           hctr_enum_to_c_str(inference_params.embedding_cache_type));
   HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
   HCTR_LOG(INFO, ROOT, "Configured cache hit rate threshold: %f\n",
            inference_params.hit_rate_threshold);
@@ -492,7 +511,7 @@ void EmbeddingCache<TypeHashKey>::finalize() {
     std::lock_guard<std::mutex> lock(mutex_);
 
     CudaDeviceContext dev_restorer;
-    dev_restorer.check_device(cache_config_.cuda_dev_id_);
+    dev_restorer.set_device(cache_config_.cuda_dev_id_);
 
     // Join insert threads
     insert_workers_.await_idle();

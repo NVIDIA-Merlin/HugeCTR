@@ -127,7 +127,8 @@ template <typename TypeHashKey>
 void embedding_cache_test(const std::string& config_file, const std::string& model,
                           const std::string& sparse_model_file, size_t num_of_sample,
                           int num_feature_per_sample, size_t num_of_iteration, size_t num_of_worker,
-                          bool use_gpu_cache, bool use_static_table = false) {
+                          bool use_gpu_cache,
+                          EmbeddingCacheType_t cache_type = EmbeddingCacheType_t(0)) {
   // Test will use 0# GPU
   HCTR_LIB_THROW(cudaSetDevice(0));
 
@@ -244,11 +245,11 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
   InferenceParams infer_param(model, max_batch_size, HIT_RATE_THRESHOLD, dense_model, sparse_models,
                               0, true, CACHE_SIZE_PERCENTAGE, false);
   infer_param.number_of_worker_buffers_in_pool = num_of_worker * 2;
-  infer_param.use_static_table = use_static_table;
+  infer_param.embedding_cache_type = cache_type;
   std::vector<InferenceParams> inference_params{infer_param};
   parameter_server_config ps_config{model_config_path, inference_params};
   std::shared_ptr<HierParameterServerBase> parameter_server =
-      HierParameterServerBase::create(ps_config);
+      HierParameterServerBase::create(ps_config, inference_params);
   auto embedding_cache = parameter_server->get_embedding_cache(model, 0);
 
   // Each worker start to do inference
@@ -463,21 +464,38 @@ TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_disable) {
                                      false);
 }
 
-TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_enable_enable) {
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_enable_1) {
   embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 1, true,
-                                     true);
+                                     EmbeddingCacheType_t(1));
 }
-TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_enable_enable) {
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_enable_1) {
   embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 1, true,
-                                     true);
+                                     EmbeddingCacheType_t(1));
 }
-TEST(embedding_cache, embedding_cache_usigned_int_1024_16_5_1_enable_enable) {
+TEST(embedding_cache, embedding_cache_usigned_int_1024_16_5_1_enable_1) {
   embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 1024, 16, 5, 1,
-                                     true, true);
+                                     true, EmbeddingCacheType_t(1));
 }
-TEST(embedding_cache, embedding_cache_usigned_int_1024_30_5_1_enable_enable) {
+TEST(embedding_cache, embedding_cache_usigned_int_1024_30_5_1_enable_1) {
   embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 1024, 30, 5, 1,
-                                     true, true);
+                                     true, EmbeddingCacheType_t(1));
+}
+
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_enable_2) {
+  embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 1, true,
+                                     EmbeddingCacheType_t(2));
+}
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_enable_2) {
+  embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 1, true,
+                                     EmbeddingCacheType_t(2));
+}
+TEST(embedding_cache, embedding_cache_usigned_int_1024_16_5_1_enable_2) {
+  embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 1024, 16, 5, 1,
+                                     true, EmbeddingCacheType_t(2));
+}
+TEST(embedding_cache, embedding_cache_usigned_int_1024_30_5_1_enable_2) {
+  embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 1024, 30, 5, 1,
+                                     true, EmbeddingCacheType_t(2));
 }
 
 TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_enable) {

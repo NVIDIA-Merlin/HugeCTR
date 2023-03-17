@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
       metrics.refresh_async(metrics_config.iterations);
     }
     long long* h_query_keys_index;  // Buffer holding index for keys to be queried
-    h_query_keys_index = (long long*)malloc(metrics_config.num_keys * sizeof(long long));
+    cudaMallocHost(&h_query_keys_index, metrics_config.num_keys * sizeof(long long));
     for (int i = 0; i < metrics_config.iterations; i++) {
       if (args.get<bool>("--powerlaw")) {
         batch_key_generator_by_powerlaw(h_query_keys_index, metrics_config.num_keys,
