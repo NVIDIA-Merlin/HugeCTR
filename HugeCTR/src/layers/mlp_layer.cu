@@ -137,7 +137,7 @@ void MLPLayer<T>::bprop() {
         acts_[i] == Activation_t::None ? train_tensors_[i].get_ptr() : dact_tensors_[i].get_ptr();
     T* kernel_grad = kernels_grad_[i].get_ptr();
     T* bottom = i == 0 ? bottom_tensors_[0].get_ptr() : train_tensors_[i - 1].get_ptr();
-
+    bool enable_async_wgrad = async_wgrad_;
     T* bottom_bprop = nullptr;
     if (i != 0) {
       bottom_bprop = acts_[i - 1] == Activation_t::None ? train_tensors_[i - 1].get_ptr()
@@ -146,6 +146,7 @@ void MLPLayer<T>::bprop() {
       if (bottom_tensors_.size() == 1) {
         // train_in_tensor
         bottom_bprop = bottom_tensors_[0].get_ptr();
+        enable_async_wgrad = false;
       } else {
         bottom_bprop = bottom_tensors_[1].get_ptr();
       }
@@ -154,8 +155,8 @@ void MLPLayer<T>::bprop() {
     layer_functors_.bprop(kernel, bottom, train_top, mask_top, batch_size * top_size, grad_top,
                           bottom_bprop, kernel_grad, layer_desc_[i], layer_algo_[i],
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),
-                          this->get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
-                          i == 0 ? skip_head_dgrad_ : false);
+                          this->get_gpu().get_comp_overlap_stream(), event_overlap_,
+                          enable_async_wgrad, i == 0 ? skip_head_dgrad_ : false);
   }
 
   if (async_wgrad_) {
@@ -411,7 +412,7 @@ void Core23TempMLPLayer<T>::bprop() {
     T* kernel_grad = kernels_grad_[i].data<T>();
     T* bottom =
         i == 0 ? this->input_tensors_[0].template data<T>() : train_tensors_[i - 1].data<T>();
-
+    bool enable_async_wgrad = async_wgrad_;
     T* bottom_bprop = nullptr;
     if (i != 0) {
       bottom_bprop = acts_[i - 1] == Activation_t::None ? train_tensors_[i - 1].data<T>()
@@ -420,6 +421,7 @@ void Core23TempMLPLayer<T>::bprop() {
       if (this->input_tensors_.size() == 1) {
         // train_in_tensor
         bottom_bprop = this->input_tensors_[0].template data<T>();
+        enable_async_wgrad = false;
       } else {
         bottom_bprop = this->input_tensors_[1].template data<T>();
       }
@@ -428,8 +430,8 @@ void Core23TempMLPLayer<T>::bprop() {
     layer_functors_.bprop(kernel, bottom, train_top, mask_top, batch_size * top_size, grad_top,
                           bottom_bprop, kernel_grad, layer_desc_[i], layer_algo_[i],
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),
-                          this->get_gpu().get_comp_overlap_stream(), event_overlap_, async_wgrad_,
-                          i == 0 ? skip_head_dgrad_ : false);
+                          this->get_gpu().get_comp_overlap_stream(), event_overlap_,
+                          enable_async_wgrad, i == 0 ? skip_head_dgrad_ : false);
   }
 
   if (async_wgrad_) {
