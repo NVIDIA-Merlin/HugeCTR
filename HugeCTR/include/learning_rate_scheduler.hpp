@@ -37,20 +37,20 @@ class LearningRateScheduler {
         decay_steps_(decay_steps),
         decay_power_(decay_power),
         end_lr_(end_lr) {
-    if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
+    if (base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0f || end_lr < 0.f) {
       HCTR_OWN_THROW(
           Error_t::WrongInput,
-          "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr "
+          "base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0 || end_lr "
           "< 0.f");
     }
   }
 
   void reset(float base_lr, size_t warmup_steps, size_t decay_start, size_t decay_steps,
              float decay_power, float end_lr) {
-    if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
+    if (base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0f || end_lr < 0.f) {
       HCTR_OWN_THROW(
           Error_t::WrongInput,
-          "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr "
+          "base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0 || end_lr "
           "< 0.f");
     }
     step_ = 0;
