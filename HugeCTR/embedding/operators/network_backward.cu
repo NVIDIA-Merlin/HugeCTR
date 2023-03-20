@@ -28,6 +28,7 @@ namespace {
 void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_range,
                                                   const EmbeddingOutput& top_grad,
                                                   const NetworkIndices& network_indices,
+                                                  const HugeCTR::core23::KernelParams kernel_params,
                                                   NetworkBuffer& network_buffer, int batch_size,
                                                   int gpu_id, int num_gpus, cudaStream_t stream) {
   auto& top_grad_attr = top_grad.attr;
@@ -94,7 +95,7 @@ void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_r
 
               return network_comm_buffer_ptr[network_gpu_id] + ev_offset + bid * ev_size;
             });
-        copy_one_to_multi(one_to_multi_desc, max_ev_size, stream);
+        copy_one_to_multi(one_to_multi_desc, kernel_params, max_ev_size, stream);
       });
     });
   });
@@ -103,6 +104,7 @@ void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_r
 void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_range,
                                                 const EmbeddingOutput& top_grad,
                                                 const NetworkIndices& network_indices,
+                                                const HugeCTR::core23::KernelParams kernel_params,
                                                 NetworkBuffer& network_buffer, int batch_size,
                                                 int gpu_id, int num_gpus, cudaStream_t stream) {
   auto& top_grad_attr = top_grad.attr;
@@ -170,7 +172,7 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_ran
 
               return network_comm_buffer_ptr[network_gpu_id] + ev_offset + bid * ev_size;
             });
-        copy_one_to_multi(one_to_multi_desc, max_ev_size, stream);
+        copy_one_to_multi(one_to_multi_desc, kernel_params, max_ev_size, stream);
       });
     });
   });
@@ -187,13 +189,13 @@ void NetworkBackward::compute(const core23::Tensor& bucket_range, const Embeddin
 
   if (top_grad.attr.layout == EmbeddingLayout::FeatureMajor) {
     network_backward_from_feature_major_top_grad(bucket_range, top_grad, network_indices,
-                                                 network_buffer, batch_size, gpu_id, num_gpus,
-                                                 stream);
+                                                 core_->get_kernel_param(), network_buffer,
+                                                 batch_size, gpu_id, num_gpus, stream);
   } else {
     HCTR_ASSERT(top_grad.attr.layout == EmbeddingLayout::BatchMajor);
     network_backward_from_batch_major_top_grad(bucket_range, top_grad, network_indices,
-                                               network_buffer, batch_size, gpu_id, num_gpus,
-                                               stream);
+                                               core_->get_kernel_param(), network_buffer,
+                                               batch_size, gpu_id, num_gpus, stream);
   }
 }
 

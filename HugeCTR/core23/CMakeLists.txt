@@ -46,6 +46,7 @@ details/buffer_factory_impl.cpp
 details/host_launch_helpers.cpp
 tensor.cpp
 tensor_operations.cpp
+kernel_params.cpp
 shape.cpp
 ../src/base/debug/logger.cpp # use link instead in future
 )

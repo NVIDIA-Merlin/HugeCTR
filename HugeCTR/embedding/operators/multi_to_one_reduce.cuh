@@ -532,7 +532,7 @@ void multi_to_one_reduce(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2, DST_T* part
 template <typename CopyDesc1>
 void multi_to_one_reduce(CopyDesc1 multi_to_one_desc_first_stage,
                          const ReductionIndices& reduction_indices,
-                         const KernelParams& kernel_params,
+                         const HugeCTR::core23::KernelParams& kernel_params,
                          PartialReduceResult& partial_reduce_result, Wgrad& wgrad, int max_ev_size,
                          cudaStream_t stream) {
   auto partial_grad_ev_ptr = partial_reduce_result.partial_wgrad.data<float>();

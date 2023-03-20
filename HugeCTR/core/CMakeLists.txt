@@ -31,7 +31,7 @@ endif()
 message(STATUS "foo include dir: ${core_src}")
 add_library(core SHARED ${core_src})
 
-target_link_libraries(core PUBLIC cudart nccl)
+target_link_libraries(core PUBLIC cudart nccl hugectr_core23)
 if (ENABLE_MULTINODES)
     target_link_libraries(core PUBLIC ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm)
 endif()

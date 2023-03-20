@@ -20,7 +20,7 @@
 #include <embedding/operators/generic_lookup.cuh>
 
 #define EV_NUM 32
-#define BLOCK_SIZE_NEW 64
+#define WGRAD_REDUCE_BLOCK_SIZE 64
 #define WARP_SIZE 32
 #define MAX_BLOKC_SIZE_PER_SM 2048
 
@@ -184,20 +184,94 @@ __global__ void multi_to_one_reduce_final_v2(CopyDesc copy_desc) {
   return;
 }
 
+template <typename CopyDesc, int kMaxElemPerThread, int kWarpSize>
+__global__ void multi_to_one_reduce_final_v2(CopyDesc copy_desc, int local_sample_num) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+
+  const int lane_id = threadIdx.x & 31;
+  const int warp_id = threadIdx.x >> 5;
+  const int warp_num = blockDim.x >> 5;
+  constexpr int copy_width = 4;
+  int global_index = local_sample_num * (blockIdx.x * warp_num + warp_id);
+  {
+    if (global_index >= copy_desc.num_vec()) return;
+    local_sample_num = local_sample_num < copy_desc.num_vec() - global_index
+                           ? local_sample_num
+                           : copy_desc.num_vec() - global_index;
+    if (local_sample_num < 0) local_sample_num = 0;
+  }
+
+  Vec4T<float> accum[kMaxElemPerThread];
+  uint32_t tmp_dst_id;
+  int vec_length = -1;
+  for (int sp = 0; sp < local_sample_num; ++sp) {
+    vec_length = copy_desc.get_src_vec_length(global_index);
+    if (vec_length != -1) {
+      tmp_dst_id = copy_desc.get_dst_id(global_index);
+      const src_type* tmp_src = copy_desc.get_src_ptr(global_index);
+      for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+        Vec4T<src_type> src_elem;
+        int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+        int n = min(vec_length - idx4, copy_width);
+        src_elem.load(tmp_src + idx4, n);
+        accum[i].accumulate(src_elem);
+      }
+
+      // when key is change , write to dst
+      if (sp < local_sample_num - 1) {
+        uint32_t new_id = copy_desc.get_dst_id(global_index + 1);
+        int new_vec_length = copy_desc.get_src_vec_length(global_index + 1);
+        if (new_id != tmp_dst_id || vec_length != new_vec_length) {
+          dst_type* tmp_dst = copy_desc.get_dst_ptr(global_index);
+          for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length;
+               ++i) {
+            int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+            int n = min(vec_length - idx4, copy_width);
+            accum[i].atomic_store_accum(tmp_dst + idx4, n);
+            accum[i].reset();
+          }
+        }
+      }
+    }
+    global_index++;
+  }
+
+  if (vec_length != -1) {
+    dst_type* tmp_dst = copy_desc.get_dst_ptr(global_index - 1);
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      accum[i].atomic_store_accum(tmp_dst + idx4, n);
+    }
+  }
+
+  return;
+}
+
 template <typename CopyDesc1, typename CopyDesc2, typename DST_T, int kWarpSize = 32>
-void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2, DST_T* partial_buffer,
-                            uint32_t* partial_dst_ids, int32_t* partial_ev_length,
-                            size_t max_input_num, int max_ev_length, cudaStream_t stream) {
-  int grid_size = (max_input_num - 1) / BLOCK_SIZE_NEW + 1;
-  int block_size = BLOCK_SIZE_NEW;
+void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2,
+                            const HugeCTR::core23::KernelParams& kernel_params,
+                            DST_T* partial_buffer, uint32_t* partial_dst_ids,
+                            int32_t* partial_ev_length, int max_ev_length,
+                            size_t first_stage_key_num, size_t second_stage_key_num,
+                            cudaStream_t stream) {
+  int grid_size = (first_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+  int block_size = WGRAD_REDUCE_BLOCK_SIZE;
+
   if (max_ev_length <= 128) {
     if (grid_size > 1) {
       multi_to_one_reduce_vec4_v2<CopyDesc1, DST_T, 1, kWarpSize>
           <<<grid_size, block_size, 0, stream>>>(copy_desc1, partial_buffer, partial_dst_ids,
                                                  partial_ev_length, max_ev_length);
-      int final_grid_size = (grid_size - 1) / EV_NUM + 1;
+      int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+      int second_local_sample = EV_NUM;
+      get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
+                                 WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
+                                 second_stage_key_num, &second_grid_size, &second_local_sample, 1);
       multi_to_one_reduce_final_v2<CopyDesc2, 1, kWarpSize>
-          <<<final_grid_size, block_size, 0, stream>>>(copy_desc2);
+          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, 4);
+
     } else {
       multi_to_one_reduce_final_v2<CopyDesc1, 1, kWarpSize>
           <<<1, block_size, 0, stream>>>(copy_desc1);
@@ -205,13 +279,18 @@ void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2, DST_T* p
 
   } else if (max_ev_length <= 256) {
     if (grid_size > 1) {
-      multi_to_one_reduce_vec4_v2<CopyDesc1, DST_T, 1, kWarpSize>
+      multi_to_one_reduce_vec4_v2<CopyDesc1, DST_T, 2, kWarpSize>
           <<<grid_size, block_size, 0, stream>>>(copy_desc1, partial_buffer, partial_dst_ids,
                                                  partial_ev_length, max_ev_length);
 
-      int final_grid_size = (grid_size - 1) / EV_NUM + 1;
+      int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+      int second_local_sample = EV_NUM;
+      get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
+                                 WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
+                                 second_stage_key_num, &second_grid_size, &second_local_sample, 1);
       multi_to_one_reduce_final_v2<CopyDesc2, 2, kWarpSize>
-          <<<final_grid_size, block_size, 0, stream>>>(copy_desc2);
+          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, 4);
+
     } else {
       multi_to_one_reduce_final_v2<CopyDesc1, 2, kWarpSize>
           <<<1, block_size, 0, stream>>>(copy_desc1);
@@ -234,7 +313,7 @@ void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2, DST_T* p
 template <typename CopyDesc1>
 void multi_to_one_reduce_v2(CopyDesc1 multi_to_one_desc_first_stage,
                             const ReductionIndices& reduction_indices,
-                            const KernelParams& kernel_params,
+                            const HugeCTR::core23::KernelParams& kernel_params,
                             PartialReduceResult& partial_reduce_result, Wgrad& wgrad,
                             int max_ev_size, cudaStream_t stream) {
   auto partial_grad_ev_ptr = partial_reduce_result.partial_wgrad_new.data<float>();
@@ -258,8 +337,9 @@ void multi_to_one_reduce_v2(CopyDesc1 multi_to_one_desc_first_stage,
       });
 
   multi_to_one_reduce_v2(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
-                         partial_grad_ev_ptr, partial_dst_id_array_ptr, partial_ev_length_ptr,
-                         partial_reduce_result.max_input_num, max_ev_size, stream);
+                         kernel_params, partial_grad_ev_ptr, partial_dst_id_array_ptr,
+                         partial_ev_length_ptr, max_ev_size, reduction_indices.num_elements,
+                         second_num, stream);
 }
 
 }  // namespace embedding

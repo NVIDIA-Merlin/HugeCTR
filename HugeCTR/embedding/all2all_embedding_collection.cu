@@ -795,7 +795,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   ModelCommBuffer model_comm_buffer;
   model_comm_buffer.init_from_device_buffer(core, emb_vec_model_buffer, meta.model_buffer_attr);
   LocalReduce local_reduce_;
-  local_reduce_.init(core, meta.kernel_params, meta.max_ev_size_,
+  local_reduce_.init(core, meta.max_ev_size_,
                      meta.num_local_hotness_ * ebc_param.universal_batch_size);
   local_reduce_.local_reduce(reduction_indices_, model_comm_buffer, wgrad,
                              ebc_param.universal_batch_size);

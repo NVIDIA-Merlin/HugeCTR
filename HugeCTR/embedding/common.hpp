@@ -204,12 +204,6 @@ struct EmbeddingCollectionParam {
   std::vector<int> get_table_id_to_global_start_indices() const;
 };
 
-struct KernelParams {
-  int num_sms;
-
-  void init();
-};
-
 struct EmbeddingInput {
   core23::Tensor keys;
   core23::Tensor num_keys;  // TODO: move from cpu to gpu
@@ -232,8 +226,6 @@ struct EmbeddingOutputAttr {
   core23::Tensor id_to_ev_start_indices;
   core23::Tensor id_to_combiner;
   int num_elements_per_sample;
-
-  KernelParams kernel_params;
 
   EmbeddingLayout layout;
   int max_ev_size;

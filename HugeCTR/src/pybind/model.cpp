@@ -2213,6 +2213,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
+
       if (!this->use_gpu_learning_rate_scheduling()) {
         lr = lr_sch_->get_next();
         this->set_learning_rate(lr);
