@@ -327,7 +327,7 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
           batch_size_);
     } else if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
                embedding::TablePlacementStrategy::DataParallel) {
-      batch_size_per_gpu /= num_local_gpus_;
+      batch_size_per_gpu /= num_global_gpus_;
       key_filters_[gpu_id][grouped_id].dp_index_calculation.filter_sparse_input(
           gpu_comm_data_[gpu_id].features, gpu_comm_data_[gpu_id].bucket_range, output[grouped_id],
           batch_size_);
@@ -425,7 +425,7 @@ void DataDistributor::distribute(int gpu_id, const core23::Tensor& fullbatch_key
           feature_major_key, feature_major_bucket_range, output[grouped_id], batch_size);
     } else if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
                embedding::TablePlacementStrategy::DataParallel) {
-      batch_size_per_gpu /= num_local_gpus_;
+      batch_size_per_gpu /= num_global_gpus_;
       key_filters_[gpu_id][grouped_id].dp_index_calculation.filter_sparse_input(
           feature_major_key, feature_major_bucket_range, output[grouped_id], batch_size);
     } else {
