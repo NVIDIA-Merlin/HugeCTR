@@ -2043,7 +2043,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           this->set_learning_rate(lr);
         }
         data_reader_train_status_ = this->train(false);
-        if (display > 0 && iter % display == 0 && iter != 0) {
+        if (display > 0 && (iter + 1) % display == 0) {
           timer_train.stop();
           float loss = 0;
           this->get_current_loss(&loss);
@@ -2053,17 +2053,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (!use_gpu_learning_rate_scheduling()) {
-            HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+            HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter + 1 << " Time(" << display
                                    << " iters): " << timer_train.elapsedSeconds()
                                    << "s Loss: " << loss << " lr:" << lr << std::endl;
           } else {
             HCTR_LOG_S(INFO, ROOT)
-                << "Iter: " << iter << " Time(" << display
+                << "Iter: " << iter + 1 << " Time(" << display
                 << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss << std::endl;
           }
           timer_train.start();
         }
-        if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+        if (eval_interval > 0 && (iter + 1) % eval_interval == 0) {
           this->check_overflow();
           this->copy_weights_for_evaluation();
           batches = 0;
@@ -2145,7 +2145,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             this->set_learning_rate(lr);
           }
           data_reader_train_status_ = this->train(true);
-          if (display > 0 && iter % display == 0 && iter != 0) {
+          if (display > 0 && (iter + 1) % display == 0) {
             timer_train.stop();
             float loss = 0;
             this->get_current_loss(&loss);
@@ -2155,17 +2155,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                        " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
             }
             if (!use_gpu_learning_rate_scheduling()) {
-              HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+              HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter + 1 << " Time(" << display
                                      << " iters): " << timer_train.elapsedSeconds()
                                      << "s Loss: " << loss << " lr:" << lr << std::endl;
             } else {
               HCTR_LOG_S(INFO, ROOT)
-                  << "Iter: " << iter << " Time(" << display
+                  << "Iter: " << iter + 1 << " Time(" << display
                   << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss << std::endl;
             }
             timer_train.start();
           }
-          if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+          if (eval_interval > 0 && (iter + 1) % eval_interval == 0) {
             this->check_overflow();
             this->copy_weights_for_evaluation();
             batches = 0;
@@ -2219,7 +2219,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->set_learning_rate(lr);
       }
       this->train(true);
-      if (display > 0 && iter % display == 0 && iter != 0) {
+      if (display > 0 && (iter + 1) % display == 0) {
         timer_train.stop();
         float loss = 0.0f;
         if (solver_.gen_loss_summary) {
@@ -2231,11 +2231,11 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           }
         }
         if (!use_gpu_learning_rate_scheduling()) {
-          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter + 1 << " Time(" << display
                                  << " iters): " << timer_train.elapsedSeconds()
                                  << "s Loss: " << loss << " lr:" << lr << std::endl;
         } else {
-          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter + 1 << " Time(" << display
                                  << " iters): " << timer_train.elapsedSeconds()
                                  << "s Loss: " << loss << std::endl;
         }
