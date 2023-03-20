@@ -1103,31 +1103,18 @@ Compared with the `hugectr.SparseEmbedding` class, the embedding collection has 
 1. The embedding collection can fuse embedding tables with different embedding vector sizes.
    The previous embedding can only fuse embedding tables with the same embedding vector size.
    The enhancement boosts both flexibility and performance.
-2. The embedding collection extends the functionality of embedding by supporting the `concat` combiner and supporting different slot lookups on the same embedding table.
+2. The embedding collection extends the functionality of embedding by supporting the `concat` combiner and supporting different lookups on the same embedding table.
 3. The embedding collection supports arbitrary embedding table placement, such as data parallel and model parallel.
-You provide a plan JSON file and specify the table placement strategy that you want.
-
-### Sample Notebook
-
-The [HugeCTR Embedding Collection](../notebooks/embedding_collection.ipynb) sample notebook demonstrates the following:
-
-* Introduces the API of the embedding collection.
-* Introduces the embedding table placement strategy (ETPS) and how to configure ETPS in embedding collection.
-* Shows how to use an embedding collection in a DLRM model with the Criteo dataset for training and evaluation.
-The notebook shows two different ETPS as reference.
 
 ### Overview of using the HugeCTR embedding collection
 
 To use an embedding collection, you need the following items:
 
-* A list of `hugectr.EmbeddingTableConfig` objects that represent the embedding tables such as the size, maximum key, and an optional optimizer.
+* A list of `hugectr.EmbeddingTableConfig` objects that represent the embedding tables, user needs to configure table name/max_vocabulary_size/ev_size/optimizer(optional).
 
-* A `hugectr.EmbeddingPlanner` object that uses the embedding table config objects to organize the lookup operations between the input data and the embedding tables.
-The embedding planner also accepts a JSON-formatted plan file that describes the embedding table placement strategy.
+* A `hugectr.EmbeddingCollectionConfig` object that uses the embedding table config objects to organize the lookup operations between the input data and the embedding tables. It also provides method to configure the table placement strategy.
 
-After those items are in place, you run the `create_embedding_collection()` method on the embedding planner and you receive a
- `hugectr.EmbeddingCollection`.
-Specify the embedding collection as an argument to `Model.add()` to use the embedding collection.
+You can use the `add()` method from `hugectr.Model` to use the embedding collection for training and evaluation.
 
 ### EmbeddingTableConfig
 
@@ -1135,14 +1122,12 @@ The `hugectr.EmbeddingTableConfig` class enables you to specify the attributes o
 
 Parameter:
 
-* `table_id`: Integer, typically it is the index from the corresponding `slot_size_array` variable when you create a new embedding table.
+* `name`: String, a name which is used when dumping and loading embedding table.
 * `max_vocabulary_size`: Integer, specifies the vocabulary size of this table.
 If positive, then the value indicates the number of embedding vectors that this table contains.
 If you specify the value incorrectly and exceed the value during training or evaluation, you will cause an overflow and receive an error.
-If you do not know the exact size of the embedding table, you can specify `-1` to use a dynamic embedding table with a size that can be extended dynamically during training or evaluation.
+If you do not know the exact size of the embedding table, you can specify `-1` to use a dynamic hash embedding table with a size that can be extended dynamically during training or evaluation.
 * `ev_size`: Integer, specifies the embedding vector size that this embedding consists of.
-* `min_key`: Integer, the minimum value of the input key.
-* `max_key`: Integer, the maximum value of the input key.
 * `opt_params`: Optional, `hugectr.Optimizer`, the optimizer you want to use for this embedding table.
 If not specified, the embedding table uses the optimizer specified in `hugectr.Model`.
 
@@ -1154,22 +1139,24 @@ slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49,
                    186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15,
                    204515, 141526, 199433, 60919, 9137, 71, 34]
 embedding_table_list = []
-for i in range(len(slot_size_array):
+for i in range(len(slot_size_array))):
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            table_id=i,
+            name="table_" + str(i),
             max_vocabulary_size=slot_size_array[i],
             ev_size=128,
-            min_key=0,
-            max_key=slot_size_array[i]
         )
     )
 ```
 
-### EmbeddingPlanner
+### EmbeddingCollectionConfig
 
-Create a `hugectr.EmbeddingPlanner` instance to construct the lookup operation and create a `hugectr.EmbeddingCollection`.
-The constructor for the embedding planner class does not accept any parameters.
+Create a `hugectr.EmbeddingCollectionConfig` instance to construct the lookup operation and configure the table placement strategy.
+
+Parameter:
+
+* `use_exclusive_keys`: bool, if true, any key is exclusively owned by only one table.
+* `comm_strategy`: hugectr.CommunicationStrategy, can be `hugectr.CommunicationStrategy.Uniform` or `hugectr.CommunicationStrategy.Hierarchical`. 
 
 #### embedding_lookup method
 
@@ -1185,32 +1172,19 @@ The shape of output tensor is (`<batch size>`, `1`, `<embedding vector size>`).
 * `combiner`: str, specifies the combiner operation.
 Specify `mean`, `sum`, or `concat`.
 
-#### create_embedding_collection method
-
-After configuring the embedding planner with the embedding table information by running `embedding_lookup()` for each embedding table, you can run the `create_embedding_collection()` method to create a `hugectr.EmbeddingCollection` instance.
-You can use the `add()` method from `hugectr.Model` to use the embedding collection for training and evaluation.
+Embedding Collection supports configuring the batch-major output with list of args in `embedding_lookup`.
 
 Parameter:
 
-* `plan_file`: str, specifies the path to a JSON file that describes the embedding table placement strategy.
-Example:
+* `table_config` : list of `hugectr.EmbeddingTableConfig`, the embedding table for the lookup operation.
+* `bottom_name`: list of str, the bottom tensor name.
+Specify a tensor that is compatible with the `data_reader_sparse_param_array` parameter of [`hugectr.Input`](#input-layer) in `hugectr.Model`.
+* `top_name`: str, the output tensor name.
+The shape of output tensor is (`<batch size>`, `sum of all <embedding vector size>`).
+* `combiner`: list of str, specifies the combiner operation.
+Specify `mean`, `sum`, or `concat`.
 
-```python
-embedding_planner = hugectr.EmbeddingPlanner()
-emb_vec_list = []
-for i in range(len(slot_size_array)):
-     embedding_planner.embedding_lookup(
-        table_config=embedding_table_list[i],
-        bottom_name="data{}".format(i),
-        top_name="emb_vec{}".format(i),
-        combiner="sum"
-    )
-embedding_collection = embedding_planner.create_embedding_collection("./plan.json")
-```
-
-### Plan File and Embedding Table Placement Strategy (ETPS)
-
-### About ETPS and Benefits
+#### shard method
 
 In the recommendation system, the embedding table is usually so large that a single GPU is not able to hold all embedding tables.
 One strategy for addressing the challenge is to use sharding to distribute the embedding tables across multiple GPUs.
@@ -1218,174 +1192,50 @@ We call this sharding strategy the embedding table placement strategy (ETPS).
 
 ETPS can significantly boost the performance of embedding because different sharding strategies influence the communication between GPUs.
 The optimal strategy is highly dependent on your dataset and your lookup operation.
-If optimal performance is a concern, then configure an ETPS for the specific use case.
 
-### Configuring ETPS and the Embedding Collection
+EmbeddingCollectionConfig provides `shard` method for users to configure the ETPS so that users can adjust the ETPS according their own use case to achieve optimal performance.
 
-HugeCTR provides a configurable ETPS interface so that you can adjust the embedding table placement strategy according your own use case.
-You create a JSON file that describes the ETPS in all GPUs.
-This file is called a _plan file_.
+Parameter:
 
-For example, consider the following scenario that has four embedding tables and five lookup operations:
+* `shard_matrix`: list of list of str, a matrix with num_gpus row and each row stores the name of embedding table that user want to place on row-th GPU.
+* `shard_strategy`: list of tuple(str, list of str), for each tuple(str, list of str), the first str means the table placement strategy, which can be "mp"(model parallel) or "dp"(data parallel), and the second list of str means table name which user want to apply the table placement strategy to. User can configure multiple table placement strategy. For example, [("mp", ["t0", "t1"]), ("dp", ["t2", "t3"])]. Note, the `shard_strategy` should be consistent with `shard_matrix`, which means for the table which is "dp" sharded should be placed on every GPU. And also one table can only be applied with one shard strategy.
+
+Example:
 
 ```python
-slot_size_array = [...]
+# create embedding table configs
+embedding_table_names = ["goods", "ads", "userID", "time"]
 embedding_table_list = []
-for i in range(len(slot_size_array)):
+for name in embedding_table_names:
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            table_id=i,
-            max_vocabulary_size=slot_size_array[i],
-            ev_size=128,
-            min_key=0,
-            max_key=slot_size_array[i]
+            name=name,
+            max_vocabulary_size=...,
+            ev_size=...,
         )
     )
 
-embedding_planner = hugectr.EmbeddingPlanner()
-embedding_planner.embedding_lookup(embedding_table_list[0], "data0", "emb_vec0", "sum") # lookup 0, table 0
-embedding_planner.embedding_lookup(embedding_table_list[1], "data1", "emb_vec1", "sum") # lookup 1, table 1
-embedding_planner.embedding_lookup(embedding_table_list[2], "data2", "emb_vec2", "sum") # lookup 2, table 2
-embedding_planner.embedding_lookup(embedding_table_list[1], "data3", "emb_vec3", "sum") # lookup 3, table 1
-embedding_planner.embedding_lookup(embedding_table_list[3], "data4", "emb_vec4", "sum") # lookup 4, table 3
-```
+# create embedding collection config and configure lookup
+ebc_config = hugectr.EmbeddingCollectionConfig()
+ebc_config.embedding_lookup(
+    table_config=[embedding_table_list[i] for i in range(NUM_TABLE)],
+    bottom_name=["data{}".format(i) for i in range(NUM_TABLE)],
+    top_name="sparse_embedding",
+    combiner=["sum" for _ in range(NUM_TABLE)],
+)
 
-The next step is to configure the ETPS through a plan file.
-In the plan file, you can group several lookup operations together and to perform sharding.
-You can specify the configuration in fine detail, down to the lookup operation, the GPU, and a portion of the embedding table.
-
-The basic principle is one embedding table can only be sharded in a single way.
-For example, if lookup `0` and lookup `3` take place on the same embedding table, then lookup `0` and lookup `3` should be grouped together and sharded in the same way.
-
-#### Sample ETPS Plan File: Data Parallel
-
-The following sample plan file shows how to use two GPUs and a data parallel ETPS in four embedding tables:
-
-```json
-[
-  [
-      {
-          "local_embedding_list": [
-              0, 1, 2, 3, 4
-          ],
-          "global_embedding_list": [
-              [
-                  0, 1, 2, 3, 4
-              ],
-              [
-                  0, 1, 2, 3, 4
-              ]
-          ],
-          "shards_count": 1,
-          "shard_id": 0,
-          "table_placement_strategy": "dp"
-      }
-  ],
-  [
-      {
-          "local_embedding_list": [
-              0, 1, 2, 3, 4
-          ],
-          "global_embedding_list": [
-              [
-                  0, 1, 2, 3, 4
-              ],
-              [
-                  0, 1, 2, 3, 4
-              ]
-          ],
-          "shards_count": 1,
-          "shard_id": 0,
-          "table_placement_strategy": "dp"
-      }
-  ]
+# configure the table placement strategy, suppose we have 4 GPUs
+shard_matrix = [
+    ["goods", "userID", "time"],
+    ["ads", "time"],
+    ["userID", "time"],
+    ["goods", "time"]
 ]
-```
-
-The plan file consists of a list that describes the table placement strategy in each GPU, in order.
-For each GPU, a list describes the multiple groups of sharded lookup operations.
-Each group of sharded lookup operation is a dictionary with the following fields:
-
-* `local_embedding_list`: a list of integers, specifies the lookup operations for the current GPU.
-* `global_embedding_list`: a list of lists of integers, specifies the current group lookup operations in all GPUs.
-* `shards_count`: an integer, specifies the total number of shards for the current group lookup operations.
-* `shard_id`: an integer, the index of the current group lookup operations.
-* `table_placement_strategy`: str, can be `mp` or `dp`. `mp` indicates model parallel and `dp` indicates data parallel.
-
-#### Sample ETPS Plan File: Model Parallel and Data Parallel Combined
-
-You can apply more complex strategies for ETPS.
-The following sample plan file demonstrates how to shared lookups `0`, `1`, `2`, and `3` across two GPUs and lookup `4` is data parallel:
-
-```json
-[
-  [
-      {
-          "local_embedding_list": [
-              0,
-              2
-          ],
-          "global_embedding_list": [
-              [
-                  0,
-                  2
-              ],
-              [
-                  1,
-                  3
-              ]
-          ],
-          "table_placement_strategy": "mp"
-      },
-      {
-          "local_embedding_list": [
-              4
-          ],
-          "global_embedding_list": [
-              [
-                  4
-              ],
-              [
-                  4
-              ]
-          ],
-          "table_placement_strategy": "dp"
-      }
-  ],
-  [
-      {
-          "local_embedding_list": [
-              1,
-              3
-          ],
-          "global_embedding_list": [
-              [
-                  0,
-                  2
-              ],
-              [
-                  1,
-                  3
-              ]
-          ],
-          "table_placement_strategy": "mp"
-      },
-      {
-          "local_embedding_list": [
-              4
-          ],
-          "global_embedding_list": [
-              [
-                  4
-              ],
-              [
-                  4
-              ]
-          ],
-          "table_placement_strategy": "dp"
-      }
-  ]
+shard_strategy = [
+    ("mp", ["goods", "userID", "ads"]),
+    ("dp", ["time"]),
 ]
+ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy)
 ```
 
 ## GroupDenseLayer
