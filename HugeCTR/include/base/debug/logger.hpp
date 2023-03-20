@@ -269,7 +269,7 @@ inline std::string getErrorString(cublasStatus_t err) {
     case CUBLAS_STATUS_INTERNAL_ERROR:
       return "cuBLAS internal operation failed.";
     case CUBLAS_STATUS_NOT_SUPPORTED:
-      return "cuBLAS doen't support the requested functionality.";
+      return "cuBLAS doesn't support the requested functionality.";
     case CUBLAS_STATUS_LICENSE_ERROR:
       return "cuBLAS failed to check the current licencing.";
     default:
