@@ -5,7 +5,7 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" bash -c "echo -n 'Clearing cache on ' && 
 
 srun --mpi=pmix --ntasks="${SLURM_JOB_NUM_NODES}" --ntasks-per-node=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /workdir/samples/dlrm && \
-    curl --header \"PRIVATE-TOKEN: ${GIT_TOKEN}\" \"https://gitlab-master.nvidia.com/api/v4/projects/9530/repository/archive?sha=dlrm_embedding_interface_update&path=/recommendation/hugectr\" -o optimized.tar && \
+    curl --header \"PRIVATE-TOKEN: ${GIT_TOKEN}\" \"${REPO_LINK}\" -o optimized.tar && \
     tar xvf optimized.tar --strip-components=3 -C . && \
     pip install -r requirements.txt && \
     source ${SOURCE_CONFIG} && \
