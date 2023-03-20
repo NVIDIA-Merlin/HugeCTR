@@ -55,10 +55,6 @@ struct UniformDataParallelEmbeddingMeta {
 
   WgradAttr wgrad_attr;
 
-  std::vector<int> h_table_id_to_global_start_indices;
-  core23::Tensor table_id_to_global_start_indices;
-  core23::Tensor table_id_to_allreduce_buffer_start_indices;
-
   AllreduceStrategy allreduce_strategy_;
   UniformDataParallelEmbeddingMeta(std::shared_ptr<CoreResourceManager> core,
                                    const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
