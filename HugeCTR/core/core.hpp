@@ -19,6 +19,7 @@
 #include <nccl.h>
 
 #include <core/macro.hpp>
+#include <core23/kernel_params.hpp>
 #include <memory>
 
 namespace core {
@@ -32,6 +33,7 @@ class GPUResourceBase {
 
 class CoreResourceManager {
  public:
+  CoreResourceManager() { kernel_params_ = HugeCTR::core23::KernelParams().init(); }
   virtual ~CoreResourceManager() = default;
 
   virtual std::shared_ptr<GPUResourceBase> get_local_gpu() = 0;
@@ -51,6 +53,10 @@ class CoreResourceManager {
   virtual int get_gpu_global_id_from_local_id(int local_id) const = 0;
 
   virtual int get_gpu_local_id_from_global_id(int global_id) const = 0;
+
+  const HugeCTR::core23::KernelParams &get_kernel_param() { return kernel_params_; };
+
+  HugeCTR::core23::KernelParams kernel_params_;
 };
 
 }  // namespace core

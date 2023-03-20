@@ -127,12 +127,6 @@ std::vector<int> EmbeddingCollectionParam::get_table_id_to_global_start_indices(
   return table_id_to_table_offsets;
 }
 
-void KernelParams::init() {
-  cudaDeviceProp device_prop;
-  cudaGetDeviceProperties(&device_prop, 0);
-  this->num_sms = device_prop.multiProcessorCount;
-}
-
 void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
                                const EmbeddingCollectionParam &ebc_param) {
   this->num_lookup = ebc_param.num_lookup;
@@ -178,8 +172,6 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
   this->max_ev_size = !h_id_to_ev_size.empty()
                           ? *std::max_element(h_id_to_ev_size.begin(), h_id_to_ev_size.end())
                           : 0;
-  this->kernel_params.init();
-
   this->is_ragged =
       (h_id_to_ev_size.size() == 0)
           ? false

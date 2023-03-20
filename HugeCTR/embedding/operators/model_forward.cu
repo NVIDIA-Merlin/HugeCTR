@@ -203,7 +203,8 @@ void ModelForward::compute(const core23::Tensor &mp_ev, const core23::Tensor &bu
                    batch_size_per_gpu * id_to_ev_start_indices_ptr[i_lookup] +
                    local_batch_id * ev_size;
           });
-      copy_multi_to_one(multi_to_one_desc, model_comm_buffer.attr.max_ev_size, stream);
+      copy_multi_to_one(multi_to_one_desc, core_->get_kernel_param(),
+                        model_comm_buffer.attr.max_ev_size, stream);
     });
   }
 }

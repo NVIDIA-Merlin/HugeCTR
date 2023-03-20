@@ -421,7 +421,6 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     }
     sync_gpus();
     check_forward_result();
-
     // backward
     ebc_cpu.embedding_backward_cpu(top_grads, batch_size);
     emb_ref.embedding_backward_cpu(top_grads, key_list, bucket_range);
@@ -436,6 +435,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     // update
     ebc_cpu.embedding_update_cpu();
     emb_ref.embedding_update_cpu();
+    sync_gpus();
 #pragma omp parallel for num_threads(num_gpus)
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       ebc->update_per_gpu(gpu_id);

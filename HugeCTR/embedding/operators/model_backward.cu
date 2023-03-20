@@ -25,15 +25,32 @@
 
 namespace embedding {
 
-void LocalReduce::init(std::shared_ptr<CoreResourceManager> core,
-                       const embedding::KernelParams& kernel_params, int max_ev_size,
+template <typename T>
+__global__ void mp_cal_src_ptrs(const T** src_ptr, const uint32_t* src_ids_ptr, int batch_size,
+                                int batch_size_per_gpu, const size_t num_keys,
+                                const int* src_id_to_ev_size_ptr,
+                                const int* src_id_to_ev_start_indices_ptr, T** src_ptrs) {
+  CUDA_1D_KERNEL_LOOP(i, num_keys) {
+    uint32_t bucket_id = src_ids_ptr[i];
+    int embedding_id = bucket_id / batch_size;
+    int batch_id = bucket_id % batch_size;
+    int gpu_id = batch_id / batch_size_per_gpu;
+    int local_batch_id = batch_id % batch_size_per_gpu;
+    int ev_size = src_id_to_ev_size_ptr[i];
+    src_ptrs[i] = const_cast<T*>(src_ptr[gpu_id] +
+                                 batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+                                 local_batch_id * ev_size);
+  }
+  return;
+}
+
+void LocalReduce::init(std::shared_ptr<CoreResourceManager> core, int max_ev_size,
                        size_t max_input_num) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
 
   this->core_ = core;
-  this->kernel_params_ = kernel_params;
 
-  int num_sms = kernel_params.num_sms;
+  int num_sms = core_->get_kernel_param().num_sms;
   int max_partial_num = (max_input_num - 1) / EV_NUM + 1;
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
 
@@ -72,6 +89,11 @@ void LocalReduce::init(std::shared_ptr<CoreResourceManager> core,
                          .shape({max_partial_num})
                          .data_type(core23::ScalarType::UInt32)
                          .device(device));
+  this->partial_reduce_result_.src_ptrs =
+      core23::Tensor(core23::TensorParams()
+                         .shape({static_cast<int64_t>(max_input_num * sizeof(char*))})
+                         .data_type(core23::ScalarType::Char)
+                         .device(device));
 
   this->partial_reduce_result_.max_input_num = max_input_num;
 }
@@ -102,6 +124,11 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
     const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
+    emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
+
+    mp_cal_src_ptrs<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
+        src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
+        src_id_to_ev_size_ptr, src_id_to_ev_start_indices_ptr, src_ptrs);
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, float>(
         [=] __device__() { return reduction_indices.num_elements; },
@@ -112,27 +139,29 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
           // gpu i:
           //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu | ... |
           //   i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
-          uint32_t bucket_id = src_ids_ptr[i];
-          int embedding_id = bucket_id / batch_size;
-          int batch_id = bucket_id % batch_size;
-          int gpu_id = batch_id / batch_size_per_gpu;
-          int local_batch_id = batch_id % batch_size_per_gpu;
-          int ev_size = src_id_to_ev_size_ptr[i];
-          return src_ptr[gpu_id] +
-                 batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
-                 local_batch_id * ev_size;
+          // uint32_t bucket_id = src_ids_ptr[i];
+          // int embedding_id = bucket_id / batch_size;
+          // int batch_id = bucket_id % batch_size;
+          // int gpu_id = batch_id / batch_size_per_gpu;
+          // int local_batch_id = batch_id % batch_size_per_gpu;
+          // int ev_size = src_id_to_ev_size_ptr[i];
+          // return src_ptr[gpu_id] +
+          //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+          //       local_batch_id * ev_size;
+          return src_ptrs[i];
         },
         [=] __device__(int i) {
           auto tmp_index = dst_ids_ptr[i];
           return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
         });
-    multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices, kernel_params_,
-                           partial_reduce_result_, wgrad, src_buffer.attr.max_ev_size, stream);
+    multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
+                           core_->get_kernel_param(), partial_reduce_result_, wgrad,
+                           src_buffer.attr.max_ev_size, stream);
   });
 }
 
 void dp_local_reduce_from_feature_major_top_grad(
-    const KernelParams& kernel_params, const ReductionIndices& reduction_indices,
+    const HugeCTR::core23::KernelParams& kernel_params, const ReductionIndices& reduction_indices,
     const EmbeddingOutput& src_buffer, const core23::Tensor& local_lookup_ids, int num_lookup,
     Wgrad& wgrad, PartialReduceResult& partial_reduce_result, int batch_size_per_gpu,
     int max_ev_size, cudaStream_t stream) {
@@ -194,7 +223,7 @@ void dp_local_reduce_from_feature_major_top_grad(
 }
 
 void dp_local_reduce_from_batch_major_top_grad(
-    const KernelParams& kernel_params, const ReductionIndices& reduction_indices,
+    const HugeCTR::core23::KernelParams& kernel_params, const ReductionIndices& reduction_indices,
     const EmbeddingOutput& src_buffer, const core23::Tensor& local_lookup_ids, int num_lookup,
     Wgrad& wgrad, PartialReduceResult& partial_reduce_result, int batch_size_per_gpu,
     int max_ev_size, cudaStream_t stream) {
@@ -264,12 +293,13 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
 
   if (src_buffer.attr.layout == EmbeddingLayout::FeatureMajor) {
     dp_local_reduce_from_feature_major_top_grad(
-        kernel_params_, reduction_indices, src_buffer, local_lookup_ids, num_lookup, wgrad,
-        partial_reduce_result_, batch_size_per_gpu, src_buffer.attr.max_ev_size, stream);
+        core_->get_kernel_param(), reduction_indices, src_buffer, local_lookup_ids, num_lookup,
+        wgrad, partial_reduce_result_, batch_size_per_gpu, src_buffer.attr.max_ev_size, stream);
   } else {
-    dp_local_reduce_from_batch_major_top_grad(
-        kernel_params_, reduction_indices, src_buffer, local_lookup_ids, num_global_lookup, wgrad,
-        partial_reduce_result_, batch_size_per_gpu, src_buffer.attr.max_ev_size, stream);
+    dp_local_reduce_from_batch_major_top_grad(core_->get_kernel_param(), reduction_indices,
+                                              src_buffer, local_lookup_ids, num_global_lookup,
+                                              wgrad, partial_reduce_result_, batch_size_per_gpu,
+                                              src_buffer.attr.max_ev_size, stream);
   }
 }
 

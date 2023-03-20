@@ -42,7 +42,6 @@ struct UniformModelParallelEmbeddingMeta {
   core23::Tensor d_ev_size_offset_;
   int max_ev_size_;
   int num_sms_;
-  KernelParams kernel_params;
 
   std::vector<char> h_combiner_list_;
   core23::Tensor d_combiner_list_;

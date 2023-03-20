@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <embedding/common.hpp>
 #include <embedding/view.hpp>
 #include <utils.cuh>
 
@@ -25,21 +26,23 @@ struct Vec4T {};
 
 template <>
 struct Vec4T<__half> {
-  __half2 first;
-  __half2 second;
+  union U {
+    float2 f;
+    __half2 h[2];
+  } value;
 
   DEVICE_INLINE Vec4T() {
-    first.x = 0.f;
-    first.y = 0.f;
-    second.x = 0.f;
-    second.y = 0.f;
+    value.h[0].x = 0.f;
+    value.h[0].y = 0.f;
+    value.h[1].x = 0.f;
+    value.h[1].y = 0.f;
   }
 
   DEVICE_INLINE void reset() {
-    first.x = 0.f;
-    first.y = 0.f;
-    second.x = 0.f;
-    second.y = 0.f;
+    value.h[0].x = 0.f;
+    value.h[0].y = 0.f;
+    value.h[1].x = 0.f;
+    value.h[1].y = 0.f;
   }
 
   DEVICE_INLINE void load(const float *p, int n) {
@@ -47,57 +50,59 @@ struct Vec4T<__half> {
       float4 f = *(reinterpret_cast<const float4 *>(p));
       float2 firstf{f.x, f.y};
       float2 secondf{f.z, f.w};
-      first = __float22half2_rn(firstf);
-      second = __float22half2_rn(secondf);
+      value.h[0] = __float22half2_rn(firstf);
+      value.h[1] = __float22half2_rn(secondf);
     } else {
-      if (n > 0) first.x = __float2half(p[0]);
-      if (n > 1) first.y = __float2half(p[1]);
-      if (n > 2) second.x = __float2half(p[2]);
+      if (n > 0) value.h[0].x = __float2half(p[0]);
+      if (n > 1) value.h[0].y = __float2half(p[1]);
+      if (n > 2) value.h[1].x = __float2half(p[2]);
     }
+    // if (n > 0)value.h[0].x = __float2half(p[0]);
+    // if (n > 1)  value.h[0].y = __float2half(p[1]);
+    // if (n > 2)  value.h[1].x = __float2half(p[2]);
+    // if (n > 3)  value.h[1].y = __float2half(p[3]);
   }
 
   DEVICE_INLINE void load(const __half *p, int n) {
     if (n == 4) {
-      first = *(reinterpret_cast<const __half2 *>(p));
-      second = *(reinterpret_cast<const __half2 *>(p + 2));
+      value.f = *(reinterpret_cast<const float2 *>(p));
     } else {
-      if (n > 0) first.x = p[0];
-      if (n > 1) first.y = p[1];
-      if (n > 2) second.x = p[2];
+      if (n > 0) value.h[0].x = p[0];
+      if (n > 1) value.h[0].y = p[1];
+      if (n > 2) value.h[1].x = p[2];
     }
   }
 
   DEVICE_INLINE void store(float *dst, int n) {
     if (n == 4) {
       float4 f;
-      f.x = __half2float(first.x);
-      f.y = __half2float(first.y);
-      f.z = __half2float(second.x);
-      f.w = __half2float(second.y);
+      f.x = __half2float(value.h[0].x);
+      f.y = __half2float(value.h[0].y);
+      f.z = __half2float(value.h[1].x);
+      f.w = __half2float(value.h[1].y);
       *(reinterpret_cast<float4 *>(dst)) = f;
     } else {
-      if (n > 0) dst[0] = __half2float(first.x);
-      if (n > 1) dst[1] = __half2float(first.y);
-      if (n > 2) dst[2] = __half2float(second.x);
+      if (n > 0) dst[0] = __half2float(value.h[0].x);
+      if (n > 1) dst[1] = __half2float(value.h[0].y);
+      if (n > 2) dst[2] = __half2float(value.h[1].x);
     }
   }
 
   DEVICE_INLINE void store(__half *dst, int n) {
     if (n == 4) {
-      *(reinterpret_cast<__half2 *>(dst)) = first;
-      *(reinterpret_cast<__half2 *>(dst + 2)) = second;
+      *(reinterpret_cast<float2 *>(dst)) = value.f;
     } else {
-      if (n > 0) dst[0] = first.x;
-      if (n > 1) dst[1] = first.y;
-      if (n > 2) dst[2] = second.x;
+      if (n > 0) dst[0] = value.h[0].x;
+      if (n > 1) dst[1] = value.h[0].y;
+      if (n > 2) dst[2] = value.h[1].x;
     }
   }
 
   DEVICE_INLINE void atomic_store_accum(float *dst, int n) {
-    if (n > 0) atomicAdd(dst, __half2float(first.x));
-    if (n > 1) atomicAdd(dst + 1, __half2float(first.y));
-    if (n > 2) atomicAdd(dst + 2, __half2float(second.x));
-    if (n > 3) atomicAdd(dst + 3, __half2float(second.y));
+    if (n > 0) atomicAdd(dst, __half2float(value.h[0].x));
+    if (n > 1) atomicAdd(dst + 1, __half2float(value.h[0].y));
+    if (n > 2) atomicAdd(dst + 2, __half2float(value.h[1].x));
+    if (n > 3) atomicAdd(dst + 3, __half2float(value.h[1].y));
   }
 };
 
@@ -133,10 +138,10 @@ struct Vec4T<float> {
     if (n == 4) {
       Vec4T<__half> h;
       h.load(p, n);
-      val.x = __half2float(h.first.x);
-      val.y = __half2float(h.first.y);
-      val.z = __half2float(h.second.x);
-      val.w = __half2float(h.second.y);
+      val.x = __half2float(h.value.h[0].x);
+      val.y = __half2float(h.value.h[0].y);
+      val.z = __half2float(h.value.h[1].x);
+      val.w = __half2float(h.value.h[1].y);
     } else {
       if (n > 0) val.x = __half2float(p[0]);
       if (n > 1) val.y = __half2float(p[1]);
@@ -181,10 +186,10 @@ struct Vec4T<float> {
   }
 
   DEVICE_INLINE void accumulate(const Vec4T<__half> &other) {
-    val.x += __half2float(other.first.x);
-    val.y += __half2float(other.first.y);
-    val.z += __half2float(other.second.x);
-    val.w += __half2float(other.second.y);
+    val.x += __half2float(other.value.h[0].x);
+    val.y += __half2float(other.value.h[0].y);
+    val.z += __half2float(other.value.h[1].x);
+    val.w += __half2float(other.value.h[1].y);
   }
 
   DEVICE_INLINE void accumulate_multiply(const Vec4T<float> &other, float weight) {
@@ -202,19 +207,44 @@ struct Vec4T<float> {
   }
 
   DEVICE_INLINE void accumulate_multiply(const Vec4T<__half> &other, float weight) {
-    val.x += (__half2float(other.first.x) * weight);
-    val.y += (__half2float(other.first.y) * weight);
-    val.z += (__half2float(other.second.x) * weight);
-    val.w += (__half2float(other.second.y) * weight);
+    val.x += (__half2float(other.value.h[0].x) * weight);
+    val.y += (__half2float(other.value.h[0].y) * weight);
+    val.z += (__half2float(other.value.h[1].x) * weight);
+    val.w += (__half2float(other.value.h[1].y) * weight);
   }
 
   DEVICE_INLINE void accumulate_multiply(const Vec4T<__half> &other, __half weight) {
-    val.x += (__half2float(other.first.x) * __half2float(weight));
-    val.y += (__half2float(other.first.y) * __half2float(weight));
-    val.z += (__half2float(other.second.x) * __half2float(weight));
-    val.w += (__half2float(other.second.y) * __half2float(weight));
+    val.x += (__half2float(other.value.h[0].x) * __half2float(weight));
+    val.y += (__half2float(other.value.h[0].y) * __half2float(weight));
+    val.z += (__half2float(other.value.h[1].x) * __half2float(weight));
+    val.w += (__half2float(other.value.h[1].y) * __half2float(weight));
   }
 };
+
+#define NUM_VECTOR_PER_WARP 32
+inline void get_kernel_config_use_warp(const int num_sms, const int num_thread_per_sm,
+                                       const int block_size, const int warp_size,
+                                       const int num_vector, int *grid_size,
+                                       int *num_vector_per_warp, const int multiple_num = 4) {
+  int warp_num_per_sm = num_thread_per_sm / warp_size;
+  int warp_num_per_block = block_size / warp_size;
+  int saturate_num = num_sms * warp_num_per_sm * multiple_num;
+
+  if (num_vector <= saturate_num) {
+    *num_vector_per_warp = 1;
+    *grid_size = (num_vector - 1) / warp_num_per_block + 1;
+    return;
+  }
+
+  if (num_vector / saturate_num >= NUM_VECTOR_PER_WARP) {
+    *num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    *grid_size = (num_vector - 1) / (NUM_VECTOR_PER_WARP * warp_num_per_block) + 1;
+  } else {
+    *num_vector_per_warp = num_vector / saturate_num + 1;
+    *grid_size = (saturate_num - 1) / warp_num_per_block + 1;
+  }
+  return;
+}
 
 template <typename CopyDesc, int kMaxElemPerThread>
 __global__ void multi_to_one_cta_per_ev_kernel(CopyDesc copy_desc) {
@@ -347,6 +377,57 @@ __global__ void multi_to_one_weight_cta_per_ev_kernel(CopyDesc copy_desc) {
     for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < vec_length; ++i) {
       dst_ev[blockDim.x * i + threadIdx.x] =
           HugeCTR::TypeConvertFunc<dst_type, float>::convert(accum[i]);
+    }
+  }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void multi_to_one_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+  for (int i_ev = blockIdx.x * blockDim.y + warp_id; i_ev < copy_desc.num_vec_;
+       i_ev += gridDim.x * blockDim.y) {
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+    int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
+
+    int start = copy_desc.get_offset(i_ev);
+    int end = copy_desc.get_offset(i_ev + 1);
+
+    dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
+
+    Vec4T<float> accum[kMaxElemPerThread];
+    int L = end - start;
+    for (int r = 0; r < L; ++r) {
+      const src_type *src_ev = copy_desc.get_src_ptr(start + r);
+#pragma unroll kMaxElemPerThread
+      for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+        Vec4T<src_type> src_elem;
+        int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+        int n = min(vec_length - idx4, copy_width);
+        src_elem.load(src_ev + idx4, n);
+        accum[i].accumulate(src_elem);
+      }
+    }
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread; ++i) {
+      accum[i].val.x /= average_pooling_factor;
+      accum[i].val.y /= average_pooling_factor;
+      accum[i].val.z /= average_pooling_factor;
+      accum[i].val.w /= average_pooling_factor;
+    }
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      accum[i].store(dst_ev + idx4, n);
     }
   }
 }
@@ -647,6 +728,57 @@ __global__ void one_to_multi_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
 }
 
 template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void one_to_multi_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+
+  for (int i_ev = blockIdx.x * blockDim.y + warp_id; i_ev < copy_desc.num_vec_;
+       i_ev += gridDim.x * blockDim.y) {
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+    int average_pooling_factor = copy_desc.get_average_pooling_factor(i_ev);
+    const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
+    Vec4T<float> accum[kMaxElemPerThread];
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      accum[i].load(src_ev + idx4, n);
+    }
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread; ++i) {
+      accum[i].val.x /= average_pooling_factor;
+      accum[i].val.y /= average_pooling_factor;
+      accum[i].val.z /= average_pooling_factor;
+      accum[i].val.w /= average_pooling_factor;
+    }
+
+    int start = copy_desc.get_offset(i_ev);
+    int end = copy_desc.get_offset(i_ev + 1);
+    int L = end - start;
+    for (int r = 0; r < L; ++r) {
+      int l = r + lane_id < L ? start + r + lane_id : 0;
+      dst_type *dst_ev = copy_desc.get_dst_ptr(start + r);
+
+#pragma unroll kMaxElemPerThread
+      for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+        int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+        int n = min(vec_length - idx4, copy_width);
+        accum[i].store(dst_ev + idx4, n);
+      }
+    }
+  }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
 __global__ void one_to_multi_weight_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
   using src_type = typename CopyDesc::SrcT;
   using dst_type = typename CopyDesc::DstT;
@@ -924,6 +1056,39 @@ void copy_multi_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream)
 }
 
 template <typename CopyDesc>
+void copy_multi_to_one(CopyDesc copy_desc, const HugeCTR::core23::KernelParams &kernel_params,
+                       int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+    multi_to_one_warp_per_ev_vec4_less_block_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+
+    multi_to_one_warp_per_ev_vec4_less_block_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 1024) {
+    int grid_size = copy_desc.num_vec_;
+
+    multi_to_one_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename CopyDesc>
 void copy_multi_to_one_weight(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
   if (max_ev_size <= 128) {
     int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
@@ -957,6 +1122,40 @@ void copy_one_to_multi(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream)
     one_to_multi_warp_per_ev_vec4_kernel<CopyDesc, 2>
         <<<grid_size, block_size, 0, stream>>>(copy_desc);
   } else if (max_ev_size <= 1024) {
+    one_to_multi_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename CopyDesc>
+void copy_one_to_multi(CopyDesc copy_desc, const HugeCTR::core23::KernelParams &kernel_params,
+                       int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+
+    one_to_multi_warp_per_ev_vec4_less_block_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+
+    one_to_multi_warp_per_ev_vec4_less_block_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 1024) {
+    int grid_size = copy_desc.num_vec_;
+
     one_to_multi_cta_per_ev_kernel<CopyDesc, 1>
         <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
   } else {

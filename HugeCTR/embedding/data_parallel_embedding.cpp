@@ -93,7 +93,6 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
 
   wgrad_attr.init(core, ebc_param, grouped_id);
 
-  kernel_params.init();
   update_mutable_meta(core, ebc_param, grouped_id);
 }
 
@@ -208,7 +207,7 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "allreduce strategy not supported.");
   }
-  local_reduce_.init(core, meta_.kernel_params, meta_.max_ev_size_,
+  local_reduce_.init(core, meta_.max_ev_size_,
                      meta_.num_local_hotness_ * (params.universal_batch_size / num_gpus));
 }
 

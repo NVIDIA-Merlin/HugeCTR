@@ -36,18 +36,17 @@ struct PartialReduceResult {
   core23::Tensor partial_ev_length_new;
   core23::Tensor partial_dst_id_array_new;
 
+  core23::Tensor src_ptrs;
   size_t max_input_num;
 };
 
 class LocalReduce {
  private:
   std::shared_ptr<CoreResourceManager> core_;
-  KernelParams kernel_params_;
   PartialReduceResult partial_reduce_result_;
 
  public:
-  void init(std::shared_ptr<CoreResourceManager> core, const KernelParams &kernel_params,
-            int max_ev_size, size_t max_input_num);
+  void init(std::shared_ptr<CoreResourceManager> core, int max_ev_size, size_t max_input_num);
 
   void local_reduce(const ReductionIndices &reduction_indices, const ModelCommBuffer &src_buffer,
                     Wgrad &wgrad, int batch_size);

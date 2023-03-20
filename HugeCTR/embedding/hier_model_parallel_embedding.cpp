@@ -34,7 +34,6 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   size_t num_global_gpus = core->get_global_gpu_count();
 
   int global_gpu_id = core->get_global_gpu_id();
-
   HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_global_gpus,
                   "shard matrix should contain num_global_gpus row.");
 
@@ -89,7 +88,6 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   wgrad_attr.init(core, ebc_param, grouped_id);
 
   output_attr.init(core, ebc_param);
-
   update_mutable_meta(core, ebc_param, grouped_id);
 }
 
@@ -166,7 +164,7 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
-  local_reduce_.init(core, meta_.output_attr.kernel_params, meta_.output_attr.max_ev_size,
+  local_reduce_.init(core, meta_.output_attr.max_ev_size,
                      meta_.num_local_hotness_ * params.universal_batch_size);
 
   embedding_vec_ = core23::init_tensor_list<float>(

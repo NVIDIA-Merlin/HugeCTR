@@ -74,8 +74,6 @@ UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
   // num_sms_ = device_prop.multiProcessorCount;
   // FIX: cudaGetDeviceProperties get ,cost too much time, need remove it to the start of program ,
   // not use per iteration,for now fix the num_sms_
-  num_sms_ = 108;
-  kernel_params.init();
 
   d_combiner_list_ = core23::Tensor(params.shape({static_cast<int64_t>(h_combiner_list_.size())})
                                         .data_type(core23::ScalarType::Char));
@@ -208,7 +206,7 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
-  local_reduce_.init(core, meta_.kernel_params, meta_.max_ev_size_,
+  local_reduce_.init(core, meta_.max_ev_size_,
                      meta_.num_local_hotness_ * params.universal_batch_size);
 
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
