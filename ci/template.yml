@@ -16,6 +16,7 @@ stages:
   stage: format_check
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   extends:
     - .format:rules:check
   script:
@@ -35,6 +36,7 @@ stages:
   stage: format_check
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   extends:
     - .format:rules:check
   script:
@@ -116,6 +118,7 @@ stages:
   stage: build
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   script:
     - export JOB_DOCKERFILE="Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "BUILD_HUGECTR=${BUILD_HUGECTR}"
