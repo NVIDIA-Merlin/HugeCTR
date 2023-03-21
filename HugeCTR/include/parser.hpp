@@ -45,6 +45,7 @@
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
+#include <training_callback.hpp>
 
 namespace HugeCTR {
 
@@ -96,6 +97,7 @@ struct Solver {
   bool drop_incomplete_batch;
   std::string kafka_brokers;
   DataSourceParams data_source_params;
+  std::vector<std::shared_ptr<TrainingCallback>> training_callbacks;
   Solver() {}
 };
 

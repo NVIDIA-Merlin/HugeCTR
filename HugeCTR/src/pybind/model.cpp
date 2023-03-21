@@ -411,7 +411,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
       embedding_dependent_(true),
-      high_level_eval_(false) {
+      high_level_eval_(false),
+      training_callbacks_(solver_.training_callbacks) {
   if (solver_.perf_logging) {
     timer_log.start();
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_start");
@@ -2208,6 +2209,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_start", 0);
     }
 
+    for (auto tc : training_callbacks_) {
+      tc->on_training_start();
+    }
     this->start_data_reading();
     this->init_data_reader_.reset();
 
@@ -2256,11 +2260,28 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         if (solver_.perf_logging) {
           HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
         }
+        for (auto tc : training_callbacks_) {
+          tc->on_eval_start(iter);
+        }
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           graph_.is_first_eval_batch_ = (batches == 0);
           this->eval(graph_.is_first_eval_batch_);
         }
         auto eval_metrics = this->get_eval_metrics();
+        std::map<std::string, float> eval_results;
+        for (auto& eval_metric : eval_metrics) {
+          eval_results[eval_metric.first] = eval_metric.second;
+        }
+        bool early_stop = false;
+        for (auto tc : training_callbacks_) {
+          early_stop = early_stop || tc->on_eval_end(iter, eval_results);
+        }
+        if (early_stop) {
+          for (auto tc : training_callbacks_) {
+            tc->on_training_end(iter);
+          }
+          return;
+        }
         size_t metric_id = 0;
         for (auto& eval_metric : eval_metrics) {
           metric_id++;
@@ -2308,6 +2329,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
+    for (auto tc : training_callbacks_) {
+      tc->on_training_end(max_iter - 1);
+    }
     if (solver_.perf_logging) {
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 0);
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop", "aborted");
