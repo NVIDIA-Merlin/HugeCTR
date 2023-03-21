@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <cstdlib>
 #include <iostream>
 #include <thread_pool.hpp>

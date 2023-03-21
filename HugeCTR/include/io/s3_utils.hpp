@@ -20,7 +20,7 @@
 #include <aws/core/utils/StringUtils.h>
 #endif
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <string>
 #include <string_view>
 

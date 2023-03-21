@@ -29,7 +29,7 @@
 #include <aws/s3/model/PutObjectRequest.h>
 #endif
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <fstream>
 #include <io/s3_filesystem.hpp>
 #include <io/s3_utils.hpp>

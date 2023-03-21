@@ -19,7 +19,7 @@
 #include <google/cloud/storage/client.h>
 #endif
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <fstream>
 #include <io/gcs_filesystem.hpp>
 #include <string_view>

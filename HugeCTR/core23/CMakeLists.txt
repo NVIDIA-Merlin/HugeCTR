@@ -48,7 +48,7 @@ tensor.cpp
 tensor_operations.cpp
 kernel_params.cpp
 shape.cpp
-../src/base/debug/logger.cpp # use link instead in future
+logger.cpp
 )
 
 add_library(hugectr_core23 SHARED ${core23_src})

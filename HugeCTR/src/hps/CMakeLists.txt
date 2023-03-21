@@ -20,7 +20,7 @@ file(GLOB_RECURSE huge_ctr_hps_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.
 
 list(APPEND huge_ctr_hps_src 
   "../utils.cu"
-  "../base/debug/logger.cpp"
+  "../../core23/logger.cpp"
   "../base/debug/cuda_debugging.cu"
   "../thread_pool.cpp"
   "../io/filesystem.cpp"

@@ -17,8 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <common.hpp>
+#include <core23/logger.hpp>
 #include <core23/tensor_params.hpp>
 #include <cstdint>
 #include <random>

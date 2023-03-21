@@ -25,6 +25,10 @@ if(CLANGFORMAT)
   include(ClangFormat)
 
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/benchmarks/*.hpp
+    ${PROJECT_SOURCE_DIR}/benchmarks/*.cpp
+    ${PROJECT_SOURCE_DIR}/benchmarks/*.cu
+    ${PROJECT_SOURCE_DIR}/benchmarks/*.cuh
     ${PROJECT_SOURCE_DIR}/gpu_cache/*.hpp
     ${PROJECT_SOURCE_DIR}/gpu_cache/*.cpp
     ${PROJECT_SOURCE_DIR}/gpu_cache/*.cu
@@ -313,7 +317,6 @@ else()
 #setting binary files install path
 add_subdirectory(HugeCTR/src)
 option(ENABLE_HCTR "Build core HCTR backend" ON)
-add_subdirectory(HugeCTR/core)
 add_subdirectory(HugeCTR/core23)
 add_subdirectory(HugeCTR/embedding)
 add_subdirectory(third_party/googletest)

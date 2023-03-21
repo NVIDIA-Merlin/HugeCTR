@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <core23/shape.hpp>
 #include <utest/test_utils.hpp>
 

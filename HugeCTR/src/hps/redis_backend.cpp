@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <boost/algorithm/string.hpp>
+#include <core23/logger.hpp>
 #include <hps/database_backend_detail.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/redis_backend.hpp>

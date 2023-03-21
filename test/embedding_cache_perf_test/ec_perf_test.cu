@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <embedding_cache_perf_test/ec_test_helper.cuh>
 #include <gpu_cache/include/nv_gpu_cache.hpp>
 #include <iostream>

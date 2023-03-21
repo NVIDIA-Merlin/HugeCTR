@@ -19,6 +19,6 @@ file(GLOB_RECURSE core_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
 add_executable(core_test ${core_test_src})
 target_compile_features(core_test PUBLIC cxx_std_17)
-target_link_libraries(core_test PUBLIC core huge_ctr_static gtest gtest_main)
+target_link_libraries(core_test PUBLIC hugectr_core23 huge_ctr_static gtest gtest_main)
 set_target_properties(core_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(core_test PROPERTIES CUDA_ARCHITECTURES OFF)

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <core23/details/low_level_cuda_allocator.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <core23/macros.hpp>
 
 namespace HugeCTR {

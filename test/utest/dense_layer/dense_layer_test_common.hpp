@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <core23/tensor.hpp>
 #include <layer.hpp>
 #include <pybind/dense_layer_helpers.hpp>

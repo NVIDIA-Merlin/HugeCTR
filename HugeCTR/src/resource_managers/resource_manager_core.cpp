@@ -16,7 +16,7 @@
 
 #include <omp.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <cstdlib>
 #include <random>
 #include <resource_managers/resource_manager_core.hpp>

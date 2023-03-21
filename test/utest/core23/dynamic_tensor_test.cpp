@@ -17,12 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <common.hpp>
 #include <core23/allocator_factory.hpp>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_params.hpp>
 #include <core23/details/pool_cuda_allocator.hpp>
+#include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>

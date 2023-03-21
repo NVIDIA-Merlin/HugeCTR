@@ -20,7 +20,6 @@
 #include <curand.h>
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <cmath>
 #include <core23/allocator_factory.hpp>
 #include <core23/cuda_primitives.cuh>
@@ -30,6 +29,7 @@
 #include <core23/details/pool_cuda_allocator.hpp>
 #include <core23/device.hpp>
 #include <core23/device_guard.hpp>
+#include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 
 namespace HugeCTR {

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 using HugeCTR::Logger;
 
 template <class T>

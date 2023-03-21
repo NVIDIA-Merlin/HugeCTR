@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <base/debug/logger.hpp>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_params.hpp>
 #include <core23/cuda_stream.hpp>
 #include <core23/data_type.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <core23/shape.hpp>
 #include <cstdint>
 #include <vector>

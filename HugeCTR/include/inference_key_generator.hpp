@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <base/debug/logger.hpp>
 #include <common.hpp>
+#include <core23/logger.hpp>
 #include <fstream>
 #include <memory>
 #include <random>

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include <dlrm_raw_utils.h>
-
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
+#include <dlrm_raw_utils.hpp>
 
 using namespace DLRM_RAW;
 

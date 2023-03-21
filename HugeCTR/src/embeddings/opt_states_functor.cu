@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <embeddings/sparse_embedding_functors.hpp>
 #include <io/filesystem.hpp>
 #include <utils.hpp>

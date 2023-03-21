@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/sharable_lock.hpp>
 #include <boost/utility/string_view.hpp>
+#include <core23/logger.hpp>
 #include <hps/hash_map_backend_detail.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/mp_hash_map_backend.hpp>

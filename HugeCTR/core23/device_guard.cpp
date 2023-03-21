@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <core23/device_guard.hpp>
+#include <core23/logger.hpp>
 
 namespace HugeCTR {
 

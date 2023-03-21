@@ -650,7 +650,7 @@ The default log format now includes milliseconds.
 
 + **Documents and tool for workspace size per GPU estimation**: we add a tool that is named the `embedding_workspace_calculator` to help calculate the value for `workspace_size_per_gpu_in_mb` that is required by hugectr.SparseEmbedding. For more information, please refer to the README.md file in the [tools/embedding_workspace_calculator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/tools/embedding_workspace_calculator) directory of the repository and [QA 24](https://nvidia-merlin.github.io/HugeCTR/main/QAList.html) in the documentation.
 
-+ **Improved Debugging Capability**: The old logging system, which was flagged as deprecated for some time has been removed. All remaining log messages and outputs have been revised and migrated to the new logging system (base/debug/logging.hpp/cpp). During this revision, we also adjusted log levels for log messages throughout the entire codebase to improve visibility of relevant information.
++ **Improved Debugging Capability**: The old logging system, which was flagged as deprecated for some time has been removed. All remaining log messages and outputs have been revised and migrated to the new logging system (core23/logging.hpp/cpp). During this revision, we also adjusted log levels for log messages throughout the entire codebase to improve visibility of relevant information.
 
 + **Support HDFS Parameter Server in Training**:
     + Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.

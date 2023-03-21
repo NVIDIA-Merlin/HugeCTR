@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/include/base/debug/logger.hpp>
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <algorithm>
+#include <core23/logger.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
 #include <pybind/model.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <sstream>
 
 namespace HugeCTR {

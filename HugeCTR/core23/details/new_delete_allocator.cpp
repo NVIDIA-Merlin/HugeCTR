@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <core23/details/new_delete_allocator.hpp>
+#include <core23/logger.hpp>
 #include <cstddef>
 
 namespace HugeCTR {
