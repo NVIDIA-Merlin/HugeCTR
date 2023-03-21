@@ -341,7 +341,7 @@ DCN v1
 
   where $ w_l, b_l \in \mathbb{R}^{n\times1}$ are learnable parameter, $x_{l},x_0$ are input and $x_{l+1}$ is output.
 
-DCN 2
+DCN v2
 : $$
   x_{l+1}=x_{0}\odot (\mathbf{W}_{l} x_{l}+b_l )+x_l
   $$
@@ -361,6 +361,8 @@ Parameters:
 * `projection_dim`: Integer, the projection dimension for DCN v2. If you specify `0`, the layer degrades to DCN v1. The default value is `0`.
 * `weight_init_type`: Specifies how to initialize the weight array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
 * `bias_init_type`: Specifies how to initialize the bias array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+* `compute_config`: hugectr.DenseLayerComputeConfig, specifies the computation configuration of all layers in the cross network. The valid flags in compute_config is `hugectr.DenseLayerComputeConfig.async_wgrad` and applies only to DCN v2.
+    * `hugectr.DenseLayerComputeConfig.async_wgrad`: Specifies whether the wgrad compute is asynchronous to dgrad. The default value is False. 
 
 Input and Output Shapes:
 

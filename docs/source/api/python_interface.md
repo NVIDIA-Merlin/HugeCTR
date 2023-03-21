@@ -176,7 +176,7 @@ aligned_type
 ```
 are ignored. In addition, when multi_hot_reader=True, the param num_threads actually refers to the number of IO threads per GPU.
 
-Example:`
+Example:
 1. `one-hot` data reader AsyncParam
 ```python
 async_param = hugectr.AsyncParam(32, 4, 10, 2, 512, True, hugectr.Alignment_t.Non, False, False)
