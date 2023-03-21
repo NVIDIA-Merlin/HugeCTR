@@ -28,6 +28,7 @@
 #include <pybind/model_wrapper.hpp>
 #include <pybind/optimizer_wrapper.hpp>
 #include <pybind/solver_wrapper.hpp>
+#include <pybind/training_callback_wrapper.hpp>
 
 using namespace HugeCTR::python_lib;
 
@@ -45,4 +46,5 @@ PYBIND11_MODULE(hugectr, m) {
   InferencePybind(m);
   EmbeddingCollectionPybind(m);
   HPSPybind(m);
+  TrainingCallbackPybind(m);
 }

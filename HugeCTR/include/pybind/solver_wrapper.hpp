@@ -36,7 +36,8 @@ std::unique_ptr<Solver> CreateSolver(
     bool eval_intra_iteration_overlap, bool eval_inter_iteration_overlap,
     DeviceMap::Layout device_layout, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
     bool grouped_all_reduce, size_t num_iterations_statistics, bool perf_logging,
-    bool drop_incomplete_batch, std::string& kafka_brokers) {
+    bool drop_incomplete_batch, std::string& kafka_brokers,
+    const std::vector<std::shared_ptr<TrainingCallback>>& training_callbacks) {
   if (use_mixed_precision && enable_tf32_compute) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -81,6 +82,7 @@ std::unique_ptr<Solver> CreateSolver(
   solver->perf_logging = perf_logging;
   solver->drop_incomplete_batch = drop_incomplete_batch;
   solver->kafka_brokers = kafka_brokers;
+  solver->training_callbacks = training_callbacks;
   return solver;
 }
 
@@ -120,7 +122,8 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
       .def_readonly("perf_logging", &HugeCTR::Solver::perf_logging)
-      .def_readonly("drop_incomplete_batch", &HugeCTR::Solver::drop_incomplete_batch);
+      .def_readonly("drop_incomplete_batch", &HugeCTR::Solver::drop_incomplete_batch)
+      .def_readonly("training_callbacks", &HugeCTR::Solver::training_callbacks);
   m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver, pybind11::arg("model_name") = "",
         pybind11::arg("seed") = 0, pybind11::arg("lr_policy") = LrPolicy_t::fixed,
         pybind11::arg("lr") = 0.001, pybind11::arg("warmup_steps") = 1,
@@ -143,7 +146,8 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
         pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("perf_logging") = false,
-        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "");
+        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "",
+        pybind11::arg("training_callbacks") = std::vector<std::shared_ptr<TrainingCallback>>());
 }
 
 }  // namespace python_lib

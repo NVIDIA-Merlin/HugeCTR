@@ -635,6 +635,8 @@ class Model {
 
   std::shared_ptr<DataDistributor> train_data_distributor_, eval_data_distributor_;
 
+  std::vector<std::shared_ptr<TrainingCallback>> training_callbacks_;
+
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
 
