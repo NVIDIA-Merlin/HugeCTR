@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <string>
 #include <type_traits>
 #include <unordered_map>

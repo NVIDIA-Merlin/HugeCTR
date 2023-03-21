@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/rocksdb_backend.hpp>
 #include <hps/rocksdb_backend_detail.hpp>

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <embedding_storage/optimizers.hpp>
 #include <map>
 #include <mutex>

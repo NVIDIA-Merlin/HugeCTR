@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <chrono>
 #include <core23/cuda_primitives.cuh>
 #include <core23/data_type.hpp>
 #include <core23/data_type_helpers.cuh>
+#include <core23/logger.hpp>
 #include <core23/macros.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_container.hpp>

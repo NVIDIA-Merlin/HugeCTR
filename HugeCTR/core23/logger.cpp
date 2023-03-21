@@ -19,9 +19,9 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <chrono>
 #include <common.hpp>
+#include <core23/logger.hpp>
 #ifdef ENABLE_MPI
 #include <core23/mpi_init_service.hpp>
 #endif

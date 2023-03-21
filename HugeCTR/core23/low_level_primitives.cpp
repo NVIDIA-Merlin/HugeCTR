@@ -15,11 +15,11 @@
  */
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <core23/data_type_helpers.cuh>
 #include <core23/details/host_launch_helpers.hpp>
 #include <core23/device.hpp>
 #include <core23/device_guard.hpp>
+#include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <optional>
 

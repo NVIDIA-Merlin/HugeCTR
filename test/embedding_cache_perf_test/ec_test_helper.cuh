@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <embedding_cache_perf_test/key_generator.cuh>
 #include <gpu_cache/include/nv_gpu_cache.hpp>
 #include <hps/inference_utils.hpp>

@@ -17,8 +17,8 @@
 #include <hiredis/hiredis.h>
 #include <sw/redis++/redis++.h>
 
-#include <base/debug/logger.hpp>
 #include <charconv>
+#include <core23/logger.hpp>
 #include <iterator>
 #include <type_traits>
 #include <vector>

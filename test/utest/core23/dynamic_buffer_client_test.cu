@@ -17,7 +17,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <core23/allocator_factory.hpp>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_client.hpp>
@@ -26,6 +25,7 @@
 #include <core23/cuda_primitives.cuh>
 #include <core23/cuda_stream.hpp>
 #include <core23/details/pool_cuda_allocator.hpp>
+#include <core23/logger.hpp>
 #include <core23/offsetted_buffer.hpp>
 #include <cstdint>
 #include <functional>

@@ -19,7 +19,7 @@
 #include <cuda_runtime_api.h>
 #include <curand.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <iostream>
 #include <random>
 #include <stdexcept>

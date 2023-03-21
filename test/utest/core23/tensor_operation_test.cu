@@ -17,8 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <core23/data_type_helpers.cuh>
+#include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>

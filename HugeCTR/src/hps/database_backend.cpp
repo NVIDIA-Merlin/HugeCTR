@@ -16,7 +16,7 @@
 
 #include <rocksdb/sst_file_reader.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <fstream>
 #include <hps/database_backend.hpp>
 #include <hps/database_backend_detail.hpp>

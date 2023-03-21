@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <io/filesystem.hpp>
 #include <io/gcs_filesystem.hpp>
 #include <io/hadoop_filesystem.hpp>

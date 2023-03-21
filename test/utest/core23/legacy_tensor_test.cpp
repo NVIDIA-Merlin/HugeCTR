@@ -17,13 +17,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <common.hpp>
 #include <core23/allocator_factory.hpp>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_channel.hpp>
 #include <core23/buffer_factory.hpp>
 #include <core23/buffer_params.hpp>
+#include <core23/logger.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_params.hpp>
 #include <cstdint>

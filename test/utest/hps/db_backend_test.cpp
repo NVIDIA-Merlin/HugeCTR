@@ -17,8 +17,8 @@
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <cassert>
+#include <core23/logger.hpp>
 #include <filesystem>
 #include <fstream>
 #include <hps/database_backend.hpp>

@@ -17,7 +17,7 @@
 
 #include <hps/dlpack.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 
 // this convertor will:
 // 1) take a Tensor object and wrap it in the DLPack tensor

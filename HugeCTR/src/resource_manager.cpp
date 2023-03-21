@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <core23/mpi_init_service.hpp>
 #include <random>
 #include <resource_manager.hpp>

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <base/debug/logger.hpp>
+
 #include <chrono>
 #include <core23/allocator_params.hpp>
 #include <core23/buffer_channel.hpp>
@@ -21,6 +21,7 @@
 #include <core23/data_type.hpp>
 #include <core23/details/tensor_impl.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <core23/shape.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_params.hpp>

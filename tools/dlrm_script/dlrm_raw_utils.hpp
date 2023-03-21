@@ -19,9 +19,9 @@
 #include <curand_kernel.h>
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <cassert>
 #include <common.hpp>
+#include <core23/logger.hpp>
 #include <cstdlib>
 #include <cub/cub.cuh>
 #include <cudf/column/column.hpp>

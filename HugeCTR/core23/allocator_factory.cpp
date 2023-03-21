@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <core23/allocator_factory.hpp>
 #include <core23/details/low_level_cuda_allocator.hpp>
 #include <core23/details/managed_cuda_allocator.hpp>
 #include <core23/details/new_delete_allocator.hpp>
 #include <core23/details/pinned_host_allocator.hpp>
 #include <core23/details/simple_cuda_allocator.hpp>
+#include <core23/logger.hpp>
 #include <memory>
 
 namespace HugeCTR {

@@ -42,7 +42,7 @@
 
 #include <cuda_runtime.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 
 #define HCTR_CUDA_KERNEL_SUMMARY(MODE, FUNC, BLOCKSIZE, DSHMEM)                                 \
   do {                                                                                          \

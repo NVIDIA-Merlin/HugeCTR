@@ -17,8 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <functional>
 #include <unordered_set>
 

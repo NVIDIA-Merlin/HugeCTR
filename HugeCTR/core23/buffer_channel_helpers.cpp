@@ -15,8 +15,8 @@
  */
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <core23/buffer_channel_helpers.hpp>
+#include <core23/logger.hpp>
 #include <random>
 #include <string>
 

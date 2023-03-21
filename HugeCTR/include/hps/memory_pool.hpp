@@ -17,7 +17,7 @@
 
 #include <cuda_runtime_api.h>
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <hps/embedding_cache.hpp>
 #include <iostream>
 #include <map>

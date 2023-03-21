@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <core23/logger.hpp>
 #include <hps/plugin/lookup_manager.hpp>
 
 namespace HierarchicalParameterServer {

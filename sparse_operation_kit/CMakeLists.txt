@@ -255,12 +255,10 @@ if(SKBUILD)
 # so we use a workaround here: copy the content of parent folder into
 # sparse_operation_kit/ before making pip package.
 configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
-add_subdirectory(HugeCTR/core core.out)
 add_subdirectory(HugeCTR/embedding embedding.out)
 add_subdirectory(HugeCTR/core23 hugectr_core23.out)
 else()
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
-add_subdirectory(../HugeCTR/core core.out)
 add_subdirectory(../HugeCTR/embedding embedding.out)
 add_subdirectory(../HugeCTR/core23 hugectr_core23.out)
 endif()
@@ -268,7 +266,7 @@ endif()
 #     ${PROJECT_SOURCE_DIR}/experiment/lookup/impl/core_impl/*.cpp
 # )
 # add_library(tf_impl_ops_test SHARED ${core_impl})
-# target_link_libraries(tf_impl_ops_test PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES} core embedding)
+# target_link_libraries(tf_impl_ops_test PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES} embedding)
 
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})

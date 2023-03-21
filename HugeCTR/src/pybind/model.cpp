@@ -17,8 +17,8 @@
 #include <cuda_profiler_api.h>
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <core/hctr_impl/hctr_backend.hpp>
+#include <core23/logger.hpp>
 #include <core23/mpi_init_service.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>

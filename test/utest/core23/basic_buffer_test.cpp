@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <base/debug/logger.hpp>
 #include <common.hpp>
 #include <core23/allocator_factory.hpp>
 #include <core23/allocator_params.hpp>
@@ -26,6 +25,7 @@
 #include <core23/buffer_factory.hpp>
 #include <core23/buffer_params.hpp>
 #include <core23/details/pool_cuda_allocator.hpp>
+#include <core23/logger.hpp>
 #include <core23/offsetted_buffer.hpp>
 #include <cstdint>
 #include <memory>

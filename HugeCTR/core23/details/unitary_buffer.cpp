@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
 #include <core23/allocator.hpp>
 #include <core23/buffer_client.hpp>
 #include <core23/details/unitary_buffer.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <core23/offsetted_buffer.hpp>
 
 namespace HugeCTR {

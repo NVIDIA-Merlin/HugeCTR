@@ -1,8 +1,8 @@
 #pragma once
 
 #include <algorithm>
-#include <base/debug/logger.hpp>
 #include <core23/allocator_factory.hpp>
+#include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/shape.hpp>
 #include <core23/tensor.hpp>

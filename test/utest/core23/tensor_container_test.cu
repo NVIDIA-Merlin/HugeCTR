@@ -16,8 +16,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <base/debug/logger.hpp>
 #include <core23/cuda_primitives.cuh>
+#include <core23/logger.hpp>
 #include <core23/macros.hpp>
 #include <core23/tensor.hpp>
 #include <core23/tensor_container.hpp>

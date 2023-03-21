@@ -15,8 +15,8 @@
  */
 
 #include <argparse/argparse.hpp>
-#include <base/debug/logger.hpp>
 #include <core/memory.hpp>
+#include <core23/logger.hpp>
 #include <hps/hash_map_backend.hpp>
 #include <hps/hier_parameter_server_base.hpp>
 #include <hps/mp_hash_map_backend.hpp>
