@@ -30,14 +30,24 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(const std::vector<core23::Tensor>& i
     num_ = input_tensors.size();
 
     // error input checking
-    dims_ = input_tensors[0].shape().dims();
+    dims_lhs_ = input_tensors[0].shape().dims();
+    dims_rhs_ = input_tensors[1].shape().dims();
+    const auto& dim_lhs = input_tensors[0].shape();
+    const auto& dim_rhs = input_tensors[1].shape();
+
     if (num_ < 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer needs at least 2 input tensors");
     }
-    if (input_tensors[1].shape().dims() != (int64_t)dims_) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+    if (dims_lhs_ < 2 || dims_rhs_ < 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer inputs should have at least 2 dims");
     }
-    if (input_tensors[1].shape().size(dims_ - 2) != input_tensors[0].shape().size(dims_ - 1)) {
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      HCTR_CHECK_HINT(dim_rhs[0] == dim_lhs[1], "MatrixMultiplyLayer 2Dx3D invalid shape");
+    } else if (dims_lhs_ != dims_rhs_) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer invalid input shape");
+    }
+
+    if (dim_rhs[dims_lhs_ - 2] != dim_lhs[dims_lhs_ - 1]) {
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "The last two dimension of the input tensors should be m x n, n x k");
     }
@@ -46,33 +56,40 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(const std::vector<core23::Tensor>& i
       input_tensors_.push_back(input_tensors[i]);
     }
 
-    int64_t m = input_tensors[0].shape().size(dims_ - 2);
-    int64_t k = input_tensors[1].shape().size(dims_ - 1);
-
+    int64_t m = input_tensors[0].shape().size(dims_lhs_ - 2);
+    int64_t k = input_tensors[1].shape().size(dims_lhs_ - 1);
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = dim_rhs[1] * dim_rhs[2];
+    }
     core23::TensorParams out_params = input_tensors[0].my_params();
-    if (dims_ == 2) {
-      std::vector<int64_t> out_shape = {m, k};
-      output_tensor = core23::Tensor(out_params.shape(out_shape));
-    } else if (dims_ == 3) {  // dims_ == 3
-      if (input_tensors[0].shape().size(0) != input_tensors[1].shape().size(0)) {
+
+    if (dims_lhs_ == 2) {
+      if (dims_rhs_ == 2) {
+        std::vector<int64_t> out_shape = {m, k};
+        output_tensor = core23::Tensor(out_params.shape(out_shape));
+      } else {
+        std::vector<int64_t> out_shape = {m, dim_rhs[1], dim_rhs[2]};
+        output_tensor = core23::Tensor(out_params.shape(out_shape));
+      }
+    } else if (dims_lhs_ == 3) {
+      if (dim_lhs[0] != dim_rhs[0]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same batch size");
       }
-      int64_t b = input_tensors[0].shape().size(0);
+      int64_t b = dim_lhs[0];
       std::vector<int64_t> out_shape = {b, m, k};
       output_tensor = core23::Tensor(out_params.shape(out_shape));
-    } else if (dims_ == 4) {
-      if (input_tensors[0].shape().size(0) != input_tensors[1].shape().size(0)) {
+    } else if (dims_lhs_ == 4) {
+      if (dim_lhs[0] != dim_rhs[0]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same batch size");
       }
-      if (input_tensors[0].shape().size(1) != input_tensors[1].shape().size(1)) {
+      if (dim_lhs[1] != dim_rhs[1]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same second dim");
       }
-      int64_t b = input_tensors[0].shape().size(0);
-      int64_t num_head = input_tensors[0].shape().size(1);
+      int64_t b = dim_lhs[0];
+      int64_t num_head = dim_lhs[1];
       std::vector<int64_t> out_shape = {b, num_head, m, k};
       output_tensor = core23::Tensor(out_params.shape(out_shape));
     }
-
     output_tensors_.push_back(output_tensor);
 
     fprop_inputA_tensor23_ = core23::Tensor(out_params);
@@ -83,6 +100,11 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(const std::vector<core23::Tensor>& i
   }
 }
 
+/*
+  1. 2D: (m, n), (n, k)  and output: (m, k)
+  2. 3D: (batch_size, m, n), (batch_size, n, k) and output will: (batch_size, m, k)
+  3. 2D x 3D: (m, n) , (n, g, h), and output will be:  (m, g, h)
+*/
 template <typename T>
 MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
     const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
@@ -93,14 +115,25 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
     num_ = in_tensors.size();
 
     // error input checking
-    dims_ = in_tensors[0].get_dimensions().size();
+    dims_lhs_ = in_tensors[0].get_dimensions().size();
+    dims_rhs_ = in_tensors[1].get_dimensions().size();
+    const auto& dim_lhs = in_tensors[0].get_dimensions();
+    const auto& dim_rhs = in_tensors[1].get_dimensions();
+
     if (num_ < 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer needs at least 2 input tensors");
     }
-    if (in_tensors[1].get_dimensions().size() != dims_) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+    if (dims_lhs_ < 2 || dims_rhs_ < 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer inputs should have at least 2 dims");
     }
-    if (in_tensors[1].get_dimensions()[dims_ - 2] != in_tensors[0].get_dimensions()[dims_ - 1]) {
+
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      HCTR_CHECK_HINT(dim_rhs[0] == dim_lhs[1], "MatrixMultiplyLayer 2Dx3D invalid shape");
+    } else if (dims_lhs_ != dims_rhs_) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer invalid input shape");
+    }
+
+    if (dim_rhs[dims_lhs_ - 2] != dim_lhs[dims_lhs_ - 1]) {
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "The last two dimension of the input tensors should be m x n, n x k");
     }
@@ -109,35 +142,42 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
       in_tensors_.push_back(in_tensors[i]);
     }
 
-    size_t m = in_tensors[0].get_dimensions()[dims_ - 2];
-    size_t k = in_tensors[1].get_dimensions()[dims_ - 1];
-
-    if (dims_ == 2) {
-      std::vector<size_t> out_dim = {m, k};
-      blobs_buff->reserve(out_dim, &out_tensor);
-    } else if (dims_ == 3) {  // dims_ == 3
-      if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
+    size_t m = dim_lhs[dims_lhs_ - 2];
+    size_t k = dim_rhs[dims_rhs_ - 1];
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = dim_rhs[1] * dim_rhs[2];
+    }
+    if (dims_lhs_ == 2) {
+      if (dims_rhs_ == 2) {
+        std::vector<size_t> out_dim = {m, k};
+        blobs_buff->reserve(out_dim, &out_tensor);
+      } else {
+        std::vector<size_t> out_dim = {m, dim_rhs[1], dim_rhs[2]};
+        blobs_buff->reserve(out_dim, &out_tensor);
+      }
+    } else if (dims_lhs_ == 3) {
+      if (dim_lhs[0] != dim_rhs[0]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same batch size");
       }
-      size_t b = in_tensors[0].get_dimensions()[0];
+      size_t b = dim_lhs[0];
       std::vector<size_t> out_dim = {b, m, k};
       blobs_buff->reserve(out_dim, &out_tensor);
-    } else if (dims_ == 4) {
-      if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
+    } else if (dims_lhs_ == 4) {
+      if (dim_lhs[0] != dim_rhs[0]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same batch size");
       }
-      if (in_tensors[0].get_dimensions()[1] != in_tensors[1].get_dimensions()[1]) {
+      if (dim_lhs[1] != dim_rhs[1]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same second dim");
       }
-      size_t b = in_tensors[0].get_dimensions()[0];
-      size_t num_head = in_tensors[0].get_dimensions()[1];
+      size_t b = dim_lhs[0];
+      size_t num_head = dim_lhs[1];
       std::vector<size_t> out_dim = {b, num_head, m, k};
       blobs_buff->reserve(out_dim, &out_tensor);
     }
 
     out_tensors_.push_back(out_tensor);
 
-    blobs_buff->reserve(in_tensors[0].get_dimensions(), &fprop_inputA_);
+    blobs_buff->reserve(dim_lhs, &fprop_inputA_);
 
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
@@ -159,11 +199,14 @@ void MatrixMultiplyLayer<T>::fprop(bool is_train) {
 
     size_t m, n, k, b = 1;
 
-    b = dims_ == 3 ? in_tensor_dim[0] : 1;
-    b = dims_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
-    m = in_tensor_dim[dims_ - 2];
-    n = in_tensor_dim[dims_ - 1];
-    k = out_tensor_dim[dims_ - 1];
+    b = dims_lhs_ == 3 ? in_tensor_dim[0] : 1;
+    b = dims_lhs_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
+    m = in_tensor_dim[dims_lhs_ - 2];
+    n = in_tensor_dim[dims_lhs_ - 1];
+    k = out_tensor_dim[dims_lhs_ - 1];
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = out_tensor_dim[1] * out_tensor_dim[2];
+    }
     float alpha = 1.0f, beta = 0.0f;
     cublasComputeType_t compute_type = CUBLAS_COMPUTE_32F;
 
@@ -189,11 +232,14 @@ void MatrixMultiplyLayer<T>::fprop(bool is_train) {
 
     int64_t m, n, k, b = 1;
 
-    b = dims_ == 3 ? input_tensor_shape.size(0) : 1;
-    b = dims_ == 4 ? input_tensor_shape.size(0) * input_tensor_shape.size(1) : b;
-    m = input_tensor_shape.size(dims_ - 2);
-    n = input_tensor_shape.size(dims_ - 1);
-    k = output_tensor_shape.size(dims_ - 1);
+    b = dims_lhs_ == 3 ? input_tensor_shape.size(0) : 1;
+    b = dims_lhs_ == 4 ? input_tensor_shape.size(0) * input_tensor_shape.size(1) : b;
+    m = input_tensor_shape.size(dims_lhs_ - 2);
+    n = input_tensor_shape.size(dims_lhs_ - 1);
+    k = output_tensor_shape.size(dims_lhs_ - 1);
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = output_tensor_shape[1] * output_tensor_shape[2];
+    }
     float alpha = 1.0f, beta = 0.0f;
     cublasComputeType_t compute_type = CUBLAS_COMPUTE_32F;
 
@@ -210,10 +256,6 @@ void MatrixMultiplyLayer<T>::fprop(bool is_train) {
                                    input_tensors_[0].num_bytes(), cudaMemcpyDeviceToDevice,
                                    get_gpu().get_stream()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -230,11 +272,14 @@ void MatrixMultiplyLayer<T>::bprop() {
 
     size_t m, n, k, b = 1;
 
-    b = dims_ == 3 ? in_tensor_dim[0] : 1;
-    b = dims_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
-    m = in_tensor_dim[dims_ - 2];
-    n = in_tensor_dim[dims_ - 1];
-    k = out_tensor_dim[dims_ - 1];
+    b = dims_lhs_ == 3 ? in_tensor_dim[0] : 1;
+    b = dims_lhs_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
+    m = in_tensor_dim[dims_lhs_ - 2];
+    n = in_tensor_dim[dims_lhs_ - 1];
+    k = out_tensor_dim[dims_lhs_ - 1];
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = out_tensor_dim[1] * out_tensor_dim[2];
+    }
     float alpha = 1.0f, beta = 0.0f;
     cublasComputeType_t compute_type = CUBLAS_COMPUTE_32F;
 
@@ -263,11 +308,14 @@ void MatrixMultiplyLayer<T>::bprop() {
 
     int64_t m, n, k, b = 1;
 
-    b = dims_ == 3 ? input_tensor_shape.size(0) : 1;
-    b = dims_ == 4 ? output_tensor_shape.size(0) * input_tensor_shape.size(1) : b;
-    m = input_tensor_shape.size(dims_ - 2);
-    n = input_tensor_shape.size(dims_ - 1);
-    k = output_tensor_shape.size(dims_ - 1);
+    b = dims_lhs_ == 3 ? input_tensor_shape[0] : 1;
+    b = dims_lhs_ == 4 ? input_tensor_shape[0] * input_tensor_shape[1] : b;
+    m = input_tensor_shape[dims_lhs_ - 2];
+    n = input_tensor_shape[dims_lhs_ - 1];
+    k = output_tensor_shape[dims_lhs_ - 1];
+    if (dims_lhs_ == 2 && dims_rhs_ == 3) {
+      k = output_tensor_shape[1] * output_tensor_shape[2];
+    }
     float alpha = 1.0f, beta = 0.0f;
     cublasComputeType_t compute_type = CUBLAS_COMPUTE_32F;
 
@@ -287,10 +335,6 @@ void MatrixMultiplyLayer<T>::bprop() {
                                   cur_in2, CUDA_R_32F, k, compute_type, CUBLAS_GEMM_DEFAULT));
     }
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class MatrixMultiplyLayer<float>;
