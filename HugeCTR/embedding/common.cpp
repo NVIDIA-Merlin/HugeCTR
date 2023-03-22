@@ -272,6 +272,7 @@ void WgradAttr::init(std::shared_ptr<CoreResourceManager> core,
 
   this->num_table = static_cast<int>(this->h_sorted_unique_table_ids.size());
   this->num_lookup = h_lookup_id_to_table_id.size();
+  this->type = ebc_param.wgrad_type_;
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
@@ -363,7 +364,7 @@ WgradInitializer &WgradInitializer::init_indices() {
 
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
-
+  wgrad->attr.type = ebc_param.wgrad_type_;
   wgrad->unique_keys =
       core23::Tensor(params.shape({batch_size * max_num_keys}).data_type(key_type));
   wgrad->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
@@ -393,8 +394,7 @@ WgradInitializer &WgradInitializer::init_data() {
   max_buffer_size *= batch_size;
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
-  wgrad->data =
-      core23::Tensor(params.shape({max_buffer_size}).data_type(core23::ScalarType::Float));
+  wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
   return *this;
 }
 
@@ -510,8 +510,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data() {
   }
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
-  wgrad->data =
-      core23::Tensor(params.shape({max_buffer_size}).data_type(core23::ScalarType::Float));
+  wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
 
   return *this;
 }

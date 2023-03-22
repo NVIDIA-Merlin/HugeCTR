@@ -134,6 +134,7 @@ struct EmbeddingCollectionParam {
   core23::DataType index_type;
   core23::DataType offset_type;
   core23::DataType emb_type;
+  core23::DataType wgrad_type_;
 
   EmbeddingLayout input_layout_;   // Only work in HugeCTR, specified the input layout.
   EmbeddingLayout output_layout_;  // Only work in HugeCTR, specifies the output layout.
@@ -149,8 +150,9 @@ struct EmbeddingCollectionParam {
                            const std::vector<GroupedEmbeddingParam> &grouped_emb_params,
                            int universal_batch_size, core23::DataType key_type,
                            core23::DataType index_type, core23::DataType offset_type,
-                           core23::DataType emb_type, EmbeddingLayout input_layout_,
-                           EmbeddingLayout output_layout, SortStrategy sort_strategy,
+                           core23::DataType emb_type, core23::DataType wgrad_type,
+                           EmbeddingLayout input_layout_, EmbeddingLayout output_layout,
+                           SortStrategy sort_strategy,
                            KeysPreprocessStrategy keys_preprocess_strategy,
                            AllreduceStrategy allreduce_strategy,
                            CommunicationStrategy comm_strategy)
@@ -165,6 +167,7 @@ struct EmbeddingCollectionParam {
         index_type(index_type),
         offset_type(offset_type),
         emb_type(emb_type),
+        wgrad_type_(wgrad_type),
         input_layout_(input_layout_),
         output_layout_(output_layout),
         sort_strategy_(sort_strategy),
@@ -252,6 +255,7 @@ struct WgradAttr {
   core23::Tensor sorted_table_ids;
   core23::Tensor sorted_unique_table_ids;
   core23::Tensor table_id_to_ev_size;
+  core23::DataType type;
 
   std::vector<int> h_sorted_unique_table_ids;
 

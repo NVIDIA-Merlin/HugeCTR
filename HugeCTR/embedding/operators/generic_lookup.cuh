@@ -21,6 +21,26 @@
 
 namespace embedding {
 
+DEVICE_INLINE void float_half_atomicAdd_lower_cuda(__half *dst, float value) {
+  bool uplo = ((unsigned long long)dst) & 2;  // check if the atomic is for the upper or lower
+                                              // 16-bit quantity in the aligned 32-bit item
+  unsigned *addr = reinterpret_cast<unsigned *>(
+      ((unsigned long long)dst) & 0xFFFFFFFFFFFFFFFCULL);  // get the 32-bit aligned address
+  unsigned old = *addr;
+  unsigned val;
+  do {
+    val = old;
+    float newval = __half2float(__ushort_as_half(uplo ? ((unsigned short)(val >> 16))
+                                                      : ((unsigned short)(val)))) +
+                   value;
+    unsigned short newval_s = __half_as_ushort(__float2half(newval));
+    unsigned newval_u = val & (uplo ? (0x0FFFFU) : (0xFFFF0000U));
+    newval_u |= uplo ? (((unsigned)newval_s) << 16) : (newval_s);
+    old = atomicCAS(addr, old, newval_u);
+  } while (old != val);
+  return;
+}
+
 template <typename T>
 struct Vec4T {};
 
@@ -104,6 +124,25 @@ struct Vec4T<__half> {
     if (n > 2) atomicAdd(dst + 2, __half2float(value.h[1].x));
     if (n > 3) atomicAdd(dst + 3, __half2float(value.h[1].y));
   }
+
+  DEVICE_INLINE void atomic_store_accum(__half *dst, int n) {
+#if __CUDA_ARCH__ >= 700
+    if (n == 4) {
+      atomicAdd((reinterpret_cast<__half2 *>(dst)), value.h[0]);
+      atomicAdd((reinterpret_cast<__half2 *>(dst + 2)), value.h[1]);
+    } else {
+      if (n > 0) atomicAdd(dst, value.h[0].x);
+      if (n > 1) atomicAdd(dst + 1, value.h[0].y);
+      if (n > 2) atomicAdd(dst + 2, value.h[1].x);
+      if (n > 3) atomicAdd(dst + 3, value.h[1].y);
+    }
+#else
+    if (n > 0) float_half_atomicAdd_lower_cuda(dst, __half2float(value.h[0].x));
+    if (n > 1) float_half_atomicAdd_lower_cuda(dst + 1, __half2float(value.h[0].y));
+    if (n > 2) float_half_atomicAdd_lower_cuda(dst + 2, __half2float(value.h[1].x));
+    if (n > 3) float_half_atomicAdd_lower_cuda(dst + 3, __half2float(value.h[1].y));
+#endif
+  }
 };
 
 template <>
@@ -176,6 +215,31 @@ struct Vec4T<float> {
     if (n > 1) atomicAdd(dst + 1, val.y);
     if (n > 2) atomicAdd(dst + 2, val.z);
     if (n > 3) atomicAdd(dst + 3, val.w);
+  }
+
+  DEVICE_INLINE void atomic_store_accum(__half *dst, int n) {
+#if __CUDA_ARCH__ >= 700
+    if (n == 4) {
+      __half2 tmp1;
+      __half2 tmp2;
+      tmp1.x = __float2half(val.x);
+      tmp1.y = __float2half(val.y);
+      tmp2.x = __float2half(val.z);
+      tmp2.y = __float2half(val.w);
+      atomicAdd((reinterpret_cast<__half2 *>(dst)), tmp1);
+      atomicAdd((reinterpret_cast<__half2 *>(dst + 2)), tmp2);
+    } else {
+      if (n > 0) atomicAdd(dst, __float2half(val.x));
+      if (n > 1) atomicAdd(dst + 1, __float2half(val.y));
+      if (n > 2) atomicAdd(dst + 2, __float2half(val.z));
+      if (n > 3) atomicAdd(dst + 3, __float2half(val.w));
+    }
+#else
+    if (n > 0) float_half_atomicAdd_lower_cuda(dst, val.x);
+    if (n > 1) float_half_atomicAdd_lower_cuda(dst + 1, val.y);
+    if (n > 2) float_half_atomicAdd_lower_cuda(dst + 2, val.z);
+    if (n > 3) float_half_atomicAdd_lower_cuda(dst + 3, val.w);
+#endif
   }
 
   DEVICE_INLINE void accumulate(const Vec4T<float> &other) {

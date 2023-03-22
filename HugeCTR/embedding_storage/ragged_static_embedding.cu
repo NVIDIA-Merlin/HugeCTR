@@ -456,7 +456,6 @@ void RaggedStaticEmbeddingTable::update(const core23::Tensor &unique_keys,
   HCTR_CHECK(num_unique_keys.data_type() == core23::ScalarType::UInt64);
   HCTR_CHECK(table_ids.data_type() == core23::ScalarType::Int32);
   HCTR_CHECK(ev_start_indices.data_type() == core23::ScalarType::UInt32);
-  HCTR_CHECK(wgrad.data_type() == core23::ScalarType::Float);
 
   if (opt_param_.optimizer == HugeCTR::Optimizer_t::SGD) {
     DISPATCH_INTEGRAL_FUNCTION_CORE23(unique_keys.data_type().type(), key_t, [&] {

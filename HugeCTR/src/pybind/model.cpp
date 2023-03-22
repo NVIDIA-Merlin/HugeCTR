@@ -940,6 +940,8 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
       solver_.i64_input_key ? core23::ScalarType::Int64 : core23::ScalarType::UInt32;
   core23::DataType emb_type =
       solver_.use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float;
+  core23::DataType wgrad_type =
+      solver_.use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float;
   embedding::EmbeddingLayout input_layout_ =
       reader_params_.data_reader_type == DataReaderType_t::RawAsync
           ? embedding::EmbeddingLayout::FeatureMajor
@@ -991,6 +993,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 index_type,
                                                 offset_type,
                                                 emb_type,
+                                                wgrad_type,
                                                 input_layout_,
                                                 ebc_config.output_layout_,
                                                 ebc_config.sort_strategy_,
@@ -1009,6 +1012,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                      index_type,
                                                      offset_type,
                                                      emb_type,
+                                                     wgrad_type,
                                                      input_layout_,
                                                      ebc_config.output_layout_,
                                                      ebc_config.sort_strategy_,
