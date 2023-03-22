@@ -88,6 +88,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
   auto index_type = HugeCTR::core23::ToScalarType<index_t>::value;
   auto offset_type = HugeCTR::core23::ToScalarType<offset_t>::value;
   auto emb_type = HugeCTR::core23::ToScalarType<emb_t>::value;
+  auto wgrad_type = HugeCTR::core23::ToScalarType<emb_t>::value;
 
   std::cout << "embedding_collection_e2e test. output_layout:" << output_layout
             << ", sort_strategy:" << sort_strategy << ", allreduce_strategy:" << allreduce_strategy
@@ -103,6 +104,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                                      index_type,
                                      offset_type,
                                      emb_type,
+                                     wgrad_type,
                                      EmbeddingLayout::FeatureMajor,
                                      output_layout,
                                      sort_strategy,
@@ -318,7 +320,10 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
         std::cout << "forward gpu output:\n";
         print_array(gpu_emb_output.size(), gpu_emb_output);
       }
-      assert_array_eq(gpu_emb_output.size(), gpu_emb_output, emb_ref.embedding_vec_[gpu_id]);
+      float threshold = 1e-5;
+      if (!std::is_same<emb_t, float>::value) threshold = 1e-4;
+      assert_array_eq(gpu_emb_output.size(), gpu_emb_output, emb_ref.embedding_vec_[gpu_id],
+                      threshold);
     }
     std::cout << "\t>pass compare ebc gpu emb output vs. emb reference emb output.\n";
   };

@@ -26,8 +26,8 @@
 
 namespace embedding {
 
-template <typename CopyDesc, typename DST_T, int kMaxElemPerThread, int kWarpSize>
-__global__ void multi_to_one_reduce_vec4_v2(CopyDesc copy_desc, DST_T* partial_buffer,
+template <typename CopyDesc, int kMaxElemPerThread, int kWarpSize>
+__global__ void multi_to_one_reduce_vec4_v2(CopyDesc copy_desc, float* partial_buffer,
                                             uint32_t* partial_dst_ids, int32_t* partial_ev_length,
                                             int max_ev_length) {
   using src_type = typename CopyDesc::SrcT;
@@ -101,11 +101,11 @@ __global__ void multi_to_one_reduce_vec4_v2(CopyDesc copy_desc, DST_T* partial_b
       }
 
     } else {
-      tmp_dst = partial_buffer + (blockIdx.x * warp_num + warp_id) * max_ev_length;
       for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
         int idx4 = 4 * kWarpSize * i + 4 * lane_id;
         int n = min(vec_length - idx4, copy_width);
-        accum[i].store(tmp_dst + idx4, n);
+        accum[i].store(partial_buffer + (blockIdx.x * warp_num + warp_id) * max_ev_length + idx4,
+                       n);
         accum[i].reset();
       }
 
@@ -249,10 +249,10 @@ __global__ void multi_to_one_reduce_final_v2(CopyDesc copy_desc, int local_sampl
   return;
 }
 
-template <typename CopyDesc1, typename CopyDesc2, typename DST_T, int kWarpSize = 32>
+template <typename CopyDesc1, typename CopyDesc2, int kWarpSize = 32>
 void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2,
                             const HugeCTR::core23::KernelParams& kernel_params,
-                            DST_T* partial_buffer, uint32_t* partial_dst_ids,
+                            float* partial_buffer, uint32_t* partial_dst_ids,
                             int32_t* partial_ev_length, int max_ev_length,
                             size_t first_stage_key_num, size_t second_stage_key_num,
                             cudaStream_t stream) {
@@ -261,16 +261,16 @@ void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2,
 
   if (max_ev_length <= 128) {
     if (grid_size > 1) {
-      multi_to_one_reduce_vec4_v2<CopyDesc1, DST_T, 1, kWarpSize>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc1, partial_buffer, partial_dst_ids,
-                                                 partial_ev_length, max_ev_length);
+      multi_to_one_reduce_vec4_v2<CopyDesc1, 1, kWarpSize><<<grid_size, block_size, 0, stream>>>(
+          copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
       int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
       int second_local_sample = EV_NUM;
       get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
                                  WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
                                  second_stage_key_num, &second_grid_size, &second_local_sample, 1);
+      if (second_local_sample < 8) second_local_sample = 8;
       multi_to_one_reduce_final_v2<CopyDesc2, 1, kWarpSize>
-          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, 4);
+          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
 
     } else {
       multi_to_one_reduce_final_v2<CopyDesc1, 1, kWarpSize>
@@ -279,17 +279,17 @@ void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2,
 
   } else if (max_ev_length <= 256) {
     if (grid_size > 1) {
-      multi_to_one_reduce_vec4_v2<CopyDesc1, DST_T, 2, kWarpSize>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc1, partial_buffer, partial_dst_ids,
-                                                 partial_ev_length, max_ev_length);
+      multi_to_one_reduce_vec4_v2<CopyDesc1, 2, kWarpSize><<<grid_size, block_size, 0, stream>>>(
+          copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
 
       int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
       int second_local_sample = EV_NUM;
       get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
                                  WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
                                  second_stage_key_num, &second_grid_size, &second_local_sample, 1);
+      if (second_local_sample < 8) second_local_sample = 8;
       multi_to_one_reduce_final_v2<CopyDesc2, 2, kWarpSize>
-          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, 4);
+          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
 
     } else {
       multi_to_one_reduce_final_v2<CopyDesc1, 2, kWarpSize>
@@ -323,23 +323,25 @@ void multi_to_one_reduce_v2(CopyDesc1 multi_to_one_desc_first_stage,
   const int* table_ids_ptr = wgrad.table_ids.data<int>();
   const int* table_id_to_ev_size_ptr = wgrad.attr.table_id_to_ev_size.data<int>();
   const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
-  float* dst_ptr = wgrad.data.data<float>();
   size_t second_num = (reduction_indices.num_elements - 1) / EV_NUM + 1;
-  auto multi_to_one_desc_second_stage = make_MultiToOne_reduce_new<float, float>(
-      [=] __device__() { return second_num; },
-      [=] __device__(int i) { return partial_ev_length_ptr[i]; },
-      [=] __device__(int i) { return partial_dst_id_array_ptr[i]; },
-      [=] __device__(int i) { return partial_grad_ev_ptr + i * max_ev_size; },
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+    grad_t* dst_ptr = wgrad.data.data<grad_t>();
+    auto multi_to_one_desc_second_stage = make_MultiToOne_reduce_new<float, grad_t>(
+        [=] __device__() { return second_num; },
+        [=] __device__(int i) { return partial_ev_length_ptr[i]; },
+        [=] __device__(int i) { return partial_dst_id_array_ptr[i]; },
+        [=] __device__(int i) { return partial_grad_ev_ptr + i * max_ev_size; },
 
-      [=] __device__(int i) {
-        auto tmp_index = partial_dst_id_array_ptr[i];
-        return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
-      });
+        [=] __device__(int i) {
+          auto tmp_index = partial_dst_id_array_ptr[i];
+          return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+        });
 
-  multi_to_one_reduce_v2(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
-                         kernel_params, partial_grad_ev_ptr, partial_dst_id_array_ptr,
-                         partial_ev_length_ptr, max_ev_size, reduction_indices.num_elements,
-                         second_num, stream);
+    multi_to_one_reduce_v2(multi_to_one_desc_first_stage, multi_to_one_desc_second_stage,
+                           kernel_params, partial_grad_ev_ptr, partial_dst_id_array_ptr,
+                           partial_ev_length_ptr, max_ev_size, reduction_indices.num_elements,
+                           second_num, stream);
+  });
 }
 
 }  // namespace embedding

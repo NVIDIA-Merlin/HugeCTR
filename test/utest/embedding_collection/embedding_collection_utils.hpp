@@ -58,7 +58,13 @@ inline void assert_array_eq(size_t num, const std::vector<float> &a, const std::
   ASSERT_GE(b.size(), num);
   float max_error = 0.f;
   for (size_t i = 0; i < num; ++i) {
-    float error = std::abs(a[i] - b[i]);
+    float error;
+    if (std::abs(a[i]) > 10.0f) {
+      error = std::abs(a[i] - b[i]) / std::abs(a[i]);
+    } else {
+      error = std::abs(a[i] - b[i]);
+    }
+
     max_error = std::max(max_error, error);
   }
   ASSERT_LE(max_error, threshold) << "max error:" << max_error << ",threshold:" << threshold;
@@ -72,7 +78,13 @@ inline void assert_array_eq(size_t num, const std::vector<__half> &a, const std:
   for (size_t i = 0; i < num; ++i) {
     float lhs = HugeCTR::TypeConvert<float, __half>::convert(a[i]);
     float rhs = HugeCTR::TypeConvert<float, __half>::convert(b[i]);
-    float error = std::abs(lhs - rhs);
+    float error;
+    if (std::abs(lhs) > 10.0f) {
+      error = std::abs(lhs - rhs) / std::abs(lhs);
+    } else {
+      error = std::abs(lhs - rhs);
+    }
+
     ASSERT_LE(error, threshold) << ",lhs:" << lhs << ",rhs:" << rhs << "\n";
     max_error = std::max(max_error, error);
   }

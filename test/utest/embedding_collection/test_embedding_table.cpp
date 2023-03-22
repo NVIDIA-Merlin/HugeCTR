@@ -69,6 +69,7 @@ void test_embedding_table(int device_id, int table_type) {
                                      index_type,
                                      HugeCTR::core23::ToScalarType<uint32_t>::value,
                                      HugeCTR::core23::ToScalarType<float>::value,
+                                     HugeCTR::core23::ToScalarType<float>::value,
                                      EmbeddingLayout::BatchMajor,
                                      EmbeddingLayout::FeatureMajor,
                                      embedding::SortStrategy::Radix,

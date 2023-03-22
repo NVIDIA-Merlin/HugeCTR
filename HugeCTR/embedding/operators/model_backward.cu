@@ -120,43 +120,45 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
   const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
   const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
   const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
-  float* dst_ptr = wgrad.data.data<float>();
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
-    emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+      const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
+      grad_t* dst_ptr = wgrad.data.data<grad_t>();
+      emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
 
-    mp_cal_src_ptrs<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
-        src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
-        src_id_to_ev_size_ptr, src_id_to_ev_start_indices_ptr, src_ptrs);
+      mp_cal_src_ptrs<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
+          src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
+          src_id_to_ev_size_ptr, src_id_to_ev_start_indices_ptr, src_ptrs);
 
-    auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, float>(
-        [=] __device__() { return reduction_indices.num_elements; },
-        [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
-        [=] __device__(int i) { return dst_ids_ptr[i]; },
-        [=] __device__(int i) {
-          // model buffer bucket id layout:
-          // gpu i:
-          //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu | ... |
-          //   i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
-          // uint32_t bucket_id = src_ids_ptr[i];
-          // int embedding_id = bucket_id / batch_size;
-          // int batch_id = bucket_id % batch_size;
-          // int gpu_id = batch_id / batch_size_per_gpu;
-          // int local_batch_id = batch_id % batch_size_per_gpu;
-          // int ev_size = src_id_to_ev_size_ptr[i];
-          // return src_ptr[gpu_id] +
-          //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
-          //       local_batch_id * ev_size;
-          return src_ptrs[i];
-        },
-        [=] __device__(int i) {
-          auto tmp_index = dst_ids_ptr[i];
-          return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
-        });
-    multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
-                           core_->get_kernel_param(), partial_reduce_result_, wgrad,
-                           src_buffer.attr.max_ev_size, stream);
+      auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
+          [=] __device__() { return reduction_indices.num_elements; },
+          [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
+          [=] __device__(int i) { return dst_ids_ptr[i]; },
+          [=] __device__(int i) {
+            // model buffer bucket id layout:
+            // gpu i:
+            //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu | ...
+            //   | i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
+            // uint32_t bucket_id = src_ids_ptr[i];
+            // int embedding_id = bucket_id / batch_size;
+            // int batch_id = bucket_id % batch_size;
+            // int gpu_id = batch_id / batch_size_per_gpu;
+            // int local_batch_id = batch_id % batch_size_per_gpu;
+            // int ev_size = src_id_to_ev_size_ptr[i];
+            // return src_ptr[gpu_id] +
+            //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+            //       local_batch_id * ev_size;
+            return src_ptrs[i];
+          },
+          [=] __device__(int i) {
+            auto tmp_index = dst_ids_ptr[i];
+            return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+          });
+      multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
+                             core_->get_kernel_param(), partial_reduce_result_, wgrad,
+                             src_buffer.attr.max_ev_size, stream);
+    });
   });
 }
 
@@ -183,42 +185,37 @@ void dp_local_reduce_from_feature_major_top_grad(
   const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
   const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
   const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
-  float* dst_ptr = wgrad.data.data<float>();
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t* src_ptr = src_buffer.data.data<emb_t>();
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+      const emb_t* src_ptr = src_buffer.data.data<emb_t>();
+      grad_t* dst_ptr = wgrad.data.data<grad_t>();
+      auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
+          [=] __device__() { return reduction_indices.num_elements; },
+          [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
+          [=] __device__(int i) { return dst_ids_ptr[i]; },
 
-    auto multi_to_one_desc_first_stage = make_MultiToOne_reduce<emb_t, float>(
-        reduction_indices.num_elements, [=] __device__(int i) { return dst_ids_ptr[i]; },
-        [=] __device__(int i) {
-          return src_id_to_ev_size_ptr[i];
-          ;
-        },
-        [=] __device__(int i) {
-          return src_id_to_ev_size_ptr[i];
-          ;
-        },
-        [=] __device__(int i) { return dst_ids_ptr[i]; },
-        [=] __device__(int i) {
-          // top grad buffer bucket id layout:
-          // 0, ..., batch_size_per_gpu - 1 | batch_size_per_gpu, ..., 2 * batch_size_per_gpu - 1|
-          // ...
-          uint32_t bucket_id = src_ids_ptr[i];
-          int local_lookup_id = bucket_id / batch_size_per_gpu;
-          int lookup_id = local_lookup_ids_ptr[local_lookup_id];
+          [=] __device__(int i) {
+            // top grad buffer bucket id layout:
+            // 0, ..., batch_size_per_gpu - 1 | batch_size_per_gpu, ..., 2 * batch_size_per_gpu - 1|
+            // ...
+            uint32_t bucket_id = src_ids_ptr[i];
+            int local_lookup_id = bucket_id / batch_size_per_gpu;
+            int lookup_id = local_lookup_ids_ptr[local_lookup_id];
 
-          int batch_id = bucket_id % batch_size_per_gpu;
-          int ev_size = src_id_to_ev_size_ptr[i];
-          return src_ptr + batch_size_per_gpu * src_id_to_ev_start_indices_ptr[lookup_id] +
-                 batch_id * ev_size;
-        },
-        [=] __device__(int i) {
-          auto tmp_index = dst_ids_ptr[i];
-          return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
-        });
+            int batch_id = bucket_id % batch_size_per_gpu;
+            int ev_size = src_id_to_ev_size_ptr[i];
+            return src_ptr + batch_size_per_gpu * src_id_to_ev_start_indices_ptr[lookup_id] +
+                   batch_id * ev_size;
+          },
+          [=] __device__(int i) {
+            auto tmp_index = dst_ids_ptr[i];
+            return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+          });
 
-    multi_to_one_reduce(multi_to_one_desc_first_stage, reduction_indices, kernel_params,
-                        partial_reduce_result, wgrad, src_buffer.attr.max_ev_size, stream);
+      multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices, kernel_params,
+                             partial_reduce_result, wgrad, src_buffer.attr.max_ev_size, stream);
+    });
   });
 }
 
@@ -245,39 +242,34 @@ void dp_local_reduce_from_batch_major_top_grad(
   const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
   const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
   const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
-  float* dst_ptr = wgrad.data.data<float>();
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
-    const emb_t* src_ptr = src_buffer.data.data<emb_t>();
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+      const emb_t* src_ptr = src_buffer.data.data<emb_t>();
 
-    auto multi_to_one_desc_first_stage = make_MultiToOne_reduce<emb_t, float>(
-        reduction_indices.num_elements, [=] __device__(int i) { return dst_ids_ptr[i]; },
-        [=] __device__(int i) {
-          return src_id_to_ev_size_ptr[i];
-          ;
-        },
-        [=] __device__(int i) {
-          return src_id_to_ev_size_ptr[i];
-          ;
-        },
-        [=] __device__(int i) { return dst_ids_ptr[i]; },
-        [=] __device__(int i) {
-          // top grad buffer bucket id layout:
-          // 0, ..., num_lookup - 1 | num_lookup, ... | ... batch_size_per_gpu * num_lookup - 1
-          uint32_t bucket_id = src_ids_ptr[i];
-          int batch_id = bucket_id % batch_size_per_gpu;
-          int lookup_id = local_lookup_ids_ptr[bucket_id / batch_size_per_gpu];
+      grad_t* dst_ptr = wgrad.data.data<grad_t>();
+      auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
+          [=] __device__() { return reduction_indices.num_elements; },
+          [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
+          [=] __device__(int i) { return dst_ids_ptr[i]; },
+          [=] __device__(int i) {
+            // top grad buffer bucket id layout:
+            // 0, ..., num_lookup - 1 | num_lookup, ... | ... batch_size_per_gpu * num_lookup - 1
+            uint32_t bucket_id = src_ids_ptr[i];
+            int batch_id = bucket_id % batch_size_per_gpu;
+            int lookup_id = local_lookup_ids_ptr[bucket_id / batch_size_per_gpu];
 
-          return src_ptr + batch_id * src_id_to_ev_start_indices_ptr[num_lookup] +
-                 src_id_to_ev_start_indices_ptr[lookup_id];
-        },
-        [=] __device__(int i) {
-          auto tmp_index = dst_ids_ptr[i];
-          return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
-        });
+            return src_ptr + batch_id * src_id_to_ev_start_indices_ptr[num_lookup] +
+                   src_id_to_ev_start_indices_ptr[lookup_id];
+          },
+          [=] __device__(int i) {
+            auto tmp_index = dst_ids_ptr[i];
+            return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+          });
 
-    multi_to_one_reduce(multi_to_one_desc_first_stage, reduction_indices, kernel_params,
-                        partial_reduce_result, wgrad, src_buffer.attr.max_ev_size, stream);
+      multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices, kernel_params,
+                             partial_reduce_result, wgrad, src_buffer.attr.max_ev_size, stream);
+    });
   });
 }
 
