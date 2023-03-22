@@ -134,7 +134,8 @@ struct SegmentdUnique {
   void operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
                   const core23::Tensor &key_num, core23::Tensor &unique_keys,
                   core23::Tensor &unique_table_ids, core23::Tensor &num_unique_keys,
-                  core23::Tensor &dst_ids, size_t h_num_key, cudaStream_t stream);
+                  core23::Tensor &dst_ids, size_t h_num_key,
+                  std::shared_ptr<CoreResourceManager> core, cudaStream_t stream);
 };
 
 struct CalDstIds {
@@ -147,7 +148,8 @@ struct CalDstIds {
   CalDstIds(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys, int batch_size);
 
   void operator()(core23::Tensor &sorted_keys, int num_table, const core23::Tensor &table_range,
-                  core23::Tensor &dst_ids, cudaStream_t stream);
+                  core23::Tensor &dst_ids, std::shared_ptr<CoreResourceManager> core,
+                  cudaStream_t stream);
 };
 
 struct CalDstOffsetMP {
@@ -162,7 +164,8 @@ struct CalDstOffsetMP {
 
   void operator()(const core23::Tensor &unique_key_table_ids,
                   const core23::Tensor &table_id_to_evsizes, const core23::Tensor &num_unique_key,
-                  core23::Tensor &dst_key_offset, cudaStream_t stream);
+                  core23::Tensor &dst_key_offset, std::shared_ptr<CoreResourceManager> core,
+                  cudaStream_t stream);
 };
 
 struct WgradEvStartIndicesCalculationInput {
