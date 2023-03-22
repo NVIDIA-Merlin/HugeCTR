@@ -472,7 +472,9 @@ void RaggedStaticEmbeddingTable::update(const core23::Tensor &unique_keys,
               SGDOptimizer<wgrad_t> optimizer;
 
               constexpr int block_size = 256;
-              constexpr int grid_size = 144 * 8;
+              const auto &kernel_param = core_->get_kernel_param();
+              const int grid_size =
+                  kernel_param.num_sms * kernel_param.max_thread_per_sm / block_size;
               auto kernel = use_vectorized_kernel_
                                 ? update4_kernel<key_t, index_t, wgrad_t, decltype(optimizer),
                                                  decltype(key_to_indices_func)>
@@ -506,7 +508,9 @@ void RaggedStaticEmbeddingTable::update(const core23::Tensor &unique_keys,
                         opt_param_.hyperparams.adagrad.epsilon};
 
                     constexpr int block_size = 256;
-                    constexpr int grid_size = 8 * 144;
+                    const auto &kernel_param = core_->get_kernel_param();
+                    const int grid_size =
+                        kernel_param.num_sms * kernel_param.max_thread_per_sm / block_size;
                     auto kernel = use_vectorized_kernel_
                                       ? update4_kernel<key_t, index_t, wgrad_t, decltype(optimizer),
                                                        decltype(key_to_indices_func)>
