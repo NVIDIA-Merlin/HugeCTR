@@ -92,6 +92,7 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS... args) {
   buff->allocate();
 
   optimizerGPU->initialize();
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<T[]> h_wgrad(new T[len]);
@@ -111,9 +112,11 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS... args) {
   for (int i = 0; i < num_update; ++i) {
     simulator.fill(h_wgrad.get(), len);
     HCTR_LIB_THROW(cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
 
     optimizerGPU->update();
     optimizerCPU.update();
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
   }
 
   HCTR_LIB_THROW(cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost));
@@ -185,8 +188,10 @@ void optimizer_test_with_new_tensor(std::vector<core23::Shape> shapes, int num_u
     core23::copy_sync(flat_wgrad_tensor.data(), h_wgrad.get(),
                       flat_wgrad_tensor.size(0) * sizeof(T), device, core23::DeviceType::CPU);
 
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
     optimizerGPU->update();
     optimizerCPU.update();
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
   }
 
   core23::copy_sync(h_weight.get(), flat_weight_tensor.data(),

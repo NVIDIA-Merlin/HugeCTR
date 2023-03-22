@@ -59,6 +59,10 @@ GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id,
   int sm_count;
   HCTR_LIB_THROW(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device_id));
   sm_count_ = sm_count;
+  int max_thread_per_sm;
+  HCTR_LIB_THROW(cudaDeviceGetAttribute(&max_thread_per_sm, cudaDevAttrMaxThreadsPerMultiProcessor,
+                                        device_id));
+  max_thread_per_sm_ = max_thread_per_sm;
 
   HCTR_LIB_THROW(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, device_id));
   HCTR_LIB_THROW(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, device_id));

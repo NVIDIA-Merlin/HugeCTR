@@ -46,6 +46,7 @@ class GPUResource {
   cublasLtHandle_t cublaslt_handle_;
   ncclComm_t comm_;
   size_t sm_count_;
+  int max_thread_per_sm_;
   int cc_major_;
   int cc_minor_;
   cudaStream_t computation_stream_2_;
@@ -93,6 +94,7 @@ class GPUResource {
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t& get_nccl() const { return comm_; }
   size_t get_sm_count() const { return sm_count_; }
+  int get_max_thread_per_sm() const { return max_thread_per_sm_; }
   int get_cc_major() const { return cc_major_; }
   int get_cc_minor() const { return cc_minor_; }
   bool support_nccl() const { return comm_ != nullptr; }
