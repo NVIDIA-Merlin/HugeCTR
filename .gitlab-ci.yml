@@ -140,6 +140,8 @@ build_train_inference:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
 
 ### Stage: test
 build_inference:
@@ -147,8 +149,10 @@ build_inference:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $INFER_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80;90\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
     BUILD_HUGECTR_BACKEND: 1
-    TRITON_BRANCH: r21.06
+    TRITON_BRANCH: ${TARGET_TRITON_BRANCH}
 
 build_sok_tf2:
   extends: .build_sok
@@ -176,9 +180,9 @@ build_hugectr_hps_trt_plugin:
     BUILD_HUGECTR2ONNX: 1
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    BUILD_HPS_BACKEND: 1
-    HUGECTR_BACKEND_VER: main
-    TRITON_BRANCH: r22.11
+    #BUILD_HPS_BACKEND: 1
+    #HUGECTR_BACKEND_VER: main
+    #TRITON_BRANCH: ${TRITON_BRANCH}
 
 build_tf_hps_trt_plugin:
   extends: .build_hugectr
@@ -188,9 +192,9 @@ build_tf_hps_trt_plugin:
     BUILD_TF_PLUGIN: 1
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    BUILD_HPS_BACKEND: 1
-    HUGECTR_BACKEND_VER: main
-    TRITON_BRANCH: r22.11
+    #BUILD_HPS_BACKEND: 1
+    #HUGECTR_BACKEND_VER: main
+    #TRITON_BRANCH: r22.11
 
 build_pytorch_hps_trt_plugin:
   extends: .build_hugectr
@@ -199,9 +203,9 @@ build_pytorch_hps_trt_plugin:
     DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    BUILD_HPS_BACKEND: 1
-    HUGECTR_BACKEND_VER: main
-    TRITON_BRANCH: r22.11
+    #BUILD_HPS_BACKEND: 1
+    #HUGECTR_BACKEND_VER: main
+    #TRITON_BRANCH: r22.11
 
 # Check Selene busy or not
 check_selene_idle:
