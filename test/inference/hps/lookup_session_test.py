@@ -100,6 +100,7 @@ def hps_dlpack(model_name, embedding_file_list, data_file, enable_cache, cache_t
                 max_batchsize=10,
                 hit_rate_threshold=1.0,
                 dense_model_file="",
+                maxnum_catfeature_query_per_table_per_sample=[2, 26],
                 sparse_model_files=embedding_file_list,  # ["/wdl_train/wdl0_sparse_2000.model","/wdl_train/wdl1_sparse_2000.model" ],
                 deployed_devices=[0],
                 use_gpu_embedding_cache=enable_cache,
