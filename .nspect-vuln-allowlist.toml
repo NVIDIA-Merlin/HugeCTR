@@ -15,11 +15,6 @@ comment = 'The package is for the RocksDB documentation and its hosting on the G
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/protobuf/third_party/googletest']
-comment = 'This is just the third_party googletest we never use and we don't rely on.'
-nspect_ids = ['NSPECT-OZP9-WUQA']
-
-[[oss.excluded.directories]]
 paths = ['third_party/protobuf']
-comment = 'We never use protobuf-java'
+comment = 'We never use csharp, java, php, the thir party googletest, etc., inside ptotobuf'
 nspect_ids = ['NSPECT-OZP9-WUQA']
