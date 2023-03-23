@@ -145,7 +145,7 @@ void generate_config_file(const std::string& ps_config_file, bool i64_input_key,
     model_config["hit_rate_threshold"] = 1.0;
     model_config["gpucacheper"] = 1.0;
     model_config["gpucache"] = true;
-    model_config["use_static_table"] = false;
+    model_config["embedding_cache_type"] = "dynamic";
     model_config["use_context_stream"] = true;
   }
 

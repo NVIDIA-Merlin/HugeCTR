@@ -153,7 +153,7 @@ params = hugectr.inference.InferenceParams(
   persistent_db = <persistent-database-configuration>,
   update_source = <update-source-parameters>,
   maxnum_des_feature_per_sample = 26,
-  use_static_table = False,
+  embedding_cache_type = "dynamic",
   refresh_delay = 0.0,
   refresh_interval = 0.0,
   maxnum_catfeature_query_per_table_per_sample = [int-1, int-2, ...],
@@ -198,9 +198,17 @@ When set to `True`, the embedding vector look up goes to the GPU embedding cache
 Otherwise, the look up attempts to use the CPU HPS database backend directly.
 The default value is `True`.
 
-* `use_static_table`: Boolean, whether to enable the features of a static GPU embedding table.
-The static embedding table means that the embedding table does not require the embedding cache to perform dynamic insertion operations, when set to `True`, the embedding vector look up goes to the GPU embedding cache. but only needs to perform lookup/query operations on embedding keys. The complete embedding can be stored in a dense buffer for index query.
-The default value is `False`.
+* `embedding_cache_type`: String, specify the type of embedding cache. Three types are supported: `"dynamic"`, `"static"`, `"uvm"`. The lookup performance can be ranked from low to high as `"dynamic"`, `"uvm"`, `"static"`. The default value is `"dynamic"`. The functional differences between the three types of embedding cache are shown in the following table
+
+<center>
+
+|  Type        | Support Dynamic Update  | Offload Embeddings to CPU |
+|  :----       | :----:  | :----: |
+| `"dynamic"`  |   Yes   |   Yes  |
+| `"static"`   |   No    |   No   |
+| `"uvm"`      |   No    |   Yes  |
+
+</center>
 
 * `cache_size_percentage`: Float, the percentage of cached embeddings on the GPU, relative to all the embedding tables on the CPU.
 The default value is `0.2`.
@@ -295,8 +303,7 @@ Specify the number of feature fields (the number of slots).
 The specified value determines the pre-allocated memory size on the host and device.
 The default value is `10`.
 
-* `use_static_table`: Boolean, whether to use static table to store embeddings on GPU.
-The default value is `False`.
+* `embedding_cache_type`: String, specify the type of embedding cache. Three types are supported: `"dynamic"`, `"static"`, `"uvm"`. The default value is `"dynamic"`.
 
 * `use_context_stream`: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Plugin for TensorRT](hps_trt_user_guide.md). The default value is `True`.
 
@@ -326,12 +333,11 @@ The following JSON shows a sample configuration for the `models` key in a parame
     "refresh_interval":0,
     "hit_rate_threshold":0.9,
     "gpucacheper":0.1,
-    "use_static_table": false,
+    "embedding_cache_type": "dynamic",
     "gpucache":true,
     "cache_refresh_percentage_per_iteration": 0.2,
     "label_dim": 1,
     "slot_num":10,
-    "use_static_table": false,
     "use_context_stream": false
   }
 ]
