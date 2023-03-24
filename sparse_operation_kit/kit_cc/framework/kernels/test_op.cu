@@ -20,7 +20,11 @@
 #ifdef SOK_ASYNC
 // these headers are only needed in AsyncOpKernel
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+#ifndef TF_GE_211
 #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#else
+#include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
+#endif
 #endif
 
 #include <mpi.h>

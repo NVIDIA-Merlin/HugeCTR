@@ -41,9 +41,12 @@ REGISTER_OP("Lookup")
         return errors::InvalidArgument("global_replica_id must be a scalar.");
       }
 
-      // Values must be of dense key tensors, but are not necessarily 1-D.
-      // ShapeHandle values_shape;
-      // TF_RETURN_IF_ERROR(ctx->WithRankAtMost(ctx->input(0), 1, &values_shape));
-
+  // Values must be of dense key tensors, but are not necessarily 1-D.
+  // ShapeHandle values_shape;
+  // TF_RETURN_IF_ERROR(ctx->WithRankAtMost(ctx->input(0), 1, &values_shape));
+#ifndef TF_GE_211
       return Status::OK();
+#else
+      return OkStatus();
+#endif
     });

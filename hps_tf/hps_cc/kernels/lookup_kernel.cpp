@@ -15,8 +15,14 @@
  */
 
 #include <tensorflow/core/framework/op_kernel.h>
+#ifndef TF_GE_211
 #include <tensorflow/stream_executor/cuda/cuda_activation.h>
 #include <tensorflow/stream_executor/gpu/gpu_stream.h>
+#else
+#include <tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h>
+#include <tensorflow/compiler/xla/stream_executor/gpu/gpu_stream.h>
+#endif
+
 #include <tensorflow/stream_executor/stream.h>
 #include <tensorflow/stream_executor/stream_executor.h>
 

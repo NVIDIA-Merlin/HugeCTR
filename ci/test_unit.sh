@@ -39,7 +39,7 @@ if [ "$container" == "merlin-hugectr" ]; then
     # inference_test
 ### TensorFlow Training container
 elif [ "$container" == "merlin-tensorflow" ]; then
-    pushd /hugectr/sparse_operation_kit/unit_test/test_scripts/tf2 && \
-    bash sok_test_unit.sh && \
+    pushd /hugectr/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
+    bash run_function_test.sh && \
     popd
 fi

@@ -169,6 +169,10 @@ else()
     endif()
 endif()
 
+if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 10)
+    add_definitions(-DTF_GE_211)
+endif()
+
 # libs
 link_directories(
     ${TF_LINK_DIR}

@@ -55,8 +55,13 @@ using tensorflow::GpuIdManager;
 using tensorflow::PlatformGpuId;
 using tensorflow::TfGpuId;
 #else
+#ifndef TF_GE_211
 using tensorflow::PlatformDeviceId;
 using tensorflow::TfDeviceId;
+#else
+using tsl::PlatformDeviceId;
+using tsl::TfDeviceId;
+#endif
 #endif
 
 // We suppose one allocation can not allocate more than 1 TB

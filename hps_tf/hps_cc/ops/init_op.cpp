@@ -41,5 +41,9 @@ REGISTER_OP("Init")
 
       ShapeHandle visible_devices_shape;
       TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(2), 1, &visible_devices_shape));
+#ifndef TF_GE_211
       return Status::OK();
+#else
+      return OkStatus();
+#endif
     });

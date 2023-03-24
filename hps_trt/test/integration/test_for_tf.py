@@ -63,6 +63,9 @@ args["tf_key_type"] = tf.int32
 args["tf_vector_type"] = tf.float32
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, range(args["gpu_num"])))
+gpus = tf.config.experimental.list_physical_devices("GPU")
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 hps_config = {
     "supportlonglong": False,
