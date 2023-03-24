@@ -15,7 +15,9 @@
  */
 #pragma once
 
+#include <core23/tensor_container.hpp>
 #include <layer.hpp>
+#include <optional>
 #include <vector>
 
 namespace HugeCTR {
@@ -41,6 +43,8 @@ class Concat3DLayer : public Layer {
    */
   Concat3DLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
+                const std::shared_ptr<GPUResource>& gpu_resource);
+  Concat3DLayer(std::vector<core23::Tensor>& in_tensors, core23::Tensor& out_tensor, int axis,
                 const std::shared_ptr<GPUResource>& gpu_resource);
   ~Concat3DLayer() override{};
 
@@ -78,6 +82,7 @@ class Concat3DLayer : public Layer {
   Tensor2<size_t> vecs_size_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
+  core23::TensorContainer<T, 1, 1> input_tensor_container_;
 };
 
 }  // namespace HugeCTR

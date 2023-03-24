@@ -63,7 +63,9 @@ file(GLOB layers_test_src
   group_dense_layer_test.cpp
   mlp_test.cpp
   concat_3d_layer_test.cpp
+  concat_3d_layer_test_old.cpp
   multi_head_attention_layer_test.cpp
+  multi_head_attention_layer_test_old.cpp
   layer_norm_layer_test.cpp
   sequence_mask_layer_test.cpp
   sequence_mask_layer_test_old.cpp

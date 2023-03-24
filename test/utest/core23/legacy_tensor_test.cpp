@@ -112,7 +112,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor1.data() == tensor3.data());
   EXPECT_TRUE(tensor1.data() != tensor4.data());
 
-  // 7. Create an emtpy Tensor and then overwrite it with the tensor0
+  // 8. Create an emtpy Tensor and then overwrite it with the tensor0
   Tensor tensor5;
   EXPECT_TRUE(tensor5.empty());
   EXPECT_THROW(tensor5.shape(), HugeCTR::internal_runtime_error);

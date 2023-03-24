@@ -16,12 +16,15 @@
 
 #include <gtest/gtest.h>
 
+#include <core23/data_type_helpers.cuh>
+#include <core23/low_level_primitives.hpp>
+#include <core23/shape.hpp>
+#include <core23/tensor.hpp>
 #include <layers/concat_3d_layer.hpp>
+#include <memory>
 #include <utest/test_utils.hpp>
-#include <utils.hpp>
 #include <vector>
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -37,9 +40,9 @@ struct Eps<float> {
 };
 
 template <typename T>
-void python_concat(T *output, T **inputs, int batch_size, const std::vector<int> &slot_num,
-                   const std::vector<int> &vec_size, int axis) {
-  cout << "===========Python concat==========" << endl;
+void python_concat(T *output, T **inputs, int64_t batch_size, const std::vector<int64_t> &slot_num,
+                   const std::vector<int64_t> &vec_size, int axis) {
+  std::cout << "===========Python concat==========" << std::endl;
   auto num = vec_size.size();
   std::string temp_name = "tmpdata.bin";
   std::ofstream py_input(temp_name.c_str(), std::ios::binary | std::ios::out);
@@ -47,7 +50,7 @@ void python_concat(T *output, T **inputs, int batch_size, const std::vector<int>
   std::vector<T> result;
 
   for (size_t i = 0; i < vec_size.size(); i++) {
-    cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << endl;
+    std::cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << std::endl;
     py_input.write(reinterpret_cast<const char *>(&batch_size), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&slot_num[i]), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&vec_size[i]), sizeof(int));
@@ -69,27 +72,45 @@ void python_concat(T *output, T **inputs, int batch_size, const std::vector<int>
     idx++;
   }
 
-  cout << result.size() << endl;
+  std::cout << result.size() << std::endl;
 
   pclose(py_output);
 }
-template <typename T>
-void concat_3d_layer_general_test(size_t batch_size, std::vector<int> slot_num,
-                                  std::vector<int> vec_size, int axis) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  int num = vec_size.size();
-  // assert(item.size() == slot_num.size());
-  Tensors2<T> in_tensors;
-  size_t out_slot_num = 0;
-  size_t out_vector_size = 0;
 
-  for (int i = 0; i < num; i++) {
-    size_t embedding_vec_size = vec_size[i];
-    size_t seq_len = slot_num[i];
-    vector<size_t> dims_in = {batch_size, seq_len, embedding_vec_size};
-    Tensor2<T> in_tensor;
-    buff->reserve(dims_in, &in_tensor);
-    in_tensors.push_back(in_tensor);
+template <typename T>
+void concat_3d_layer_test(int64_t batch_size, std::vector<int64_t> slot_num,
+                          std::vector<int64_t> vec_size, int axis) {
+  constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
+
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+  core23::TensorParams tensor_params =
+      core23::TensorParams()
+          .device(device)
+          .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float)
+          .buffer_channel(core23::GetRandomBufferChannel());
+
+  std::vector<core23::Tensor> bottom_tensors;
+  auto blob_buffer_channel = core23::GetRandomBufferChannel();
+
+  int64_t n_ins = vec_size.size();
+  std::unique_ptr<T *[]> h_ins(new T *[n_ins]);
+
+  int64_t out_slot_num = 0;
+  int64_t out_vector_size = 0;
+  std::cout << "Num of Input: " << n_ins << std::endl;
+
+  for (int64_t i = 0; i < n_ins; i++) {
+    std::cout << "Input: " << i << std::endl;
+    int64_t embedding_vec_size = vec_size[i];
+    int64_t seq_len = slot_num[i];
+
+    std::cout << "Input Shape: " << batch_size << " " << seq_len << " " << embedding_vec_size
+              << std::endl;
+
+    core23::Shape in_shape = {batch_size, seq_len, embedding_vec_size};
+    bottom_tensors.emplace_back(tensor_params.shape(in_shape));
+
     if (axis == 1) {
       out_slot_num += seq_len;
       if (i == 0) {
@@ -103,193 +124,92 @@ void concat_3d_layer_general_test(size_t batch_size, std::vector<int> slot_num,
       }
     }
   }
-  cout << "Input Size" << endl;
-  for (int i = 0; i < num; i++) {
-    cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << endl;
+  core23::Tensor top_tensor;
+  int64_t out_size = batch_size * out_slot_num * out_vector_size;
+  Concat3DLayer<T> concat_3d_layer(bottom_tensors, top_tensor, axis, test::get_default_gpu());
+
+  std::cout << "Input Size" << std::endl;
+  for (int i = 0; i < n_ins; i++) {
+    std::cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << std::endl;
+    h_ins[i] = new T[batch_size * slot_num[i] * vec_size[i]];
+    test::normal_sync_cpu(h_ins[i], batch_size * slot_num[i] * vec_size[i], 0.f, 1.f, generator);
+
+    core23::copy_sync(bottom_tensors[i].data(), h_ins[i], bottom_tensors[i].num_bytes(),
+                      bottom_tensors[i].device(), core23::DeviceType::CPU);
   }
 
-  Tensor2<T> out_tensor;
-  vector<size_t> dims_out = {batch_size, out_slot_num, out_vector_size};
-  size_t out_size = batch_size * out_slot_num * out_vector_size;
-  buff->reserve(dims_out, &out_tensor);
-
-  cout << "Output Size" << endl;
-  cout << batch_size << " " << out_slot_num << " " << out_vector_size << endl;
-
-  Concat3DLayer<T> concat_3d_layer(in_tensors, out_tensor, buff, axis, test::get_default_gpu());
-  buff->allocate();
   concat_3d_layer.initialize();
 
-  std::unique_ptr<T *[]> h_d_ins(new T *[num]);
-  for (int i = 0; i < num; i++) {
-    h_d_ins[i] = in_tensors[i].get_ptr();
-  }
-  T *d_out = out_tensor.get_ptr();
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  concat_3d_layer.fprop(true);
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  std::unique_ptr<T *[]> h_ins(new T *[num]);
-  for (int i = 0; i < num; i++) {
-    h_ins[i] = new T[batch_size * slot_num[i] * vec_size[i]];
-  }
-
-  std::unique_ptr<T *[]> h_ins_b(new T *[num]);
-  for (int i = 0; i < num; i++) {
-    h_ins_b[i] = new T[batch_size * slot_num[i] * vec_size[i]];
-  }
   std::unique_ptr<T[]> h_out(new T[out_size]);
   std::unique_ptr<T[]> h_python_out(new T[out_size]);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-
-  // fprop
-  for (int i = 0; i < num; i++) {
-    size_t size = batch_size * slot_num[i] * vec_size[i];
-    simulator.fill(h_ins[i], size);
-    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
-  }
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  cout << "Before fprop" << endl;
-
-  /*for (int i = 0; i < num; i++) {
-    cout << "Input " << i << endl;
-    for (size_t j = 0; j < batch_size * slot_num[i] * vec_size[i]; j++) {
-      cout << h_ins[i][j] << " ";
-      if (((j + 1) % vec_size[i]) == 0) {
-        cout << endl;
-        if (((j + 1) % (slot_num[i] * vec_size[i])) == 0) {
-          cout << endl;
-        }
-      }
-    }
-  }*/
-
-  concat_3d_layer.fprop(true);
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(h_out.get(), top_tensor.data(), top_tensor.num_bytes(), core23::DeviceType::CPU,
+                    top_tensor.device());
 
   python_concat(h_python_out.get(), h_ins.get(), batch_size, slot_num, vec_size, axis);
-
-  /*cout << "After fprop" << endl;
-  cout << "Output " << endl;
-  for (size_t j = 0; j < batch_size * out_slot_num * out_vector_size; j++) {
-    cout << h_out.get()[j] << " ";
-    if (((j + 1) % out_vector_size) == 0) {
-      cout << endl;
-      if (((j + 1) % (out_slot_num * out_vector_size)) == 0) {
-        cout << endl;
-      }
-    }
-  }
-
-  cout << "Python Output " << endl;
-  for (size_t j = 0; j < batch_size * out_slot_num * out_vector_size; j++) {
-    cout << h_python_out.get()[j] << " ";
-    if (((j + 1) % out_vector_size) == 0) {
-      cout << endl;
-      if (((j + 1) % (out_slot_num * out_vector_size)) == 0) {
-        cout << endl;
-      }
-    }
-  }*/
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_out.get(), h_python_out.get(), out_size, Eps<T>::value()));
 
-  // bprop
+  // bprop*/
 }
+
 }  // namespace
 
 TEST(concat_3d_layer, fp32_4x10x10) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 4;
-  int goodID_size = 3, shopID_size = 3, cateID_size = 4;
+  std::vector<int64_t> items;
+  std::vector<int64_t> slot_num;
+  int64_t batch_size = 4;
+  int64_t goodID_size = 3, shopID_size = 3, cateID_size = 4;
   items.push_back(goodID_size);
   slot_num.push_back(10);
   items.push_back(shopID_size);
   slot_num.push_back(10);
   items.push_back(cateID_size);
   slot_num.push_back(10);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 2);
+  concat_3d_layer_test<float>(batch_size, slot_num, items, 2);
 }
 TEST(concat_3d_layer, fp32_4x10x13) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 4;
-  int goodID_size = 3, shopID_size = 6, cateID_size = 4;
+  std::vector<int64_t> items;
+  std::vector<int64_t> slot_num;
+  int64_t batch_size = 4;
+  int64_t goodID_size = 3, shopID_size = 6, cateID_size = 4;
   items.push_back(goodID_size);
   slot_num.push_back(10);
   items.push_back(shopID_size);
   slot_num.push_back(10);
   items.push_back(cateID_size);
   slot_num.push_back(10);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 2);
+  concat_3d_layer_test<float>(batch_size, slot_num, items, 2);
 }
 TEST(concat_3d_layer, fp32_4x10x11) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 4;
-  int goodID_size = 4, shopID_size = 3, cateID_size = 4;
+  std::vector<int64_t> items;
+  std::vector<int64_t> slot_num;
+  int64_t batch_size = 4;
+  int64_t goodID_size = 4, shopID_size = 3, cateID_size = 4;
   items.push_back(goodID_size);
   slot_num.push_back(10);
   items.push_back(shopID_size);
   slot_num.push_back(10);
   items.push_back(cateID_size);
   slot_num.push_back(10);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 2);
+  concat_3d_layer_test<float>(batch_size, slot_num, items, 2);
 }
 
 TEST(concat_3d_layer, fp32_2048x150x768) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 2048;
-  int slot_shot_his = 64, slot_long_his = 128, slot_target = 1;
+  std::vector<int64_t> items;
+  std::vector<int64_t> slot_num;
+  int64_t batch_size = 2048;
+  int64_t slot_shot_his = 64, slot_long_his = 128, slot_target = 1;
   items.push_back(768);
   slot_num.push_back(slot_shot_his);
   items.push_back(768);
   slot_num.push_back(slot_long_his);
   items.push_back(768);
   slot_num.push_back(slot_target);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 1);
-}
-
-TEST(concat_3d_layer, fp32_1024x300x512) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 1024;
-  int goodID_size = 128, shopID_size = 128, cateID_size = 128;
-  items.push_back(goodID_size);
-  slot_num.push_back(100);
-  items.push_back(shopID_size);
-  slot_num.push_back(100);
-  items.push_back(cateID_size);
-  slot_num.push_back(100);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 2);
-}
-
-TEST(concat_3d_layer, fp32_4x16x8) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 4;
-  int slot_shot_his = 3, slot_long_his = 4, slot_target = 1;
-  items.push_back(8);
-  slot_num.push_back(slot_shot_his);
-  items.push_back(8);
-  slot_num.push_back(slot_long_his);
-  items.push_back(8);
-  slot_num.push_back(slot_target);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 1);
-}
-
-TEST(concat_3d_layer, fp32_4x16x7) {
-  std::vector<int> items;
-  std::vector<int> slot_num;
-  int batch_size = 4;
-  int slot_shot_his = 3, slot_long_his = 4, slot_target = 1;
-  items.push_back(7);
-  slot_num.push_back(slot_shot_his);
-  items.push_back(7);
-  slot_num.push_back(slot_long_his);
-  items.push_back(7);
-  slot_num.push_back(slot_target);
-  concat_3d_layer_general_test<float>(batch_size, slot_num, items, 1);
+  concat_3d_layer_test<float>(batch_size, slot_num, items, 1);
 }

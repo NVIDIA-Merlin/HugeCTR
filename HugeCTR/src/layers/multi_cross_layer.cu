@@ -2272,6 +2272,7 @@ void Core23TempMultiCrossLayer<T>::search_algorithm() {
                                                   du_descrs_bprop_[i], cublaslt_handle, stream);
 
         // 4
+
         mat_a = bprop_bottom_[2 + 3 * i].data<T>();
         mat_b = this->get_weight(3 * i).template data<T>();
         mat_c = i == num_layers_ - 1 ? activation_tensors_[i + 1].data<T>()

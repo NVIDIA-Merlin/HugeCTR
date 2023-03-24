@@ -202,7 +202,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
           layer.reset(new ConcatLayer<float>(in_tensors, out_tensor, gpu_resource));
         }
       } else if (in_tensors[0].dims() == 3) {
-        // TODO: fill the details including layers.emplace_back
+        if (use_mixed_precision) {
+          layer.reset(new Concat3DLayer<__half>(in_tensors, out_tensor, axis, gpu_resource));
+        } else {
+          layer.reset(new Concat3DLayer<float>(in_tensors, out_tensor, axis, gpu_resource));
+        }
       } else {
         HCTR_DIE("Concatenation of %lld-dimensional Tensors is not supported!\n",
                  in_tensors[0].dims());
@@ -483,8 +487,15 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                        "MultiHeadAttentionLayer needs 3D or 4D input tensors ");
       }
       std::vector<core23::Tensor> out_tensors;
-
-      // TODO: fill the details including layers.emplace_back
+      if (use_mixed_precision) {
+        layers.emplace_back(new MultiHeadAttentionLayer<__half>(
+            in_tensors, out_tensors, num_attention_heads, transpose_b, gpu_resource,
+            use_mixed_precision, enable_tf32_compute));
+      } else {
+        layers.emplace_back(new MultiHeadAttentionLayer<float>(
+            in_tensors, out_tensors, num_attention_heads, transpose_b, gpu_resource,
+            use_mixed_precision, enable_tf32_compute));
+      }
 
       for (size_t i = 0; i < out_tensors.size(); i++) {
         output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
