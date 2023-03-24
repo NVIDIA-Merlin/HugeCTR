@@ -35,6 +35,11 @@ if (NOT TF_RESULT)
         add_definitions(-DTF_LESS_210)
         set(CMAKE_CXX_STANDARD 14)
     endif()
+ 
+    
+    if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 10)
+        add_definitions(-DTF_GE_211)
+    endif()
 else()
     message(FATAL_ERROR "Can not detect tensorflow in your environment,please install tensorflow(tf1 support version 1.15, for tf2 support version 2.60~latest) ")
 endif()

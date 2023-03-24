@@ -829,7 +829,6 @@ __global__ void one_to_multi_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_de
     int end = copy_desc.get_offset(i_ev + 1);
     int L = end - start;
     for (int r = 0; r < L; ++r) {
-      int l = r + lane_id < L ? start + r + lane_id : 0;
       dst_type *dst_ev = copy_desc.get_dst_ptr(start + r);
 
 #pragma unroll kMaxElemPerThread

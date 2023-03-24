@@ -886,20 +886,6 @@ sparse_operation_kit_ut-TF2:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok_tf2_unit.sub
 
-sparse_operation_kit-TF2:
-  extends: .sok_test_job_daily
-  needs:
-    - build_sok_tf2
-  variables:
-    GPFSFOLDER: $LOGDIR/sparse_operation_kit
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $SOK_IMAGE_VERSIONED_TF2
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "01:30:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/sok/sok.sub
-
 sparse_operation_kit_ut-TF1:
   extends: .sok_test_job
   needs:
@@ -914,20 +900,6 @@ sparse_operation_kit_ut-TF1:
     WALLTIME: "02:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok_tf1_unit.sub
-
-sparse_operation_kit-TF1:
-  extends: .sok_test_job_daily
-  needs:
-    - build_sok_tf1
-  variables:
-    GPFSFOLDER: $LOGDIR/sparse_operation_kit
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $SOK_IMAGE_VERSIONED_TF1
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "00:45:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/sok/sok.sub
 
 #Test jobs for hps_trt plugin
 hps_trt_in_hugectr:

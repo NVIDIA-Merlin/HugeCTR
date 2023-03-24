@@ -89,6 +89,7 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
     core23::ToScalarType<int32_t>::value,
     core23::ToScalarType<OffsetType>::value,
     core23::ToScalarType<DType>::value,
+    core23::ToScalarType<DType>::value,
     ::embedding::EmbeddingLayout::FeatureMajor,
     ::embedding::EmbeddingLayout::FeatureMajor,
     ::embedding::SortStrategy::Segmented,

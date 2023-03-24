@@ -632,7 +632,8 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 
     // Prepare output
     std::vector<sok::Tensor23> unique_key, grad;
-    std::vector<int> num_unique_keys;
+    std::vector<size_t> num_unique_keys;
+    std::vector<size_t> num_grad_length;
     for (int i = 0; i < this->num_lookups_; ++i) {
       int num_unique_key = 0;
       auto target_id_space_iter =
@@ -640,14 +641,16 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
       if (target_id_space_iter != unique_id_space_list.end()) {
         const auto idx = std::distance(unique_id_space_list.begin(), target_id_space_iter);
         num_unique_key = num_unique_key_per_table[idx];
+        num_unique_keys.push_back(num_unique_key);
       }
-      num_unique_keys.push_back(num_unique_key);
+      
       Tensor* unique_key_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {num_unique_key}, &unique_key_tf));
       Tensor* grad_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i + this->num_lookups_,
                                                {num_unique_key, this->dimensions_[i]}, &grad_tf));
       if (target_id_space_iter != unique_id_space_list.end()) {
+        num_grad_length.push_back(grad_tf->NumElements());
         unique_key.push_back(sok::convert_tensor_core23<KeyType>(unique_key_tf,tensor_device_id));
         grad.push_back(sok::convert_tensor_core23<DType>(grad_tf,tensor_device_id));
       }
@@ -655,7 +658,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 
     // Copy output
     ::embedding::tf::model_backward::copy_backward_key_and_emb_vec(
-        tf_backend, num_unique_keys,ret_continous_unique_key, ret_continous_emb_vec, unique_key, grad);
+        tf_backend, num_unique_keys,num_grad_length,ret_continous_unique_key, ret_continous_emb_vec, unique_key, grad);
   }
 };
 

@@ -62,6 +62,7 @@ if __name__ == "__main__":
             v = sok.Variable(w, mode="localized:0")
             sok_vars.append(v)
 
+    tf_vars = [tf.Variable(w) for w in weights]
     local_indices = []
     for i, row in enumerate(rows):
         if hvd.rank() == gpus[i]:
@@ -86,6 +87,11 @@ if __name__ == "__main__":
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+    reg_var = []
+    reg_var.extend(tf_vars)
+    reg_var.extend(sok_vars)
+    if "build" in dir(optimizer):
+        optimizer.build(reg_var)
 
     def step(params, indices):
         with tf.GradientTape() as tape:
@@ -130,7 +136,6 @@ if __name__ == "__main__":
         return loss
 
     loss2 = []
-    tf_vars = [tf.Variable(w) for w in weights]
     for i in range(iters):
         indices = []
         for j in range(len(total_indices)):

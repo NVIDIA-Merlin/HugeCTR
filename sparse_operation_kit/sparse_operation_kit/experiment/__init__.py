@@ -15,6 +15,7 @@
 #
 
 import os
+import sys
 from tensorflow.python.framework import load_library
 
 #   When installed with pip, the .so files should be in
@@ -24,6 +25,8 @@ from tensorflow.python.framework import load_library
 lib_path = os.path.join(os.path.dirname(__file__), "../lib")
 lib_path = os.path.abspath(lib_path)
 lib_path = [lib_path, "/usr/local/lib/"]
+syspath = [spath + "/sparse_operation_kit/lib" for spath in sys.path]
+lib_path.extend(syspath)
 
 raw_ops = None
 for path in lib_path:
@@ -32,13 +35,12 @@ for path in lib_path:
         # The order of loading core, embedding, sok_experiment cannot
         # be changed, because there is a dependency between them:
         # libsok_experiment.so -> libembedding.so -> libcore.so
-        load_library.load_op_library(os.path.join(path, "libcore.so"))
+        load_library.load_op_library(os.path.join(path, "libhugectr_core23.so"))
         load_library.load_op_library(os.path.join(path, "libembedding.so"))
         raw_ops = load_library.load_op_library(file)
         print("[SOK INFO] Import %s" % file)
 if raw_ops is None:
-    print("[SOK INFO] libsok_experiment.so is not found")
-    exit()
+    raise Exception("[SOK INFO] libsok_experiment.so is not found")
 
 import sparse_operation_kit.experiment.communication
 from sparse_operation_kit.experiment.communication import set_comm_tool

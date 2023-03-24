@@ -18,7 +18,11 @@ limitations under the License.
 #include "gpu_kernel_helper.h"
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 #include "tensorflow/core/lib/core/bits.h"
+#ifndef TF_GE_211
 #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#else
+#include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
+#endif
 
 namespace tensorflow {
 

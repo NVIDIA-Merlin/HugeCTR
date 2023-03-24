@@ -19,7 +19,11 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #ifdef SOK_ASYNC
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+#ifndef TF_GE_211
 #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#else
+#include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
+#endif
 #endif
 
 namespace tensorflow {
