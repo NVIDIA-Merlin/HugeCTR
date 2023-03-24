@@ -171,18 +171,9 @@ stages:
       else
         docker pull ${FROM_IMAGE};
       fi
-    - export DOCKER_CLI_EXPERIMENTAL=enabled;
-    - docker buildx create --use --name buildkit_${CI_RUNNER_ID} --node node_${CI_RUNNER_ID} --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=10485760 --driver-opt env.BUILDKIT_STEP_LOG_MAX_SPEED=10485760
-    - docker buildx inspect --bootstrap
-    - docker buildx build
-      --pull
-      --push
-      -t ${DST_IMAGE}
-      -f ${JOB_DOCKERFILE}
-      --no-cache .
-    - docker stop buildx_buildkit_node_${CI_RUNNER_ID}
-    - docker rm buildx_buildkit_node_${CI_RUNNER_ID}
-    - docker buildx rm buildkit_${CI_RUNNER_ID}
+    - source sbin/docker_buildx.sh
+    - BUILDX_ARGS="--push --no-cache -t ${DST_IMAGE} -f ${JOB_DOCKERFILE}"
+    - docker_buildx::docker_buildx "$CI_RUNNER_ID" "${BUILDX_ARGS}"
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   allow_failure: false
