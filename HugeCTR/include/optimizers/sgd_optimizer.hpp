@@ -46,9 +46,9 @@ class SGDOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(std::vector<core23::Tensor> weight_tensors,
-               std::vector<core23::Tensor> weight_half_tensors,
-               std::vector<core23::Tensor> wgrad_tensors,
+  SGDOptimizer(std::optional<WeightTensors> weight_tensors,
+               std::optional<WeightHalfTensors> weight_half_tensors,
+               std::optional<WgradTensors<T>> wgrad_tensors,
                const std::shared_ptr<GPUResource>& gpu_resource, float lr = 0.001f,
                float scaler = 1.f, bool use_mixed_precision = false);
 

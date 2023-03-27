@@ -174,7 +174,7 @@ class Core23TempBatchNormLayer : public Core23TempTrainableLayer<T, true> {
    */
   std::string get_no_trained_params_in_string() override;
 
-  std::vector<core23::Tensor> Core23Tempget_tensors_for_non_trainable_params() override;
+  std::vector<core23::Tensor> get_non_trainable_params_as_tensors() override;
 
  private:
   /**

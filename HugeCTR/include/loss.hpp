@@ -24,6 +24,7 @@ namespace HugeCTR {
 
 class ILoss {
  public:
+  virtual ~ILoss() = 0;
   virtual void compute(bool is_train, long long current_batchsize, float rterm) = 0;
   virtual void compute_and_init(bool is_train, long long current_batchsize) = 0;
   virtual void compute_and_init(bool is_train) = 0;
@@ -33,6 +34,9 @@ class ILoss {
 
   virtual float get_label_weight() const = 0;
   virtual void set_label_weight(float new_weight) = 0;
+
+  virtual const Tensors2<float>& get_loss_tensors_old() const = 0;
+  virtual const std::vector<core23::Tensor>& get_loss_tensors() const = 0;
 };
 
 /**
@@ -107,8 +111,6 @@ class Loss : public ILoss {
 
  protected:
   bool gen_loss_summary_;
-  const Tensors2<float>& get_loss_tensors_old() const { return loss_tensors_old_; }
-  const std::vector<core23::Tensor>& get_loss_tensors() const { return loss_tensors_; }
   int get_total_gpu_count() const { return total_gpu_count_; }
   const GPUResource& get_gpu() const { return *gpu_resource_; }
 
@@ -141,7 +143,7 @@ class Loss : public ILoss {
        bool gen_loss_summary = true);
   Loss(const Loss&) = delete;
   Loss& operator=(const Loss&) = delete;
-  virtual ~Loss() {}
+  ~Loss() override {}
 
   int get_device_id() const override { return gpu_resource_->get_device_id(); }
 
@@ -150,6 +152,9 @@ class Loss : public ILoss {
 
   float get_label_weight() const override { return label_weight; }
   void set_label_weight(float new_weight) override { label_weight = new_weight; }
+
+  const Tensors2<float>& get_loss_tensors_old() const override { return loss_tensors_old_; }
+  const std::vector<core23::Tensor>& get_loss_tensors() const override { return loss_tensors_; }
 };
 
 template <typename T>

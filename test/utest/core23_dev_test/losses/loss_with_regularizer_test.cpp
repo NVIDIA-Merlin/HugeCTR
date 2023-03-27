@@ -23,9 +23,7 @@
 #include <cstdlib>
 #include <layers/fully_connected_layer.hpp>
 #include <loss.hpp>
-#include <regularizers/l1_regularizer.hpp>
-#include <regularizers/l2_regularizer.hpp>
-#include <regularizers/no_regularizer.hpp>
+#include <regularizer_factory.hpp>
 #include <utest/test_utils.hpp>
 #include <utility>
 #include <vector>
@@ -83,27 +81,6 @@ void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
   }
 }
 
-std::shared_ptr<Regularizer<float>> create_regularizer(
-    Regularizer_t type, std::vector<core23::Tensor> weight_tensors,
-    std::vector<core23::Tensor> wgrad_tensors, size_t batch_size, float lambda,
-    const std::shared_ptr<GPUResource>& gpu_resource) {
-  std::shared_ptr<Regularizer<float>> reg;
-  switch (type) {
-    case Regularizer_t::L1:
-      reg.reset(new L1Regularizer<float>(weight_tensors, wgrad_tensors, batch_size, lambda,
-                                         gpu_resource));
-      break;
-    case Regularizer_t::L2:
-      reg.reset(new L2Regularizer<float>(weight_tensors, wgrad_tensors, batch_size, lambda,
-                                         gpu_resource));
-      break;
-    default:
-      assert(!"Error: no such optimizer && should never get here!");
-      break;
-  }
-  return reg;
-}
-
 const float eps = 1e-5;
 
 void loss_with_regularizer_test(Regularizer_t type, int64_t batch_size, int64_t num_features,
@@ -153,8 +130,8 @@ void loss_with_regularizer_test(Regularizer_t type, int64_t batch_size, int64_t 
 
   BinaryCrossEntropyLoss<float> loss_no(
       label_tensor, out_tensor, loss_tensor_no,
-      std::shared_ptr<NoRegularizer<float>>(
-          new NoRegularizer<float>(weights_no, wgrads_no, batch_size, test::get_default_gpu())),
+      create_regularizer<float>(false, Regularizer_t::None, lambda, weights_no, wgrads_no,
+                                batch_size, test::get_default_gpu()),
       test::get_default_gpu(), 1);
   loss_no.set_label_weight(1.0);
 
@@ -163,7 +140,8 @@ void loss_with_regularizer_test(Regularizer_t type, int64_t batch_size, int64_t 
 
   BinaryCrossEntropyLoss<float> loss_re(
       label_tensor, out_tensor, loss_tensor_re,
-      create_regularizer(type, weights_re, wgrads_re, batch_size, lambda, test::get_default_gpu()),
+      create_regularizer<float>(true, type, lambda, weights_re, wgrads_re, batch_size,
+                                test::get_default_gpu()),
       test::get_default_gpu(), 1);
   loss_re.set_label_weight(1.0);
 

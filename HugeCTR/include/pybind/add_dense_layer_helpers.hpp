@@ -19,6 +19,7 @@
 #include <core23/tensor.hpp>
 #include <metrics.hpp>
 #include <optional>
+#include <pybind/common_helpers.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -26,11 +27,7 @@ namespace HugeCTR {
 class ILoss;
 struct DenseLayer;
 class Layer;
-
-struct TensorEntity {
-  std::string name;
-  core23::Tensor tensor;
-};
+struct Solver;
 
 std::optional<core23::Tensor> get_tensor_from_entities(
     const std::vector<TensorEntity> tensor_entities, const std::string& name);
@@ -46,7 +43,6 @@ InputTensorsAndOutputNames get_input_tensors_and_output_names(
 
 void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& tensor_entities,
                           std::vector<std::unique_ptr<Layer>>& layers,
-                          std::map<std::string, core23::Tensor>& loss_tensors,
                           std::map<std::string, std::unique_ptr<ILoss>>& losses,
                           metrics::Core23MultiLossMetricMap* raw_metrics, int gpu_count_in_total,
                           const std::shared_ptr<GPUResource>& gpu_resource,
@@ -54,5 +50,5 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           bool use_algorithm_search,
                           std::vector<Layer*>* embedding_dependent_layers,
                           std::vector<Layer*>* embedding_independent_layers,
-                          bool embedding_dependent);
+                          bool embedding_dependent, const Solver& solver);
 }  // namespace HugeCTR

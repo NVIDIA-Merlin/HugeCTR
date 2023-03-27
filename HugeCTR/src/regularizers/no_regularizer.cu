@@ -26,8 +26,8 @@ NoRegularizer<T>::NoRegularizer(const Tensor2<float>& weight_buff, const Tensor2
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource) {}
 
 template <typename T>
-NoRegularizer<T>::NoRegularizer(std::vector<core23::Tensor> weight_tensors,
-                                std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+NoRegularizer<T>::NoRegularizer(std::optional<WeightTensors> weight_tensors,
+                                std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                                 const std::shared_ptr<GPUResource>& gpu_resource)
     : Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, gpu_resource) {}
 

@@ -61,14 +61,13 @@ FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2
   opt_buf->reserve({weight_main.get_num_elements()}, &z_);
 }
 template <typename T>
-FtrlOptimizer<T>::FtrlOptimizer(std::vector<core23::Tensor> weight_tensors,
-                                std::vector<core23::Tensor> wgrad_tensors,
+FtrlOptimizer<T>::FtrlOptimizer(std::optional<WeightTensors> weight_tensors,
+                                std::optional<WgradTensors<T>> wgrad_tensors,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                 float learning_rate, float beta, float lambda1, float lambda2,
                                 float scaler)
     : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
       beta_(beta),
       lambda1_(lambda1),
       lambda2_(lambda2) {

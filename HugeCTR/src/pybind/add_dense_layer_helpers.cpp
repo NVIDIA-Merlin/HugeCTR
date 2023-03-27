@@ -54,13 +54,42 @@
 #include <layers/sub_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
 #include <network_buffer_channels.hpp>
-#include <pybind/dense_layer_helpers.hpp>
+#include <parser.hpp>
+#include <pybind/add_dense_layer_helpers.hpp>
 #include <pybind/model.hpp>
-#include <regularizers/l1_regularizer.hpp>
-#include <regularizers/l2_regularizer.hpp>
-#include <regularizers/no_regularizer.hpp>
+#include <regularizer_factory.hpp>
 
 namespace HugeCTR {
+
+namespace {
+
+template <typename DType, template <class T> class LossType>
+std::unique_ptr<ILoss> create_loss(core23::Tensor& label_tensor, core23::Tensor& input_tensor,
+                                   core23::Tensor& loss_tensor, const DenseLayer& dense_layer,
+                                   const std::vector<std::unique_ptr<Layer>>& layers,
+                                   int gpu_count_in_total,
+                                   const std::shared_ptr<GPUResource>& gpu_resource, float scaler,
+                                   bool gen_loss_summary) {
+  auto weight_tensors = std::is_same_v<DType, __half>
+                            ? get_master_weight_tensor_vector<float>(layers)
+                            : get_weight_tensor_vector<float>(layers);
+  auto wgrad_tensors = get_wgrad_tensor_vector<DType>(layers);
+  const int batch_size = input_tensor.size(0);
+  auto regularizer = create_regularizer<DType>(
+      dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda, weight_tensors,
+      wgrad_tensors, batch_size, gpu_resource);
+  if constexpr (std::is_same_v<LossType<DType>, MultiCrossEntropyLoss<DType>>) {
+    return std::make_unique<LossType<DType>>(label_tensor, input_tensor, loss_tensor, regularizer,
+                                             dense_layer.target_weight_vec, gpu_resource,
+                                             gpu_count_in_total, scaler, gen_loss_summary);
+  } else {
+    return std::make_unique<LossType<DType>>(label_tensor, input_tensor, loss_tensor, regularizer,
+                                             gpu_resource, gpu_count_in_total, scaler,
+                                             gen_loss_summary);
+  }
+}
+
+}  // namespace
 
 std::optional<core23::Tensor> get_tensor_from_entities(
     const std::vector<TensorEntity> tensor_entities, const std::string& name) {
@@ -93,7 +122,6 @@ InputTensorsAndOutputNames get_input_tensors_and_output_names(
 
 void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& tensor_entities,
                           std::vector<std::unique_ptr<Layer>>& layers,
-                          std::map<std::string, core23::Tensor>& loss_tensors,
                           std::map<std::string, std::unique_ptr<ILoss>>& losses,
                           metrics::Core23MultiLossMetricMap* raw_metrics, int gpu_count_in_total,
                           const std::shared_ptr<GPUResource>& gpu_resource,
@@ -101,7 +129,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           bool use_algorithm_search,
                           std::vector<Layer*>* embedding_dependent_layers,
                           std::vector<Layer*>* embedding_independent_layers,
-                          bool embedding_dependent) {
+                          bool embedding_dependent, const Solver& solver) {
   bool skip_dgrad = layers.size() == 0;
 
   Layer_t layer_type = dense_layer.layer_type;
@@ -173,19 +201,22 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
 
-      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
+      auto& input_tensor = input_output_info.input_tensors[0];
+      auto& label_tensor = input_output_info.input_tensors[1];
+      core23::Tensor loss_tensor(tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
 
-      // create new loss tensor
-      std::string name = dense_layer.bottom_names[1];
-      core23::Tensor new_loss_tensor(
-          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
-
-      // create new loss item
       std::unique_ptr<ILoss> new_loss;
+      if (use_mixed_precision) {
+        new_loss = create_loss<__half, BinaryCrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      } else {
+        new_loss = create_loss<float, BinaryCrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      }
 
-      // TODO: fill the details including the creation of new_loss
-
-      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      std::string name = dense_layer.bottom_names[1];
       losses.insert(std::make_pair(name, std::move(new_loss)));
       break;
     }
@@ -228,18 +259,23 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
             input_output_info.input_tensors[1].shape().str();
         HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
-      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
-      // create new loss tensor
-      std::string name = dense_layer.bottom_names[1];
-      core23::Tensor new_loss_tensor(
-          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
 
-      // create new loss item
+      auto& input_tensor = input_output_info.input_tensors[0];
+      auto& label_tensor = input_output_info.input_tensors[1];
+      core23::Tensor loss_tensor(tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
+
       std::unique_ptr<ILoss> new_loss;
+      if (use_mixed_precision) {
+        new_loss = create_loss<__half, CrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      } else {
+        new_loss = create_loss<float, CrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      }
 
-      // TODO: fill the details including the creation of new_loss
-
-      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      std::string name = dense_layer.bottom_names[1];
       losses.insert(std::make_pair(name, std::move(new_loss)));
       break;
     }
@@ -586,18 +622,23 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
             input_output_info.input_tensors[1].shape().str();
         HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
-      [[maybe_unused]] auto& label_tensor = input_output_info.input_tensors[1];
-      // create new loss tensor
-      std::string name = dense_layer.bottom_names[1];
-      core23::Tensor new_loss_tensor(
-          tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
 
-      // create new loss item
+      auto& input_tensor = input_output_info.input_tensors[0];
+      auto& label_tensor = input_output_info.input_tensors[1];
+      core23::Tensor loss_tensor(tensor_params.shape({1, 1}).data_type(core23::ScalarType::Float));
+
       std::unique_ptr<ILoss> new_loss;
+      if (use_mixed_precision) {
+        new_loss = create_loss<__half, MultiCrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      } else {
+        new_loss = create_loss<float, MultiCrossEntropyLoss>(
+            label_tensor, input_tensor, loss_tensor, dense_layer, layers, gpu_count_in_total,
+            gpu_resource, scaler, solver.gen_loss_summary);
+      }
 
-      // TODO: fill the details including the creation of new_loss
-
-      loss_tensors.insert(std::make_pair(name, new_loss_tensor));
+      std::string name = dense_layer.bottom_names[1];
       losses.insert(std::make_pair(name, std::move(new_loss)));
       break;
     }
@@ -846,13 +887,13 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     // Create new set of metrics and add to raw metrics map
     std::string name = dense_layer.bottom_names[1];
 
-    core23::Tensor& lookup_loss_tensor = loss_tensors.find(name)->second;
+    const core23::Tensor& lookup_loss_tensor = losses.find(name)->second->get_loss_tensors()[0];
 
     metrics::Core23RawMetricMap new_map;
     new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor));
     new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.input_tensors[0]));
     new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.input_tensors[1]));
-    (*raw_metrics).insert(std::make_pair(name, new_map));
+    raw_metrics->insert(std::make_pair(name, new_map));
   }
 }
 

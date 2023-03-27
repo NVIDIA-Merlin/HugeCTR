@@ -50,8 +50,12 @@ struct OptimizerGPUFactory {
   std::unique_ptr<Optimizer> operator()(std::vector<core23::Tensor> weight_tensors,
                                         std::vector<core23::Tensor> weight_half_tensors,
                                         std::vector<core23::Tensor> wgrad_tensors, ARGS... args) {
-    return std::make_unique<OptimizerGPU<T>>(weight_tensors, wgrad_tensors, test::get_default_gpu(),
-                                             args...);
+    WeightTensors weight_tensor_container(weight_tensors,
+                                          {static_cast<int64_t>(weight_tensors.size())});
+    WgradTensors<T> wgrad_tensor_container(wgrad_tensors,
+                                           {static_cast<int64_t>(wgrad_tensors.size())});
+    return std::make_unique<OptimizerGPU<T>>(weight_tensor_container, wgrad_tensor_container,
+                                             test::get_default_gpu(), args...);
   }
 };
 
@@ -67,8 +71,15 @@ struct OptimizerGPUFactory<T, SGDOptimizer, ARGS...> {
   std::unique_ptr<Optimizer> operator()(std::vector<core23::Tensor> weight_tensors,
                                         std::vector<core23::Tensor> weight_half_tensors,
                                         std::vector<core23::Tensor> wgrad_tensors, ARGS... args) {
-    return std::make_unique<SGDOptimizer<T>>(weight_tensors, weight_half_tensors, wgrad_tensors,
-                                             test::get_default_gpu(), args...);
+    WeightTensors weight_tensor_container(weight_tensors,
+                                          {static_cast<int64_t>(weight_tensors.size())});
+    WeightHalfTensors weight_half_tensor_container(
+        weight_half_tensors, {static_cast<int64_t>(weight_half_tensors.size())});
+    WgradTensors<T> wgrad_tensor_container(wgrad_tensors,
+                                           {static_cast<int64_t>(wgrad_tensors.size())});
+    return std::make_unique<SGDOptimizer<T>>(weight_tensor_container, weight_half_tensor_container,
+                                             wgrad_tensor_container, test::get_default_gpu(),
+                                             args...);
   }
 };
 

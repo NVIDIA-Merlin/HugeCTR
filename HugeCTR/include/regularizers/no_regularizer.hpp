@@ -46,8 +46,8 @@ class NoRegularizer : public Regularizer<T> {
    * @param batch_size Network batch size
    * @param device_id Device to be used
    */
-  NoRegularizer(std::vector<core23::Tensor> weight_tensors,
-                std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+  NoRegularizer(std::optional<WeightTensors> weight_tensors,
+                std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                 const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*

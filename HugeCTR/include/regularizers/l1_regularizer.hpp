@@ -23,7 +23,7 @@
 
 namespace HugeCTR {
 
-/**
+/**:
  * @brief L1Regularizer
  */
 template <typename T>
@@ -45,11 +45,11 @@ class L1Regularizer : public Regularizer<T> {
    * @param weight_tensors TensorContainer of all the layers' weights
    * @param wgrad_tensors TensorContainer of all the layers' wgrads
    * @param batch_size Network batch size
-   * @param device_id Device to be used
+   * L@param device_id Device to be used
    */
-  L1Regularizer(std::vector<core23::Tensor> weight_tensors,
-                std::vector<core23::Tensor> wgrad_tensors, const int batch_size, const float lambda,
-                const std::shared_ptr<GPUResource>& gpu_resource);
+  L1Regularizer(std::optional<WeightTensors> weight_tensors,
+                std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
+                const float lambda, const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of L1Regularizer

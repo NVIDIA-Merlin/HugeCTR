@@ -73,7 +73,7 @@ class Layer {
     return std::vector<TensorBag2>();
   }
 
-  virtual std::vector<core23::Tensor> Core23Tempget_tensors_for_non_trainable_params() {
+  virtual std::vector<core23::Tensor> get_non_trainable_params_as_tensors() {
     return std::vector<core23::Tensor>();
   }
 

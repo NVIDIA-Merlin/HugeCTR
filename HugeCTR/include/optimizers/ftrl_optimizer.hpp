@@ -54,8 +54,8 @@ class FtrlOptimizer : public Optimizer {
    * @param lambda1 lambda1 in FTRL paper
    * @param lambda2 lambda2 in FTRL paper
    */
-  FtrlOptimizer(std::vector<core23::Tensor> weight_tensors,
-                std::vector<core23::Tensor> wgrad_tensors,
+  FtrlOptimizer(std::optional<WeightTensors> weight_tensors,
+                std::optional<WgradTensors<T>> wgrad_tensors,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta = 0.0f, float lambda1 = 0.0f, float lambda2 = 0.0f, float scaler = 1.f);
   /*Initialization:
@@ -83,6 +83,8 @@ class FtrlOptimizer : public Optimizer {
   ```
    */
   void update() override;
+
+  std::vector<core23::Tensor> get_opt_state_tensors() override { return {n_tensor_, z_tensor_}; }
 
  private:
   // named as in ftrl paper Ad Click Prediction: a View from the Trenches

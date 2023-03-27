@@ -416,12 +416,8 @@ std::string Core23TempBatchNormLayer<T>::get_no_trained_params_in_string() {
 }
 
 template <typename T>
-std::vector<core23::Tensor>
-Core23TempBatchNormLayer<T>::Core23Tempget_tensors_for_non_trainable_params() {
-  std::vector<core23::Tensor> tensors;
-  tensors.push_back(result_running_mean_);
-  tensors.push_back(result_running_var_);
-  return tensors;
+std::vector<core23::Tensor> Core23TempBatchNormLayer<T>::get_non_trainable_params_as_tensors() {
+  return {result_running_mean_, result_running_var_};
 }
 
 template <typename T>

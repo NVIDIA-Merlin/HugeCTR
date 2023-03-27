@@ -107,14 +107,13 @@ AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const T
 }
 
 template <typename T>
-AdaGradOptimizer<T>::AdaGradOptimizer(std::vector<core23::Tensor> weight_tensors,
-                                      std::vector<core23::Tensor> wgrad_tensors,
+AdaGradOptimizer<T>::AdaGradOptimizer(std::optional<WeightTensors> weight_tensors,
+                                      std::optional<WgradTensors<T>> wgrad_tensors,
                                       const std::shared_ptr<GPUResource>& gpu_resource,
                                       float learning_rate, float initial_accu_value, float epsilon,
                                       float scaler)
     : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
       initial_accumulator_value_(initial_accu_value),
       epsilon_(epsilon) {
   core23::TensorParams tensor_params =
