@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <core23/logger.hpp>
+#include <core23_network.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
 #include <fstream>
@@ -27,7 +28,8 @@
 
 namespace HugeCTR {
 
-void Model::create_train_network_pipeline() {
+template <typename Network>
+void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   graph_.train_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
@@ -46,7 +48,7 @@ void Model::create_train_network_pipeline() {
     auto network_forward_and_backward = std::make_shared<StreamContextScheduleable>([=] {
       long long current_batchsize_per_device =
           train_data_reader_->get_current_batchsize_per_device(local_id);
-      networks_[local_id]->train(current_batchsize_per_device);
+      networks[local_id]->train(current_batchsize_per_device);
     });
 
     std::vector<std::shared_ptr<Scheduleable>> scheduleable_list;
@@ -60,7 +62,8 @@ void Model::create_train_network_pipeline() {
   }
 }
 
-void Model::create_eval_network_pipeline() {
+template <typename Network>
+void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(evaluate_data_reader_.get());
@@ -79,13 +82,12 @@ void Model::create_eval_network_pipeline() {
     auto network_eval = std::make_shared<StreamContextScheduleable>([=] {
       long long current_batchsize_per_device =
           evaluate_data_reader_->get_current_batchsize_per_device(local_id);
-      networks_[local_id]->eval(current_batchsize_per_device);
+      networks[local_id]->eval(current_batchsize_per_device);
     });
 
     auto cal_metrics = std::make_shared<StreamContextScheduleable>([=] {
       for (auto& metric : metrics_) {
-        metrics::RawMetricMap metric_map =
-            networks_[local_id]->get_raw_metrics_all().begin()->second;
+        auto metric_map = networks[local_id]->get_raw_metrics_all().begin()->second;
         metric->local_reduce(local_id, metric_map);
       }
     });
@@ -101,7 +103,8 @@ void Model::create_eval_network_pipeline() {
   }
 }
 
-void Model::create_train_pipeline() {
+template <typename Network>
+void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
   auto scheduled_embedding = dynamic_cast<SchedulableEmbeding*>(embeddings_[0].get());
   bool is_train = true;
@@ -182,50 +185,48 @@ void Model::create_train_pipeline() {
         [=] { scheduled_embedding->infreq_model_backward(local_id); });
 
     auto network_init = std::make_shared<StreamContextScheduleable>([=] {
-      if (networks_[local_id]->use_mixed_precision_ &&
-          networks_[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
-        networks_[local_id]->conv_weight_(networks_[local_id]->train_weight_tensor_half_,
-                                          networks_[local_id]->train_weight_tensor_);
+      if (networks[local_id]->use_mixed_precision_ &&
+          networks[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
+        networks[local_id]->conv_weight_(networks[local_id]->train_weight_tensor_half_,
+                                         networks[local_id]->train_weight_tensor_);
       }
     });
 
     auto bottom_network_fprop = std::make_shared<StreamContextScheduleable>([=] {
-      networks_[local_id]->prop_layers(networks_[local_id]->bottom_layers_, true, is_train);
+      networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, true, is_train);
     });
 
-    auto top_network_fprop = std::make_shared<StreamContextScheduleable>([=] {
-      networks_[local_id]->prop_layers(networks_[local_id]->top_layers_, true, is_train);
-    });
+    auto top_network_fprop = std::make_shared<StreamContextScheduleable>(
+        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, true, is_train); });
 
     auto init_wgrad = std::make_shared<StreamContextScheduleable>([=] {
-      networks_[local_id]->train_losses_.begin()->second->regularizer_initialize_wgrad(is_train);
+      networks[local_id]->train_losses_.begin()->second->regularizer_initialize_wgrad(is_train);
     });
 
     auto lr_sched_update = std::make_shared<StreamContextScheduleable>(
-        [=]() { networks_[local_id]->lr_sched_->update(); });
+        [=]() { networks[local_id]->lr_sched_->update(); });
 
     auto cal_loss = std::make_shared<StreamContextScheduleable>([=] {
-      float rterm = networks_[local_id]->train_losses_.begin()->second->regularizer_compute_rterm();
+      float rterm = networks[local_id]->train_losses_.begin()->second->regularizer_compute_rterm();
       long long current_batchsize_per_device =
           scheduled_reader->get_current_batchsize_per_device(local_id);
 
-      networks_[local_id]->train_losses_.begin()->second->compute(
+      networks[local_id]->train_losses_.begin()->second->compute(
           is_train, current_batchsize_per_device, rterm);
     });
 
-    auto top_network_bprop = std::make_shared<StreamContextScheduleable>([=] {
-      networks_[local_id]->prop_layers(networks_[local_id]->top_layers_, false, is_train);
-    });
+    auto top_network_bprop = std::make_shared<StreamContextScheduleable>(
+        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, false, is_train); });
 
     auto bottom_network_bprop = std::make_shared<StreamContextScheduleable>([=] {
-      networks_[local_id]->prop_layers(networks_[local_id]->bottom_layers_, false, is_train);
+      networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, false, is_train);
     });
 
     auto network_exchange_wgrad =
         std::make_shared<StreamContextScheduleable>([=] { this->exchange_wgrad(local_id); });
 
     auto update_params =
-        std::make_shared<StreamContextScheduleable>([=] { networks_[local_id]->update_params(); });
+        std::make_shared<StreamContextScheduleable>([=] { networks[local_id]->update_params(); });
 
     auto iteration_end = std::make_shared<StreamContextScheduleable>([] {});
 
@@ -396,7 +397,8 @@ void Model::train_pipeline(size_t current_batch_size) {
   }
 }
 
-void Model::create_evaluate_pipeline() {
+template <typename Network>
+void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(evaluate_data_reader_.get());
   auto scheduled_embedding = dynamic_cast<SchedulableEmbeding*>(embeddings_[0].get());
   bool is_train = false;
@@ -437,10 +439,10 @@ void Model::create_evaluate_pipeline() {
         [=] { scheduled_embedding->global_barrier(is_train, local_id); });
 
     auto network_init = std::make_shared<StreamContextScheduleable>([=] {
-      if (networks_[local_id]->use_mixed_precision_ &&
-          networks_[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
-        networks_[local_id]->conv_weight_(networks_[local_id]->train_weight_tensor_half_,
-                                          networks_[local_id]->train_weight_tensor_);
+      if (networks[local_id]->use_mixed_precision_ &&
+          networks[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
+        networks[local_id]->conv_weight_(networks[local_id]->train_weight_tensor_half_,
+                                         networks[local_id]->train_weight_tensor_);
       }
     });
 
@@ -448,13 +450,12 @@ void Model::create_evaluate_pipeline() {
       long long current_batchsize_per_device =
           scheduled_reader->get_current_batchsize_per_device(local_id);
 
-      networks_[local_id]->eval(current_batchsize_per_device);
+      networks[local_id]->eval(current_batchsize_per_device);
     });
 
     auto cal_metrics = std::make_shared<StreamContextScheduleable>([=] {
       for (auto& metric : metrics_) {
-        metrics::RawMetricMap metric_map =
-            networks_[local_id]->get_raw_metrics_all().begin()->second;
+        auto metric_map = networks[local_id]->get_raw_metrics_all().begin()->second;
         metric->local_reduce(local_id, metric_map);
       }
     });
@@ -529,7 +530,7 @@ void Model::evaluate_pipeline(size_t current_batch_size) {
 
   scheduled_embedding->assign_input_tensors(false, current_batch_size, inflight_id, cached);
 
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
   {
     size_t id = omp_get_thread_num();
     auto gpu = resource_manager_->get_local_gpu(id);
@@ -550,7 +551,19 @@ void Model::evaluate_pipeline(size_t current_batch_size) {
   }
 
   for (auto& metric : metrics_) {
-    metric->global_reduce(networks_.size());
+    metric->global_reduce(number_of_networks());
   }
 }
+
+template void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>&);
+
+template void Model::create_train_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
+template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
+template void Model::create_train_network_pipeline(
+    std::vector<std::shared_ptr<Core23TempNetwork>>&);
+template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
+
 }  // namespace HugeCTR

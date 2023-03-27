@@ -33,12 +33,15 @@
 #include <optimizer.hpp>
 #include <parser.hpp>
 #include <pipeline.hpp>
+#include <pybind/common_helpers.hpp>
 #include <string>
 #include <thread>
 #include <utility>
 #include <utils.hpp>
 
 namespace HugeCTR {
+
+class Core23TempNetwork;
 
 namespace {
 
@@ -354,8 +357,8 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
 void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
                                  DenseLayer& dense_layer);
 
-void init_optimizer(OptParams& opt_params, const Solver& solver,
-                    const std::shared_ptr<OptParamsPy>& opt_params_py);
+void init_optimizer_params(OptParams& opt_params, const Solver& solver,
+                           const std::shared_ptr<OptParamsPy>& opt_params_py);
 
 void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch,
                                   const Solver& solver, GpuLearningRateSchedulers& gpu_lr_sches,
@@ -367,9 +370,9 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
  * train; evaluation; get loss; load and download trained parameters.
  * To learn how to use those method, please refer to main.cpp.
  */
-class Model {
+class Model final {
  public:
-  virtual ~Model();
+  ~Model();
   Model(const Solver& solver, const DataReaderParams& reader_params,
         std::shared_ptr<OptParamsPy>& opt_params,
         std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params);
@@ -380,40 +383,38 @@ class Model {
 
   void construct_from_json(const std::string& graph_config_file, bool include_dense_network);
 
-  virtual void add(Input& input);
+  void add(Input& input);
 
-  virtual void add(SparseEmbedding& sparse_embedding);
+  void add(SparseEmbedding& sparse_embedding);
 
-  virtual void add(DenseLayer& dense_layer);
+  void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingCollectionConfig& ebc_config);
-
-  virtual void add_internal(DenseLayer& dense_layer);
+  void add(const EmbeddingCollectionConfig& ebc_config);
 
   void add(GroupDenseLayer& group_dense_layer);
 
   void graph_analysis();
 
-  virtual void compile();
+  void compile();
 
-  virtual void compile(std::vector<std::string>& label_names, std::vector<float>& label_weights);
+  void compile(std::vector<std::string>& label_names, std::vector<float>& label_weights);
 
   void update_label_weights(std::vector<std::string>& label_names,
                             std::vector<float>& label_weights);
 
   void summary();
 
-  virtual void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                   std::string snapshot_prefix);
+  void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
+           std::string snapshot_prefix);
 
   void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                   std::string eval_source);
 
   void set_source(std::string source, std::string eval_source);
 
-  virtual bool train(bool is_first_batch);
+  bool train(bool is_first_batch);
 
-  virtual bool eval(bool is_first_batch);
+  bool eval(bool is_first_batch);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -538,7 +539,7 @@ class Model {
 
   void check_out_tensor(Tensor_t tensor_type, int index, float* global_result);
 
- protected:
+ private:
   Solver solver_;
   DataReaderParams reader_params_;
   OptParams opt_params_;
@@ -553,6 +554,9 @@ class Model {
   std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
   std::vector<std::vector<TensorEntry>> train_tensor_entries_list_;
   std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
+  std::vector<std::vector<TensorEntity>> train_tensor_entities_list_;
+  std::vector<std::vector<TensorEntity>> evaluate_tensor_entities_list_;
+
   std::map<std::string, bool> tensor_active_;
 
   std::map<std::string, float> label_weights_;
@@ -588,9 +592,10 @@ class Model {
   std::vector<std::string> data_input_info_; /**< data input name */
   std::map<std::string, std::vector<size_t>> tensor_shape_info_;
   std::vector<std::pair<std::string, std::string>>
-      input_output_info_;                               /**< input output name of each layer. */
-  std::vector<std::string> layer_info_;                 /**< type of each layer. */
-  std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
+      input_output_info_;                          /**< input output name of each layer. */
+  std::vector<std::string> layer_info_;            /**< type of each layer. */
+  std::vector<std::shared_ptr<Network>> networks_; /**< networks (dense) used in training. */
+  std::vector<std::shared_ptr<Core23TempNetwork>> core23_networks_;
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
 
   using TableNameToGlobalIDDict = std::unordered_map<std::string, std::pair<int, int>>;
@@ -659,23 +664,34 @@ class Model {
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
-  virtual void exchange_wgrad(size_t device_id);
-  virtual void add_dense_layer(DenseLayer& dense_layer);
-  virtual void add_dense_layer_internal(
-      DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
-      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-      const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-      const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-      std::map<std::string, Tensor2<float>>& loss_tensor,
-      std::vector<std::unique_ptr<Layer>>& layers,
-      std::map<std::string, std::unique_ptr<ILoss>>& loss,
-      std::map<std::string, metrics::RawMetricMap>* raw_metrics, int num_networks_in_global,
-      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-      bool enable_tf32_compute, float scaler, bool use_algorithm_search,
-      std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers,
-      bool embedding_dependent);
+  void exchange_wgrad(size_t device_id);
+  void add_internal(DenseLayer& dense_layer);
+  void pre_add_dense_layer(DenseLayer& dense_layer);
+  void add_dense_layer(DenseLayer& dense_layer);
+  void add_dense_layers(std::vector<DenseLayer>& dense_layers);
+  void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
+                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                                const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                                const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+                                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                                const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+                                std::map<std::string, Tensor2<float>>& loss_tensor,
+                                std::vector<std::unique_ptr<Layer>>& layers,
+                                std::map<std::string, std::unique_ptr<ILoss>>& loss,
+                                std::map<std::string, metrics::RawMetricMap>* raw_metrics,
+                                int num_networks_in_global,
+                                const std::shared_ptr<GPUResource>& gpu_resource,
+                                bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                                bool use_algorithm_search, std::vector<Layer*>* top_layers,
+                                std::vector<Layer*>* bottom_layers, bool embedding_dependent);
+
+  void create_networks();
+  void build_networks();
+  void initialize();
+  void create_metrics();
+  void create_pipelines();
+
+  size_t number_of_networks() const;
 
   struct GraphScheduler {
    private:
@@ -719,10 +735,14 @@ class Model {
     return (embeddings_.size() == 1 &&
             embeddings_[0]->get_embedding_type() == Embedding_t::HybridSparseEmbedding);
   }
-  void create_train_pipeline();
-  void create_evaluate_pipeline();
-  void create_train_network_pipeline();
-  void create_eval_network_pipeline();
+  template <typename Network>
+  void create_train_pipeline(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename Network>
+  void create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename Network>
+  void create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename Network>
+  void create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
   void train_pipeline(size_t current_batch_size);
   void evaluate_pipeline(size_t current_batch_size);
 };

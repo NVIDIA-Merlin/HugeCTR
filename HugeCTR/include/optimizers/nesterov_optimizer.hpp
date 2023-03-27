@@ -45,8 +45,8 @@ class NesterovOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(std::vector<core23::Tensor> weight_tensors,
-                    std::vector<core23::Tensor> wgrad_tensors,
+  NesterovOptimizer(std::optional<WeightTensors> weight_tensors,
+                    std::optional<WgradTensors<T>> wgrad_tensors,
                     const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                     float momentum_factor, float scaler = 1.f);
 
@@ -57,6 +57,8 @@ class NesterovOptimizer : public Optimizer {
    * @param stream cuda stream used by update kernel
    */
   void update() override;
+
+  std::vector<core23::Tensor> get_opt_state_tensors() override { return {accum_tensor_}; }
 
  private:
   Tensor2<T> wgrad_;

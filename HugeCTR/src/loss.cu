@@ -34,6 +34,8 @@ __forceinline__ __device__ void atomic_global_sum_div(T val, T *acc, float div) 
 
 }  // namespace
 
+ILoss::~ILoss() {}
+
 template <typename T>
 Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor,
               const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
@@ -505,13 +507,13 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
     int total_gpu_count, float scaler, bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
               scaler, gen_loss_summary) {
-  if (label_tensor.shape().size() != 2 || input_tensor.shape().size() != 2 ||
-      label_tensor.shape().size(0) != input_tensor.shape().size(0) ||
-      label_tensor.shape().size(1) != input_tensor.shape().size(1)) {
+  if (label_tensor.dims() != 2 || input_tensor.dims() != 2 ||
+      label_tensor.size(0) != input_tensor.size(0) ||
+      label_tensor.size(1) != input_tensor.size(1)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
   }
   // verify the length of target_weight
-  if (static_cast<int64_t>(target_weight.size()) != input_tensor.shape().size(1)) {
+  if (static_cast<int64_t>(target_weight.size()) != input_tensor.size(1)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "target_weight.size() != input_tensor.shape().size(1)");
   }
 
@@ -520,7 +522,7 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
   core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
 
   // load target_weight to internal Tensor
-  core23::Shape twdim = {1, label_tensor.shape().size(1)};
+  core23::Shape twdim = {1, label_tensor.size(1)};
   target_weight_ = core23::Tensor(core23::TensorParams()
                                       .data_type(core23::ToScalarType<float>::value)
                                       .shape(twdim)
@@ -530,8 +532,6 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
   CudaDeviceContext context(Loss<T>::get_device_id());
   HCTR_LIB_THROW(cudaMemcpy(target_weight_.data(), target_weight.data(), target_weight_.num_bytes(),
                             cudaMemcpyHostToDevice));
-
-  return;
 }
 
 template class Loss<__half>;

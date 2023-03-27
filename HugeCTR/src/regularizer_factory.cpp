@@ -24,20 +24,25 @@ namespace HugeCTR {
 template <typename T>
 std::shared_ptr<Regularizer<T>> create_regularizer(
     bool use_regularizer, Regularizer_t regularizer_type, float lambda,
-    std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
+    std::vector<core23::Tensor>& weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
     const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource) {
-  std::shared_ptr<Regularizer<T>> reg(
-      new NoRegularizer<T>(weight_tensors, wgrad_tensors, batch_size, gpu_resource));
+  WeightTensors weight_tensor_container(weight_tensors,
+                                        {static_cast<int64_t>(weight_tensors.size())});
+  WgradTensors<T> wgrad_tensor_container(wgrad_tensors,
+                                         {static_cast<int64_t>(wgrad_tensors.size())});
+
+  std::shared_ptr<Regularizer<T>> reg(new NoRegularizer<T>(
+      weight_tensor_container, wgrad_tensor_container, batch_size, gpu_resource));
   if (use_regularizer) {
     switch (regularizer_type) {
       case Regularizer_t::L1: {
-        reg.reset(
-            new L1Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, lambda, gpu_resource));
+        reg.reset(new L1Regularizer<T>(weight_tensor_container, wgrad_tensor_container, batch_size,
+                                       lambda, gpu_resource));
         break;
       }
       case Regularizer_t::L2: {
-        reg.reset(
-            new L2Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, lambda, gpu_resource));
+        reg.reset(new L2Regularizer<T>(weight_tensor_container, wgrad_tensor_container, batch_size,
+                                       lambda, gpu_resource));
         break;
       }
       default: {
@@ -50,12 +55,12 @@ std::shared_ptr<Regularizer<T>> create_regularizer(
 
 template std::shared_ptr<Regularizer<float>> create_regularizer<float>(
     bool use_regularizer, Regularizer_t regularizer_type, float lambda,
-    std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
+    std::vector<core23::Tensor>& weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
     const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
 
 template std::shared_ptr<Regularizer<__half>> create_regularizer<__half>(
     bool use_regularizer, Regularizer_t regularizer_type, float lambda,
-    std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
+    std::vector<core23::Tensor>& weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
     const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
 
 }  // namespace HugeCTR

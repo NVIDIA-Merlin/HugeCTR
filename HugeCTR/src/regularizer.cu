@@ -31,13 +31,11 @@ Regularizer<T>::Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>&
       gpu_resource_(gpu_resource) {}
 
 template <typename T>
-Regularizer<T>::Regularizer(std::vector<core23::Tensor> weight_tensors,
-                            std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+Regularizer<T>::Regularizer(std::optional<WeightTensors> weight_tensors,
+                            std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                             const std::shared_ptr<GPUResource>& gpu_resource)
-    : weight_tensors_(std::make_optional<WeightTensors>(
-          std::move(weight_tensors), core23::Shape({static_cast<int64_t>(weight_tensors.size())}))),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+    : weight_tensors_(weight_tensors),
+      wgrad_tensors_(wgrad_tensors),
       batch_size_(batch_size),
       gpu_resource_(gpu_resource) {}
 

@@ -61,13 +61,13 @@ void regularizer_test_common(size_t batch_size, std::vector<core23::Shape> shape
     num_elements += shape.size();
   }
 
+  int64_t num_tensors = weight_tensor_vec.size();
+
   auto regularizer = create_regularizer<float>(
       true, type, lambda, weight_tensor_vec, wgrad_tensor_vec, batch_size, test::get_default_gpu());
 
-  int64_t num_tensors = weight_tensor_vec.size();
-  WeightTensors weight_tensors(std::move(weight_tensor_vec), {num_tensors});
-  WgradTensors<float> wgrad_tensors(std::move(wgrad_tensor_vec), {num_tensors});
-
+  WeightTensors weight_tensors(weight_tensor_vec, {num_tensors});
+  WgradTensors<float> wgrad_tensors(wgrad_tensor_vec, {num_tensors});
   auto flat_weight_tensor = weight_tensors.flatten();
   auto flat_wgrad_tensor = wgrad_tensors.flatten();
 

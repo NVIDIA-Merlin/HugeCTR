@@ -20,14 +20,11 @@
 #include <general_buffer2.hpp>
 #include <gpu_resource.hpp>
 #include <memory>
+#include <network_helpers.hpp>
 #include <optional>
 #include <utils.hpp>
 
 namespace HugeCTR {
-
-using WeightTensors = core23::TensorContainer<float, 1, 1>;
-template <typename T>
-using WgradTensors = core23::TensorContainer<T, 1, 1>;
 
 /**
  * @brief Abstract base class of Regularizer
@@ -52,8 +49,9 @@ class Regularizer {
    * @param batch_size Network batch size
    * @param device_id Device to be used
    */
-  Regularizer(std::vector<core23::Tensor> weight_tensors, std::vector<core23::Tensor> wgrad_tensors,
-              const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
+  Regularizer(std::optional<WeightTensors> weight_tensors,
+              std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
+              const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of Regularizer

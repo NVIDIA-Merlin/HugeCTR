@@ -61,14 +61,13 @@ AdamOptimizer<T>::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2
   opt_buf->reserve({weight_main.get_num_elements()}, &v_);
 }
 template <typename T>
-AdamOptimizer<T>::AdamOptimizer(std::vector<core23::Tensor> weight_tensors,
-                                std::vector<core23::Tensor> wgrad_tensors,
+AdamOptimizer<T>::AdamOptimizer(std::optional<WeightTensors> weight_tensors,
+                                std::optional<WgradTensors<T>> wgrad_tensors,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                 float learning_rate, float beta1, float beta2, float epsilon,
                                 float scaler)
     : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
       t_(0),
       beta1_(beta1),
       beta2_(beta2),

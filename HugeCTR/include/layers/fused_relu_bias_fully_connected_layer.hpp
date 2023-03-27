@@ -278,7 +278,6 @@ class Core23TempFusedReluBiasFullyConnectedLayer : public Core23TempTrainableLay
   /*
    * stores the references to the bottom tensors of this layer.
    */
-  // core23::Tensor train_in_tensor_;
   core23::Tensor mask_in_tensor_;
   core23::Tensor dRelu_in_tensor_;
   core23::Tensor db_in_tensor_;
@@ -286,7 +285,6 @@ class Core23TempFusedReluBiasFullyConnectedLayer : public Core23TempTrainableLay
   /*
    * stores the references to the top tensors of this layer.
    */
-  // core23::Tensor train_out_tensor_;
   core23::Tensor mask_out_tensor_;
   core23::Tensor dRelu_out_tensor_;
   core23::Tensor db_out_tensor_;

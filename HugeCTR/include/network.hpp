@@ -47,7 +47,7 @@ struct TensorEntry {
  * Each GPU (device) has an instance of Network. Network performs
  * forward/backward/loss/update of the dense layers.
  */
-class Network {
+class Network final {
  protected:
   std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
   std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
@@ -103,12 +103,12 @@ class Network {
   /**
    * Forward, backward and update the network.
    */
-  virtual void train(long long current_batchsize);
+  void train(long long current_batchsize);
 
   /**
    * Forward only.
    */
-  virtual void eval(long long current_batchsize);
+  void eval(long long current_batchsize);
 
   /**
    * Forward only for inference.

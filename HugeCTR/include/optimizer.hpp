@@ -23,6 +23,7 @@
 #include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
 #include <network_buffer_channels.hpp>
+#include <network_helpers.hpp>
 #include <optional>
 
 namespace HugeCTR {
@@ -251,11 +252,9 @@ class Optimizer {
    * @param learning_rate learning rate
    * @param scaler scaler for the gradients
    */
-  Optimizer(std::vector<core23::Tensor> weight_tensors,
+  Optimizer(std::optional<WeightTensors> weight_tensors,
             const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float scaler)
-      : weight_tensors_(std::make_optional<WeightTensors>(
-            std::move(weight_tensors),
-            core23::Shape({static_cast<int64_t>(weight_tensors.size())}))),
+      : weight_tensors_(weight_tensors),
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler),
@@ -274,6 +273,8 @@ class Optimizer {
    * @param stream cuda stream used by update kernel
    */
   virtual void update() = 0;
+
+  virtual std::vector<core23::Tensor> get_opt_state_tensors() { return {}; }
 
   /**
    * update the learning rate

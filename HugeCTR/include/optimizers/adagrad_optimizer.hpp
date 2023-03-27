@@ -54,8 +54,8 @@ class AdaGradOptimizer : public Optimizer {
    * @param epsilon
    * @param scaler scaler for gradient values
    */
-  AdaGradOptimizer(std::vector<core23::Tensor> weight_tensors,
-                   std::vector<core23::Tensor> wgrad_tensors,
+  AdaGradOptimizer(std::optional<WeightTensors> weight_tensors,
+                   std::optional<WgradTensors<T>> wgrad_tensors,
                    const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                    float initial_accu_value = 0., float epsilon = 1e-7, float scaler = 1.f);
 
@@ -66,6 +66,8 @@ class AdaGradOptimizer : public Optimizer {
    * @param stream cuda stream used by update kernel
    */
   void update() override;
+
+  std::vector<core23::Tensor> get_opt_state_tensors() override { return {accum_tensor_}; }
 
  private:
   Tensor2<T> wgrad_;

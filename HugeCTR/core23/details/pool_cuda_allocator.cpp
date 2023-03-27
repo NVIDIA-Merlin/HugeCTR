@@ -61,9 +61,10 @@ PoolCUDAAllocator::PoolCUDAAllocator(const Device& device) {
     HCTR_LIB_THROW(cudaMemPoolSetAccess(mem_pool_handle_, descs.data(), descs.size()));
   }
 
-  const int64_t initial_pool_size = free / 2;
-  auto* ptr = allocate(initial_pool_size, 0);
-  deallocate(ptr, 0);
+  // TODO: check if this "warm-up" is really necessary
+  // const int64_t initial_pool_size = free / 2;
+  // auto* ptr = allocate(initial_pool_size, 0);
+  // deallocate(ptr, 0);
 }
 
 PoolCUDAAllocator::~PoolCUDAAllocator() { HCTR_LIB_THROW(cudaMemPoolDestroy(mem_pool_handle_)); }

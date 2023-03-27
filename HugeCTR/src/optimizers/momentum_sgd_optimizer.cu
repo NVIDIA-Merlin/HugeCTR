@@ -54,14 +54,13 @@ MomentumSGDOptimizer<T>::MomentumSGDOptimizer(const Tensor2<float>& weight, cons
 }
 
 template <typename T>
-MomentumSGDOptimizer<T>::MomentumSGDOptimizer(std::vector<core23::Tensor> weight_tensors,
-                                              std::vector<core23::Tensor> wgrad_tensors,
+MomentumSGDOptimizer<T>::MomentumSGDOptimizer(std::optional<WeightTensors> weight_tensors,
+                                              std::optional<WgradTensors<T>> wgrad_tensors,
                                               const std::shared_ptr<GPUResource>& gpu_resource,
                                               float learning_rate, float momentum_factor,
                                               float scaler)
     : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
       momentum_factor_(momentum_factor) {
   core23::TensorParams tensor_params =
       core23::TensorParams()

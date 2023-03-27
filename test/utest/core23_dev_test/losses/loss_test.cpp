@@ -62,8 +62,10 @@ void cross_entropy_loss(int64_t batch_size) {
                                                    .shape({1, 1})
                                                    .buffer_params(blobs_buffer_params));
 
-  std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-      {empty_tensor}, {empty_tensor}, batch_size, test::get_default_gpu()));
+  WeightTensors weight_tensors({empty_tensor}, {1});
+  WgradTensors<float> wgrad_tensors({empty_tensor}, {1});
+  std::shared_ptr<NoRegularizer<float>> no_regularizer(
+      new NoRegularizer<float>(weight_tensors, wgrad_tensors, batch_size, test::get_default_gpu()));
 
   CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, no_regularizer,
                               test::get_default_gpu(), 1);

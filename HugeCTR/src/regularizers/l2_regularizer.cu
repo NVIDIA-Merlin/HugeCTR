@@ -39,8 +39,8 @@ L2Regularizer<T>::L2Regularizer(const Tensor2<float>& weight_buff, const Tensor2
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource), lambda_(lambda) {}
 
 template <typename T>
-L2Regularizer<T>::L2Regularizer(std::vector<core23::Tensor> weight_tensors,
-                                std::vector<core23::Tensor> wgrad_tensors, const int batch_size,
+L2Regularizer<T>::L2Regularizer(std::optional<WeightTensors> weight_tensors,
+                                std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                                 const float lambda,
                                 const std::shared_ptr<GPUResource>& gpu_resource)
     : Regularizer<T>(weight_tensors, wgrad_tensors, batch_size, gpu_resource), lambda_(lambda) {}

@@ -52,13 +52,12 @@ NesterovOptimizer<T>::NesterovOptimizer(const Tensor2<float>& weight_main, const
   opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
 }
 template <typename T>
-NesterovOptimizer<T>::NesterovOptimizer(std::vector<core23::Tensor> weight_tensors,
-                                        std::vector<core23::Tensor> wgrad_tensors,
+NesterovOptimizer<T>::NesterovOptimizer(std::optional<WeightTensors> weight_tensors,
+                                        std::optional<WgradTensors<T>> wgrad_tensors,
                                         const std::shared_ptr<GPUResource>& gpu_resource,
                                         float learning_rate, float momentum_factor, float scaler)
     : Optimizer(weight_tensors, gpu_resource, learning_rate, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
       mu_(momentum_factor) {
   core23::TensorParams tensor_params =
       core23::TensorParams()

@@ -51,9 +51,9 @@ class L2Regularizer : public Regularizer<T> {
    * @param cublas_handle cuBLAS handle to execute the kernel in fprop
    * @param device_id Device to be used
    */
-  L2Regularizer(std::vector<core23::Tensor> weight_tensors,
-                std::vector<core23::Tensor> wgrad_tensors, const int batch_size, const float lambda,
-                const std::shared_ptr<GPUResource>& gpu_resource);
+  L2Regularizer(std::optional<WeightTensors> weight_tensors,
+                std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
+                const float lambda, const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of L2Regularizer

@@ -132,17 +132,14 @@ SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main,
   }
 }
 template <typename T>
-SGDOptimizer<T>::SGDOptimizer(std::vector<core23::Tensor> weight_tensors,
-                              std::vector<core23::Tensor> weight_half_tensors,
-                              std::vector<core23::Tensor> wgrad_tensors,
+SGDOptimizer<T>::SGDOptimizer(std::optional<WeightTensors> weight_tensors,
+                              std::optional<WeightHalfTensors> weight_half_tensors,
+                              std::optional<WgradTensors<T>> wgrad_tensors,
                               const std::shared_ptr<GPUResource>& gpu_resource, float lr,
                               float scaler, bool use_mixed_precision)
     : Optimizer(weight_tensors, gpu_resource, lr, scaler),
-      wgrad_tensors_(std::make_optional<WgradTensors<T>>(
-          std::move(wgrad_tensors), core23::Shape({static_cast<int64_t>(wgrad_tensors.size())}))),
-      weight_half_tensors_(std::make_optional<WeightHalfTensors>(
-          std::move(weight_half_tensors),
-          core23::Shape({static_cast<int64_t>(weight_half_tensors.size())}))),
+      wgrad_tensors_(wgrad_tensors),
+      weight_half_tensors_(weight_half_tensors),
       use_mixed_precision_(use_mixed_precision) {}
 
 template <typename T>
@@ -168,10 +165,13 @@ void SGDOptimizer<T>::update() {
     }
   } else {
     auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_weight_half_tensor = weight_half_tensors_->flatten();
     auto flat_wgrad_tensor = wgrad_tensors_->flatten();
     float* weight = flat_weight_tensor.data();
-    __half* weight_half = flat_weight_half_tensor.data();
+    __half* weight_half = nullptr;
+    if constexpr (std::is_same_v<T, __half>) {
+      auto flat_weight_half_tensor = weight_half_tensors_->flatten();
+      weight_half = flat_weight_half_tensor.data();
+    }
     const T* wgrad = flat_wgrad_tensor.data();
     auto len = flat_weight_tensor.size(0);
     const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);

@@ -52,8 +52,8 @@ class AdamOptimizer : public Optimizer {
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
    */
-  AdamOptimizer(std::vector<core23::Tensor> weight_tensors,
-                std::vector<core23::Tensor> wgrad_tensors,
+  AdamOptimizer(std::optional<WeightTensors> weight_tensors,
+                std::optional<WgradTensors<T>> wgrad_tensors,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
 
@@ -64,6 +64,8 @@ class AdamOptimizer : public Optimizer {
    * @param stream cuda stream used by update kernel
    */
   void update() override;
+
+  std::vector<core23::Tensor> get_opt_state_tensors() override { return {m_tensor_, v_tensor_}; }
 
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)

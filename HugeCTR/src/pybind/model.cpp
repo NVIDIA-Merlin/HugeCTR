@@ -20,6 +20,7 @@
 #include <core/hctr_impl/hctr_backend.hpp>
 #include <core23/logger.hpp>
 #include <core23/mpi_init_service.hpp>
+#include <core23_network.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
@@ -122,6 +123,13 @@ auto load_key_files(std::vector<std::string> const& key_files) {
   std::sort(keys_vec.begin(), keys_vec.end());
   keys_vec.erase(std::unique(keys_vec.begin(), keys_vec.end()), keys_vec.end());
   return keys_vec;
+}
+
+bool use_core23_network() {
+  if (const char* env_p = std::getenv("HUGECTR_CORE23_NETWORK"); env_p && std::atoi(env_p) == 1) {
+    return true;
+  }
+  return false;
 }
 
 }  // end namespace
@@ -347,8 +355,8 @@ GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
   }
 }
 
-void init_optimizer(OptParams& opt_params, const Solver& solver,
-                    const std::shared_ptr<OptParamsPy>& opt_params_py) {
+void init_optimizer_params(OptParams& opt_params, const Solver& solver,
+                           const std::shared_ptr<OptParamsPy>& opt_params_py) {
   opt_params.optimizer = opt_params_py->optimizer;
   opt_params.lr = solver.lr;
   opt_params.update_type = opt_params_py->update_type;
@@ -470,50 +478,10 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
     overflow_check_ = false;
   }
 
-  // reserve networks to be created
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
-                                       resource_manager_->get_local_gpu(i),
-                                       solver_.use_mixed_precision));
-    blobs_buff_list_.emplace_back(GeneralBuffer2<CudaAllocator>::create());
-  }
-
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    train_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    train_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-    evaluate_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    evaluate_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-    wgrad_buff_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    wgrad_buff_half_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-    opt_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    opt_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-    auto id = resource_manager_->get_local_gpu(i)->get_local_id();
-    if (solver_.use_mixed_precision) {
-      wgrad_buff_half_list_.emplace_back(
-          (solver_.grouped_all_reduce)
-              ? std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad_)
-                    ->get_network_wgrad_buffs()[id]
-              : std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad_)
-                    ->get_network_wgrad_buffs()[id]);
-      wgrad_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    } else {
-      wgrad_buff_list_.emplace_back(
-          (solver_.grouped_all_reduce)
-              ? std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad_)
-                    ->get_network_wgrad_buffs()[id]
-              : std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad_)
-                    ->get_network_wgrad_buffs()[id]);
-      wgrad_buff_half_list_.emplace_back(
-          blobs_buff_list_[i]->create_block<__half>());  // placeholder
-    }
-  }
-
-  // resize train_tensor_entries_list_ and evaluate_tensor_entries_list_
-  train_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
-  evaluate_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
+  create_networks();
 
   // initialize optimizer
-  init_optimizer(opt_params_, solver_, opt_params_py);
+  init_optimizer_params(opt_params_, solver_, opt_params_py);
   init_learning_rate_scheduler(lr_sch_, solver_, gpu_lr_sches_, resource_manager_);
 }
 
@@ -708,7 +676,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
 
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
-  init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
+  init_optimizer_params(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<long long, float>(
         sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
@@ -1158,6 +1126,11 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
+  pre_add_dense_layer(dense_layer);
+  add_dense_layer(dense_layer);
+}
+
+void Model::pre_add_dense_layer(DenseLayer& dense_layer) {
   embedding_dependent_ = false;
   for (auto& bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
@@ -1179,7 +1152,6 @@ void Model::add_internal(DenseLayer& dense_layer) {
   } else {
     layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
   }
-  add_dense_layer(dense_layer);
 }
 
 void Model::add(GroupDenseLayer& group_dense_layer) {
@@ -1295,8 +1267,13 @@ void Model::graph_analysis() {
       dense_layer_params_.push_back(new_dense_layer);
     }
   }
-  for (auto& dense_layer : dense_layer_params_) {
-    add_internal(dense_layer);
+
+  if (core23_networks_.empty()) {
+    for (auto& dense_layer : dense_layer_params_) {
+      add_internal(dense_layer);
+    }
+  } else {
+    add_dense_layers(dense_layer_params_);
   }
 }
 
@@ -1311,246 +1288,12 @@ void Model::compile() {
   HCTR_PRINT(INFO,
              "===================================================Model "
              "Compile===================================================\n");
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    if (solver_.use_mixed_precision) {
-      networks_[i]->optimizer_ = std::move(Optimizer::Create(
-          opt_params_, train_weight_buff_list_[i]->as_tensor(),
-          train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
-          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
-          solver_.use_mixed_precision));
-    } else {
-      networks_[i]->optimizer_ = std::move(
-          Optimizer::Create(opt_params_, train_weight_buff_list_[i]->as_tensor(),
-                            train_weight_buff_half_list_[i]->as_tensor(),
-                            wgrad_buff_list_[i]->as_tensor(), solver_.scaler, opt_buff_list_[i],
-                            resource_manager_->get_local_gpu(i), solver_.use_mixed_precision));
-    }
+  build_networks();
+  initialize();
+  create_metrics();
+  create_pipelines();
 
-    networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
-    networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
-    networks_[i]->wgrad_tensor_ = wgrad_buff_list_[i]->as_tensor();
-    networks_[i]->wgrad_tensor_half_ = wgrad_buff_half_list_[i]->as_tensor();
-    networks_[i]->evaluate_weight_tensor_ = evaluate_weight_buff_list_[i]->as_tensor();
-    networks_[i]->evaluate_weight_tensor_half_ = evaluate_weight_buff_half_list_[i]->as_tensor();
-    networks_[i]->opt_tensor_ = opt_buff_list_[i]->as_tensor();
-    networks_[i]->opt_tensor_half_ = opt_buff_half_list_[i]->as_tensor();
-    CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
-    blobs_buff_list_[i]->allocate();
-
-    // Check that there is a loss for every associated label and set the internal weight of the loss
-    // object
-    std::map<std::string, std::unique_ptr<ILoss>>::iterator loss_lookup;
-    for (std::map<std::string, float>::iterator iter = label_weights_.begin();
-         iter != label_weights_.end(); ++iter) {
-      loss_lookup = networks_[i]->train_losses_.find(iter->first);
-      if (loss_lookup == networks_[i]->train_losses_.end()) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
-      }
-      loss_lookup->second->set_label_weight(iter->second);
-
-      loss_lookup = networks_[i]->evaluate_losses_.find(iter->first);
-      if (loss_lookup == networks_[i]->evaluate_losses_.end()) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
-      }
-      loss_lookup->second->set_label_weight(iter->second);
-    }
-  }
-  exchange_wgrad_->allocate();
-  buff_allocated_ = true;
-#ifndef DATA_READING_TEST
-#pragma omp parallel num_threads(networks_.size())
-  {
-    size_t id = omp_get_thread_num();
-    networks_[id]->initialize();
-    if (solver_.use_algorithm_search) {
-      networks_[id]->search_algorithm();
-    }
-    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
-  }
-#endif
-  init_params_for_dense_();
-  if (solver_.perf_logging) {
-    for (size_t i = 0; i < dense_layer_params_.size(); i++) {
-      bool is_trainable =
-          TRAINABLE_LAYERS.find(dense_layer_params_[i].layer_type) != TRAINABLE_LAYERS.end();
-      if (is_trainable) {
-        std::string output_names = join(dense_layer_params_[i].top_names, "-");
-        HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization", output_names);
-      }
-    }
-  }
-  init_params_for_sparse_();
-  if (etc_params_->use_embedding_training_cache) {
-    init_embedding_training_cache_(etc_params_->ps_types, etc_params_->sparse_models,
-                                   etc_params_->local_paths, etc_params_->hmem_cache_configs);
-  }
-  int num_total_gpus = resource_manager_->get_global_gpu_count();
-  int label_dim = input_params_[0].labels_.begin()->second;
-  if (input_params_[0].labels_.size() > 1) {
-    auto labs = input_params_[0].labels_;
-    label_dim = std::accumulate(std::begin(labs), std::end(labs), 0,
-                                [](const int previous, const std::pair<std::string, int>& p) {
-                                  return previous + p.second;
-                                });
-  }
-
-  for (const auto& metric : solver_.metrics_spec) {
-    // Only AUC is currently supported for models with more than one loss layer
-    if ((metric.first != metrics::Type::AUC) && networks_[0]->get_raw_metrics_all().size() > 1) {
-      HCTR_OWN_THROW(Error_t::WrongInput,
-                     "Metrics besides AUC are not supported for multi-task models.");
-    }
-
-    metrics_.emplace_back(std::move(metrics::Metric::Create(
-        metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
-        solver_.max_eval_batches, label_dim, resource_manager_)));
-  }
-
-  // TODO: currently it is only for HE
-  if (embeddings_.size() == 1) {
-    auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
-    for (size_t i = 0; i < lr_scheds.size(); i++) {
-      networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
-    }
-  }
-
-  if (is_scheduled_datareader() && is_scheduled_embedding()) {
-    // will create pipeline for sparse embedding and dense network
-    create_train_pipeline();
-    create_evaluate_pipeline();
-  } else {
-    // will create pipeline for dense network.
-    create_train_network_pipeline();
-    create_eval_network_pipeline();
-  }
-
-  size_t embed_wgrad_size = 0;
-  if (!reader_params_.async_param.multi_hot_reader) {
-    auto train_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(train_data_reader_.get());
-    auto eval_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(evaluate_data_reader_.get());
-    auto init_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(init_data_reader_.get());
-
-    auto train_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(train_data_reader_.get());
-    auto eval_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
-    auto init_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(init_data_reader_.get());
-
-    // FIXME:
-    // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
-    // since we need to initialize the Frequent & Infrequent indices with those exact buffers.
-    // Otherwise we allocate two copies (one in AsyncReader and the other in HSE) which will cause
-    // us to OOM. We need to refactor the Frequent/Infrequent Embedding and IndicesView classes to
-    // not require the sparse tensor buffers on construction.
-    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
-      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-        if (solver_.use_mixed_precision && solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
-          if (solver_.train_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
-          }
-          if (solver_.eval_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
-          }
-        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
-          if (solver_.train_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
-          }
-          if (solver_.eval_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
-          }
-        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
-          if (solver_.train_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
-          }
-          if (solver_.eval_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
-          }
-        } else {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
-          if (solver_.train_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
-          }
-          if (solver_.eval_inter_iteration_overlap) {
-            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
-          }
-        }
-      }
-    }
-
-    // start to touch dataset, so we can record run_start
-    if (solver_.perf_logging) {
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
-    }
-
-    if (init_data_reader_ar_i32) {
-      init_data_reader_ar_i32->start();
-      init_data_reader_ar_i32->read_a_batch_to_device();
-    }
-    if (init_data_reader_ar_i64) {
-      init_data_reader_ar_i64->start();
-      init_data_reader_ar_i64->read_a_batch_to_device();
-    }
-
-    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
-      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-        if (solver_.use_mixed_precision && solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
-          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
-                                       embed_wgrad_size);
-        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
-          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
-                                       embed_wgrad_size);
-        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
-          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
-                                       embed_wgrad_size);
-        } else {
-          auto hybrid_embedding =
-              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
-          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
-                                       embed_wgrad_size);
-        }
-      }
-    }
-  } else {
-    if (solver_.perf_logging) {
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
-    }
-  }
-
-  if (solver_.perf_logging) {
-    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization",
-                    sparse_embedding_params_[i].sparse_embedding_name);
-    }
-  }
-
-  if (solver_.grouped_all_reduce) {
-    exchange_wgrad_->update_embed_wgrad_size(embed_wgrad_size);
-  }
-
-#ifdef ENABLE_MPI
-  if (resource_manager_->get_num_process() > 1) {
-    resource_manager_->set_ready_to_transfer();
-  }
-#endif
+  // TODO: this is a WAR; need to find a way to remove the preallocation
   for (int local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
        ++local_gpu_id) {
     core23::Device device(core23::DeviceType::GPU, local_gpu_id);
@@ -2251,7 +1994,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       }
       if (eval_interval > 0 && (iter + 1) % eval_interval == 0) {
         if (solver_.all_reduce_algo == AllReduceAlgo::NCCL) {
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
           {
             size_t id = omp_get_thread_num();
             CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
@@ -2394,7 +2137,7 @@ bool Model::train(bool is_first_batch) {
     }
     if (solver_.all_reduce_algo == AllReduceAlgo::NCCL and
         train_data_reader_->current_batch_incomplete()) {
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
       {
         size_t id = omp_get_thread_num();
         CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
@@ -2442,11 +2185,19 @@ bool Model::train(bool is_first_batch) {
         }
       };
 
+      auto network_update = [&](int id) {
+        if (core23_networks_.empty()) {
+          networks_[id]->update_params();
+        } else {
+          core23_networks_[id]->update_params();
+        }
+      };
+
       for (auto& one_embedding : embeddings_) {
         one_embedding->forward(true);
       }
 
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
       {
         size_t id = omp_get_thread_num();
         CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
@@ -2465,12 +2216,12 @@ bool Model::train(bool is_first_batch) {
       }
 
       // Exchange wgrad and update params
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
       {
         size_t id = omp_get_thread_num();
         CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
         exchange_wgrad(id);
-        networks_[id]->update_params();
+        network_update(id);
         ebc_update(id);
       }
 
@@ -2543,9 +2294,9 @@ bool Model::eval(bool is_first_batch) {
         }
       };
 
-      assert(networks_.size() >= 1 && "networks_.size() should not less than 1.");
+      assert(number_of_networks() >= 1 && "number_of_networks() should not less than 1.");
 
-#pragma omp parallel num_threads(networks_.size())
+#pragma omp parallel num_threads(number_of_networks())
       {
         size_t id = omp_get_thread_num();
         auto gpu = resource_manager_->get_local_gpu(id);
@@ -2556,7 +2307,7 @@ bool Model::eval(bool is_first_batch) {
       }
 
       for (auto& metric : metrics_) {
-        metric->global_reduce(networks_.size());
+        metric->global_reduce(number_of_networks());
       }
     }
 #endif
@@ -2594,22 +2345,28 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count * label_dim]);
     std::unique_ptr<float[]> local_label_result(new float[total_prediction_count * label_dim]);
 
-    for (unsigned int i = 0; i < networks_.size(); ++i) {
-      auto raw_metrics = networks_[i]->get_raw_metrics_all().begin()->second;
+    auto get_raw_metrics = [&](auto& networks, unsigned int i) {
+      auto raw_metrics = networks[i]->get_raw_metrics_all().begin()->second;
 
       int gpu_id = local_gpu_device_id_list[i];
       context.set_device(gpu_id);
 
       get_raw_metric_as_host_float_tensor(
-          //          networks_[i]->get_raw_metrics(),
           raw_metrics, metrics::RawType::Pred, solver_.use_mixed_precision,
           local_prediction_result.get() + batchsize_eval_per_gpu * label_dim * i,
           batchsize_eval_per_gpu * label_dim);
       get_raw_metric_as_host_float_tensor(
-          //          networks_[i]->get_raw_metrics(),
           raw_metrics, metrics::RawType::Label, false,
           local_label_result.get() + batchsize_eval_per_gpu * label_dim * i,
           batchsize_eval_per_gpu * label_dim);
+    };
+
+    for (unsigned int i = 0; i < number_of_networks(); ++i) {
+      if (core23_networks_.empty()) {
+        get_raw_metrics(networks_, i);
+      } else {
+        get_raw_metrics(core23_networks_, i);
+      }
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -2674,9 +2431,17 @@ Error_t Model::get_current_loss(float* loss) {
     float loss_reduced = 0.f;
 
     // Collect all the loss from every network and average
-    for (auto& network : networks_) {
-      loss_sum += network->get_loss();
+    auto accum_loss = [&loss_sum](auto& networks) {
+      for (auto& network : networks) {
+        loss_sum += network->get_loss();
+      }
+    };
+    if (core23_networks_.empty()) {
+      accum_loss(networks_);
+    } else {
+      accum_loss(core23_networks_);
     }
+
     if (resource_manager_->get_num_process() > 1) {
 #ifdef ENABLE_MPI
       HCTR_MPI_THROW(
@@ -2726,9 +2491,16 @@ void Model::check_overflow() const {
 }
 
 void Model::copy_weights_for_evaluation() {
-  for (auto& network : networks_) {
-    network->copy_weights_from_train_layers_to_evaluate_layers();
-    network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
+  auto op = [](auto& networks) {
+    for (auto& network : networks) {
+      network->copy_weights_from_train_layers_to_evaluate_layers();
+      network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
+    }
+  };
+  if (core23_networks_.empty()) {
+    op(networks_);
+  } else {
+    op(core23_networks_);
   }
 }
 
@@ -2736,16 +2508,23 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
                                                std::string dense_opt_states_file) {
   try {
     if (resource_manager_->is_master_process()) {
-      networks_[0]->download_params_to_host(weights_file);
-      HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
-      networks_[0]->download_opt_states_to_host(dense_opt_states_file);
-      HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to file, successful\n");
-      std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
-      if (no_trained_params.length() != 0) {
-        std::string ntp_file = weights_file + ".ntp.json";
-        auto fs = FileSystemBuilder::build_unique_by_path(ntp_file);
-        fs->write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
-        HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
+      auto op = [&](auto& network) {
+        network->download_params_to_host(weights_file);
+        HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
+        network->download_opt_states_to_host(dense_opt_states_file);
+        HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to file, successful\n");
+        std::string no_trained_params = network->get_no_trained_params_in_string();
+        if (no_trained_params.length() != 0) {
+          std::string ntp_file = weights_file + ".ntp.json";
+          auto fs = FileSystemBuilder::build_unique_by_path(ntp_file);
+          fs->write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
+          HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
+        }
+      };
+      if (core23_networks_.empty()) {
+        op(networks_[0]);
+      } else {
+        op(core23_networks_[0]);
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -2809,14 +2588,22 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
 
 Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file) {
   try {
-    size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
-    std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
+    auto op = [&dense_opt_states_file](auto& networks) {
+      size_t opt_states_size_in_byte = networks[0]->get_opt_states_size_in_byte();
+      std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
 
-    auto fs = FileSystemBuilder::build_unique_by_path(dense_opt_states_file);
-    fs->read(dense_opt_states_file, opt_states.get(), fs->get_file_size(dense_opt_states_file), 0);
-    HCTR_LOG_S(INFO, ROOT) << "Loading dense opt states: " << dense_opt_states_file << std::endl;
-    for (auto& network : networks_) {
-      network->upload_opt_states_to_device(opt_states.get());
+      auto fs = FileSystemBuilder::build_unique_by_path(dense_opt_states_file);
+      fs->read(dense_opt_states_file, opt_states.get(), fs->get_file_size(dense_opt_states_file),
+               0);
+      HCTR_LOG_S(INFO, ROOT) << "Loading dense opt states: " << dense_opt_states_file << std::endl;
+      for (auto& network : networks) {
+        network->upload_opt_states_to_device(opt_states.get());
+      }
+    };
+    if (core23_networks_.empty()) {
+      op(networks_);
+    } else {
+      op(core23_networks_);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
@@ -2851,11 +2638,18 @@ Error_t Model::load_opt_states_for_sparse_(
 
 Error_t Model::load_params_for_dense_(const std::string& model_file) {
   try {
-    std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
-    auto fs = FileSystemBuilder::build_unique_by_path(model_file);
-    fs->read(model_file, weight.get(), fs->get_file_size(model_file), 0);
-    for (auto& network : networks_) {
-      network->upload_params_to_device(weight.get());
+    auto op = [&model_file](auto& networks) {
+      std::unique_ptr<float[]> weight(new float[networks[0]->get_params_num()]());
+      auto fs = FileSystemBuilder::build_unique_by_path(model_file);
+      fs->read(model_file, weight.get(), fs->get_file_size(model_file), 0);
+      for (auto& network : networks) {
+        network->upload_params_to_device(weight.get());
+      }
+    };
+    if (core23_networks_.empty()) {
+      op(networks_);
+    } else {
+      op(core23_networks_);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
@@ -2886,8 +2680,15 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
 }
 
 void Model::init_params_for_dense_() {
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    networks_[i]->init_params(i);
+  auto op = [&](auto& networks) {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      networks[i]->init_params(i);
+    }
+  };
+  if (core23_networks_.empty()) {
+    op(networks_);
+  } else {
+    op(core23_networks_);
   }
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
@@ -3056,6 +2857,351 @@ void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_resu
   } else {
     memcpy(global_result, local_result.get(),
            local_gpu_count * tensor_num_of_elements * sizeof(float));
+  }
+}
+
+void Model::create_networks() {
+  if (use_core23_network()) {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      core23_networks_.emplace_back(new Core23TempNetwork(resource_manager_->get_local_cpu(),
+                                                          resource_manager_->get_local_gpu(i),
+                                                          solver_.use_mixed_precision));
+    }
+    train_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
+    evaluate_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
+  } else {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
+                                         resource_manager_->get_local_gpu(i),
+                                         solver_.use_mixed_precision));
+      blobs_buff_list_.emplace_back(GeneralBuffer2<CudaAllocator>::create());
+    }
+
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      train_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+      train_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+      evaluate_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+      evaluate_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+      wgrad_buff_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+      wgrad_buff_half_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+      opt_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+      opt_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+      auto id = resource_manager_->get_local_gpu(i)->get_local_id();
+      if (solver_.use_mixed_precision) {
+        wgrad_buff_half_list_.emplace_back(
+            (solver_.grouped_all_reduce)
+                ? std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad_)
+                      ->get_network_wgrad_buffs()[id]
+                : std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad_)
+                      ->get_network_wgrad_buffs()[id]);
+        wgrad_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+      } else {
+        wgrad_buff_list_.emplace_back(
+            (solver_.grouped_all_reduce)
+                ? std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad_)
+                      ->get_network_wgrad_buffs()[id]
+                : std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad_)
+                      ->get_network_wgrad_buffs()[id]);
+        wgrad_buff_half_list_.emplace_back(
+            blobs_buff_list_[i]->create_block<__half>());  // placeholder
+      }
+    }
+
+    // resize train_tensor_entries_list_ and evaluate_tensor_entries_list_
+    train_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
+    evaluate_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
+  }
+}
+
+void Model::build_networks() {
+  if (!core23_networks_.empty()) {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      core23_networks_[i]->create_and_set_optimizer(opt_params_);
+    }
+  } else {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      if (solver_.use_mixed_precision) {
+        networks_[i]->optimizer_ = std::move(Optimizer::Create(
+            opt_params_, train_weight_buff_list_[i]->as_tensor(),
+            train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
+            solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
+            solver_.use_mixed_precision));
+      } else {
+        networks_[i]->optimizer_ = std::move(
+            Optimizer::Create(opt_params_, train_weight_buff_list_[i]->as_tensor(),
+                              train_weight_buff_half_list_[i]->as_tensor(),
+                              wgrad_buff_list_[i]->as_tensor(), solver_.scaler, opt_buff_list_[i],
+                              resource_manager_->get_local_gpu(i), solver_.use_mixed_precision));
+      }
+
+      networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
+      networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
+      networks_[i]->wgrad_tensor_ = wgrad_buff_list_[i]->as_tensor();
+      networks_[i]->wgrad_tensor_half_ = wgrad_buff_half_list_[i]->as_tensor();
+      networks_[i]->evaluate_weight_tensor_ = evaluate_weight_buff_list_[i]->as_tensor();
+      networks_[i]->evaluate_weight_tensor_half_ = evaluate_weight_buff_half_list_[i]->as_tensor();
+      networks_[i]->opt_tensor_ = opt_buff_list_[i]->as_tensor();
+      networks_[i]->opt_tensor_half_ = opt_buff_half_list_[i]->as_tensor();
+      CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
+      blobs_buff_list_[i]->allocate();
+
+      // Check that there is a loss for every associated label and set the internal weight of the
+      // loss object
+      std::map<std::string, std::unique_ptr<ILoss>>::iterator loss_lookup;
+      for (std::map<std::string, float>::iterator iter = label_weights_.begin();
+           iter != label_weights_.end(); ++iter) {
+        loss_lookup = networks_[i]->train_losses_.find(iter->first);
+        if (loss_lookup == networks_[i]->train_losses_.end()) {
+          HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
+        }
+        loss_lookup->second->set_label_weight(iter->second);
+
+        loss_lookup = networks_[i]->evaluate_losses_.find(iter->first);
+        if (loss_lookup == networks_[i]->evaluate_losses_.end()) {
+          HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
+        }
+        loss_lookup->second->set_label_weight(iter->second);
+      }
+    }
+    exchange_wgrad_->allocate();
+  }
+  buff_allocated_ = true;
+}
+
+void Model::initialize() {
+#ifndef DATA_READING_TEST
+  auto op = [this](auto& networks, const size_t id) {
+    networks[id]->initialize();
+    if (solver_.use_algorithm_search) {
+      networks[id]->search_algorithm();
+    }
+    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
+  };
+#pragma omp parallel num_threads(number_of_networks())
+  {
+    size_t id = omp_get_thread_num();
+    if (!core23_networks_.empty()) {
+      op(core23_networks_, id);
+    } else {
+      op(networks_, id);
+    }
+  }
+#endif
+  init_params_for_dense_();
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < dense_layer_params_.size(); i++) {
+      bool is_trainable =
+          TRAINABLE_LAYERS.find(dense_layer_params_[i].layer_type) != TRAINABLE_LAYERS.end();
+      if (is_trainable) {
+        std::string output_names = join(dense_layer_params_[i].top_names, "-");
+        HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization", output_names);
+      }
+    }
+  }
+  init_params_for_sparse_();
+  if (etc_params_->use_embedding_training_cache) {
+    init_embedding_training_cache_(etc_params_->ps_types, etc_params_->sparse_models,
+                                   etc_params_->local_paths, etc_params_->hmem_cache_configs);
+  }
+}  // namespace HugeCTR
+void Model::create_metrics() {
+  int num_total_gpus = resource_manager_->get_global_gpu_count();
+  int label_dim = input_params_[0].labels_.begin()->second;
+  if (input_params_[0].labels_.size() > 1) {
+    auto labs = input_params_[0].labels_;
+    label_dim = std::accumulate(std::begin(labs), std::end(labs), 0,
+                                [](const int previous, const std::pair<std::string, int>& p) {
+                                  return previous + p.second;
+                                });
+  }
+
+  auto num_metrics = [&]() {
+    if (core23_networks_.empty()) {
+      return networks_[0]->get_raw_metrics_all().size();
+    } else {
+      return core23_networks_[0]->get_raw_metrics_all().size();
+    }
+  };
+  for (const auto& metric : solver_.metrics_spec) {
+    // Only AUC is currently supported for models with more than one loss layer
+    if ((metric.first != metrics::Type::AUC) && num_metrics() > 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Metrics besides AUC are not supported for multi-task models.");
+    }
+
+    metrics_.emplace_back(std::move(metrics::Metric::Create(
+        metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
+        solver_.max_eval_batches, label_dim, resource_manager_)));
+  }
+}
+
+void Model::create_pipelines() {
+  // TODO: currently it is only for HE
+  if (embeddings_.size() == 1) {
+    auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
+    for (size_t i = 0; i < lr_scheds.size(); i++) {
+      if (core23_networks_.empty()) {
+        networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
+      } else {
+        core23_networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
+      }
+    }
+  }
+
+  if (is_scheduled_datareader() && is_scheduled_embedding()) {
+    // will create pipeline for sparse embedding and dense network
+    if (core23_networks_.empty()) {
+      create_train_pipeline(networks_);
+      create_evaluate_pipeline(networks_);
+    } else {
+      create_train_pipeline(core23_networks_);
+      create_evaluate_pipeline(core23_networks_);
+    }
+  } else {
+    // will create pipeline for dense network.
+    if (core23_networks_.empty()) {
+      create_train_network_pipeline(networks_);
+      create_eval_network_pipeline(networks_);
+    } else {
+      create_train_network_pipeline(core23_networks_);
+      create_eval_network_pipeline(core23_networks_);
+    }
+  }
+
+  size_t embed_wgrad_size = 0;
+  if (!reader_params_.async_param.multi_hot_reader) {
+    auto train_data_reader_ar_i64 =
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(train_data_reader_.get());
+    auto eval_data_reader_ar_i64 =
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i64 =
+        dynamic_cast<core23_reader::AsyncReader<long long>*>(init_data_reader_.get());
+
+    auto train_data_reader_ar_i32 =
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(train_data_reader_.get());
+    auto eval_data_reader_ar_i32 =
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i32 =
+        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(init_data_reader_.get());
+
+    // FIXME:
+    // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
+    // since we need to initialize the Frequent & Infrequent indices with those exact buffers.
+    // Otherwise we allocate two copies (one in AsyncReader and the other in HSE) which will cause
+    // us to OOM. We need to refactor the Frequent/Infrequent Embedding and IndicesView classes to
+    // not require the sparse tensor buffers on construction.
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+        if (solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
+          }
+        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
+          }
+        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i64);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i64);
+          }
+        } else {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+          if (solver_.train_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(true, train_data_reader_ar_i32);
+          }
+          if (solver_.eval_inter_iteration_overlap) {
+            hybrid_embedding->setup_buffered_indices(false, eval_data_reader_ar_i32);
+          }
+        }
+      }
+    }
+
+    // start to touch dataset, so we can record run_start
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
+    }
+
+    if (init_data_reader_ar_i32) {
+      init_data_reader_ar_i32->start();
+      init_data_reader_ar_i32->read_a_batch_to_device();
+    }
+    if (init_data_reader_ar_i64) {
+      init_data_reader_ar_i64->start();
+      init_data_reader_ar_i64->read_a_batch_to_device();
+    }
+
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+        if (solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(),
+                                       embed_wgrad_size);
+        } else {
+          auto hybrid_embedding =
+              dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+          hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
+                                       embed_wgrad_size);
+        }
+      }
+    }
+  } else {
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
+    }
+  }
+
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization",
+                    sparse_embedding_params_[i].sparse_embedding_name);
+    }
+  }
+
+  if (solver_.grouped_all_reduce) {
+    exchange_wgrad_->update_embed_wgrad_size(embed_wgrad_size);
+  }
+
+#ifdef ENABLE_MPI
+  if (resource_manager_->get_num_process() > 1) {
+    resource_manager_->set_ready_to_transfer();
+  }
+#endif
+}
+
+size_t Model::number_of_networks() const {
+  if (core23_networks_.empty()) {
+    return networks_.size();
+  } else {
+    return core23_networks_.size();
   }
 }
 
