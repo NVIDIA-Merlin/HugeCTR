@@ -36,6 +36,8 @@ static void parameter_server_insert_thread_func_(
   try {
     // TODO: Why do we lock the mutex so early?
     std::lock_guard<std::mutex> lock(stream_mutex);
+    // Set the device context
+    CudaDeviceContext dev_restorer{embedding_cache->get_device_id()};
     // Create sync events.
     cudaEvent_t insert_event;
     cudaEventCreate(&insert_event);
