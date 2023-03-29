@@ -25,18 +25,13 @@ namespace core23 {
 PoolCUDAAllocator::PoolCUDAAllocator(const Device& device) {
   HCTR_THROW_IF(device == DeviceType::CPU, Error_t::IllegalCall,
                 "PoolCUDAAllocator cannot be used for CPU");
-  cudaMemLocation location = {.type = cudaMemLocationTypeDevice, .id = device.index()};
-  cudaMemPoolProps mem_pool_props = {.allocType = cudaMemAllocationTypePinned,
-                                     .handleTypes = cudaMemHandleTypeNone,
-                                     .location = location};
   int driver_version = 0;
   HCTR_LIB_THROW(cudaDriverGetVersion(&driver_version));
   constexpr auto min_async_version = 11050;
   HCTR_THROW_IF(driver_version < min_async_version, Error_t::CudaDriverError,
                 "the async allocator is not compatible with cuda driver < 11.5");
 
-  // TODO: this pool must be shared among allocators
-  HCTR_LIB_THROW(cudaMemPoolCreate(&mem_pool_handle_, &mem_pool_props));
+  HCTR_LIB_THROW(cudaDeviceGetDefaultMemPool(&mem_pool_handle_, device.index()));
 
   size_t free = 0, total = 0;
   HCTR_LIB_THROW(cudaMemGetInfo(&free, &total));
@@ -67,7 +62,7 @@ PoolCUDAAllocator::PoolCUDAAllocator(const Device& device) {
   // deallocate(ptr, 0);
 }
 
-PoolCUDAAllocator::~PoolCUDAAllocator() { HCTR_LIB_THROW(cudaMemPoolDestroy(mem_pool_handle_)); }
+PoolCUDAAllocator::~PoolCUDAAllocator() {}
 
 void* PoolCUDAAllocator::allocate(int64_t size, CUDAStream stream) {
   void* ptr = nullptr;
