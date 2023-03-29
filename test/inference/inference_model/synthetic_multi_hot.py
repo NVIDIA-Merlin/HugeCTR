@@ -153,7 +153,7 @@ inference_params = InferenceParams(
         "/dump_infer/multi_hot0_sparse_1000.model",
         "/dump_infer/multi_hot1_sparse_1000.model",
     ],
-    deployed_devices=[0, 1, 2, 3],
+    deployed_devices=[0, 1, 2, 3, 4, 5, 6, 7],
     use_gpu_embedding_cache=True,
     cache_size_percentage=0.5,
     i64_input_key=True,
