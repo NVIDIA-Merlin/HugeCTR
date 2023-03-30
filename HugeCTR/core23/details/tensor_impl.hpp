@@ -53,7 +53,6 @@ class TensorImpl : public BufferClient {
   const Device device() const { return params_.device(); }
   const TensorParams& my_params() const { return params_; }
 
-  bool empty() const { return !own_data() && !bound_data_; }
   bool own_data() const { return offsetted_buffer() != nullptr; }
 
  private:

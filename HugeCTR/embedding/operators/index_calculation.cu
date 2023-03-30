@@ -809,6 +809,8 @@ void LocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput &emb
   HCTR_LIB_THROW(cudaGetLastError());
   auto &unique_table_ids = wgrad.attr.get_unique_table_ids();
   reduction_indices.num_elements = embedding_input.h_num_keys;
+
+  if (embedding_input.h_num_keys == 0) return;
   partition_by_table_id(
       embedding_input.keys, embedding_input.bucket_range, wgrad.attr.sorted_lookup_ids,
       wgrad.attr.sorted_table_ids, partitioned_result_.partitioned_keys,

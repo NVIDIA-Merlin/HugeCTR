@@ -23,9 +23,10 @@ namespace HugeCTR {
 
 namespace core23 {
 
-Tensor::Tensor() : impl_(nullptr), data_(nullptr) {}
+Tensor::Tensor() : Tensor(TensorParams()) {}
 
-Tensor::Tensor(TensorParams params) : impl_(std::make_shared<TensorImpl>(params)), data_(nullptr) {}
+Tensor::Tensor(TensorParams params)
+    : impl_(std::make_shared<TensorImpl>(params)), shape_or_(params.shape()), data_(nullptr) {}
 
 Tensor::Tensor(const Shape& shape, DataType data_type, TensorParams params)
     : Tensor(params.shape(shape).data_type(data_type)) {}
@@ -47,40 +48,24 @@ Tensor Tensor::bind(void* data, const Shape& shape, const DataType& data_type,
 void* Tensor::data() const { return data_ ? data_ : data_ = (impl_ ? impl_->data() : nullptr); }
 
 int64_t Tensor::dims() const { return shape().dims(); }
-const Shape& Tensor::shape() const {
-  HCTR_THROW_IF(empty(), HugeCTR::Error_t::IllegalCall, "An empty Tensor doesn't have the shape");
+const Shape& Tensor::shape() const { return shape_or_; }
 
-  if (shape_or_.valid()) {
-    return shape_or_;
-  }
-  return impl_->shape();
-}  // namespace core23
 int64_t Tensor::size(size_t dim) const { return shape().size(dim); }
 int64_t Tensor::num_elements() const { return shape().size(); }
 int64_t Tensor::num_bytes() const { return data_type().size() * num_elements(); }
-const Device Tensor::device() const {
-  HCTR_THROW_IF(empty(), HugeCTR::Error_t::IllegalCall,
-                "An empty Tensor doesn't belong to any device");
-  return impl_->device();
-}
-DataType Tensor::data_type() const {
-  HCTR_THROW_IF(empty(), HugeCTR::Error_t::IllegalCall,
-                "An empty Tensor doesn't have the data type");
-  return impl_->data_type();
-}
+const Device Tensor::device() const { return impl_->device(); }
+DataType Tensor::data_type() const { return impl_->data_type(); }
 
-TensorParams Tensor::my_params() const {
-  HCTR_THROW_IF(empty(), HugeCTR::Error_t::IllegalCall, "An empty Tensor doesn't have the params");
-  return impl_->my_params().shape(shape());
-}
+TensorParams Tensor::my_params() const { return impl_->my_params().shape(shape()); }
 
-bool Tensor::empty() const { return impl_ == nullptr || impl_->empty(); }
+bool Tensor::empty() const { return shape().size() == 0; }
 
 bool Tensor::is_unique() const { return own_data() && impl_.use_count() == 1; }
 
 bool Tensor::own_data() const { return impl_ && impl_->own_data(); }
 
-Tensor::Tensor(const std::shared_ptr<TensorImpl>& impl) : impl_(impl), data_(nullptr) {}
+Tensor::Tensor(const std::shared_ptr<TensorImpl>& impl)
+    : impl_(impl), shape_or_(impl->shape()), data_(nullptr) {}
 
 void Tensor::swap(Tensor& rhs) {
   std::swap(impl_, rhs.impl_);

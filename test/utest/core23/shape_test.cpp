@@ -27,13 +27,12 @@ using namespace HugeCTR::core23;
 
 void test_impl() {
   Shape shape0;
-  EXPECT_FALSE(shape0.valid());
+  EXPECT_TRUE(shape0.size() == 0);
 
   Shape shape1(32);
-  EXPECT_FALSE(shape1.valid());
+  EXPECT_TRUE(shape1.size() == 0);
 
   Shape shape2{1024, 32, 128};
-  EXPECT_TRUE(shape2.valid());
   EXPECT_TRUE(shape2.dims() == 3);
   EXPECT_TRUE(shape2.size(0) == 1024);
   EXPECT_TRUE(shape2.size(1) == 32);
@@ -41,14 +40,12 @@ void test_impl() {
   EXPECT_TRUE(shape2.size() == 1024 * 32 * 128);
 
   Shape shape3({1024, 32, 128});
-  EXPECT_TRUE(shape3.valid());
   EXPECT_TRUE(shape2 == shape3);
   EXPECT_FALSE(shape2 != shape3);
   EXPECT_TRUE(shape1 != shape3);
   EXPECT_FALSE(shape1 == shape3);
 
   Shape shape4({128, 32, 64});
-  EXPECT_TRUE(shape4.valid());
   EXPECT_TRUE(shape2 != shape4);
   EXPECT_FALSE(shape2 == shape4);
 }

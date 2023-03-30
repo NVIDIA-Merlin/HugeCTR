@@ -420,23 +420,20 @@ void RaggedStaticEmbeddingTable::lookup(const core23::Tensor &keys, size_t num_k
                                         const core23::Tensor &id_space_list,
                                         core23::Tensor &emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
-
+  if (num_keys == 0) return;
   DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
     DISPATCH_UNSIGNED_INTEGRAL_FUNCTION_CORE23(
         num_key_per_table_offset_.data_type().type(), index_t, [&] {
           cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-          if (num_keys > 0) {  // batch size is small there can be situation that we do not need
-                               // have key for lookup
-            constexpr int block_size = 256;
-            int grid_size = (num_keys - 1) / block_size + 1;
-            ragged_static_embedding_table_lookup_kernel<<<grid_size, block_size, 0, stream>>>(
-                keys.data<key_t>(), num_keys, id_space_offset.data<uint32_t>(), num_id_space_offset,
-                id_space_list.data<int>(), table_ids_.data<int>(), table_ids_.num_elements(),
-                num_key_per_table_offset_.data<index_t>(), emb_table_.data<float>(),
-                emb_table_ev_offset_.data<uint64_t>(), local_ev_size_list_.data<int>(),
-                static_cast<float **>(emb_vec.data()));
-          }
+          constexpr int block_size = 256;
+          int grid_size = (num_keys - 1) / block_size + 1;
+          ragged_static_embedding_table_lookup_kernel<<<grid_size, block_size, 0, stream>>>(
+              keys.data<key_t>(), num_keys, id_space_offset.data<uint32_t>(), num_id_space_offset,
+              id_space_list.data<int>(), table_ids_.data<int>(), table_ids_.num_elements(),
+              num_key_per_table_offset_.data<index_t>(), emb_table_.data<float>(),
+              emb_table_ev_offset_.data<uint64_t>(), local_ev_size_list_.data<int>(),
+              static_cast<float **>(emb_vec.data()));
 
           HCTR_LIB_THROW(cudaPeekAtLastError());
         });
@@ -450,6 +447,7 @@ void RaggedStaticEmbeddingTable::update(const core23::Tensor &unique_keys,
                                         const core23::Tensor &wgrad) {
   CudaDeviceContext context(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
+  if (h_table_max_vocabulary_size_.empty()) return;
 
   HCTR_CHECK_HINT(opt_param_.optimizer != HugeCTR::Optimizer_t::NOT_INITIALIZED,
                   "optimizer not initialized");
