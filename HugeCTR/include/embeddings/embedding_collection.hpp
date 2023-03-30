@@ -22,7 +22,9 @@
 #include <embedding/gpu_barrier/gpu_barrier.hpp>
 #include <embedding/operators/transpose_input.hpp>
 #include <embedding_storage/embedding_table.hpp>
+#include <include/exchange_wgrad.hpp>
 #include <optimizer.hpp>
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
@@ -279,6 +281,11 @@ class EmbeddingCollection {
   std::vector<std::vector<Wgrad>> wgrad_list_;
   std::unique_ptr<HugeCTR::GPUBarrier> gpu_barrier_;
 
+  // For grouped all reduce
+  std::vector<HugeCTR::Tensor2<float>> wgrad_tensor2_float_list_;
+  std::vector<HugeCTR::Tensor2<__half>> wgrad_tensor2_half_list_;
+  size_t grouped_allreduce_length_ = 0;
+
  public:
   // Fix:load and dump use these , put it on public temporary
   std::vector<HugeCTR::OptParams> embedding_optimizers_;
@@ -291,7 +298,8 @@ class EmbeddingCollection {
                       std::vector<std::shared_ptr<CoreResourceManager>> core,
                       const EmbeddingCollectionParam &ebc_param,
                       const EmbeddingCollectionParam &eval_ebc_param,
-                      const std::vector<EmbeddingTableParam> &emb_table_param_list);
+                      const std::vector<EmbeddingTableParam> &emb_table_param_list,
+                      std::shared_ptr<HugeCTR::ExchangeWgrad> exchange_wgrad = nullptr);
 
   void forward_per_gpu(bool is_train, int gpu_id, const HugeCTR::DataDistributor::Result &input,
                        core23::Tensor &output_buffer, int batch_size);
@@ -313,6 +321,9 @@ class EmbeddingCollection {
     }
     return grouped_embedding_tables;
   }
+
+  size_t get_grouped_wgrad_length() { return grouped_allreduce_length_; };
+  void bind_grouped_wgrad_ptr();
 };
 
 }  // namespace embedding
