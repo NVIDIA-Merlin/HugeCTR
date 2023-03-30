@@ -86,7 +86,7 @@ enum class SortStrategy : int8_t { Radix, Segmented };
 std::ostream &operator<<(std::ostream &os, const SortStrategy &p);
 enum class KeysPreprocessStrategy : int8_t { None, AddOffset };
 std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p);
-enum class AllreduceStrategy : int8_t { Sparse, Dense };
+enum class AllreduceStrategy : int8_t { Sparse, Dense, GroupDense };
 std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p);
 
 const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
@@ -278,6 +278,8 @@ struct Wgrad {
   core23::Tensor table_range;
 
   core23::Tensor data;
+  uint64_t max_buffer_size;
+  void bind_data_ptr(void *ptr);
 };
 
 struct WgradInitializer {
@@ -305,7 +307,7 @@ struct AllreduceWgradInitializer {
 
   AllreduceWgradInitializer &init_indices();
 
-  AllreduceWgradInitializer &init_data();
+  AllreduceWgradInitializer &init_data(bool not_grouped);
 };
 
 }  // namespace embedding

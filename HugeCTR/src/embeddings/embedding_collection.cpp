@@ -25,7 +25,8 @@ EmbeddingCollection::EmbeddingCollection(
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
     std::vector<std::shared_ptr<CoreResourceManager>> core,
     const EmbeddingCollectionParam &ebc_param, const EmbeddingCollectionParam &eval_ebc_param,
-    const std::vector<EmbeddingTableParam> &emb_table_param_list)
+    const std::vector<EmbeddingTableParam> &emb_table_param_list,
+    std::shared_ptr<HugeCTR::ExchangeWgrad> exchange_wgrad)
     : ebc_param_(ebc_param), eval_ebc_param_(eval_ebc_param) {
   for (size_t i = 0; i < emb_table_param_list.size(); ++i) {
     embedding_optimizers_.push_back(emb_table_param_list[i].opt_param);
@@ -34,6 +35,8 @@ EmbeddingCollection::EmbeddingCollection(
   int num_gpus = resource_manager->get_local_gpu_count();
   embedding_output_attrs.resize(num_gpus);
   wgrad_list_.resize(num_gpus);
+  wgrad_tensor2_float_list_.resize(num_gpus);
+  wgrad_tensor2_half_list_.resize(num_gpus);
 
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
@@ -49,12 +52,14 @@ EmbeddingCollection::EmbeddingCollection(
   }
 
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
     for (size_t grouped_id = 0; grouped_id < wgrad_list_[gpu_id].size(); ++grouped_id) {
       embedding_output_attrs[gpu_id][grouped_id].init(core[gpu_id], ebc_param);
       embedding_output_attrs[gpu_id][grouped_id].update_mutable_data(core[gpu_id], ebc_param);
 
       auto &wgrad = wgrad_list_[gpu_id][grouped_id];
-      if (ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense &&
+      if ((ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense ||
+           ebc_param.allreduce_strategy_ == AllreduceStrategy::GroupDense) &&
           ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
               TablePlacementStrategy::DataParallel &&
           !ebc_param.table_id_to_vocabulary_size.empty()) {
@@ -62,7 +67,34 @@ EmbeddingCollection::EmbeddingCollection(
                                   embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
             .init(wgrad)
             .init_indices()
-            .init_data();
+            .init_data(ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense);
+        if (ebc_param.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
+          if (exchange_wgrad == nullptr)
+            HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                           "if you want to group allreduce , you need send a exchange_wgrad into "
+                           "embedding_collection");
+          if (wgrad.attr.type.match<float>()) {
+            auto grouped_wgrad_buff =
+                std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<float>>(exchange_wgrad)
+                    ->get_embed_wgrad_buffs()[gpu_id];
+            grouped_wgrad_buff->reserve({wgrad.max_buffer_size},
+                                        &(wgrad_tensor2_float_list_[gpu_id]));
+            if (grouped_allreduce_length_ == 0 && wgrad.max_buffer_size > 0)
+              grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(float);
+          } else if (wgrad.attr.type.match<__half>()) {
+            auto grouped_wgrad_buff =
+                std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<__half>>(exchange_wgrad)
+                    ->get_embed_wgrad_buffs()[gpu_id];
+            grouped_wgrad_buff->reserve({wgrad.max_buffer_size},
+                                        &(wgrad_tensor2_half_list_[gpu_id]));
+            if (grouped_allreduce_length_ == 0 && wgrad.max_buffer_size > 0)
+              grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(__half);
+          } else {
+            HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                           "have a wrong wgrad type, wgrad type need be float or __half");
+          }
+        }
+
       } else {
         WgradInitializer{core[gpu_id], ebc_param, grouped_id,
                          embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
@@ -148,4 +180,27 @@ void EmbeddingCollection::set_learning_rate(float lr) {
     }
   }
 }
+
+void EmbeddingCollection::bind_grouped_wgrad_ptr() {
+  int num_gpus = static_cast<int>(wgrad_list_.size());
+  for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    for (size_t grouped_id = 0; grouped_id < wgrad_list_[gpu_id].size(); ++grouped_id) {
+      auto &wgrad = wgrad_list_[gpu_id][grouped_id];
+      if (ebc_param_.allreduce_strategy_ == AllreduceStrategy::GroupDense &&
+          ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
+              TablePlacementStrategy::DataParallel &&
+          !ebc_param_.table_id_to_vocabulary_size.empty()) {
+        if (wgrad.attr.type.match<float>()) {
+          wgrad.bind_data_ptr(wgrad_tensor2_float_list_[gpu_id].get_ptr());
+        } else if (wgrad.attr.type.match<__half>()) {
+          wgrad.bind_data_ptr(wgrad_tensor2_half_list_[gpu_id].get_ptr());
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                         "have a wrong wgrad type, wgrad type need be float or __half");
+        }
+      }
+    }
+  }
+}
+
 }  // namespace embedding

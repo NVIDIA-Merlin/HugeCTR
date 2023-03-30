@@ -948,6 +948,15 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   bool need_vocabulary_size =
       (ebc_config.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) ||
       (ebc_config.allreduce_strategy_ == embedding::AllreduceStrategy::Dense);
+  embedding::AllreduceStrategy allreduce_strategy = ebc_config.allreduce_strategy_;
+  if (solver_.grouped_all_reduce) {
+    if (allreduce_strategy == embedding::AllreduceStrategy::Dense) {
+      allreduce_strategy = embedding::AllreduceStrategy::GroupDense;
+    } else if (allreduce_strategy == embedding::AllreduceStrategy::Sparse) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Solver grouped_all_reduce can't be set with AllreduceStrategy::Sparse");
+    }
+  }
   std::vector<int> table_id_to_vocabulary_size =
       get_table_id_to_vocabulary_size(emb_table_list, need_vocabulary_size);
   embedding::EmbeddingCollectionParam ebc_param{num_table,
@@ -966,7 +975,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 ebc_config.output_layout_,
                                                 ebc_config.sort_strategy_,
                                                 ebc_config.keys_preprocess_strategy_,
-                                                ebc_config.allreduce_strategy_,
+                                                allreduce_strategy,
                                                 ebc_config.comm_strategy_};
 
   embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
@@ -996,9 +1005,8 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     core_list.push_back(core_resource_manager);
   }
   ebc_list_.push_back(std::make_unique<embedding::EmbeddingCollection>(
-      resource_manager_, core_list, ebc_param, eval_ebc_param, emb_table_list));
-  int tmp_size = ebc_list_.size();
-  embedding_para_io_->add_embedding_collection((ebc_list_[tmp_size - 1]).get());
+      resource_manager_, core_list, ebc_param, eval_ebc_param, emb_table_list, exchange_wgrad_));
+  embedding_para_io_->add_embedding_collection((ebc_list_[ebc_list_.size() - 1]).get());
 
   auto prepare_ebc_input = [&](auto& sparse_input_map) {
     auto train_sparse_tensors = sparse_input_map[bottom_name].train_sparse_tensors;
@@ -2964,6 +2972,9 @@ void Model::build_networks() {
       }
     }
     exchange_wgrad_->allocate();
+    for (size_t ebc_id = 0; ebc_id < ebc_list_.size(); ++ebc_id) {
+      ebc_list_[ebc_id]->bind_grouped_wgrad_ptr();
+    }
   }
   buff_allocated_ = true;
 }
@@ -3187,6 +3198,11 @@ void Model::create_pipelines() {
   }
 
   if (solver_.grouped_all_reduce) {
+    if (ebc_list_.size() > 0) {
+      for (size_t i = 0; i < ebc_list_.size(); ++i) {
+        embed_wgrad_size += ebc_list_[i]->get_grouped_wgrad_length();
+      }
+    }
     exchange_wgrad_->update_embed_wgrad_size(embed_wgrad_size);
   }
 

@@ -190,7 +190,8 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
-  if (params.allreduce_strategy_ == AllreduceStrategy::Dense) {
+  if (params.allreduce_strategy_ == AllreduceStrategy::Dense ||
+      params.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
     local_reduce_index_calculation_.dense_allreduce_index_calculation = {
         core, local_reduce_index_calculation, sort_op, cal_dst_ids, segmented_unique};
   } else if (params.allreduce_strategy_ == AllreduceStrategy::Sparse) {
@@ -264,8 +265,9 @@ void UniformDPEmbedding::backward_per_gpu_with_dense_allreduce(
   local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
                              local_reduce_buffer, meta_.d_local_lookup_id_list_,
                              meta_.num_local_lookup_, meta_.num_lookup_, batch_size);
-
-  allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
+  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense) {
+    allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
+  }
 }
 
 void UniformDPEmbedding::backward_per_gpu_with_sparse_allreduce(
@@ -321,7 +323,8 @@ void UniformDPEmbedding::backward_per_gpu(const EmbeddingInput& embedding_input,
                                           const EmbeddingOutput& top_grad, Wgrad& wgrad,
                                           int batch_size) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense) {
+  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense ||
+      meta_.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
     backward_per_gpu_with_dense_allreduce(embedding_input, top_grad, wgrad, batch_size);
   } else {
     backward_per_gpu_with_sparse_allreduce(embedding_input, top_grad, wgrad, batch_size);

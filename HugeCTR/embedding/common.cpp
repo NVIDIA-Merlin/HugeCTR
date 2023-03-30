@@ -342,6 +342,11 @@ std::vector<int> get_allreduce_buffer_num_keys(
   return vocabulary_size_list;
 }
 
+void Wgrad::bind_data_ptr(void *ptr) {
+  data = core23::Tensor::bind(ptr, {static_cast<int64_t>(this->max_buffer_size)}, this->attr.type,
+                              this->unique_keys.device());
+}
+
 WgradInitializer &WgradInitializer::init(Wgrad &other) {
   this->wgrad = &other;
   wgrad->attr = wgrad_attr;
@@ -399,12 +404,13 @@ WgradInitializer &WgradInitializer::init_data() {
 }
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init(Wgrad &other) {
-  HCTR_CHECK_HINT(
-      ebc_param.table_id_to_vocabulary_size.size() > 0 &&
-          ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense &&
-          ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
-              TablePlacementStrategy::DataParallel,
-      "allreduce buffer can only be initialized in Dense Allreduce and dataparallel embedding");
+  HCTR_CHECK_HINT(ebc_param.table_id_to_vocabulary_size.size() > 0 &&
+                      (ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense ||
+                       ebc_param.allreduce_strategy_ == AllreduceStrategy::GroupDense) &&
+                      ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+                          TablePlacementStrategy::DataParallel,
+                  "allreduce buffer can only be initialized in Dense/GroupDense Allreduce and "
+                  "dataparallel embedding");
   this->wgrad = &other;
   wgrad->attr = wgrad_attr;
   return *this;
@@ -493,7 +499,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   return *this;
 }
 
-AllreduceWgradInitializer &AllreduceWgradInitializer::init_data() {
+AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(bool not_grouped) {
   wgrad->attr = wgrad_attr;
   int gpu_id = core->get_global_gpu_id();
   std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
@@ -508,9 +514,12 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data() {
   for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
     max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
   }
-  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-  core23::TensorParams params = core23::TensorParams().device(device);
-  wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
+  wgrad->max_buffer_size = max_buffer_size;
+  if (not_grouped) {
+    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
+    wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
+  }
 
   return *this;
 }
