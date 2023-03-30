@@ -273,7 +273,7 @@ struct Wgrad {
   core23::Tensor table_range;
 
   core23::Tensor data;
-  uint64_t max_buffer_size;
+  int64_t max_buffer_size;
   void bind_data_ptr(void *ptr);
 };
 

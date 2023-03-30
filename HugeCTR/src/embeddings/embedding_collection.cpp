@@ -77,7 +77,7 @@ EmbeddingCollection::EmbeddingCollection(
             auto grouped_wgrad_buff =
                 std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<float>>(exchange_wgrad)
                     ->get_embed_wgrad_buffs()[gpu_id];
-            grouped_wgrad_buff->reserve({wgrad.max_buffer_size},
+            grouped_wgrad_buff->reserve({static_cast<uint64_t>(wgrad.max_buffer_size)},
                                         &(wgrad_tensor2_float_list_[gpu_id]));
             if (grouped_allreduce_length_ == 0 && wgrad.max_buffer_size > 0)
               grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(float);
@@ -85,7 +85,7 @@ EmbeddingCollection::EmbeddingCollection(
             auto grouped_wgrad_buff =
                 std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<__half>>(exchange_wgrad)
                     ->get_embed_wgrad_buffs()[gpu_id];
-            grouped_wgrad_buff->reserve({wgrad.max_buffer_size},
+            grouped_wgrad_buff->reserve({static_cast<uint64_t>(wgrad.max_buffer_size)},
                                         &(wgrad_tensor2_half_list_[gpu_id]));
             if (grouped_allreduce_length_ == 0 && wgrad.max_buffer_size > 0)
               grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(__half);
