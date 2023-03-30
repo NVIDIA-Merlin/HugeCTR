@@ -541,3 +541,18 @@ TEST(test_embedding_collection, dp_and_mp_plan1) {
   EBC_E2E_TEST(lookup_params_with_shared_table, shard_matrix, grouped_emb_params);
 }
 }  // namespace dp_and_mp
+
+namespace empty_lookup {
+const std::vector<std::vector<int>> shard_matrix = {
+    {1, 1, 1, 1},
+    {0, 0, 0, 0},
+};
+
+const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+    {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3}}};
+
+TEST(test_embedding_collection, empty_lookup) {
+  EBC_E2E_TEST(lookup_params0, shard_matrix, grouped_emb_params);
+}
+
+}  // namespace empty_lookup

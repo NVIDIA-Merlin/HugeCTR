@@ -296,6 +296,8 @@ void IntraModelForward::intra_forward(const core23::Tensor &evs, const core23::T
   int batch_size_per_gpu = batch_size / num_global_gpus;
   auto stream = core_->get_local_gpu()->get_stream();
 
+  if (num_local_lookup == 0) return;
+
   DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(intra_model_comm_buffer.attr.type.type(), emb_t, [&] {
       auto peer_data_ptr = reinterpret_cast<emb_t ***>(intra_model_comm_buffer.peer_data.data());
@@ -396,6 +398,8 @@ void IntraModelForward::dst_reduction(const IntraModelCommBuffer &intra_model_co
   int num_network_dst_lookup_ids =
       reduction_buffer.attr.indices.network_dst_lookup_ids.num_elements();
   auto stream = core_->get_local_gpu()->get_stream();
+
+  if (num_network_dst_lookup_ids == 0) return;
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(emb_type.type(), emb_t, [&] {
     auto *peer_data_ptr = reinterpret_cast<emb_t ***>(intra_model_comm_buffer.peer_data.data());

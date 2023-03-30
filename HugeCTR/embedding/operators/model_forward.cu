@@ -258,8 +258,6 @@ void ModelCommBuffer::init(std::shared_ptr<CoreResourceManager> core,
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
-  HCTR_CHECK(attr.max_ev_elements > 0);
-  HCTR_CHECK(attr.num_lookup > 0);
 
   this->data_list.clear();
   for (int gpu_id = 0; gpu_id < attr.num_gpus; ++gpu_id) {

@@ -43,18 +43,13 @@ core23::Tensor init_tensor_list(int64_t n, int device_id) {
 template <typename BuiltInType>
 core23::Tensor init_tensor_list(const std::vector<core23::Tensor> &tensor_vec, int device_id,
                                 cudaStream_t stream = 0) {
+  auto tensor_list = init_tensor_list<BuiltInType>(tensor_vec.size(), device_id);
+
   std::vector<BuiltInType *> data_vec;
   for (auto &tensor : tensor_vec) {
     data_vec.push_back(tensor.data<BuiltInType>());
   }
 
-  core23::Device device(core23::DeviceType::GPU, device_id);
-  core23::TensorParams params = core23::TensorParams().device(device);
-  static_assert(sizeof(void *) == sizeof(BuiltInType *));
-  constexpr int64_t pointer_width = sizeof(void *) / sizeof(BuiltInType);
-  auto tensor_list =
-      core23::Tensor(params.shape({static_cast<int64_t>(data_vec.size()), pointer_width})
-                         .data_type(core23::ToScalarType<BuiltInType>::value));
   if (stream != 0) {
     HCTR_LIB_THROW(cudaMemcpyAsync(tensor_list.data(), data_vec.data(),
                                    data_vec.size() * sizeof(BuiltInType *), cudaMemcpyHostToDevice,

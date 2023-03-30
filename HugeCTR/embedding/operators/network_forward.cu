@@ -169,13 +169,9 @@ void NetworkBuffer::init(std::shared_ptr<CoreResourceManager> core, const Networ
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
   for (int ggpu_id = 0; ggpu_id < attr.num_gpus; ++ggpu_id) {
-    if (attr.gpu_id_to_max_ev_elements[ggpu_id] == 0) {
-      this->data_list.emplace_back();
-    } else {
-      this->data_list.emplace_back(
-          params.shape({batch_size_per_gpu * attr.gpu_id_to_max_ev_elements[ggpu_id]})
-              .data_type(attr.type));
-    }
+    this->data_list.emplace_back(
+        params.shape({batch_size_per_gpu * attr.gpu_id_to_max_ev_elements[ggpu_id]})
+            .data_type(attr.type));
   }
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(attr.type.type(), emb_t, [&] {
     this->data = core23::init_tensor_list<emb_t>(data_list, params.device().index());

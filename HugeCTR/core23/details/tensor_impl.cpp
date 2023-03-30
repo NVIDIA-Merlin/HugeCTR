@@ -28,6 +28,7 @@ namespace HugeCTR {
 namespace core23 {
 
 TensorImpl::TensorImpl(TensorParams params) : params_(params) {
+  if (params_.shape().size() == 0) return;
   auto buffer = GetBuffer(params.buffer_params(), params.device(),
                           GetAllocator(params.allocator_params(), params.device()));
   auto buffer_requirements = ConvertToBufferRequirements(params);

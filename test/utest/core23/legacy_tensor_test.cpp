@@ -115,8 +115,8 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   // 8. Create an emtpy Tensor and then overwrite it with the tensor0
   Tensor tensor5;
   EXPECT_TRUE(tensor5.empty());
-  EXPECT_THROW(tensor5.shape(), HugeCTR::internal_runtime_error);
-  EXPECT_THROW(tensor5.data_type(), HugeCTR::internal_runtime_error);
+  EXPECT_NO_THROW(tensor5.shape());
+  EXPECT_NO_THROW(tensor5.data_type());
   EXPECT_FALSE(tensor5.own_data());
   EXPECT_TRUE(tensor5.data() == nullptr);
   tensor5 = tensor0;

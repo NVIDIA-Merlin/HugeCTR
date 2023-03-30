@@ -67,8 +67,7 @@ void copy_gpu_to_cpu(void* dst_data, const void* src_data, int64_t num_bytes,
 inline void copy_common(void* dst_data, const void* src_data, int64_t num_bytes,
                         const Device& dst_device, const Device& src_device,
                         std::optional<CUDAStream> stream_or) {
-  HCTR_THROW_IF(dst_data == nullptr || src_data == nullptr, HugeCTR::Error_t::IllegalCall,
-                "src_data or dst_data is nullptr");
+  if (dst_data == nullptr || src_data == nullptr) return;
 
   if (dst_data == src_data) {
     return;

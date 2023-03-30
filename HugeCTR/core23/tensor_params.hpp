@@ -41,8 +41,7 @@ class TensorParams final {
         device_(device),
         allocator_params_(allocator_params),
         buffer_params_(buffer_params),
-        stream_(stream),
-        has_shape_(shape.valid()) {}
+        stream_(stream) {}
 
   TensorParams() : TensorParams(Shape(), DataType(), 256, Device(), {}, {}, CUDAStream()) {}
   TensorParams(const Shape& shape) : TensorParams() { this->set_shape(shape); }
@@ -92,11 +91,7 @@ class TensorParams final {
     return p;
   }
 
-  const Shape& shape() const {
-    HCTR_THROW_IF(shape_.valid() == false, HugeCTR::Error_t::IllegalCall,
-                  "TensorParams's Shape is not valid yet");
-    return shape_;
-  };
+  const Shape& shape() const { return shape_; };
 
   DataType data_type() const { return data_type_; }
   int64_t alignment() const { return alignment_; }
@@ -107,10 +102,7 @@ class TensorParams final {
   CUDAStream stream() const { return stream_; }
 
  private:
-  void set_shape(const Shape& shape) {
-    shape_ = shape;
-    has_shape_ = shape_.valid() ? true : false;
-  }
+  void set_shape(const Shape& shape) { shape_ = shape; }
 
   Shape shape_;
   DataType data_type_;
@@ -120,8 +112,6 @@ class TensorParams final {
   AllocatorParams allocator_params_;
   BufferParams buffer_params_;
   CUDAStream stream_;
-
-  bool has_shape_;
 };
 
 }  // namespace core23

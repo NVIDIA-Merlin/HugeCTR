@@ -29,7 +29,7 @@ using namespace HugeCTR::core23;
 
 void tensor_params_test_impl() {
   TensorParams tensor_params0;
-  EXPECT_THROW(tensor_params0.shape(), HugeCTR::internal_runtime_error);
+  EXPECT_NO_THROW(tensor_params0.shape());
   EXPECT_TRUE(tensor_params0.data_type() == DataType());
   EXPECT_TRUE(tensor_params0.device() == Device());
   EXPECT_TRUE(tensor_params0.stream() == CUDAStream());

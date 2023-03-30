@@ -104,6 +104,7 @@ void IntraModelBackward::backward(const IntraModelCommBufferAttr &intra_model_co
       reduction_buffer.attr.indices.network_dst_lookup_ids.num_elements();
   auto stream = core_->get_local_gpu()->get_stream();
 
+  if (num_network_dst_lookup_ids == 0) return;
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(emb_type.type(), emb_t, [&] {
     auto peer_data_ptr = (emb_t ***)model_comm_buffer.peer_data.data();
 

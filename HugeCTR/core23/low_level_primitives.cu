@@ -67,6 +67,7 @@ void fill_gpu(Type* data, int64_t num_elements, const Type val, const Device& de
 template <typename Type>
 void fill_common(Type* data, int64_t num_elements, const Type val, const Device& device,
                  std::optional<CUDAStream> stream_or) {
+  if (data == nullptr) return;
   DeviceGuard device_guard(device);
   if (device.type() == DeviceType::CPU) {
     fill_cpu(data, num_elements, val, device, stream_or);
@@ -142,6 +143,7 @@ ALL_DATA_TYPES_SUPPORTED(DEFINE_FILL)
 template <typename DstType, typename SrcType>
 void convert_async(DstType* dst_data, const SrcType* src_data, int64_t num_elements,
                    const Device& dst_device, const Device& src_device, CUDAStream stream) {
+  if (src_data == nullptr || dst_data == nullptr) return;
   transform_async_common(dst_data, src_data, num_elements, dst_device, src_device, stream,
                          [] HCTR_HOST_DEVICE(SrcType in) -> DstType {
                            return TypeConverter<DstType, SrcType>::value(in);
@@ -157,6 +159,7 @@ template <typename Type>
 void uniform_async(Type* data, int64_t num_elements, const Type a, const Type b,
                    const Device& device, CURANDGenerator generator, CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
+  if (data == nullptr) return;
 
   DeviceGuard device_guard(device);
   generator.set_stream(stream);
@@ -174,6 +177,7 @@ template <typename Type>
 void normal_async(Type* data, int64_t num_elements, const Type mean, const Type stddev,
                   const Device& device, CURANDGenerator generator, CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
+  if (data == nullptr) return;
 
   DeviceGuard device_guard(device);
   generator.set_stream(stream);
@@ -196,6 +200,7 @@ void variance_scaling_async(Type* data, int64_t num_elements, Type scale,
                             const Type fan_out, const Device& device, CURANDGenerator generator,
                             CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
+  if (data == nullptr) return;
 
   DeviceGuard device_guard(device);
   generator.set_stream(stream);

@@ -52,9 +52,6 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   HugeCTR::OptParams opt_param_;
   OptBuffer opt_buffer_;
 
-  void cal_dp_storage_meta();
-  void cal_mp_storage_meta();
-
  public:
   RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
                              std::shared_ptr<CoreResourceManager> core,
