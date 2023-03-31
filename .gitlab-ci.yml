@@ -213,6 +213,7 @@ check_selene_idle:
   stage: pre_test
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   script:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${CONT}
@@ -230,6 +231,7 @@ check_selene_queued:
   stage: pre_test
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   script:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${CONT}
@@ -278,6 +280,20 @@ utests:
     WALLTIME: "01:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest.sub
+
+utests_core23:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+    - check_selene_idle
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_core23
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_core23.sub
 
 utests_layer_1:
   extends: .cluster_test_job
