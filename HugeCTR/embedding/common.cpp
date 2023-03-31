@@ -392,7 +392,7 @@ WgradInitializer &WgradInitializer::init_data() {
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
-  int max_buffer_size = 0;
+  int64_t max_buffer_size = 0;
   for (size_t i = 0; i < local_max_hotness_list.size(); ++i) {
     max_buffer_size += local_max_hotness_list[i] * local_ev_size_list[i];
   }
@@ -510,7 +510,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(bool not_grouped
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
-  int max_buffer_size = 0;
+  int64_t max_buffer_size = 0;
   for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
     max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
   }
