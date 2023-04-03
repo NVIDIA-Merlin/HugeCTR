@@ -508,7 +508,7 @@ template <typename T>
 AverageLoss<T>::~AverageLoss() {
   for (size_t local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
        ++local_gpu_id) {
-    HCTR_LIB_THROW(cudaFreeHost(loss_local_[local_gpu_id]));
+    HCTR_LIB_CHECK_(cudaFreeHost(loss_local_[local_gpu_id]));
   }
 }
 
@@ -2924,7 +2924,7 @@ void ReallocBuffer<T, U>::init_access_desc(const std::vector<CUmemAccessDesc>* a
 template <typename T, ReallocType_t U>
 ReallocBuffer<T, U>::~ReallocBuffer() {
   if (num_elements_ > 0 and U != ReallocType_t::MMAP) {
-    HCTR_LIB_THROW(cudaFree(ptr_));
+    HCTR_LIB_CHECK_(cudaFree(ptr_));
   }
   if (U == ReallocType_t::MMAP) {
     release_mmap_memory();

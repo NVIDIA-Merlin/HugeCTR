@@ -73,20 +73,20 @@ HPS::~HPS() {
     for (auto f = it->second.begin(); f != it->second.end(); ++f) {
       auto d_vectors_per_table = f->second;
       for (size_t i{0}; i < d_vectors_per_table.size(); ++i) {
-        HCTR_LIB_THROW(cudaFree(d_vectors_per_table[i]));
+        HCTR_LIB_CHECK_(cudaFree(d_vectors_per_table[i]));
       }
     }
   }
   for (auto it = h_keys_per_table_map_.begin(); it != h_keys_per_table_map_.end(); ++it) {
     auto h_keys_per_table = it->second;
     for (size_t i{0}; i < h_keys_per_table.size(); ++i) {
-      HCTR_LIB_THROW(cudaFreeHost(h_keys_per_table[i]));
+      HCTR_LIB_CHECK_(cudaFreeHost(h_keys_per_table[i]));
     }
   }
   for (auto it = d_keys_per_table_map_.begin(); it != d_keys_per_table_map_.end(); ++it) {
     auto d_keys_per_table = it->second;
     for (size_t i{0}; i < d_keys_per_table.size(); ++i) {
-      HCTR_LIB_THROW(cudaFree(d_keys_per_table[i]));
+      HCTR_LIB_CHECK_(cudaFree(d_keys_per_table[i]));
     }
   }
 }

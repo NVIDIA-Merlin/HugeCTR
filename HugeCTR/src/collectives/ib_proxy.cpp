@@ -851,10 +851,10 @@ IbvProxy::HierA2AvCollContext::~HierA2AvCollContext() {
     ibv_dereg_mr(input_mr_);
   }
   if (send_sizes_) {
-    HCTR_LIB_THROW(cudaFreeHost(send_sizes_));
+    HCTR_LIB_CHECK_(cudaFreeHost(send_sizes_));
   }
   if (recv_sizes_) {
-    HCTR_LIB_THROW(cudaFreeHost(recv_sizes_));
+    HCTR_LIB_CHECK_(cudaFreeHost(recv_sizes_));
   }
   if (wr_) {
     for (size_t n = 0; n < num_procs_; n++) {
@@ -1330,10 +1330,10 @@ IbvProxy::ARCollContext::~ARCollContext() {
     PROXY_ASSERT(ret == 0);
   }
   if (d_ag_storage_) {
-    HCTR_LIB_THROW(cudaFree(d_ag_storage_));
+    HCTR_LIB_CHECK_(cudaFree(d_ag_storage_));
   }
   if (h_rs_cmd_) {
-    HCTR_LIB_THROW(cudaFreeHost(h_rs_cmd_));
+    HCTR_LIB_CHECK_(cudaFreeHost(h_rs_cmd_));
   }
   if (mem_mr) {
     sharp_coll_dereg_mr(sharp_ctx_->sharp_coll_context_, mem_mr);

@@ -72,9 +72,6 @@ void ParameterServer<TypeKey>::load_keyset_from_file(std::string keyset_file) {
 #ifdef ENABLE_MPI
     HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;

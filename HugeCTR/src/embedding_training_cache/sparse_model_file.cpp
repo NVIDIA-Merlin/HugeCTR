@@ -85,9 +85,6 @@ void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
     if (fd != -1) {
       close(fd);
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -106,9 +103,6 @@ void SparseModelFile<TypeKey>::sync_mmaped_embedding_with_disk_() {
     if (ret != 0) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Mmap sync error");
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -127,9 +121,6 @@ void SparseModelFile<TypeKey>::unmap_embedding_from_memory_() {
     } else {
       HCTR_OWN_THROW(Error_t::IllegalCall, emb_vec_file + " not mapped to HMEM");
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -219,9 +210,6 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
         key_idx_map_.insert({key_vec[i], {slot_id, i}});
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -263,9 +251,6 @@ void SparseModelFile<TypeKey>::load_exist_vec_by_key(const std::vector<TypeKey>&
     }
     sync_mmaped_embedding_with_disk_();
     unmap_embedding_from_memory_();
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -305,9 +290,6 @@ void SparseModelFile<TypeKey>::dump_exist_vec_by_key(const std::vector<TypeKey>&
     }
     sync_mmaped_embedding_with_disk_();
     unmap_embedding_from_memory_();
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -374,9 +356,6 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
 
     // write embedding vector to disk
     dump_exist_vec_by_key(keys, vec_indices, vecs);
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -403,9 +382,6 @@ void SparseModelFile<TypeKey>::load_emb_tbl_to_mem(HashTableType& mem_key_index_
 
     std::vector<size_t> temp_slots;
     load_exist_vec_by_key(exist_key, temp_slots, vecs);
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;

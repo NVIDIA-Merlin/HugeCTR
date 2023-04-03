@@ -85,25 +85,6 @@ struct NameID {
   unsigned int id;
 };
 
-/**
- * An internal exception, as a child of std::runtime_error, to carry the error code.
- */
-class internal_runtime_error : public std::runtime_error {
- private:
-  const Error_t err_;
-
- public:
-  /**
-   * Get the error code from exception.
-   * @return error
-   **/
-  Error_t get_error() const { return err_; }
-  /**
-   * Ctor
-   */
-  internal_runtime_error(Error_t err, std::string str) : runtime_error(str), err_(err) {}
-};
-
 enum class LrPolicy_t { fixed };
 
 enum class Optimizer_t {

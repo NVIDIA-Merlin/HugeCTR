@@ -41,9 +41,8 @@ void ParquetDataReaderWorker<T>::do_h2d() {
             (row_group_reader_->get_current_num_row_groups() - 1) - last_row_group_id;
         try {
           row_group_reader_->read_new_file(expected_next_num_group);
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
-          if (err == Error_t::EndOfFile) {
+        } catch (const core23::RuntimeError& rt_err) {
+          if (rt_err.error == Error_t::EndOfFile) {
             if (this->repeat_) {
               HCTR_OWN_THROW(Error_t::UnspecificError,
                              "Parquet reader worker:Should not reach EOF in repeat mode!\n");
@@ -56,9 +55,8 @@ void ParquetDataReaderWorker<T>::do_h2d() {
           }
         }
       }
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      if (err == Error_t::EndOfFile) {
+    } catch (const core23::RuntimeError& rt_err) {
+      if (rt_err.error == Error_t::EndOfFile) {
         if (!row_group_reader_->wait_until_writeable()) {
           return;
         };
@@ -136,10 +134,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           if (!can_read) {
             return;
           }
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
+        } catch (const core23::RuntimeError& rt_err) {
           // both last batch and empty batch will catch eof
-          if (err == Error_t::EndOfFile) {
+          if (rt_err.error == Error_t::EndOfFile) {
             if (strict_order_of_batches_) {
               long long worker_start =
                   std::min((long long)(worker_id_)*batch_size,
@@ -338,9 +335,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
     }
     buffer23_->state.store(BufferState::ReadyForRead);
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
-    if (err == Error_t::EndOfFile) {
+  } catch (const core23::RuntimeError& rt_err) {
+    if (rt_err.error == Error_t::EndOfFile) {
       return;
     } else {
       throw;
@@ -451,12 +447,12 @@ ParquetDataReaderWorker<T>::~ParquetDataReaderWorker() {
   memory_resource_.reset();  // this should trigger dtor
   if (thread_resource_allocated_) {
     this->skip_read();
-    HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
-    HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
+    HCTR_LIB_CHECK_(cudaStreamSynchronize(task_stream_));
+    HCTR_LIB_CHECK_(cudaStreamSynchronize(dense_stream_));
     slot_offset_device_buf_.reset();
     source_.reset();
-    HCTR_LIB_THROW(cudaStreamDestroy(task_stream_));
-    HCTR_LIB_THROW(cudaStreamDestroy(dense_stream_));
+    HCTR_LIB_CHECK_(cudaStreamDestroy(task_stream_));
+    HCTR_LIB_CHECK_(cudaStreamDestroy(dense_stream_));
     thread_resource_allocated_ = false;
   }
 }
@@ -481,9 +477,8 @@ void ParquetDataReaderWorker<T>::do_h2d() {
             (row_group_reader_->get_current_num_row_groups() - 1) - last_row_group_id;
         try {
           row_group_reader_->read_new_file(expected_next_num_group);
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
-          if (err == Error_t::EndOfFile) {
+        } catch (const core23::RuntimeError& rt_err) {
+          if (rt_err.error == Error_t::EndOfFile) {
             if (this->repeat_) {
               HCTR_OWN_THROW(Error_t::UnspecificError,
                              "Parquet reader worker:Should not reach EOF in repeat mode!\n");
@@ -496,9 +491,8 @@ void ParquetDataReaderWorker<T>::do_h2d() {
           }
         }
       }
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      if (err == Error_t::EndOfFile) {
+    } catch (const core23::RuntimeError& rt_err) {
+      if (rt_err.error == Error_t::EndOfFile) {
         if (!row_group_reader_->wait_until_writeable()) {
           return;
         };
@@ -573,10 +567,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           if (!can_read) {
             return;
           }
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
+        } catch (const core23::RuntimeError& rt_err) {
           // both last batch and empty batch will catch eof
-          if (err == Error_t::EndOfFile) {
+          if (rt_err.error == Error_t::EndOfFile) {
             if (strict_order_of_batches_) {
               long long worker_start =
                   std::min((long long)(worker_id_)*batch_size,
@@ -783,9 +776,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
     }
     buffer_->state.store(BufferState::ReadyForRead);
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
-    if (err == Error_t::EndOfFile) {
+  } catch (const core23::RuntimeError& rt_err) {
+    if (rt_err.error == Error_t::EndOfFile) {
       return;
     } else {
       throw;
@@ -895,12 +887,12 @@ ParquetDataReaderWorker<T>::~ParquetDataReaderWorker() {
   memory_resource_.reset();  // this should trigger dtor
   if (thread_resource_allocated_) {
     this->skip_read();
-    HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
-    HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
+    HCTR_LIB_CHECK_(cudaStreamSynchronize(task_stream_));
+    HCTR_LIB_CHECK_(cudaStreamSynchronize(dense_stream_));
     slot_offset_device_buf_.reset();
     source_.reset();
-    HCTR_LIB_THROW(cudaStreamDestroy(task_stream_));
-    HCTR_LIB_THROW(cudaStreamDestroy(dense_stream_));
+    HCTR_LIB_CHECK_(cudaStreamDestroy(task_stream_));
+    HCTR_LIB_CHECK_(cudaStreamDestroy(dense_stream_));
     thread_resource_allocated_ = false;
   }
 }

@@ -59,11 +59,8 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
       decay_power_(decay_power),
       end_lr_(end_lr),
       gpu_resource_(gpu_resource) {
-  if (base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0f || end_lr < 0.f) {
-    HCTR_OWN_THROW(
-        Error_t::WrongInput,
-        "base_lr < 0 || warmup_steps < 0 || decay_steps < 0 || decay_power < 1.0 || end_lr "
-        "< 0.f");
+  if (base_lr < 0 || decay_power < 1.0f || end_lr < 0.f) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "base_lr < 0 || decay_power < 1.0 || end_lr < 0.f");
   }
 
   CudaDeviceContext context(gpu_resource_->get_device_id());
@@ -77,9 +74,9 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
 }
 
 GpuLearningRateScheduler::~GpuLearningRateScheduler() {
-  HCTR_LIB_THROW(cudaFree(step_));
-  HCTR_LIB_THROW(cudaFree(current_lr_));
-  HCTR_LIB_THROW(cudaFree(last_lr_));
+  HCTR_LIB_CHECK_(cudaFree(step_));
+  HCTR_LIB_CHECK_(cudaFree(current_lr_));
+  HCTR_LIB_CHECK_(cudaFree(last_lr_));
 }
 
 void GpuLearningRateScheduler::update() {

@@ -63,7 +63,7 @@ class MmapOffsetList {
   MmapOffset get_offset(long long round, int worker_id) {
     size_t worker_pos = round * num_workers_ + worker_id;
     if (!repeat_ && worker_pos >= offsets_.size()) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
     size_t counter = (round * num_workers_ + worker_id) % offsets_.size();
     if (worker_id >= num_workers_) {

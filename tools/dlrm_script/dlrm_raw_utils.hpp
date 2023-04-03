@@ -45,8 +45,6 @@
 
 static size_t process_read_bytes = 0;
 static size_t process_write_bytes = 0;
-using HugeCTR::getErrorString;
-using HugeCTR::getErrorType;
 using HugeCTR::Logger;
 using HugeCTR::SrcLoc;
 
@@ -58,7 +56,6 @@ using map_type = concurrent_unordered_map<key, value>;
 using key_type = int32_t;
 using value_type = int32_t;
 using bitmask_type = cudf::bitmask_type;
-using internal_runtime_error = HugeCTR::internal_runtime_error;
 using Error_t = HugeCTR::Error_t;
 
 typedef struct {

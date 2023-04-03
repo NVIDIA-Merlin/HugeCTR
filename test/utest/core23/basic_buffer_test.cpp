@@ -95,7 +95,7 @@ void single_buffer_test_impl(BufferParams buffer_params, AllocatorParams allocat
     EXPECT_NO_THROW(buffer->subscribe(another_buffer_client.get(), another_requirement));
   } else {
     EXPECT_THROW(buffer->subscribe(another_buffer_client.get(), another_requirement),
-                 HugeCTR::internal_runtime_error);
+                 HugeCTR::core23::RuntimeError);
   }
 
   // Pass 4. Check the behaviour of post-allocation allocation.
@@ -109,7 +109,7 @@ void single_buffer_test_impl(BufferParams buffer_params, AllocatorParams allocat
       EXPECT_TRUE(buffer_client_data[i] == buffer_clients[i]->data());
     }
   } else {
-    EXPECT_THROW(buffer->allocate(), HugeCTR::internal_runtime_error);
+    EXPECT_THROW(buffer->allocate(), HugeCTR::core23::RuntimeError);
   }
 }
 

@@ -28,7 +28,7 @@ void DataReaderWorker<T>::read_new_file() {
   constexpr int MAX_TRY = 10;
   for (int i = 0; i < MAX_TRY; i++) {
     if (checker_->next_source(1) == Error_t::EndOfFile) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
 
     Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
@@ -115,13 +115,12 @@ void DataReaderWorker<T>::read_a_batch() {
     if (!checker_->is_open()) {
       read_new_file();
     }
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
+  } catch (const core23::RuntimeError& rt_err) {
     // TODO: when in repeate mode and the dataset sample num can not devided by batchsize,
     // Norm/Raw have different behavior to last batch. Norm will fetch the data from the begining
     // of the datset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
     // (2021.7.4)
-    if (err == Error_t::EndOfFile) {
+    if (rt_err.error == Error_t::EndOfFile) {
       if (!wait_until_h2d_ready()) return;
       buffer23_->current_batch_size = 0;
       assert(buffer23_->state.load() == BufferState::Writing);
@@ -211,13 +210,12 @@ void DataReaderWorker<T>::read_a_batch() {
             current_csr.update_value_size(nnz);
           }
         }
-      } catch (const internal_runtime_error& rt_err) {
+      } catch (const core23::RuntimeError& rt_err) {
         batch_idx--;  // restart i-th sample
         for (auto& each_csr : host_sparse_buffer_) {
           each_csr.roll_back();
         }
-        Error_t err = rt_err.get_error();
-        if (err == Error_t::DataCheckError) {
+        if (rt_err.error == Error_t::DataCheckError) {
           HCTR_LOG_S(ERROR, WORLD) << "Error_t::DataCheckError " << HCTR_LOCATION() << std::endl;
         } else {            // Error_t::BrokenFile, Error_t::UnspecificEror, ...
           read_new_file();  // can throw Error_t::EOF
@@ -230,9 +228,8 @@ void DataReaderWorker<T>::read_a_batch() {
       if (current_record_index_ >= data_set_header_.number_of_records) {
         read_new_file();  // can throw Error_t::EOF
       }
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      if (err == Error_t::EndOfFile) {
+    } catch (const core23::RuntimeError& rt_err) {
+      if (rt_err.error == Error_t::EndOfFile) {
         current_batch_size = batch_idx + 1;
       } else {
         throw;
@@ -285,7 +282,7 @@ void DataReaderWorker<T>::read_new_file() {
   constexpr int MAX_TRY = 10;
   for (int i = 0; i < MAX_TRY; i++) {
     if (checker_->next_source(1) == Error_t::EndOfFile) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
 
     Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
@@ -369,13 +366,12 @@ void DataReaderWorker<T>::read_a_batch() {
     if (!checker_->is_open()) {
       read_new_file();
     }
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
+  } catch (const core23::RuntimeError& rt_err) {
     // TODO: when in repeate mode and the dataset sample num can not devided by batchsize,
     // Norm/Raw have different behavior to last batch. Norm will fetch the data from the begining
     // of the datset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
     // (2021.7.4)
-    if (err == Error_t::EndOfFile) {
+    if (rt_err.error == Error_t::EndOfFile) {
       if (!wait_until_h2d_ready()) return;
       buffer_->current_batch_size = 0;
       assert(buffer_->state.load() == BufferState::Writing);
@@ -464,13 +460,12 @@ void DataReaderWorker<T>::read_a_batch() {
             current_csr.update_value_size(nnz);
           }
         }
-      } catch (const internal_runtime_error& rt_err) {
+      } catch (const core23::RuntimeError& rt_err) {
         batch_idx--;  // restart i-th sample
         for (auto& each_csr : host_sparse_buffer_) {
           each_csr.roll_back();
         }
-        Error_t err = rt_err.get_error();
-        if (err == Error_t::DataCheckError) {
+        if (rt_err.error == Error_t::DataCheckError) {
           HCTR_LOG_S(ERROR, WORLD) << "Error_t::DataCheckError " << HCTR_LOCATION() << std::endl;
         } else {            // Error_t::BrokenFile, Error_t::UnspecificEror, ...
           read_new_file();  // can throw Error_t::EOF
@@ -483,9 +478,8 @@ void DataReaderWorker<T>::read_a_batch() {
       if (current_record_index_ >= data_set_header_.number_of_records) {
         read_new_file();  // can throw Error_t::EOF
       }
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      if (err == Error_t::EndOfFile) {
+    } catch (const core23::RuntimeError& rt_err) {
+      if (rt_err.error == Error_t::EndOfFile) {
         current_batch_size = batch_idx + 1;
       } else {
         throw;

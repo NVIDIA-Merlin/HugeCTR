@@ -488,7 +488,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
 Model::~Model() {
   for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
     CudaDeviceContext context(device);
-    HCTR_LIB_THROW(cudaDeviceSynchronize());
+    HCTR_LIB_CHECK_(cudaDeviceSynchronize());
   }
 }
 
@@ -2415,9 +2415,9 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       write_func(output_label_file_name, global_label_result.get(),
                  current_eval_batchsize_ * label_dim);
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2459,9 +2459,9 @@ Error_t Model::get_current_loss(float* loss) {
       loss_reduced = loss_sum;
     }
     *loss = loss_reduced / resource_manager_->get_global_gpu_count();
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2535,9 +2535,9 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
         op(core23_networks_[0]);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2565,9 +2565,9 @@ Error_t Model::download_sparse_params_to_files_(
       }
     }
     HCTR_LOG(INFO, ROOT, "Dumping sparse optimzer states to files, successful\n");
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2585,12 +2585,9 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
     return std::shared_ptr<EmbeddingTrainingCache>(new EmbeddingTrainingCache(
         ps_types, embeddings_, sparse_embedding_files, resource_manager_,
         solver_.use_mixed_precision, solver_.i64_input_key, local_paths, hmem_cache_configs));
-  } catch (const internal_runtime_error& rt_err) {
-    Logger::print_exception(rt_err, 0);
-    throw rt_err;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
-    throw err;
+    throw;
   }
 }
 
@@ -2613,9 +2610,9 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
     } else {
       op(core23_networks_);
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2634,9 +2631,9 @@ Error_t Model::load_opt_states_for_sparse_(
         embeddings_[i]->load_opt_states(sparse_opt_states_files[i]);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2659,9 +2656,9 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
     } else {
       op(core23_networks_);
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
@@ -2677,9 +2674,9 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
         embeddings_[i]->load_parameters(embedding_model_files[i]);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
+  } catch (const core23::RuntimeError& rt_err) {
     Logger::print_exception(rt_err, 0);
-    return rt_err.get_error();
+    return rt_err.error;
   } catch (const std::exception& err) {
     Logger::print_exception(err, 0);
     return Error_t::UnspecificError;

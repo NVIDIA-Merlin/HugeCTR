@@ -109,11 +109,11 @@ DFContainer<T>::~DFContainer() {
   this->clear();
   if (allocated_) {
     CudaDeviceContext context(device_id_);
-    HCTR_LIB_THROW(cudaFree(raw_dense_));
-    HCTR_LIB_THROW(cudaFree(raw_sparse_offset_));
-    HCTR_LIB_THROW(cudaFree(raw_sparse_));
-    HCTR_LIB_THROW(cudaFreeHost(h_copy_helper_buffer_));
-    HCTR_LIB_THROW(cudaStreamDestroy(copy_stream_));
+    HCTR_LIB_CHECK_(cudaFree(raw_dense_));
+    HCTR_LIB_CHECK_(cudaFree(raw_sparse_offset_));
+    HCTR_LIB_CHECK_(cudaFree(raw_sparse_));
+    HCTR_LIB_CHECK_(cudaFreeHost(h_copy_helper_buffer_));
+    HCTR_LIB_CHECK_(cudaStreamDestroy(copy_stream_));
   }
 }
 

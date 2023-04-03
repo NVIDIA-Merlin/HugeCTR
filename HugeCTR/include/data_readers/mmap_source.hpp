@@ -40,9 +40,8 @@ class MmapSource : public Source {
       offset_ = mmap_offset_list_->get_offset(round_, worker_id_);
       round_++;
       return Error_t::Success;
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      if (err == Error_t::EndOfFile) {
+    } catch (const core23::RuntimeError& rt_err) {
+      if (rt_err.error == Error_t::EndOfFile) {
         return Error_t::EndOfFile;
       } else {
         return Error_t::UnspecificError;

@@ -143,10 +143,10 @@ void GPUBarrier::sync_all_gpus_report_host_and_inc(size_t* d_report_count, size_
 
 GPUBarrier::~GPUBarrier() {
   for (size_t g = 0; g < num_gpus_; g++) {
-    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
-    HCTR_LIB_THROW(cudaFree(d_rem_barrier_flags_[g]));
-    HCTR_LIB_THROW(cudaFree(d_barrier_flags_[g]));
-    HCTR_LIB_THROW(cudaFree(d_global_barrier_store_[g]));
+    HCTR_LIB_CHECK_(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_CHECK_(cudaFree(d_rem_barrier_flags_[g]));
+    HCTR_LIB_CHECK_(cudaFree(d_barrier_flags_[g]));
+    HCTR_LIB_CHECK_(cudaFree(d_global_barrier_store_[g]));
   }
   delete[] d_rem_barrier_flags_;
   delete[] d_barrier_flags_;
