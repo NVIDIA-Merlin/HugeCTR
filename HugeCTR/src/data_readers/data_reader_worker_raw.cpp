@@ -70,9 +70,8 @@ template <typename T>
 void DataReaderWorkerRaw<T>::read_a_batch() {
   try {
     read_new_file();
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
-    if (err == Error_t::EndOfFile) {
+  } catch (const core23::RuntimeError& rt_err) {
+    if (rt_err.error == Error_t::EndOfFile) {
       if (!wait_until_h2d_ready()) return;
       buffer23_->current_batch_size = 0;
       assert(buffer23_->state.load() == BufferState::Writing);
@@ -248,9 +247,8 @@ template <typename T>
 void DataReaderWorkerRaw<T>::read_a_batch() {
   try {
     read_new_file();
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
-    if (err == Error_t::EndOfFile) {
+  } catch (const core23::RuntimeError& rt_err) {
+    if (rt_err.error == Error_t::EndOfFile) {
       if (!wait_until_h2d_ready()) return;
       buffer_->current_batch_size = 0;
       assert(buffer_->state.load() == BufferState::Writing);

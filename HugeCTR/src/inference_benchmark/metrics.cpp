@@ -126,7 +126,7 @@ HPS_Metrics::~HPS_Metrics() {
     for (auto f = it->second.begin(); f != it->second.end(); ++f) {
       auto d_vectors_per_table = f->second;
       for (size_t i{0}; i < d_vectors_per_table.size(); ++i) {
-        HCTR_LIB_THROW(cudaFree(d_vectors_per_table[i]));
+        HCTR_LIB_CHECK_(cudaFree(d_vectors_per_table[i]));
       }
     }
   }

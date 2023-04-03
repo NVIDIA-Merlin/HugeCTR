@@ -298,7 +298,7 @@ class CudaCPUDeviceContext {
     numa_bitmask_free(cpu_mask);
   }
 
-  ~CudaCPUDeviceContext() { HCTR_LIB_THROW(cudaSetDevice(original_device_)); }
+  ~CudaCPUDeviceContext() { HCTR_LIB_CHECK_(cudaSetDevice(original_device_)); }
 
  public:
   static std::unordered_map<int, int> device_id_to_numa_node_;

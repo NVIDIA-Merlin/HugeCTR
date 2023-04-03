@@ -102,14 +102,8 @@
  * which can be useful in debugging asynchronous kernel launches or cudaMemcpys.
  */
 
-#include <cublas_v2.h>
-#include <cuda.h>
-#include <cudnn.h>
-#include <curand.h>
-#include <nccl.h>
-#include <nvml.h>
-
 #include <core/macro.hpp>
+#include <core23/error.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -121,31 +115,21 @@
 #include <mpi.h>
 #endif
 
-namespace HugeCTR {
+#ifdef HCTR_LIB_CHECK_
+#error HCTR_LIB_CHECK_ already defined. Potential naming conflict!
+#endif
+#define HCTR_LIB_CHECK_(EXPR)                                                                      \
+  do {                                                                                             \
+    const auto _expr_eval = (EXPR);                                                                \
+    const auto error = HugeCTR::core23::to_error(_expr_eval);                                      \
+    if (error != HugeCTR::Error_t::Success) {                                                      \
+      HugeCTR::Logger::get().print_error("Library call check failed!", HCTR_CODE_REFERENCE_(EXPR), \
+                                         HugeCTR::core23::to_error_string(_expr_eval));            \
+      std::abort();                                                                                \
+    }                                                                                              \
+  } while (0)
 
-enum class Error_t {
-  Success,
-  FileCannotOpen,
-  BrokenFile,
-  OutOfMemory,
-  OutOfBound,
-  WrongInput,
-  IllegalCall,
-  NotInitialized,
-  UnSupportedFormat,
-  InvalidEnv,
-  DataCheckError,
-  UnspecificError,
-  EndOfFile,
-  MpiError,
-  CudaDriverError,
-  CudaRuntimeError,
-  CublasError,
-  CudnnError,
-  CurandError,
-  NcclError,
-  NvmlError
-};
+namespace HugeCTR {
 
 // We have five reserved verbosity levels for users' convenience.
 #define LOG_ERROR_LEVEL -1
@@ -200,125 +184,6 @@ struct SrcLoc {
 
 #define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
 
-template <typename SrcType>
-Error_t getErrorType(SrcType err);
-template <>
-inline Error_t getErrorType(CUresult err) {
-  return (err == CUDA_SUCCESS) ? Error_t::Success : Error_t::CudaDriverError;
-}
-template <>
-inline Error_t getErrorType(cudaError_t err) {
-  return (err == cudaSuccess) ? Error_t::Success : Error_t::CudaRuntimeError;
-}
-template <>
-inline Error_t getErrorType(nvmlReturn_t err) {
-  return (err == NVML_SUCCESS) ? Error_t::Success : Error_t::NvmlError;
-}
-template <>
-inline Error_t getErrorType(cublasStatus_t err) {
-  return (err == CUBLAS_STATUS_SUCCESS) ? Error_t::Success : Error_t::CublasError;
-}
-template <>
-inline Error_t getErrorType(ncclResult_t err) {
-  return (err == ncclSuccess) ? Error_t::Success : Error_t::NcclError;
-}
-template <>
-inline Error_t getErrorType(cudnnStatus_t err) {
-  return (err == CUDNN_STATUS_SUCCESS) ? Error_t::Success : Error_t::CudnnError;
-}
-template <>
-inline Error_t getErrorType(curandStatus_t err) {
-  return (err == CURAND_STATUS_SUCCESS) ? Error_t::Success : Error_t::CurandError;
-}
-
-template <typename SrcType>
-std::string getErrorString(SrcType err);
-template <>
-inline std::string getErrorString(CUresult err) {
-  const char* ptr;
-  if (cuGetErrorString(err, &ptr) != CUDA_SUCCESS) {
-    ptr = "CUDA driver: Unknown error.";
-  }
-  return ptr;
-}
-template <>
-inline std::string getErrorString(cudaError_t err) {
-  return cudaGetErrorString(err);
-}
-template <>
-inline std::string getErrorString(nvmlReturn_t err) {
-  return nvmlErrorString(err);
-}
-template <>
-inline std::string getErrorString(cublasStatus_t err) {
-  switch (err) {
-    case CUBLAS_STATUS_SUCCESS:
-      return "cuBLAS operation completed successfully. What are you doing here?";
-    case CUBLAS_STATUS_NOT_INITIALIZED:
-      return "cuBLAS was not initialized.";
-    case CUBLAS_STATUS_ALLOC_FAILED:
-      return "cuBLAS internal resource allocation failed.";
-    case CUBLAS_STATUS_INVALID_VALUE:
-      return "cuBLAS got an upsopported value or parameter.";
-    case CUBLAS_STATUS_ARCH_MISMATCH:
-      return "cuBLAS feature is unavailable on the current device arch.";
-    case CUBLAS_STATUS_MAPPING_ERROR:
-      return "cuBLAS failed to access GPU memory space.";
-    case CUBLAS_STATUS_EXECUTION_FAILED:
-      return "cuBLAS failed execute the GPU program or launch the kernel.";
-    case CUBLAS_STATUS_INTERNAL_ERROR:
-      return "cuBLAS internal operation failed.";
-    case CUBLAS_STATUS_NOT_SUPPORTED:
-      return "cuBLAS doesn't support the requested functionality.";
-    case CUBLAS_STATUS_LICENSE_ERROR:
-      return "cuBLAS failed to check the current licencing.";
-    default:
-      return "cuBLAS unkown error.";
-  }
-}
-
-template <>
-inline std::string getErrorString(ncclResult_t err) {
-  return ncclGetErrorString(err);
-}
-template <>
-inline std::string getErrorString(cudnnStatus_t err) {
-  return cudnnGetErrorString(err);
-}
-template <>
-inline std::string getErrorString(curandStatus_t err) {
-  switch (err) {
-    case CURAND_STATUS_SUCCESS:
-      return "cuRAND no errors.";
-    case CURAND_STATUS_VERSION_MISMATCH:
-      return "cuRAND header file and linked library version do not match.";
-    case CURAND_STATUS_NOT_INITIALIZED:
-      return "cuRAND generator not initialized.";
-    case CURAND_STATUS_ALLOCATION_FAILED:
-      return "cuRAND memory allocation failed.";
-    case CURAND_STATUS_TYPE_ERROR:
-      return "cuRAND generator is wrong type.";
-    case CURAND_STATUS_OUT_OF_RANGE:
-      return "cuRAND argument out of range.";
-    case CURAND_STATUS_LENGTH_NOT_MULTIPLE:
-      return "cuRAND length requested is not a multple of dimension.";
-    case CURAND_STATUS_DOUBLE_PRECISION_REQUIRED:
-      return "cuRAND GPU does not have double precision required by MRG32k3a.";
-    case CURAND_STATUS_LAUNCH_FAILURE:
-      return "cuRAND kernel launch failure.";
-    case CURAND_STATUS_PREEXISTING_FAILURE:
-      return "cuRAND preexisting failure on library entry.";
-    case CURAND_STATUS_INITIALIZATION_FAILED:
-      return "cuRAND initialization of CUDA failed.";
-    case CURAND_STATUS_ARCH_MISMATCH:
-      return "cuRAND architecture mismatch, GPU does not support requested feature.";
-    case CURAND_STATUS_INTERNAL_ERROR:
-      return "cuRAND Internal library error.";
-    default:
-      return "cuRAND unkown error.";
-  }
-}
-
 // For HugeCTR own error types, it is up to users to define the msesage.
 #define HCTR_OWN_THROW(EXPR, MSG)                                                    \
   do {                                                                               \
@@ -345,15 +210,6 @@ inline std::string getErrorString(curandStatus_t err) {
 #endif
 
 // For other library calls such as CUDA, cuBLAS and NCCL, use this macro
-#define HCTR_LIB_THROW(EXPR)                                                 \
-  do {                                                                       \
-    auto ret_thr = (EXPR);                                                   \
-    HugeCTR::Error_t err_type = HugeCTR::getErrorType(ret_thr);              \
-    if (err_type != HugeCTR::Error_t::Success) {                             \
-      std::string err_msg = HugeCTR::getErrorString(ret_thr);                \
-      HugeCTR::Logger::get().do_throw(err_type, CUR_SRC_LOC(EXPR), err_msg); \
-    }                                                                        \
-  } while (0);
 
 #define HCTR_THROW_IF(EXPR, ERROR, MSG)                                              \
   do {                                                                               \
@@ -478,6 +334,18 @@ class Logger final {
   void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
 
   inline int get_rank() const { return rank_; }
+
+  inline void print_error(const char* const reason, const core23::CodeReference& ref,
+                          const char* const hint) {
+    log(LOG_LEVEL(ERROR), true, true,
+        "%s\n\tFile: %s:%zu\n\tFunction: %s\n\tExpression: %s\n\tHint: %s\n", reason, ref.file,
+        ref.line, ref.function, ref.expression, hint);
+  }
+
+  inline void print_error(const char* const reason, const core23::CodeReference& ref,
+                          const std::string& hint) {
+    print_error(reason, ref, hint.c_str());
+  }
 
  private:
   Logger();

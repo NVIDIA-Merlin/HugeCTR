@@ -959,7 +959,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         auto projection_dim = 0;
         try {
           projection_dim = get_value_from_json<int>(j_mc_param, "projection_dim");
-        } catch (const internal_runtime_error& rt_err) {
+        } catch (const core23::RuntimeError& rt_err) {
           HCTR_LOG(INFO, WORLD, "No projection_dim given, degrade to DCNv1\n");
         }
         if (use_mixed_precision) {

@@ -244,7 +244,7 @@ void DataReader<TypeKey>::start() {
   if (worker_group_ != nullptr) {
     worker_group_->start();
   } else {
-    throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
+    throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
 template <typename TypeKey>
@@ -285,14 +285,14 @@ void DataReader<TypeKey>::set_source(std::string file_name) {
   if (worker_group_ != nullptr) {
     if (file_name.empty()) {
       if (file_name_.empty()) {
-        throw internal_runtime_error(Error_t::NotInitialized, "invalid file_name");
+        throw core23::RuntimeError(Error_t::NotInitialized, "invalid file_name");
       } else {
         file_name = file_name_;
       }
     }
     worker_group_->set_source(source_type_, file_name, repeat_, data_source_params_);
   } else {
-    throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
+    throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
 template <typename TypeKey>
@@ -548,7 +548,7 @@ void DataReader<TypeKey>::start() {
   if (worker_group_ != nullptr) {
     worker_group_->start();
   } else {
-    throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
+    throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
 template <typename TypeKey>
@@ -572,14 +572,14 @@ void DataReader<TypeKey>::set_source(std::string file_name) {
   if (worker_group_ != nullptr) {
     if (file_name.empty()) {
       if (file_name_.empty()) {
-        throw internal_runtime_error(Error_t::NotInitialized, "invalid file_name");
+        throw core23::RuntimeError(Error_t::NotInitialized, "invalid file_name");
       } else {
         file_name = file_name_;
       }
     }
     worker_group_->set_source(source_type_, file_name, repeat_, data_source_params_);
   } else {
-    throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
+    throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
 template <typename TypeKey>

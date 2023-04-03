@@ -107,13 +107,13 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
 LookupSession::~LookupSession() {
   CudaDeviceContext dev_restorer;
   dev_restorer.set_device(inference_params_.device_id);
-  for (auto stream : lookup_streams_) HCTR_LIB_THROW(cudaStreamDestroy(stream));
+  for (auto stream : lookup_streams_) HCTR_LIB_CHECK_(cudaStreamDestroy(stream));
   if (inference_params_.fuse_embedding_table) {
     size_t num_tables = inference_params_.fused_sparse_model_files.size();
     for (size_t fused_id{0}; fused_id < num_tables; ++fused_id) {
-      HCTR_LIB_THROW(cudaFree(key_buffer_for_each_fused_table_[fused_id]));
+      HCTR_LIB_CHECK_(cudaFree(key_buffer_for_each_fused_table_[fused_id]));
       key_buffer_for_each_fused_table_[fused_id] = nullptr;
-      HCTR_LIB_THROW(cudaFree(vec_buffer_for_each_fused_table_[fused_id]));
+      HCTR_LIB_CHECK_(cudaFree(vec_buffer_for_each_fused_table_[fused_id]));
       vec_buffer_for_each_fused_table_[fused_id] = nullptr;
     }
   }

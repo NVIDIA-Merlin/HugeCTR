@@ -179,9 +179,6 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey> &keys, Buf
                             << std::fixed << std::setprecision(4) << hit_size * 100.0 / keys.size()
                             << "%) in existing model" << std::endl;
 #endif
-  } catch (const internal_runtime_error &rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception &err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -227,9 +224,6 @@ std::pair<std::vector<long long>, std::vector<float>> SparseModelEntity<TypeKey>
     }
 
     return std::pair(std::move(key_ll_exist), std::move(emb_vectors));
-  } catch (const internal_runtime_error &rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception &err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -352,9 +346,6 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
                             << std::fixed << std::setprecision(4) << num_hit * 100.0 / dump_size
                             << "%) in existing model" << std::endl;
 #endif
-  } catch (const internal_runtime_error &rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception &err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -404,9 +395,6 @@ void SparseModelEntity<TypeKey>::flush_emb_tbl_to_ssd() {
     }
 #endif
     HCTR_LOG(INFO, ROOT, "Done!\n");
-  } catch (const internal_runtime_error &rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception &err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;

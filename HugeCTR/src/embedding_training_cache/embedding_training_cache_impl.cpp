@@ -59,12 +59,9 @@ void EmbeddingTrainingCacheImpl<TypeKey>::load_(std::vector<std::string>& keyset
       ptr_ps->pull(ps_manager_.get_buffer_bag(), hit_size);
       embeddings_[i]->load_parameters(ps_manager_.get_buffer_bag(), hit_size);
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw rt_err;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
-    throw err;
+    throw;
   }
 }
 
@@ -81,12 +78,9 @@ void EmbeddingTrainingCacheImpl<TypeKey>::dump() {
 #ifdef ENABLE_MPI
     HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw rt_err;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
-    throw err;
+    throw;
   }
 }
 
@@ -105,12 +99,9 @@ void EmbeddingTrainingCacheImpl<TypeKey>::update(std::vector<std::string>& keyse
 #ifdef ENABLE_MPI
     HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw rt_err;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
-    throw err;
+    throw;
   }
 }
 

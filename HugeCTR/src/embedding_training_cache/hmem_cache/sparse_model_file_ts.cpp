@@ -180,9 +180,6 @@ void SparseModelFileTS<TypeKey>::mmap_to_memory_() {
       mmap_file_to_memory(&(mmap_handler_.mmaped_ptrs_[i]), data_files[i]);
     }
     mmap_handler_.mapped_to_file_ = true;
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -199,9 +196,6 @@ void SparseModelFileTS<TypeKey>::flush_mmap_to_disk_() {
     for (size_t i{0}; i < data_files.size(); i++) {
       sync_mmap_with_disk(&(mmap_handler_.mmaped_ptrs_[i]), data_files[i]);
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -219,9 +213,6 @@ void SparseModelFileTS<TypeKey>::unmap_from_memory_() {
       unmap_file_from_memory(&(mmap_handler_.mmaped_ptrs_[i]), data_files[i]);
     }
     mmap_handler_.mapped_to_file_ = false;
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, ROOT) << err.what() << std::endl;
     throw;
@@ -245,9 +236,6 @@ void SparseModelFileTS<TypeKey>::expand_(size_t expand_size) {
 
     size_t const expanded_num{key_idx_map_.size() + expand_size};
     if (slot_ids.size() < expanded_num) slot_ids.resize(expanded_num);
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -491,9 +479,6 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
 #ifdef ENABLE_MPI
     HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -530,9 +515,6 @@ void SparseModelFileTS<TypeKey>::load(std::vector<size_t> const& mem_src_idx, si
         memcpy(dst_ptr, src_ptr, sizeof(float) * emb_vec_size_);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -610,9 +592,6 @@ void SparseModelFileTS<TypeKey>::dump_update(HashTableType& dump_key_idx_map,
       data_ptrs[i] = data_vecs[i].data();
     }
     dump_update(idx_vecs[1], idx_vecs[0], slot_id_vec.data(), data_ptrs);
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -646,9 +625,6 @@ void SparseModelFileTS<TypeKey>::dump_update(std::vector<size_t> const& ssd_idx_
         memcpy(ssd_ptr, mem_ptr, sizeof(float) * emb_vec_size_);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -687,9 +663,6 @@ void SparseModelFileTS<TypeKey>::dump_insert(TypeKey const* key_ptr,
         dump_update(ssd_idx_vec, mem_idx_vec, slot_id_ptr, data_ptrs);
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -747,9 +720,6 @@ void SparseModelFileTS<TypeKey>::update_local_model_() {
     }
 
     mmap_to_memory_();
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
@@ -834,9 +804,6 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
     for (auto& fh : data_fhs) HCTR_MPI_THROW(MPI_File_close(&fh));
     HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;

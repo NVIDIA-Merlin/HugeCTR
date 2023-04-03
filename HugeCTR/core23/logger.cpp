@@ -186,7 +186,7 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
   std::ostringstream os;
   os << "Runtime error: " << message << std::endl;
   os << '\t' << loc.expr << " at " << loc.func << '(' << loc.file << ':' << loc.line << ')';
-  std::throw_with_nested(internal_runtime_error(error_type, os.str()));
+  std::throw_with_nested(core23::RuntimeError(error_type, os.str()));
 }
 
 #ifdef HCTR_LEVEL_MAP_

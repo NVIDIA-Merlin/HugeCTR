@@ -45,7 +45,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   void read_new_file() {
     Error_t flag = source_->next_source(1);
     if (flag == Error_t::EndOfFile) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
   }
 
@@ -89,7 +89,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   void read_new_file() {
     Error_t flag = source_->next_source(1);
     if (flag == Error_t::EndOfFile) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
   }
 

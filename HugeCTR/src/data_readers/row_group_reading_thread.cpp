@@ -89,7 +89,7 @@ bool RowGroupReadingThread<T>::wait_until_readable(int wait_id) {
          this->workers_has_read_[worker_id_ * num_workers_ + wait_id]) {
     expected = BufferState::ReadyForRead;
     if (this->producer_buffer_stats_[wait_id]->load() == BufferState::FileEOF) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     }
     if (*end_loop_) {
       return false;
@@ -250,7 +250,7 @@ void RowGroupReadingThread<T>::read_new_file(long long expected_row_groups) {
       local_row_group_id_ = source->get_row_group();
       return;
     } else if (err == Error_t::EndOfFile) {
-      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      throw core23::RuntimeError(Error_t::EndOfFile, "EndOfFile");
     } else {
       HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
     }

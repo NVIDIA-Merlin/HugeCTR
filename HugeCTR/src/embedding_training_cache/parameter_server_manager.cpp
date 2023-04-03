@@ -161,9 +161,6 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
         hbm_blobs_buff->allocate();
       }
     }
-  } catch (const internal_runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw rt_err;
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
