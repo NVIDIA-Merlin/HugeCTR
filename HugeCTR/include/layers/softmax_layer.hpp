@@ -31,6 +31,8 @@ class SoftmaxLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  SoftmaxLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
+               const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of SoftmaxLayer.
    * @param in_tensor the input tensor
@@ -54,6 +56,8 @@ class SoftmaxLayer : public Layer {
 
   Tensor2<T>& get_softmax_tensor() { return softmax_out_; }
 
+  core23::Tensor& get_softmax_out_tensor() { return softmax_out23_; }
+
   /*
    * initialize for indentity tensor
    */
@@ -64,6 +68,10 @@ class SoftmaxLayer : public Layer {
   size_t n_rows_;
   size_t hidden_size_;
   size_t len_;
+  core23::Tensor workspace23_;
+  core23::Tensor identity23_;
+  core23::Tensor softmax_out23_;
+  // TODO: remove later
   Tensor2<T> workspace_;
   Tensor2<T> identity_;
   Tensor2<T> softmax_out_;

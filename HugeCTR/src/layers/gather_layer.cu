@@ -48,6 +48,35 @@ __global__ void gather_kernel(bool forward, T* in, T* out, const int ts, const i
 }  // anonymous namespace
 
 template <typename T>
+GatherLayer<T>::GatherLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
+                            std::vector<int>& indices,
+                            const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer({input_tensor}, {output_tensor}, gpu_resource), h_indices_(indices) {
+  try {
+    if (indices.empty()) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Empty slice indices is not allowed");
+    }
+    // input tensor is 2D.
+    // dim_0 represents the most outside dimension.
+    // dim_1 represents the multiplication of the rest dimensions.
+    tensor_size_ = (size_t)input_tensor.shape().size(1);
+    size_t tensor_num = (size_t)input_tensor.shape().size(0);
+
+    num_indices_ = indices.size();
+
+    for (size_t i = 0; i < num_indices_; i++) {
+      if (indices.data()[i] > int(tensor_num) - 1)
+        HCTR_OWN_THROW(Error_t::WrongInput, "Index is out of range");
+    }
+    indices23_ = core23::Tensor(core23::Shape({(int64_t)num_indices_}),
+                                core23::DataType(core23::ScalarType::Int32));
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename T>
 GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                             std::vector<int>& indices,
@@ -60,17 +89,17 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
     // input tensor is 2D.
     // dim_0 represents the most outside dimension.
     // dim_1 represents the multiplication of the rest dimensions.
-    tensor_size = in_tensor.get_dimensions()[1];
+    tensor_size_ = in_tensor.get_dimensions()[1];
     size_t tensor_num = in_tensor.get_dimensions()[0];
 
-    num_indices = indices.size();
+    num_indices_ = indices.size();
 
-    for (size_t i = 0; i < num_indices; i++) {
+    for (size_t i = 0; i < num_indices_; i++) {
       if (indices.data()[i] > int(tensor_num) - 1)
         HCTR_OWN_THROW(Error_t::WrongInput, "Index is out of range");
     }
 
-    blobs_buff->reserve({num_indices}, &indices_);
+    blobs_buff->reserve({num_indices_}, &indices_);
     out_tensor_.push_back(out_tensor);
     in_tensors_.push_back(in_tensor);
 
@@ -82,21 +111,40 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
 
 template <typename T>
 void GatherLayer<T>::initialize() {
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)indices_.get_ptr(), (void*)h_indices_.data(),
-                                 num_indices * sizeof(int), cudaMemcpyHostToDevice,
-                                 get_gpu().get_stream()));
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)indices_.get_ptr(), (void*)h_indices_.data(),
+                                   num_indices_ * sizeof(int), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+  } else {
+    HCTR_LIB_THROW(cudaMemcpyAsync(indices23_.data(), (void*)h_indices_.data(),
+                                   num_indices_ * sizeof(int), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+  }
 }
 
 template <typename T>
 void GatherLayer<T>::fprop(bool is_train) {
-  int block_size = 512;
-  int n_blocks = get_gpu().get_sm_count() * 4;
-  Tensor2<T>& in_tensor = get_in_tensors(is_train)[0];
-  Tensor2<T>& out_tensor = out_tensor_[0];
-  T* out = out_tensor.get_ptr();
-  T* in = in_tensor.get_ptr();
-  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
-      true, in, out, tensor_size, num_indices, indices_.get_ptr());
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    int block_size = 512;
+    int n_blocks = get_gpu().get_sm_count() * 4;
+    Tensor2<T>& in_tensor = get_in_tensors(is_train)[0];
+    Tensor2<T>& out_tensor = out_tensor_[0];
+    T* out = out_tensor.get_ptr();
+    T* in = in_tensor.get_ptr();
+    gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+        true, in, out, tensor_size_, num_indices_, indices_.get_ptr());
+  } else {
+    int block_size = 512;
+    int n_blocks = get_gpu().get_sm_count() * 4;
+    core23::Tensor& in_tensor = input_tensors_[0];
+    core23::Tensor& out_tensor = output_tensors_[0];
+    T* out = out_tensor.data<T>();
+    T* in = in_tensor.data<T>();
+    gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+        true, in, out, tensor_size_, num_indices_, static_cast<int*>(indices23_.data()));
+  }
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());
@@ -105,16 +153,32 @@ void GatherLayer<T>::fprop(bool is_train) {
 
 template <typename T>
 void GatherLayer<T>::bprop() {
-  int block_size = 512;
-  int n_blocks = get_gpu().get_sm_count() * 4;
-  Tensor2<T>& in_tensor = get_in_tensors(true)[0];
-  Tensor2<T>& out_tensor = out_tensor_[0];
-  T* out = out_tensor.get_ptr();
-  T* in = in_tensor.get_ptr();
-  int h = in_tensor.get_dimensions()[0];
-  initialize_array<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(in, h * tensor_size, T(0));
-  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
-      false, in, out, tensor_size, num_indices, indices_.get_ptr());
+  // TODO: this block will be removed later
+  if (input_tensors_.empty()) {
+    int block_size = 512;
+    int n_blocks = get_gpu().get_sm_count() * 4;
+    Tensor2<T>& in_tensor = get_in_tensors(true)[0];
+    Tensor2<T>& out_tensor = out_tensor_[0];
+    T* out = out_tensor.get_ptr();
+    T* in = in_tensor.get_ptr();
+    int h = in_tensor.get_dimensions()[0];
+    initialize_array<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(in, h * tensor_size_,
+                                                                          T(0));
+    gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+        false, in, out, tensor_size_, num_indices_, indices_.get_ptr());
+  } else {
+    int block_size = 512;
+    int n_blocks = get_gpu().get_sm_count() * 4;
+    core23::Tensor& in_tensor = input_tensors_[0];
+    core23::Tensor& out_tensor = output_tensors_[0];
+    T* out = out_tensor.data<T>();
+    T* in = in_tensor.data<T>();
+    int h = in_tensor.shape().size(0);
+    initialize_array<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(in, h * tensor_size_,
+                                                                          T(0));
+    gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+        false, in, out, tensor_size_, num_indices_, static_cast<int*>(indices23_.data()));
+  }
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());

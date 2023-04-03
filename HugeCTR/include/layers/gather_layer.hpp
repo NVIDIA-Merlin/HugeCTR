@@ -40,14 +40,12 @@ class GatherLayer : public Layer {
    */
   Tensors2<T> out_tensor_;
 
-  size_t tensor_size;
-  size_t num_indices;
-  std::vector<int> h_indices_;
-  Tensor2<int> indices_;
-
+  // TODO: remove later
   Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
 
  public:
+  GatherLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
+              std::vector<int>& indices, const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of GatherLayer.
    * @param in_tensor input tensor
@@ -70,6 +68,14 @@ class GatherLayer : public Layer {
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop() override;
+
+ private:
+  size_t tensor_size_;
+  size_t num_indices_;
+  std::vector<int> h_indices_;
+  core23::Tensor indices23_;
+  // TODO: remove later
+  Tensor2<int> indices_;
 };
 
 }  // namespace HugeCTR

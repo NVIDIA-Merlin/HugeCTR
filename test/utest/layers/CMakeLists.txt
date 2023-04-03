@@ -31,6 +31,7 @@ file(GLOB layers_test_src
   fused_relu_bias_fully_connected_layer_test.cpp
   gru_layer_test.cpp
   matrix_multiply_test.cpp
+  # matrix_multiply_test_old.cpp
   interaction_layer_test.cpp
   interaction_layer_test_old.cpp
   relu_layer_test.cpp
@@ -42,6 +43,7 @@ file(GLOB layers_test_src
   reshape_layer_test_sel.cpp
   reshape_layer_test_sel_old.cpp
   prelu_dice_layer_test.cpp
+  prelu_dice_layer_test_old.cpp
   fm_order2_layer_test.cpp
   fm_order2_layer_test_old.cpp
   weight_multiply_layer_test.cpp
@@ -51,12 +53,16 @@ file(GLOB layers_test_src
   reduce_sum_layer_test.cpp
   reduce_sum_layer_test_old.cpp
   softmax_layer_test.cpp
+  softmax_layer_test_old.cpp
   scale_layer_test.cpp
   fused_reshape_concat_general_layer_test.cpp
   fused_reshape_concat_layer_test.cpp
   sub_layer_test.cpp
+  sub_layer_test_old.cpp
   gather_layer_test.cpp
+  # gather_layer_test_old.cpp
   reduce_mean_layer_test.cpp
+  reduce_mean_layer_test_old.cpp
   sigmoid_layer_test.cpp
   sigmoid_layer_test_old.cpp
   elementwise_multiply_layer_test.cpp

@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <layers/prelu_dice_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utest/test_utils.hpp>
 #include <vector>
 
@@ -115,63 +116,67 @@ void prelu_dice_bprop_cpu(T* d_bottom, T* d_top, T* bottom, int len, int batchsi
 }
 
 template <typename T>
-void prelu_dice_test(size_t batchsize, size_t hiddensize) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {batchsize, hiddensize};
+void prelu_dice_test(int64_t batchsize, int64_t hiddensize) {
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
 
-  Tensor2<T> in_tensor;
-  buf->reserve(dims, &in_tensor);
-  Tensor2<T> out_tensor;
-  buf->reserve(dims, &out_tensor);
+  auto shape = core23::Shape({batchsize, hiddensize});
+
+  core23::TensorParams tensor_params = core23::TensorParams(shape)
+                                           .device(device)
+                                           .data_type(core23::ScalarType::Float)
+                                           .buffer_channel(core23::GetRandomBufferChannel());
+  core23::Tensor input_tensor(tensor_params);
+  core23::Tensor output_tensor(tensor_params);
 
   T alpha = 0.2;
   T epsilon = 1e-8;
-  PRelu_Dice_Layer<T> prelu_dice_layer(in_tensor, out_tensor, buf, alpha, epsilon,
+  PRelu_Dice_Layer<T> prelu_dice_layer(input_tensor, output_tensor, alpha, epsilon,
                                        test::get_default_gpu());
 
-  buf->allocate();
   prelu_dice_layer.initialize();
 
-  const size_t len = hiddensize * batchsize;
+  const int64_t len = hiddensize * batchsize;
 
-  std::unique_ptr<T[]> h_bottom(new T[len]);
-  std::unique_ptr<T[]> h_bottom_trans(new T[len]);
-  std::unique_ptr<T[]> h_top(new T[len]);
-  std::unique_ptr<T[]> h_top_trans(new T[len]);
-  std::unique_ptr<T[]> d2h_top(new T[len]);
-  std::unique_ptr<T[]> h_bottom_grad(new T[len]);
-  std::unique_ptr<T[]> h_bottom_grad_trans(new T[len]);
-  std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
+  std::vector<T> h_bottom(len);
+  std::vector<T> h_bottom_trans(len);
+  std::vector<T> h_top(len);
+  std::vector<T> h_top_trans(len);
+  std::vector<T> d2h_top(len);
+  std::vector<T> h_bottom_grad(len);
+  std::vector<T> h_bottom_grad_trans(len);
+  std::vector<T> d2h_bottom_grad(len);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_bottom.get(), len);
+  test::normal_sync_cpu(h_bottom.data(), len, 0.f, 1.f, generator);
 
-  HCTR_LIB_THROW(
-      cudaMemcpy(in_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(input_tensor.data(), h_bottom.data(), input_tensor.num_bytes(),
+                    input_tensor.device(), core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   prelu_dice_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(
-      cudaMemcpy(d2h_top.get(), out_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
+  core23::copy_sync(d2h_top.data(), output_tensor.data(), output_tensor.num_bytes(),
+                    core23::DeviceType::CPU, output_tensor.device());
 
-  transpose(h_bottom_trans.get(), h_bottom.get(), hiddensize, batchsize);
-  prelu_dice_fprop_cpu<T>(h_top_trans.get(), h_bottom_trans.get(), len, batchsize, alpha, epsilon);
-  transpose(h_top.get(), h_top_trans.get(), batchsize, hiddensize);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
+  transpose(h_bottom_trans.data(), h_bottom.data(), hiddensize, batchsize);
+  prelu_dice_fprop_cpu<T>(h_top_trans.data(), h_bottom_trans.data(), len, batchsize, alpha,
+                          epsilon);
+  transpose(h_top.data(), h_top_trans.data(), batchsize, hiddensize);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.data(), h_top.data(), len, eps));
   // bprop
-  simulator.fill(h_top.get(), len);
-  HCTR_LIB_THROW(
-      cudaMemcpy(out_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_top.data(), len, 0.f, 1.f, generator);
+  core23::copy_sync(output_tensor.data(), h_top.data(), output_tensor.num_bytes(),
+                    output_tensor.device(), core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   prelu_dice_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), in_tensor.get_ptr(), len * sizeof(T),
-                            cudaMemcpyDeviceToHost));
-  transpose(h_top_trans.get(), h_top.get(), hiddensize, batchsize);
-  prelu_dice_bprop_cpu<T>(h_bottom_grad_trans.get(), h_top_trans.get(), h_bottom_trans.get(), len,
-                          batchsize, alpha, epsilon);
-  transpose(h_bottom_grad.get(), h_bottom_grad_trans.get(), batchsize, hiddensize);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
+  core23::copy_sync(d2h_bottom_grad.data(), input_tensor.data(), input_tensor.num_bytes(),
+                    core23::DeviceType::CPU, input_tensor.device());
+  transpose(h_top_trans.data(), h_top.data(), hiddensize, batchsize);
+  prelu_dice_bprop_cpu<T>(h_bottom_grad_trans.data(), h_top_trans.data(), h_bottom_trans.data(),
+                          len, batchsize, alpha, epsilon);
+  transpose(h_bottom_grad.data(), h_bottom_grad_trans.data(), batchsize, hiddensize);
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(d2h_bottom_grad.data(), h_bottom_grad.data(), len, eps));
 }
 
 }  // namespace
