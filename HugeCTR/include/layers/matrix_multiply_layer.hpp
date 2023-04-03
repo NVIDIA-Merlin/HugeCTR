@@ -44,6 +44,9 @@ class MatrixMultiplyLayer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  MatrixMultiplyLayer(const std::vector<core23::Tensor>& input_tensors,
+                      core23::Tensor& output_tensor,
+                      const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of MatrixMultiplyLayer.
    * @param in_tensor the input tensor
@@ -68,9 +71,8 @@ class MatrixMultiplyLayer : public Layer {
  private:
   size_t num_;
   size_t dims_;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
   Tensor2<T> fprop_inputA_;
+  core23::Tensor fprop_inputA_tensor23_;
 };
 
 }  // namespace HugeCTR

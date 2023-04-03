@@ -34,6 +34,8 @@ class PRelu_Dice_Layer : public Layer {
   Tensors2<T> out_tensors_;
 
  public:
+  PRelu_Dice_Layer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor, T alpha,
+                   T epsilon, const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Ctor of PRelu_Dice_Layer.
    * @param in_tensor the input tensor
@@ -60,6 +62,10 @@ class PRelu_Dice_Layer : public Layer {
   size_t batchsize_;
   size_t hiddensize_;
   size_t len;
+  core23::Tensor E_x_;
+  core23::Tensor Var_x_;
+  core23::Tensor E_x2_;
+  // TODO: Remove later
   Tensor2<T> E_x;
   Tensor2<T> Var_x;
   Tensor2<T> E_x2;

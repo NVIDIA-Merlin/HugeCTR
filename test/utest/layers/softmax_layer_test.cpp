@@ -97,21 +97,25 @@ void softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out, int le
 }
 
 template <typename T>
-void softmax_test(size_t dim0, size_t embedding_vector_size) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims = {dim0, embedding_vector_size};
+void softmax_test(int64_t dim0, int64_t embedding_vector_size) {
+  std::vector<int64_t> dims = {dim0, embedding_vector_size};
 
-  Tensor2<T> bottom_tensor;
-  buf->reserve(dims, &bottom_tensor);
-  Tensor2<T> top_tensor;
-  buf->reserve(dims, &top_tensor);
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
 
-  SoftmaxLayer<T> softmax_layer(bottom_tensor, top_tensor, buf, test::get_default_gpu());
+  core23::TensorParams tensor_params = core23::TensorParams()
+                                           .device(device)
+                                           .data_type(core23::ScalarType::Float)
+                                           .buffer_channel(core23::GetRandomBufferChannel());
 
-  buf->allocate();
+  core23::Tensor bottom_tensor(tensor_params.shape(dims));
+  core23::Tensor top_tensor(tensor_params.shape(dims));
+
+  SoftmaxLayer<T> softmax_layer(bottom_tensor, top_tensor, test::get_default_gpu());
+
   softmax_layer.initialize();
 
-  const size_t len = dim0 * embedding_vector_size;
+  const auto len = dim0 * embedding_vector_size;
 
   std::unique_ptr<T[]> h_bottom(new T[len]);
   std::unique_ptr<T[]> h_top(new T[len]);
@@ -120,35 +124,33 @@ void softmax_test(size_t dim0, size_t embedding_vector_size) {
   std::unique_ptr<T[]> h_bottom_grad(new T[len]);
   std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_bottom.get(), len);
+  test::normal_sync_cpu(h_bottom.get(), len, 0.f, 1.f, generator);
 
   // fprop
-  HCTR_LIB_THROW(
-      cudaMemcpy(bottom_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(bottom_tensor.data(), h_bottom.get(), len * sizeof(T), bottom_tensor.device(),
+                    core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   softmax_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(
-      cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
-
+  core23::copy_sync(d2h_top.get(), top_tensor.data(), len * sizeof(T), core23::DeviceType::CPU,
+                    top_tensor.device());
   softmax_fprop_cpu<T>(h_top.get(), h_bottom.get(), len, embedding_vector_size);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
 
   // bprop
-  simulator.fill(h_top.get(), len);
+  test::normal_sync_cpu(h_top.get(), len, 0.f, 1.f, generator);
 
   softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), len, embedding_vector_size);
-  HCTR_LIB_THROW(
-      cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(softmax_layer.get_softmax_tensor().get_ptr(), h_softmax_out.get(),
-                            len * sizeof(T), cudaMemcpyHostToDevice));
+  core23::copy_sync(top_tensor.data(), h_top.get(), len * sizeof(T), top_tensor.device(),
+                    core23::DeviceType::CPU);
+  core23::copy_sync(softmax_layer.get_softmax_out_tensor().data(), h_softmax_out.get(),
+                    len * sizeof(T), softmax_layer.get_softmax_out_tensor().device(),
+                    core23::DeviceType::CPU);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   softmax_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
-                            cudaMemcpyDeviceToHost));
-
+  core23::copy_sync(d2h_bottom_grad.get(), bottom_tensor.data(), len * sizeof(T),
+                    core23::DeviceType::CPU, bottom_tensor.device());
   softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(), len,
                        embedding_vector_size);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));

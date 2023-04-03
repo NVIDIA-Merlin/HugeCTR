@@ -70,36 +70,36 @@ void matmul_dgrad_cpu(T *out, T **h_ins, T **h_b_ins, size_t b, size_t m, size_t
 }
 
 template <typename T>
-void matmul_test(size_t b, size_t m, size_t n, size_t k) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-
-  size_t out_size = b * m * k;
+void matmul_test(int64_t b, int64_t m, int64_t n, int64_t k) {
+  auto out_size = b * m * k;
   int dims = 2;
 
-  Tensors2<T> in_tensors;
-  Tensor2<T> in_tensor;
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+
+  core23::TensorParams tensor_params = core23::TensorParams()
+                                           .device(device)
+                                           .data_type(core23::ToScalarType<T>::value)
+                                           .buffer_channel(core23::GetRandomBufferChannel());
+
+  std::vector<core23::Tensor> input_tensors;
+  core23::Tensor output_tensor;
+
   if (b == 1) {  // 2D inputs
-    buff->reserve({m, n}, &in_tensor);
-    in_tensors.push_back(in_tensor);
-    buff->reserve({n, k}, &in_tensor);
-    in_tensors.push_back(in_tensor);
+    input_tensors.push_back(core23::Tensor(tensor_params.shape({m, n})));
+    input_tensors.push_back(core23::Tensor(tensor_params.shape({n, k})));
   } else {  // 3D inputs
-    buff->reserve({b, m, n}, &in_tensor);
-    in_tensors.push_back(in_tensor);
-    buff->reserve({b, n, k}, &in_tensor);
-    in_tensors.push_back(in_tensor);
+    input_tensors.push_back(core23::Tensor(tensor_params.shape({b, m, n})));
+    input_tensors.push_back(core23::Tensor(tensor_params.shape({b, n, k})));
     dims = 3;
   }
-  Tensor2<T> out_tensor;
 
-  MatrixMultiplyLayer<T> matmul_layer(in_tensors, out_tensor, buff, test::get_default_gpu());
-
-  buff->allocate();
+  MatrixMultiplyLayer<T> matmul_layer(input_tensors, output_tensor, test::get_default_gpu());
 
   size_t num = 2;
   std::unique_ptr<T *[]> h_d_ins(new T *[num]);
   for (size_t i = 0; i < num; i++) {
-    h_d_ins[i] = in_tensors[i].get_ptr();
+    h_d_ins[i] = input_tensors[i].data<T>();
   }
 
   std::unique_ptr<T *[]> h_ins(new T *[num]);
@@ -108,32 +108,33 @@ void matmul_test(size_t b, size_t m, size_t n, size_t k) {
   std::unique_ptr<T *[]> h_bprop_out(new T *[num]);
   std::unique_ptr<T *[]> h_cpu_bprop_out(new T *[num]);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-
   // fprop
   for (size_t i = 0; i < num; i++) {
-    size_t size =
-        b * in_tensors[i].get_dimensions()[dims - 2] * in_tensors[i].get_dimensions()[dims - 1];
+    auto size =
+        b * input_tensors[i].shape().size(dims - 2) * input_tensors[i].shape().size(dims - 1);
     h_ins[i] = new T[size];
     h_bprop_out[i] = new T[size];
     h_cpu_bprop_out[i] = new T[size];
-    simulator.fill(h_ins[i], test::align_to_even(size));
-    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    test::normal_sync_cpu(h_ins[i], test::align_to_even(size), 0.f, 1.f, generator);
+    core23::copy_sync(h_d_ins[i], h_ins[i], size * sizeof(T), input_tensors[i].device(),
+                      core23::DeviceType::CPU);
   }
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  T *d_out = out_tensor.get_ptr();
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  T *d_out = output_tensor.data<T>();
+  core23::copy_sync(h_out.get(), d_out, out_size * sizeof(T), core23::DeviceType::CPU,
+                    output_tensor.device());
   matmul_cpu(h_ins[0], h_ins[1], h_cpu_out.get(), b, m, n, k);
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
 
   // bprop
-  simulator.fill(h_out.get(), test::align_to_even(out_size));
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_out.get(), test::align_to_even(out_size), 0.f, 1.f, generator);
+  core23::copy_sync(d_out, h_out.get(), out_size * sizeof(T), output_tensor.device(),
+                    core23::DeviceType::CPU);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.bprop();  // compute wgrad and dgrad
@@ -141,39 +142,42 @@ void matmul_test(size_t b, size_t m, size_t n, size_t k) {
 
   matmul_dgrad_cpu(h_out.get(), h_ins.get(), h_cpu_bprop_out.get(), b, m, n, k);
   for (size_t i = 0; i < num; i++) {
-    size_t size =
-        b * in_tensors[i].get_dimensions()[dims - 2] * in_tensors[i].get_dimensions()[dims - 1];
-    T *d_out = in_tensors[i].get_ptr();
-    HCTR_LIB_THROW(cudaMemcpy(h_bprop_out[i], d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
+    auto size =
+        b * input_tensors[i].shape().size(dims - 2) * input_tensors[i].shape().size(dims - 1);
+    T *d_out = input_tensors[i].data<T>();
+    core23::copy_sync(h_bprop_out[i], d_out, size * sizeof(T), core23::DeviceType::CPU,
+                      input_tensors[i].device());
     ASSERT_TRUE(test::compare_array_approx<T>(h_bprop_out[i], h_cpu_bprop_out[i], size,
                                               Eps<T>::value()));  // compare dgrad
   }
 }
 
 template <typename T>
-void matmul_test_4d(size_t b, size_t h, size_t m, size_t n, size_t k) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-
-  size_t out_size = b * h * m * k;
+void matmul_test_4d(int64_t b, int64_t h, int64_t m, int64_t n, int64_t k) {
+  auto out_size = b * h * m * k;
   int dims = 4;
 
-  Tensors2<T> in_tensors;
-  Tensor2<T> in_tensor;
+  auto device = core23::Device::current();
+  core23::CURANDGenerator generator(core23::DeviceType::CPU);
+
+  core23::TensorParams tensor_params = core23::TensorParams()
+                                           .device(device)
+                                           .data_type(core23::ToScalarType<T>::value)
+                                           .buffer_channel(core23::GetRandomBufferChannel());
+
+  std::vector<core23::Tensor> input_tensors;
+  core23::Tensor output_tensor;
+
   // 4D inputs
-  buff->reserve({b, h, m, n}, &in_tensor);
-  in_tensors.push_back(in_tensor);
-  buff->reserve({b, h, n, k}, &in_tensor);
-  in_tensors.push_back(in_tensor);
-  Tensor2<T> out_tensor;
+  input_tensors.push_back(core23::Tensor(tensor_params.shape({b, h, m, n})));
+  input_tensors.push_back(core23::Tensor(tensor_params.shape({b, h, n, k})));
 
-  MatrixMultiplyLayer<T> matmul_layer(in_tensors, out_tensor, buff, test::get_default_gpu());
-
-  buff->allocate();
+  MatrixMultiplyLayer<T> matmul_layer(input_tensors, output_tensor, test::get_default_gpu());
 
   size_t num = 2;
   std::unique_ptr<T *[]> h_d_ins(new T *[num]);
   for (size_t i = 0; i < num; i++) {
-    h_d_ins[i] = in_tensors[i].get_ptr();
+    h_d_ins[i] = input_tensors[i].data<T>();
   }
 
   std::unique_ptr<T *[]> h_ins(new T *[num]);
@@ -182,33 +186,33 @@ void matmul_test_4d(size_t b, size_t h, size_t m, size_t n, size_t k) {
   std::unique_ptr<T *[]> h_bprop_out(new T *[num]);
   std::unique_ptr<T *[]> h_cpu_bprop_out(new T *[num]);
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-
   // fprop
   for (size_t i = 0; i < num; i++) {
-    size_t size = b * in_tensors[i].get_dimensions()[dims - 3] *
-                  in_tensors[i].get_dimensions()[dims - 2] *
-                  in_tensors[i].get_dimensions()[dims - 1];
+    auto size = b * input_tensors[i].shape().size(dims - 3) *
+                input_tensors[i].shape().size(dims - 2) * input_tensors[i].shape().size(dims - 1);
     h_ins[i] = new T[size];
     h_bprop_out[i] = new T[size];
     h_cpu_bprop_out[i] = new T[size];
-    simulator.fill(h_ins[i], test::align_to_even(size));
-    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    test::normal_sync_cpu(h_ins[i], test::align_to_even(size), 0.f, 1.f, generator);
+    core23::copy_sync(h_d_ins[i], h_ins[i], size * sizeof(T), input_tensors[i].device(),
+                      core23::DeviceType::CPU);
   }
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  T *d_out = out_tensor.get_ptr();
-  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  T *d_out = output_tensor.data<T>();
+  core23::copy_sync(h_out.get(), d_out, out_size * sizeof(T), core23::DeviceType::CPU,
+                    output_tensor.device());
   matmul_cpu(h_ins[0], h_ins[1], h_cpu_out.get(), b * h, m, n, k);
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
 
   // bprop
-  simulator.fill(h_out.get(), test::align_to_even(out_size));
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+  test::normal_sync_cpu(h_out.get(), test::align_to_even(out_size), 0.f, 1.f, generator);
+  core23::copy_sync(d_out, h_out.get(), out_size * sizeof(T), output_tensor.device(),
+                    core23::DeviceType::CPU);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.bprop();  // compute wgrad and dgrad
@@ -216,11 +220,11 @@ void matmul_test_4d(size_t b, size_t h, size_t m, size_t n, size_t k) {
 
   matmul_dgrad_cpu(h_out.get(), h_ins.get(), h_cpu_bprop_out.get(), b * h, m, n, k);
   for (size_t i = 0; i < num; i++) {
-    size_t size = b * in_tensors[i].get_dimensions()[dims - 3] *
-                  in_tensors[i].get_dimensions()[dims - 2] *
-                  in_tensors[i].get_dimensions()[dims - 1];
-    T *d_out = in_tensors[i].get_ptr();
-    HCTR_LIB_THROW(cudaMemcpy(h_bprop_out[i], d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
+    auto size = b * input_tensors[i].shape().size(dims - 3) *
+                input_tensors[i].shape().size(dims - 2) * input_tensors[i].shape().size(dims - 1);
+    T *d_out = input_tensors[i].data<T>();
+    core23::copy_sync(h_bprop_out[i], d_out, size * sizeof(T), core23::DeviceType::CPU,
+                      input_tensors[i].device());
     ASSERT_TRUE(test::compare_array_approx<T>(h_bprop_out[i], h_cpu_bprop_out[i], size,
                                               Eps<T>::value()));  // compare dgrad
   }
