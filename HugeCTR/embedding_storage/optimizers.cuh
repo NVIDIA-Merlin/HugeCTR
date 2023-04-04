@@ -207,9 +207,9 @@ __global__ void ftrl_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num
   for (uint32_t i = start; i < end; ++i) {
     float gi = g[i] / scaler;
     float ni = n[i];
-    float ni_prev_sqrt = sqrtf(ni);
+    float ni_prev_sqrt = sqrtf(ni + FLT_EPSILON);
     n[i] = ni = ni + gi * gi;
-    float ni_sqrt = sqrtf(ni);
+    float ni_sqrt = sqrtf(ni + FLT_EPSILON);
     float sigma = (ni_sqrt - ni_prev_sqrt) / lr;
     float wi = w[i];
     float zi = z[i] = z[i] + gi - sigma * wi;

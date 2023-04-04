@@ -361,6 +361,9 @@ void init_optimizer_params(OptParams& opt_params, const Solver& solver,
   opt_params.lr = solver.lr;
   opt_params.update_type = opt_params_py->update_type;
   opt_params.scaler = solver.scaler;
+  opt_params.hyperparams.ftrl.beta = opt_params_py->hyperparams.ftrl.beta;
+  opt_params.hyperparams.ftrl.lambda1 = opt_params_py->hyperparams.ftrl.lambda1;
+  opt_params.hyperparams.ftrl.lambda2 = opt_params_py->hyperparams.ftrl.lambda2;
   opt_params.hyperparams.adam.beta1 = opt_params_py->hyperparams.adam.beta1;
   opt_params.hyperparams.adam.beta2 = opt_params_py->hyperparams.adam.beta2;
   opt_params.hyperparams.adam.epsilon = opt_params_py->hyperparams.adam.epsilon;
