@@ -39,7 +39,6 @@ struct Eps<float> {
 template <typename T>
 void python_concat(T *output, T **inputs, int batch_size, const std::vector<int> &slot_num,
                    const std::vector<int> &vec_size, int axis) {
-  cout << "===========Python concat==========" << endl;
   auto num = vec_size.size();
   std::string temp_name = "tmpdata.bin";
   std::ofstream py_input(temp_name.c_str(), std::ios::binary | std::ios::out);
@@ -47,7 +46,6 @@ void python_concat(T *output, T **inputs, int batch_size, const std::vector<int>
   std::vector<T> result;
 
   for (size_t i = 0; i < vec_size.size(); i++) {
-    cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << endl;
     py_input.write(reinterpret_cast<const char *>(&batch_size), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&slot_num[i]), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&vec_size[i]), sizeof(int));
@@ -68,8 +66,6 @@ void python_concat(T *output, T **inputs, int batch_size, const std::vector<int>
     output[idx] = dummy;
     idx++;
   }
-
-  cout << result.size() << endl;
 
   pclose(py_output);
 }
@@ -103,27 +99,16 @@ void concat_3d_layer_general_test(size_t batch_size, std::vector<int> slot_num,
       }
     }
   }
-  cout << "Input Size" << endl;
-  for (int i = 0; i < num; i++) {
-    cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << endl;
-  }
 
   Tensor2<T> out_tensor;
   vector<size_t> dims_out = {batch_size, out_slot_num, out_vector_size};
   size_t out_size = batch_size * out_slot_num * out_vector_size;
   buff->reserve(dims_out, &out_tensor);
 
-  cout << "Output Size" << endl;
-  cout << batch_size << " " << out_slot_num << " " << out_vector_size << endl;
-
   Concat3DLayer<T> concat_3d_layer(in_tensors, out_tensor, buff, axis, test::get_default_gpu());
-  std::cout << "Class constructed! " << std::endl;
   buff->allocate();
-  std::cout << "Buffer allocated! " << std::endl;
 
   concat_3d_layer.initialize();
-
-  std::cout << "Initialized! " << std::endl;
 
   std::unique_ptr<T *[]> h_d_ins(new T *[num]);
   for (int i = 0; i < num; i++) {
@@ -152,49 +137,12 @@ void concat_3d_layer_general_test(size_t batch_size, std::vector<int> slot_num,
     HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-  cout << "Before fprop" << endl;
-
-  /*for (int i = 0; i < num; i++) {
-    cout << "Input " << i << endl;
-    for (size_t j = 0; j < batch_size * slot_num[i] * vec_size[i]; j++) {
-      cout << h_ins[i][j] << " ";
-      if (((j + 1) % vec_size[i]) == 0) {
-        cout << endl;
-        if (((j + 1) % (slot_num[i] * vec_size[i])) == 0) {
-          cout << endl;
-        }
-      }
-    }
-  }*/
 
   concat_3d_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
 
   python_concat(h_python_out.get(), h_ins.get(), batch_size, slot_num, vec_size, axis);
-
-  /*cout << "After fprop" << endl;
-  cout << "Output " << endl;
-  for (size_t j = 0; j < batch_size * out_slot_num * out_vector_size; j++) {
-    cout << h_out.get()[j] << " ";
-    if (((j + 1) % out_vector_size) == 0) {
-      cout << endl;
-      if (((j + 1) % (out_slot_num * out_vector_size)) == 0) {
-        cout << endl;
-      }
-    }
-  }
-
-  cout << "Python Output " << endl;
-  for (size_t j = 0; j < batch_size * out_slot_num * out_vector_size; j++) {
-    cout << h_python_out.get()[j] << " ";
-    if (((j + 1) % out_vector_size) == 0) {
-      cout << endl;
-      if (((j + 1) % (out_slot_num * out_vector_size)) == 0) {
-        cout << endl;
-      }
-    }
-  }*/
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_out.get(), h_python_out.get(), out_size, Eps<T>::value()));
