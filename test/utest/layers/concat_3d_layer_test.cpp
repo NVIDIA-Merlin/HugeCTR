@@ -42,7 +42,6 @@ struct Eps<float> {
 template <typename T>
 void python_concat(T *output, T **inputs, int64_t batch_size, const std::vector<int64_t> &slot_num,
                    const std::vector<int64_t> &vec_size, int axis) {
-  std::cout << "===========Python concat==========" << std::endl;
   auto num = vec_size.size();
   std::string temp_name = "tmpdata.bin";
   std::ofstream py_input(temp_name.c_str(), std::ios::binary | std::ios::out);
@@ -50,7 +49,6 @@ void python_concat(T *output, T **inputs, int64_t batch_size, const std::vector<
   std::vector<T> result;
 
   for (size_t i = 0; i < vec_size.size(); i++) {
-    std::cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << std::endl;
     py_input.write(reinterpret_cast<const char *>(&batch_size), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&slot_num[i]), sizeof(int));
     py_input.write(reinterpret_cast<const char *>(&vec_size[i]), sizeof(int));
@@ -71,8 +69,6 @@ void python_concat(T *output, T **inputs, int64_t batch_size, const std::vector<
     output[idx] = dummy;
     idx++;
   }
-
-  std::cout << result.size() << std::endl;
 
   pclose(py_output);
 }
@@ -98,15 +94,10 @@ void concat_3d_layer_test(int64_t batch_size, std::vector<int64_t> slot_num,
 
   int64_t out_slot_num = 0;
   int64_t out_vector_size = 0;
-  std::cout << "Num of Input: " << n_ins << std::endl;
 
   for (int64_t i = 0; i < n_ins; i++) {
-    std::cout << "Input: " << i << std::endl;
     int64_t embedding_vec_size = vec_size[i];
     int64_t seq_len = slot_num[i];
-
-    std::cout << "Input Shape: " << batch_size << " " << seq_len << " " << embedding_vec_size
-              << std::endl;
 
     core23::Shape in_shape = {batch_size, seq_len, embedding_vec_size};
     bottom_tensors.emplace_back(tensor_params.shape(in_shape));
@@ -128,9 +119,7 @@ void concat_3d_layer_test(int64_t batch_size, std::vector<int64_t> slot_num,
   int64_t out_size = batch_size * out_slot_num * out_vector_size;
   Concat3DLayer<T> concat_3d_layer(bottom_tensors, top_tensor, axis, test::get_default_gpu());
 
-  std::cout << "Input Size" << std::endl;
   for (int i = 0; i < n_ins; i++) {
-    std::cout << batch_size << " " << slot_num[i] << " " << vec_size[i] << std::endl;
     h_ins[i] = new T[batch_size * slot_num[i] * vec_size[i]];
     test::normal_sync_cpu(h_ins[i], batch_size * slot_num[i] * vec_size[i], 0.f, 1.f, generator);
 
