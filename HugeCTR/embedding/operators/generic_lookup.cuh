@@ -896,6 +896,126 @@ __global__ void one_to_multi_weight_warp_per_ev_vec4_kernel(CopyDesc copy_desc) 
   }
 }
 
+template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void one_to_one_cta_per_ev_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+  int i_ev = blockIdx.x;
+
+  if (i_ev < copy_desc.num_vec_ && copy_desc.need_copy(i_ev)) {
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+    dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
+
+    float accum[kMaxElemPerThread] = {0.f};
+    const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < vec_length; ++i) {
+      accum[i] +=
+          HugeCTR::TypeConvertFunc<float, src_type>::convert(src_ev[blockDim.x * i + threadIdx.x]);
+    }
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < vec_length; ++i) {
+      dst_ev[blockDim.x * i + threadIdx.x] =
+          HugeCTR::TypeConvertFunc<dst_type, float>::convert(accum[i]);
+    }
+  }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void one_to_one_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+  int i_ev = blockIdx.x * blockDim.y + warp_id;
+  if (i_ev < copy_desc.num_vec_ && copy_desc.need_copy(i_ev)) {
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+
+    dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
+
+    Vec4T<float> accum[kMaxElemPerThread];
+
+    const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      Vec4T<src_type> src_elem;
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      src_elem.load(src_ev + idx4, n);
+      accum[i].accumulate(src_elem);
+    }
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      accum[i].store(dst_ev + idx4, n);
+    }
+  }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void one_to_one_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+  for (int i_ev = blockIdx.x * blockDim.y + warp_id; i_ev < copy_desc.num_vec_;
+       i_ev += gridDim.x * blockDim.y) {
+    if (copy_desc.need_copy(i_ev)) {
+      vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+
+      dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
+      const src_type *src_ev = copy_desc.get_src_ptr(i_ev);
+      Vec4T<float> accum[kMaxElemPerThread];
+#pragma unroll kMaxElemPerThread
+      for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+        Vec4T<src_type> src_elem;
+        int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+        int n = min(vec_length - idx4, copy_width);
+        src_elem.load(src_ev + idx4, n);
+        accum[i].accumulate(src_elem);
+      }
+
+#pragma unroll kMaxElemPerThread
+      for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+        int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+        int n = min(vec_length - idx4, copy_width);
+        accum[i].store(dst_ev + idx4, n);
+      }
+    }
+  }
+}
+
+template <typename SrcType, typename DstType, typename LambdaNeedCopy, typename LambdaVecLength,
+          typename LambdaSrcTensor, typename LambdaDstTensor>
+struct OneToOne {
+  using SrcT = SrcType;
+  using DstT = DstType;
+
+  HOST_DEVICE_INLINE bool need_copy(int i) { return need_copy_(i); }
+  HOST_DEVICE_INLINE int get_vec_length(int i) { return get_vec_length_(i); }
+  HOST_DEVICE_INLINE const SrcType *get_src_ptr(int i) { return get_src_tensor_(i); }
+  HOST_DEVICE_INLINE DstType *get_dst_ptr(int i) { return get_dst_tensor_(i); }
+
+  int num_vec_;
+  LambdaNeedCopy need_copy_;
+  LambdaVecLength get_vec_length_;
+  LambdaSrcTensor get_src_tensor_;
+  LambdaDstTensor get_dst_tensor_;
+};
+
 template <typename SrcType, typename DstType, typename LambdaOffset, typename LambdaAverage,
           typename LambdaVecLength, typename LambdaSrcTensor, typename LambdaDstTensor>
 struct MultiToOne {
@@ -956,6 +1076,7 @@ SrcType; using DstT = DstType;
   LambdaSpWeight get_sp_weight_;
 };
 */
+
 template <typename SrcType, typename DstType, typename LambdaOffset, typename LambdaAverage,
           typename LambdaVecLength, typename LambdaSrcTensor, typename LambdaDstTensor,
           typename LambdaSpWeight>
@@ -1096,6 +1217,60 @@ make_MultiToOne_reduce_weight(int num_vec, LambdaKey get_key, LambdaSrcVecLength
   return {num_vec,           get_key,        get_src_vec_length, get_dst_vec_length,
           get_dst_unique_id, get_src_tensor, get_dst_tensor,     get_weight};
 };
+
+template <typename CopyDesc>
+void copy_one_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    one_to_one_warp_per_ev_vec4_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    one_to_one_warp_per_ev_vec4_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 1024) {
+    one_to_one_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename CopyDesc>
+void copy_one_to_one(CopyDesc copy_desc, const HugeCTR::core23::KernelParams &kernel_params,
+                     int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+    one_to_one_warp_per_ev_vec4_less_block_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 8};
+    int num_vector_per_warp = NUM_VECTOR_PER_WARP;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm, 256,
+                               kernel_params.warp_size, copy_desc.num_vec_, &grid_size,
+                               &num_vector_per_warp, 8);
+
+    one_to_one_warp_per_ev_vec4_less_block_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 1024) {
+    int grid_size = copy_desc.num_vec_;
+
+    one_to_one_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
 
 template <typename CopyDesc>
 void copy_multi_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {

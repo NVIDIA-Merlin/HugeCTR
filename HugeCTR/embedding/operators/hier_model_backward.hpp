@@ -18,6 +18,7 @@
 #include <HugeCTR/core/core.hpp>
 
 #include "../embedding_table.hpp"
+#include "network_forward.hpp"
 
 namespace embedding {
 
@@ -25,11 +26,27 @@ struct IntraModelCommBufferAttr;
 struct IntraModelReductionBuffer;
 struct ModelCommBuffer;
 
+struct IntraModelBackwardAttr {
+  NetworkIndices indices;
+  std::vector<int> h_global_lookup_ids_in_local_gpu;
+  core23::Tensor global_lookup_ids_in_local_gpu;
+
+  std::vector<int> h_evsizes_in_local_gpu;
+  core23::Tensor evsizes_in_local_gpu;
+
+  std::vector<int> h_local_gpu_lookup_ids_to_node_lookup_ids;
+  core23::Tensor local_gpu_lookup_ids_to_node_lookup_ids;
+
+  void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
+            size_t grouped_id, const std::vector<std::vector<int>> &h_lookup_ids_in_current_node);
+};
+
 struct IntraModelBackward {
   std::shared_ptr<CoreResourceManager> core_;
-
+  IntraModelBackwardAttr attr;
   void backward(const IntraModelCommBufferAttr &intra_model_comm_buffer_attr,
                 const IntraModelReductionBuffer &reduction_buffer,
-                ModelCommBuffer &model_comm_buffer, int batch_size);
+                const EmbeddingInput &embedding_input, ModelCommBuffer &model_comm_buffer,
+                int batch_size);
 };
 }  // namespace embedding

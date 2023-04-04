@@ -61,7 +61,6 @@ struct ModelCommBufferAttr {
 struct ModelCommBuffer {
   std::vector<core23::Tensor> data_list;
   core23::Tensor data;
-  core23::Tensor peer_data;
 
   ModelCommBufferAttr attr;
 
@@ -72,9 +71,6 @@ struct ModelCommBuffer {
                                const std::vector<core23::Tensor> &data_buffer_list,
                                const ModelCommBufferAttr &attr);
 };
-
-void collective_init_peer_buffer(const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
-                                 std::vector<ModelCommBuffer *> &model_comm_buffers);
 
 struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;

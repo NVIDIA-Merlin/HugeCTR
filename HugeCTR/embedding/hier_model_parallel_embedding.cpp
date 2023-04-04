@@ -62,6 +62,8 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   size_t num_local_gpus = core->get_local_gpu_count();
   HCTR_CHECK(num_global_gpus % num_local_gpus == 0);
   int num_nodes = num_global_gpus / num_local_gpus;
+  int mynode_id = core->get_global_gpu_id() / num_local_gpus;
+
   intra_model_reduction_buffer_attr_in_all_nodes.clear();
   for (int node_id = 0; node_id < num_nodes; ++node_id) {
     std::vector<std::vector<int>> h_lookup_ids_in_one_node;
@@ -75,6 +77,9 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
     }
     intra_model_reduction_buffer_attr_in_all_nodes.emplace_back(core, ebc_param, grouped_id,
                                                                 h_lookup_ids_in_one_node);
+    if (node_id == mynode_id) {
+      hier_intra_model_backward_attr.init(core, ebc_param, grouped_id, h_lookup_ids_in_one_node);
+    }
   }
 
   h_lookup_ids_in_current_rail.clear();
@@ -139,7 +144,7 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
   all2all_comm_ = NcclAll2AllComm(core);
   network_forward_ = NetworkForward(core, num_gpus);
   network_backward_ = NetworkBackward(core, num_gpus);
-  intra_model_backward_ = IntraModelBackward{core};
+  intra_model_backward_ = IntraModelBackward{core, meta_.hier_intra_model_backward_attr};
 
   reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size);
   LocalReduceIndexCalculation local_reduce_index_calculation{core,
@@ -210,9 +215,9 @@ void HierModelParallelEmbedding::backward_per_gpu(const EmbeddingInput &embeddin
                             meta_.hier_network_indices, network_buffer_, batch_size);
 
   all2all_comm_.hier_communicate(network_buffer_.data_list, intra_reduction_buffer_.data_list);
-  intra_model_backward_.backward(intra_model_comm_buffer_.attr, intra_reduction_buffer_,
-                                 model_comm_buffer_, batch_size);
   gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
+  intra_model_backward_.backward(intra_model_comm_buffer_.attr, intra_reduction_buffer_,
+                                 embedding_input, model_comm_buffer_, batch_size);
 
   local_reduce_.local_reduce(reduction_indices_, model_comm_buffer_, wgrad, batch_size);
 }

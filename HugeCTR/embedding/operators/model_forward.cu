@@ -290,27 +290,4 @@ void ModelCommBuffer::init_from_device_buffer(std::shared_ptr<CoreResourceManage
   this->attr = attr;
 }
 
-void collective_init_peer_buffer(const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
-                                 std::vector<ModelCommBuffer *> &model_comm_buffers) {
-  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffers[0]->attr.type.type(), emb_t, [&] {
-    int num_local_gpus = static_cast<int>(cores.size());
-    std::vector<emb_t **> peer_data_vec;
-    for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
-      peer_data_vec.push_back((emb_t **)model_comm_buffers[gpu_id]->data.data());
-    }
-
-    for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-      HugeCTR::CudaDeviceContext context(cores[local_gpu_id]->get_device_id());
-      core23::Device device(core23::DeviceType::GPU, cores[local_gpu_id]->get_device_id());
-      core23::TensorParams params = core23::TensorParams().device(device);
-
-      model_comm_buffers[local_gpu_id]->peer_data = core23::init_tensor_list<emb_t>(
-          peer_data_vec.size(), cores[local_gpu_id]->get_device_id());
-
-      HCTR_LIB_THROW(cudaMemcpy(model_comm_buffers[local_gpu_id]->peer_data.data(),
-                                peer_data_vec.data(), peer_data_vec.size() * sizeof(emb_t **),
-                                cudaMemcpyHostToDevice));
-    }
-  });
-}
 }  // namespace embedding

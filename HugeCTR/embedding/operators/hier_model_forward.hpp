@@ -24,6 +24,7 @@ namespace embedding {
 
 struct IntraModelCommBufferAttr {
   std::vector<std::vector<int>> h_lookup_ids_in_current_node;
+  std::vector<std::vector<int>> h_table_ids_in_current_node;
 
   std::vector<std::vector<int>> h_id_to_ev_size_in_current_node;
   std::vector<core23::Tensor> id_to_ev_size_in_current_node_list;
@@ -78,12 +79,15 @@ struct IntraModelReductionBufferAttr {
 struct IntraModelReductionBuffer {
   std::vector<core23::Tensor> data_list;  // num of nodes
   core23::Tensor data;
-
+  core23::Tensor peer_data;
   const IntraModelReductionBufferAttr &attr;
 
   IntraModelReductionBuffer(std::shared_ptr<CoreResourceManager> core,
                             const IntraModelReductionBufferAttr &attr, int batch_size);
 };
+
+void collective_init_peer_buffer(const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
+                                 std::vector<IntraModelReductionBuffer *> &intra_reduction_buffers);
 
 struct IntraModelForward {
   std::shared_ptr<CoreResourceManager> core_;
