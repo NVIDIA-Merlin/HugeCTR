@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <float.h>
 
 #include <general_buffer2.hpp>
 #include <optimizers/ftrl_optimizer.hpp>
@@ -31,9 +32,10 @@ __global__ void ftrl_update_kernel(int len, float* weight, float* z, float* n, c
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
     float ni_new = n[i] + gi * gi;
-    float zi = z[i] + gi + (sqrt(n[i]) - sqrt(ni_new)) * weight[i] / alpha;
+    float zi =
+        z[i] + gi + (sqrtf(n[i] + FLT_EPSILON) - sqrtf(ni_new + FLT_EPSILON)) * weight[i] / alpha;
     float x = lambda1 * (1.0f - 2.0f * signbit(zi)) - zi;
-    float y = sqrt(ni_new) / alpha + lambda2;
+    float y = sqrtf(ni_new + FLT_EPSILON) / alpha + lambda2;
     n[i] = ni_new;
     z[i] = zi;
     weight[i] = x / y * signbit(lambda1 - abs(zi));
