@@ -28,6 +28,8 @@ embedding::IntraModelCommBufferAttr::IntraModelCommBufferAttr(
     : type(ebc_param.emb_type) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   h_lookup_ids_in_current_node.clear();
+  h_table_ids_in_current_node.clear();
+
   h_id_to_ev_size_in_current_node.clear();
   h_id_to_ev_start_indices_in_current_node.clear();
 
@@ -39,11 +41,13 @@ embedding::IntraModelCommBufferAttr::IntraModelCommBufferAttr(
     int global_gpu_id = core->get_gpu_global_id_from_local_id(local_gpu_id);
 
     std::vector<int> local_lookup_ids;
+    std::vector<int> local_table_ids;
     std::vector<int> local_id_to_ev_size;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       if (!ebc_param.has_table_shard(global_gpu_id, grouped_id, lookup_id)) continue;
-
+      int table_id = ebc_param.lookup_params[lookup_id].table_id;
       local_lookup_ids.push_back(lookup_id);
+      local_table_ids.push_back(table_id);
 
       int ev_size = ebc_param.lookup_params[lookup_id].ev_size;
       local_id_to_ev_size.push_back(ev_size);
@@ -53,6 +57,7 @@ embedding::IntraModelCommBufferAttr::IntraModelCommBufferAttr(
                      std::back_inserter(local_id_to_ev_start_indices));
 
     h_lookup_ids_in_current_node.push_back(local_lookup_ids);
+    h_table_ids_in_current_node.push_back(local_table_ids);
     h_id_to_ev_size_in_current_node.push_back(local_id_to_ev_size);
     h_id_to_ev_start_indices_in_current_node.push_back(local_id_to_ev_start_indices);
   }
@@ -186,6 +191,9 @@ IntraModelReductionBufferAttr::IntraModelReductionBufferAttr(
 
   indices.init(core, h_lookup_ids_in_current_node);
 
+  // calculatea local lookup id
+  int gpu_id = core->get_global_gpu_id();
+
   h_inter_id_to_ev_size.clear();
   for (int lookup_id : indices.h_network_dst_lookup_ids) {
     h_inter_id_to_ev_size.push_back(ebc_param.lookup_params[lookup_id].ev_size);
@@ -203,9 +211,9 @@ IntraModelReductionBufferAttr::IntraModelReductionBufferAttr(
   id_to_ev_start_indices =
       core23::Tensor(params.shape({static_cast<int64_t>(h_inter_id_to_ev_start_indices.size())})
                          .data_type(core23::ScalarType::Int32));
+
   core23::copy_sync(id_to_ev_size, h_inter_id_to_ev_size);
   core23::copy_sync(id_to_ev_start_indices, h_inter_id_to_ev_start_indices);
-
   this->max_ev_size =
       h_inter_id_to_ev_size.empty()
           ? 0
@@ -237,6 +245,31 @@ IntraModelReductionBuffer::IntraModelReductionBuffer(std::shared_ptr<CoreResourc
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(attr.type.type(), emb_t, [&] {
     data = core23::init_tensor_list<emb_t>(this->data_list, core->get_device_id());
+  });
+}
+
+void collective_init_peer_buffer(
+    const std::vector<std::shared_ptr<CoreResourceManager>> &cores,
+    std::vector<IntraModelReductionBuffer *> &intra_reduction_buffers) {
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(intra_reduction_buffers[0]->attr.type.type(), emb_t, [&] {
+    int num_local_gpus = static_cast<int>(cores.size());
+    std::vector<emb_t **> peer_data_vec;
+    for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
+      peer_data_vec.push_back((emb_t **)intra_reduction_buffers[gpu_id]->data.data());
+    }
+
+    for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
+      HugeCTR::CudaDeviceContext context(cores[local_gpu_id]->get_device_id());
+      core23::Device device(core23::DeviceType::GPU, cores[local_gpu_id]->get_device_id());
+      core23::TensorParams params = core23::TensorParams().device(device);
+
+      intra_reduction_buffers[local_gpu_id]->peer_data = core23::init_tensor_list<emb_t>(
+          peer_data_vec.size(), cores[local_gpu_id]->get_device_id());
+
+      HCTR_LIB_THROW(cudaMemcpy(intra_reduction_buffers[local_gpu_id]->peer_data.data(),
+                                peer_data_vec.data(), peer_data_vec.size() * sizeof(emb_t **),
+                                cudaMemcpyHostToDevice));
+    }
   });
 }
 

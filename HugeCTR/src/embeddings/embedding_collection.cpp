@@ -116,18 +116,19 @@ EmbeddingCollection::EmbeddingCollection(
       [&](std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> &embeddings,
           size_t grouped_id) {
         std::vector<ModelCommBuffer *> model_comm_buffers;
+        std::vector<IntraModelReductionBuffer *> intra_reduction_buffers;
         std::vector<IntraModelCommBuffer *> intra_model_comm_buffers;
 
         for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
           HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
           auto embedding =
               dynamic_cast<HierModelParallelEmbedding *>(embeddings[gpu_id][grouped_id].get());
-          model_comm_buffers.push_back(embedding->get_model_comm_buffer());
+          intra_reduction_buffers.push_back(embedding->get_intra_reduction_buffer());
           intra_model_comm_buffers.push_back(embedding->get_intra_model_comm_buffer());
 
           embedding->set_gpu_barrier(gpu_barrier_.get());
         }
-        collective_init_peer_buffer(core, model_comm_buffers);
+        collective_init_peer_buffer(core, intra_reduction_buffers);
         collective_init_peer_buffer(core, intra_model_comm_buffers);
       };
 

@@ -39,7 +39,7 @@ struct HierModelParallelEmbeddingMeta {
   std::vector<std::vector<int>> h_lookup_ids_in_current_rail;
   NetworkIndices hier_network_indices;
   NetworkBufferAttr hier_network_buffer_attr;
-
+  IntraModelBackwardAttr hier_intra_model_backward_attr;
   WgradAttr wgrad_attr;
 
   EmbeddingOutputAttr output_attr;
@@ -93,7 +93,7 @@ class HierModelParallelEmbedding : public IGroupedEmbeddingOp {
 
   IntraModelCommBuffer *get_intra_model_comm_buffer() { return &intra_model_comm_buffer_; }
 
-  ModelCommBuffer *get_model_comm_buffer() { return &model_comm_buffer_; }
+  IntraModelReductionBuffer *get_intra_reduction_buffer() { return &intra_reduction_buffer_; }
 
   void set_gpu_barrier(HugeCTR::GPUBarrier *gpu_barrier) { gpu_barrier_ = gpu_barrier; }
 };
