@@ -23,7 +23,7 @@ namespace HugeCTR {
 
 namespace core23 {
 
-#define DEFINE_FILL_ELSE_IF(Type, _)                                                         \
+#define DEFINE_FILL_ELSE_IF(Type, Dummy0, Dummy1)                                            \
   else if (data.data_type() == ToScalarType<Type>::value) {                                  \
     fill_async<Type>(data.data<Type>(), data.num_elements(),                                 \
                      TypeConverter<Type, decltype(val)>::value(val), data.device(), stream); \
@@ -45,7 +45,14 @@ void zeros_async(Tensor& data, CUDAStream stream) {
   float val = 0.f;
   if (false) {
   }
-  ALL_DATA_TYPES_SUPPORTED(DEFINE_FILL_ELSE_IF)
+  ALL_DATA_CONVERSIONS_SUPPORTED(DEFINE_FILL_ELSE_IF)
+  else if (data.data_type() == ToScalarType<void*>::value) {
+    fill_async<void*>(data.data<void*>(), data.num_elements(), nullptr, data.device(), stream);
+  }
+  else {
+    HCTR_THROW_IF(false, HugeCTR::Error_t::IllegalCall,
+                  "Zeroing out " + data.data_type().name() + " is not implemented");
+  }
 }
 
 void copy_sync(Tensor& dst, const Tensor& src) {

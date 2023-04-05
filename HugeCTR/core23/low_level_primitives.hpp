@@ -27,10 +27,10 @@ namespace core23 {
 class Device;
 
 template <typename Type>
-void fill_sync(Type* data, int64_t num_elements, const Type val, const Device& device);
+void fill_sync(Type* data, int64_t num_elements, Type val, const Device& device);
 
 template <typename Type>
-void fill_async(Type* data, int64_t num_elements, const Type val, const Device& device,
+void fill_async(Type* data, int64_t num_elements, Type val, const Device& device,
                 CUDAStream stream);
 
 void copy_sync(void* dst_data, const void* src_data, int64_t num_bytes, const Device& dst_device,

@@ -61,6 +61,31 @@ core23::Tensor init_tensor_list(const std::vector<core23::Tensor> &tensor_vec, i
 
   return tensor_list;
 }
+
+static void init_tensor_list(core23::Tensor &tensor_list,
+                             const std::vector<core23::Tensor> &tensor_vec,
+                             cudaStream_t stream = 0) {
+  if (tensor_list.device() == Device(DeviceType::CPU)) {
+    for (size_t i = 0; i < tensor_vec.size(); ++i) {
+      tensor_list.data<void *>()[i] = tensor_vec[i].data();
+    }
+  } else {
+    std::vector<void *> data_vec;
+    for (auto &tensor : tensor_vec) {
+      data_vec.push_back(tensor.data());
+    }
+
+    if (stream != 0) {
+      HCTR_LIB_THROW(cudaMemcpyAsync(tensor_list.data(), data_vec.data(),
+                                     data_vec.size() * sizeof(void *), cudaMemcpyHostToDevice,
+                                     stream));
+    } else {
+      HCTR_LIB_THROW(cudaMemcpy(tensor_list.data(), data_vec.data(),
+                                data_vec.size() * sizeof(void *), cudaMemcpyHostToDevice));
+    }
+  }
+}
+
 }  // namespace core23
 }  // namespace HugeCTR
 
@@ -208,6 +233,7 @@ struct EmbeddingInput {
   core23::Tensor bucket_range;
   size_t h_num_keys;  // TODO: remove
   core23::Tensor fullbatch_bucket_range;
+  core23::Tensor keys_per_bucket;
 };
 
 struct EmbeddingOutputAttr {

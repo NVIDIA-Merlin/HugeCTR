@@ -77,12 +77,12 @@ void fill_common(Type* data, int64_t num_elements, const Type val, const Device&
 }
 
 template <typename Type>
-void fill_sync(Type* data, int64_t num_elements, const Type val, const Device& device) {
+void fill_sync(Type* data, int64_t num_elements, Type val, const Device& device) {
   fill_common(data, num_elements, val, device, {});
 }
 
 template <typename Type>
-void fill_async(Type* data, int64_t num_elements, const Type val, const Device& device,
+void fill_async(Type* data, int64_t num_elements, Type val, const Device& device,
                 CUDAStream stream) {
   fill_common(data, num_elements, val, device, stream);
 }
@@ -132,10 +132,10 @@ void transform_async_common(DstType* dst, const SrcType* src, int64_t num_elemen
   }
 }
 
-#define DEFINE_FILL(Type, _)                                                        \
-  template void fill_sync<Type>(Type * data, int64_t num_elements, const Type val,  \
-                                const Device& device);                              \
-  template void fill_async<Type>(Type * data, int64_t num_elements, const Type val, \
+#define DEFINE_FILL(Type, _)                                                  \
+  template void fill_sync<Type>(Type * data, int64_t num_elements, Type val,  \
+                                const Device& device);                        \
+  template void fill_async<Type>(Type * data, int64_t num_elements, Type val, \
                                  const Device& device, CUDAStream stream);
 
 ALL_DATA_TYPES_SUPPORTED(DEFINE_FILL)
