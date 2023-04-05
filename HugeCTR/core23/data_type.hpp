@@ -37,7 +37,8 @@ namespace core23 {
   PH(int32_t, Int32)                 \
   PH(uint32_t, UInt32)               \
   PH(int64_t, Int64)                 \
-  PH(uint64_t, UInt64)
+  PH(uint64_t, UInt64)               \
+  PH(void *, Pointer)
 
 #define DATA_TYPE_ENUMERIZE(_, E) E,
 

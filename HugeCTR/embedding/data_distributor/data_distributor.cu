@@ -16,6 +16,7 @@
 
 #include <HugeCTR/embedding/common.hpp>
 #include <core/hctr_impl/hctr_backend.hpp>
+#include <cub/cub.cuh>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding/data_distributor/gpu_kernels.hpp>
 #include <embedding/operators/communication.hpp>
@@ -31,6 +32,7 @@ DataDistributor::DataDistributor(
     : resource_manager_(resource_manager),
       core_resource_managers_(core_resource_managers),
       batch_size_(batch_size),
+      batch_size_per_gpu_(batch_size / resource_manager->get_global_gpu_count()),
       scalar_type_(scalar_type),
       ebc_param_(ebc_param),
       emb_table_param_list_(emb_table_param_list),
@@ -57,6 +59,7 @@ DataDistributor::DataDistributor(
   init_key_filter();
   init_batch_major_fullbatch_input_preprocessor();
   init_indices_converter();
+  init_filtered_all_to_all();
 }
 
 void DataDistributor::init_comm_data() {
@@ -82,8 +85,6 @@ void DataDistributor::init_comm_data() {
     comm_data.hotness_bucket_range =
         core23::Tensor(params.shape({static_cast<int64_t>(num_features_ + 1)})
                            .data_type(core23::ScalarType::Int32));
-    comm_data.features = core23::Tensor(
-        params.shape({static_cast<int64_t>(num_keys)}).data_type(ebc_param_.key_type));
 
     size_t num_bucket_ranges = num_buckets * ebc_param_.universal_batch_size + 1;
     comm_data.bucket_range = core23::Tensor(
@@ -97,8 +98,159 @@ void DataDistributor::init_comm_data() {
 
     core23::copy_sync(comm_data.hotness_bucket_range, hotness_bucket_range);
 
-    init_fixed_bucket_ranges(comm_data.bucket_range);
     gpu_comm_data_.emplace_back(comm_data);
+  }
+}
+
+DataDistributor::MPTempStorage::MPTempStorage(std::shared_ptr<core::CoreResourceManager> core,
+                                              int batch_size, int sample_max_nnz,
+                                              int max_local_features, int max_local_buckets,
+                                              core23::DataType key_type,
+                                              core23::DataType offset_type) {
+  CudaDeviceContext ctx(core->get_device_id());
+
+  int batch_size_per_dev = batch_size / core->get_global_gpu_count();
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
+
+  {
+    size_t temp_bytes = 0;
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
+      // ATTENTION: cub radix sort requires NumItemT to be consistent
+      cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
+                                      (KeyType*)nullptr, (KeyType*)nullptr,
+                                      static_cast<int64_t>(batch_size_per_dev * sample_max_nnz));
+    });
+    this->temp_sort_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
+  }
+  {
+    size_t temp_bytes = 0;
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(offset_type.type(), BucketRangeType, [&] {
+      cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (BucketRangeType*)nullptr,
+                                    (BucketRangeType*)nullptr, batch_size * max_local_buckets + 1);
+    });
+    this->temp_scan_storage = core23::Tensor(
+        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
+  }
+
+  this->k_per_b_gpu_major = core23::Tensor(
+      params.shape({static_cast<int64_t>(batch_size * max_local_buckets)}).data_type(offset_type));
+  this->k_per_b_feat_major = core23::Tensor(
+      params.shape({static_cast<int64_t>(batch_size * max_local_buckets)}).data_type(offset_type));
+  this->k_per_g = core23::Tensor(
+      params.shape({static_cast<int64_t>(core->get_global_gpu_count())}).data_type(offset_type));
+  this->bucket_range_gpu_major =
+      core23::Tensor(params.shape({static_cast<int64_t>(batch_size * max_local_buckets + 1)})
+                         .data_type(offset_type));
+  this->sorted_local_keys =
+      core23::Tensor(params.shape({static_cast<int64_t>(batch_size_per_dev * sample_max_nnz)})
+                         .data_type(key_type));
+  this->sorted_local_labels =
+      core23::Tensor(params.shape({static_cast<int64_t>(batch_size_per_dev * sample_max_nnz)})
+                         .data_type(core23::ScalarType::UInt32));
+  this->keys = core23::Tensor(
+      params.shape({static_cast<int64_t>(batch_size * max_local_features)}).data_type(key_type));
+
+  HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_send_k_per_g,
+                                core->get_global_gpu_count() * sizeof(uint32_t)));
+  HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_recv_k_per_g,
+                                core->get_global_gpu_count() * sizeof(uint32_t)));
+}
+
+void DataDistributor::init_filtered_all_to_all() {
+  // --- allocate operators ---
+  for (size_t group_id = 0; group_id < ebc_param_.grouped_emb_params.size(); group_id++) {
+    if (ebc_param_.grouped_emb_params[group_id].table_placement_strategy ==
+        embedding::TablePlacementStrategy::ModelParallel) {
+      std::vector<mp::LabelAndCountKeysOperator::Result> label_and_count_outputs;
+      std::vector<mp::LabelAndCountKeysOperator> label_and_count_operators;
+      std::vector<mp::CountKeysOperator> count_operators;
+      std::vector<mp::TransposeBucketsOperator> transpose_operators;
+      std::vector<mp::SwizzleKeysOperator> swizzle_operators;
+
+      for (size_t i = 0; i < num_local_gpus_; ++i) {
+        CudaDeviceContext context(core_resource_managers_[i]->get_device_id());
+
+        label_and_count_outputs.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+        label_and_count_operators.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+        count_operators.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+        transpose_operators.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+        swizzle_operators.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+      }
+
+      label_and_count_keys_outputs_.push_back(std::move(label_and_count_outputs));
+      label_and_count_keys_operators_.push_back(std::move(label_and_count_operators));
+      count_keys_operators_.push_back(std::move(count_operators));
+      transpose_buckets_operators_.push_back(std::move(transpose_operators));
+      swizzle_keys_operators_.push_back(std::move(swizzle_operators));
+    } else if (ebc_param_.grouped_emb_params[group_id].table_placement_strategy ==
+               embedding::TablePlacementStrategy::DataParallel) {
+      std::vector<dp::ConcatKeysAndBucketRangeOperator> concat_operators;
+      for (size_t i = 0; i < num_local_gpus_; ++i) {
+        CudaDeviceContext context(core_resource_managers_[i]->get_device_id());
+        concat_operators.emplace_back(core_resource_managers_[i], ebc_param_, group_id);
+      }
+      concat_keys_and_bucket_range_operators_.push_back(std::move(concat_operators));
+    }
+  }
+
+  // -- non-group specific operators
+  for (size_t gpu_id = 0; gpu_id < num_local_gpus_; ++gpu_id) {
+    compute_dp_bucket_range_operators_.emplace_back(core_resource_managers_[gpu_id], ebc_param_);
+  }
+
+  // ---- allocate temp storage ----
+  sample_max_nnz_ = 0;
+  for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+    sample_max_nnz_ += ebc_param_.lookup_params[lookup_id].max_hotness;
+  }
+
+  for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); ++grouped_id) {
+    if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
+        embedding::TablePlacementStrategy::ModelParallel) {
+      std::vector<MPTempStorage> group_temp_storage;
+      for (size_t gpu_id = 0; gpu_id < num_local_gpus_; ++gpu_id) {
+        auto core = core_resource_managers_[gpu_id];
+        int max_local_features = 0;
+        int max_local_buckets = 0;
+        for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+          if (ebc_param_.has_table_shard(core->get_global_gpu_id(), grouped_id, lookup_id)) {
+            max_local_features += ebc_param_.lookup_params[lookup_id].max_hotness;
+            max_local_buckets++;
+          }
+        }
+        group_temp_storage.emplace_back(core, ebc_param_.universal_batch_size, sample_max_nnz_,
+                                        max_local_features, max_local_buckets, ebc_param_.key_type,
+                                        ebc_param_.offset_type);
+      }
+      temp_storage_.push_back(std::move(group_temp_storage));
+    }
+  }
+
+  // ---- init static bucket range ----
+  // TODO: remove when data reader returns bucket range
+  fixed_dp_bucket_range_.resize(num_local_gpus_);
+
+  for (size_t gpu_id = 0; gpu_id < num_local_gpus_; ++gpu_id) {
+    auto core = core_resource_managers_[gpu_id];
+    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+    core23::BufferParams buffer_params;
+    buffer_params.unitary = false;
+    core23::TensorParams params =
+        core23::TensorParams().device(device).buffer_params(buffer_params);
+
+    for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+      int num_buckets = batch_size_per_gpu_ + 1;
+
+      auto bucket_range = core23::Tensor(
+          params.shape({static_cast<int64_t>(num_buckets)}).data_type(ebc_param_.offset_type));
+
+      fixed_dp_bucket_range_[gpu_id].push_back(std::move(bucket_range));
+    }
   }
 }
 
@@ -234,19 +386,6 @@ void DataDistributor::init_key_filter() {
   }
 }
 
-void DataDistributor::init_fixed_bucket_ranges(core23::Tensor& output_bucket_ranges) const {
-  // feature-major bucket ranges
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(output_bucket_ranges.data_type().type(), BucketRangeType, [&] {
-    std::vector<BucketRangeType> bucket_ranges(1, 0);
-    for (size_t feat_id = 0; feat_id < num_features_; ++feat_id) {
-      bucket_ranges.insert(bucket_ranges.end(), batch_size_, feature_pooling_factors_[feat_id]);
-    }
-    std::inclusive_scan(bucket_ranges.begin() + 1, bucket_ranges.end(), bucket_ranges.begin() + 1);
-    // copy up to GPU
-    core23::copy_sync(output_bucket_ranges, bucket_ranges);
-  });
-}
-
 void DataDistributor::init_batch_major_fullbatch_input_preprocessor() {
   if (ebc_param_.input_layout_ == embedding::EmbeddingLayout::BatchMajor) {
     preprocess_inputs_.clear();
@@ -267,7 +406,7 @@ void DataDistributor::init_indices_converter() {
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     CudaDeviceContext context(core_resource_managers_[gpu_id]->get_device_id());
     int ggpu_id = core_resource_managers_[gpu_id]->get_global_gpu_id();
-    for (int grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); grouped_id++) {
+    for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); grouped_id++) {
       indices_converters_.emplace_back(core_resource_managers_[gpu_id], emb_table_param_list_,
                                        ebc_param_, grouped_id);
 
@@ -297,42 +436,254 @@ void DataDistributor::init_indices_converter() {
   }
 }
 
-DataDistributor::~DataDistributor() {}
+void DataDistributor::all2all_keys_per_bucket(int mp_group_i, int gpu_id) {
+  auto core = core_resource_managers_[gpu_id];
+  auto stream = core->get_local_gpu()->get_stream();
+
+  const auto& per_gpu_lookup_range =
+      label_and_count_keys_operators_[mp_group_i][gpu_id].h_per_gpu_lookup_range;
+  auto send_tensor = label_and_count_keys_outputs_[mp_group_i][gpu_id].keys_per_bucket;
+  auto recv_tensor = temp_storage_[mp_group_i][gpu_id].k_per_b_gpu_major;
+  auto nccl_type =
+      core23::get_nccl_dtype_from_tensor_scalar_type_core23(send_tensor.data_type().type());
+
+  size_t recv_num_buckets =
+      per_gpu_lookup_range[(core->get_global_gpu_id() + 1) * ebc_param_.num_lookup] -
+      per_gpu_lookup_range[core->get_global_gpu_id() * ebc_param_.num_lookup];
+
+  size_t recv_offset = 0;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(send_tensor.data_type().type(), BucketRangeType, [&] {
+    ncclGroupStart();
+    for (size_t peer = 0; peer < num_global_gpus_; ++peer) {
+      size_t start_range = per_gpu_lookup_range[peer * ebc_param_.num_lookup];
+      size_t send_num_buckets =
+          per_gpu_lookup_range[(peer + 1) * ebc_param_.num_lookup] - start_range;
+
+      HCTR_LIB_THROW(ncclSend(send_tensor.data<BucketRangeType>() + start_range, send_num_buckets,
+                              nccl_type, peer, core->get_nccl(), stream));
+      HCTR_LIB_THROW(ncclRecv(recv_tensor.data<BucketRangeType>() + recv_offset, recv_num_buckets,
+                              nccl_type, peer, core->get_nccl(), stream));
+
+      recv_offset += recv_num_buckets;
+    }
+    ncclGroupEnd();
+  });
+}
+
+void DataDistributor::all2all_keys(int mp_group_i, int gpu_id, size_t& received_num_keys) {
+  auto core = core_resource_managers_[gpu_id];
+  auto stream = core->get_local_gpu()->get_stream();
+
+  auto send_tensor = temp_storage_[mp_group_i][gpu_id].sorted_local_keys;
+  auto recv_tensor = temp_storage_[mp_group_i][gpu_id].keys;
+
+  auto send_k_per_g = label_and_count_keys_outputs_[mp_group_i][gpu_id].keys_per_gpu;
+  auto recv_k_per_g = temp_storage_[mp_group_i][gpu_id].k_per_g;
+
+  auto nccl_type =
+      core23::get_nccl_dtype_from_tensor_scalar_type_core23(send_tensor.data_type().type());
+
+  // Prefetch counts to host
+  HCTR_LIB_THROW(cudaMemcpyAsync(temp_storage_[mp_group_i][gpu_id].h_send_k_per_g,
+                                 send_k_per_g.data(), send_k_per_g.num_bytes(),
+                                 cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(temp_storage_[mp_group_i][gpu_id].h_recv_k_per_g,
+                                 recv_k_per_g.data(), recv_k_per_g.num_bytes(),
+                                 cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+
+  size_t send_offset = 0;
+  size_t recv_offset = 0;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(send_tensor.data_type().type(), KeyType, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(send_k_per_g.data_type().type(), BucketRangeType, [&] {
+      ncclGroupStart();
+      for (size_t peer = 0; peer < num_global_gpus_; ++peer) {
+        auto send_num_keys = temp_storage_[mp_group_i][gpu_id].h_send_k_per_g[peer];
+        auto recv_num_keys = temp_storage_[mp_group_i][gpu_id].h_recv_k_per_g[peer];
+        //        printf("GPU (%d) -> (%d) num_keys: %d\n", core->get_global_gpu_id(), (int)peer,
+        //        (int)send_num_keys);
+        if (send_num_keys > 0) {
+          HCTR_LIB_THROW(ncclSend(send_tensor.data<KeyType>() + send_offset, send_num_keys,
+                                  nccl_type, peer, core->get_nccl(), stream));
+        }
+        if (recv_num_keys > 0) {
+          HCTR_LIB_THROW(ncclRecv(recv_tensor.data<KeyType>() + recv_offset, recv_num_keys,
+                                  nccl_type, peer, core->get_nccl(), stream));
+        }
+        send_offset += send_num_keys;
+        recv_offset += recv_num_keys;
+      }
+      ncclGroupEnd();
+    });
+  });
+
+  received_num_keys = recv_offset;
+}
+
+void DataDistributor::key_filtered_distribute(int gpu_id,
+                                              const std::vector<core23::Tensor>& dp_keys,
+                                              const std::vector<core23::Tensor>& dp_bucket_range,
+                                              DataDistributor::Result& output, int batch_size) {
+  auto core = core_resource_managers_[gpu_id];
+  CudaDeviceContext ctx(core->get_device_id());
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
+
+  size_t mp_group_i = 0;
+  size_t dp_group_i = 0;
+
+  for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); grouped_id++) {
+    if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
+        embedding::TablePlacementStrategy::ModelParallel) {
+      // --- Label keys for sort, and count keys per bucket & GPU ---
+      {
+        auto compute = label_and_count_keys_operators_[mp_group_i][gpu_id];
+        auto& result = label_and_count_keys_outputs_[mp_group_i][gpu_id];
+
+        compute(dp_keys, dp_bucket_range, result, stream);
+      }
+
+      // --- Inter-node traffic ---
+      all2all_keys_per_bucket(mp_group_i, gpu_id);
+
+      // --- count keys per gpu, so we know how many keys to receive from nccl
+      // TODO: compare with cub::DeviceSegmentedReduce::Sum
+      {
+        auto compute = count_keys_operators_[mp_group_i][gpu_id];
+        auto k_per_b_gpu_major = temp_storage_[mp_group_i][gpu_id].k_per_b_gpu_major;
+        auto k_per_g = temp_storage_[mp_group_i][gpu_id].k_per_g;
+
+        compute(k_per_b_gpu_major, k_per_g, stream);
+      }
+
+      // --- sort keys by global gpu id ---
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(ebc_param_.key_type.type(), KeyType, [&] {
+        size_t temp_bytes = temp_storage_[mp_group_i][gpu_id].temp_sort_storage.num_bytes();
+        void* temp_ptr = temp_storage_[mp_group_i][gpu_id].temp_sort_storage.data();
+        auto keys_in = label_and_count_keys_outputs_[mp_group_i][gpu_id].flat_keys.data<KeyType>();
+        auto keys_out = temp_storage_[mp_group_i][gpu_id].sorted_local_keys.data<KeyType>();
+        auto labels_in =
+            label_and_count_keys_outputs_[mp_group_i][gpu_id].local_labels.data<uint32_t>();
+        auto labels_out = temp_storage_[mp_group_i][gpu_id].sorted_local_labels.data<uint32_t>();
+
+        // ATTENTION: cub radix sort requires NumItemT to be consistent
+        int sort_end_bit = (int)log2(num_global_gpus_) + 1;
+
+        cub::DeviceRadixSort::SortPairs(
+            temp_ptr, temp_bytes, labels_in, labels_out, keys_in, keys_out,
+            static_cast<int64_t>(batch_size_per_gpu_ * sample_max_nnz_), 0, sort_end_bit, stream);
+      });
+
+      // --- Inter-node traffic ---
+      all2all_keys(mp_group_i, gpu_id, output[grouped_id].h_num_keys);
+
+      {
+        auto compute = transpose_buckets_operators_[mp_group_i][gpu_id];
+        compute(temp_storage_[mp_group_i][gpu_id].k_per_b_gpu_major,
+                temp_storage_[mp_group_i][gpu_id].k_per_b_feat_major, stream);
+      }
+
+      // --- computes bucket ranges received from nccl
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(ebc_param_.offset_type.type(), BucketRangeType, [&] {
+        size_t temp_bytes = temp_storage_[mp_group_i][gpu_id].temp_scan_storage.num_bytes();
+        void* temp_ptr = temp_storage_[mp_group_i][gpu_id].temp_scan_storage.data();
+        auto k_per_b_gpu_major = temp_storage_[mp_group_i][gpu_id].k_per_b_gpu_major;
+        auto bucket_range_gpu_major = temp_storage_[mp_group_i][gpu_id].bucket_range_gpu_major;
+
+        // computes in-place!
+        HCTR_LIB_THROW(cudaMemsetAsync(bucket_range_gpu_major.data<BucketRangeType>(), 0,
+                                       sizeof(BucketRangeType), stream));
+        cub::DeviceScan::InclusiveSum(temp_ptr, temp_bytes,
+                                      k_per_b_gpu_major.data<BucketRangeType>(),
+                                      bucket_range_gpu_major.data<BucketRangeType>() + 1,
+                                      k_per_b_gpu_major.num_elements(), stream);
+      });
+
+      // --- computes output bucket range
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(ebc_param_.offset_type.type(), BucketRangeType, [&] {
+        size_t temp_bytes = temp_storage_[mp_group_i][gpu_id].temp_scan_storage.num_bytes();
+        void* temp_ptr = temp_storage_[mp_group_i][gpu_id].temp_scan_storage.data();
+        auto k_per_b_feat_major = temp_storage_[mp_group_i][gpu_id].k_per_b_feat_major;
+
+        HCTR_LIB_THROW(cudaMemsetAsync(output[grouped_id].bucket_range.data<BucketRangeType>(), 0,
+                                       sizeof(BucketRangeType), stream));
+        cub::DeviceScan::InclusiveSum(temp_ptr, temp_bytes,
+                                      k_per_b_feat_major.data<BucketRangeType>(),
+                                      output[grouped_id].bucket_range.data<BucketRangeType>() + 1,
+                                      k_per_b_feat_major.num_elements(), stream);
+      });
+
+      // --- swizzle keys from gpu-major to feature-major
+      {
+        auto compute = swizzle_keys_operators_[mp_group_i][gpu_id];
+        auto keys_in = temp_storage_[mp_group_i][gpu_id].keys;
+        auto bucket_range_in = temp_storage_[mp_group_i][gpu_id].bucket_range_gpu_major;
+        auto bucket_range_out = output[grouped_id].bucket_range;
+
+        compute(bucket_range_in, bucket_range_out, keys_in, output[grouped_id].keys, stream);
+      }
+
+      mp_group_i++;
+    } else if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
+               embedding::TablePlacementStrategy::DataParallel) {
+      // --- copy DP keys and compute DP bucket range
+      concat_keys_and_bucket_range_operators_[dp_group_i][gpu_id](
+          dp_keys, dp_bucket_range, output[grouped_id].keys, output[grouped_id].bucket_range,
+          stream);
+
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(ebc_param_.offset_type.type(), BucketRangeType, [&] {
+        BucketRangeType num_keys = 0;
+        int num_buckets = output[grouped_id].bucket_range.num_elements();
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            &num_keys, output[grouped_id].bucket_range.data<BucketRangeType>() + num_buckets - 1,
+            sizeof(BucketRangeType), cudaMemcpyDeviceToHost, stream));
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+        output[grouped_id].h_num_keys = num_keys;
+      });
+
+      dp_group_i++;
+
+    } else {
+      HCTR_OWN_THROW(Error_t::IllegalCall, "unsupported table placement strategy.");
+    }
+  }
+}
 
 void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
                                  const std::vector<core23::Tensor>& dp_bucket_range,
                                  DataDistributor::Result& output, int batch_size) {
-  assert(gpu_id < gpu_comm_data_.size());
-  assert(batch_size <= batch_size_ && "input batch_size larger than allocated batch_size");
-
-  HugeCTR::CudaDeviceContext ctx(core_resource_managers_[gpu_id]->get_device_id());
-  auto stream = core_resource_managers_[gpu_id]->get_local_gpu()->get_stream();
-
-  communicate_data(dp_keys, batch_size, gpu_id, stream);
+  auto core = core_resource_managers_[gpu_id];
+  CudaDeviceContext ctx(core->get_device_id());
+  cudaStream_t stream = core->get_local_gpu()->get_stream();
 
   const bool bucket_ranges_outdated = batch_size != gpu_comm_data_[gpu_id].last_batch_size;
   gpu_comm_data_[gpu_id].last_batch_size = batch_size;
 
+  // compute new full batch bucket range (to be deprecated)
+  // compute dp bucket ranges (to be moved to data reader)
   if (bucket_ranges_outdated) {
     compute_fixed_bucket_ranges(gpu_comm_data_[gpu_id].hotness_bucket_range, batch_size,
                                 batch_size_, gpu_comm_data_[gpu_id].bucket_range, stream);
+
+    compute_dp_bucket_range_operators_[gpu_id](fixed_dp_bucket_range_[gpu_id],
+                                               output[0].keys_per_bucket, batch_size, stream);
+
+    // Instead of recomputing for each group, copy computed result
+    for (size_t grouped_id = 1; grouped_id < ebc_param_.grouped_emb_params.size(); ++grouped_id) {
+      HCTR_LIB_THROW(cudaMemcpyAsync(
+          output[grouped_id].keys_per_bucket.data(), output[0].keys_per_bucket.data(),
+          output[0].keys_per_bucket.num_bytes(), cudaMemcpyDeviceToDevice, stream));
+    }
   }
+
+  key_filtered_distribute(gpu_id, dp_keys, fixed_dp_bucket_range_[gpu_id], output, batch_size);
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_emb_params.size(); ++grouped_id) {
     int batch_size_per_gpu = batch_size_;
     if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
-        embedding::TablePlacementStrategy::ModelParallel) {
-      key_filters_[gpu_id][grouped_id].mp_index_calculation.filter_sparse_input(
-          gpu_comm_data_[gpu_id].features, gpu_comm_data_[gpu_id].bucket_range, output[grouped_id],
-          batch_size_);
-    } else if (ebc_param_.grouped_emb_params[grouped_id].table_placement_strategy ==
-               embedding::TablePlacementStrategy::DataParallel) {
+        embedding::TablePlacementStrategy::DataParallel) {
       batch_size_per_gpu /= num_global_gpus_;
-      key_filters_[gpu_id][grouped_id].dp_index_calculation.filter_sparse_input(
-          gpu_comm_data_[gpu_id].features, gpu_comm_data_[gpu_id].bucket_range, output[grouped_id],
-          batch_size_);
-    } else {
-      HCTR_OWN_THROW(Error_t::IllegalCall, "unsupported table placement strategy.");
     }
 
     if (bucket_ranges_outdated) {
@@ -354,55 +705,6 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
           d_local_table_id_lists_[gpu_id * num_groups + grouped_id]);
     }
   }
-}
-
-int DataDistributor::compute_device_batch_size(int current_batch_size, int global_gpu_id) const {
-  const int batch_size_per_gpu = batch_size_ / num_global_gpus_;
-  return (global_gpu_id + 1) * batch_size_per_gpu > current_batch_size
-             ? std::max(current_batch_size - (global_gpu_id * batch_size_per_gpu), 0)
-             : batch_size_per_gpu;
-}
-
-void DataDistributor::communicate_data(std::vector<core23::Tensor> feature_shards, int batch_size,
-                                       int gpu_id, cudaStream_t stream) {
-  size_t recv_offset = 0;
-
-  auto core_resource_manager = core_resource_managers_[gpu_id];
-  const int global_gpu_id = core_resource_manager->get_global_gpu_id();
-  const int my_batch_size = compute_device_batch_size(batch_size, global_gpu_id);
-  GpuCommData& comm_data = gpu_comm_data_[gpu_id];
-  ncclComm_t comm = core_resource_manager->get_nccl();
-
-  const auto nccl_type = core23::get_nccl_dtype_from_tensor_scalar_type_core23(scalar_type_.type());
-
-  ncclGroupStart();
-  for (size_t feat_id = 0; feat_id < feature_shards.size(); ++feat_id) {
-    const size_t table_id = feature_id_to_table_id_map_[feat_id];
-    const size_t group_id = feature_id_to_group_id_map_[feat_id];
-    const bool is_MP = ebc_param_.grouped_emb_params[group_id].table_placement_strategy ==
-                       embedding::TablePlacementStrategy::ModelParallel;
-    const int hotness = feature_pooling_factors_[feat_id];
-    auto recv_buffer = (char*)comm_data.features.data();
-    auto send_buffer = (char*)feature_shards[feat_id].data();
-    const size_t send_num_keys = my_batch_size * hotness;
-
-    for (size_t peer = 0; peer < num_global_gpus_; ++peer) {
-      const bool peer_device_has_feature = resident_feature_tables_[peer][table_id];
-      if (peer_device_has_feature && my_batch_size > 0 && (is_MP || peer == global_gpu_id)) {
-        HCTR_LIB_THROW(ncclSend(send_buffer, send_num_keys, nccl_type, peer, comm, stream));
-      }
-
-      const bool this_device_has_feature = resident_feature_tables_[global_gpu_id][table_id];
-      const int peer_batch_size = compute_device_batch_size(batch_size, peer);
-      const size_t recv_num_keys = peer_batch_size * hotness;
-      if (this_device_has_feature && peer_batch_size > 0 && (is_MP || peer == global_gpu_id)) {
-        HCTR_LIB_THROW(
-            ncclRecv(recv_buffer + recv_offset, recv_num_keys, nccl_type, peer, comm, stream));
-      }
-      recv_offset += recv_num_keys * scalar_type_.size();
-    }
-  }
-  ncclGroupEnd();
 }
 
 void DataDistributor::distribute(int gpu_id, const core23::Tensor& fullbatch_keys,
@@ -452,6 +754,7 @@ DataDistributor::Result allocate_output_for_data_distributor(
     const embedding::EmbeddingCollectionParam& ebc_param) {
   CudaDeviceContext context(core_resource_manager->get_device_id());
   int num_global_gpus = core_resource_manager->get_global_gpu_count();
+  int batch_size_per_gpu = ebc_param.universal_batch_size / num_global_gpus;
 
   DataDistributor::Result output;
   for (size_t group_id = 0; group_id < ebc_param.grouped_emb_params.size(); ++group_id) {
@@ -491,6 +794,10 @@ DataDistributor::Result allocate_output_for_data_distributor(
         params
             .shape(
                 {static_cast<int64_t>(ebc_param.universal_batch_size * ebc_param.num_lookup + 1)})
+            .data_type(ebc_param.offset_type));
+
+    embedding_input.keys_per_bucket = core23::Tensor(
+        params.shape({static_cast<int64_t>(batch_size_per_gpu * ebc_param.num_lookup)})
             .data_type(ebc_param.offset_type));
 
     output.push_back(embedding_input);

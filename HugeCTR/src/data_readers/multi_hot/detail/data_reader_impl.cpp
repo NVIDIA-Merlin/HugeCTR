@@ -132,9 +132,9 @@ DataReaderImpl::~DataReaderImpl() {
       thread.join();
     }
   }
-  std::cout << "DataReaderImpl exit!" << std::endl;
-  std::cout << std::fixed << "Batch latency (min/max/avg) (s): (" << io_stats.batch_min_latency
-            << ", " << io_stats.batch_max_latency << ", " << io_stats.batch_avg_latency << ")\n";
+
+  //  HCTR_LOG(DEBUG, WORLD, "DataReaderImpl Batch Latency, min: %.4f, avg: %.4f, max: %.4f\n",
+  //           io_stats.batch_min_latency, io_stats.batch_avg_latency, io_stats.batch_max_latency);
   // TODO: free GPU mem
 }
 

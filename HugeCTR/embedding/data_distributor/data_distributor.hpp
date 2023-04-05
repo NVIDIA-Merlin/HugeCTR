@@ -19,6 +19,7 @@
 
 #include <core/core.hpp>
 #include <embedding/common.hpp>
+#include <embedding/data_distributor/key_filtering_operators.hpp>
 #include <embedding/operators/compress_offset.hpp>
 #include <embedding/operators/dp_index_calculation.hpp>
 #include <embedding/operators/keys_to_indices.hpp>
@@ -42,8 +43,6 @@ class DataDistributor {
                   const embedding::EmbeddingCollectionParam& ebc_param,
                   const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list);
 
-  ~DataDistributor();
-
   void distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
                   const std::vector<core23::Tensor>& dp_bucket_range, Result& output,
                   int batch_size);
@@ -61,9 +60,12 @@ class DataDistributor {
     // If the current_batch_size == last_batch_size then the bucket_ranges are the same.
     int last_batch_size;
     core23::Tensor hotness_bucket_range;
-    core23::Tensor features;
-    core23::Tensor bucket_range;
+    core23::Tensor bucket_range;  // TODO: remove when we no longer need fullbatch_bucket_range
   };
+
+  void key_filtered_distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
+                               const std::vector<core23::Tensor>& dp_bucket_range, Result& output,
+                               int batch_size);
 
   size_t feature_id_to_group_id(size_t feature_id) const;
 
@@ -71,12 +73,12 @@ class DataDistributor {
 
   void init_batch_major_fullbatch_input_preprocessor();
 
-  void communicate_data(std::vector<core23::Tensor> feature_shards, int batch_size, int gpu_id,
-                        cudaStream_t stream);
-
-  int compute_device_batch_size(int current_batch_size, int global_gpu_id) const;
-
   void init_indices_converter();
+
+  void init_filtered_all_to_all();
+
+  void all2all_keys_per_bucket(int mp_group_i, int gpu_id);
+  void all2all_keys(int mp_group_i, int gpu_id, size_t& received_num_keys);
 
   std::shared_ptr<ResourceManager> resource_manager_;
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_managers_;
@@ -84,7 +86,41 @@ class DataDistributor {
   std::vector<std::vector<int>> resident_feature_tables_;  // [gpu_id][feature_id]
   std::vector<GpuCommData> gpu_comm_data_;
 
+  struct MPTempStorage {
+    MPTempStorage(std::shared_ptr<core::CoreResourceManager> core, int batch_size,
+                  int sample_max_nnz, int max_local_features, int max_local_buckets,
+                  core23::DataType key_type, core23::DataType offset_type);
+
+    core23::Tensor temp_sort_storage;
+    core23::Tensor temp_scan_storage;
+    core23::Tensor k_per_b_gpu_major;       // keys-per-bucket
+    core23::Tensor k_per_b_feat_major;      // keys-per-bucket
+    core23::Tensor k_per_g;                 // keys-per-gpu
+    core23::Tensor bucket_range_gpu_major;  // received from nccl
+    core23::Tensor sorted_local_keys;
+    core23::Tensor sorted_local_labels;
+    core23::Tensor keys;  // received from nccl
+    uint32_t* h_send_k_per_g;
+    uint32_t* h_recv_k_per_g;
+  };
+
+  // Key Filtering (MP)
+  std::vector<ComputeDPBucketRangeOperator> compute_dp_bucket_range_operators_;
+  std::vector<std::vector<mp::LabelAndCountKeysOperator>> label_and_count_keys_operators_;
+  std::vector<std::vector<mp::LabelAndCountKeysOperator::Result>> label_and_count_keys_outputs_;
+  std::vector<std::vector<mp::CountKeysOperator>> count_keys_operators_;
+  std::vector<std::vector<mp::TransposeBucketsOperator>> transpose_buckets_operators_;
+  std::vector<std::vector<mp::SwizzleKeysOperator>> swizzle_keys_operators_;
+  std::vector<std::vector<MPTempStorage>> temp_storage_;  // [mp_grouped_i][gpu_id]
+
+  std::vector<std::vector<dp::ConcatKeysAndBucketRangeOperator>>
+      concat_keys_and_bucket_range_operators_;
+
+  std::vector<std::vector<core23::Tensor>> fixed_dp_bucket_range_;
+
   size_t batch_size_;
+  size_t batch_size_per_gpu_;
+  size_t sample_max_nnz_;
   core23::DataType scalar_type_;
 
   embedding::EmbeddingCollectionParam ebc_param_;
