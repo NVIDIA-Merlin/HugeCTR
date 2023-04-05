@@ -128,9 +128,10 @@ class FtrlCPU {
     for (int i = 0; i < len_; ++i) {
       float gi = TypeConvert<float, T>::convert(g_[i]) / scaler_;
       float ni_new = n_[i] + gi * gi;
-      float zi = z_[i] + gi + (sqrt(n_[i]) - sqrt(ni_new)) * w_[i] / alpha_;
+      float zi =
+          z_[i] + gi + (sqrt(n_[i] + FLT_EPSILON) - sqrt(ni_new + FLT_EPSILON)) * w_[i] / alpha_;
       float x = lambda1_ * (1.0f - 2.0f * signbit(zi)) - zi;
-      float y = sqrt(ni_new) / alpha_ + lambda2_ + beta_ / alpha_;
+      float y = sqrt(ni_new + FLT_EPSILON) / alpha_ + lambda2_ + beta_ / alpha_;
       n_[i] = ni_new;
       z_[i] = zi;
       w_[i] = x / y * signbit(lambda1_ - abs(zi));
