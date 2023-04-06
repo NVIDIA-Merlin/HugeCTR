@@ -583,8 +583,11 @@ void Model::add(Input& input) {
       auto& p = input.data_reader_sparse_param_array[i];
       top_name_list.push_back(p.top_name);
       if (p.slot_num != 1) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "Use embedding collection: each sparse param should containe only 1 slot.");
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "To use embedding collection, slots_num should be set to 1 in each sparse_param. "
+            "Please refer to notebooks/embedding_collection.ipynb and separate your multi-slot "
+            "output into multiple single-slot output");
       }
       nnz_per_slot.push_back(p.nnz_per_slot[0]);
       if (!p.is_fixed_length) is_fixed_length = false;
