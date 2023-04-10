@@ -120,7 +120,7 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
   cache_config_.model_name_ = inference_params.model_name;
   cache_config_.cuda_dev_id_ = inference_params.device_id;
   cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
-
+  cache_config_.use_hctr_cache_implementation = inference_params.use_hctr_cache_implementation;
   auto b2s = [](const char val) { return val ? "True" : "False"; };
   HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
   HCTR_LOG(INFO, ROOT, "Max batch size: %lu\n", inference_params.max_batchsize);
@@ -193,8 +193,13 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
     // Allocate resources.
     gpu_emb_caches_.reserve(cache_config_.num_emb_table_);
     for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
-      gpu_emb_caches_.emplace_back(std::make_unique<Cache>(cache_config_.num_set_in_cache_[i],
-                                                           cache_config_.embedding_vec_size_[i]));
+      if (cache_config_.use_hctr_cache_implementation) {
+        gpu_emb_caches_.emplace_back(std::make_unique<NVCache>(
+            cache_config_.num_set_in_cache_[i], cache_config_.embedding_vec_size_[i]));
+      } else {
+        gpu_emb_caches_.emplace_back(std::make_unique<EmbeddingCacheWrapper<TypeHashKey>>(
+            cache_config_.num_set_in_cache_[i], cache_config_.embedding_vec_size_[i]));
+      }
     }
 
     insert_streams_.reserve(cache_config_.num_emb_table_);

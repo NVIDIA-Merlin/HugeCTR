@@ -18,6 +18,7 @@
 #include <cuda_runtime_api.h>
 
 #include <hps/embedding_cache_base.hpp>
+#include <hps/embedding_cache_gpu.hpp>
 #include <hps/inference_utils.hpp>
 #include <hps/memory_pool.hpp>
 #include <hps/unique_op/unique_op.hpp>
@@ -74,8 +75,9 @@ class EmbeddingCache : public EmbeddingCacheBase,
  private:
   static const size_t BLOCK_SIZE_ = 64;
 
-  using Cache = gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
-                                     SET_ASSOCIATIVITY, SLAB_SIZE>;
+  using NVCache =
+      gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
+                           SET_ASSOCIATIVITY, SLAB_SIZE>;
   using UniqueOp =
       unique_op::unique_op<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
                            std::numeric_limits<uint64_t>::max()>;
@@ -87,7 +89,7 @@ class EmbeddingCache : public EmbeddingCacheBase,
   embedding_cache_config cache_config_;
 
   // The shared thread-safe embedding cache
-  std::vector<std::unique_ptr<Cache>> gpu_emb_caches_;
+  std::vector<std::unique_ptr<gpu_cache::gpu_cache_api<TypeHashKey>>> gpu_emb_caches_;
 
   // streams for asynchronous parameter server insert threads
   std::vector<cudaStream_t> insert_streams_;

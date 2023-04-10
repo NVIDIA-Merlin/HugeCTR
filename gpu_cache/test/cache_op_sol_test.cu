@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <hps/embedding_cache_gpu.hpp>
 #include <iostream>
 #include <nv_gpu_cache.hpp>
 #include <random>
@@ -201,14 +202,14 @@ double W_time() {
   return ((double)(marker.tv_sec) * 1e6 + (double)(marker.tv_usec)) * 1e-6;
 }
 
-using key_type = long long;
+using key_type = uint32_t;
 using ref_counter_type = uint64_t;
 
 int main(int argc, char** argv) {
-  if (argc != 7) {
+  if (argc != 8) {
     std::cerr << "usage: " << argv[0]
               << " embedding_table_size cache_capacity_in_set embedding_vec_size query_length "
-                 "iter_round num_threads"
+                 "iter_round num_threads cache_type"
               << std::endl;
     return -1;
   }
@@ -220,6 +221,7 @@ int main(int argc, char** argv) {
   const size_t query_length = atoi(argv[4]);
   const size_t iter_round = atoi(argv[5]);
   const size_t num_threads = atoi(argv[6]);
+  const size_t cache_type = atoi(argv[7]);
 
   // Since cache is designed for single-gpu, all threads just use GPU 0
   CUDA_CHECK(cudaSetDevice(0));
@@ -234,14 +236,18 @@ int main(int argc, char** argv) {
 
   // The empty key to be used
   const key_type empty_key = std::numeric_limits<key_type>::max();
+  gpu_cache::gpu_cache_api<key_type>* cache = nullptr;
 
   // The cache to be used, by default the set hasher is based on MurMurHash and slab hasher is based
   // on Mod.
-  using Cache_ =
-      gpu_cache::gpu_cache<key_type, ref_counter_type, empty_key, SET_ASSOCIATIVITY, SLAB_SIZE>;
 
-  // Create GPU embedding cache
-  auto cache = new Cache_(cache_capacity_in_set, embedding_vec_size);
+  if (cache_type == 0) {
+    using Cache_ =
+        gpu_cache::gpu_cache<key_type, ref_counter_type, empty_key, SET_ASSOCIATIVITY, SLAB_SIZE>;
+    cache = new Cache_(cache_capacity_in_set, embedding_vec_size);
+  } else {
+    cache = new HugeCTR::EmbeddingCacheWrapper<key_type>(cache_capacity_in_set, embedding_vec_size);
+  }
 
   // For random unique keys generation
   IntGenerator<key_type> gen_key;
@@ -288,9 +294,9 @@ int main(int argc, char** argv) {
   // Free value buffer
   free(h_vals);
 
-#pragma omp parallel default(none) shared(h_keys, cache, h_emb_table, increase,                   \
-                                          embedding_vec_size, query_length, emb_size, iter_round) \
-    num_threads(num_threads)
+#pragma omp parallel default(none)                                                           \
+    shared(h_keys, cache, h_emb_table, increase, embedding_vec_size, query_length, emb_size, \
+           iter_round, std::cout, cache_type) num_threads(num_threads)
   {
     // The thread ID for this thread
     int thread_id = omp_get_thread_num();
@@ -371,7 +377,9 @@ int main(int argc, char** argv) {
       // Select keys from total keys buffer with the index
       for (size_t j = 0; j < query_length; j++) {
         h_query_keys[j] = h_keys[h_query_keys_index[j]];
+        // std::cout << h_query_keys[j] << " ";
       }
+      std::cout << std::endl;
 
       // Copy the keys to GPU memory
       CUDA_CHECK(cudaMemcpyAsync(d_query_keys, h_query_keys, query_length * sizeof(key_type),
@@ -428,12 +436,18 @@ int main(int argc, char** argv) {
       CUDA_CHECK(cudaMemcpyAsync(d_missing_vals, h_missing_vals,
                                  query_length * embedding_vec_size * sizeof(float),
                                  cudaMemcpyHostToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(d_vals_retrieved, h_vals_retrieved,
+                                 query_length * embedding_vec_size * sizeof(float),
+                                 cudaMemcpyHostToDevice, stream));
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       // Record time
       time_1 = W_time();
       // Replace the missing <k,v> pairs into the cache
-      cache->Replace(d_missing_keys, h_missing_len, d_missing_vals, stream);
+      if (cache_type == 0)
+        cache->Replace(d_missing_keys, h_missing_len, d_missing_vals, stream);
+      else
+        cache->Replace(d_query_keys, query_length, d_vals_retrieved, stream);
       // Wait for stream to complete
       CUDA_CHECK(cudaStreamSynchronize(stream));
       // Elapsed wall time
@@ -486,7 +500,13 @@ int main(int argc, char** argv) {
                                      embedding_vec_size * sizeof(float));
 
   // The cache object to be tested
-  cache = new Cache_(cache_capacity_in_set, embedding_vec_size);
+  if (cache_type == 0) {
+    using Cache_ =
+        gpu_cache::gpu_cache<key_type, ref_counter_type, empty_key, SET_ASSOCIATIVITY, SLAB_SIZE>;
+    cache = new Cache_(cache_capacity_in_set, embedding_vec_size);
+  } else {
+    cache = new HugeCTR::EmbeddingCacheWrapper<key_type>(cache_capacity_in_set, embedding_vec_size);
+  }
 
   // Key generator
   KeyGenerator<key_type> cache_key_gen;
@@ -617,41 +637,43 @@ int main(int argc, char** argv) {
     // Elapsed wall time
     time_b = W_time() - time_a;
     printf("The Elapsed time for %zu round update is: %f sec.\n", i, time_b);
+    bool check_dump = false;
+    if (check_dump) {
+      // Record time
+      time_a = W_time();
+      // Dump the keys from the cache
+      cache->Dump(d_dump_keys, d_dump_counter, 0, cache_capacity_in_set, stream);
+      // Wait for stream to complete
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // Elapsed wall time
+      time_b = W_time() - time_a;
+      printf("The Elapsed time for %zu round dump is: %f sec.\n", i, time_b);
 
-    // Record time
-    time_a = W_time();
-    // Dump the keys from the cache
-    cache->Dump(d_dump_keys, d_dump_counter, 0, cache_capacity_in_set, stream);
-    // Wait for stream to complete
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    // Elapsed wall time
-    time_b = W_time() - time_a;
-    printf("The Elapsed time for %zu round dump is: %f sec.\n", i, time_b);
-
-    // Copy the dump counter from device to host
-    CUDA_CHECK(cudaMemcpyAsync(&h_dump_counter, d_dump_counter, sizeof(size_t),
-                               cudaMemcpyDeviceToHost, stream));
-    // Wait for stream to complete
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    // Check the dump counter
-    assert(h_dump_counter == SLAB_SIZE * cache_capacity_in_set * (i + 1));
-    // Query all the dumped keys from the cache
-    cache->Query(d_dump_keys, h_dump_counter, d_vals_retrieved, d_missing_index, d_missing_keys,
-                 d_missing_len, stream);
-    // Copy result from device to host
-    CUDA_CHECK(cudaMemcpyAsync(h_dump_keys, d_dump_keys, h_dump_counter * sizeof(key_type),
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(h_vals_retrieved, d_vals_retrieved,
-                               h_dump_counter * embedding_vec_size * sizeof(float),
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(&h_missing_len, d_missing_len, sizeof(size_t),
-                               cudaMemcpyDeviceToHost, stream));
-    // Wait for stream to complete
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    // Check result
-    assert(h_missing_len == 0);
-    compare_key(h_dump_keys, h_acc_keys, h_dump_counter);
-    check_result(h_dump_keys, h_vals_retrieved, embedding_vec_size, h_dump_counter, increase);
+      // Copy the dump counter from device to host
+      CUDA_CHECK(cudaMemcpyAsync(&h_dump_counter, d_dump_counter, sizeof(size_t),
+                                 cudaMemcpyDeviceToHost, stream));
+      // Wait for stream to complete
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // Check the dump counter
+      assert(h_dump_counter == SLAB_SIZE * cache_capacity_in_set * (i + 1));
+      // Query all the dumped keys from the cache
+      cache->Query(d_dump_keys, h_dump_counter, d_vals_retrieved, d_missing_index, d_missing_keys,
+                   d_missing_len, stream);
+      // Copy result from device to host
+      CUDA_CHECK(cudaMemcpyAsync(h_dump_keys, d_dump_keys, h_dump_counter * sizeof(key_type),
+                                 cudaMemcpyDeviceToHost, stream));
+      CUDA_CHECK(cudaMemcpyAsync(h_vals_retrieved, d_vals_retrieved,
+                                 h_dump_counter * embedding_vec_size * sizeof(float),
+                                 cudaMemcpyDeviceToHost, stream));
+      CUDA_CHECK(cudaMemcpyAsync(&h_missing_len, d_missing_len, sizeof(size_t),
+                                 cudaMemcpyDeviceToHost, stream));
+      // Wait for stream to complete
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // Check result
+      assert(h_missing_len == 0);
+      compare_key(h_dump_keys, h_acc_keys, h_dump_counter);
+      check_result(h_dump_keys, h_vals_retrieved, embedding_vec_size, h_dump_counter, increase);
+    }
   }
 
   printf("Update and Dump API test all finished!\n");
