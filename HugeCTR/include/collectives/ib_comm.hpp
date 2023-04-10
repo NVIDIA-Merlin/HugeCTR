@@ -83,7 +83,8 @@ class IbComm {
   void all_reduce(ARCollHandle coll, cudaStream_t stream, size_t device_id);
   template <typename T>
   void all_reduce(ARCollHandle coll, size_t device_id);  // When dep_stream is same as main stream
-
+  // device type
+  bool is_infiniBand_device();
   IbComm() = default;
   ~IbComm();
 
@@ -185,6 +186,7 @@ class IbComm {
   bool is_initialized_ = false;
   bool is_ready_to_transfer_ = false;
   bool is_finalized_ = false;
+  bool is_IB = false;
 
   // Debug helpers
   void print_obj(size_t my_rank, std::string obj_name, hwloc_obj_t obj);

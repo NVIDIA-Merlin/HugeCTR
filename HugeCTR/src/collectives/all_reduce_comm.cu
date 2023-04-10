@@ -90,7 +90,14 @@ OneshotMultiARInplaceComm<T>::OneshotMultiARInplaceComm(
     : ib_comm_(ib_comm),
       num_procs_(num_procs),
       gpu_resources_(gpu_resources),
-      num_gpus_(gpu_resources.size()) {}
+      num_gpus_(gpu_resources.size()) {
+  if (!ib_comm_->is_infiniBand_device()) {
+    HCTR_LOG_S(ERROR, WORLD) << "Detect RDMA device is RoCE device ,because RoCE cluster is not "
+                                "support sharp, and HugeCTR customized allreduce is base on sharp "
+                                ", please set all_reduce_algo to hugectr.AllReduceAlgo.NCCL"
+                             << std::endl;
+  }
+}
 
 template <typename T>
 AllReduceInPlaceComm::Handle OneshotMultiARInplaceComm<T>::register_coll() {
