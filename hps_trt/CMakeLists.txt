@@ -137,6 +137,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/cxx17
     ${PROJECT_SOURCE_DIR}/../third_party/rocksdb/include
     ${PROJECT_SOURCE_DIR}/../third_party/librdkafka/src
+    ${PROJECT_SOURCE_DIR}/../third_party/embedding_cache/include
     ${CUDA_INCLUDE_DIRS}
     ${TRT_INCLUDE_DIRS}
 )

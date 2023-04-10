@@ -21,6 +21,7 @@
 #include <hash_functions.cuh>
 #include <limits>
 
+#include "gpu_cache_api.hpp"
 #ifdef LIBCUDACXX_VERSION
 #include <cuda/std/atomic>
 #include <cuda/std/semaphore>
@@ -50,7 +51,7 @@ struct slab_set {
 template <typename key_type, typename ref_counter_type, key_type empty_key, int set_associativity,
           int warp_size, typename set_hasher = MurmurHash3_32<key_type>,
           typename slab_hasher = Mod_Hash<key_type, size_t>>
-class gpu_cache {
+class gpu_cache : public gpu_cache_api<key_type> {
  public:
   // Ctor
   gpu_cache(const size_t capacity_in_set, const size_t embedding_vec_size);
@@ -61,19 +62,19 @@ class gpu_cache {
   // Query API, i.e. A single read from the cache
   void Query(const key_type* d_keys, const size_t len, float* d_values, uint64_t* d_missing_index,
              key_type* d_missing_keys, size_t* d_missing_len, cudaStream_t stream,
-             const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+             const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO) override;
 
   // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
   void Replace(const key_type* d_keys, const size_t len, const float* d_values, cudaStream_t stream,
-               const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+               const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO) override;
 
   // Update API, i.e. update the embeddings which exist in the cache
   void Update(const key_type* d_keys, const size_t len, const float* d_values, cudaStream_t stream,
-              const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+              const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO) override;
 
   // Dump API, i.e. dump some slabsets' keys from the cache
   void Dump(key_type* d_keys, size_t* d_dump_counter, const size_t start_set_index,
-            const size_t end_set_index, cudaStream_t stream);
+            const size_t end_set_index, cudaStream_t stream) override;
 
  public:
   using slabset = slab_set<set_associativity, key_type, warp_size>;

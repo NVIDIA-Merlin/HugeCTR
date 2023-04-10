@@ -293,6 +293,7 @@ struct InferenceParams {
   std::vector<std::vector<std::string>> fused_sparse_model_files;
   std::map<size_t, size_t> original_table_id_to_fused_table_id_map;
   std::map<size_t, std::vector<size_t>> fused_table_id_to_original_table_id_map;
+  bool use_hctr_cache_implementation;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -318,7 +319,8 @@ struct InferenceParams {
                   const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10,
                   const std::string& non_trainable_params_file = "", bool use_static_table = false,
                   const EmbeddingCacheType_t embedding_cache_type = EmbeddingCacheType_t::Dynamic,
-                  bool use_context_stream = true, bool fuse_embedding_table = false);
+                  bool use_context_stream = true, bool fuse_embedding_table = false,
+                  bool use_hctr_cache_implementation = true);
 };
 
 struct parameter_server_config {
@@ -392,6 +394,8 @@ struct embedding_cache_config {
   std::vector<size_t>
       max_query_len_per_emb_table_;  // The max # of embeddingcolumns each inference instance(batch)
                                      // will query from a embedding table
+  bool use_hctr_cache_implementation;  // if true - use the nv_gpu_cache implementation else use
+                                       // embedding_cache lib
 };
 
 struct EmbeddingCacheWorkspace {
