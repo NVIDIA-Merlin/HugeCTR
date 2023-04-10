@@ -58,6 +58,7 @@ void IbComm::detect_ib_devs() {
     exit(-1);
   }
 
+  std::vector<bool> is_ib;
   // Get hwloc devices and final ib devs
   for (int d = 0; d < num_devices; d++) {
     if ((dev_list[d]->node_type != IBV_NODE_RNIC) && (dev_list[d]->node_type != IBV_NODE_CA)) {
@@ -82,7 +83,6 @@ void IbComm::detect_ib_devs() {
       HCTR_LOG_S(ERROR, WORLD) << "Unable to query device " << dev_name << std::endl;
       exit(-1);
     }
-
     for (int port = 1; port <= dev_attr.phys_port_cnt; port++) {
       struct ibv_port_attr port_attr;
       if (ibv_query_port(context, port, &port_attr) != 0) {
@@ -91,7 +91,17 @@ void IbComm::detect_ib_devs() {
         continue;
       }
       if (port_attr.state != IBV_PORT_ACTIVE) continue;
-      if (port_attr.link_layer != IBV_LINK_LAYER_INFINIBAND) continue;
+      if (port_attr.link_layer != IBV_LINK_LAYER_INFINIBAND &&
+          port_attr.link_layer != IBV_LINK_LAYER_ETHERNET)
+        continue;
+
+      if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+        is_IB = true;
+        is_ib.push_back(true);
+      }
+      if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
+        is_ib.push_back(false);
+      }
 
       // TODO: Check against user specified device list.
       ib_dev_list_.emplace_back();
@@ -106,6 +116,16 @@ void IbComm::detect_ib_devs() {
     }
 
     ibv_close_device(context);
+  }
+  if (is_IB) {
+    auto tmp_iter = ib_dev_list_.begin();
+    for (size_t i = 0; i < is_ib.size(); i++) {
+      if (is_ib[i] == false) {
+        ib_dev_list_.erase(tmp_iter);
+      } else {
+        tmp_iter++;
+      }
+    }
   }
   ibv_free_device_list(dev_list);
 }
@@ -259,7 +279,6 @@ void IbComm::calculate_gpu_nic_affinity() {
                              << ib_dev.dev_port_id << std::endl;
     }
   }
-
   // Check gpu nic affinities of other nodes and warn if mismatch
   char(**gpu_nic_affinity_names)[IBV_SYSFS_NAME_MAX];
   gpu_nic_affinity_names =
@@ -808,6 +827,8 @@ template void IbComm::post_a2a_send_command<uint32_t>(HierA2AvCollHandle coll,
                                                       cudaStream_t dep_stream, size_t device_id);
 template void IbComm::post_a2a_send_command<uint16_t>(HierA2AvCollHandle coll,
                                                       cudaStream_t dep_stream, size_t device_id);
+
+bool IbComm::is_infiniBand_device() { return is_IB; }
 
 void IbComm::finalize() {
   if (!is_initialized_) {

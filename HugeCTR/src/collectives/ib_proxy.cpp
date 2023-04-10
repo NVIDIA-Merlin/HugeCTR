@@ -160,6 +160,21 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
     qp_infos_[n].lid = port_attr.lid;
     qp_infos_[n].qpn = qp_[n]->qp_num;
     qp_infos_[n].mtu = port_attr.active_mtu;
+    if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
+      uint8_t ibgid = 0;
+      if (getenv("HUGECTR_ROCE_GID")) {
+        ibgid = atoi(getenv("HUGECTR_ROCE_GID"));
+      }
+
+      union ibv_gid gid;
+      int error = ibv_query_gid(context_, qp_infos_[n].ib_port, ibgid, &gid);
+      if (error != 0) {
+        HCTR_LOG_S(ERROR, WORLD) << "Unable to query gid info" << std::endl;
+      }
+      qp_infos_[n].spn = gid.global.subnet_prefix;
+      qp_infos_[n].iid = gid.global.interface_id;
+      qp_infos_[n].is_roce = 1;
+    }
   }
 
   HCTR_MPI_THROW(MPI_Alltoall((void*)qp_infos_, sizeof(IbQpInfo), MPI_BYTE, (void*)rem_qp_infos_,
@@ -183,16 +198,35 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
       qp_attr.rq_psn = 0;
       qp_attr.max_dest_rd_atomic = 1;
       qp_attr.min_rnr_timer = 12;
-      qp_attr.ah_attr.is_global = 0;
-      qp_attr.ah_attr.dlid = rem_qp_infos_[n].lid;
       qp_attr.ah_attr.sl = 0;
       qp_attr.ah_attr.src_path_bits = 0;
       qp_attr.ah_attr.port_num = rem_qp_infos_[n].ib_port;
-      if (ibv_modify_qp(qp_[n], &qp_attr,
+      qp_attr.ah_attr.dlid = rem_qp_infos_[n].lid;
+      qp_attr.ah_attr.is_global = 0;
+      if (rem_qp_infos_[n].is_roce == 1) {
+        uint8_t ibtc = 0;
+        if (getenv("HUGECTR_ROCE_TC")) {
+          ibtc = atoi(getenv("HUGECTR_ROCE_TC"));
+        }
+        uint8_t ibgid = 0;
+        if (getenv("HUGECTR_ROCE_GID")) {
+          ibgid = atoi(getenv("HUGECTR_ROCE_GID"));
+        }
+        qp_attr.ah_attr.is_global = 1;
+        qp_attr.ah_attr.grh.dgid.global.subnet_prefix = rem_qp_infos_[n].spn;
+        qp_attr.ah_attr.grh.dgid.global.interface_id = rem_qp_infos_[n].iid;
+        qp_attr.ah_attr.grh.flow_label = 0;
+        qp_attr.ah_attr.grh.sgid_index = ibgid;
+        qp_attr.ah_attr.grh.hop_limit = 255;
+        qp_attr.ah_attr.grh.traffic_class = ibtc;
+      }
+      int error =
+          ibv_modify_qp(qp_[n], &qp_attr,
                         IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
-                            IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER) !=
-          0) {
-        HCTR_LOG_S(ERROR, WORLD) << "Modify QP failed. " << HCTR_LOCATION() << std::endl;
+                            IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER);
+      if (error != 0) {
+        HCTR_LOG_S(ERROR, WORLD) << "Modify QP failed. " << HCTR_LOCATION() << "error " << error
+                                 << std::endl;
         exit(1);
       }
     }

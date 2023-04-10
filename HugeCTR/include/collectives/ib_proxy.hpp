@@ -197,7 +197,11 @@ struct IbvProxy {
     uint32_t lid;
     uint8_t ib_port;
     uint32_t qpn;
+    // For RoCE
+    uint64_t spn;
+    uint64_t iid;
     enum ibv_mtu mtu;
+    uint32_t is_roce = 0;
   };
 
   struct InitConfig {
