@@ -63,6 +63,16 @@ from sparse_operation_kit.experiment.lookup import lookup_sparse
 from sparse_operation_kit.experiment.lookup import all2all_dense_embedding
 
 
+# a specific code path for dl framework tf2.11.0
+import tensorflow
+
+try:
+    if tensorflow.keras.optimizers.legacy.Optimizer.__name__ == "OptimizerV2":
+        tensorflow.keras.optimizers = tensorflow.keras.optimizers.legacy
+except:
+    pass
+
+
 def init(comm_tool="horovod"):
     """
     Abbreviated as ``sok.experiment.init``.

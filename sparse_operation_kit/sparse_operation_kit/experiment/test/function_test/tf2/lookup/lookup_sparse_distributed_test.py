@@ -77,8 +77,6 @@ if __name__ == "__main__":
     reg_var = []
     reg_var.extend(tf_vars)
     reg_var.extend(sok_vars)
-    if "build" in dir(optimizer):
-        optimizer.build(reg_var)
 
     def step(params, indices):
         with tf.GradientTape() as tape:

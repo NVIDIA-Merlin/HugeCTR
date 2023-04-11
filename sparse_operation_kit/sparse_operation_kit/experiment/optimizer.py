@@ -59,6 +59,14 @@ def OptimizerWrapper(optimizer):
         embedding = tf.nn.embedding_lookup(v, indices)
         print("embedding:", embedding)
     """
+
+    # a specific code path for dl framework tf2.11.0
+    try:
+        if isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer):
+            return OptimizerWrapperV2(optimizer)
+    except:
+        pass
+
     if isinstance(optimizer, tf.keras.optimizers.Optimizer):
         return OptimizerWrapperV2(optimizer)
     else:

@@ -89,9 +89,6 @@ if __name__ == "__main__":
         for i in range(len(rows))
     ]
 
-    if "build" in dir(optimizer):
-        optimizer.build(tf_vars)
-
     def step(params, indices):
         with tf.GradientTape() as tape:
             embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
