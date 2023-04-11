@@ -68,13 +68,11 @@ if __name__ == "__main__":
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
-    sok_optimizer = sok.SGD(lr=1.0)
+    sok_optimizer = sok.OptimizerWrapper(optimizer)
     tf_vars = [
         tf.Variable(tf.constant(initial_vals[i], shape=[rows[i], cols[i]], dtype=tf.float32))
         for i in range(len(rows))
     ]
-    if "build" in dir(optimizer):
-        optimizer.build(tf_vars)
 
     def step(params, indices):
         with tf.GradientTape() as tape:
