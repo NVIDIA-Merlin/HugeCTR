@@ -275,6 +275,8 @@ namespace embedding {
 
 class EmbeddingCollection {
  private:
+  std::shared_ptr<HugeCTR::ResourceManager> resource_manager_;
+
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_, eval_embeddings_;
 
   std::vector<std::vector<EmbeddingOutputAttr>> embedding_output_attrs;
@@ -285,6 +287,13 @@ class EmbeddingCollection {
   std::vector<HugeCTR::Tensor2<float>> wgrad_tensor2_float_list_;
   std::vector<HugeCTR::Tensor2<__half>> wgrad_tensor2_half_list_;
   size_t grouped_allreduce_length_ = 0;
+
+  void init_embedding_output_attrs(std::vector<std::shared_ptr<CoreResourceManager>> core);
+
+  void init_wgrad(std::vector<std::shared_ptr<CoreResourceManager>> core,
+                  std::shared_ptr<HugeCTR::ExchangeWgrad> exchange_wgrad);
+
+  void init_peer_buffer(std::vector<std::shared_ptr<CoreResourceManager>> core);
 
  public:
   // Fix:load and dump use these , put it on public temporary
@@ -301,11 +310,23 @@ class EmbeddingCollection {
                       const std::vector<EmbeddingTableParam> &emb_table_param_list,
                       std::shared_ptr<HugeCTR::ExchangeWgrad> exchange_wgrad = nullptr);
 
+  void cache_ddl_output(int gpu_id, const HugeCTR::DataDistributor::Result &input,
+                        HugeCTR::DataDistributor::Result &output, int batch_size);
+
+  void forward_per_gpu(Stage stage, bool is_train, int gpu_id,
+                       const HugeCTR::DataDistributor::Result &input, core23::Tensor &output_buffer,
+                       int batch_size);
+
   void forward_per_gpu(bool is_train, int gpu_id, const HugeCTR::DataDistributor::Result &input,
                        core23::Tensor &output_buffer, int batch_size);
 
+  void backward_per_gpu(Stage stage, int gpu_id, const HugeCTR::DataDistributor::Result &input,
+                        const core23::Tensor &top_grad, int batch_size);
+
   void backward_per_gpu(int gpu_id, const HugeCTR::DataDistributor::Result &input,
                         const core23::Tensor &top_grad, int batch_size);
+
+  void update_per_gpu(int gpu_id, embedding::TablePlacementStrategy tps);
 
   void update_per_gpu(int gpu_id);
 

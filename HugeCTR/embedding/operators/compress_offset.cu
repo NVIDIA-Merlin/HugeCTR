@@ -69,7 +69,7 @@ AverageCombiner::AverageCombiner(std::shared_ptr<CoreResourceManager> core, int 
                                       .data_type(core23::ScalarType::Float));
 }
 
-void AverageCombiner::compute_feature_major(const core23::Tensor &bucket_range,
+void AverageCombiner::compute_feature_major(const core23::Tensor &dp_num_keys_per_bucket,
                                             const core23::Tensor &src_emb_vec,
                                             const core23::Tensor &d_local_embedding_list,
                                             const core23::Tensor &d_combiner_list,
@@ -80,9 +80,9 @@ void AverageCombiner::compute_feature_major(const core23::Tensor &bucket_range,
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / num_gpus_;
 
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_num_keys_per_bucket.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_emb_vec.data_type().type(), emb_t, [&] {
-      const offset_t *bucket_range_ptr = bucket_range.data<offset_t>();
+      const offset_t *dp_num_keys_per_bucket_ptr = dp_num_keys_per_bucket.data<offset_t>();
       const int *local_embedding_ptr = d_local_embedding_list.data<int>();
       const int *d_ev_size_offset_ptr = d_ev_size_offset.data<int>();
       const emb_t *top_grad_ptr = src_emb_vec.data<emb_t>();
@@ -97,8 +97,8 @@ void AverageCombiner::compute_feature_major(const core23::Tensor &bucket_range,
             int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
 
             if (combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)) {
-              int start = batch_size * lookup_id + gpu_id * batch_size_per_gpu + bid;
-              return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
+              int idx = batch_size_per_gpu * lookup_id + bid;
+              return static_cast<int>(dp_num_keys_per_bucket_ptr[idx]);
             } else {
               return 1;
             }
@@ -128,7 +128,7 @@ void AverageCombiner::compute_feature_major(const core23::Tensor &bucket_range,
   });
 }
 
-void AverageCombiner::compute_batch_major(const core23::Tensor &bucket_range,
+void AverageCombiner::compute_batch_major(const core23::Tensor &dp_num_keys_per_bucket,
                                           const core23::Tensor &src_emb_vec,
                                           const core23::Tensor &d_local_embedding_list,
                                           const core23::Tensor &d_combiner_list,
@@ -139,9 +139,9 @@ void AverageCombiner::compute_batch_major(const core23::Tensor &bucket_range,
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / num_gpus_;
 
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_num_keys_per_bucket.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_emb_vec.data_type().type(), emb_t, [&] {
-      const offset_t *bucket_range_ptr = bucket_range.data<offset_t>();
+      const offset_t *dp_num_keys_per_bucket_ptr = dp_num_keys_per_bucket.data<offset_t>();
       const int *local_embedding_ptr = d_local_embedding_list.data<int>();
       const int *d_ev_size_offset_ptr = d_ev_size_offset.data<int>();
       const emb_t *top_grad_ptr = src_emb_vec.data<emb_t>();
@@ -156,8 +156,8 @@ void AverageCombiner::compute_batch_major(const core23::Tensor &bucket_range,
             int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
 
             if (combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)) {
-              int start = batch_size * lookup_id + gpu_id * batch_size_per_gpu + bid;
-              return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
+              int idx = batch_size_per_gpu * lookup_id + bid;
+              return static_cast<int>(dp_num_keys_per_bucket_ptr[idx]);
             } else {
               return 1;
             }

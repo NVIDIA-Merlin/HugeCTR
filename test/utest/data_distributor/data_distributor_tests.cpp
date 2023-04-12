@@ -150,8 +150,8 @@ void test_data_distributor(const std::vector<int>& device_list,
 
       std::vector<offset_t> h_bucket_range(num_buckets, 0);
       for (int bucket_id = 1; bucket_id < num_buckets; ++bucket_id) {
-        int num_keys_in_bucket = max_hotness;  // TODO: (rand() % max_hotness) + 1;
-        h_bucket_range[bucket_id] = num_keys_in_bucket;
+        int num_keys_per_bucket = max_hotness;  // TODO: (rand() % max_hotness) + 1;
+        h_bucket_range[bucket_id] = num_keys_per_bucket;
       }
       std::inclusive_scan(h_bucket_range.begin() + 1, h_bucket_range.end(),
                           h_bucket_range.begin() + 1);
@@ -206,8 +206,8 @@ void test_data_distributor(const std::vector<int>& device_list,
       std::vector<offset_t> result_bucket_range(group_result.bucket_range.num_elements());
       core23::copy_sync(result_bucket_range, group_result.bucket_range);
 
-      std::vector<offset_t> result_keys_per_bucket(group_result.keys_per_bucket.num_elements());
-      core23::copy_sync(result_keys_per_bucket, group_result.keys_per_bucket);
+      std::vector<offset_t> result_keys_per_bucket(group_result.num_keys_per_bucket.num_elements());
+      core23::copy_sync(result_keys_per_bucket, group_result.num_keys_per_bucket);
 
       // --- check keys per bucket
       ASSERT_EQ(result_keys_per_bucket, expected_keys_per_bucket);

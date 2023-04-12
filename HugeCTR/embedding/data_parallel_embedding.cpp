@@ -165,7 +165,7 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
   reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus);
   // init_indices local reduce buffer
   WgradInitializer{core, params, grouped_id, meta_.wgrad_attr}
-      .init(local_reduce_indices_)
+      .init(local_reduce_buffer_)
       .init_indices();
   LocalReduceIndexCalculation local_reduce_index_calculation{core,
                                                              meta_.wgrad_attr.num_lookup,
@@ -212,10 +212,25 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
                      meta_.num_local_hotness_ * (params.universal_batch_size / num_gpus));
 }
 
-void UniformDPEmbedding::forward_per_gpu(const EmbeddingInput& embedding_input,
-                                         ILookup* embedding_table,
-                                         EmbeddingOutput& embedding_output, int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+void UniformDPEmbedding::backward_index_calculation(const EmbeddingInput& embedding_input,
+                                                    Wgrad& wgrad, int batch_size) {
+  int num_gpus = core_->get_global_gpu_count();
+  local_reduce_buffer_.data = wgrad.data;
+  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense ||
+      meta_.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
+    local_reduce_index_calculation_.dense_allreduce_index_calculation.cal_for_sparse_indices(
+        embedding_input, wgrad.ev_start_indices, reduction_indices_, local_reduce_buffer_,
+        batch_size / num_gpus);
+  } else if (meta_.allreduce_strategy_ == AllreduceStrategy::Sparse) {
+    local_reduce_index_calculation_.sparse_allreduce_index_calculation.cal_for_sparse_input(
+        embedding_input, reduction_indices_, local_reduce_buffer_, wgrad, batch_size / num_gpus);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "allreduce strategy not supported.");
+  }
+}
+
+void UniformDPEmbedding::forward(const EmbeddingInput& embedding_input, ILookup* embedding_table,
+                                 EmbeddingOutput& embedding_output, int batch_size) {
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
   core23::Tensor num_key_per_lookup_offset;
@@ -229,82 +244,11 @@ void UniformDPEmbedding::forward_per_gpu(const EmbeddingInput& embedding_input,
                             meta_.d_local_lookup_id_list_, embedding_output, batch_size_per_gpu);
 }
 
-void UniformDPEmbedding::backward_per_gpu_with_dense_allreduce(
-    const EmbeddingInput& embedding_input, const embedding::EmbeddingOutput& top_grad,
-    embedding::Wgrad& wgrad, int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  int num_gpus = core_->get_global_gpu_count();
-  Wgrad local_reduce_buffer{local_reduce_indices_.attr,
-                            local_reduce_indices_.unique_keys,
-                            local_reduce_indices_.num_unique_keys,
-                            local_reduce_indices_.table_ids,
-                            local_reduce_indices_.ev_start_indices,
-                            local_reduce_indices_.table_range,
-                            wgrad.data};
-  local_reduce_index_calculation_.dense_allreduce_index_calculation.cal_for_sparse_indices(
-      embedding_input, wgrad.ev_start_indices, reduction_indices_, local_reduce_buffer,
-      batch_size / num_gpus);
-
-  EmbeddingOutput top_grad_after_average_combiner = top_grad;
-  if (std::find(meta_.h_local_combiner_list_.begin(), meta_.h_local_combiner_list_.end(),
-                static_cast<char>(Combiner::Average)) != meta_.h_local_combiner_list_.end()) {
-    if (top_grad_after_average_combiner.attr.layout == EmbeddingLayout::FeatureMajor) {
-      average_combiner_.compute_feature_major(
-          embedding_input.fullbatch_bucket_range, top_grad.data, meta_.d_local_lookup_id_list_,
-          meta_.d_combiner_list_, meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_);
-    } else {
-      average_combiner_.compute_batch_major(embedding_input.fullbatch_bucket_range, top_grad.data,
-                                            meta_.d_local_lookup_id_list_, meta_.d_combiner_list_,
-                                            meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_,
-                                            meta_.num_lookup_);
-    }
-
-    top_grad_after_average_combiner.data = average_combiner_.float_emb_vec_;
-    top_grad_after_average_combiner.attr.type = core23::ScalarType::Float;
-  }
-  local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
-                             local_reduce_buffer, meta_.d_local_lookup_id_list_,
-                             meta_.num_local_lookup_, meta_.num_lookup_, batch_size);
-  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense) {
-    allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
-  }
+void UniformDPEmbedding::dense_allreduce(embedding::Wgrad& wgrad, int batch_size) {
+  allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
 }
 
-void UniformDPEmbedding::backward_per_gpu_with_sparse_allreduce(
-    const EmbeddingInput& embedding_input, const embedding::EmbeddingOutput& top_grad,
-    embedding::Wgrad& wgrad, int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  int num_gpus = core_->get_global_gpu_count();
-  Wgrad local_reduce_buffer{local_reduce_indices_.attr,
-                            local_reduce_indices_.unique_keys,
-                            local_reduce_indices_.num_unique_keys,
-                            local_reduce_indices_.table_ids,
-                            local_reduce_indices_.ev_start_indices,
-                            local_reduce_indices_.table_range,
-                            wgrad.data};
-  local_reduce_index_calculation_.sparse_allreduce_index_calculation.cal_for_sparse_input(
-      embedding_input, reduction_indices_, local_reduce_buffer, wgrad, batch_size / num_gpus);
-
-  EmbeddingOutput top_grad_after_average_combiner = top_grad;
-  if (std::find(meta_.h_local_combiner_list_.begin(), meta_.h_local_combiner_list_.end(),
-                static_cast<char>(Combiner::Average)) != meta_.h_local_combiner_list_.end()) {
-    if (top_grad_after_average_combiner.attr.layout == EmbeddingLayout::FeatureMajor) {
-      average_combiner_.compute_feature_major(
-          embedding_input.fullbatch_bucket_range, top_grad.data, meta_.d_local_lookup_id_list_,
-          meta_.d_combiner_list_, meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_);
-    } else {
-      average_combiner_.compute_batch_major(embedding_input.fullbatch_bucket_range, top_grad.data,
-                                            meta_.d_local_lookup_id_list_, meta_.d_combiner_list_,
-                                            meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_,
-                                            meta_.num_lookup_);
-    }
-    top_grad_after_average_combiner.data = average_combiner_.float_emb_vec_;
-    top_grad_after_average_combiner.attr.type = core23::ScalarType::Float;
-  }
-  local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
-                             local_reduce_buffer, meta_.d_local_lookup_id_list_,
-                             meta_.num_local_lookup_, meta_.num_lookup_, batch_size);
-
+void UniformDPEmbedding::sparse_allreduce(embedding::Wgrad& wgrad, int batch_size) {
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   size_t h_num_unique_keys = 0ul;
   HCTR_LIB_THROW(cudaMemcpyAsync(&h_num_unique_keys, wgrad.num_unique_keys.data<uint64_t>(),
@@ -319,16 +263,75 @@ void UniformDPEmbedding::backward_per_gpu_with_sparse_allreduce(
   allreduce_comm_.communicate(wgrad.data, num_ev_elements);
 }
 
-void UniformDPEmbedding::backward_per_gpu(const EmbeddingInput& embedding_input,
+void UniformDPEmbedding::local_reduce(const EmbeddingOutput& top_grad,
+                                      const EmbeddingInput& embedding_input, Wgrad& wgrad,
+                                      int batch_size) {
+  EmbeddingOutput top_grad_after_average_combiner = top_grad;
+  if (std::find(meta_.h_local_combiner_list_.begin(), meta_.h_local_combiner_list_.end(),
+                static_cast<char>(Combiner::Average)) != meta_.h_local_combiner_list_.end()) {
+    if (top_grad_after_average_combiner.attr.layout == EmbeddingLayout::FeatureMajor) {
+      average_combiner_.compute_feature_major(
+          embedding_input.num_keys_per_bucket, top_grad.data, meta_.d_local_lookup_id_list_,
+          meta_.d_combiner_list_, meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_);
+    } else {
+      average_combiner_.compute_batch_major(embedding_input.num_keys_per_bucket, top_grad.data,
+                                            meta_.d_local_lookup_id_list_, meta_.d_combiner_list_,
+                                            meta_.d_ev_size_offset_, batch_size, meta_.max_ev_size_,
+                                            meta_.num_lookup_);
+    }
+
+    top_grad_after_average_combiner.data = average_combiner_.float_emb_vec_;
+    top_grad_after_average_combiner.attr.type = core23::ScalarType::Float;
+  }
+  local_reduce_.local_reduce(reduction_indices_, top_grad_after_average_combiner,
+                             local_reduce_buffer_, meta_.d_local_lookup_id_list_,
+                             meta_.num_local_lookup_, meta_.num_lookup_, batch_size);
+}
+
+void UniformDPEmbedding::forward_per_gpu(Stage stage, const EmbeddingInput& embedding_input,
+                                         ILookup* embedding_table,
+                                         EmbeddingOutput& embedding_output, int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+
+  switch (stage) {
+    case Stage::DPForward: {
+      forward(embedding_input, embedding_table, embedding_output, batch_size);
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in UniformDPEmbedding::forward_per_gpu");
+  }
+}
+
+void UniformDPEmbedding::backward_per_gpu(Stage stage, const EmbeddingInput& embedding_input,
                                           const EmbeddingOutput& top_grad, Wgrad& wgrad,
                                           int batch_size) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense ||
-      meta_.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
-    backward_per_gpu_with_dense_allreduce(embedding_input, top_grad, wgrad, batch_size);
-  } else {
-    backward_per_gpu_with_sparse_allreduce(embedding_input, top_grad, wgrad, batch_size);
+
+  switch (stage) {
+    case Stage::DPBackwardIndexCalculation: {
+      backward_index_calculation(embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::DPLocalReduce: {
+      local_reduce(top_grad, embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::DPAllreduce: {
+      if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense) {
+        dense_allreduce(wgrad, batch_size);
+      }
+      if (meta_.allreduce_strategy_ == AllreduceStrategy::Sparse) {
+        sparse_allreduce(wgrad, batch_size);
+      }
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in UniformDPEmbedding::backward_per_gpu");
   }
+}
+
+bool UniformDPEmbedding::is_valid_stage(Stage stage) const {
+  return (stage == Stage::DPForward) || (stage == Stage::DPBackwardIndexCalculation) ||
+         (stage == Stage::DPLocalReduce) || (stage == Stage::DPAllreduce);
 }
 
 }  // namespace embedding

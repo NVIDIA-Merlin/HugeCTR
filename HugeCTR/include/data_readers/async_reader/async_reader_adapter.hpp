@@ -81,6 +81,7 @@ class AsyncReader : public SchedulableDataReader {
                       size_t& sample_size_items);
 
   long long get_current_batchsize_per_device(size_t local_id) override;
+  long long get_current_batchsize() override { return current_batch_size_; };
   TensorScalarType get_scalar_type() const override;
   bool is_started() const override;
   void start() override;
@@ -209,6 +210,7 @@ class AsyncReader : public SchedulableDataReader {
                       size_t& sample_size_items);
 
   long long get_current_batchsize_per_device(size_t local_id) override;
+  long long get_current_batchsize() override { return current_batch_size_; };
   TensorScalarType get_scalar_type() const override;
   bool is_started() const override;
   void start() override;

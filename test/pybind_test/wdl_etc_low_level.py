@@ -63,7 +63,7 @@ def embedding_training_cache_test(json_file, output_dir):
         while True:
             lr = lr_sch.get_next()
             model.set_learning_rate(lr)
-            data_reader_train_flag = model.train(False)
+            data_reader_train_flag = model.train()
             if not data_reader_train_flag:
                 break
             if iteration % 100 == 0:

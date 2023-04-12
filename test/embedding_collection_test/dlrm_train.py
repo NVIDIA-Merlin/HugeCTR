@@ -13,24 +13,64 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
-
 import hugectr
+import argparse
 from mpi4py import MPI
+
+parser = argparse.ArgumentParser(
+    description="HugeCTR Embedding Collection DLRM model training script."
+)
+parser.add_argument(
+    "--shard_plan",
+    help="shard strategy",
+    type=str,
+    choices=["round_robin", "uniform", "hybrid"],
+)
+parser.add_argument(
+    "--use_dynamic_hash_table",
+    action="store_true",
+)
+parser.add_argument(
+    "--use_mixed_precision",
+    action="store_true",
+)
+args = parser.parse_args()
+
+comm = MPI.COMM_WORLD
+num_nodes = comm.Get_size()
+rank = comm.Get_rank()
+num_gpus_per_node = 8
+num_gpus = num_nodes * num_gpus_per_node
 
 
 def generate_shard_plan(slot_size_array, num_gpus):
-    mp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] > 6000]
-    dp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] <= 6000]
-    shard_matrix = [[] for _ in range(num_gpus)]
-    shard_strategy = [("mp", [str(i) for i in mp_table]), ("dp", [str(i) for i in dp_table])]
+    if args.shard_plan == "round_robin":
+        shard_strategy = [("mp", [str(i) for i in range(len(slot_size_array))])]
+        shard_matrix = [[] for _ in range(num_gpus)]
+        for i, table_id in enumerate(range(len(slot_size_array))):
+            target_gpu = i % num_gpus
+            shard_matrix[target_gpu].append(str(table_id))
+    elif args.shard_plan == "uniform":
+        shard_strategy = [("mp", [str(i) for i in range(len(slot_size_array))])]
+        shard_matrix = [[] for _ in range(num_gpus)]
+        for table_id in range(len(slot_size_array)):
+            for gpu_id in range(num_gpus):
+                shard_matrix[gpu_id].append(str(table_id))
+    elif args.shard_plan == "hybrid":
+        mp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] > 6000]
+        dp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] <= 6000]
+        shard_matrix = [[] for _ in range(num_gpus)]
+        shard_strategy = [("mp", [str(i) for i in mp_table]), ("dp", [str(i) for i in dp_table])]
 
-    for table_id in dp_table:
-        for gpu_id in range(num_gpus):
-            shard_matrix[gpu_id].append(str(table_id))
+        for table_id in dp_table:
+            for gpu_id in range(num_gpus):
+                shard_matrix[gpu_id].append(str(table_id))
 
-    for i, table_id in enumerate(mp_table):
-        target_gpu = i % num_gpus
-        shard_matrix[target_gpu].append(str(table_id))
+        for i, table_id in enumerate(mp_table):
+            target_gpu = i % num_gpus
+            shard_matrix[target_gpu].append(str(table_id))
+    else:
+        raise Exception(args.shard_plan + " is not supported")
     return shard_matrix, shard_strategy
 
 
@@ -39,8 +79,9 @@ solver = hugectr.CreateSolver(
     batchsize_eval=65536,
     batchsize=65536,
     lr=0.5,
+    use_mixed_precision=args.use_mixed_precision,
     warmup_steps=300,
-    vvgpu=[[0, 1, 2, 3, 4, 5, 6, 7]],
+    vvgpu=[[x for x in range(num_gpus_per_node)]] * num_nodes,
     repeat_dataset=True,
     i64_input_key=True,
     metrics_spec={hugectr.MetricsType.AverageLoss: 0.0},
@@ -105,11 +146,13 @@ embedding_table_list = []
 for i in range(num_embedding):
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            name=str(i), max_vocabulary_size=slot_size_array[i], ev_size=128
+            name=str(i),
+            max_vocabulary_size=-1 if args.use_dynamic_hash_table else slot_size_array[i],
+            ev_size=128,
         )
     )
 # create ebc config
-ebc_config = hugectr.EmbeddingCollectionConfig()
+ebc_config = hugectr.EmbeddingCollectionConfig(use_exclusive_keys=True)
 emb_vec_list = []
 for i in range(num_embedding):
     ebc_config.embedding_lookup(
@@ -118,7 +161,7 @@ for i in range(num_embedding):
         top_name="emb_vec{}".format(i),
         combiner="sum",
     )
-shard_matrix, shard_strategy = generate_shard_plan(slot_size_array, 8)
+shard_matrix, shard_strategy = generate_shard_plan(slot_size_array, num_gpus)
 ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy)
 
 model.add(ebc_config)

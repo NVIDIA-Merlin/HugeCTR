@@ -149,6 +149,7 @@ __global__ void update4_kernel(const key_t *keys, const size_t *num_keys_ptr, co
                                const wgrad_t *grad_ev, const uint32_t *ev_start_indices,
                                KeyToIndicesFunc key_to_indices_func, float *emb_table,
                                OptimizerFunc optimizer, float lr, float scaler) {
+  if (*num_keys_ptr == 0) return;
   size_t num_steps = (*num_keys_ptr - 1) / (blockDim.x * gridDim.x) + 1;
   for (size_t step = 0; step < num_steps; step++) {
     size_t tid = step * blockDim.x * gridDim.x + (size_t)blockIdx.x * blockDim.x + threadIdx.x;
@@ -197,6 +198,7 @@ __global__ void update_kernel(const key_t *keys, const uint64_t *num_keys_ptr, c
                               const emb_t *grad_ev, const uint32_t *ev_start_indices,
                               KeyToIndicesFunc key_to_indices_func, float *emb_table,
                               OptimizerFunc optimizer, float lr, float scaler) {
+  if (*num_keys_ptr == 0) return;
   uint64_t num_steps = (*num_keys_ptr - 1) / (blockDim.x * gridDim.x) + 1;
   for (size_t step = 0; step < num_steps; step++) {
     uint64_t tid = step * blockDim.x * gridDim.x + (size_t)blockIdx.x * blockDim.x + threadIdx.x;

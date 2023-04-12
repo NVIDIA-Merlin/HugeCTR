@@ -156,18 +156,18 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
   SegmentdUnique segmentd_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};
+  SortKeyAndSrcIdOp sort_op;
   if (params.sort_strategy_ == SortStrategy::Radix) {
-    IndicesSort indices_sort{core, meta_.num_local_hotness_, params.universal_batch_size, key_type};
-    local_reduce_index_calculation_.init(core, local_reduce_index_calculation, indices_sort,
-                                         cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
+    sort_op = IndicesSort{core, meta_.num_local_hotness_, params.universal_batch_size, key_type};
+
   } else if (params.sort_strategy_ == SortStrategy::Segmented) {
-    SegmentedSortDevice segmented_sort{core, meta_.num_local_hotness_, params.universal_batch_size,
-                                       meta_.wgrad_attr.num_table, key_type};
-    local_reduce_index_calculation_.init(core, local_reduce_index_calculation, segmented_sort,
-                                         cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
+    sort_op = SegmentedSortDevice{core, meta_.num_local_hotness_, params.universal_batch_size,
+                                  meta_.wgrad_attr.num_table, key_type};
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
+  local_reduce_index_calculation_.init(core, local_reduce_index_calculation, sort_op, cal_dst_ids,
+                                       segmentd_unique, cal_dst_offset_mp);
 
   local_reduce_.init(core, meta_.output_attr.max_ev_size,
                      meta_.num_local_hotness_ * params.universal_batch_size);
@@ -179,46 +179,93 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
   network_buffer_.init(core, meta_.hier_network_buffer_attr, params.universal_batch_size);
 }
 
-void HierModelParallelEmbedding::forward_per_gpu(const EmbeddingInput &embedding_input,
-                                                 ILookup *embedding_table,
-                                                 EmbeddingOutput &embedding_output,
-                                                 int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-
+void HierModelParallelEmbedding::model_forward(const EmbeddingInput &embedding_input,
+                                               ILookup *embedding_table, int batch_size) {
   core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(embedding_input.bucket_range, batch_size, &num_key_per_lookup_offset);
 
   embedding_table->lookup(embedding_input.keys, embedding_input.h_num_keys,
                           num_key_per_lookup_offset, meta_.num_local_lookup_ + 1,
                           meta_.d_local_table_id_list_, embedding_vec_);
-
   intra_model_forward_.intra_forward(embedding_vec_, embedding_input.bucket_range,
                                      intra_model_comm_buffer_, batch_size);
   gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
-
   intra_model_forward_.dst_reduction(intra_model_comm_buffer_, intra_reduction_buffer_, batch_size);
+}
 
+void HierModelParallelEmbedding::network_forward(const EmbeddingInput &embedding_input,
+                                                 EmbeddingOutput &embedding_output,
+                                                 int batch_size) {
   all2all_comm_.hier_communicate(intra_reduction_buffer_.data_list, network_buffer_.data_list);
-  network_forward_.compute(embedding_input.fullbatch_bucket_range, network_buffer_,
+  network_forward_.compute(embedding_input.num_keys_per_bucket, network_buffer_,
                            meta_.hier_network_indices, embedding_output, batch_size);
 }
 
-void HierModelParallelEmbedding::backward_per_gpu(const EmbeddingInput &embedding_input,
-                                                  const EmbeddingOutput &top_grad, Wgrad &wgrad,
-                                                  int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-
+void HierModelParallelEmbedding::backward_index_calculation(const EmbeddingInput &embedding_input,
+                                                            Wgrad &wgrad, int batch_size) {
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, reduction_indices_, wgrad,
                                                        batch_size);
+}
 
-  network_backward_.compute(embedding_input.fullbatch_bucket_range, top_grad,
+void HierModelParallelEmbedding::network_backward(const EmbeddingOutput &top_grad,
+                                                  const EmbeddingInput &embedding_input,
+                                                  Wgrad &wgrad, int batch_size) {
+  network_backward_.compute(embedding_input.num_keys_per_bucket, top_grad,
                             meta_.hier_network_indices, network_buffer_, batch_size);
-
   all2all_comm_.hier_communicate(network_buffer_.data_list, intra_reduction_buffer_.data_list);
   gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
   intra_model_backward_.backward(intra_model_comm_buffer_.attr, intra_reduction_buffer_,
                                  embedding_input, model_comm_buffer_, batch_size);
+}
 
+void HierModelParallelEmbedding::local_reduce(Wgrad &wgrad, int batch_size) {
   local_reduce_.local_reduce(reduction_indices_, model_comm_buffer_, wgrad, batch_size);
 }
+
+void HierModelParallelEmbedding::forward_per_gpu(Stage stage, const EmbeddingInput &embedding_input,
+                                                 ILookup *embedding_table,
+                                                 EmbeddingOutput &embedding_output,
+                                                 int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+
+  switch (stage) {
+    case Stage::HierMPModelForward: {
+      model_forward(embedding_input, embedding_table, batch_size);
+    } break;
+    case Stage::HierMPNetworkForward: {
+      network_forward(embedding_input, embedding_output, batch_size);
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in HierModelParallelEmbedding::forward_per_gpu");
+  }
+}
+void HierModelParallelEmbedding::backward_per_gpu(Stage stage,
+                                                  const EmbeddingInput &embedding_input,
+                                                  const EmbeddingOutput &top_grad, Wgrad &wgrad,
+                                                  int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+
+  switch (stage) {
+    case Stage::HierMPBackwardIndexCalculation: {
+      backward_index_calculation(embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::HierMPNetworkBackward: {
+      network_backward(top_grad, embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::HierMPLocalReduce: {
+      local_reduce(wgrad, batch_size);
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in HierModelParallelEmbedding::backward_per_gpu");
+  }
+}
+
+bool HierModelParallelEmbedding::is_valid_stage(Stage stage) const {
+  return (stage == Stage::HierMPModelForward) || (stage == Stage::HierMPNetworkForward) ||
+         (stage == Stage::HierMPBackwardIndexCalculation) ||
+         (stage == Stage::HierMPNetworkBackward) || (stage == Stage::HierMPLocalReduce);
+}
+
 }  // namespace embedding

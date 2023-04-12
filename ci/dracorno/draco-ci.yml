@@ -182,6 +182,19 @@ hugectr2onnx:
     MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:/etc/workspace/new_criteo_kaggle,${DRACO_DIN_DATASET}:/etc/workspace/din,${DRACO_NCF_DATASET}:/etc/workspace/ncf_data,${DRACO_MMOE_DATASET}:/etc/workspace/mmoe_data
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
+ebc_multi_node:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_multi_node
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/ebc_multi_node
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:${DATASET_MOUNT}
+    WALLTIME: "00:45:00"
+    DGXNNODES: 2
+    TEST_CMD: ./ci/integration_test/ebc/ebc.sub
+
 ### Stage: test
 hierarchical_parameter_server:
   extends: .dracorno_test_job

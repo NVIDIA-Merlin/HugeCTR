@@ -381,8 +381,10 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    */
   void check_overflow() const override {
     CudaDeviceContext context;
+    size_t num_local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
-    for (size_t id = 0; id < embedding_data_.get_resource_manager().get_local_gpu_count(); id++) {
+#pragma omp parallel for num_threads(num_local_gpu_count)
+    for (size_t id = 0; id < num_local_gpu_count; id++) {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
       HCTR_CHECK_HINT(

@@ -120,7 +120,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
   std::vector<key_t> key_list;
   std::vector<offset_t> bucket_range;
   std::vector<std::vector<std::vector<key_t>>> dp_keys;
-  std::vector<std::vector<std::vector<offset_t>>> dp_bucket_range;
+  std::vector<std::vector<std::vector<offset_t>>> dp_num_keys_per_bucket;
   auto prepare_input = [&] {
     timeval t1;
     gettimeofday(&t1, NULL);
@@ -128,19 +128,16 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     key_list.clear();
     bucket_range.clear();
     dp_keys.clear();
-    dp_bucket_range.clear();
+    dp_num_keys_per_bucket.clear();
 
     bucket_range.push_back(0);
     dp_keys.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       dp_keys[gpu_id].resize(ebc_param.num_lookup);
     }
-    dp_bucket_range.resize(num_gpus);
+    dp_num_keys_per_bucket.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      dp_bucket_range[gpu_id].resize(ebc_param.num_lookup);
-      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        dp_bucket_range[gpu_id][lookup_id].push_back(0);
-      }
+      dp_num_keys_per_bucket[gpu_id].resize(ebc_param.num_lookup);
     }
 
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
@@ -159,7 +156,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                             : 1 + rand() % max_hotness;  // TODO: support nnz=0
           */
 
-          dp_bucket_range[gpu_id][lookup_id].push_back(nnz);
+          dp_num_keys_per_bucket[gpu_id][lookup_id].push_back(nnz);
 
           bucket_range.push_back(nnz);
           for (int i = 0; i < nnz; ++i) {
@@ -171,13 +168,6 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
       }
     }
     std::inclusive_scan(bucket_range.begin(), bucket_range.end(), bucket_range.begin());
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-        std::inclusive_scan(dp_bucket_range[gpu_id][lookup_id].begin(),
-                            dp_bucket_range[gpu_id][lookup_id].end(),
-                            dp_bucket_range[gpu_id][lookup_id].begin());
-      }
-    }
   };
 
   std::vector<std::vector<emb_t>> top_grads;
@@ -221,7 +211,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                                                        ebc_param, ebc_param, table_param_list);
 
   std::vector<std::vector<core23::Tensor>> sparse_dp_tensors;
-  std::vector<std::vector<core23::Tensor>> sparse_dp_bucket_ranges;
+  std::vector<std::vector<core23::Tensor>> sparse_dp_num_keys_per_bucket;
   std::vector<core23::Tensor> ebc_top_grads;
   std::vector<core23::Tensor> ebc_outptut;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
@@ -231,19 +221,19 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
     core23::TensorParams params = core23::TensorParams().device(device);
 
     std::vector<core23::Tensor> sparse_dp_tensors_on_current_gpu;
-    std::vector<core23::Tensor> sparse_dp_bucket_range_on_current_gpu;
+    std::vector<core23::Tensor> sparse_dp_num_keys_per_bucket_on_current_gpu;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
       auto &lookup_param = ebc_param.lookup_params[lookup_id];
       int max_hotness = lookup_param.max_hotness;
       sparse_dp_tensors_on_current_gpu.emplace_back(
           params.shape({ebc_param.universal_batch_size / num_gpus, max_hotness})
               .data_type(ebc_param.key_type));
-      sparse_dp_bucket_range_on_current_gpu.emplace_back(
+      sparse_dp_num_keys_per_bucket_on_current_gpu.emplace_back(
           params.shape({ebc_param.universal_batch_size / num_gpus})
               .data_type(ebc_param.offset_type));
     }
     sparse_dp_tensors.push_back(sparse_dp_tensors_on_current_gpu);
-    sparse_dp_bucket_ranges.push_back(sparse_dp_bucket_range_on_current_gpu);
+    sparse_dp_num_keys_per_bucket.push_back(sparse_dp_num_keys_per_bucket_on_current_gpu);
 
     int64_t num_ev = 0;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
@@ -265,6 +255,8 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 
       for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
         core23::copy_sync(sparse_dp_tensors[gpu_id][lookup_id], dp_keys[gpu_id][lookup_id]);
+        core23::copy_sync(sparse_dp_num_keys_per_bucket[gpu_id][lookup_id],
+                          dp_num_keys_per_bucket[gpu_id][lookup_id]);
       }
     }
   };
@@ -419,7 +411,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 #pragma omp parallel for num_threads(num_gpus)
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       data_distributor->distribute(gpu_id, sparse_dp_tensors[gpu_id],
-                                   sparse_dp_bucket_ranges[gpu_id],
+                                   sparse_dp_num_keys_per_bucket[gpu_id],
                                    data_distributor_outputs[gpu_id], batch_size);
       ebc->forward_per_gpu(true, gpu_id, data_distributor_outputs[gpu_id], ebc_outptut[gpu_id],
                            batch_size);

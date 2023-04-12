@@ -128,7 +128,7 @@ def train(model, max_iter, display, max_eval_batches, eval_interval, auc_thresho
     for iter in range(max_iter):
         lr = lr_sch.get_next()
         model.set_learning_rate(lr)
-        model.train(False)
+        model.train()
         if iter % display == 0:
             loss = model.get_current_loss()
             print("[HUGECTR][INFO] iter: {}; loss: {}".format(iter, loss))

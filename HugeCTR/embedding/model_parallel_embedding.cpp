@@ -219,40 +219,95 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
   network_buffer_.init(core, meta_.network_buffer_attr, params.universal_batch_size);
 }
 
-void UniformModelParallelEmbedding::forward_per_gpu(const EmbeddingInput &embedding_input,
-                                                    ILookup *embedding_table,
-                                                    EmbeddingOutput &embedding_output,
-                                                    int batch_size) {
-  HugeCTR::CudaDeviceContext context(core_->get_device_id());
-
+void UniformModelParallelEmbedding::model_forward(const EmbeddingInput &embedding_input,
+                                                  ILookup *embedding_table, int batch_size) {
   core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(embedding_input.bucket_range, batch_size, &num_key_per_lookup_offset);
 
   embedding_table->lookup(embedding_input.keys, embedding_input.h_num_keys,
                           num_key_per_lookup_offset, meta_.num_local_lookup_ + 1,
                           meta_.d_local_table_id_list_, embedding_vec_);
-
   model_forward_.compute(embedding_vec_, embedding_input.bucket_range, model_comm_buffer_,
                          batch_size);
+}
 
+void UniformModelParallelEmbedding::network_forward(const EmbeddingInput &embedding_input,
+                                                    EmbeddingOutput &embedding_output,
+                                                    int batch_size) {
   all2all_comm_.communicate(model_comm_buffer_.data_list, network_buffer_.data_list);
-  network_forward_.compute(embedding_input.fullbatch_bucket_range, network_buffer_,
+  network_forward_.compute(embedding_input.num_keys_per_bucket, network_buffer_,
                            meta_.network_indices, embedding_output, batch_size);
 }
 
-void UniformModelParallelEmbedding::backward_per_gpu(const EmbeddingInput &embedding_input,
-                                                     const EmbeddingOutput &top_grad, Wgrad &wgrad,
-                                                     int batch_size) {
+void UniformModelParallelEmbedding::network_backward(const EmbeddingOutput &top_grad,
+                                                     const EmbeddingInput &embedding_input,
+                                                     Wgrad &wgrad, int batch_size) {
+  network_backward_.compute(embedding_input.num_keys_per_bucket, top_grad, meta_.network_indices,
+                            network_buffer_, batch_size);
+
+  all2all_comm_.communicate(network_buffer_.data_list, model_comm_buffer_.data_list);
+}
+
+void UniformModelParallelEmbedding::backward_index_calculation(
+    const EmbeddingInput &embedding_input, Wgrad &wgrad, int batch_size) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, reduction_indices_, wgrad,
                                                        batch_size);
+}
 
-  network_backward_.compute(embedding_input.fullbatch_bucket_range, top_grad, meta_.network_indices,
-                            network_buffer_, batch_size);
-
-  all2all_comm_.communicate(network_buffer_.data_list, model_comm_buffer_.data_list);
+void UniformModelParallelEmbedding::local_reduce(Wgrad &wgrad, int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   local_reduce_.local_reduce(reduction_indices_, model_comm_buffer_, wgrad, batch_size);
 }
+
+void UniformModelParallelEmbedding::forward_per_gpu(Stage stage,
+                                                    const EmbeddingInput &embedding_input,
+                                                    ILookup *embedding_table,
+                                                    EmbeddingOutput &embedding_output,
+                                                    int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+
+  switch (stage) {
+    case Stage::MPModelForward: {
+      model_forward(embedding_input, embedding_table, batch_size);
+    } break;
+    case Stage::MPNetworkdForward: {
+      network_forward(embedding_input, embedding_output, batch_size);
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in UniformModelParallelEmbedding::forward_per_gpu");
+  }
+}
+
+void UniformModelParallelEmbedding::backward_per_gpu(Stage stage,
+                                                     const EmbeddingInput &embedding_input,
+                                                     const EmbeddingOutput &top_grad, Wgrad &wgrad,
+                                                     int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
+
+  switch (stage) {
+    case Stage::MPBackwardIndexCalculation: {
+      backward_index_calculation(embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::MPNetworkBackward: {
+      network_backward(top_grad, embedding_input, wgrad, batch_size);
+    } break;
+    case Stage::MPLocalReduce: {
+      local_reduce(wgrad, batch_size);
+    } break;
+    default:
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                     "stage is not supported in UniformModelParallelEmbedding::backward_per_gpu");
+  }
+}
+
+bool UniformModelParallelEmbedding::is_valid_stage(Stage stage) const {
+  return (stage == Stage::MPModelForward) || (stage == Stage::MPNetworkdForward) ||
+         (stage == Stage::MPBackwardIndexCalculation) || (stage == Stage::MPNetworkBackward) ||
+         (stage == Stage::MPLocalReduce);
+}
+
 }  // namespace embedding

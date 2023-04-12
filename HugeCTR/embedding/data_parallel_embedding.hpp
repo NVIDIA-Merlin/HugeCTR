@@ -70,7 +70,7 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
   ReductionIndices reduction_indices_;
   DPLocalReduceIndexCalculation local_reduce_index_calculation_;
   LocalReduce local_reduce_;
-  Wgrad local_reduce_indices_;
+  Wgrad local_reduce_buffer_;
 
   CompressOffset compress_offset_;
   DPModelForward dp_model_forward_;
@@ -80,25 +80,32 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
 
   core23::Tensor embedding_vec_;
 
-  void backward_per_gpu_with_dense_allreduce(const EmbeddingInput &embedding_input,
-                                             const embedding::EmbeddingOutput &top_grad,
-                                             embedding::Wgrad &wgrad, int batch_size);
+  void forward(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+               EmbeddingOutput &embedding_output, int batch_size);
 
-  void backward_per_gpu_with_sparse_allreduce(const EmbeddingInput &embedding_input,
-                                              const embedding::EmbeddingOutput &top_grad,
-                                              embedding::Wgrad &wgrad, int batch_size);
+  void backward_index_calculation(const EmbeddingInput &embedding_input, Wgrad &wgrad,
+                                  int batch_size);
+
+  void local_reduce(const EmbeddingOutput &top_grad, const EmbeddingInput &embedding_input,
+                    Wgrad &wgrad, int batch_size);
+
+  void dense_allreduce(embedding::Wgrad &wgrad, int batch_size);
+
+  void sparse_allreduce(embedding::Wgrad &wgrad, int batch_size);
 
  public:
   UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core,
                      const EmbeddingCollectionParam &params, size_t grouped_id);
 
-  void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+  void forward_per_gpu(Stage stage, const EmbeddingInput &embedding_input, ILookup *embedding_table,
                        EmbeddingOutput &embedding_output, int batch_size) override;
 
-  void backward_per_gpu(const EmbeddingInput &embedding_input, const EmbeddingOutput &top_grad,
-                        Wgrad &wgrad, int batch_size) override;
+  void backward_per_gpu(Stage stage, const EmbeddingInput &embedding_input,
+                        const EmbeddingOutput &top_grad, Wgrad &wgrad, int batch_size) override;
 
   const WgradAttr &get_wgrad_attr() const override { return meta_.wgrad_attr; }
+
+  bool is_valid_stage(Stage stage) const override;
 };
 
 }  // namespace embedding

@@ -316,6 +316,48 @@ struct GroupDenseLayer {
                   Activation_t last_act_type = Activation_t::Relu);
 };
 
+class CopyOp {
+ public:
+  virtual TensorBag2 get_tensorbag() = 0;
+
+  virtual void run() = 0;
+};
+
+template <typename T>
+class CopyOpImpl final : public CopyOp {
+ private:
+  std::shared_ptr<GPUResource> gpu_resource_;
+
+  Tensor2<T> in_tensor_;
+  Tensor2<T> out_tensor_;
+
+ public:
+  CopyOpImpl(const std::shared_ptr<GPUResource>& gpu_resource, const Tensor2<T>& in_tensor)
+      : gpu_resource_(gpu_resource), in_tensor_(in_tensor) {
+    CudaDeviceContext context(gpu_resource->get_device_id());
+
+    auto buffer = GeneralBuffer2<CudaAllocator>::create();
+    buffer->reserve(in_tensor.get_dimensions(), &out_tensor_);
+    buffer->allocate();
+  }
+
+  TensorBag2 get_tensorbag() override { return out_tensor_.shrink(); }
+
+  void run() override {
+    CudaDeviceContext context(gpu_resource_->get_device_id());
+    auto stream = gpu_resource_->get_stream();
+    HCTR_CHECK(in_tensor_.get_size_in_bytes() == out_tensor_.get_size_in_bytes());
+    HCTR_LIB_THROW(cudaMemcpyAsync(out_tensor_.get_ptr(), in_tensor_.get_ptr(),
+                                   in_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                   stream));
+  }
+};
+
+namespace core_helper {
+std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::IDataReader* reader,
+                                                                     int gpu_id);
+}
+
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
                std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
@@ -363,6 +405,7 @@ void init_optimizer_params(OptParams& opt_params, const Solver& solver,
 void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch,
                                   const Solver& solver, GpuLearningRateSchedulers& gpu_lr_sches,
                                   const std::shared_ptr<ResourceManager>& resource_manager);
+
 /**
  * @brief Main HugeCTR class
  *
@@ -412,9 +455,9 @@ class Model final {
 
   void set_source(std::string source, std::string eval_source);
 
-  bool train(bool is_first_batch);
+  bool train();
 
-  bool eval(bool is_first_batch);
+  bool eval();
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -612,7 +655,9 @@ class Model final {
   std::vector<core23::Tensor> evaluate_ebc_sparse_weight_list_;
 
   std::vector<DataDistributor::Result> train_ddl_output_;
+  std::vector<DataDistributor::Result> cache_train_ddl_output_;
   std::vector<DataDistributor::Result> evaluate_ddl_output_;
+  std::vector<DataDistributor::Result> cache_evaluate_ddl_output_;
 
   std::vector<core23::Tensor> train_ebc_outptut_;
   std::vector<core23::Tensor> evaluate_ebc_outptut_;
@@ -627,8 +672,6 @@ class Model final {
       resource_manager_; /**< GPU resources include handles and streams etc.*/
   std::shared_ptr<embedding::EmbeddingParameterIO> embedding_para_io_;
   metrics::Metrics metrics_; /**< evaluation metrics. */
-
-  long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */
 
   std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
@@ -721,13 +764,23 @@ class Model final {
   std::unique_ptr<GraphScheduler> graph_scheduler_;
 
   struct Graph {
+    // train and eval can be called directly by user
+    bool is_first_train_batch_ = true;
+    bool is_last_train_batch_ = true;
     bool is_first_eval_batch_ = true;
+    bool is_last_eval_batch_ = true;
     std::vector<Pipeline> train_pipeline_;
     std::vector<Pipeline> evaluate_pipeline_;
+
+    // cache network input in prefetch
+    std::vector<std::shared_ptr<CopyOp>> train_copy_ops_;
+    std::vector<std::shared_ptr<CopyOp>> evaluate_copy_ops_;
   };
 
   Graph graph_;
 
+  void create_copy_ops_for_network_input(const std::string& dense_name,
+                                         const std::string& label_name, bool is_train);
   bool is_scheduled_datareader() {
     return (reader_params_.data_reader_type == DataReaderType_t::RawAsync);
   }
@@ -743,8 +796,17 @@ class Model final {
   void create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
   template <typename Network>
   void create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename Network>
+  void create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename Network>
+  void create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
+
+  bool skip_prefetch_in_last_batch(bool is_train);
+  long long read_a_batch(bool is_train);
   void train_pipeline(size_t current_batch_size);
   void evaluate_pipeline(size_t current_batch_size);
+  void train_pipeline_with_ebc();
+  void evaluate_pipeline_with_ebc();
 };
 
 }  // namespace HugeCTR

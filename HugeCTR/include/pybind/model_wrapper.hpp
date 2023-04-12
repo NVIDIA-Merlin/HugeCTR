@@ -206,8 +206,8 @@ void ModelPybind(pybind11::module &m) {
       .def("add", pybind11::overload_cast<const EmbeddingCollectionConfig &>(&HugeCTR::Model::add),
            pybind11::arg("ebc_config"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
-      .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
-      .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)
+      .def("train", &HugeCTR::Model::train)
+      .def("eval", &HugeCTR::Model::eval)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {

@@ -21,6 +21,8 @@ namespace HugeCTR {
 
 class StreamEventManager {
  public:
+  HCTR_DISALLOW_COPY_AND_MOVE(StreamEventManager);
+
   StreamEventManager() {}
 
   ~StreamEventManager() {

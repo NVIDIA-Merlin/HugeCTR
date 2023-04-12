@@ -79,17 +79,33 @@ class HierModelParallelEmbedding : public IGroupedEmbeddingOp {
 
   HugeCTR::GPUBarrier *gpu_barrier_;
 
+  void model_forward(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+                     int batch_size);
+
+  void network_forward(const EmbeddingInput &embedding_input, EmbeddingOutput &embedding_output,
+                       int batch_size);
+
+  void backward_index_calculation(const EmbeddingInput &embedding_input, Wgrad &wgrad,
+                                  int batch_size);
+
+  void network_backward(const EmbeddingOutput &top_grad, const EmbeddingInput &embedding_input,
+                        Wgrad &wgrad, int batch_size);
+
+  void local_reduce(Wgrad &wgrad, int batch_size);
+
  public:
   HierModelParallelEmbedding(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam &params, size_t grouped_id);
 
-  void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
+  void forward_per_gpu(Stage stage, const EmbeddingInput &embedding_input, ILookup *embedding_table,
                        EmbeddingOutput &embedding_output, int batch_size) override;
 
-  void backward_per_gpu(const EmbeddingInput &embedding_input, const EmbeddingOutput &top_grad,
-                        Wgrad &wgrad, int batch_size) override;
+  void backward_per_gpu(Stage stage, const EmbeddingInput &embedding_input,
+                        const EmbeddingOutput &top_grad, Wgrad &wgrad, int batch_size) override;
 
   const WgradAttr &get_wgrad_attr() const override { return meta_.wgrad_attr; }
+
+  bool is_valid_stage(Stage stage) const override;
 
   IntraModelCommBuffer *get_intra_model_comm_buffer() { return &intra_model_comm_buffer_; }
 

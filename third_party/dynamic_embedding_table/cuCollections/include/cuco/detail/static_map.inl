@@ -33,8 +33,6 @@ static_map<Key, Element, Initializer>::static_map(uint32_t dimension, size_t cap
 
 template <typename Key, typename Element, typename Initializer>
 void static_map<Key, Element, Initializer>::initialize(cudaStream_t stream) {
-  printf("static_map allocated, size=%zu\n",
-         (sizeof(pair_atomic_type) + sizeof(element_type) * dimension_) * capacity_);
   CUCO_CUDA_TRY(cudaMallocAsync(&slots_, sizeof(pair_atomic_type) * capacity_, stream));
   CUCO_CUDA_TRY(cudaMallocAsync(&elements_, sizeof(element_type) * dimension_ * capacity_, stream));
   auto constexpr block_size = 1024;
