@@ -117,6 +117,14 @@ DataReaderImpl::DataReaderImpl(const std::vector<FileSource>& source_files,
     cudaEvent_t event;
     HCTR_LIB_THROW(cudaEventCreate(&event));
     placement_events_.push_back(event);
+
+    cudaStream_t cb_stream;
+    cudaEvent_t cb_event;
+    HCTR_LIB_THROW(cudaStreamCreateWithFlags(&cb_stream, cudaStreamNonBlocking));
+    HCTR_LIB_THROW(cudaEventCreate(&cb_event));
+
+    callback_streams_.push_back(cb_stream);
+    callback_events_.push_back(cb_event);
   }
 }
 
@@ -193,8 +201,13 @@ const DataReaderImpl::Batch& DataReaderImpl::get_batch() {
   return *last_batch_;
 }
 
-void DataReaderImpl::device_release_last_batch_here(cudaStream_t stream) const {
-  HCTR_LIB_THROW(cudaStreamAddCallback(stream, &DataReaderImpl::release_batch_callback,
+void DataReaderImpl::device_release_last_batch_here(cudaStream_t stream, int gpu_id) const {
+  auto cb_stream = callback_streams_[gpu_id];
+  // Launch callback on separate stream to prevent blocking work on main stream
+  // TODO: replace cudaCallback with GPUCallbackQueue processed by upload threads
+  HCTR_LIB_THROW(cudaEventRecord(callback_events_[gpu_id], stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(cb_stream, callback_events_[gpu_id]));
+  HCTR_LIB_THROW(cudaStreamAddCallback(cb_stream, &DataReaderImpl::release_batch_callback,
                                        (void*)last_batch_, 0));
 }
 

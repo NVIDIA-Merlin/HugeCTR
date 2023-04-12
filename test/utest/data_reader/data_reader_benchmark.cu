@@ -111,7 +111,7 @@ void reader_test(std::vector<int> device_list, size_t batch_size_bytes, int num_
     for (size_t i = 0; i < device_list.size(); i++) {
       auto gpu = resource_manager->get_local_gpu(i);
       CudaDeviceContext ctx(gpu->get_device_id());
-      data_reader.device_release_last_batch_here(gpu->get_stream());
+      data_reader.device_release_last_batch_here(gpu->get_stream(), i);
       gpu_sleep<<<1, 1, 0, gpu->get_stream()>>>(cycles_wait);
       data_reader.schedule_upload_here(i, gpu->get_stream(), false);
       data_reader.upload_notify(i);

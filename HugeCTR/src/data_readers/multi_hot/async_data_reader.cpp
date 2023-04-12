@@ -338,7 +338,7 @@ long long AsyncDataReader<SparseType>::read_a_batch_to_device_delay_release() {
 
     // batch.device_data can be reused. Needs to be called after D2D because cudaStreamAddCallback
     // has latency and will delay execution of D2D.
-    reader_impl_->device_release_last_batch_here(d2d_stream);
+    reader_impl_->device_release_last_batch_here(d2d_stream, i);
   }
 
   batch_tensors.tag = current_batch_id;
@@ -913,7 +913,7 @@ long long AsyncDataReader<SparseType>::read_a_batch_to_device_delay_release() {
 
     // batch.device_data can be reused. Needs to be called after D2D because cudaStreamAddCallback
     // has latency and will delay execution of D2D.
-    reader_impl_->device_release_last_batch_here(d2d_stream);
+    reader_impl_->device_release_last_batch_here(d2d_stream, i);
   }
 
   batch_tensors.tag = current_batch_id;

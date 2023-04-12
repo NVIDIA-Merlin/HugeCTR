@@ -135,7 +135,7 @@ class DataReaderImpl {
 
   const Batch& get_batch();
 
-  void device_release_last_batch_here(cudaStream_t stream) const;
+  void device_release_last_batch_here(cudaStream_t stream, int gpu_id) const;
 
   void schedule_upload_here(int device_id, cudaStream_t stream, bool from_graph);
 
@@ -179,6 +179,9 @@ class DataReaderImpl {
   std::vector<AtomicWrapper<size_t>> pending_transfers_;
   std::vector<cudaStream_t> placement_streams_;
   std::vector<cudaEvent_t> placement_events_;
+
+  std::vector<cudaStream_t> callback_streams_;
+  std::vector<cudaEvent_t> callback_events_;
 };
 
 }  // namespace MultiHot

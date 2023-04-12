@@ -97,7 +97,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
       HCTR_LIB_THROW(
           cudaMemcpy(read_data + total_sz, device_data, size_bytes, cudaMemcpyDeviceToHost));
-      data_reader.device_release_last_batch_here(NULL);
+      data_reader.device_release_last_batch_here(NULL, i);
 
       total_sz += size_bytes;
     }
