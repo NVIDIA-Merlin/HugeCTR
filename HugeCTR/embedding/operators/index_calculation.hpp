@@ -67,6 +67,17 @@ struct PartitionedResult {
             int local_hotness_sum, int batch_size, core23::DataType key_type);
 };
 
+struct LocalReduceIndexCalculationTempStorage {
+  core23::Tensor temp_scan_storage;
+  core23::Tensor temp_select_storage;
+  core23::Tensor d_num_selected_table_range_;
+  core23::Tensor temp_lookup_range;
+
+  template <typename offset_t>
+  void init(const std::shared_ptr<CoreResourceManager> &core, int num_lookup, int num_table,
+            int batch_size);
+};
+
 struct SortedResult {
   core23::Tensor sorted_keys;
 
@@ -75,11 +86,18 @@ struct SortedResult {
 };
 
 struct SortInput {
+  // for sort
   core23::Tensor keys;
   core23::Tensor src_ids;
   core23::Tensor table_range;
   core23::Tensor unique_table_ids;
   size_t h_num_key;
+  // for cal table range
+  core23::Tensor partitioned_bucket_range;
+  core23::Tensor sorted_table_ids;
+  LocalReduceIndexCalculationTempStorage temp_storage;
+  int num_lookup;
+  int batch_size;
 };
 
 struct SortOutput {
@@ -87,7 +105,8 @@ struct SortOutput {
   core23::Tensor sorted_src_ids;
 };
 
-using SortKeyAndSrcIdOp = std::function<void(SortInput &, SortOutput &, cudaStream_t)>;
+using SortKeyAndSrcIdOp =
+    std::function<void(SortInput &, SortOutput &, std::shared_ptr<CoreResourceManager> core)>;
 
 struct SegmentedSortDevice {
   size_t max_key_num_;
@@ -99,7 +118,7 @@ struct SegmentedSortDevice {
   SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                       int batch_size, int num_table, core23::DataType key_type);
 
-  void operator()(SortInput &input, SortOutput &output, cudaStream_t stream);
+  void operator()(SortInput &input, SortOutput &output, std::shared_ptr<CoreResourceManager> core);
 };
 
 struct IndicesSort {
@@ -110,7 +129,7 @@ struct IndicesSort {
   IndicesSort(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys, int batch_size,
               core23::DataType key_type);
 
-  void operator()(SortInput &input, SortOutput &output, cudaStream_t stream);
+  void operator()(SortInput &input, SortOutput &output, std::shared_ptr<CoreResourceManager> core);
 };
 
 struct SegmentdUnique {
@@ -133,9 +152,9 @@ struct SegmentdUnique {
 
   void operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
                   const core23::Tensor &key_num, core23::Tensor &unique_keys,
-                  core23::Tensor &unique_table_ids, core23::Tensor &num_unique_keys,
-                  core23::Tensor &dst_ids, size_t h_num_key,
-                  std::shared_ptr<CoreResourceManager> core, cudaStream_t stream);
+                  core23::Tensor &unique_table_ids, core23::Tensor &unique_keys_offset,
+                  core23::Tensor &num_unique_keys, core23::Tensor &dst_ids, size_t h_num_key,
+                  bool is_same_ev_size, int ev_size, std::shared_ptr<CoreResourceManager> core);
 };
 
 struct CalDstIds {
@@ -184,17 +203,6 @@ struct WgradEvStartIndicesCalculationOutput {
 using WgradEvStartIndicesCalculationOp =
     std::function<void(const WgradEvStartIndicesCalculationInput &,
                        WgradEvStartIndicesCalculationOutput &, cudaStream_t)>;
-
-struct LocalReduceIndexCalculationTempStorage {
-  core23::Tensor temp_scan_storage;
-  core23::Tensor temp_select_storage;
-  core23::Tensor d_num_selected_table_range_;
-  core23::Tensor temp_lookup_range;
-
-  template <typename offset_t>
-  void init(const std::shared_ptr<CoreResourceManager> &core, int num_lookup, int num_table,
-            int batch_size);
-};
 
 class LocalReduceIndexCalculation {
  private:

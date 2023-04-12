@@ -280,6 +280,28 @@ void WgradAttr::init(std::shared_ptr<CoreResourceManager> core,
   buffer_params.unitary = false;
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
+  const auto &lookup_params = ebc_param.lookup_params;
+  std::vector<int> h_ev_size_list;
+  h_ev_size_list.clear();
+
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    h_ev_size_list.push_back(lookup_params[lookup_id].ev_size);
+  }
+
+  // FIX:global ev size same or local ev size same? for now is global ev size same
+  // I think is include dp and mp.
+  if (h_ev_size_list.size() > 0) {
+    same_ev_size = h_ev_size_list[0];
+    is_same_ev_size = true;
+    for (size_t i = 1; i < h_ev_size_list.size(); ++i) {
+      if (h_ev_size_list[i] != same_ev_size) {
+        is_same_ev_size = false;
+        same_ev_size = 0;
+        break;
+      }
+    }
+  }
+
   this->lookup_id_to_table_ids =
       core23::Tensor(params.shape({static_cast<int64_t>(h_lookup_id_to_table_id.size())})
                          .data_type(core23::ScalarType::Int32));

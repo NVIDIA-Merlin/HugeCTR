@@ -279,6 +279,8 @@ struct WgradAttr {
 
   std::vector<int> h_sorted_unique_table_ids;
 
+  bool is_same_ev_size = false;
+  int same_ev_size = 0;
   void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
             size_t grouped_id);
 
