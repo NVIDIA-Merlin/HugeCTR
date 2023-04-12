@@ -458,7 +458,7 @@ void LabelAndCountKeysOperator::operator()(const std::vector<core23::Tensor>& dp
   dim3 block(128);
   dim3 grid((batch_size_per_gpu_ + block.x - 1) / block.x, lookup_ids.num_elements());
 
-  int smem_lookup_gpus_bytes = num_lookup * sizeof(int);
+  int smem_lookup_gpus_bytes = global_gpu_count_ * sizeof(int);
   int smem_keys_per_gpu = global_gpu_count_ * sizeof(uint32_t);
   int smem_bytes = smem_keys_per_gpu + smem_lookup_gpus_bytes;
 
