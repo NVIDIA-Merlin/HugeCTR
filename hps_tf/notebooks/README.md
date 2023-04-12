@@ -58,6 +58,8 @@ Here's a list of notebooks that you can run:
 
 - [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb): Demonstrates how to deploy the inference SavedModel that leverages HPS with the [Triton TensorFlow backend](https://github.com/triton-inference-server/tensorflow_backend). The feature of implicit [HPS initialization](https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html) is utilized in this notebook. It also shows how to apply [TF-TRT](https://github.com/tensorflow/tensorrt) optimization to SavedModel whose embedding lookup is based on HPS.
 
+- [hps_table_fusion_demo.ipynb](hps_table_fusion_demo.ipynb): Demonstrates how to fuse embedding tables of the same embedding vector size with the HPS plugin for TensorFlow.
+
 ## System Specifications
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
 
@@ -68,3 +70,4 @@ The specifications of the system on which each notebook can run successfully are
 | [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb)       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu    |
 | [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
 | [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| [hps_table_fusion_demo.ipynb](hps_table_fusion_demo.ipynb)                                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |

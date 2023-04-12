@@ -268,8 +268,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
                       inference_params.sparse_model_files[j]);
       num_key = rawreader->getkeycount();
     }
-    ps_config_.embedding_key_count_.at(inference_params.model_name)
-        .emplace_back(rawreader->getkeycount());
+    ps_config_.embedding_key_count_.at(inference_params.model_name).emplace_back(num_key);
     const std::string tag_name = make_tag_name(
         inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
     const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];
