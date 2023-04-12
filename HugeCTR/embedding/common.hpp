@@ -232,8 +232,7 @@ struct EmbeddingInput {
   core23::Tensor num_keys;  // TODO: move from cpu to gpu
   core23::Tensor bucket_range;
   size_t h_num_keys;  // TODO: remove
-  core23::Tensor fullbatch_bucket_range;
-  core23::Tensor keys_per_bucket;
+  core23::Tensor num_keys_per_bucket;
 };
 
 struct EmbeddingOutputAttr {

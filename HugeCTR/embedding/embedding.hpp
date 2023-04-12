@@ -20,17 +20,37 @@
 
 namespace embedding {
 
+enum class Stage {
+  DPForward,
+  DPBackwardIndexCalculation,
+  DPLocalReduce,
+  DPAllreduce,
+  HierMPModelForward,
+  HierMPNetworkForward,
+  HierMPBackwardIndexCalculation,
+  HierMPNetworkBackward,
+  HierMPLocalReduce,
+  MPModelForward,
+  MPNetworkdForward,
+  MPBackwardIndexCalculation,
+  MPNetworkBackward,
+  MPLocalReduce,
+};
+
 class IGroupedEmbeddingOp {
  public:
   virtual ~IGroupedEmbeddingOp() = default;
 
-  virtual void forward_per_gpu(const EmbeddingInput &embedding_input, ILookup *embedding_table,
-                               EmbeddingOutput &embedding_output, int batch_size) = 0;
+  virtual void forward_per_gpu(Stage stage, const EmbeddingInput &embedding_input,
+                               ILookup *embedding_table, EmbeddingOutput &embedding_output,
+                               int batch_size) = 0;
 
-  virtual void backward_per_gpu(const EmbeddingInput &embedding_input,
+  virtual void backward_per_gpu(Stage stage, const EmbeddingInput &embedding_input,
                                 const EmbeddingOutput &top_grad, Wgrad &wgrad, int batch_size) = 0;
 
   virtual const WgradAttr &get_wgrad_attr() const = 0;
+
+  virtual bool is_valid_stage(Stage stage) const = 0;
 };
 
 std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(

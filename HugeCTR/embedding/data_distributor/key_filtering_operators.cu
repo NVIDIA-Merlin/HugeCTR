@@ -545,6 +545,7 @@ void CountKeysOperator::operator()(core23::Tensor keys_per_bucket_gpu_major,
 
   HCTR_LIB_THROW(
       cudaMemsetAsync(result_keys_per_gpu.data(), 0, result_keys_per_gpu.num_bytes(), stream));
+  if (num_shards_ == 0) return;
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(
       keys_per_bucket_gpu_major.data_type().type(), BucketRangeType, [&] {
@@ -571,6 +572,8 @@ TransposeBucketsOperator::TransposeBucketsOperator(
 
 void TransposeBucketsOperator::operator()(core23::Tensor buckets_gpu_major,
                                           core23::Tensor buckets_feat_major, cudaStream_t stream) {
+  if (num_shards_ == 0) return;
+
   dim3 block(128);
   dim3 grid((batch_size_per_gpu_ + block.x - 1) / block.x, num_shards_);
 
@@ -611,6 +614,8 @@ SwizzleKeysOperator::SwizzleKeysOperator(std::shared_ptr<core::CoreResourceManag
 void SwizzleKeysOperator::operator()(core23::Tensor src_bucket_range,
                                      core23::Tensor dst_bucket_range, core23::Tensor keys,
                                      core23::Tensor result_keys, cudaStream_t stream) {
+  if (num_shards_ == 0) return;
+
   dim3 block(128);
   dim3 grid((batch_size_per_gpu_ * global_gpu_count_ + block.x - 1) / block.x, num_shards_);
 

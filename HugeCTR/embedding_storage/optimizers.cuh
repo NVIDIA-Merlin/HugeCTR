@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <core23/data_type_helpers.cuh>
 
 namespace embedding {
 namespace {
@@ -23,8 +24,9 @@ namespace {
  * ---------------
  * g_i = -eta * g_i / s
  */
+template <typename wgrad_t>
 __global__ void sgd_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
-                                       float scaler, float* g) {
+                                       float scaler, wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -32,9 +34,9 @@ __global__ void sgd_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_
   uint32_t end = ev_offsets[tid + 1];
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
 
-    g[i] = -lr * gi;
+    g[i] = core23::TypeConverter<wgrad_t, float>::value(-lr * gi);
   }
 }
 
@@ -44,9 +46,10 @@ __global__ void sgd_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_
  * v_i = beta * v_i + g_i / s
  * g_i = -eta * v_i
  */
+template <typename wgrad_t>
 __global__ void momentum_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
                                             float momentum_decay, float** state_tensors,
-                                            float scaler, float* g) {
+                                            float scaler, wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -56,10 +59,10 @@ __global__ void momentum_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
   float* m = state_tensors[tid] - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float mi = m[i] = momentum_decay * m[i] - lr * gi;
 
-    g[i] = mi;
+    g[i] = core23::TypeConverter<wgrad_t, float>::value(mi);
   }
 }
 
@@ -71,9 +74,10 @@ __global__ void momentum_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
  * v_i = beta * v_i + g_i / s
  * g_i = -eta * v_i
  */
+template <typename wgrad_t>
 __global__ void nesterov_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
                                             float momentum_decay, float** state_tensors,
-                                            float scaler, float* g) {
+                                            float scaler, wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -83,11 +87,12 @@ __global__ void nesterov_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
   float* m = state_tensors[tid] - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float mi_prev = m[i];
     float mi = m[i] = momentum_decay * mi_prev - lr * gi;
 
-    g[i] = mi + momentum_decay * mi - momentum_decay * mi_prev;
+    g[i] = core23::TypeConverter<wgrad_t, float>::value(mi + momentum_decay * mi -
+                                                        momentum_decay * mi_prev);
   }
 }
 
@@ -98,9 +103,10 @@ __global__ void nesterov_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
  * v_i = v_i + g_i^2
  * g_i = -eta * g_i / (sqrt(v_i) + epsilon)
  */
+template <typename wgrad_t>
 __global__ void ada_grad_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
                                             float** state_tensors, float epsilon, float scaler,
-                                            float* g) {
+                                            wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -110,10 +116,10 @@ __global__ void ada_grad_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
   float* v = state_tensors[tid] - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float vi = v[i] = v[i] + gi * gi;
 
-    g[i] = -lr * gi / (sqrtf(vi) + epsilon);
+    g[i] = core23::TypeConverter<wgrad_t, float>::value(-lr * gi / (sqrtf(vi) + epsilon));
   }
 }
 
@@ -124,9 +130,10 @@ __global__ void ada_grad_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
  * v_i = beta * v_i + (1 - beta) * g_i^2
  * g_i = -eta * g_i / (sqrt(v_i) + epsilon)
  */
+template <typename wgrad_t>
 __global__ void rms_prop_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
                                             float beta, float** state_tensors, float epsilon,
-                                            float scaler, float* g) {
+                                            float scaler, wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -136,10 +143,10 @@ __global__ void rms_prop_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
   float* v = state_tensors[tid] - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float vi = v[i] = beta * v[i] + (1.f - beta) * gi * gi;
 
-    g[i] = -lr * gi / (sqrtf(vi) + epsilon);
+    g[i] = core23::TypeConverter<wgrad_t, float>::value(-lr * gi / (sqrtf(vi) + epsilon));
   }
 }
 
@@ -155,10 +162,11 @@ __global__ void rms_prop_update_grad_kernel(const uint32_t* ev_offsets, uint32_t
  *
  * g_i = -eta * m_i_debiased / (sqrt(v_i_debiased) + epsilon)
  */
+template <typename wgrad_t>
 __global__ void adam_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev,
                                         float lr_scaled_bias, float beta1, float beta2,
                                         float** state_tensors, float epsilon, float scaler,
-                                        float* g) {
+                                        wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -169,11 +177,12 @@ __global__ void adam_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num
   float* v = m + end - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float mi = m[i] = beta1 * m[i] + (1.f - beta1) * gi;
     float vi = v[i] = beta2 * v[i] + (1.f - beta2) * gi * gi;
 
-    g[i] = -lr_scaled_bias * mi / (sqrtf(vi) + epsilon);
+    g[i] =
+        core23::TypeConverter<wgrad_t, float>::value(-lr_scaled_bias * mi / (sqrtf(vi) + epsilon));
   }
 }
 
@@ -190,10 +199,11 @@ __global__ void adam_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num
  * else:
  *   w_i = -sqrt((beta + sqrt(n_i)) / eta + lambda_2) * (z_i - sign(z_i) * lambda_1)
  */
+template <typename wgrad_t>
 __global__ void ftrl_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num_ev, float lr,
                                         float lambda1, float lambda2_plus_beta_div_lr,
                                         float** state_tensors, float** weight_tensors, float scaler,
-                                        float* g) {
+                                        wgrad_t* g) {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid >= num_ev) return;
 
@@ -205,7 +215,7 @@ __global__ void ftrl_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num
   float* w = weight_tensors[tid] - start;
 
   for (uint32_t i = start; i < end; ++i) {
-    float gi = g[i] / scaler;
+    float gi = core23::TypeConverter<float, wgrad_t>::value(g[i]) / scaler;
     float ni = n[i];
     float ni_prev_sqrt = sqrtf(ni + FLT_EPSILON);
     n[i] = ni = ni + gi * gi;
@@ -216,7 +226,7 @@ __global__ void ftrl_update_grad_kernel(const uint32_t* ev_offsets, uint32_t num
 
     float p = (1.f - 2.f * signbit(zi)) * lambda1 - zi;
     float q = ni_sqrt / lr + lambda2_plus_beta_div_lr;
-    g[i] = (p / q) * signbit(lambda1 - abs(zi)) - wi;
+    g[i] = core23::TypeConverter<wgrad_t, float>::value((p / q) * signbit(lambda1 - abs(zi)) - wi);
   }
 }
 

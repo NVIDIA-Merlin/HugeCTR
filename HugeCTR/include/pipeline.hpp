@@ -23,7 +23,16 @@
 namespace HugeCTR {
 
 class Scheduleable {
- protected:
+ public:
+  virtual ~Scheduleable() = default;
+
+  virtual void init(std::shared_ptr<GPUResource> gpu){};
+
+  virtual void run(std::shared_ptr<GPUResource> gpu, bool use_graph) = 0;
+};
+
+class StreamContextScheduleable : public Scheduleable {
+ private:
   std::optional<std::string> stream_name_;
   int priority_;
   bool is_absolute_stream_;
@@ -32,38 +41,55 @@ class Scheduleable {
   std::optional<cudaEvent_t> completion_event_;
   bool record_external_;
 
+  std::function<void()> workload_;
+
  public:
-  explicit Scheduleable();
+  HCTR_DISALLOW_COPY_AND_MOVE(StreamContextScheduleable);
+
+  explicit StreamContextScheduleable(std::function<void()> workload);
+
+  ~StreamContextScheduleable() override;
 
   void set_absolute_stream(const std::string &stream_name, int priority = 0);
 
   void set_stream(const std::string &stream_name, int priority = 0);
 
+  std::tuple<std::string, int> get_stream_name(std::shared_ptr<GPUResource> gpu);
+
   void wait_event(const std::vector<cudaEvent_t> &schedule_event, bool external = false);
 
   cudaEvent_t record_done(bool external = false, unsigned int flags = cudaEventDisableTiming);
 
-  virtual void run(std::shared_ptr<GPUResource> gpu, bool use_graph, bool prepare_resource) = 0;
+  void init(std::shared_ptr<GPUResource> gpu) override;
+
+  void run(std::shared_ptr<GPUResource> gpu, bool use_graph) override;
 };
 
-class StreamContextScheduleable : public Scheduleable {
+class GraphScheduleable : public Scheduleable {
  private:
-  std::function<void()> workload_;
+  std::vector<std::shared_ptr<Scheduleable>> scheduleable_list_;
+  GraphWrapper graph_;
 
  public:
-  explicit StreamContextScheduleable(std::function<void()> workload);
+  HCTR_DISALLOW_COPY_AND_MOVE(GraphScheduleable);
 
-  void run(std::shared_ptr<GPUResource> gpu, bool use_graph, bool prepare_resource) override;
+  template <typename... T>
+  GraphScheduleable(std::shared_ptr<T>... scheduleable) {
+    static_assert(std::conjunction<std::is_base_of<Scheduleable, T>...>::value, "");
+    (scheduleable_list_.push_back(std::dynamic_pointer_cast<Scheduleable>(scheduleable)), ...);
+  }
+
+  GraphScheduleable(std::vector<std::shared_ptr<Scheduleable>> scheduleable_list)
+      : scheduleable_list_(scheduleable_list) {}
+
+  void run(std::shared_ptr<GPUResource> gpu, bool use_graph) override;
 };
 
 class Pipeline {
  private:
   std::string stream_name_;
   std::shared_ptr<GPUResource> gpu_resource_;
-  cudaStream_t stream_;
   std::vector<std::shared_ptr<Scheduleable>> scheduleable_list_;
-
-  GraphWrapper graph_;
 
  public:
   Pipeline() = default;
@@ -77,5 +103,4 @@ class Pipeline {
 
   void run_graph();
 };
-
 }  // namespace HugeCTR

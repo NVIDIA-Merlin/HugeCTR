@@ -30,7 +30,7 @@ class NetworkBackward {
   NetworkBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
       : core_(core), num_gpus_(num_gpus) {}
 
-  void compute(const core23::Tensor &bucket_range, const EmbeddingOutput &top_grad,
+  void compute(const core23::Tensor &dp_num_keys_per_bucket, const EmbeddingOutput &top_grad,
                const NetworkIndices &network_indices, NetworkBuffer &network_buffer,
                int batch_size);
 

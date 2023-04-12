@@ -61,15 +61,15 @@ void pipeline_test(const std::vector<int> &device_list, bool use_graph) {
     float *data3;
     HCTR_LIB_THROW(cudaMalloc(&data3, count * sizeof(float)));
 
-    std::shared_ptr<Scheduleable> b = std::make_shared<StreamContextScheduleable>(
+    auto b = std::make_shared<StreamContextScheduleable>(
         [=] { setB<<<1, 1024, 0, gpu_resource->get_stream()>>>(data2, count); });
     cudaEvent_t b_completion = b->record_done(use_graph);
 
-    std::shared_ptr<Scheduleable> a = std::make_shared<StreamContextScheduleable>(
+    auto a = std::make_shared<StreamContextScheduleable>(
         [=] { setA<<<1, 1024, 0, gpu_resource->get_stream()>>>(data, count); });
     a->wait_event({b_completion}, use_graph);
 
-    std::shared_ptr<Scheduleable> c = std::make_shared<StreamContextScheduleable>(
+    auto c = std::make_shared<StreamContextScheduleable>(
         [=] { setC<<<1, 1024, 0, gpu_resource->get_stream()>>>(data3, count); });
 
     pipeline_list[i] = Pipeline{"default", gpu_resource, {a, b, c}};

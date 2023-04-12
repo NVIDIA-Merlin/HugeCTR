@@ -74,7 +74,7 @@ class NetworkForward {
 
   NetworkForward(std::shared_ptr<CoreResourceManager> core, int num_gpus);
 
-  void compute(const core23::Tensor &bucket_range, const NetworkBuffer &network_buffer,
+  void compute(const core23::Tensor &dp_num_keys_per_bucket, const NetworkBuffer &network_buffer,
                const NetworkIndices &network_indices, EmbeddingOutput &embedding_output,
                int batch_size);
 

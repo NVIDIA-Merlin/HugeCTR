@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <HugeCTR/include/data_readers/multi_hot/async_data_reader.hpp>
 #include <algorithm>
 #include <core23/logger.hpp>
 #include <core23_network.hpp>
@@ -34,7 +35,7 @@ void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&
 
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
 
-  for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
+  for (int local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext context(gpu_resource->get_device_id());
 
@@ -58,7 +59,8 @@ void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&
       scheduleable_list = {network_forward_and_backward};
     }
 
-    graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    auto graph = std::make_shared<GraphScheduleable>(scheduleable_list);
+    graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, {graph}};
   }
 }
 
@@ -66,18 +68,10 @@ template <typename Network>
 void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
-  auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(evaluate_data_reader_.get());
-
-  for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
+  for (int local_id = 0; local_id < static_cast<int>(resource_manager_->get_local_gpu_count());
+       local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext context(gpu_resource->get_device_id());
-
-    auto BNET_input_ready_wait = std::make_shared<StreamContextScheduleable>([=] {
-      auto stream = gpu_resource->get_stream();
-      scheduled_reader->stream_wait_dense_tensors(
-          stream, local_id,
-          solver_.use_cuda_graph && !scheduled_reader->current_batch_incomplete());
-    });
 
     auto network_eval = std::make_shared<StreamContextScheduleable>([=] {
       long long current_batchsize_per_device =
@@ -92,14 +86,10 @@ void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& 
       }
     });
 
-    std::vector<std::shared_ptr<Scheduleable>> scheduleable_list;
-    if (scheduled_reader) {
-      scheduleable_list = {BNET_input_ready_wait, network_eval, cal_metrics};
-    } else {
-      scheduleable_list = {network_eval, cal_metrics};
-    }
+    std::vector<std::shared_ptr<Scheduleable>> scheduleable_list = {network_eval, cal_metrics};
 
-    graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    auto graph = std::make_shared<GraphScheduleable>(scheduleable_list);
+    graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, {graph}};
   }
 }
 
@@ -117,7 +107,8 @@ void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& network
   }
 
 #pragma omp parallel for num_threads(resource_manager_->get_local_gpu_count())
-  for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
+  for (int local_id = 0; local_id < static_cast<int>(resource_manager_->get_local_gpu_count());
+       local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext context(gpu_resource->get_device_id());
 
@@ -291,7 +282,7 @@ void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& network
 
       const bool overlap_infreq_freq =
           (sparse_embedding_params_[0].hybrid_embedding_param.communication_type !=
-           CommunicationType::NVLink_SingleNode);
+           hybrid_embedding::CommunicationType::NVLink_SingleNode);
 
       if (overlap_infreq_freq) {
         embedding_freq_forward->set_stream(freq_stream);
@@ -337,7 +328,8 @@ void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& network
       });
     }
 
-    graph_.train_pipeline_[local_id] = Pipeline{"train", gpu_resource, scheduleable_list};
+    auto graph = std::make_shared<GraphScheduleable>(scheduleable_list);
+    graph_.train_pipeline_[local_id] = Pipeline{"train", gpu_resource, {graph}};
     if (solver_.train_inter_iteration_overlap) {
       cudaStream_t s3w_stream = gpu_resource->get_stream("s3w");
       cudaStream_t d2d_stream = gpu_resource->get_stream("s3w");
@@ -346,8 +338,9 @@ void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& network
       auto done_iteration_end = iteration_end->record_done(use_graph);
       cross_iteration_sync->wait_event({done_iteration_end}, use_graph);
 
+      auto graph2 = std::make_shared<GraphScheduleable>(scheduleable_list);
       graph_.train_pipeline_[local_id + resource_manager_->get_local_gpu_count()] =
-          Pipeline{"train2", gpu_resource, scheduleable_list};
+          Pipeline{"train2", gpu_resource, {graph2}};
     } else {
       cudaStream_t s3w_stream = gpu_resource->get_stream("train");
       cudaStream_t d2d_stream = gpu_resource->get_stream("train");
@@ -369,7 +362,7 @@ void Model::train_pipeline(size_t current_batch_size) {
 
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
-    size_t id = omp_get_thread_num();
+    int id = omp_get_thread_num();
     auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
     CudaCPUDeviceContext context(device_id);
 
@@ -378,7 +371,7 @@ void Model::train_pipeline(size_t current_batch_size) {
                               : id;
     HCTR_CHECK_HINT(graph_id < graph_.train_pipeline_.size(), "graph_id out of range");
 
-    if (use_graph && !scheduled_reader->current_batch_incomplete()) {
+    if (use_graph) {
       graph_.train_pipeline_[graph_id].run_graph();
       if (scheduled_reader) {
         scheduled_reader->update_schedule_graph(id);
@@ -405,7 +398,7 @@ void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& netw
 
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
-  for (size_t local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
+  for (int local_id = 0; local_id < resource_manager_->get_local_gpu_count(); local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id);
     CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
 
@@ -461,6 +454,7 @@ void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& netw
     });
 
     std::vector<std::shared_ptr<Scheduleable>> scheduleable_list = {
+        iteration_strat,
         BNET_input_ready_wait,
         EMB_input_ready_wait,
         embedding_index_calculation,
@@ -475,7 +469,7 @@ void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& netw
 
     const bool overlap_infreq_freq =
         (sparse_embedding_params_[0].hybrid_embedding_param.communication_type !=
-         CommunicationType::NVLink_SingleNode) &&
+         hybrid_embedding::CommunicationType::NVLink_SingleNode) &&
         solver_.eval_intra_iteration_overlap;
     std::string eval_embedding = "eval_embedding";
     std::string eval_freq = "eval_freq";
@@ -517,7 +511,8 @@ void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& netw
       network_init->wait_event({done_embedding_freq_forward});
     }
 
-    graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    auto graph = std::make_shared<GraphScheduleable>(scheduleable_list);
+    graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, {graph}};
   }
 }
 
@@ -555,15 +550,515 @@ void Model::evaluate_pipeline(size_t current_batch_size) {
   }
 }
 
+template <typename Network>
+void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks) {
+  bool is_train = true;
+  bool use_graph = solver_.use_cuda_graph;
+
+  graph_.train_pipeline_.resize(resource_manager_->get_local_gpu_count());
+
+#pragma omp parallel for num_threads(resource_manager_->get_local_gpu_count())
+  for (int local_id = 0; local_id < static_cast<int>(resource_manager_->get_local_gpu_count());
+       local_id++) {
+    auto gpu_resource = resource_manager_->get_local_gpu(local_id);
+    CudaCPUDeviceContext context(gpu_resource->get_device_id());
+
+    // create scheduleable
+    auto distribute_data = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_prefetch_in_last_batch(is_train)) return;
+
+      if (is_scheduled_datareader()) {
+        auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core23_tensors(
+            train_data_reader_.get(), local_id);
+        train_data_distributor_->distribute(local_id, sparse_dp_tensors, {},
+                                            train_ddl_output_[local_id],
+                                            train_data_reader_->get_current_batchsize());
+
+      } else {
+        train_data_distributor_->distribute(
+            local_id, train_ebc_key_list_[local_id], train_ebc_bucket_range_list_[local_id],
+            train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
+      }
+    });
+
+    DataDistributor::Result& ddl_output = solver_.train_inter_iteration_overlap
+                                              ? cache_train_ddl_output_[local_id]
+                                              : train_ddl_output_[local_id];
+
+    auto ebc_forward = [=, &ddl_output](embedding::Stage stage) {
+      for (auto& ebc : ebc_list_) {
+        ebc->forward_per_gpu(stage, is_train, local_id, ddl_output, train_ebc_outptut_[local_id],
+                             train_data_reader_->get_full_batchsize());
+      }
+    };
+
+    auto ebc_backward = [=, &ddl_output](embedding::Stage stage) {
+      for (auto& ebc : ebc_list_) {
+        ebc->backward_per_gpu(stage, local_id, ddl_output, train_ebc_outptut_[local_id],
+                              train_data_reader_->get_full_batchsize());
+      }
+    };
+
+    auto ebc_mp_model_forward = std::make_shared<StreamContextScheduleable>([=] {
+      ebc_forward(embedding::Stage::MPModelForward);
+      ebc_forward(embedding::Stage::HierMPModelForward);
+    });
+
+    auto ebc_mp_network_forward = std::make_shared<StreamContextScheduleable>([=] {
+      ebc_forward(embedding::Stage::MPNetworkdForward);
+      ebc_forward(embedding::Stage::HierMPNetworkForward);
+    });
+
+    auto ebc_mp_network_backward = std::make_shared<StreamContextScheduleable>([=]() {
+      ebc_backward(embedding::Stage::MPNetworkBackward);
+      ebc_backward(embedding::Stage::HierMPNetworkBackward);
+    });
+
+    auto ebc_mp_backward_index_calculation = std::make_shared<StreamContextScheduleable>([=] {
+      ebc_backward(embedding::Stage::MPBackwardIndexCalculation);
+      ebc_backward(embedding::Stage::HierMPBackwardIndexCalculation);
+    });
+
+    auto ebc_mp_local_reduce = std::make_shared<StreamContextScheduleable>([=]() {
+      ebc_backward(embedding::Stage::HierMPLocalReduce);
+      ebc_backward(embedding::Stage::MPLocalReduce);
+    });
+
+    auto ebc_mp_update = std::make_shared<StreamContextScheduleable>([=]() {
+      for (auto& ebc : ebc_list_) {
+        ebc->update_per_gpu(local_id, embedding::TablePlacementStrategy::ModelParallel);
+      }
+    });
+
+    auto ebc_dp_forward = std::make_shared<StreamContextScheduleable>(
+        [=] { ebc_forward(embedding::Stage::DPForward); });
+
+    auto ebc_dp_backward_index_calculation = std::make_shared<StreamContextScheduleable>(
+        [=] { ebc_backward(embedding::Stage::DPBackwardIndexCalculation); });
+
+    auto ebc_dp_local_reduce = std::make_shared<StreamContextScheduleable>(
+        [=]() { ebc_backward(embedding::Stage::DPLocalReduce); });
+
+    auto ebc_dp_allreduce = std::make_shared<StreamContextScheduleable>(
+        [=]() { ebc_backward(embedding::Stage::DPAllreduce); });
+
+    auto ebc_dp_update = std::make_shared<StreamContextScheduleable>([=]() {
+      for (auto& ebc : ebc_list_) {
+        ebc->update_per_gpu(local_id, embedding::TablePlacementStrategy::DataParallel);
+      }
+    });
+
+    auto network_init = std::make_shared<StreamContextScheduleable>([=] {
+      if (networks[local_id]->use_mixed_precision_ &&
+          networks[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
+        networks[local_id]->conv_weight_(networks[local_id]->train_weight_tensor_half_,
+                                         networks[local_id]->train_weight_tensor_);
+      }
+    });
+
+    auto bottom_network_fprop = std::make_shared<StreamContextScheduleable>([=] {
+      networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, true, is_train);
+    });
+
+    auto top_network_fprop = std::make_shared<StreamContextScheduleable>(
+        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, true, is_train); });
+
+    auto init_wgrad = std::make_shared<StreamContextScheduleable>([=] {
+      networks[local_id]->train_losses_.begin()->second->regularizer_initialize_wgrad(is_train);
+    });
+
+    auto cal_loss = std::make_shared<StreamContextScheduleable>([=] {
+      float rterm = networks[local_id]->train_losses_.begin()->second->regularizer_compute_rterm();
+      long long current_batchsize_per_device =
+          graph_.is_last_train_batch_
+              ? train_data_reader_->get_current_batchsize_per_device(local_id)
+              : train_data_reader_->get_full_batchsize() /
+                    resource_manager_->get_global_gpu_count();
+
+      networks[local_id]->train_losses_.begin()->second->compute(
+          is_train, current_batchsize_per_device, rterm);
+    });
+
+    auto top_network_bprop = std::make_shared<StreamContextScheduleable>(
+        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, false, is_train); });
+
+    auto bottom_network_bprop = std::make_shared<StreamContextScheduleable>([=] {
+      networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, false, is_train);
+    });
+
+    auto network_graph = std::make_shared<GraphScheduleable>(
+        network_init, bottom_network_fprop, top_network_fprop, init_wgrad, cal_loss,
+        top_network_bprop, bottom_network_bprop);
+
+    auto network_exchange_wgrad =
+        std::make_shared<StreamContextScheduleable>([=] { this->exchange_wgrad(local_id); });
+
+    auto update_params =
+        std::make_shared<StreamContextScheduleable>([=] { networks[local_id]->update_params(); });
+
+    auto sync_back = std::make_shared<StreamContextScheduleable>([] {});
+
+    if (solver_.train_intra_iteration_overlap) {
+      std::string dp_stream = "dp";
+      ebc_dp_forward->set_stream(dp_stream);
+      ebc_dp_backward_index_calculation->set_stream(dp_stream);
+      ebc_mp_backward_index_calculation->set_stream(dp_stream);
+      ebc_dp_local_reduce->set_stream(dp_stream);
+      ebc_dp_update->set_stream(dp_stream);
+
+      std::string mp_stream = "mp";
+      ebc_mp_model_forward->set_stream(mp_stream);
+      ebc_mp_network_forward->set_stream(mp_stream);
+      ebc_mp_network_backward->set_stream(mp_stream);
+      ebc_mp_local_reduce->set_stream(mp_stream);
+      ebc_mp_update->set_stream(mp_stream);
+
+      // dp_emb_forward, bmlp_fprop wait for mp_emb_model_forward
+      auto done_mp_model_forward = ebc_mp_model_forward->record_done();
+      ebc_dp_forward->wait_event({done_mp_model_forward});
+      bottom_network_fprop->wait_event({done_mp_model_forward}, use_graph);
+
+      // tmlp_fprop wait for embedding
+      auto done_mp_network_forward = ebc_mp_network_forward->record_done();
+      auto done_dp_forward = ebc_dp_forward->record_done();
+      top_network_fprop->wait_event({done_dp_forward, done_mp_network_forward}, use_graph);
+
+      // mp_emb_bck, dp_emb_bck wait for tmlp bprop
+      auto done_top_network_bprop = top_network_bprop->record_done(use_graph);
+      ebc_mp_network_backward->wait_event({done_top_network_bprop});
+      ebc_dp_local_reduce->wait_event({done_top_network_bprop});
+
+      // mp_local_reduce wait mp_backward_index_calculation
+      auto done_ebc_mp_backward_index_calculation =
+          ebc_mp_backward_index_calculation->record_done();
+      ebc_mp_local_reduce->wait_event({done_ebc_mp_backward_index_calculation});
+
+      // allreduce wait dp local reduce
+      auto done_ebc_dp_local_reduce = ebc_dp_local_reduce->record_done();
+      network_exchange_wgrad->wait_event({done_ebc_dp_local_reduce});
+
+      // dp update wait allreduce
+      auto done_ebc_dp_allreduce = ebc_dp_allreduce->record_done();
+      ebc_dp_update->wait_event({done_ebc_dp_allreduce});
+
+      // sync back
+      auto done_ebc_dp_update = ebc_dp_update->record_done();
+      auto done_ebc_mp_update = ebc_mp_update->record_done();
+      sync_back->wait_event({done_ebc_dp_update, done_ebc_mp_update});
+    }
+
+    if (!solver_.train_inter_iteration_overlap) {
+      std::vector<std::shared_ptr<Scheduleable>> scheduleable_list = {
+          distribute_data,
+          ebc_mp_model_forward,
+          ebc_mp_network_forward,
+          ebc_dp_forward,
+          network_graph,
+          ebc_mp_backward_index_calculation,
+          ebc_dp_backward_index_calculation,
+          ebc_mp_network_backward,
+          ebc_dp_local_reduce,
+          network_exchange_wgrad,
+          ebc_dp_allreduce,
+          update_params,
+          ebc_mp_local_reduce,
+          ebc_mp_update,
+          ebc_dp_update,
+          sync_back,
+      };
+      auto done_distribute_data = distribute_data->record_done();
+      ebc_mp_model_forward->wait_event({done_distribute_data});
+
+      graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    } else {
+      auto ebc_cache_train_ddl_output =
+          std::make_shared<StreamContextScheduleable>([=, &ddl_output] {
+            for (auto& ebc : ebc_list_) {
+              ebc->cache_ddl_output(local_id, train_ddl_output_[local_id], ddl_output,
+                                    train_data_reader_->get_full_batchsize());
+            }
+          });
+
+      auto copy_next_iter_network_input = std::make_shared<StreamContextScheduleable>([=]() {
+        if (skip_prefetch_in_last_batch(is_train)) return;
+
+        graph_.train_copy_ops_[local_id]->run();
+        graph_.train_copy_ops_[local_id + resource_manager_->get_local_gpu_count()]->run();
+      });
+
+      std::vector<std::shared_ptr<Scheduleable>> scheduleable_list = {
+          ebc_cache_train_ddl_output,
+          ebc_mp_model_forward,
+          ebc_mp_network_forward,
+          ebc_dp_forward,
+          network_graph,
+          ebc_mp_backward_index_calculation,
+          ebc_dp_backward_index_calculation,
+          distribute_data,
+          ebc_mp_network_backward,
+          ebc_dp_local_reduce,
+          network_exchange_wgrad,
+          ebc_dp_allreduce,
+          update_params,
+          ebc_mp_local_reduce,
+          ebc_mp_update,
+          ebc_dp_update,
+          sync_back,
+          copy_next_iter_network_input,
+      };
+      std::string prefetch_stream = "prefetch";
+
+      auto done_ebc_cache_train_ddl_output = ebc_cache_train_ddl_output->record_done();
+      ebc_mp_model_forward->wait_event({done_ebc_cache_train_ddl_output});
+
+      distribute_data->set_absolute_stream(prefetch_stream);
+      distribute_data->wait_event({done_ebc_cache_train_ddl_output});
+
+      auto done_distribute_data = distribute_data->record_done();
+      ebc_cache_train_ddl_output->wait_event({done_distribute_data});
+      graph_.train_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    }
+  }
+}
+
+void Model::train_pipeline_with_ebc() {
+  if (graph_.is_first_train_batch_ && solver_.train_inter_iteration_overlap) {
+#pragma omp parallel num_threads(number_of_networks())
+    {
+      size_t id = omp_get_thread_num();
+      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      HCTR_CHECK(solver_.use_embedding_collection);
+      if (is_scheduled_datareader()) {
+        auto sparse_dp_tensors =
+            core_helper::current_sparse_tensors_to_core23_tensors(train_data_reader_.get(), id);
+        train_data_distributor_->distribute(id, sparse_dp_tensors, {}, train_ddl_output_[id],
+                                            train_data_reader_->get_full_batchsize());
+
+      } else {
+        train_data_distributor_->distribute(id, train_ebc_key_list_[id],
+                                            train_ebc_bucket_range_list_[id], train_ddl_output_[id],
+                                            train_data_reader_->get_full_batchsize());
+      }
+      graph_.train_copy_ops_[id]->run();
+      graph_.train_copy_ops_[id + resource_manager_->get_local_gpu_count()]->run();
+
+      HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
+    }
+
+    if (!graph_.is_last_eval_batch_) {
+      bool is_train = true;
+
+      long long current_batchsize = read_a_batch(is_train);
+      if (!current_batchsize) return;
+    }
+  }
+
+  const bool use_graph = solver_.use_cuda_graph && !train_data_reader_->current_batch_incomplete();
+
+#pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
+  {
+    int id = omp_get_thread_num();
+    auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
+    CudaCPUDeviceContext context(device_id);
+
+    if (use_graph) {
+      graph_.train_pipeline_[id].run_graph();
+    } else {
+      graph_.train_pipeline_[id].run();
+    }
+  }
+}
+
+template <typename Network>
+void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks) {
+  bool is_train = false;
+  //  bool use_graph = solver_.use_cuda_graph;
+  graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
+
+#pragma omp parallel for num_threads(resource_manager_->get_local_gpu_count())
+  for (int local_id = 0; local_id < static_cast<int>(resource_manager_->get_local_gpu_count());
+       local_id++) {
+    auto gpu_resource = resource_manager_->get_local_gpu(local_id);
+    CudaCPUDeviceContext context(gpu_resource->get_device_id());
+
+    auto eval_data_distribute = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_prefetch_in_last_batch(is_train)) return;
+      if (is_scheduled_datareader()) {
+        auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core23_tensors(
+            evaluate_data_reader_.get(), local_id);
+        eval_data_distributor_->distribute(local_id, sparse_dp_tensors, {},
+                                           evaluate_ddl_output_[local_id],
+                                           evaluate_data_reader_->get_current_batchsize());
+      } else {
+        eval_data_distributor_->distribute(
+            local_id, evaluate_ebc_key_list_[local_id], evaluate_ebc_bucket_range_list_[local_id],
+            evaluate_ddl_output_[local_id], evaluate_data_reader_->get_current_batchsize());
+      }
+    });
+
+    DataDistributor::Result& ddl_output = solver_.eval_inter_iteration_overlap
+                                              ? cache_evaluate_ddl_output_[local_id]
+                                              : evaluate_ddl_output_[local_id];
+
+    auto ebc_forward = [=, &ddl_output](embedding::Stage stage) {
+      for (auto& ebc : ebc_list_) {
+        ebc->forward_per_gpu(stage, is_train, local_id, ddl_output, evaluate_ebc_outptut_[local_id],
+                             evaluate_data_reader_->get_full_batchsize());
+      }
+    };
+
+    auto ebc_mp_model_forward = std::make_shared<StreamContextScheduleable>([=] {
+      ebc_forward(embedding::Stage::MPModelForward);
+      ebc_forward(embedding::Stage::HierMPModelForward);
+    });
+
+    auto ebc_mp_network_forward = std::make_shared<StreamContextScheduleable>([=] {
+      ebc_forward(embedding::Stage::MPNetworkdForward);
+      ebc_forward(embedding::Stage::HierMPNetworkForward);
+    });
+
+    auto ebc_dp_forward = std::make_shared<StreamContextScheduleable>(
+        [=] { ebc_forward(embedding::Stage::DPForward); });
+
+    auto network_eval = std::make_shared<StreamContextScheduleable>([=] {
+      long long current_batchsize_per_device =
+          graph_.is_last_eval_batch_
+              ? evaluate_data_reader_->get_current_batchsize_per_device(local_id)
+              : evaluate_data_reader_->get_full_batchsize() /
+                    resource_manager_->get_global_gpu_count();
+      networks[local_id]->eval(current_batchsize_per_device);
+    });
+    auto network_graph = std::make_shared<GraphScheduleable>(network_eval);
+
+    auto cal_metrics = std::make_shared<StreamContextScheduleable>([=] {
+      for (auto& metric : metrics_) {
+        auto metric_map = networks[local_id]->get_raw_metrics_all().begin()->second;
+        metric->local_reduce(local_id, metric_map);
+      }
+    });
+
+    if (!solver_.eval_inter_iteration_overlap) {
+      graph_.evaluate_pipeline_[local_id] =
+          Pipeline{"default",
+                   gpu_resource,
+                   {eval_data_distribute, ebc_mp_model_forward, ebc_mp_network_forward,
+                    ebc_dp_forward, network_graph, cal_metrics}};
+    } else {
+      auto ebc_cache_eval_ddl_output =
+          std::make_shared<StreamContextScheduleable>([=, &ddl_output] {
+            for (auto& ebc : ebc_list_) {
+              ebc->cache_ddl_output(local_id, evaluate_ddl_output_[local_id], ddl_output,
+                                    evaluate_data_reader_->get_full_batchsize());
+            }
+          });
+
+      auto copy_next_iter_network_input = std::make_shared<StreamContextScheduleable>([=]() {
+        if (skip_prefetch_in_last_batch(is_train)) return;
+
+        graph_.evaluate_copy_ops_[local_id]->run();
+        graph_.evaluate_copy_ops_[local_id + resource_manager_->get_local_gpu_count()]->run();
+      });
+
+      std::vector<std::shared_ptr<Scheduleable>> scheduleable_list = {
+          ebc_cache_eval_ddl_output,
+          ebc_mp_model_forward,
+          eval_data_distribute,
+          ebc_mp_network_forward,
+          ebc_dp_forward,
+          network_graph,
+          cal_metrics,
+          copy_next_iter_network_input,
+      };
+
+      //      ebc_mp_network_forward->set_stream("side_stream");
+      //      ebc_dp_forward->set_stream("side_stream");
+      //      network_eval->set_stream("side_stream");
+      //      cal_metrics->set_stream("side_stream");
+
+      eval_data_distribute->set_absolute_stream("prefetch");
+
+      auto done_ebc_cache_eval_ddl_output = ebc_cache_eval_ddl_output->record_done();
+      eval_data_distribute->wait_event({done_ebc_cache_eval_ddl_output});
+
+      auto done_eval_data_distribute = eval_data_distribute->record_done();
+      ebc_cache_eval_ddl_output->wait_event({done_eval_data_distribute});
+
+      //      auto done_ebc_mp_model_forward = ebc_mp_model_forward->record_done();
+      //      ebc_mp_network_forward->wait_event({done_ebc_mp_model_forward});
+      //
+      //      auto done_cal_metrics = cal_metrics->record_done();
+      //      copy_next_iter_network_input->wait_event({done_cal_metrics});
+      graph_.evaluate_pipeline_[local_id] = Pipeline{"default", gpu_resource, scheduleable_list};
+    }
+  }
+}
+
+void Model::evaluate_pipeline_with_ebc() {
+  if (graph_.is_first_eval_batch_ && solver_.eval_inter_iteration_overlap) {
+#pragma omp parallel num_threads(number_of_networks())
+    {
+      size_t id = omp_get_thread_num();
+      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      if (is_scheduled_datareader()) {
+        auto sparse_dp_tensors =
+            core_helper::current_sparse_tensors_to_core23_tensors(evaluate_data_reader_.get(), id);
+        eval_data_distributor_->distribute(id, sparse_dp_tensors, {}, evaluate_ddl_output_[id],
+                                           evaluate_data_reader_->get_current_batchsize());
+      } else {
+        eval_data_distributor_->distribute(
+            id, evaluate_ebc_key_list_[id], evaluate_ebc_bucket_range_list_[id],
+            evaluate_ddl_output_[id], evaluate_data_reader_->get_current_batchsize());
+      }
+      graph_.evaluate_copy_ops_[id]->run();
+      graph_.evaluate_copy_ops_[id + resource_manager_->get_local_gpu_count()]->run();
+      HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
+    }
+
+    // in case we only have 1 batch in eval
+    if (!graph_.is_last_eval_batch_) {
+      bool is_train = false;
+      long long current_batchsize = read_a_batch(is_train);
+      if (!current_batchsize) return;
+    }
+  }
+
+  const bool use_graph =
+      solver_.use_cuda_graph && !evaluate_data_reader_->current_batch_incomplete();
+
+#pragma omp parallel num_threads(number_of_networks())
+  {
+    size_t id = omp_get_thread_num();
+    auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
+    CudaCPUDeviceContext context(device_id);
+
+    if (use_graph) {
+      graph_.evaluate_pipeline_[id].run_graph();
+    } else {
+      graph_.evaluate_pipeline_[id].run();
+    }
+  }
+
+  for (auto& metric : metrics_) {
+    metric->global_reduce(number_of_networks());
+  }
+}
+
 template void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>&);
 template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>&);
 template void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&);
 template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_train_pipeline_with_ebc(
+    std::vector<std::shared_ptr<Network>>& networks);
+template void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>&);
 
 template void Model::create_train_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
 template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
 template void Model::create_train_network_pipeline(
     std::vector<std::shared_ptr<Core23TempNetwork>>&);
 template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
+template void Model::create_train_pipeline_with_ebc(
+    std::vector<std::shared_ptr<Core23TempNetwork>>& networks);
+template void Model::create_evaluate_pipeline_with_ebc(
+    std::vector<std::shared_ptr<Core23TempNetwork>>&);
 
 }  // namespace HugeCTR

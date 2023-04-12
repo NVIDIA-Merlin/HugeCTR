@@ -128,6 +128,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
 
   int total_max_sparse_dim = 0;
   bool sample_len_fixed = true;
+  // FIXME: duplicate logic in Model::add(Input&)
   if (input.labels_.size() > 1) {
     top_strs_label = "combined_multi_label";
   }
@@ -329,17 +330,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
       evaluate_tensor_entries_list[i].push_back(
           {top_strs_label, schedulable_eval_reader->get_label_tensors()[i]});
 
-      //        if (use_mixed_precision) {
       train_tensor_entries_list[i].push_back(
           {top_strs_dense, schedulable_train_reader->get_dense_tensors()[i]});
       evaluate_tensor_entries_list[i].push_back(
           {top_strs_dense, schedulable_eval_reader->get_dense_tensors()[i]});
-      //        } else {
-      //            train_tensor_entries_list[i].push_back(
-      //                      {top_strs_dense, schedulable_train_reader->get_dense_tensors()[i]});
-      //            evaluate_tensor_entries_list[i].push_back(
-      //                      {top_strs_dense, schedulable_eval_reader->get_dense_tensors()[i]});
-      //        }
     }
 
     return;
@@ -495,17 +489,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
       evaluate_tensor_entries_list[i].push_back(
           {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
 
-      if (use_mixed_precision) {
-        train_tensor_entries_list[i].push_back(
-            {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
-        evaluate_tensor_entries_list[i].push_back(
-            {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
-      } else {
-        train_tensor_entries_list[i].push_back(
-            {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
-        evaluate_tensor_entries_list[i].push_back(
-            {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
-      }
+      train_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
     }
 
     for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {

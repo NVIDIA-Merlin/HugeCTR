@@ -184,9 +184,9 @@ inline void ftrl_update_grad(uint32_t idx, const uint32_t* ev_offsets, float lr,
   for (uint32_t i = start; i < end; ++i) {
     float gi = g[i] / scaler;
     float ni = n[i];
-    float ni_prev_sqrt = std::sqrt(ni);
+    float ni_prev_sqrt = std::sqrt(ni + FLT_EPSILON);
     n[i] = ni = ni + gi * gi;
-    float ni_sqrt = std::sqrt(ni);
+    float ni_sqrt = std::sqrt(ni + FLT_EPSILON);
     float sigma = (ni_sqrt - ni_prev_sqrt) / lr;
     float wi = w[i];
     float zi = z[i] = z[i] + gi - sigma * wi;

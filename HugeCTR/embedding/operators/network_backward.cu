@@ -25,7 +25,7 @@ namespace embedding {
 using namespace core;
 namespace {
 
-void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_range,
+void network_backward_from_feature_major_top_grad(const core23::Tensor& dp_num_keys_per_bucket,
                                                   const EmbeddingOutput& top_grad,
                                                   const NetworkIndices& network_indices,
                                                   const HugeCTR::core23::KernelParams kernel_params,
@@ -36,10 +36,10 @@ void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_r
   int batch_size_per_gpu = batch_size / num_gpus;
   int max_ev_size = top_grad_attr.max_ev_size;
 
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_num_keys_per_bucket.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(top_grad.data.data_type().type(), emb_t, [&] {
       DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_attr.type.type(), dst_emb_t, [&] {
-        const offset_t* bucket_range_ptr = bucket_range.data<offset_t>();
+        const offset_t* dp_num_keys_per_bucket_ptr = dp_num_keys_per_bucket.data<offset_t>();
         const int* network_ids_ptr = network_indices.network_ids.data<int>();
         const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.data<int>();
         const int* network_offsets_ptr = network_indices.network_offsets.data<int>();
@@ -65,8 +65,8 @@ void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_r
               int lookup_id = network_dst_lookup_ids_ptr[i % num_network_dst_lookup_ids];
 
               if (combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)) {
-                int start = batch_size * lookup_id + gpu_id * batch_size_per_gpu + bid;
-                return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
+                int idx = batch_size_per_gpu * lookup_id + +bid;
+                return static_cast<int>(dp_num_keys_per_bucket_ptr[idx]);
               } else {
                 return 1;
               }
@@ -101,7 +101,7 @@ void network_backward_from_feature_major_top_grad(const core23::Tensor& bucket_r
   });
 }
 
-void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_range,
+void network_backward_from_batch_major_top_grad(const core23::Tensor& dp_num_keys_per_bucket,
                                                 const EmbeddingOutput& top_grad,
                                                 const NetworkIndices& network_indices,
                                                 const HugeCTR::core23::KernelParams kernel_params,
@@ -113,10 +113,10 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_ran
   int max_ev_size = top_grad_attr.max_ev_size;
   int num_lookup = top_grad_attr.id_to_ev_size.num_elements();
 
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_num_keys_per_bucket.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(top_grad.data.data_type().type(), emb_t, [&] {
       DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_attr.type.type(), dst_emb_t, [&] {
-        const offset_t* bucket_range_ptr = bucket_range.data<offset_t>();
+        const offset_t* dp_num_keys_per_bucket_ptr = dp_num_keys_per_bucket.data<offset_t>();
         const int* network_ids_ptr = network_indices.network_ids.data<int>();
         const int* network_gpu_ids_ptr = network_indices.network_gpu_ids.data<int>();
         const int* network_offsets_ptr = network_indices.network_offsets.data<int>();
@@ -142,8 +142,8 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_ran
               int lookup_id = network_dst_lookup_ids_ptr[i % num_network_dst_lookup_ids];
 
               if (combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)) {
-                int start = batch_size * lookup_id + gpu_id * batch_size_per_gpu + bid;
-                return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
+                int idx = batch_size_per_gpu * lookup_id + bid;
+                return static_cast<int>(dp_num_keys_per_bucket_ptr[idx]);
               } else {
                 return 1;
               }
@@ -179,7 +179,8 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& bucket_ran
 }
 
 }  // namespace
-void NetworkBackward::compute(const core23::Tensor& bucket_range, const EmbeddingOutput& top_grad,
+void NetworkBackward::compute(const core23::Tensor& dp_num_keys_per_bucket,
+                              const EmbeddingOutput& top_grad,
                               const NetworkIndices& network_indices, NetworkBuffer& network_buffer,
                               int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
@@ -188,12 +189,12 @@ void NetworkBackward::compute(const core23::Tensor& bucket_range, const Embeddin
   int num_gpus = core_->get_global_gpu_count();
 
   if (top_grad.attr.layout == EmbeddingLayout::FeatureMajor) {
-    network_backward_from_feature_major_top_grad(bucket_range, top_grad, network_indices,
+    network_backward_from_feature_major_top_grad(dp_num_keys_per_bucket, top_grad, network_indices,
                                                  core_->get_kernel_param(), network_buffer,
                                                  batch_size, gpu_id, num_gpus, stream);
   } else {
     HCTR_ASSERT(top_grad.attr.layout == EmbeddingLayout::BatchMajor);
-    network_backward_from_batch_major_top_grad(bucket_range, top_grad, network_indices,
+    network_backward_from_batch_major_top_grad(dp_num_keys_per_bucket, top_grad, network_indices,
                                                core_->get_kernel_param(), network_buffer,
                                                batch_size, gpu_id, num_gpus, stream);
   }

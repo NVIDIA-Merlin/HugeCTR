@@ -98,6 +98,8 @@ class DataReader : public IDataReader {
 
   long long get_current_batchsize_per_device(size_t local_id) override;
 
+  long long get_current_batchsize() override { return current_batchsize_; }
+
   long long get_full_batchsize() const override;
 
   bool current_batch_incomplete() const override;
@@ -170,6 +172,7 @@ class DataReader : public IDataReader {
   long long read_a_batch_to_device_delay_release() override;
   void ready_to_collect() override;
   long long get_current_batchsize_per_device(size_t local_id) override;
+  long long get_current_batchsize() override { return current_batchsize_; }
   long long get_full_batchsize() const override;
   bool current_batch_incomplete() const override;
   bool is_started() const override;
