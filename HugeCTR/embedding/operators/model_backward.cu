@@ -44,6 +44,25 @@ __global__ void mp_cal_src_ptrs(const T** src_ptr, const uint32_t* src_ids_ptr, 
   return;
 }
 
+template <typename T>
+__global__ void mp_cal_src_ptrs_same_ev_size(const T** src_ptr, const uint32_t* src_ids_ptr,
+                                             int batch_size, int batch_size_per_gpu,
+                                             const size_t num_keys, const int ev_size,
+                                             const int* src_id_to_ev_start_indices_ptr,
+                                             T** src_ptrs) {
+  CUDA_1D_KERNEL_LOOP(i, num_keys) {
+    uint32_t bucket_id = src_ids_ptr[i];
+    int embedding_id = bucket_id / batch_size;
+    int batch_id = bucket_id % batch_size;
+    int gpu_id = batch_id / batch_size_per_gpu;
+    int local_batch_id = batch_id % batch_size_per_gpu;
+    src_ptrs[i] = const_cast<T*>(src_ptr[gpu_id] +
+                                 batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+                                 local_batch_id * ev_size);
+  }
+  return;
+}
+
 void LocalReduce::init(std::shared_ptr<CoreResourceManager> core, int max_ev_size,
                        size_t max_input_num) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
@@ -120,46 +139,88 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
   const int* dst_table_ids_ptr = wgrad.table_ids.data<int>();
   const uint32_t* dst_ev_start_indices_ptr = wgrad.ev_start_indices.data<uint32_t>();
   const uint32_t* dst_ids_ptr = reduction_indices.dst_ids.data<uint32_t>();
+  if (wgrad.attr.is_same_ev_size) {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+        const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
+        grad_t* dst_ptr = wgrad.data.data<grad_t>();
+        emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
 
-  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
-      const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
-      grad_t* dst_ptr = wgrad.data.data<grad_t>();
-      emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
+        mp_cal_src_ptrs_same_ev_size<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
+            src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
+            wgrad.attr.same_ev_size, src_id_to_ev_start_indices_ptr, src_ptrs);
 
-      mp_cal_src_ptrs<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
-          src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
-          src_id_to_ev_size_ptr, src_id_to_ev_start_indices_ptr, src_ptrs);
-
-      auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
-          [=] __device__() { return reduction_indices.num_elements; },
-          [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
-          [=] __device__(int i) { return dst_ids_ptr[i]; },
-          [=] __device__(int i) {
-            // model buffer bucket id layout:
-            // gpu i:
-            //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu | ...
-            //   | i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
-            // uint32_t bucket_id = src_ids_ptr[i];
-            // int embedding_id = bucket_id / batch_size;
-            // int batch_id = bucket_id % batch_size;
-            // int gpu_id = batch_id / batch_size_per_gpu;
-            // int local_batch_id = batch_id % batch_size_per_gpu;
-            // int ev_size = src_id_to_ev_size_ptr[i];
-            // return src_ptr[gpu_id] +
-            //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
-            //       local_batch_id * ev_size;
-            return src_ptrs[i];
-          },
-          [=] __device__(int i) {
-            auto tmp_index = dst_ids_ptr[i];
-            return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
-          });
-      multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
-                             core_->get_kernel_param(), partial_reduce_result_, wgrad,
-                             src_buffer.attr.max_ev_size, stream);
+        auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
+            [=] __device__() { return reduction_indices.num_elements; },
+            [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
+            [=] __device__(int i) { return dst_ids_ptr[i]; },
+            [=] __device__(int i) {
+              // model buffer bucket id layout:
+              // gpu i:
+              //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu |
+              //   ... | i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
+              // uint32_t bucket_id = src_ids_ptr[i];
+              // int embedding_id = bucket_id / batch_size;
+              // int batch_id = bucket_id % batch_size;
+              // int gpu_id = batch_id / batch_size_per_gpu;
+              // int local_batch_id = batch_id % batch_size_per_gpu;
+              // int ev_size = src_id_to_ev_size_ptr[i];
+              // return src_ptr[gpu_id] +
+              //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+              //       local_batch_id * ev_size;
+              return src_ptrs[i];
+            },
+            [=] __device__(int i) {
+              auto tmp_index = dst_ids_ptr[i];
+              return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+            });
+        multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
+                               core_->get_kernel_param(), partial_reduce_result_, wgrad,
+                               src_buffer.attr.max_ev_size, stream);
+      });
     });
-  });
+
+  } else {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data.data_type().type(), grad_t, [&] {
+        const emb_t** src_ptr = (const emb_t**)src_buffer.data.data();
+        grad_t* dst_ptr = wgrad.data.data<grad_t>();
+        emb_t** src_ptrs = (emb_t**)this->partial_reduce_result_.src_ptrs.data();
+
+        mp_cal_src_ptrs<<<core_->get_kernel_param().num_sms * 8, 256, 0, stream>>>(
+            src_ptr, src_ids_ptr, batch_size, batch_size_per_gpu, reduction_indices.num_elements,
+            src_id_to_ev_size_ptr, src_id_to_ev_start_indices_ptr, src_ptrs);
+
+        auto multi_to_one_desc_first_stage = make_MultiToOne_reduce_new<emb_t, grad_t>(
+            [=] __device__() { return reduction_indices.num_elements; },
+            [=] __device__(int i) { return src_id_to_ev_size_ptr[i]; },
+            [=] __device__(int i) { return dst_ids_ptr[i]; },
+            [=] __device__(int i) {
+              // model buffer bucket id layout:
+              // gpu i:
+              //   0, ..., batch_size_per_gpu | batch_size, ..., batch_size + batch_size_per_gpu |
+              //   ... | i * batch_size, ..., i * batch_size + batch_size_per_gpu | ...
+              // uint32_t bucket_id = src_ids_ptr[i];
+              // int embedding_id = bucket_id / batch_size;
+              // int batch_id = bucket_id % batch_size;
+              // int gpu_id = batch_id / batch_size_per_gpu;
+              // int local_batch_id = batch_id % batch_size_per_gpu;
+              // int ev_size = src_id_to_ev_size_ptr[i];
+              // return src_ptr[gpu_id] +
+              //       batch_size_per_gpu * src_id_to_ev_start_indices_ptr[embedding_id] +
+              //       local_batch_id * ev_size;
+              return src_ptrs[i];
+            },
+            [=] __device__(int i) {
+              auto tmp_index = dst_ids_ptr[i];
+              return dst_ptr + dst_ev_start_indices_ptr[tmp_index];
+            });
+        multi_to_one_reduce_v2(multi_to_one_desc_first_stage, reduction_indices,
+                               core_->get_kernel_param(), partial_reduce_result_, wgrad,
+                               src_buffer.attr.max_ev_size, stream);
+      });
+    });
+  }
 }
 
 void dp_local_reduce_from_feature_major_top_grad(

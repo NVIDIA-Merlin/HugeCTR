@@ -41,8 +41,10 @@ void MPLocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput& e
   auto cal_ev_start_indices_in_local_wgrad = [&](const WgradEvStartIndicesCalculationInput& input,
                                                  WgradEvStartIndicesCalculationOutput& output,
                                                  cudaStream_t stream) {
-    cal_dst_offset_mp_(input.table_ids, input.table_id_to_ev_size, input.num_unique_keys,
-                       output.ev_start_indices, core_, stream);
+    if (!wgrad.attr.is_same_ev_size) {
+      cal_dst_offset_mp_(input.table_ids, input.table_id_to_ev_size, input.num_unique_keys,
+                         output.ev_start_indices, core_, stream);
+    }
   };
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, sort_op_, segmented_unique_,
                                                        cal_dst_ids_, reduction_indices, wgrad,

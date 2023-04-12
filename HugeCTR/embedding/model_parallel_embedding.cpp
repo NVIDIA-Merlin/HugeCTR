@@ -59,6 +59,7 @@ UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
     h_local_lookup_id_list_.push_back(lookup_id);
     h_local_ev_size_list_.push_back(ev_size);
   }
+
   std::partial_sum(h_ev_size_list_.begin(), h_ev_size_list_.end(),
                    std::back_inserter(h_ev_size_offset_));
   d_ev_size_offset_ = core23::Tensor(params.shape({static_cast<int64_t>(h_ev_size_offset_.size())})
