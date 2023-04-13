@@ -50,6 +50,9 @@ REGISTER_OP("DummyVarSparseRead")
     .SetShapeFn([](InferenceContext* c) {
       // Get handle.shape[1]
       auto handle_shapes_and_types = c->input_handle_shapes_and_types(0);
+      if (handle_shapes_and_types == nullptr) {
+          return Status::OK();
+      }
       auto handle_shape = (*handle_shapes_and_types)[0].shape;
       ShapeHandle handle_shape_1;
       TF_RETURN_IF_ERROR(c->Subshape(handle_shape, 1, 2, &handle_shape_1));
@@ -70,6 +73,9 @@ namespace {
 Status DummyVarScatterShapeFn(InferenceContext* c) {
   // Get handle.shape[1]
   auto handle_shapes_and_types = c->input_handle_shapes_and_types(0);
+  if (handle_shapes_and_types == nullptr) {
+      return Status::OK();
+  }
   auto handle_shape = (*handle_shapes_and_types)[0].shape;
   ShapeHandle handle_shape_1;
   TF_RETURN_IF_ERROR(c->Subshape(handle_shape, 1, 2, &handle_shape_1));
