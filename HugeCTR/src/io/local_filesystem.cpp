@@ -30,7 +30,7 @@ LocalFileSystem::~LocalFileSystem() {}
 
 size_t LocalFileSystem::get_file_size(const std::string& path) const {
   std::ifstream file_stream(path);
-  HCTR_CHECK_HINT(file_stream.is_open(), std::string("File not open: " + path).c_str());
+  HCTR_CHECK_HINT(file_stream.is_open(), "File not open: ", path);
   file_stream.close();
   return std::filesystem::file_size(path);
 }
@@ -38,7 +38,7 @@ size_t LocalFileSystem::get_file_size(const std::string& path) const {
 void LocalFileSystem::create_dir(const std::string& path) {
   if (!std::filesystem::exists(path)) {
     bool success = std::filesystem::create_directories(path);
-    HCTR_CHECK_HINT(success, std::string("Failed to create the directory: " + path).c_str());
+    HCTR_CHECK_HINT(success, "Failed to create the directory: ", path);
   }
 }
 
@@ -60,13 +60,11 @@ int LocalFileSystem::write(const std::string& path, const void* const data, cons
   }
   if (overwrite) {
     std::ofstream file_stream(path, std::ofstream::binary);
-    HCTR_CHECK_HINT(file_stream.is_open(),
-                    std::string("File not open for writing: " + path).c_str());
+    HCTR_CHECK_HINT(file_stream.is_open(), "File not open for writing: ", path);
     file_stream.write(reinterpret_cast<const char*>(data), data_size);
   } else {
     std::ofstream file_stream(path, std::ofstream::binary | std::ofstream::app);
-    HCTR_CHECK_HINT(file_stream.is_open(),
-                    std::string("File not open for appending: " + path).c_str());
+    HCTR_CHECK_HINT(file_stream.is_open(), "File not open for appending: ", path);
     file_stream.write(reinterpret_cast<const char*>(data), data_size);
   }
   return data_size;
@@ -75,7 +73,7 @@ int LocalFileSystem::write(const std::string& path, const void* const data, cons
 int LocalFileSystem::read(const std::string& path, void* const buffer, const size_t buffer_size,
                           const size_t offset) {
   std::ifstream file_stream(path);
-  HCTR_CHECK_HINT(file_stream.is_open(), std::string("File not open for reading: " + path).c_str());
+  HCTR_CHECK_HINT(file_stream.is_open(), "File not open for reading: ", path);
   file_stream.seekg(offset);
   file_stream.read(reinterpret_cast<char*>(buffer), buffer_size);
   int num_bytes_read;

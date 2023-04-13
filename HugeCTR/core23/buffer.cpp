@@ -25,11 +25,10 @@ namespace HugeCTR {
 namespace core23 {
 
 Buffer::~Buffer() {
-  HCTR_THROW_IF(served_client_requirements_.size() != 0 || new_client_requirements_.size() != 0,
-                HugeCTR::Error_t::IllegalCall,
-                "There must be no remaining clients in destructing a Buffer");
-  HCTR_THROW_IF(client_offsets_.size() != 0, HugeCTR::Error_t::IllegalCall,
-                "The ClientOffset must be empty in destructing a Buffer");
+  HCTR_CHECK_HINT(served_client_requirements_.size() == 0 && new_client_requirements_.size() == 0,
+                  "There must be no remaining clients in destructing a Buffer");
+  HCTR_CHECK_HINT(client_offsets_.size() == 0,
+                  "The ClientOffset must be empty in destructing a Buffer");
 }
 
 void Buffer::subscribe(BufferClient* client, BufferRequirements requirements) {

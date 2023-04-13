@@ -283,10 +283,10 @@ inline uint64_t rrxmrrxmsx_0(uint64_t x) {
 #ifdef HCTR_ROCKSDB_CHECK
 #error HCTR_ROCKSDB_CHECK is already defined. This could lead to unpredictable behavior!
 #endif
-#define HCTR_ROCKSDB_CHECK(EXPR)                                                  \
-  do {                                                                            \
-    const rocksdb::Status status{(EXPR)};                                         \
-    HCTR_CHECK_HINT(status.ok(), "RocksDB error: %s", status.ToString().c_str()); \
+#define HCTR_ROCKSDB_CHECK(EXPR)                                        \
+  do {                                                                  \
+    const rocksdb::Status status{(EXPR)};                               \
+    HCTR_CHECK_HINT(status.ok(), "RocksDB error: ", status.ToString()); \
   } while (0)
 
 // TODO: Remove me!

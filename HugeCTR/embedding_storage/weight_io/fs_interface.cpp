@@ -69,7 +69,7 @@ void EmbeddingWeightIOMpi::delete_dir(const std::string& path) {
 
 size_t EmbeddingWeightIOMpi::get_file_size(const std::string& path) {
   std::ifstream file_stream(path);
-  HCTR_CHECK_HINT(file_stream.is_open(), std::string("File not open: " + path).c_str());
+  HCTR_CHECK_HINT(file_stream.is_open(), "File not open: ", path);
   file_stream.close();
   return std::filesystem::file_size(path);
 }

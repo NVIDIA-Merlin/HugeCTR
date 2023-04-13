@@ -262,7 +262,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
       // int num_blocks_per_batch = max_nr_requests_user / max_num_batches - 2;
 
       HCTR_CHECK_HINT(io_block_size % io_alignment == 0,
-                      " params_.io_block_size \% params_.io_alignment != 0");
+                      " params_.io_block_size % params_.io_alignment != 0");
 
       HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
       HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread

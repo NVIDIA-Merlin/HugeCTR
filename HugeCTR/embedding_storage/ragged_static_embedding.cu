@@ -397,8 +397,8 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
         size_t num_elements = h_emb_table_ev_offset_[i + 1] - h_emb_table_ev_offset_[i];
 
         HCTR_CHECK_HINT(max_sequence_len * ev_size == static_cast<int>(num_elements),
-                        "max_sequent_len * ev_size %d should equal to num_elements %d",
-                        max_sequence_len * ev_size, static_cast<int>(num_elements));
+                        "max_sequent_len * ev_size ", max_sequence_len * ev_size,
+                        " should equal to num_elements ", num_elements);
         HugeCTR::SinusoidalGenerator::fill(emb_table_.data<float>() + offset, num_elements, ev_size,
                                            max_sequence_len, gpu_resource.get_sm_count(),
                                            gpu_resource.get_stream());

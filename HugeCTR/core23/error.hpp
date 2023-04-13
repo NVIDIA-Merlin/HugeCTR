@@ -45,7 +45,43 @@
       throw HugeCTR::core23::RuntimeError(err, HCTR_CODE_REFERENCE_(EXPR),               \
                                           HugeCTR::core23::to_error_string(_expr_eval)); \
     }                                                                                    \
-  } while (0);
+  } while (0)
+
+/**
+ * Because MPI error code is `int`, it is safe to have a separate macro for MPI,
+ * rather than reserving `int` as MPI error type. We don't want this set of macros
+ * to become another source of errors.
+ */
+#ifdef HCTR_MPI_THROW
+#error HCTR_MPI_THROW already defined. Potential naming conflict!
+#endif
+#define HCTR_MPI_THROW(EXPR)                                                                      \
+  do {                                                                                            \
+    const auto& _expr_eval{(EXPR)};                                                               \
+    int err{_expr_eval};                                                                          \
+    if (err != MPI_SUCCESS) {                                                                     \
+      char msg_buffer[MPI_MAX_ERROR_STRING];                                                      \
+      int msg_len{MPI_MAX_ERROR_STRING};                                                          \
+      err = MPI_Error_string(err, msg_buffer, &msg_len);                                          \
+      const char* const msg{err == MPI_SUCCESS ? msg_buffer : "Unknown MPI error!"};              \
+      throw HugeCTR::core23::RuntimeError(HugeCTR::Error_t::MpiError, HCTR_CODE_REFERENCE_(EXPR), \
+                                          msg);                                                   \
+    }                                                                                             \
+  } while (0)
+
+/**
+ * Macro to emit an exception if the supplied expression does not evaluate true.
+ */
+#ifdef HCTR_THROW_IF
+#error HCTR_THROW_IF already defined. Potential naming conflict!
+#endif
+#define HCTR_THROW_IF(EXPR, ERROR, ...)                                                    \
+  do {                                                                                     \
+    if ((EXPR)) {                                                                          \
+      throw HugeCTR::core23::RuntimeError((ERROR), HCTR_CODE_REFERENCE_(EXPR),             \
+                                          HugeCTR::core23::hctr_render_args(__VA_ARGS__)); \
+    }                                                                                      \
+  } while (0)
 
 namespace HugeCTR {
 
@@ -275,6 +311,27 @@ class RuntimeError : public std::runtime_error {
  */
 [[nodiscard]] inline const char* to_error_string(const nvmlReturn_t r) {
   return nvmlErrorString(r);
+}
+
+inline const char* hctr_render_args() { return ""; }
+
+inline const char* hctr_render_args(const char* const arg0) { return arg0; }
+
+inline const std::string& hctr_render_args(const std::string& arg0) { return arg0; }
+
+template <typename Arg0>
+inline std::string hctr_render_args(const Arg0& arg0) {
+  std::ostringstream os;
+  os << arg0;
+  return os.str();
+}
+
+template <typename Arg0, typename... Args>
+inline std::string hctr_render_args(const Arg0& arg0, Args&&... args) {
+  std::ostringstream os;
+  os << arg0;
+  (os << ... << args);
+  return os.str();
 }
 
 }  // namespace core23

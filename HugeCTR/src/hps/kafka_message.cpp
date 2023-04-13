@@ -29,11 +29,11 @@ namespace HugeCTR {
 #ifdef HCTR_KAFKA_CHECK
 #error HCTR_KAFKA_CHECK already defined!
 #endif
-#define HCTR_KAFKA_CHECK(EXPR)                                                    \
-  do {                                                                            \
-    const auto& resp = (EXPR);                                                    \
-    HCTR_CHECK_HINT(resp == RD_KAFKA_RESP_ERR_NO_ERROR, "Kafka %s error: '%s'\n", \
-                    rd_kafka_err2name(resp), rd_kafka_err2str(resp));             \
+#define HCTR_KAFKA_CHECK(EXPR)                                                             \
+  do {                                                                                     \
+    const auto& resp = (EXPR);                                                             \
+    HCTR_CHECK_HINT(resp == RD_KAFKA_RESP_ERR_NO_ERROR, "Kafka ", rd_kafka_err2name(resp), \
+                    " error: '", rd_kafka_err2str(resp), "'\n");                           \
   } while (0)
 
 /**
@@ -72,8 +72,8 @@ void kafka_conf_set_and_check(rd_kafka_conf_t* const conf, const char* const key
   // HCTR_LOG_S(DEBUG, WORLD) << key << " = " << value << std::endl;
   char error[HCTR_KAFKA_ERROR_STRING_LENGTH];
   const rd_kafka_conf_res_t res = rd_kafka_conf_set(conf, key, value, error, sizeof(error));
-  HCTR_CHECK_HINT(res == RD_KAFKA_CONF_OK, "Kafka configuration '%s' = '%s'. Error: %s.\n", key,
-                  value, error);
+  HCTR_CHECK_HINT(res == RD_KAFKA_CONF_OK, "Kafka configuration '", key, "' = '", value,
+                  "'. Error: ", error, ".\n");
 }
 
 void kafka_conf_set_and_check(rd_kafka_conf_t* const conf, const char* const key,

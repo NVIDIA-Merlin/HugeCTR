@@ -43,7 +43,7 @@ ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* r
                 "Compiler cannot use atomic enum class, need to change to int type");
 #endif
   HCTR_CHECK_HINT(params_.io_block_size % params_.io_alignment == 0,
-                  " params_.io_block_size \% params_.io_alignment != 0");
+                  " params_.io_block_size % params_.io_alignment != 0");
 
   num_dest_buffers_ = dest_buffers_.size();
 
