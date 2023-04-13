@@ -10,6 +10,7 @@ stages:
   - dcn_benchmark
   - deepfm_benchmark
   - dlrm_benchmark
+  - hps_benchmark
   - post_test
 
 .python_format:
@@ -313,7 +314,9 @@ stages:
   stage: post_test
 
 .inference_benchmark:
-  extends: .selene_luna_job
+  extends:
+    - .selene_luna_job
+    - .benchmark:rules:weekly
   stage: inference_benchmark
   before_script:
     - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
@@ -322,19 +325,17 @@ stages:
     - export GPFSFOLDER=$LOGDIR/inference_benchmark_${BZ}x${MIXED_PRECISION}
   variables:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data
+    CONT: ${UNIFIED_CTR_LATEST}
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data,${CI_PROJECT_DIR}:/hugectr
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
-  rules:
-    - if: $NIGHTLY == "1"
-      when: manual
-    - when: never
 
 .sok_benchmark:
-  extends: .selene_luna_job
+  extends:
+    - .selene_luna_job
+    - .benchmark:rules
   stage: sok_benchmark
   before_script:
     - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
@@ -343,19 +344,17 @@ stages:
     - export GPFSFOLDER=$LOGDIR/sok_benchmark_${BZ}x${GPU_NUM}
   variables:
     GPFSFOLDER: $LOGDIR/sok_benchmark
-    CONT: $SOK_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/terabyte_portion_csv/:/dataset
+    CONT: ${UNIFIED_TF_LATEST}
+    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/terabyte_portion_csv/:/dataset,${CI_PROJECT_DIR}:/hugectr
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/sok/sok_dlrm.sub
-  rules:
-    - if: $NIGHTLY == "1"
-      when: manual
-    - when: never
 
 .train_benchmark:
-  extends: .selene_luna_job
+  extends:
+    - .selene_luna_job
+    - .benchmark:rules
   before_script:
     - export BENCHMARK=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
     - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $3}')
@@ -367,28 +366,40 @@ stages:
     - export GPFSFOLDER=$LOGDIR/train_benchmark--${BENCHMARK}--${NODE_NUM}x${GPU_NUM}x${BZ_PER_GPU}x${MIXED_PRECISION}
   variables:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/raid:/raid
+    CONT: ${UNIFIED_CTR_LATEST}
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/raid:/raid,${CI_PROJECT_DIR}:/hugectr
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/benchmark/train_benchmark/run.sub
-  rules:
-    - if: $NIGHTLY == "1"
-      when: manual
-    - when: never
+
+.hps_backend_benchmark:
+  extends:
+    - .selene_luna_job
+    - .benchmark:rules:weekly
+  stage: hps_benchmark
+  before_script:
+    - export BZ=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
+    - export GPFSFOLDER=$LOGDIR/hps_backend_benchmark_${BZ}
+    - rm -rf /hps_backend_benchmark/*.out
+  variables:
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: ${UNIFIED_TF_LATEST}
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/emmaq/yingcan_benchmark:/hps_backend_benchmark,${CI_PROJECT_DIR}:/hugectr
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/hps_backend_benchmark/run.sub
 
 collect_benchmark_result:
-  extends: .selene_luna_job
+  extends:
+    - .selene_luna_job
+    - .benchmark:rules
   stage: post_test
   variables:
     GPFSFOLDER: $LOGDIR/collect_benchmark_result
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: $LOGDIR:/logs
+    CONT: ${UNIFIED_CTR_LATEST}
+    MOUNTS: $LOGDIR:/logs,${CI_PROJECT_DIR}:/hugectr
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/post_test/collect_benchmark.sub
-  rules:
-    - if: $NIGHTLY == "1"
-      when: manual
-    - when: never

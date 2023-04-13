@@ -57,6 +57,10 @@ log_pattern = {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
     },
+    "hps_backend_avg_latency": {
+        "cmd_log": r"compute infer",
+        "result_log": r"compute infer (\d+\.?\d*) usec",
+    },
 }
 
 
@@ -108,6 +112,7 @@ def collect_benchmark_result(log_path):
         "p90 latency(usec)",
         "p50 latency(usec)",
         "Avg latency(usec)",
+        "throughput",
         "result_log_path",
     ]
     list_benchmark = []
@@ -198,6 +203,33 @@ def collect_benchmark_result(log_path):
                 ms_per_iteration = ms_per_iteration * 10
                 benchmark[headers.index("ms per iteration")] = ms_per_iteration
             list_benchmark.append(benchmark)
+
+    for bz in [256, 1024, 2048, 8192, 131072]:
+        for gpu_num in [1]:
+            benchmark = ["" for _ in range(len(headers))]
+            benchmark[headers.index("name")] = "hps_backend"
+            benchmark[headers.index("batch_size")] = bz
+            bz_per_gpu = bz // gpu_num
+            benchmark[headers.index("batch_size_per_gpu")] = bz_per_gpu
+            benchmark[headers.index("total_gpu_num")] = gpu_num
+            benchmark[headers.index("node_num")] = 1
+            benchmark[headers.index("precision")] = "FP32"
+            benchmark[headers.index("platform")] = "selene"
+
+            result_log_path = os.path.join(
+                log_path,
+                "hps_backend_benchmark_{bz}".format(bz=bz),
+            )
+            benchmark[headers.index("result_log_path")] = result_log_path
+            if os.path.exists(result_log_path):
+                backend_avg_latency = extract_result_from_log(
+                    "hps_backend_avg_latency", result_log_path
+                )
+                backend_throughput = int(1000000.0 / backend_avg_latency * bz)
+                benchmark[headers.index("Avg latency(usec)")] = backend_avg_latency
+                benchmark[headers.index("throughput")] = backend_throughput
+            list_benchmark.append(benchmark)
+
     print(",".join(headers))
     for benchmark in list_benchmark:
         print(",".join(str(i) for i in benchmark))
@@ -228,10 +260,10 @@ if __name__ == "__main__":
     if args.collect_result:
         collect_benchmark_result(args.log_path)
     else:
-        perf_result = extract_result_from_log(args.job_name, args.log_path)
         expected_result = extract_result_from_json(args.job_name)
 
         if args.job_name == "hps_plugin_benchmark":
+            perf_result = extract_result_from_log(args.job_name, args.log_path)
             idx = 0
             batch_sizes = ["32", "1024", "16384"]
             print("DLRM Inference Latency (usec)")
@@ -266,5 +298,47 @@ if __name__ == "__main__":
                     expected = expected_result[model_name][batch_size]
                     check_perf_result(perf, expected)
                     idx += 1
+        elif args.job_name == "hps_backend_benchmark":
+            idx = 0
+            perf_result = []
+            batch_sizes = ["256", "1024", "2048", "8192", "131072"]
+            for bz in batch_sizes:
+                result_log_path = os.path.join(
+                    args.log_path,
+                    "hps_backend_benchmark_{bz}".format(bz=bz),
+                )
+                if os.path.exists(result_log_path):
+                    backend_avg_latency = extract_result_from_log(
+                        "hps_backend_avg_latency", result_log_path
+                    )
+                perf_result.append(backend_avg_latency)
+
+            print("HPS Backend Inference Latency (usec) and Throughput")
+            print(
+                "-----------------------------------------------------------------------------------------"
+            )
+            print("batch_size\tavg_latency\tthroughput")
+            print(
+                "-----------------------------------------------------------------------------------------"
+            )
+            for i in range(len(perf_result)):
+                print(
+                    "{}\t\t{}\t\t{}".format(
+                        batch_sizes[i],
+                        perf_result[i],
+                        int(1000000.0 / perf_result[i] * int(batch_sizes[i])),
+                    )
+                )
+            print(
+                "-----------------------------------------------------------------------------------------"
+            )
+            idx = 0
+            for batch_size in batch_sizes:
+                perf = perf_result[idx]
+                print("Check avg_latency for BZ: {}".format(batch_size))
+                expected_latency = expected_result["avg_latency"][batch_size]
+                check_perf_result(perf, expected_latency)
+                idx += 1
         else:
+            perf_result = extract_result_from_log(args.job_name, args.log_path)
             check_perf_result(perf_result, expected_result)

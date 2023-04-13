@@ -11,7 +11,8 @@ rank = comm.Get_rank()
 
 def create_wdl(solver):
     dataset_path = os.getenv("WDL_DATA_PATH")
-    os.symlink(dataset_path, "./wdl_data", target_is_directory=True)
+    if not os.path.exists("./wdl_data"):
+        os.symlink(dataset_path, "./wdl_data", target_is_directory=True)
     reader = hugectr.DataReaderParams(
         data_reader_type=hugectr.DataReaderType_t.Norm,
         source=["./wdl_data/file_list.txt"],
@@ -150,7 +151,8 @@ def create_wdl(solver):
 
 def create_dcn(solver):
     dataset_path = os.getenv("DCN_DATA_PATH")
-    os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
+    if not os.path.exists("./dcn_data"):
+        os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
     reader = hugectr.DataReaderParams(
         data_reader_type=hugectr.DataReaderType_t.Norm,
         source=["./dcn_data/file_list.txt"],
@@ -275,7 +277,8 @@ def create_dcn(solver):
 
 def create_deepfm(solver):
     dataset_path = os.getenv("DCN_DATA_PATH")
-    os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
+    if not os.path.exists("./dcn_data"):
+        os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
     reader = hugectr.DataReaderParams(
         data_reader_type=hugectr.DataReaderType_t.Norm,
         source=["./dcn_data/file_list.txt"],

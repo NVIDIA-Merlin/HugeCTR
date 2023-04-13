@@ -7,7 +7,7 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" bash -c "echo -n 'Clearing cache on ' && 
 
 if [ $GPU_NUM == 1 ];then
     srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-        cd /workdir/test/sok_perf_test/dlrm;
+        cd /hugectr/test/sok_perf_test/dlrm;
         python3 main.py \
             --global_batch_size=${BZ} \
             --train_file_pattern=\"/dataset/train/*.csv\" \
@@ -20,7 +20,7 @@ if [ $GPU_NUM == 1 ];then
             --gpu_num=1"
 else
     srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /workdir/test/sok_perf_test/dlrm;
+    cd /hugectr/test/sok_perf_test/dlrm;
     mpirun -np ${GPU_NUM} --allow-run-as-root --oversubscribe \
     python3 main.py \
         --global_batch_size=${BZ} \
