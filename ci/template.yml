@@ -56,6 +56,7 @@ stages:
   stage: build_from_scratch
   tags:
     - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
   script:
     - docker login -u "\$oauthtoken" -p "${NVSTAGE_KEY}" "${NVSTAGE_REGISTRY}"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
