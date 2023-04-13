@@ -338,7 +338,7 @@ std::tuple<size_t, size_t, std::vector<size_t>, int> InferenceModel::get_tensor_
     return -1;
   };
   const int index = fn(tensor_name, inference_tensor_entries_list_[0]);
-  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name %s", tensor_name.c_str());
+  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name ", tensor_name);
 
   size_t local_gpu_count = resource_manager_->get_local_gpu_count();
   size_t tensor_size_in_bytes = inference_tensor_entries_list_[0][index].bag.get_size_in_bytes();

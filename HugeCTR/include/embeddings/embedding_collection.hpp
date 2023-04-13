@@ -180,7 +180,7 @@ inline void check_table_name_correct(
   for (auto &name : table_names) {
     if (ebc_name_to_id.find(name) == ebc_name_to_id.end()) {
       HCTR_CHECK_HINT(ebc_name_to_id.find(name) == ebc_name_to_id.end(),
-                      "embedding_load can't find table name : %s in model\n", name.c_str());
+                      "embedding_load can't find table name : ", name, " in model\n");
     }
   }
 }
@@ -192,7 +192,7 @@ inline std::vector<::embedding::LookupParam> create_lookup_params_from_ebc_confi
     const auto &name = lookup_config.first;
     auto lookup_param = lookup_config.second;
     HCTR_CHECK_HINT(table_name_to_id_dict.find(name) != table_name_to_id_dict.end(),
-                    "create_lookup_params_from_ebc_config error, no such name: %s\n", name.c_str());
+                    "create_lookup_params_from_ebc_config error, no such name: ", name, "\n");
     lookup_param.table_id = table_name_to_id_dict.at(name);
     lookup_params.push_back(lookup_param);
   }
@@ -206,7 +206,7 @@ inline std::vector<::embedding::EmbeddingTableParam> create_table_params_from_eb
     const auto &name = table_config.name;
     auto emb_table_param = table_config.table_param;
     HCTR_CHECK_HINT(table_name_to_id_dict.find(name) != table_name_to_id_dict.end(),
-                    "create_table_params_from_ebc_config error, no such name: %s\n", name.c_str());
+                    "create_table_params_from_ebc_config error, no such name: ", name, "\n");
     emb_table_param.table_id = table_name_to_id_dict.at(name);
     table_params.push_back(emb_table_param);
   }
@@ -227,11 +227,10 @@ inline std::vector<std::vector<int>> create_shard_matrix_from_ebc_config(
     const auto &shard_on_each_gpu = config.shard_matrix_[gpu_id];
     for (auto &name : shard_on_each_gpu) {
       HCTR_CHECK_HINT(table_name_to_id_dict.find(name) != table_name_to_id_dict.end(),
-                      "create_shard_matrix_from_ebc_config error, no such name: %s\n",
-                      name.c_str());
+                      "create_shard_matrix_from_ebc_config error, no such name: ", name, "\n");
       HCTR_CHECK_HINT(table_name_to_id_dict.at(name) < num_table,
-                      "create_shard_matrix_from_ebc_config error, name is out of range: %s\n",
-                      name.c_str());
+                      "create_shard_matrix_from_ebc_config error, name is out of range: ", name,
+                      "\n");
       shard_matrix[gpu_id][table_name_to_id_dict.at(name)] = 1;
     }
   }
@@ -256,9 +255,9 @@ create_grouped_embedding_param_from_ebc_config(const TableNameToIDDict &table_na
     std::vector<int> table_ids;
     auto group_strategy = get_table_group_strategy(shard_strategy);
     for (auto &table_name : group_strategy) {
-      HCTR_CHECK_HINT(table_name_to_id_dict.find(table_name) != table_name_to_id_dict.end(),
-                      "create_grouped_embedding_param_from_ebc_config error, no such name: %s\n",
-                      table_name.c_str());
+      HCTR_CHECK_HINT(
+          table_name_to_id_dict.find(table_name) != table_name_to_id_dict.end(),
+          "create_grouped_embedding_param_from_ebc_config error, no such name: ", table_name, "\n");
       table_ids.push_back(table_name_to_id_dict.at(table_name));
     }
     // require ordered

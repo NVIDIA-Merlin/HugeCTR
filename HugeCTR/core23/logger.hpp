@@ -129,6 +129,18 @@
     }                                                                                              \
   } while (0)
 
+#ifdef HCTR_OWN_CHECK_
+#error HCTR_OWN_CHECK_ already defined. Potential naming conflict!
+#endif
+#define HCTR_OWN_CHECK_(EXPR, ...)                                                               \
+  do {                                                                                           \
+    if (!(EXPR)) {                                                                               \
+      HugeCTR::Logger::get().print_error("Expression check failed!", HCTR_CODE_REFERENCE_(EXPR), \
+                                         HugeCTR::core23::hctr_render_args(__VA_ARGS__));        \
+      std::abort();                                                                              \
+    }                                                                                            \
+  } while (0)
+
 namespace HugeCTR {
 
 // We have five reserved verbosity levels for users' convenience.
@@ -193,52 +205,16 @@ struct SrcLoc {
     }                                                                                \
   } while (0);
 
-#ifdef ENABLE_MPI
-// Because MPI error code is in int, it is safe to have a separate macro for MPI,
-// rather than reserving `int` as MPI error type.
-// We don't want this set of macros to become another source of errors.
-#define HCTR_MPI_THROW(EXPR)                                                 \
-  do {                                                                       \
-    const int err_code = (EXPR);                                             \
-    if (err_code != MPI_SUCCESS) {                                           \
-      char err_str[MPI_MAX_ERROR_STRING];                                    \
-      int err_len = MPI_MAX_ERROR_STRING;                                    \
-      MPI_Error_string(err_code, err_str, &err_len);                         \
-      Logger::get().do_throw(Error_t::MpiError, CUR_SRC_LOC(EXPR), err_str); \
-    }                                                                        \
-  } while (0)
-#endif
-
 // For other library calls such as CUDA, cuBLAS and NCCL, use this macro
-
-#define HCTR_THROW_IF(EXPR, ERROR, MSG)                                              \
-  do {                                                                               \
-    const auto& expr = (EXPR);                                                       \
-    if (expr) {                                                                      \
-      HugeCTR::Logger::get().do_throw((ERROR), CUR_SRC_LOC(EXPR), std::string(MSG)); \
-    }                                                                                \
-  } while (0)
 
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
 #define CHECK_BLOCKING_CALL true
 #define CHECK_ASYNC_CALL false
 
-#define HCTR_CHECK(EXPR)                               \
-  do {                                                 \
-    const auto& expr = (EXPR);                         \
-    if (!expr) {                                       \
-      HugeCTR::Logger::get().abort(CUR_SRC_LOC(EXPR)); \
-    }                                                  \
-  } while (0)
+#define HCTR_CHECK(EXPR) HCTR_OWN_CHECK_(EXPR)
 
-#define HCTR_CHECK_HINT(EXPR, HINT, ...)                                      \
-  do {                                                                        \
-    const auto& expr = (EXPR);                                                \
-    if (!expr) {                                                              \
-      HugeCTR::Logger::get().abort(CUR_SRC_LOC(EXPR), (HINT), ##__VA_ARGS__); \
-    }                                                                         \
-  } while (0)
+#define HCTR_CHECK_HINT(EXPR, ...) HCTR_OWN_CHECK_(EXPR, __VA_ARGS__)
 
 #define HCTR_DIE(HINT, ...) HCTR_CHECK_HINT(false, HINT, ##__VA_ARGS__)
 

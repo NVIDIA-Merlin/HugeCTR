@@ -935,7 +935,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   int global_ebc_id = static_cast<int>(ebc_list_.size());
   for (auto& [name, id] : table_name_to_id_dict) {
     HCTR_CHECK_HINT(ebc_name_to_global_id_dict_.find(name) == ebc_name_to_global_id_dict_.end(),
-                    "Duplicate table name: %s\n", name.c_str());
+                    "Duplicate table name: ", name, "\n");
     ebc_name_to_global_id_dict_[name] = {global_ebc_id, id};
   }
 
@@ -2869,7 +2869,7 @@ std::tuple<size_t, size_t, std::vector<size_t>, int> Model::get_tensor_info_by_n
     return -1;
   };
   const int index = fn(tensor_name, tensor_entries_list[0]);
-  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name %s", tensor_name.c_str());
+  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name ", tensor_name);
 
   size_t tensor_size_in_bytes = tensor_entries_list[0][index].bag.get_size_in_bytes();
   size_t tensor_num_of_elements =

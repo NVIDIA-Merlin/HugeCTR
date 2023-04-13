@@ -170,7 +170,7 @@ void HadoopFileSystem::create_dir(const std::string& path) {
 
   int res = hdfsCreateDirectory(fs_, path.c_str());
 
-  HCTR_CHECK_HINT(res == 0, std::string("Failed to create the directory in HDFS: " + path).c_str());
+  HCTR_CHECK_HINT(res == 0, "Failed to create the directory in HDFS: ", path);
 }
 
 void HadoopFileSystem::delete_file(const std::string& path) {
@@ -178,7 +178,7 @@ void HadoopFileSystem::delete_file(const std::string& path) {
 
   int res = hdfsDelete(fs_, path.c_str(), static_cast<int>(true));
 
-  HCTR_CHECK_HINT(res == 0, std::string("Failed to delete the file in HDFS: " + path).c_str());
+  HCTR_CHECK_HINT(res == 0, "Failed to delete the file in HDFS: ", path);
 }
 
 void HadoopFileSystem::fetch(const std::string& source_path, const std::string& target_path) {
@@ -187,8 +187,7 @@ void HadoopFileSystem::fetch(const std::string& source_path, const std::string& 
 
   int res = hdfsCopy(fs_, source_path.c_str(), local_fs_, target_path.c_str());
 
-  HCTR_CHECK_HINT(
-      res == 0, std::string("Failed to fetch the file from HDFS to local: " + source_path).c_str());
+  HCTR_CHECK_HINT(res == 0, "Failed to fetch the file from HDFS to local: ", source_path);
 }
 
 void HadoopFileSystem::upload(const std::string& source_path, const std::string& target_path) {
@@ -197,9 +196,7 @@ void HadoopFileSystem::upload(const std::string& source_path, const std::string&
 
   int res = hdfsCopy(local_fs_, source_path.c_str(), fs_, target_path.c_str());
 
-  HCTR_CHECK_HINT(
-      res == 0,
-      std::string("Failed to upload the file from Local to HDFS: " + source_path).c_str());
+  HCTR_CHECK_HINT(res == 0, "Failed to upload the file from Local to HDFS: ", source_path);
 }
 
 int HadoopFileSystem::write(const std::string& path, const void* const data, const size_t data_size,
@@ -221,14 +218,12 @@ int HadoopFileSystem::write(const std::string& path, const void* const data, con
                           configs_.replication, configs_.block_size);
     }
   }
-  HCTR_CHECK_HINT(file, std::string("Failed to open/create HDFS file: " + path).c_str());
+  HCTR_CHECK_HINT(file, "Failed to open/create HDFS file: ", path);
 
   const tSize num_written = hdfsWrite(fs_, file, data, data_size);
-  HCTR_CHECK_HINT(num_written == data_size,
-                  std::string("Writing HDFS file failed: " + path).c_str());
-  HCTR_CHECK_HINT(!hdfsFlush(fs_, file), std::string("Flushing HDFS file failed: " + path).c_str());
-  HCTR_CHECK_HINT(!hdfsCloseFile(fs_, file),
-                  std::string("Closing HDFS file failed: " + path).c_str());
+  HCTR_CHECK_HINT(num_written == data_size, "Writing HDFS file failed: ", path);
+  HCTR_CHECK_HINT(!hdfsFlush(fs_, file), "Flushing HDFS file failed: ", path);
+  HCTR_CHECK_HINT(!hdfsCloseFile(fs_, file), "Closing HDFS file failed: ", path);
 
   HCTR_LOG_S(INFO, WORLD) << "Successfully wrote " << num_written << " bytes to HDFS file '" << path
                           << "'." << std::endl;
@@ -241,13 +236,11 @@ int HadoopFileSystem::read(const std::string& path, void* const buffer, const si
   HCTR_CHECK_HINT(buffer, "Buffer pointer is invalid.");
 
   hdfsFile file = hdfsOpenFile(fs_, path.c_str(), O_RDONLY, 0, 0, 0);
-  HCTR_CHECK_HINT(file, std::string("Failed to open HDFS file: " + path).c_str());
+  HCTR_CHECK_HINT(file, "Failed to open HDFS file: ", path);
 
   const tSize num_read = hdfsPread(fs_, file, offset, buffer, buffer_size);
-  HCTR_CHECK_HINT(num_read == buffer_size,
-                  std::string("Reading HDFS file failed: " + path).c_str());
-  HCTR_CHECK_HINT(!hdfsCloseFile(fs_, file),
-                  std::string("Closing HDFS file failed: " + path).c_str());
+  HCTR_CHECK_HINT(num_read == buffer_size, "Reading HDFS file failed: ", path);
+  HCTR_CHECK_HINT(!hdfsCloseFile(fs_, file), "Closing HDFS file failed: ", path);
 
   return num_read;
 }
@@ -257,7 +250,7 @@ void HadoopFileSystem::copy(const std::string& source_path, const std::string& t
 
   int res = hdfsCopy(fs_, source_path.c_str(), fs_, target_path.c_str());
 
-  HCTR_CHECK_HINT(res == 0, std::string("Copying HDFS file failed: " + source_path).c_str());
+  HCTR_CHECK_HINT(res == 0, "Copying HDFS file failed: ", source_path);
 
   HCTR_LOG_S(INFO, WORLD) << "Successfully copied " << source_path << " to " << target_path << '.'
                           << std::endl;

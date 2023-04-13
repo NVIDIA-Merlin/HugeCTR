@@ -388,13 +388,13 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
       HCTR_CHECK_HINT(
-          count <= max_vocabulary_size_per_gpu_,
-          "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new "
-          "feature insertion failed. Please adjust workspace_size_per_gpu according to "
+          count <= max_vocabulary_size_per_gpu_, "Runtime vocabulary size ", count,
+          " exceeds max_vocabulary_size_per_gpu ", max_vocabulary_size_per_gpu_, " on GPU ",
+          embedding_data_.get_local_gpu(id).get_device_id(),
+          ". new feature insertion failed. Please adjust workspace_size_per_gpu according to "
           "https://nvidia-merlin.github.io/HugeCTR/master/"
           "QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array. How to set "
-          "workspace_size_per_gpu_in_mb and slot_size_array",
-          count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
+          "workspace_size_per_gpu_in_mb and slot_size_array");
     }
   }
 
