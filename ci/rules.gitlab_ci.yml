@@ -42,6 +42,18 @@
 .if-daily-schedule-child: &if-daily-schedule-child
   if: '$PARENT_SOURCE == "schedule" && $DAILY == "1"'
 
+.if-schedule-benchmark: &if-schedule-benchmark
+  if: '$CI_PIPELINE_SOURCE == "schedule" && $BENCHMARK == "1"'
+
+.if-weekly-schedule-benchmark: &if-weekly-schedule-benchmark
+  if: '$CI_PIPELINE_SOURCE == "schedule" && $WEEKLY == "1" && $BENCHMARK == "1"'
+
+.if-biweekly-schedule-benchmark: &if-biweekly-schedule-benchmark
+  if: '$CI_PIPELINE_SOURCE == "schedule" && $BIWEEKLY == "1" && $BENCHMARK == "1"'
+
+.if-monthly-schedule-benchmark: &if-monthly-schedule-benchmark
+  if: '$CI_PIPELINE_SOURCE == "schedule" && $MONTHLY == "1" && $BENCHMARK == "1"'
+
 ############
 # Changes  #
 ############
@@ -197,4 +209,24 @@
       #when: always
     - <<: *if-daily-schedule
       #when: always
+    - when: never
+
+.benchmark:rules:weekly:
+  rules:
+    - <<: *if-weekly-schedule-benchmark
+    - when: never
+
+.benchmark:rules:biweekly:
+  rules:
+    - <<: *if-biweekly-schedule-benchmark
+    - when: never
+
+.benchmark:rules:monthly:
+  rules:
+    - <<: *if-monthly-schedule-benchmark
+    - when: never
+
+.benchmark:rules:
+  rules:
+    - <<: *if-schedule-benchmark
     - when: never
