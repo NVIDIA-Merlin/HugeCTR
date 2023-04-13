@@ -32,9 +32,9 @@ if __name__ == "__main__":
     sess = tf.compat.v1.Session(config=config)
     sok.init()
 
-    row = 65536 * 10
+    row = 8192 * 10
     col = 128
-    batch_size = 65536
+    batch_size = 8192
     iters = 100
 
     # initial value of embedding table

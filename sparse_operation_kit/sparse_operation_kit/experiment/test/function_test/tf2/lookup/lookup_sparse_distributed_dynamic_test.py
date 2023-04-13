@@ -31,11 +31,11 @@ if __name__ == "__main__":
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
     sok.init()
 
-    rows = [65536 * 10, 65536]
+    rows = [8192 * 10, 8192]
     cols = [128, 4]
     hotness = [10, 3]
     combiners = ["sum", "sum"]
-    batch_size = 65536
+    batch_size = 8192
     iters = 100
     initial_vals = [13, 17]
 
@@ -74,6 +74,7 @@ if __name__ == "__main__":
         for i in range(len(rows))
     ]
 
+    @tf.function
     def step(params, indices):
         with tf.GradientTape() as tape:
             embeddings = sok.lookup_sparse(params, indices, combiners=combiners)

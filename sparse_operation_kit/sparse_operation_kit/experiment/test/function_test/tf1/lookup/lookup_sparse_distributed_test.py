@@ -30,11 +30,11 @@ if __name__ == "__main__":
     sess = tf.compat.v1.Session(config=config)
     sok.init()
 
-    rows = [65536 * 10, 65536]
+    rows = [8192 * 10, 8192]
     cols = [128, 4]
     hotness = [10, 3]
     combiners = ["mean", "sum"]
-    batch_size = 65536
+    batch_size = 8192
     iters = 100
 
     # initial value of embedding table

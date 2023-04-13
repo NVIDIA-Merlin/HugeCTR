@@ -32,13 +32,13 @@ if __name__ == "__main__":
     sok.init()
 
     gpu_num = hvd.size()
-    rows = [65536] * gpu_num
+    rows = [8192] * gpu_num
     cols = [128 - 8 * x for x in range(gpu_num)]
     hotness = [1 + x for x in range(gpu_num)]
     combiners = ["mean"] * np.floor(gpu_num / 2).astype(np.int32) + ["sum"] * np.ceil(
         gpu_num - gpu_num / 2
     ).astype(np.int32)
-    batch_size = 65536
+    batch_size = 8192
     iters = 100
     gpus = np.arange(gpu_num)
 
