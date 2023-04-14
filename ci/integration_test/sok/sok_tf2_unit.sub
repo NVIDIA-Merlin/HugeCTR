@@ -5,6 +5,6 @@ srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash 
     cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
     bash run_function_test.sh"
 
-srun --ntasks=8 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
     bash run_function_test_multi_process.sh 1"

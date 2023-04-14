@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-
 task_num=${1:-1}
 
 tf_version=`python -c "import tensorflow as tf;print(tf.__version__[0])"`
