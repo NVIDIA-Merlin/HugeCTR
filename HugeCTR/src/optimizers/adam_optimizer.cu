@@ -131,10 +131,6 @@ void AdamOptimizer<T>::update() {
     adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
   }
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class AdamOptimizer<float>;

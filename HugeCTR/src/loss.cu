@@ -102,11 +102,6 @@ void Loss<T>::compute_and_init(bool is_train, long long current_batchsize) {
   compute(is_train, current_batchsize, regularizer_compute_rterm());
 
   regularizer_initialize_wgrad(is_train);
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 // Note: current_batchsize here is the batchsize on this device

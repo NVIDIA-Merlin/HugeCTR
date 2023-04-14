@@ -151,11 +151,6 @@ void DropoutLayer<T>::fprop(bool is_train) {
                                      get_gpu().get_stream()));
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -172,11 +167,6 @@ void DropoutLayer<T>::bprop() {
         get_gpu().get_cudnn_handle(), dropout_descriptor_, in_out_desc_, output_tensors_[0].data(),
         in_out_desc_, input_tensors_[0].data(), noise_mask_.data(), reserveSpaceSizeInBytes_));
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class DropoutLayer<float>;

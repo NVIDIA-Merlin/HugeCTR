@@ -162,10 +162,6 @@ void SubLayer<T>::fprop(bool is_train) {
     sub_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(input_tensor_ptr_.data<T*>(),
                                                                      output, size_);
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -187,10 +183,6 @@ void SubLayer<T>::bprop() {
     sub_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
         output, input_tensor_ptr_.data<T*>(), size_);
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class SubLayer<float>;

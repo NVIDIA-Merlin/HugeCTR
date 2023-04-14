@@ -93,11 +93,6 @@ void ReluLayer<T>::fprop(bool is_train) {
     MLCommon::LinAlg::unaryOp(output_tensors_[0].data<T>(), input_tensors_[0].data<T>(), len, fop,
                               get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -120,11 +115,6 @@ void ReluLayer<T>::bprop() {
     MLCommon::LinAlg::binaryOp(input_tensors_[0].data<T>(), output_tensors_[0].data<T>(),
                                input_tensors_[0].data<T>(), len, bop, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 ReluLayer<__half>::ReluLayer(const core23::Tensor& input_tensor,
@@ -190,11 +180,6 @@ void ReluLayer<__half>::fprop(bool is_train) {
           out[i] = __hmul(t, mask);
         });
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void ReluLayer<__half>::bprop() {
@@ -250,11 +235,6 @@ void ReluLayer<__half>::bprop() {
           out[i] = __hmul(__ldg(in + i), mask);
         });
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class ReluLayer<float>;

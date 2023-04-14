@@ -73,6 +73,17 @@ void __global__ mask_softmax_fprop_kernel(T* out, T* in, const T* mask, const in
     out[input_offset] = static_cast<T>(data[idx] * s_rsum);
   }
 }
+
+template <typename T>
+void mask_softmax_fprop(T* out, T* in, T* mask, int batch_size, int head_num, int seq_len,
+                        float scalar, cudaStream_t stream) {
+  dim3 grid(seq_len, head_num, batch_size);
+  int block_len = max(32, (seq_len + 31) / 32 * 32);
+  dim3 block(min(block_len, 1024));
+  mask_softmax_fprop_kernel<<<grid, block, 0, stream>>>(out, in, mask, batch_size, head_num,
+                                                        seq_len, scalar);
+}
+
 template <typename T>
 void __global__ mask_softmax_bprop_kernel(T* top, T* bottom, T* softmax, int m, int n,
                                           float scalar) {
@@ -122,29 +133,11 @@ void __global__ mask_softmax_bprop_kernel(__half* top, __half* bottom, __half* s
 }
 
 template <typename T>
-void mask_softmax_fprop(T* out, T* in, T* mask, int batch_size, int head_num, int seq_len,
-                        float scalar, cudaStream_t stream) {
-  dim3 grid(seq_len, head_num, batch_size);
-  int block_len = max(32, (seq_len + 31) / 32 * 32);
-  dim3 block(min(block_len, 1024));
-  mask_softmax_fprop_kernel<<<grid, block, 0, stream>>>(out, in, mask, batch_size, head_num,
-                                                        seq_len, scalar);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
-}
-
-template <typename T>
 void mask_softmax_bprop(T* top, T* bottom, T* softmax, int m, int n, float scalar,
                         cudaStream_t stream) {
   dim3 grid(m);
   dim3 block(min(n, 1024));
   mask_softmax_bprop_kernel<<<grid, block, 0, stream>>>(top, bottom, softmax, m, n, scalar);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 }  // namespace
@@ -194,10 +187,6 @@ void MaskedSoftmaxLayer<T>::fprop(bool is_train) {
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
                                  out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -213,10 +202,6 @@ void MaskedSoftmaxLayer<__half>::fprop(bool is_train) {
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
                                  out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -230,11 +215,6 @@ void MaskedSoftmaxLayer<T>::bprop() {
 
   mask_softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), batch,
                      hidden_size, scalar_, get_gpu().get_stream());
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -249,11 +229,6 @@ void MaskedSoftmaxLayer<__half>::bprop() {
 
   mask_softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), n_rows,
                      hidden_size, scalar_, get_gpu().get_stream());
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 namespace core23 {

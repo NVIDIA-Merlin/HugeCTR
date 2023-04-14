@@ -246,11 +246,6 @@ void EmbeddingFeatureCombiner<TypeEmbedding>::fprop(bool is_train) {
   launch_embedding_feature_combine_kernel(input, output, row_ptrs, batch_size_, slot_num_,
                                           embedding_vec_size_, combiner_type_,
                                           get_gpu().get_stream());
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class EmbeddingFeatureCombiner<float>;

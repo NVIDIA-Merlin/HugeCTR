@@ -387,10 +387,6 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
     HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
                                    cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FusedReluBiasFullyConnectedLayer::bprop() {
@@ -471,11 +467,6 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
     HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
     HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FusedReluBiasFullyConnectedLayer::search_algorithm() {
@@ -1162,10 +1153,6 @@ void Core23TempFusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
     HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
                                    cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
@@ -1246,11 +1233,6 @@ void Core23TempFusedReluBiasFullyConnectedLayer::bprop() {
     HCTR_LIB_THROW(cudaEventRecord(event_overlap_, this->get_gpu().get_comp_overlap_stream()));
     HCTR_LIB_THROW(cudaStreamWaitEvent(this->get_gpu().get_stream(), event_overlap_));
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFusedReluBiasFullyConnectedLayer::search_algorithm() {

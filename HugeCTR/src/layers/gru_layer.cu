@@ -384,11 +384,6 @@ void GRULayer<T>::bprop() {
       dweightSpace,  // output
       workSpaceSize, workSpace, reserveSpaceSize, reserveSpace));
 
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
-
   HCTR_LIB_THROW(cudaFree(workSpace));
   HCTR_LIB_THROW(cudaFree(reserveSpace));
   HCTR_LIB_THROW(cudaFree(weightSpace));  // cudaFree(dweightSpace);
@@ -720,12 +715,6 @@ void Core23TempGRULayer<T>::bprop() {
       weightSpaceSize,
       dweightSpace,  // output
       workSpaceSize, workSpace, reserveSpaceSize, reserveSpace));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
-
   HCTR_LIB_THROW(cudaFree(workSpace));
   HCTR_LIB_THROW(cudaFree(reserveSpace));
   HCTR_LIB_THROW(cudaFree(weightSpace));  // cudaFree(dweightSpace);

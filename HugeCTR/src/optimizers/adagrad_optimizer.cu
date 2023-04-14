@@ -179,11 +179,6 @@ void AdaGradOptimizer<T>::update() {
           len, weight, wgrad, accum, lr_, epsilon_, scaler_);
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class AdaGradOptimizer<float>;

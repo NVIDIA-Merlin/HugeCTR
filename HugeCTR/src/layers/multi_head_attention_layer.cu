@@ -550,11 +550,6 @@ void MultiHeadAttentionLayer<T>::fprop(bool is_train) {
                                    input_tensors_[0].num_bytes(), cudaMemcpyDeviceToDevice,
                                    get_gpu().get_stream()));
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -803,11 +798,6 @@ void MultiHeadAttentionLayer<T>::bprop() {
           batch_count, compute_type, algo));
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class MultiHeadAttentionLayer<float>;

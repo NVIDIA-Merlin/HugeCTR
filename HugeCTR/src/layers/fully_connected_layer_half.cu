@@ -102,11 +102,6 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
                               in_batch_size, input_size, &alpha, kernel, CUDA_R_16F, output_size,
                               bottom, CUDA_R_16F, input_size, &beta_k, top, CUDA_R_16F, output_size,
                               CUDA_R_32F, falgo_k_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FullyConnectedLayer<__half>::bprop() {
@@ -149,11 +144,6 @@ void FullyConnectedLayer<__half>::bprop() {
                               in_batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size,
                               top, CUDA_R_16F, output_size, &beta_x, bottom, CUDA_R_16F, input_size,
                               CUDA_R_32F, balgo_x_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FullyConnectedLayer<__half>::initialize() {
@@ -540,11 +530,6 @@ void Core23TempFullyConnectedLayer<__half>::fprop(bool is_train) {
                               in_batch_size, input_size, &alpha, kernel, CUDA_R_16F, output_size,
                               bottom, CUDA_R_16F, input_size, &beta_k, top, CUDA_R_16F, output_size,
                               CUDA_R_32F, falgo_k_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFullyConnectedLayer<__half>::bprop() {
@@ -588,11 +573,6 @@ void Core23TempFullyConnectedLayer<__half>::bprop() {
                               in_batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size,
                               top, CUDA_R_16F, output_size, &beta_x, bottom, CUDA_R_16F, input_size,
                               CUDA_R_32F, balgo_x_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFullyConnectedLayer<__half>::initialize() {

@@ -53,11 +53,6 @@ void Regularizer<T>::compute_rterm() {
     auto num_elements = flat_weight_tensor.size(0);
     do_compute_rterm(weight, &h_rterm_, num_elements);
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -77,11 +72,6 @@ void Regularizer<T>::initialize_wgrad() {
     auto num_elements = flat_weight_tensor.size(0);
     do_initialize_wgrad(weight, wgrad, num_elements, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class Regularizer<float>;

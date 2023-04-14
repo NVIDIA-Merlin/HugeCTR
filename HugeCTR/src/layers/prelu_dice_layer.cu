@@ -76,10 +76,6 @@ void Dice_fprop(T *out, T *in, T *E_x, T *Var_x, T alpha, T epsilon, int m, int 
   dim3 grid(m);
   dim3 block(min(n, 1024));
   Dice_fprop_kernel<<<grid, block, 0, stream>>>(out, in, E_x, Var_x, alpha, epsilon, m, n);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -107,10 +103,6 @@ void Dice_bprop(T *top, T *bottom, T *E_x, T *Var_x, T alpha, T epsilon, int m, 
   dim3 grid(m);
   dim3 block(min(n, 1024));
   Dice_bprop_kernel<<<grid, block, 0, stream>>>(top, bottom, E_x, Var_x, alpha, epsilon, m, n);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>

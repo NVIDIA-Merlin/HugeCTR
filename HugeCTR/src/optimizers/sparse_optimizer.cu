@@ -856,10 +856,6 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
           HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid update type");
       }  // switch (update type)
     }
-#ifndef NDEBUG
-    cudaDeviceSynchronize();
-    HCTR_LIB_THROW(cudaGetLastError());
-#endif
   } catch (const std::runtime_error &rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;

@@ -184,11 +184,6 @@ void SGDOptimizer<T>::update() {
           len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class SGDOptimizer<float>;

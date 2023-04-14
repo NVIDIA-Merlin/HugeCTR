@@ -289,10 +289,6 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
                                               n_active_slot_, forward);
     }
   }
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>

@@ -145,10 +145,6 @@ void GatherLayer<T>::fprop(bool is_train) {
     gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
         true, in, out, tensor_size_, num_indices_, static_cast<int*>(indices23_.data()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -179,10 +175,6 @@ void GatherLayer<T>::bprop() {
     gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
         false, in, out, tensor_size_, num_indices_, static_cast<int*>(indices23_.data()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class GatherLayer<float>;

@@ -49,10 +49,6 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
     dim3 block(min(m, 1024));
     add_bias_kernel_col<<<grid, block, 0, stream>>>(data, bias, m, n);
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 }  // namespace

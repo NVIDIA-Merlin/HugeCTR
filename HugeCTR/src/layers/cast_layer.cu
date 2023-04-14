@@ -94,21 +94,11 @@ void CastLayer<From, To>::fprop(bool is_train) {
     const auto blocks = std::min((num_elements - 1) / threads + 1, 1024);
     cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(out, in, num_elements);
   }
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename From, typename To>
 void CastLayer<From, To>::bprop() {
   CudaDeviceContext context(get_device_id());
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class CastLayer<float, __half>;
