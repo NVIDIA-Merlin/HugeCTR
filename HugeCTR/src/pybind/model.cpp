@@ -2110,7 +2110,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         bool early_stop = false;
         for (auto tc : training_callbacks_) {
-          early_stop = early_stop || tc->on_eval_end(iter, eval_results);
+          early_stop = tc->on_eval_end(iter, eval_results) || early_stop;
         }
         if (early_stop) {
           for (auto tc : training_callbacks_) {
