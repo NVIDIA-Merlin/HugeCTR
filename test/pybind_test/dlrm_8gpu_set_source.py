@@ -65,7 +65,7 @@ def set_source_raw_test(json_file):
         while True:
             lr = lr_sch.get_next()
             model.set_learning_rate(lr)
-            data_reader_train_flag = modeel.train()
+            data_reader_train_flag = model.train()
             if not data_reader_train_flag:
                 break
             if iteration % 4000 == 0:
