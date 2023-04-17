@@ -225,6 +225,9 @@ For information about creating a sparse embedding layer, refer to the [class](./
 * `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for the number of frequent categories. This way of determining the frequent categories is used for multi node only. This argument does not have a default value.
 
 * `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. This argument does not have a default value.
+  * `CommunicationType.IB_NVLink_Hier` supports two protocols: InfiniBand and RoCE v2. If you rely on the RoCE network device which has the special GID and traffic class type, two environment variables should be set:
+    * `HUGECTR_ROCE_GID` sets the RoCE GID of your device(default `0`).
+    * `HUGECTR_ROCE_TC` sets the RoCE traffic class type of your device(default `0`).
 
 * `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. This argument does not have a default value.
 
