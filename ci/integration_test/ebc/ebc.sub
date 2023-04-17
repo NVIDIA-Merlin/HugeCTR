@@ -2,39 +2,51 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan round_robin"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan round_robin"
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan uniform"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan uniform"
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan hybrid"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan hybrid"
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
   env NCCL_LAUNCH_MODE=GROUP bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan round_robin --use_dynamic_hash_table"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan round_robin --use_dynamic_hash_table"
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
   env NCCL_LAUNCH_MODE=GROUP bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan uniform --use_dynamic_hash_table"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan uniform --use_dynamic_hash_table"
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
   env NCCL_LAUNCH_MODE=GROUP bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan round_robin --use_mixed_precision"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan round_robin --use_dynamic_hash_table --optimizer ftrl "
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
   env NCCL_LAUNCH_MODE=GROUP bash -cx " \
     cd /dataset/criteo_kaggle/ && \
-    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
-    python3 /workdir/test/embedding_collection_test/dlrm_train.py --shard_plan uniform --use_mixed_precision"
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan uniform --use_dynamic_hash_table --optimizer ftrl"
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
+  env NCCL_LAUNCH_MODE=GROUP bash -cx " \
+    cd /dataset/criteo_kaggle/ && \
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan round_robin --use_mixed_precision"
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
+  env NCCL_LAUNCH_MODE=GROUP bash -cx " \
+    cd /dataset/criteo_kaggle/ && \
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan uniform --use_mixed_precision"

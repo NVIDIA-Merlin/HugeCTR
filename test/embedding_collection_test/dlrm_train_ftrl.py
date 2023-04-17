@@ -21,6 +21,10 @@ parser = argparse.ArgumentParser(
     description="HugeCTR Embedding Collection DLRM model training script."
 )
 parser.add_argument(
+    "--use_mixed_precision",
+    action="store_true",
+)
+parser.add_argument(
     "--shard_plan",
     help="shard strategy",
     type=str,
@@ -61,7 +65,7 @@ args = parser.parse_args()
 comm = MPI.COMM_WORLD
 num_nodes = comm.Get_size()
 rank = comm.Get_rank()
-num_gpus_per_node = 2
+num_gpus_per_node = 8
 num_gpus = num_nodes * num_gpus_per_node
 
 
@@ -101,6 +105,7 @@ solver = hugectr.CreateSolver(
     batchsize_eval=65536,
     batchsize=65536,
     lr=0.5,
+    use_mixed_precision=args.use_mixed_precision,
     warmup_steps=300,
     vvgpu=[[x for x in range(num_gpus_per_node)]] * num_nodes,
     repeat_dataset=True,
@@ -138,8 +143,8 @@ slot_size_array = [
 ]
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
-    source=["./deepfm_data_nvt/train/_file_list.txt"],
-    eval_source="./deepfm_data_nvt/val/_file_list.txt",
+    source=["./criteo_data/train/_file_list.txt"],
+    eval_source="./criteo_data/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
 )
 optimizer = None

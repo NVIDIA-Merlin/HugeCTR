@@ -584,13 +584,19 @@ The embedding update supports three algorithms specified with `update_type`:
 * `LazyGlobal`: The optimizer will only update the hot columns of an embedding in each iteration while using different semantics from the *local* and *global* updates.
 
 **Arguments**
-* `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`, `hugectr.Optimizer_t.AdaGrad`. The default value is `hugectr.Optimizer_t.Adam`.
+* `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`, `hugectr.Optimizer_t.AdaGrad`, `hugectr.Optimizer_t.Ftrl`. The default value is `hugectr.Optimizer_t.Adam`.
 
 * `update_type`: The update type for the embedding. The supported types include `hugectr.Update_t.Global`, `hugectr.Update_t.Local`, and `hugectr.Update_t.LazyGlobal`(Adam only). The default value is `hugectr.Update_t.Global`.
+
+* `beta`: The `beta` value when using Ftrl optimizer. The default value is 0.
 
 * `beta1`: The `beta1` value when using Adam optimizer. The default value is 0.9.
 
 * `beta2`: The `beta2` value when using Adam optimizer. The default value is 0.999.
+
+* `lambda1`: The `lambda1` value when using Ftrl optimizer. The default value is 0.
+
+* `lambda2`: The `lambda2` value when using Ftrl optimizer. The default value is 0.
 
 * `epsilon`: The `epsilon` value when using Adam optimizer. This argument should be well configured when mixed precision training is employed. The default value is 1e-7.
 

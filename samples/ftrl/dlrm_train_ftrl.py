@@ -21,6 +21,10 @@ parser = argparse.ArgumentParser(
     description="HugeCTR Embedding Collection DLRM model training script."
 )
 parser.add_argument(
+    "--use_mixed_precision",
+    action="store_true",
+)
+parser.add_argument(
     "--shard_plan",
     help="shard strategy",
     type=str,
@@ -31,9 +35,31 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
-    "--use_mixed_precision",
-    action="store_true",
+    "--optimizer",
+    help="Optimizer to use",
+    type=str,
+    choices=["ftrl", "sgd"],
+    default="sgd",
 )
+parser.add_argument(
+    "--beta",
+    help="beta value for Ftrl",
+    type=float,
+    default=0.9,
+)
+parser.add_argument(
+    "--lambda1",
+    help="lambda1 value for Ftrl",
+    type=float,
+    default=0.1,
+)
+parser.add_argument(
+    "--lambda2",
+    help="lambda1 value for Ftrl",
+    type=float,
+    default=0.1,
+)
+
 args = parser.parse_args()
 
 comm = MPI.COMM_WORLD
@@ -121,9 +147,22 @@ reader = hugectr.DataReaderParams(
     eval_source="./criteo_data/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
 )
-optimizer = hugectr.CreateOptimizer(
-    optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True
-)
+optimizer = None
+if args.optimizer == "ftrl":
+    optimizer = hugectr.CreateOptimizer(
+        optimizer_type=hugectr.Optimizer_t.Ftrl,
+        update_type=hugectr.Update_t.Global,
+        beta=args.beta,
+        lambda1=args.lambda1,
+        lambda2=args.lambda2,
+    )
+elif args.optimizer == "sgd":
+    optimizer = hugectr.CreateOptimizer(
+        optimizer_type=hugectr.Optimizer_t.SGD,
+        update_type=hugectr.Update_t.Local,
+        atomic_update=True,
+    )
+
 model = hugectr.Model(solver, reader, optimizer)
 
 num_embedding = 26
