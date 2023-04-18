@@ -547,6 +547,7 @@ void CountKeysOperator::operator()(core23::Tensor keys_per_bucket_gpu_major,
       cudaMemsetAsync(result_keys_per_gpu.data(), 0, result_keys_per_gpu.num_bytes(), stream));
   if (num_shards_ == 0) return;
 
+  HCTR_CHECK(keys_per_bucket_gpu_major.data_type() == result_keys_per_gpu.data_type());
   DISPATCH_INTEGRAL_FUNCTION_CORE23(
       keys_per_bucket_gpu_major.data_type().type(), BucketRangeType, [&] {
         kernels::count_keys_per_gpu<<<grid, block, sizeof(BucketRangeType), stream>>>(

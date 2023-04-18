@@ -178,7 +178,7 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
   int num_gpus = core->get_global_gpu_count();
   auto key_type = params.key_type;
 
-  compress_offset_ = CompressOffset(core, meta_.num_local_lookup_ + 1);
+  compress_offset_ = CompressOffset(core, meta_.num_local_lookup_ + 1, params.offset_type);
   model_forward_ = ModelForward{core};
   all2all_comm_ = NcclAll2AllComm(core);
   network_forward_ = NetworkForward(core, num_gpus);
@@ -190,7 +190,8 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
                                                              meta_.wgrad_attr.num_table,
                                                              meta_.num_local_hotness_,
                                                              params.universal_batch_size,
-                                                             key_type};
+                                                             key_type,
+                                                             params.offset_type};
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
   SegmentdUnique segmented_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};

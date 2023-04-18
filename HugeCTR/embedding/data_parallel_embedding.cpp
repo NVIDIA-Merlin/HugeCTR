@@ -141,11 +141,11 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
   int num_gpus = core->get_global_gpu_count();
   int universal_batch_size = params.universal_batch_size;
   auto key_type = params.key_type;
-  // auto offset_type = params.offset_type;
+  auto offset_type = params.offset_type;
   // auto emb_type = params.emb_type;
 
   // init op
-  compress_offset_ = CompressOffset(core_, meta_.num_local_lookup_ + 1);
+  compress_offset_ = CompressOffset(core_, meta_.num_local_lookup_ + 1, offset_type);
 
   dp_model_forward_ = DPModelForward(core_, num_gpus, meta_.num_lookup_, meta_.num_local_lookup_);
 
@@ -172,7 +172,8 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
                                                              meta_.wgrad_attr.num_table,
                                                              meta_.num_local_hotness_,
                                                              params.universal_batch_size / num_gpus,
-                                                             key_type};
+                                                             key_type,
+                                                             offset_type};
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, universal_batch_size / num_gpus};
   SegmentdUnique segmented_unique{core, meta_.num_local_hotness_, universal_batch_size / num_gpus};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, universal_batch_size / num_gpus};

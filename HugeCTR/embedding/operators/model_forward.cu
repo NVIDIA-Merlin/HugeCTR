@@ -177,34 +177,36 @@ void ModelForward::compute(const core23::Tensor &mp_ev, const core23::Tensor &bu
 
   int num_lookup = model_comm_buffer.attr.num_lookup;
   if (num_lookup > 0) {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffer.attr.type.type(), emb_t, [&] {
-      const uint32_t *bucket_range_ptr = bucket_range.data<uint32_t>();
-      const int *id_to_ev_size_ptr = model_comm_buffer.attr.id_to_ev_size.data<int>();
-      const int *id_to_ev_start_indices_ptr =
-          model_comm_buffer.attr.id_to_ev_start_indices.data<int>();
-      const float **mp_ev_ptr = (const float **)mp_ev.data();
-      emb_t **model_comm_buffer_ptr = (emb_t **)model_comm_buffer.data.data();
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffer.attr.type.type(), emb_t, [&] {
+        const offset_t *bucket_range_ptr = bucket_range.data<offset_t>();
+        const int *id_to_ev_size_ptr = model_comm_buffer.attr.id_to_ev_size.data<int>();
+        const int *id_to_ev_start_indices_ptr =
+            model_comm_buffer.attr.id_to_ev_start_indices.data<int>();
+        const float **mp_ev_ptr = (const float **)mp_ev.data();
+        emb_t **model_comm_buffer_ptr = (emb_t **)model_comm_buffer.data.data();
 
-      auto multi_to_one_desc = make_MultiToOne<float, emb_t>(
-          batch_size * num_lookup, [=] __device__(int i) { return bucket_range_ptr[i]; },
-          [=] __device__(int i) { return 1; },
-          [=] __device__(int i) {
-            int i_lookup = i / batch_size;
-            return id_to_ev_size_ptr[i_lookup];
-          },
-          [=] __device__(int i) { return mp_ev_ptr[i]; },
-          [=] __device__(int i) {
-            int i_lookup = i / batch_size;
-            int batch_id = i % batch_size;
-            int gpu_id = batch_id / batch_size_per_gpu;
-            int ev_size = id_to_ev_size_ptr[i_lookup];
-            int local_batch_id = batch_id % batch_size_per_gpu;
-            return model_comm_buffer_ptr[gpu_id] +
-                   batch_size_per_gpu * id_to_ev_start_indices_ptr[i_lookup] +
-                   local_batch_id * ev_size;
-          });
-      copy_multi_to_one(multi_to_one_desc, core_->get_kernel_param(),
-                        model_comm_buffer.attr.max_ev_size, stream);
+        auto multi_to_one_desc = make_MultiToOne<float, emb_t>(
+            batch_size * num_lookup, [=] __device__(int i) { return bucket_range_ptr[i]; },
+            [=] __device__(int i) { return 1; },
+            [=] __device__(int i) {
+              int i_lookup = i / batch_size;
+              return id_to_ev_size_ptr[i_lookup];
+            },
+            [=] __device__(int i) { return mp_ev_ptr[i]; },
+            [=] __device__(int i) {
+              int i_lookup = i / batch_size;
+              int batch_id = i % batch_size;
+              int gpu_id = batch_id / batch_size_per_gpu;
+              int ev_size = id_to_ev_size_ptr[i_lookup];
+              int local_batch_id = batch_id % batch_size_per_gpu;
+              return model_comm_buffer_ptr[gpu_id] +
+                     batch_size_per_gpu * id_to_ev_start_indices_ptr[i_lookup] +
+                     local_batch_id * ev_size;
+            });
+        copy_multi_to_one(multi_to_one_desc, core_->get_kernel_param(),
+                          model_comm_buffer.attr.max_ev_size, stream);
+      });
     });
   }
 }
