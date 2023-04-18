@@ -19,10 +19,10 @@
 
 namespace sok {
 
-template <typename KeyType, typename DType>
+template <typename KeyType, typename OffsetType, typename DType>
 __global__ static void TFAdapterKernel(float** data, int* dimensions, int* scales,
                                        int* id_space_to_local_index, const KeyType* keys,
-                                       size_t num_keys, const uint32_t* id_space_offset,
+                                       size_t num_keys, const OffsetType* id_space_offset,
                                        size_t num_id_space_offset, const int* id_space,
                                        DType** outputs) {
   size_t offset = 0;
@@ -50,8 +50,8 @@ __global__ static void TFAdapterKernel(float** data, int* dimensions, int* scale
   }
 }
 
-template <typename KeyType, typename DType>
-TFAdapter<KeyType, DType>::TFAdapter()
+template <typename KeyType, typename OffsetType, typename DType>
+TFAdapter<KeyType, OffsetType, DType>::TFAdapter()
     : d_data_(nullptr),
       d_dimensions_(nullptr),
       d_id_space_to_local_index_(nullptr),
@@ -62,8 +62,8 @@ TFAdapter<KeyType, DType>::TFAdapter()
   CUDACHECK(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, device));
 }
 
-template <typename KeyType, typename DType>
-void TFAdapter<KeyType, DType>::set(
+template <typename KeyType, typename OffsetType, typename DType>
+void TFAdapter<KeyType, OffsetType, DType>::set(
     std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
     std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
     std::vector<int>& scale, cudaStream_t stream) {
@@ -132,8 +132,8 @@ void TFAdapter<KeyType, DType>::set(
   // clang-format on
 }
 
-template <typename KeyType, typename DType>
-void TFAdapter<KeyType, DType>::free() {
+template <typename KeyType, typename OffsetType, typename DType>
+void TFAdapter<KeyType, OffsetType, DType>::free() {
   if (d_data_) {
     CUDACHECK(cudaFree(d_data_));
     d_data_ = nullptr;
@@ -152,38 +152,41 @@ void TFAdapter<KeyType, DType>::free() {
   }
 }
 
-template <typename KeyType, typename DType>
-TFAdapter<KeyType, DType>::~TFAdapter() {
+template <typename KeyType, typename OffsetType, typename DType>
+TFAdapter<KeyType, OffsetType, DType>::~TFAdapter() {
   free();
 }
 
-template <typename KeyType, typename DType>
-void TFAdapter<KeyType, DType>::lookup(const core23::Tensor& keys, size_t num_keys,
-                                       const core23::Tensor& id_space_offset,
-                                       size_t num_id_space_offset, const core23::Tensor& id_space,
-                                       core23::Tensor& embedding_vec) {
-  TFAdapterKernel<KeyType, DType><<<2 * sm_count_, 1024ul, 0, stream_>>>(
+template <typename KeyType, typename OffsetType, typename DType>
+void TFAdapter<KeyType, OffsetType, DType>::lookup(const core23::Tensor& keys, size_t num_keys,
+                                                   const core23::Tensor& id_space_offset,
+                                                   size_t num_id_space_offset,
+                                                   const core23::Tensor& id_space,
+                                                   core23::Tensor& embedding_vec) {
+  TFAdapterKernel<KeyType, OffsetType, DType><<<2 * sm_count_, 1024ul, 0, stream_>>>(
       d_data_, d_dimensions_, d_scale_, d_id_space_to_local_index_, keys.data<KeyType>(), num_keys,
-      id_space_offset.data<uint32_t>(), num_id_space_offset - 1, id_space.data<int>(),
+      id_space_offset.data<OffsetType>(), num_id_space_offset - 1, id_space.data<int>(),
       static_cast<DType**>(embedding_vec.data()));
   // CUDACHECK(cudaStreamSynchronize(stream_));
   // CUDACHECK(cudaGetLastError());
 }
 
-template class TFAdapter<int32_t, float>;
+template class TFAdapter<int32_t, int32_t, float>;
+template class TFAdapter<int32_t, int64_t, float>;
 // template class TFAdapter<int32_t, __half>;
-template class TFAdapter<int64_t, float>;
+template class TFAdapter<int64_t, int32_t, float>;
+template class TFAdapter<int64_t, int64_t, float>;
 // template class TFAdapter<int64_t, __half>;
 
-template <typename KeyType, typename DType>
-DummyVarAdapter<KeyType, DType>::DummyVarAdapter() : stream_(0) {
+template <typename KeyType, typename OffsetType, typename DType>
+DummyVarAdapter<KeyType, OffsetType, DType>::DummyVarAdapter() : stream_(0) {
   int device;
   CUDACHECK(cudaGetDevice(&device));
   CUDACHECK(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, device));
 }
 
-template <typename KeyType, typename DType>
-void DummyVarAdapter<KeyType, DType>::set(
+template <typename KeyType, typename OffsetType, typename DType>
+void DummyVarAdapter<KeyType, OffsetType, DType>::set(
     std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
     std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
     std::vector<int>& scale, cudaStream_t stream) {
@@ -207,17 +210,15 @@ void DummyVarAdapter<KeyType, DType>::set(
   }
 }
 
-template <typename KeyType, typename DType>
-void DummyVarAdapter<KeyType, DType>::lookup(const core23::Tensor& keys, size_t num_keys,
-                                             const core23::Tensor& id_space_offset,
-                                             size_t num_id_space_offset,
-                                             const core23::Tensor& id_space,
-                                             core23::Tensor& embedding_vec) {
+template <typename KeyType, typename OffsetType, typename DType>
+void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
+    const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offset,
+    size_t num_id_space_offset, const core23::Tensor& id_space, core23::Tensor& embedding_vec) {
   // clang-format off
   id_space_offset_.resize(num_id_space_offset);
   CUDACHECK(cudaMemcpyAsync(id_space_offset_.data(),
-                            id_space_offset.data<uint32_t>(),
-                            sizeof(uint32_t) * (num_id_space_offset),
+                            id_space_offset.data<OffsetType>(),
+                            sizeof(OffsetType) * (num_id_space_offset),
                             cudaMemcpyDeviceToHost, stream_));
   id_space_.resize(num_id_space_offset - 1);
   CUDACHECK(cudaMemcpyAsync(id_space_.data(),
@@ -239,9 +240,11 @@ void DummyVarAdapter<KeyType, DType>::lookup(const core23::Tensor& keys, size_t 
   }
 }
 
-template class DummyVarAdapter<int32_t, float>;
+template class DummyVarAdapter<int32_t, int32_t, float>;
+template class DummyVarAdapter<int32_t, int64_t, float>;
 // template class DummyVarAdapter<int32_t, __half>;
-template class DummyVarAdapter<int64_t, float>;
+template class DummyVarAdapter<int64_t, int32_t, float>;
+template class DummyVarAdapter<int64_t, int64_t, float>;
 // template class DummyVarAdapter<int64_t, __half>;
 
 }  // namespace sok

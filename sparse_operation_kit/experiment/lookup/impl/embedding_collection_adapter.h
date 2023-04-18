@@ -35,7 +35,7 @@
 
 namespace sok {
 namespace core23 = HugeCTR::core23;
-template <typename KeyType, typename DType>
+template <typename KeyType, typename OffsetType, typename DType>
 class TFAdapter : public ::embedding::ILookup {
  public:
   TFAdapter();
@@ -64,7 +64,7 @@ class TFAdapter : public ::embedding::ILookup {
   void free();
 };
 
-template <typename KeyType, typename DType>
+template <typename KeyType, typename OffsetType, typename DType>
 class DummyVarAdapter : public ::embedding::ILookup {
  public:
   DummyVarAdapter();
@@ -81,7 +81,7 @@ class DummyVarAdapter : public ::embedding::ILookup {
  private:
   int sm_count_;
   // std::vector<int> id_space_to_local_index_;
-  std::vector<uint32_t> id_space_offset_;
+  std::vector<OffsetType> id_space_offset_;
   std::vector<int> id_space_;
   std::vector<std::shared_ptr<VariableBase<KeyType, DType>>> vars_;
   cudaStream_t stream_;
