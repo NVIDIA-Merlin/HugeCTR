@@ -444,14 +444,17 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 }
 
 // TODO: add int64_t/uint64_t test case
-#define EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, output_layout, \
-                             sort_strategy, allreduce_strategy)                              \
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(                             \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,         \
-      allreduce_strategy);                                                                   \
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(                            \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,         \
-      allreduce_strategy);
+#define EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, output_layout,     \
+                             sort_strategy, allreduce_strategy)                                  \
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(                                 \
+      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,             \
+      allreduce_strategy);                                                                       \
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(                                \
+      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,             \
+      allreduce_strategy);                                                                       \
+  embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(lookup_params, shard_matrix,       \
+                                                              grouped_emb_params, output_layout, \
+                                                              sort_strategy, allreduce_strategy);
 
 #define EBC_E2E_TEST(lookup_params, shard_matrix, grouped_emb_params)                              \
   EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \

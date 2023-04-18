@@ -1048,34 +1048,6 @@ make_MultiToOne(int num_vec, LambdaOffset get_offset, LambdaAverage get_average_
   return {num_vec,        get_offset,     get_average_pooling_factor,
           get_vec_length, get_src_tensor, get_dst_tensor};
 };
-/*
-template <typename SrcType, typename DstType, typename LambdaOffset, typename LambdaAverage,typename
-LambdaHaveAverage, typename LambdaVecLength, typename LambdaSrcTensor, typename LambdaDstTensor,
-typename LambdaHaveSpWeight, typename LambdaSpWeight> struct MultiToOneWeight { using SrcT =
-SrcType; using DstT = DstType;
-
-  HOST_DEVICE_INLINE int get_offset(int i) { return static_cast<int>(get_offset_(i)); }
-  HOST_DEVICE_INLINE int get_vec_length(int i) { return get_vec_length_(i); }
-  HOST_DEVICE_INLINE float get_average_pooling_factor(int i) {
-    return get_average_pooling_factor_(i);
-  }
-  HOST_DEVICE_INLINE bool get_average_pooling_factor() {return have_average_pooling_();}
-  HOST_DEVICE_INLINE const SrcType *get_src_ptr(int i) { return get_src_tensor_(i); }
-  HOST_DEVICE_INLINE DstType *get_dst_ptr(int i) { return get_dst_tensor_(i); }
-  HOST_DEVICE_INLINE bool have_sp_weight() { return have_sp_weight_(); }
-  HOST_DEVICE_INLINE float get_sp_weight(int i) { return get_sp_weight_(i); }
-
-  int num_vec_;
-  LambdaOffset get_offset_;
-  LambdaAverage get_average_pooling_factor_;
-  LambdaHaveAverage have_average_pooling_;
-  LambdaVecLength get_vec_length_;
-  LambdaSrcTensor get_src_tensor_;
-  LambdaDstTensor get_dst_tensor_;
-  LambdaHaveSpWeight have_sp_weight_;
-  LambdaSpWeight get_sp_weight_;
-};
-*/
 
 template <typename SrcType, typename DstType, typename LambdaOffset, typename LambdaAverage,
           typename LambdaVecLength, typename LambdaSrcTensor, typename LambdaDstTensor,
@@ -1147,7 +1119,6 @@ make_MultiToOne_reduce_new(LambdaVecNum num_vec, LambdaSrcVecLength get_src_vec_
 template <typename SrcType, typename DstType, typename LambdaKey, typename LambdaSrcVecLength,
           typename LambdaDstVecLength, typename LambdaDstUniqueId, typename LambdaSrcTensor,
           typename LambdaDstTensor>
-
 struct MultiToOne_reduce {
   using SrcT = SrcType;
   using DstT = DstType;

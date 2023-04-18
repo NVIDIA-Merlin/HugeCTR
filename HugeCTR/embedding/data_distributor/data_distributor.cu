@@ -156,10 +156,12 @@ DataDistributor::MPTempStorage::MPTempStorage(std::shared_ptr<core::CoreResource
   this->keys = core23::Tensor(
       params.shape({static_cast<int64_t>(batch_size * max_local_features)}).data_type(key_type));
 
-  HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_send_k_per_g,
-                                core->get_global_gpu_count() * sizeof(uint32_t)));
-  HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_recv_k_per_g,
-                                core->get_global_gpu_count() * sizeof(uint32_t)));
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(offset_type.type(), offset_t, [&] {
+    HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_send_k_per_g,
+                                  core->get_global_gpu_count() * sizeof(offset_t)));
+    HCTR_LIB_THROW(cudaMallocHost((void**)&this->h_recv_k_per_g,
+                                  core->get_global_gpu_count() * sizeof(offset_t)));
+  });
 }
 
 void DataDistributor::init_filtered_all_to_all() {
@@ -422,7 +424,8 @@ void DataDistributor::init_indices_converter() {
         h_local_table_id_list.push_back(table_id);
       }
       compress_offsets_.push_back(embedding::CompressOffset(core_resource_managers_[gpu_id],
-                                                            h_local_lookup_id_list.size() + 1));
+                                                            h_local_lookup_id_list.size() + 1,
+                                                            ebc_param_.offset_type));
 
       core23::Device device(core23::DeviceType::GPU,
                             core_resource_managers_[gpu_id]->get_device_id());
@@ -501,10 +504,13 @@ void DataDistributor::all2all_keys(int mp_group_i, int gpu_id, size_t& received_
     DISPATCH_INTEGRAL_FUNCTION_CORE23(send_k_per_g.data_type().type(), BucketRangeType, [&] {
       ncclGroupStart();
       for (size_t peer = 0; peer < num_global_gpus_; ++peer) {
-        auto send_num_keys = temp_storage_[mp_group_i][gpu_id].h_send_k_per_g[peer];
-        auto recv_num_keys = temp_storage_[mp_group_i][gpu_id].h_recv_k_per_g[peer];
-        //        printf("GPU (%d) -> (%d) num_keys: %d\n", core->get_global_gpu_id(), (int)peer,
-        //        (int)send_num_keys);
+        auto send_num_keys =
+            static_cast<BucketRangeType*>(temp_storage_[mp_group_i][gpu_id].h_send_k_per_g)[peer];
+        auto recv_num_keys =
+            static_cast<BucketRangeType*>(temp_storage_[mp_group_i][gpu_id].h_recv_k_per_g)[peer];
+        //        printf("GPU (%d) -> (%d) send_num_keys: %d, recv_num_keys: %d\n",
+        //        core->get_global_gpu_id(),
+        //               (int)peer, (int)send_num_keys, (int)recv_num_keys);
         if (send_num_keys > 0) {
           HCTR_LIB_THROW(ncclSend(send_tensor.data<KeyType>() + send_offset, send_num_keys,
                                   nccl_type, peer, core->get_nccl(), stream));
@@ -805,7 +811,7 @@ DataDistributor::Result allocate_output_for_data_distributor(
 
     embedding_input.bucket_range = core23::Tensor(
         params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
-            .data_type(core23::ScalarType::UInt32));
+            .data_type(ebc_param.offset_type));
 
     embedding_input.num_keys = core23::Tensor(
         params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));

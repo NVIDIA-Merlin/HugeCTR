@@ -247,7 +247,7 @@ void ReductionIndices::init(std::shared_ptr<CoreResourceManager> core, int local
 
 void PartitionedResult::init(std::shared_ptr<CoreResourceManager> core, int num_lookup,
                              int num_table, int local_hotness_sum, int batch_size,
-                             core23::DataType key_type) {
+                             core23::DataType key_type, core23::DataType offset_type) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
@@ -257,8 +257,8 @@ void PartitionedResult::init(std::shared_ptr<CoreResourceManager> core, int num_
       core23::Tensor(params.shape({batch_size * local_hotness_sum}).data_type(key_type));
   this->partitioned_src_ids = core23::Tensor(
       params.shape({batch_size * local_hotness_sum}).data_type(core23::ScalarType::UInt32));
-  this->partitioned_bucket_range = core23::Tensor(
-      params.shape({num_lookup * batch_size + 1}).data_type(core23::ScalarType::UInt32));
+  this->partitioned_bucket_range =
+      core23::Tensor(params.shape({num_lookup * batch_size + 1}).data_type(offset_type));
   this->partitioned_table_range =
       core23::Tensor(params.shape({num_table + 1}).data_type(core23::ScalarType::Int32));
 }
@@ -278,12 +278,11 @@ namespace {
 
 template <typename offset_t>
 __global__ void subtract_left_kernel(const int *sorted_lookup_ids, const offset_t *bucket_range,
-                                     int num_lookup, int batch_size, uint32_t *output) {
+                                     int num_lookup, int batch_size, offset_t *output) {
   CUDA_1D_KERNEL_LOOP(i, num_lookup * batch_size) {
     int lookup_id = sorted_lookup_ids[i / batch_size];
     int idx = lookup_id * batch_size + i % batch_size;
-    output[1 + i] =
-        static_cast<uint32_t>(bucket_range[idx + 1]) - static_cast<uint32_t>(bucket_range[idx]);
+    output[1 + i] = bucket_range[idx + 1] - bucket_range[idx];
   }
   if (threadIdx.x + blockIdx.x * blockDim.x == 0) {
     output[0] = 0ul;
@@ -293,7 +292,7 @@ __global__ void subtract_left_kernel(const int *sorted_lookup_ids, const offset_
 template <typename key_t, typename offset_t>
 __global__ void group_keys_by_lookup_id_kernel(const int *sorted_lookup_ids, const key_t *keys,
                                                const offset_t *bucket_range,
-                                               const uint32_t *partitioned_bucket_range,
+                                               const offset_t *partitioned_bucket_range,
                                                int num_lookup, int batch_size,
                                                key_t *partitioned_keys) {
   CUDA_1D_KERNEL_LOOP(idx, num_lookup * batch_size) {
@@ -302,7 +301,7 @@ __global__ void group_keys_by_lookup_id_kernel(const int *sorted_lookup_ids, con
     uint32_t end =
         static_cast<uint32_t>(bucket_range[lookup_id * batch_size + idx % batch_size + 1]);
 
-    uint32_t partitioned_start = partitioned_bucket_range[idx];
+    offset_t partitioned_start = partitioned_bucket_range[idx];
 
     for (uint32_t i = start; i < end; ++i) {
       partitioned_keys[partitioned_start + i - start] = keys[i];
@@ -324,17 +323,17 @@ void group_keys_by_lookup_id(const core23::Tensor &keys, const core23::Tensor &b
                             core->get_kernel_param().max_thread_per_block / block_size;
       subtract_left_kernel<<<grid_size, block_size, 0, stream>>>(
           sorted_lookup_ids.data<int>(), bucket_range.data<offset_t>(), num_lookup, batch_size,
-          partitioned_bucket_range.data<uint32_t>());
+          partitioned_bucket_range.data<offset_t>());
 
       size_t temp_storage_nbytes = temp_storage.temp_scan_storage.num_bytes();
       cub::DeviceScan::InclusiveSum(temp_storage.temp_scan_storage.data(), temp_storage_nbytes,
-                                    partitioned_bucket_range.data<uint32_t>(),
-                                    partitioned_bucket_range.data<uint32_t>(),
+                                    partitioned_bucket_range.data<offset_t>(),
+                                    partitioned_bucket_range.data<offset_t>(),
                                     num_lookup * batch_size + 1, stream);
 
       group_keys_by_lookup_id_kernel<<<grid_size, block_size, 0, stream>>>(
           sorted_lookup_ids.data<int>(), keys.data<key_t>(), bucket_range.data<offset_t>(),
-          partitioned_bucket_range.data<uint32_t>(), num_lookup, batch_size,
+          partitioned_bucket_range.data<offset_t>(), num_lookup, batch_size,
           partitioned_keys.data<key_t>());
     });
   });
@@ -504,11 +503,12 @@ void LocalReduceIndexCalculationTempStorage::init(const std::shared_ptr<CoreReso
 LocalReduceIndexCalculation::LocalReduceIndexCalculation(std::shared_ptr<CoreResourceManager> core,
                                                          int num_lookup, int num_table,
                                                          int local_hotness_sum, int batch_size,
-                                                         core23::DataType key_type) {
+                                                         core23::DataType key_type,
+                                                         core23::DataType offset_type) {
   this->core_ = core;
 
   this->partitioned_result_.init(core, num_lookup, num_table, local_hotness_sum, batch_size,
-                                 key_type);
+                                 key_type, offset_type);
   this->sorted_result.init(core, local_hotness_sum, batch_size, key_type);
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(

@@ -21,35 +21,35 @@
 
 namespace embedding {
 
-__global__ void compress_offset_kernel(const uint32_t *offset, int num, int stride,
-                                       uint32_t *compressed_offset) {
-  int thread_cnt = blockDim.x * blockDim.y;
-
-  for (int tid = threadIdx.x + threadIdx.y * blockDim.x; tid < num; tid += thread_cnt) {
-    compressed_offset[tid] = offset[tid * stride];
-  }
+template <typename offset_t>
+__global__ void compress_offset_kernel(const offset_t *offset, int num, int stride,
+                                       offset_t *compressed_offset) {
+  CUDA_1D_KERNEL_LOOP(i, num) { compressed_offset[i] = offset[i * stride]; }
 }
 
-CompressOffset::CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset)
+CompressOffset::CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset,
+                               core23::DataType type)
     : core_(core), num_compressed_offset_(num_compressed_offset) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 
-  compressed_offset_ =
-      core23::Tensor(params.shape({num_compressed_offset}).data_type(core23::ScalarType::UInt32));
+  compressed_offset_ = core23::Tensor(params.shape({num_compressed_offset}).data_type(type));
 }
 
 void CompressOffset::compute(const core23::Tensor &offset, int batch_size,
                              core23::Tensor *compressed_offset) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
+  HCTR_CHECK(offset.data_type() == compressed_offset_.data_type());
 
-  dim3 block_size(32, 8);
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(offset.data_type().type(), offset_t, [&] {
+    dim3 block_size(256);
 
-  compress_offset_kernel<<<1, block_size, 0, stream>>>(offset.data<uint32_t>(),
-                                                       num_compressed_offset_, batch_size,
-                                                       compressed_offset_.data<uint32_t>());
+    compress_offset_kernel<<<1, block_size, 0, stream>>>(offset.data<offset_t>(),
+                                                         num_compressed_offset_, batch_size,
+                                                         compressed_offset_.data<offset_t>());
+  });
 
   *compressed_offset = compressed_offset_;
 }

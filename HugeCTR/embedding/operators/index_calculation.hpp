@@ -64,7 +64,8 @@ struct PartitionedResult {
   core23::Tensor partitioned_table_range;
 
   void init(std::shared_ptr<CoreResourceManager> core, int num_lookup, int num_table,
-            int local_hotness_sum, int batch_size, core23::DataType key_type);
+            int local_hotness_sum, int batch_size, core23::DataType key_type,
+            core23::DataType offset_type);
 };
 
 struct LocalReduceIndexCalculationTempStorage {
@@ -216,7 +217,7 @@ class LocalReduceIndexCalculation {
 
   LocalReduceIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_lookup,
                               int num_table, int local_hotness_sum, int batch_size,
-                              core23::DataType key_type);
+                              core23::DataType key_type, core23::DataType offset_type);
 
   void cal_for_sparse_input(const EmbeddingInput &embedding_input,
                             SortKeyAndSrcIdOp sort_key_and_src_id_op,

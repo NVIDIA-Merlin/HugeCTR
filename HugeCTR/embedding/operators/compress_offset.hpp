@@ -29,7 +29,8 @@ class CompressOffset {
  public:
   CompressOffset() = default;
 
-  CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset);
+  CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset,
+                 core23::DataType type);
 
   void compute(const core23::Tensor &offset, int batch_size, core23::Tensor *compressed_offset);
 };

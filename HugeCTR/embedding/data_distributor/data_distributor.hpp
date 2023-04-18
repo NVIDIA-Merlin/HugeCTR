@@ -100,8 +100,8 @@ class DataDistributor {
     core23::Tensor sorted_local_keys;
     core23::Tensor sorted_local_labels;
     core23::Tensor keys;  // received from nccl
-    uint32_t* h_send_k_per_g;
-    uint32_t* h_recv_k_per_g;
+    void* h_send_k_per_g;
+    void* h_recv_k_per_g;
   };
 
   // Key Filtering (MP)

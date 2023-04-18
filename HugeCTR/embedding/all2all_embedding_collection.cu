@@ -309,7 +309,8 @@ void weighted_sparse_forward_per_gpu(
                                    batch_size, model_key, model_offsets, &num_model_key_,
                                    reorder_sp_weight, model_sp_weight);
 
-  CompressOffset compress_offset_ = CompressOffset(core, meta.num_local_lookup_ + 1);
+  CompressOffset compress_offset_ =
+      CompressOffset(core, meta.num_local_lookup_ + 1, model_offsets.data_type());
   core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
 
@@ -463,7 +464,8 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   model_index_calculation_.filter_sparse_input(keys, bucket_range, embedding_input,
                                                ebc_param.universal_batch_size);
 
-  CompressOffset compress_offset_ = CompressOffset(core, meta.num_local_lookup_ + 1);
+  CompressOffset compress_offset_ =
+      CompressOffset(core, meta.num_local_lookup_ + 1, embedding_input.bucket_range.data_type());
   core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(embedding_input.bucket_range, batch_size, &num_key_per_lookup_offset);
 
@@ -700,7 +702,7 @@ void weighted_sparse_backward_per_gpu(
   int tensor_device_id = core->get_device_id();
 
   core23::Tensor num_key_per_lookup_offset;
-  CompressOffset compress_offset{core, meta.num_local_lookup_ + 1};
+  CompressOffset compress_offset{core, meta.num_local_lookup_ + 1, model_offsets.data_type()};
   compress_offset.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
   WeightedModelBackwardIndexCalculation model_backward_index_calculation_ =
       WeightedModelBackwardIndexCalculation(core, num_gpus, meta.num_local_lookup_,
@@ -769,7 +771,8 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                                                              meta.wgrad_attr.num_table,
                                                              meta.num_local_hotness_,
                                                              ebc_param.universal_batch_size,
-                                                             ebc_param.key_type};
+                                                             ebc_param.key_type,
+                                                             ebc_param.offset_type};
   CalDstIds cal_dst_ids{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
   SegmentdUnique segmentd_unique{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
   SegmentedSortDevice segmented_sort{core, meta.num_local_hotness_, ebc_param.universal_batch_size,

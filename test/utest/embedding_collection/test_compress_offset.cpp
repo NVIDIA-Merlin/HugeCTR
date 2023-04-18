@@ -48,7 +48,7 @@ TEST(test_compress_offset, test_compress_offset) {
   std::partial_sum(cpu_offset.begin(), cpu_offset.end(), cpu_offset.begin());
   core23::copy_sync(offset, cpu_offset);
 
-  CompressOffset compress_offset{core, num_compressed_offset};
+  CompressOffset compress_offset{core, num_compressed_offset, offset.data_type()};
   HugeCTR::core23::Tensor compressed_offset;
   compress_offset.compute(offset, batch_size, &compressed_offset);
 
