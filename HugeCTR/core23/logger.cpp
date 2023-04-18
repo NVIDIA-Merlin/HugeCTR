@@ -181,14 +181,6 @@ void Logger::abort(const SrcLoc& loc, const char* const format, ...) const {
   std::abort();
 }
 
-void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
-                      const std::string& message) const {
-  std::ostringstream os;
-  os << "Runtime error: " << message << std::endl;
-  os << '\t' << loc.expr << " at " << loc.func << '(' << loc.file << ':' << loc.line << ')';
-  std::throw_with_nested(core23::RuntimeError(error_type, os.str()));
-}
-
 #ifdef HCTR_LEVEL_MAP_
 #error HCTR_LEVEL_MAP_ already defined!
 #else

@@ -115,20 +115,6 @@
 #include <mpi.h>
 #endif
 
-#ifdef HCTR_LIB_CHECK_
-#error HCTR_LIB_CHECK_ already defined. Potential naming conflict!
-#endif
-#define HCTR_LIB_CHECK_(EXPR)                                                                      \
-  do {                                                                                             \
-    const auto _expr_eval = (EXPR);                                                                \
-    const auto error = HugeCTR::core23::to_error(_expr_eval);                                      \
-    if (error != HugeCTR::Error_t::Success) {                                                      \
-      HugeCTR::Logger::get().print_error("Library call check failed!", HCTR_CODE_REFERENCE_(EXPR), \
-                                         HugeCTR::core23::to_error_string(_expr_eval));            \
-      std::abort();                                                                                \
-    }                                                                                              \
-  } while (0)
-
 #ifdef HCTR_OWN_CHECK_
 #error HCTR_OWN_CHECK_ already defined. Potential naming conflict!
 #endif
@@ -136,10 +122,42 @@
   do {                                                                                           \
     if (!(EXPR)) {                                                                               \
       HugeCTR::Logger::get().print_error("Expression check failed!", HCTR_CODE_REFERENCE_(EXPR), \
-                                         HugeCTR::core23::hctr_render_args(__VA_ARGS__));        \
+                                         HugeCTR::core23::hctr_render_string(__VA_ARGS__));      \
       std::abort();                                                                              \
     }                                                                                            \
   } while (0)
+
+#ifdef HCTR_LIB_CHECK_
+#error HCTR_LIB_CHECK_ already defined. Potential naming conflict!
+#endif
+#define HCTR_LIB_CHECK_(EXPR)                                                                \
+  do {                                                                                       \
+    const auto _expr_eval = (EXPR);                                                          \
+    const auto _expr_eval_err = HugeCTR::core23::to_error(_expr_eval);                       \
+    if (_expr_eval_err != HugeCTR::Error_t::Success) {                                       \
+      HugeCTR::Logger::get().print_error("Library call failed!", HCTR_CODE_REFERENCE_(EXPR), \
+                                         HugeCTR::core23::hctr_render_string(_expr_eval));   \
+      std::abort();                                                                          \
+    }                                                                                        \
+  } while (0)
+
+/**
+ * Legacy macros.
+ */
+#ifdef HCTR_CHECK
+#error HCTR_CHECK already defined. Potential naming conflict!
+#endif
+#define HCTR_CHECK(EXPR) HCTR_OWN_CHECK_(EXPR)
+
+#ifdef HCTR_CHECK_HINT
+#error HCTR_CHECK_HINT already defined. Potential naming conflict!
+#endif
+#define HCTR_CHECK_HINT(EXPR, ...) HCTR_OWN_CHECK_(EXPR, __VA_ARGS__)
+
+#ifdef HCTR_DIE
+#error HCTR_DIE already defined. Potential naming conflict!
+#endif
+#define HCTR_DIE(...) HCTR_OWN_CHECK_(false, __VA_ARGS__)
 
 namespace HugeCTR {
 
@@ -196,27 +214,10 @@ struct SrcLoc {
 
 #define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
 
-// For HugeCTR own error types, it is up to users to define the msesage.
-#define HCTR_OWN_THROW(EXPR, MSG)                                                    \
-  do {                                                                               \
-    HugeCTR::Error_t err_thr = (EXPR);                                               \
-    if (err_thr != HugeCTR::Error_t::Success) {                                      \
-      HugeCTR::Logger::get().do_throw(err_thr, CUR_SRC_LOC(EXPR), std::string(MSG)); \
-    }                                                                                \
-  } while (0);
-
-// For other library calls such as CUDA, cuBLAS and NCCL, use this macro
-
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
 #define CHECK_BLOCKING_CALL true
 #define CHECK_ASYNC_CALL false
-
-#define HCTR_CHECK(EXPR) HCTR_OWN_CHECK_(EXPR)
-
-#define HCTR_CHECK_HINT(EXPR, ...) HCTR_OWN_CHECK_(EXPR, __VA_ARGS__)
-
-#define HCTR_DIE(HINT, ...) HCTR_CHECK_HINT(false, HINT, ##__VA_ARGS__)
 
 // TODO: print the cuda error string
 #define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                                       \
@@ -239,6 +240,10 @@ struct SrcLoc {
 #define HCTR_ASSERT(EXPR)
 #endif
 
+/**
+ * The logger class shouldn't be used directly. Instead use the below HCTR_LOG_* and HCTR_*_CHECK_*
+ * macros.
+ */
 class Logger final {
  public:
   class DeferredEntry final {
@@ -306,8 +311,6 @@ class Logger final {
       abort(loc);
     }
   }
-
-  void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
 
   inline int get_rank() const { return rank_; }
 
