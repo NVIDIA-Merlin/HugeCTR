@@ -106,8 +106,7 @@ class ParquetFileSource : public Source {
   // counter_ always points to next file name
   Error_t next_source(long long expected_num_row_group) noexcept;
   bool is_open() noexcept;
-  cudf_io::table_with_metadata read_group(size_t row_group_id,
-                                          rmm::mr::device_memory_resource* mr) noexcept;
+  cudf_io::table_with_metadata read_group(size_t row_group_id, rmm::mr::device_memory_resource* mr);
   /*
     jump to specific parquet file caclulated through global_record_id;
     if dst == cur, dont need to load again

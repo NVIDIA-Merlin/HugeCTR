@@ -136,8 +136,8 @@ Error_t ParquetFileSource::next_source(long long expected_num_row_group) noexcep
   }
 }
 bool ParquetFileSource::is_open() noexcept { return can_read_file_; }
-cudf_io::table_with_metadata ParquetFileSource::read_group(
-    size_t row_group_id, rmm::mr::device_memory_resource* mr) noexcept {
+cudf_io::table_with_metadata ParquetFileSource::read_group(size_t row_group_id,
+                                                           rmm::mr::device_memory_resource* mr) {
   nvtxRangePushA("load_DF");
   if (slice_stream_ == nullptr) {
     try {
