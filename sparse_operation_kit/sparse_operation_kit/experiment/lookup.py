@@ -158,7 +158,7 @@ def _LookupBackward(op, *top_grads):
         "rank",
         "num_ranks",
         "id_in_local_rank",
-        "Toffsets",
+        # "Toffsets",
         "use_sp_weight",
     ]
     kwargs = {}
@@ -194,7 +194,7 @@ def _LookupDynamicBackward(op, *top_grads):
         "rank",
         "num_ranks",
         "id_in_local_rank",
-        "Toffsets",
+        # "Toffsets",
         "use_sp_weight",
     ]
     kwargs = {}

@@ -97,7 +97,7 @@ struct KeySelectorGPU {
 template <typename key_t, typename offset_t>
 __global__ void mask_and_count_keys_in_bucket_kernel(KeySelectorGPU<key_t, offset_t> key_selector,
                                                      const key_t *__restrict__ keys,
-                                                     uint32_t *bucket_range_after_filter,
+                                                     offset_t *bucket_range_after_filter,
                                                      char *flag, int num) {
   int batch_size = key_selector.batch_size_per_gpu;
   CUDA_1D_KERNEL_LOOP(i, num) {
@@ -194,7 +194,7 @@ void IndexCalculation<KeySelector>::filter_sparse_input(const core23::Tensor &ke
     DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
       const key_t *keys_ptr = keys.data<key_t>();
 
-      uint32_t *bucket_range_after_filter = result.bucket_range.data<uint32_t>();
+      offset_t *bucket_range_after_filter = result.bucket_range.data<offset_t>();
       key_t *keys_after_filter = result.keys.data<key_t>();
 
       KeySelectorGPU<key_t, offset_t> key_selector_gpu{keys, bucket_range, key_selector_,

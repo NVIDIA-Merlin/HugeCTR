@@ -298,9 +298,9 @@ void weighted_sparse_forward_per_gpu(
   reorder_from_all_gather_input();
 
   core23::DataType key_type = key_all_gather_recv_buffer.data_type();
-  WeightedModelIndexCalculation model_index_calculation_ =
-      WeightedModelIndexCalculation(core, meta.num_local_lookup_, meta.num_local_hotness_,
-                                    meta.hotness_sum_, batch_size, key_type);
+  WeightedModelIndexCalculation model_index_calculation_ = WeightedModelIndexCalculation(
+      core, meta.num_local_lookup_, meta.num_local_hotness_, meta.hotness_sum_, batch_size,
+      key_type, bucket_range.data_type());
 
   core23::Tensor model_key, model_offsets, model_sp_weight;
   size_t num_model_key_;

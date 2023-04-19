@@ -46,7 +46,7 @@ class WeightedModelIndexCalculation {
 
   WeightedModelIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_local_embedding,
                                 int local_hotness_sum, int hotness_sum, int universal_batch_size,
-                                core23::DataType key_type);
+                                core23::DataType key_type, core23::DataType offset_type);
 
   void compute(const core23::Tensor& key, const core23::Tensor& bucket_range, size_t num_key,
                const core23::Tensor& d_local_embedding_list,
