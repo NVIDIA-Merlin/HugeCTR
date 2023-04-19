@@ -15,7 +15,7 @@
  */
 #pragma once
 
-// TODO: The configurations are not needed anymore in merlin-base:23.03
+// TODO: The configurations are not needed anymore in merlin-base:23.04
 // #include <absl/base/options.h>
 // #undef ABSL_OPTION_USE_STD_STRING_VIEW
 // #define ABSL_OPTION_USE_STD_STRING_VIEW 0
