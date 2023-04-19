@@ -214,6 +214,14 @@ struct SrcLoc {
 
 #define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
 
+#define HCTR_OWN_THROW(EXPR, MSG)                                                    \
+  do {                                                                               \
+    HugeCTR::Error_t err_thr = (EXPR);                                               \
+    if (err_thr != HugeCTR::Error_t::Success) {                                      \
+      HugeCTR::Logger::get().do_throw(err_thr, CUR_SRC_LOC(EXPR), std::string(MSG)); \
+    }                                                                                \
+  } while (0);
+
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
 #define CHECK_BLOCKING_CALL true
@@ -311,6 +319,8 @@ class Logger final {
       abort(loc);
     }
   }
+
+  void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
 
   inline int get_rank() const { return rank_; }
 
