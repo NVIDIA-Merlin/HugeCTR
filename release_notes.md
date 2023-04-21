@@ -1,5 +1,51 @@
 # Release Notes
 
+## What's New in Version 23.04
+
++ **Hierarchical Parameter Server Enhancements**:
+  + HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS.. To turn on table fusion, set `fuse_embedding_table` to `true` in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to [HPS configuration](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration) and [HPS table fusion demo notebook](https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html). This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.
+
+  + UVM Support: We have upgraded the static embedding solution. For embedding tables whose size exceeds the device memory, we will save high-frequency embeddings in the HBM as an embedding cache and offload the remaining embeddings to the UVM. Compared with the dynamic cache solution that offloads the remaining embeddings to the [Volatile DB](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#volatile-database-configuration), the UVM solution has higher CPU lookup throughput. We will support online updating of the UVM solution in a future release. Users can switch between different embedding cache solutions through the [embedding_cache_type](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#inference-parameters) configuration parameter.
+  + Triton Perf Analayzer’s Request Generator: We have added an [inference request generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/request_generator) to generate the JSON request format required by Triton Perf Analyzer. By using this request generator together with the [model generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/model_generator), you can use the Triton Perf Analyzer to profile the HPS performance and do stress testing. For API documentation and demo usage, please refer to [README](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md)
+
++ **General Updates**:
+  + DenseLayerComputeConfig: MLP and CrossLayer support asynchronous weight gradient computations with data gradient backpropagation when training. We have added a new member `hugectr DenseLayerComputeConfig` to `hugectr.DenseLayer` for configuring the computing behavior. The knob for enabling asynchronous weight gradient computations has been moved from `hugectr.CreateSolver` to `hugectr.DenseLayerComputeConfig.async_wgrad`. The knob for controlling the fusion mode of weight gradients and bias gradients has been moved from `hugectr.DenseLayerSwitchs` to `hugectr.DenseLayerComputeConfig.fuse_wb`.
+  + Hopper Architecture Support: Users can build HugeCTR from scratch with the compute capability 9.0 (`DSM=90`), so that it can run on Hopper architectures. Note that our NGC container does not support the compute capability yet. Users who are unfamiliar with how to build HugeCTR can refer to the [HugeCTR Contribution Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#build-hugectr-training-container-from-source). 
+  + RoCE Support for Hybrid Embedding: With the parameter `CommunicationType.IB_NVLink_Hier` in [HybridEmbeddingParams](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#hybridembeddingparam), the RoCE is supported. We have also added 2 environment variables `HUGECTR_ROCE_GID` and `HUGECTR_ROCE_TC` so that a user can control the RoCE NIC's GID and traffic class.
+  https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#hybridembeddingparam-class
+
++ **Documentation Updates**:
+  + Data Reader: We have enhanced our Raw data reader to read multi-hot input data, connecting with an embedding collection seamlessly. The raw dataset format is strengthened as well. Refer to our [online documentation](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw) for more details. We have refined the description for Norm datasest as well.
+  + Embedding Collection: We have added the knob `is_exclusive_keys` to enable potencial acceleration if a user has already preprocessed the input of embedding collection to make the resulting tables exclusive with one another. We have also added the nob `comm_strategy` in embedding collection for user to configure optimized communication strategy in multi-node training
+  + HPS Plugin: We have fixed the unit of measurement for DLRM inference benchmark results that leverage the HPS plugin. We have updated the user guide for the HPS plugin for TensorFlow and the HPS plugin for TensorRT
+  + Embedding Cache: We have updated the usage of three types of embedding cache. We have updated the descriptions of the three types of embedding cache as well.
+
+
++ **Issues Fixed**:
+  + We added a slots emptiness check to prevent `SparseParam` from being misused. 
+  + We revised MPI lifetime service to become MPI init service with slightly greater scope and clearer interface. In this effort, we also fixed a rare bug that could lead access violations during the MPI shutdown procedure.
+  + We fixed a segment fault that occurs when a GPU has no embedding wgrad to update.
+  + SOK build & runtime error related to TF version: We made the SOK Experiment](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/experiment) compatible with the Tensorflow >= v2.11.0. The legacy SOK doesn’t support that and newer versions of Tensorflow.
+  + HPS requires CPU memory to be at least 2.5x larger than the model size during its initialization. From this release, we parse the model embedding files through chunks and reduce the required memory to 1.3x model size.
+
+
++ **Known Issues**:
+  + HugeCTR can lead to a runtime error if client code calls RMM’s `rmm::mr::set_current_device_resource()` or  `rmm::mr::set_current_device_resource()` because HugeCTR’s Parquet Data Reader also calls `rmm::mr::set_current_device_resource()`, and it becomes visible to other libraries in the same process. Refer to [this issue] (https://github.com/NVIDIA-Merlin/HugeCTR/issues/356) . As a workaround, a user can set an environment variable `HCTR_RMM_SETTABLE` to 0 to disable HugeCTR to set a custom RMM device resource, if they know `rmm::mr::set_current_device_resource()`  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also [this NCCL known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and this GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
 ## What's New in Version 23.02
 
 + **HPS Enhancements**:
