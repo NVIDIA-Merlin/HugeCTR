@@ -19,3 +19,7 @@ horovodrun -np ${task_num} python lookup_sparse_distributed_test.py
 horovodrun -np ${task_num} python lookup_sparse_distributed_dynamic_test.py
 horovodrun -np ${task_num} python lookup_sparse_localized_test.py
 horovodrun -np ${task_num} python lookup_sparse_localized_dynamic_test.py
+
+if [[ ${tf_version} -eq 2 ]];then
+horovodrun -np ${task_num} python lookup_sparse_distributed_dynamic_test_without_redefine.py 
+fi
