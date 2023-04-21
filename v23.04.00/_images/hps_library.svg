@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 26.5.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 1620 750" style="enable-background:new 0 0 1620 750;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:none;stroke:#969696;stroke-width:2;stroke-miterlimit:10;}
+	.st1{fill:#969696;}
+	.st2{enable-background:new    ;}
+	.st3{fill:#FFFFFF;}
+	.st4{font-family:'NVIDIASans-Medium';}
+	.st5{font-size:36px;}
+	.st6{fill:#84B637;stroke:#84B637;stroke-width:0.7855;stroke-miterlimit:10;}
+	.st7{fill:none;stroke:#FFFFFF;stroke-width:3;stroke-miterlimit:10;}
+</style>
+<g>
+	<line class="st0" x1="808.3" y1="369.8" x2="808.3" y2="247.6"/>
+	<g>
+		<g>
+			<polyline class="st0" points="808.3,278.5 399.9,278.5 399.9,247.6 			"/>
+			<g>
+				<polygon class="st1" points="409.9,250.5 399.9,233.2 389.9,250.5 				"/>
+			</g>
+		</g>
+	</g>
+	<g>
+		<g>
+			<g>
+				<polygon class="st1" points="818.3,250.5   808.6,233.2   798.3,250.5"/>
+			</g>
+		</g>
+	</g>
+	<g>
+		<g>
+			<polyline class="st0" points="808.3,278.5 1217.6,278.5 1217.6,247.6 			"/>
+			<g>
+				<polygon class="st1" points="1227.6,250.5 1217.6,233.2 1207.6,250.5 				"/>
+			</g>
+		</g>
+	</g>
+</g>
+<rect x="40" y="27.3" class="st1" width="420" height="175"/>
+<rect x="522" y="27.3" class="st1" width="410" height="175"/>
+<rect x="1000" y="27.3" class="st1" width="580" height="175"/>
+<g>
+	<text transform="matrix(1 0 0 1 144 104.4492)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Plugin </tspan><tspan x="-29.7" y="43.2" class="st3 st4 st5">for TensorFlow</tspan></text>
+</g>
+<g>
+	<text transform="matrix(1 0 0 1 626 104.4492)" class="st2">
+      <tspan x="0" y="0" class="st3 st4 st5">HPS Plugin </tspan>
+      <tspan x="-20" y="43.2" class="st3 st4 st5">for TensorRT</tspan>
+    </text>
+</g>
+<g>
+	<text transform="matrix(1 0 0 1 1150 103.0175)" class="st2"><tspan x="0" y="0" class="st3 st4 st5">HPS Backend </tspan><tspan x="-108.2" y="43.2" class="st3 st4 st5">for Triton Inference Server</tspan></text>
+</g>
+<rect x="29.4" y="370" class="st6" width="1557.6" height="352.6"/>
+<rect x="67.3" y="509.8" class="st7" width="703.1" height="175"/>
+<rect x="846.1" y="509.8" class="st7" width="703.1" height="175"/>
+<g>
+	<text transform="matrix(1 0 0 1 218.8605 608.1224)" class="st3 st4 st5">HPS Database Backend</text>
+</g>
+<g>
+	<text transform="matrix(1 0 0 1 1004.444 608.6907)" class="st3 st4 st5">GPU Embedding Cache</text>
+</g>
+<g>
+	<text transform="matrix(1 0 0 1 488.0478 450.4765)" class="st3 st4 st5">Hierarchical Parameter Server Library</text>
+</g>
+</svg>
