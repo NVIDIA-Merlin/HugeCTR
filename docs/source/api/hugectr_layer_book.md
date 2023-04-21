@@ -116,6 +116,10 @@ The `DistributedSlotSparseEmbeddingHash` stores embeddings in an embedding table
 * In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
 All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.
 * The input indices’ data type, `input_key_type`, is specified in the solver. By default,  the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](./python_interface.md#solver).
+* The DistributedSlotSparseEmbeddingHash Layer performs overflow checking in every iteration by default to verify if
+  the number of inserted keys is beyond the size set by workspace_size_per_gpu_in_mb. However, this can negatively
+  impact performance when the table is large. If user are confident that there will be no overflow, you can disable
+  overflow checking by setting the environment variable HUGECTR_DISABLE_OVERFLOW_CHECK=1.
 
 **Example:**
 ```python
@@ -138,6 +142,10 @@ The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding
 * In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
 All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.
 * The input indices’ data type, `input_key_type`, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](./python_interface.md#solver).
+* The LocalizedSlotSparseEmbeddingHash Layer performs overflow checking in every iteration by default to verify if the
+  number of inserted keys is beyond the size set by workspace_size_per_gpu_in_mb or slot_size_array. However, this
+  can negatively impact performance when the table is large. If user are confident that there will be no overflow, you
+  can disable overflow checking by setting the environment variable HUGECTR_DISABLE_OVERFLOW_CHECK=1.
 
 Example:
 ```python
@@ -1118,6 +1126,13 @@ To use an embedding collection, you need the following items:
 
 You can use the `add()` method from `hugectr.Model` to use the embedding collection for training and evaluation.
 
+### Known Limitations
+
+1. Only `embedding_vec_size` values of up to 256 are currently supported in the embedding collection.
+2. If you use a dynamic hash table (by setting `max_vocabulary_size` to -1 in `hugectr.EmbeddingTableConfig`), it is
+   recommended that you set the `NCCL_LAUNCH_MODE=GROUP` environment variable to avoid potential hangs.
+3. Mixed-precision training is not supported when using a dynamic hash table.
+
 ### EmbeddingTableConfig
 
 The `hugectr.EmbeddingTableConfig` class enables you to specify the attributes of an embedding table.
@@ -1132,6 +1147,7 @@ If you do not know the exact size of the embedding table, you can specify `-1` t
 * `ev_size`: Integer, specifies the embedding vector size that this embedding consists of.
 * `opt_params`: Optional, `hugectr.Optimizer`, the optimizer you want to use for this embedding table.
 If not specified, the embedding table uses the optimizer specified in `hugectr.Model`.
+Currently, if the user sets max_vocabulary_size to a value greater than 0, the supported optimizer types are `SGD` and `AdaGrad`. If the user sets `max_vocabulary_size` to -1, a dynamic hash embedding table is used, and the supported optimizer types are `SGD`, `MomentumSGD`, `Nesterov`, `AdaGrad`, `RMSProp`, `Adam`, and `Ftrl`.
 
 Example:
 
