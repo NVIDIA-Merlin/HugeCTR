@@ -95,6 +95,61 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-23-04">
+<h2>What’s New in Version 23.04<a class="headerlink" href="#what-s-new-in-version-23-04" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>Hierarchical Parameter Server Enhancements</strong>:</p>
+<ul class="simple">
+<li><p>HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS… To turn on table fusion, set <code class="docutils literal notranslate"><span class="pre">fuse_embedding_table</span></code> to <code class="docutils literal notranslate"><span class="pre">true</span></code> in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration">HPS configuration</a> and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html">HPS table fusion demo notebook</a>. This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.</p></li>
+<li><p>UVM Support: We have upgraded the static embedding solution. For embedding tables whose size exceeds the device memory, we will save high-frequency embeddings in the HBM as an embedding cache and offload the remaining embeddings to the UVM. Compared with the dynamic cache solution that offloads the remaining embeddings to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#volatile-database-configuration">Volatile DB</a>, the UVM solution has higher CPU lookup throughput. We will support online updating of the UVM solution in a future release. Users can switch between different embedding cache solutions through the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#inference-parameters">embedding_cache_type</a> configuration parameter.</p></li>
+<li><p>Triton Perf Analayzer’s Request Generator: We have added an <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/request_generator">inference request generator</a> to generate the JSON request format required by Triton Perf Analyzer. By using this request generator together with the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/model_generator">model generator</a>, you can use the Triton Perf Analyzer to profile the HPS performance and do stress testing. For API documentation and demo usage, please refer to <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md">README</a></p></li>
+</ul>
+</li>
+<li><p><strong>General Updates</strong>:</p>
+<ul class="simple">
+<li><p>DenseLayerComputeConfig: MLP and CrossLayer support asynchronous weight gradient computations with data gradient backpropagation when training. We have added a new member <code class="docutils literal notranslate"><span class="pre">hugectr</span> <span class="pre">DenseLayerComputeConfig</span></code> to <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayer</span></code> for configuring the computing behavior. The knob for enabling asynchronous weight gradient computations has been moved from <code class="docutils literal notranslate"><span class="pre">hugectr.CreateSolver</span></code> to <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.async_wgrad</span></code>. The knob for controlling the fusion mode of weight gradients and bias gradients has been moved from <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerSwitchs</span></code> to <code class="docutils literal notranslate"><span class="pre">hugectr.DenseLayerComputeConfig.fuse_wb</span></code>.</p></li>
+<li><p>Hopper Architecture Support: Users can build HugeCTR from scratch with the compute capability 9.0 (<code class="docutils literal notranslate"><span class="pre">DSM=90</span></code>), so that it can run on Hopper architectures. Note that our NGC container does not support the compute capability yet. Users who are unfamiliar with how to build HugeCTR can refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#build-hugectr-training-container-from-source">HugeCTR Contribution Guide</a>.</p></li>
+<li><p>RoCE Support for Hybrid Embedding: With the parameter <code class="docutils literal notranslate"><span class="pre">CommunicationType.IB_NVLink_Hier</span></code> in <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#hybridembeddingparam">HybridEmbeddingParams</a>, the RoCE is supported. We have also added 2 environment variables <code class="docutils literal notranslate"><span class="pre">HUGECTR_ROCE_GID</span></code> and <code class="docutils literal notranslate"><span class="pre">HUGECTR_ROCE_TC</span></code> so that a user can control the RoCE NIC’s GID and traffic class.
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#hybridembeddingparam-class">https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#hybridembeddingparam-class</a></p></li>
+</ul>
+</li>
+<li><p><strong>Documentation Updates</strong>:</p>
+<ul class="simple">
+<li><p>Data Reader: We have enhanced our Raw data reader to read multi-hot input data, connecting with an embedding collection seamlessly. The raw dataset format is strengthened as well. Refer to our <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw">online documentation</a> for more details. We have refined the description for Norm datasest as well.</p></li>
+<li><p>Embedding Collection: We have added the knob <code class="docutils literal notranslate"><span class="pre">is_exclusive_keys</span></code> to enable potencial acceleration if a user has already preprocessed the input of embedding collection to make the resulting tables exclusive with one another. We have also added the nob <code class="docutils literal notranslate"><span class="pre">comm_strategy</span></code> in embedding collection for user to configure optimized communication strategy in multi-node training</p></li>
+<li><p>HPS Plugin: We have fixed the unit of measurement for DLRM inference benchmark results that leverage the HPS plugin. We have updated the user guide for the HPS plugin for TensorFlow and the HPS plugin for TensorRT</p></li>
+<li><p>Embedding Cache: We have updated the usage of three types of embedding cache. We have updated the descriptions of the three types of embedding cache as well.</p></li>
+</ul>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>We added a slots emptiness check to prevent <code class="docutils literal notranslate"><span class="pre">SparseParam</span></code> from being misused.</p></li>
+<li><p>We revised MPI lifetime service to become MPI init service with slightly greater scope and clearer interface. In this effort, we also fixed a rare bug that could lead access violations during the MPI shutdown procedure.</p></li>
+<li><p>We fixed a segment fault that occurs when a GPU has no embedding wgrad to update.</p></li>
+<li><p>SOK build &amp; runtime error related to TF version: We made the SOK Experiment](<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/experiment">https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/experiment</a>) compatible with the Tensorflow &gt;= v2.11.0. The legacy SOK doesn’t support that and newer versions of Tensorflow.</p></li>
+<li><p>HPS requires CPU memory to be at least 2.5x larger than the model size during its initialization. From this release, we parse the model embedding files through chunks and reduce the required memory to 1.3x model size.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR can lead to a runtime error if client code calls RMM’s <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> or  <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> because HugeCTR’s Parquet Data Reader also calls <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>, and it becomes visible to other libraries in the same process. Refer to [this issue] (<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/356">https://github.com/NVIDIA-Merlin/HugeCTR/issues/356</a>) . As a workaround, a user can set an environment variable <code class="docutils literal notranslate"><span class="pre">HCTR_RMM_SETTABLE</span></code> to 0 to disable HugeCTR to set a custom RMM device resource, if they know <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.</p></li>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">this NCCL known issue</a> and this GitHub issue](<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">https://github.com/NVIDIA-Merlin/HugeCTR/issues/243</a>).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>Dumping Adam optimizer states to AWS S3 is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-23-02">
 <h2>What’s New in Version 23.02<a class="headerlink" href="#what-s-new-in-version-23-02" title="Permalink to this headline"></a></h2>
 <ul>

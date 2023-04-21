@@ -144,11 +144,12 @@
 <ul>
 <li><p><a class="reference internal" href="#about-the-hugectr-embedding-collection" id="id32">About the HugeCTR embedding collection</a></p></li>
 <li><p><a class="reference internal" href="#overview-of-using-the-hugectr-embedding-collection" id="id33">Overview of using the HugeCTR embedding collection</a></p></li>
-<li><p><a class="reference internal" href="#embeddingtableconfig" id="id34">EmbeddingTableConfig</a></p></li>
-<li><p><a class="reference internal" href="#embeddingcollectionconfig" id="id35">EmbeddingCollectionConfig</a></p></li>
+<li><p><a class="reference internal" href="#known-limitations" id="id34">Known Limitations</a></p></li>
+<li><p><a class="reference internal" href="#embeddingtableconfig" id="id35">EmbeddingTableConfig</a></p></li>
+<li><p><a class="reference internal" href="#embeddingcollectionconfig" id="id36">EmbeddingCollectionConfig</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#groupdenselayer" id="id36">GroupDenseLayer</a></p></li>
+<li><p><a class="reference internal" href="#groupdenselayer" id="id37">GroupDenseLayer</a></p></li>
 </ul>
 </div>
 <p>This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.</p>
@@ -249,6 +250,10 @@ If you do not specify the optimizer for the sparse embedding, the sparse embeddi
 <li><p>In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
 All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.</p></li>
 <li><p>The input indices’ data type, <code class="docutils literal notranslate"><span class="pre">input_key_type</span></code>, is specified in the solver. By default,  the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see <a class="reference internal" href="python_interface.html#solver"><span class="std std-doc">Solver</span></a>.</p></li>
+<li><p>The DistributedSlotSparseEmbeddingHash Layer performs overflow checking in every iteration by default to verify if
+the number of inserted keys is beyond the size set by workspace_size_per_gpu_in_mb. However, this can negatively
+impact performance when the table is large. If user are confident that there will be no overflow, you can disable
+overflow checking by setting the environment variable HUGECTR_DISABLE_OVERFLOW_CHECK=1.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span>
@@ -270,6 +275,10 @@ All the embedding vectors in a single embedding layer must have the same size. I
 <li><p>In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
 All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.</p></li>
 <li><p>The input indices’ data type, <code class="docutils literal notranslate"><span class="pre">input_key_type</span></code>, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see <a class="reference internal" href="python_interface.html#solver"><span class="std std-doc">Solver</span></a>.</p></li>
+<li><p>The LocalizedSlotSparseEmbeddingHash Layer performs overflow checking in every iteration by default to verify if the
+number of inserted keys is beyond the size set by workspace_size_per_gpu_in_mb or slot_size_array. However, this
+can negatively impact performance when the table is large. If user are confident that there will be no overflow, you
+can disable overflow checking by setting the environment variable HUGECTR_DISABLE_OVERFLOW_CHECK=1.</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span>
@@ -1194,6 +1203,15 @@ The enhancement boosts both flexibility and performance.</p></li>
 </ul>
 <p>You can use the <code class="docutils literal notranslate"><span class="pre">add()</span></code> method from <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code> to use the embedding collection for training and evaluation.</p>
 </div>
+<div class="section" id="known-limitations">
+<h3>Known Limitations<a class="headerlink" href="#known-limitations" title="Permalink to this headline"></a></h3>
+<ol class="arabic simple">
+<li><p>Only <code class="docutils literal notranslate"><span class="pre">embedding_vec_size</span></code> values of up to 256 are currently supported in the embedding collection.</p></li>
+<li><p>If you use a dynamic hash table (by setting <code class="docutils literal notranslate"><span class="pre">max_vocabulary_size</span></code> to -1 in <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code>), it is
+recommended that you set the <code class="docutils literal notranslate"><span class="pre">NCCL_LAUNCH_MODE=GROUP</span></code> environment variable to avoid potential hangs.</p></li>
+<li><p>Mixed-precision training is not supported when using a dynamic hash table.</p></li>
+</ol>
+</div>
 <div class="section" id="embeddingtableconfig">
 <h3>EmbeddingTableConfig<a class="headerlink" href="#embeddingtableconfig" title="Permalink to this headline"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code> class enables you to specify the attributes of an embedding table.</p>
@@ -1206,7 +1224,8 @@ If you specify the value incorrectly and exceed the value during training or eva
 If you do not know the exact size of the embedding table, you can specify <code class="docutils literal notranslate"><span class="pre">-1</span></code> to use a dynamic hash embedding table with a size that can be extended dynamically during training or evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ev_size</span></code>: Integer, specifies the embedding vector size that this embedding consists of.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">opt_params</span></code>: Optional, <code class="docutils literal notranslate"><span class="pre">hugectr.Optimizer</span></code>, the optimizer you want to use for this embedding table.
-If not specified, the embedding table uses the optimizer specified in <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code>.</p></li>
+If not specified, the embedding table uses the optimizer specified in <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code>.
+Currently, if the user sets max_vocabulary_size to a value greater than 0, the supported optimizer types are <code class="docutils literal notranslate"><span class="pre">SGD</span></code> and <code class="docutils literal notranslate"><span class="pre">AdaGrad</span></code>. If the user sets <code class="docutils literal notranslate"><span class="pre">max_vocabulary_size</span></code> to -1, a dynamic hash embedding table is used, and the supported optimizer types are <code class="docutils literal notranslate"><span class="pre">SGD</span></code>, <code class="docutils literal notranslate"><span class="pre">MomentumSGD</span></code>, <code class="docutils literal notranslate"><span class="pre">Nesterov</span></code>, <code class="docutils literal notranslate"><span class="pre">AdaGrad</span></code>, <code class="docutils literal notranslate"><span class="pre">RMSProp</span></code>, <code class="docutils literal notranslate"><span class="pre">Adam</span></code>, and <code class="docutils literal notranslate"><span class="pre">Ftrl</span></code>.</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create the embedding table.</span>
