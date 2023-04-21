@@ -94,7 +94,7 @@ To build HugeCTR Training Container from source, do the following:
    ```
 
 3. Build HugeCTR from scratch using one or any combination of the following options:
-   - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability
+   - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=90) or multiple compute capabilities (DSM="80;70"). The default compute capability
      is 70, which uses the NVIDIA V100 GPU. For more information, refer to the [Compute Capability](hugectr_user_guide.md#compute-capability) table. 60 is not supported for inference deployments. For more information, refer to the [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start) for the HugeCTR backend of Triton Inference Server.
    - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
      in a synchronous manner.
@@ -112,13 +112,13 @@ To build HugeCTR Training Container from source, do the following:
    Here are some examples of how you can build HugeCTR using these build options:
    ```shell
    $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100 with all others by default
+   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=80 .. # Target is NVIDIA A100
    $ make -j && make install
    ```
 
    ```shell
    $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_MULTINODES=ON .. # Target is NVIDIA V100 / A100 with the multi-node mode on.
+   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="80;90" -DENABLE_MULTINODES=ON .. # Target is NVIDIA A100 / H100 with the multi-node mode on.
    $ make -j && make install
    ```
 
