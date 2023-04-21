@@ -66,14 +66,8 @@ from sparse_operation_kit.experiment.lookup import all2all_dense_embedding
 # a specific code path for dl framework tf2.11.0
 import tensorflow
 
-try:
-    if tensorflow.keras.optimizers.legacy.Optimizer.__name__ == "OptimizerV2":
-        tensorflow.keras.optimizers = tensorflow.keras.optimizers.legacy
-except:
-    pass
 
-
-def init(comm_tool="horovod"):
+def init(comm_tool="horovod", use_legacy_optimizer=True):
     """
     Abbreviated as ``sok.experiment.init``.
 
@@ -108,11 +102,21 @@ def init(comm_tool="horovod"):
     ----------
     comm_tool: string
             a string to specify which communication tool to use. Default value is "horovod".
-
+    use_legacy_optimizer: bool
+            From tensorflow 2.11.0 , keras default optimizer is optimizer experimental. SOK won't support it in future, so if you switch use_legacy_optimizer to True,
+            SOK will redefine tensorflow.keras.optimizers to tensorflow.keras.optimizers.legacy(tf.keras.optimizers.optimizer_v2).
+            Default value is True, if you want to use new optimizer in the other part in your code , and only use legacy optimizer in SOK, please set to False
     Returns
     -------
     None
     """
+    if use_legacy_optimizer:
+        try:
+            if tensorflow.keras.optimizers.legacy.Optimizer.__name__ == "OptimizerV2":
+                tensorflow.keras.optimizers = tensorflow.keras.optimizers.legacy
+        except:
+            pass
+
     set_comm_tool(comm_tool)
     status = raw_ops.set_default_allocator()
     print("[SOK INFO] Initialize finished, communication tool: " + comm_tool)
