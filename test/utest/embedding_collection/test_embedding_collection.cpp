@@ -269,6 +269,7 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 
   auto sync_gpus = [&]() {
     for (auto core : core_resource_manager_list) {
+      CudaDeviceContext __(core->get_device_id());
       HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
     }
   };

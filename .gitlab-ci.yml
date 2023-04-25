@@ -277,7 +277,7 @@ utests:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
-    WALLTIME: "01:30:00"
+    WALLTIME: "02:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest.sub
 
