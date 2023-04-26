@@ -1067,6 +1067,46 @@ e2e_nvt_regression_test:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
 
+notebook_hugectr:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/notebook_hugectr
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/workdir/tools/day_0,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/notebooks/notebook_hugectr.sub
+
+nb_movie_lens_example:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/nb_movie_lens_example
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/notebooks/nb_movie-lens-example.sub
+
+nb_hps_demo:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/nb_hps_demo
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/notebooks/hps_demo.sub
+
 wdl_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job_daily
