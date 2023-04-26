@@ -1834,6 +1834,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   timer_train.start();
 
   bool use_embedding_collection_without_overlapping =
+      (!solver_.use_embedding_collection) ||
       (solver_.use_embedding_collection && !solver_.train_inter_iteration_overlap &&
        !solver_.train_intra_iteration_overlap && !solver_.eval_inter_iteration_overlap &&
        !solver_.eval_intra_iteration_overlap);
