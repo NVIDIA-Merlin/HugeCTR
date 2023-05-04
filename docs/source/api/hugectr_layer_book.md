@@ -943,8 +943,10 @@ Parameters: None
 
 Input and Output Shapes:
 
-* input: 2D: (m, n), (n, k) or 3D: (batch_size, m, n), (batch_size, n, k)
-* output: 2D: (m, k) or 3D: (batch_size, m, k)
+There are following shape configuration supported
+* input: 2D x 2D (m, n)x(n, k) and the output will be 2D (m,k)
+* input: 3D x 3D (batch_size, m, n)x(batch_size, n, k) and the output will be 3D (batch_size, m, k)
+* input: 2D x 3D (batch_size, m)x(m, g, h) and the output will be 3D (batch_size, g, h)
 
 Example:
 ```python

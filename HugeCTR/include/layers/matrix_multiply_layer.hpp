@@ -70,7 +70,10 @@ class MatrixMultiplyLayer : public Layer {
 
  private:
   size_t num_;
-  size_t dims_;
+  size_t dims_lhs_;
+  size_t dims_rhs_;
+  Tensor2<T*> h_inputs_;
+  Tensor2<T*> d_inputs_;
   Tensor2<T> fprop_inputA_;
   core23::Tensor fprop_inputA_tensor23_;
 };
