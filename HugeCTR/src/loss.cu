@@ -457,10 +457,14 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
   } else {
     HCTR_LIB_THROW(cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].num_bytes(), stream));
   }
-
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample + BLOCK_SIZE - 1) / BLOCK_SIZE);
-  float *target_weight = target_weight_old_.get_ptr();
+  float *target_weight = nullptr;
+  if (this->use_old_tensor) {
+    target_weight = target_weight_old_.get_ptr();
+  } else {
+    target_weight = target_weight_.data<float>();
+  }
   MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(
       input, label, target_weight, loss, batch_size, Loss<T>::get_total_gpu_count(),
       labels_per_sample, scaler, rterm, is_train);
@@ -518,7 +522,7 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
   }
 
   core23::BufferParams blobs_buffer_params = {};
-  blobs_buffer_params.channel = GetBlobsBufferChannel();
+  blobs_buffer_params.channel = core23::GetRandomBufferChannel();
   core23::Device device(core23::DeviceType::GPU, gpu_resource->get_device_id());
 
   // load target_weight to internal Tensor

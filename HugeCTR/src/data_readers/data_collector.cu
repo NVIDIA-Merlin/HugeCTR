@@ -40,39 +40,6 @@ __global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, T
   return;
 }
 
-template <typename TypeComp>
-void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
-           const Tensor2<float>& label_dense_buffer, const int label_dense_dim,
-           cudaStream_t stream) {
-  // check the input size
-  assert(label_tensor.get_dimensions()[0] == dense_tensor.get_dimensions()[0]);
-  assert(label_tensor.get_num_elements() + dense_tensor.get_num_elements() ==
-         label_dense_buffer.get_num_elements());
-
-  const int batchsize = label_tensor.get_dimensions()[0];
-  const int label_dim = label_tensor.get_dimensions()[1];
-  const int dense_dim = dense_tensor.get_dimensions()[1];
-
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = (label_dense_buffer.get_num_elements() - 1) / BLOCK_DIM + 1;
-  assert(dense_dim >= 0 || "dense_dim should be >= 0");
-
-  if (dense_dim > 0) {
-    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(
-        batchsize, label_tensor.get_ptr(), label_dim, dense_tensor.get_ptr(), dense_dim,
-        label_dense_buffer.get_ptr(), label_dense_dim);
-  } else if (dense_dim == 0) {
-    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(
-        batchsize, label_tensor.get_ptr(), label_dim, (TypeComp*)0, 0, label_dense_buffer.get_ptr(),
-        label_dense_dim);
-
-  } else {
-    HCTR_OWN_THROW(Error_t::WrongInput, "dense_dim < 0");
-  }
-
-  return;
-}
-
 namespace core23_reader {
 template <typename TypeComp>
 // TODO FIXME
@@ -110,7 +77,33 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
 
   return;
 };
+template <typename TypeComp>
+void split(core23::Tensor& label_tensor, core23::Tensor& dense_tensor,
+           const core23::Tensor& label_dense_buffer, const int label_dense_dim,
+           cudaStream_t stream) {
+  const int batchsize = label_tensor.shape()[0];
+  const int label_dim = label_tensor.shape()[1];
+  const int dense_dim = dense_tensor.shape()[1];
 
+  const int BLOCK_DIM = 256;
+  const int GRID_DIM = (label_dense_buffer.num_elements() - 1) / BLOCK_DIM + 1;
+  assert(dense_dim >= 0 || "dense_dim should be >= 0");
+
+  if (dense_dim > 0) {
+    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(
+        batchsize, label_tensor.data<float>(), label_dim, dense_tensor.data<TypeComp>(), dense_dim,
+        label_dense_buffer.data<float>(), label_dense_dim);
+  } else if (dense_dim == 0) {
+    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(
+        batchsize, label_tensor.data<float>(), label_dim, (TypeComp*)0, 0,
+        label_dense_buffer.data<float>(), label_dense_dim);
+
+  } else {
+    HCTR_OWN_THROW(Error_t::WrongInput, "dense_dim < 0");
+  }
+
+  return;
+};
 // broadcast, called by bg thread
 // threadbuffer broadcast to broadbuffers
 template <typename T>
@@ -255,12 +248,14 @@ template void broadcast<long long>(const std::shared_ptr<ThreadBuffer>& thread_b
                                    std::vector<size_t>& last_batch_nnz_,
                                    const std::shared_ptr<ResourceManager>& resource_manager);
 
-template void split<float>(Tensor2<float>& label_tensor, Tensor2<float>& dense_tensor,
-                           const Tensor2<float>& label_dense_buffer, const int label_dense_dim,
-                           cudaStream_t stream);
+template void core23_reader::split<float>(core23::Tensor& label_tensor,
+                                          core23::Tensor& dense_tensor,
+                                          const core23::Tensor& label_dense_buffer,
+                                          const int label_dense_dim, cudaStream_t stream);
 
-template void split<__half>(Tensor2<float>& label_tensor, Tensor2<__half>& dense_tensor,
-                            const Tensor2<float>& label_dense_buffer, const int label_dense_dim,
-                            cudaStream_t stream);
+template void core23_reader::split<__half>(core23::Tensor& label_tensor,
+                                           core23::Tensor& dense_tensor,
+                                           const core23::Tensor& label_dense_buffer,
+                                           const int label_dense_dim, cudaStream_t stream);
 
 }  // namespace HugeCTR

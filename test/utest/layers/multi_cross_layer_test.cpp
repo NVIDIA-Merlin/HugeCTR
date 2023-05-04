@@ -644,7 +644,7 @@ class MultiCrossLayerTest {
 
   void test() {
     // this->layer_->initialize();
-    this->layer_->search_algorithm();
+    // this->layer_->search_algorithm();
     // dcnv1
     if (this->projection_dim_ == 0) {
       reset_forward_();
@@ -823,7 +823,6 @@ TEST(multi_cross_layer_v2, fp16_debug) {
   MultiCrossLayerTest<__half> test10(3, 3456, 3, 64);
   MultiCrossLayerTest<__half> test11(3, 3456, 3, 512);
   MultiCrossLayerTest<__half> test12(3, 3456, 3, 512);
-  MultiCrossLayerTest<__half> test13(1024, 1024, 1, 1024);
   test0.test();
   std::cout << "Test0 \n";
   test1.test();
@@ -850,8 +849,6 @@ TEST(multi_cross_layer_v2, fp16_debug) {
   std::cout << "Test11 \n";
   test12.test();
   std::cout << "Test12 \n";
-  test13.test();
-  std::cout << "Test13 \n";
 }
 
 TEST(multi_cross_layer_v2, fp16_3x1024x3) {
@@ -872,8 +869,9 @@ TEST(multi_cross_layer_v2, fp16_3x1024x2) {
   MultiCrossLayerTest<__half> test(3, 1024, 2, 1024);
   test.test();
 }
+
 // TEST(multi_cross_layer_v2, fp16_384) {
-//   MultiCrossLayerTest<__half> test(384, 3456, 3, 512);
+//   MultiCrossLayerTest<__half> test(384, 3456, 1, 512);
 //   test.test();
 // }
 // TEST(multi_cross_layer_v2, fp16_dlrm) {

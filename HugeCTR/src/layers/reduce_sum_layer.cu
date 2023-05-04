@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 #include <layers/reduce_sum_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -140,8 +141,9 @@ ReduceSumLayer<T>::ReduceSumLayer(const core23::Tensor& input_tensor, core23::Te
         out_shape.set(i, in_shape.size(i));
       }
     }
+    core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
-    output_tensor = core23::Tensor(input_tensor.my_params().shape(out_shape));
+    output_tensor = core23::Tensor(input_tensor.my_params().shape(out_shape).buffer_params(buf_p));
     output_tensors_.push_back(output_tensor);
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;

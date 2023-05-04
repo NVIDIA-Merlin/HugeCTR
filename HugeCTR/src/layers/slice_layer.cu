@@ -17,9 +17,9 @@
 #include <common.hpp>
 #include <cstdint>
 #include <layers/slice_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
 namespace HugeCTR {
 
 namespace {
@@ -86,8 +86,8 @@ SliceLayer<T>::SliceLayer(const core23::Tensor& input_tensor,
         out_shape.set(i, in_shape.size(i));
       }
       out_shape.set(dims - 1, cur_max - cur_min);
-
-      core23::Tensor tensor(input_tensor.my_params().shape(out_shape));
+      core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
+      core23::Tensor tensor(input_tensor.my_params().shape(out_shape).buffer_params(buf_p));
       output_tensors.push_back(tensor);
       slices_start_.push_back(cur_min);
 

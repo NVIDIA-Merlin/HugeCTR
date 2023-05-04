@@ -120,6 +120,62 @@ void scale_test(size_t batchsize, size_t num_elems, int axis, int factor) {
   downscale_cpu<T>(h_bottom.get(), h_top.get(), batchsize, num_elems, axis, factor);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom.get(), h_bottom.get(), len, eps));
 }
+template <typename T>
+void core23_scale_test(int64_t batchsize, int64_t num_elems, int axis, int factor) {
+  core23::Shape dims = {batchsize, num_elems};
+
+  core23::Tensor in_tensor(core23::TensorParams()
+                               .shape(dims)
+                               .data_type(core23::ToScalarType<T>::value)
+                               .device({core23::DeviceType::GPU, 0}));
+  ;
+  core23::Tensor out_tensor(core23::TensorParams()
+                                .shape(dims)
+                                .data_type(core23::ToScalarType<T>::value)
+                                .device({core23::DeviceType::GPU, 0}));
+  ;
+  core23::ScaleLayer<T> scale_layer(in_tensor, out_tensor, axis, factor, test::get_default_gpu());
+
+  scale_layer.initialize();
+
+  const size_t len = num_elems * batchsize;
+  const size_t top_len = num_elems * batchsize * factor;
+
+  std::unique_ptr<T[]> h_bottom(new T[len]);
+  std::unique_ptr<T[]> d2h_bottom(new T[len]);
+  std::unique_ptr<T[]> h_top(new T[top_len]);
+  std::unique_ptr<T[]> d2h_top(new T[top_len]);
+
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  simulator.fill(h_bottom.get(), len);
+
+  HCTR_LIB_THROW(
+      cudaMemcpy(in_tensor.data(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  scale_layer.fprop(true);
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
+      cudaMemcpy(d2h_top.get(), out_tensor.data(), top_len * sizeof(T), cudaMemcpyDeviceToHost));
+
+  upscale_cpu<T>(h_top.get(), h_bottom.get(), batchsize, num_elems, axis, factor);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), top_len, eps));
+  // T *t=d2h_top.get(), *t1 = h_top.get(), *in=h_bottom.get();
+  // for(int i=0;i<100;i++)
+  //  HCTR_LOG(INFO, WORLD, "%f %f %f\n", t[i], t1[i], in[i]);
+  // bprop
+  simulator.fill(h_top.get(), len);
+  // T *tt = h_top.get();
+  // HCTR_LOG(INFO, WORLD, "back cpu %f\n", tt[0]);
+  HCTR_LIB_THROW(
+      cudaMemcpy(out_tensor.data(), h_top.get(), top_len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  scale_layer.bprop();
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
+      cudaMemcpy(d2h_bottom.get(), in_tensor.data(), len * sizeof(T), cudaMemcpyDeviceToHost));
+  downscale_cpu<T>(h_bottom.get(), h_top.get(), batchsize, num_elems, axis, factor);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom.get(), h_bottom.get(), len, eps));
+}
 
 }  // namespace
 TEST(scale_layer, fp32_100x100_0) { scale_test<float>(100, 100, 0, 3); }
@@ -128,3 +184,10 @@ TEST(scale_layer, fp32_2048x4096_0) { scale_test<float>(2048, 4096, 0, 42); }
 TEST(scale_layer, fp32_100x100_1) { scale_test<float>(100, 100, 1, 3); }
 TEST(scale_layer, fp32_512x1024_1) { scale_test<float>(512, 1024, 1, 17); }
 TEST(scale_layer, fp32_2048x4096_1) { scale_test<float>(2048, 4096, 1, 42); }
+
+TEST(core23_scale_layer, fp32_100x100_0) { core23_scale_test<float>(100, 100, 0, 3); }
+TEST(core23_scale_layer, fp32_512x1024_0) { core23_scale_test<float>(512, 1024, 0, 20); }
+TEST(core23_scale_layer, fp32_2048x4096_0) { core23_scale_test<float>(2048, 4096, 0, 42); }
+TEST(core23_scale_layer, fp32_100x100_1) { core23_scale_test<float>(100, 100, 1, 3); }
+TEST(core23_scale_layer, fp32_512x1024_1) { core23_scale_test<float>(512, 1024, 1, 17); }
+TEST(core23_scale_layer, fp32_2048x4096_1) { core23_scale_test<float>(2048, 4096, 1, 42); }

@@ -50,7 +50,8 @@ class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
                                         int batch_size_eval, int n_batches, int label_dim,
-                                        const std::shared_ptr<ResourceManager>& resource_manager);
+                                        const std::shared_ptr<ResourceManager>& resource_manager,
+                                        bool use_old_tensor = false);
   Metric();
   virtual ~Metric();
   virtual void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) = 0;
@@ -400,6 +401,7 @@ class AUCStorage {
   std::vector<FinalizeStorage> finalize_storage_;
 
  public:
+  // FinalizeStorage is not copyable, thus return by reference
   FinalizeStorage& fst(size_t stream_id) { return finalize_storage_[stream_id]; }
 };
 

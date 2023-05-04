@@ -19,6 +19,7 @@
 #include <nccl.h>
 
 #include <common.hpp>
+#include <core23/tensor.hpp>
 #include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
@@ -30,7 +31,6 @@
 #include <nlohmann/json.hpp>
 #include <optimizer.hpp>
 #include <vector>
-
 namespace HugeCTR {
 
 struct DenseLayer;

@@ -328,8 +328,8 @@ struct AllreduceWgradInitializer {
   AllreduceWgradInitializer &init(Wgrad &other);
 
   AllreduceWgradInitializer &init_indices();
-
   AllreduceWgradInitializer &init_data(bool not_grouped);
+  AllreduceWgradInitializer &init_data(bool grouped, const core23::BufferChannel &buffer_channel);
 };
 
 }  // namespace embedding

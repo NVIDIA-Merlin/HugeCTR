@@ -23,6 +23,7 @@
 #include <embedding/operators/transpose_input.hpp>
 #include <embedding_storage/embedding_table.hpp>
 #include <include/exchange_wgrad.hpp>
+#include <include/network_buffer_channels.hpp>
 #include <optimizer.hpp>
 #include <tensor2.hpp>
 

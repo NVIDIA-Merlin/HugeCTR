@@ -63,11 +63,11 @@ class InferenceModel {
   std::vector<core23::Tensor> rowoffset_tensor_list_;  // the length equals local_gpu_count
 
   std::vector<std::shared_ptr<Tensor2<float>>>
-      old_pred_tensor_list_;                          // the length equals local_gpu_count
-  std::vector<TensorBag2> reader_label_tensor_list_;  // the length equals local_gpu_count
-  std::vector<TensorBag2> reader_dense_tensor_list_;  // the length equals local_gpu_count
-  std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
-  std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
+      old_pred_tensor_list_;                              // the length equals local_gpu_count
+  std::vector<core23::Tensor> reader_label_tensor_list_;  // the length equals local_gpu_count
+  std::vector<core23::Tensor> reader_dense_tensor_list_;  // the length equals local_gpu_count
+  std::map<std::string, core23_reader::SparseInput<long long>> sparse_input_map_64_;
+  std::map<std::string, core23_reader::SparseInput<unsigned int>> sparse_input_map_32_;
 
   std::vector<std::vector<TensorEntry>> inference_tensor_entries_list_;
 
@@ -85,7 +85,7 @@ class InferenceModel {
 
   template <typename TypeKey>
   void parse_input_from_data_reader(
-      const std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+      const std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
       std::vector<core23::Tensor>& key_tensor_list,
       std::vector<core23::Tensor>& rowoffset_tensor_list);
 };

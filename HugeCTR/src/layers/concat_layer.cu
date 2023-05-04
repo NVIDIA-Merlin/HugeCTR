@@ -16,6 +16,7 @@
 
 #include <common.hpp>
 #include <layers/concat_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -53,7 +54,6 @@ ConcatLayer<T>::ConcatLayer(const std::vector<core23::Tensor>& input_tensors,
     if (input_tensors_.empty()) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
     }
-
     size_t n_input_tensors = input_tensors_.size();
     int64_t height = 0;
     int64_t new_width = 0;
@@ -73,8 +73,10 @@ ConcatLayer<T>::ConcatLayer(const std::vector<core23::Tensor>& input_tensors,
       }
       new_width += cur_in_shape.size(1);
     }
+    core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
-    output_tensor = core23::Tensor(input_tensors_[0].my_params().shape({height, new_width}));
+    output_tensor = core23::Tensor(
+        input_tensors_[0].my_params().shape({height, new_width}).buffer_params(buf_p));
     output_tensors_.push_back(output_tensor);
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;

@@ -47,7 +47,7 @@ class SparseTensor23 {
   core23::Tensor value_;
   core23::Tensor offset_;
   // TODO Fix me
-  std::shared_ptr<int64_t> nnz_;
+  std::shared_ptr<size_t> nnz_;
 
  public:
   SparseTensor23(){};
@@ -58,15 +58,15 @@ class SparseTensor23 {
 
   // TODO add device, shape, data type check
   SparseTensor23(const core23::Tensor &value, const core23::Tensor &offset,
-                 const std::shared_ptr<int64_t> nnz)
+                 const std::shared_ptr<size_t> nnz)
       : value_(value), offset_(offset), nnz_(nnz){};
   // TODO add device, shape, data type check
   SparseTensor23(const core23::TensorParams &val_param, const core23::TensorParams &off_param,
-                 const std::shared_ptr<int64_t> nnz)
+                 const std::shared_ptr<size_t> nnz)
       : value_(val_param), offset_(off_param), nnz_(nnz){};
 
-  SparseTensor23(const core23::TensorParams &val_param, const int64_t slot_num)
-      : value_(val_param), nnz_(std::make_shared<int64_t>()) {
+  SparseTensor23(const core23::TensorParams &val_param, const size_t slot_num)
+      : value_(val_param), nnz_(std::make_shared<size_t>()) {
     core23::Shape off_shape(val_param.shape());
     int64_t fact = slot_num;
     for (int64_t i = 0; i < off_shape.dims() - 1; i++) {
@@ -78,9 +78,9 @@ class SparseTensor23 {
     offset_ = core23::Tensor(off_param);
   }
   SparseTensor23(const core23::Shape &val_shape, const core23::ScalarType &val_dtype,
-                 const int64_t slot_num, core23::Device device = core23::Device(),
+                 const size_t slot_num, core23::Device device = core23::Device(),
                  core23::TensorParams param = core23::TensorParams())
-      : value_(val_shape, val_dtype, param.device(device)), nnz_(std::make_shared<int64_t>()) {
+      : value_(val_shape, val_dtype, param.device(device)), nnz_(std::make_shared<size_t>()) {
     core23::Shape off_shape(val_shape);
 
     int64_t fact = slot_num;
@@ -93,10 +93,10 @@ class SparseTensor23 {
                              core23::TensorParams().device(device));
   }
   SparseTensor23(const core23::Shape &val_shape, const core23::ScalarType &val_dtype,
-                 const core23::ScalarType &off_dtype, const int64_t slot_num,
+                 const core23::ScalarType &off_dtype, const size_t slot_num,
                  core23::Device device = core23::Device(),
                  core23::TensorParams param = core23::TensorParams())
-      : value_(val_shape, val_dtype, param.device(device)), nnz_(std::make_shared<int64_t>()) {
+      : value_(val_shape, val_dtype, param.device(device)), nnz_(std::make_shared<size_t>()) {
     core23::Shape off_shape(val_shape);
 
     int64_t fact = slot_num;
@@ -117,11 +117,12 @@ class SparseTensor23 {
   core23::Tensor get_rowoffset_tensor() const { return offset_; }
   core23::Tensor &get_rowoffset_tensor() { return offset_; }
 
-  int64_t max_nnz() const { return value_.num_elements(); }
-  int64_t nnz() const { return *nnz_; }
-  int64_t rowoffset_count() const { return offset_.num_elements(); }
+  size_t max_nnz() const { return value_.num_elements(); }
+  size_t nnz() const { return *nnz_; }
+  size_t rowoffset_count() const { return offset_.num_elements(); }
 
-  std::shared_ptr<int64_t> get_nnz_ptr() { return nnz_; }
+  std::shared_ptr<size_t> get_nnz_ptr() { return nnz_; }
+  std::shared_ptr<size_t> get_nnz_ptr() const { return nnz_; }
 };
 
 using SparseTensors23 = std::vector<SparseTensor23>;

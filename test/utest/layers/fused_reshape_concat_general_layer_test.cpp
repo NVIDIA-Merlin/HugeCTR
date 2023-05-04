@@ -155,6 +155,102 @@ void fused_reshape_concat_general_test(size_t batch_size, size_t slot_num, std::
   }
 }
 
+template <typename T>
+void core23_fused_reshape_concat_general_test(int64_t batch_size, int64_t slot_num,
+                                              std::vector<int> items) {
+  int num = items.size();
+  size_t out_vector_size = 0;
+  int *vecs_size = new int[num];
+  std::vector<core23::Tensor> in_tensors;
+
+  for (int i = 0; i < num; i++) {
+    int64_t embedding_vec_size = items[i];
+    core23::Shape dims_in{batch_size, slot_num, embedding_vec_size};
+    core23::Tensor in_tensor(core23::TensorParams()
+                                 .shape(dims_in)
+                                 .data_type(core23::ToScalarType<T>::value)
+                                 .device({core23::DeviceType::GPU, 0}));
+    in_tensors.push_back(in_tensor);
+    out_vector_size += embedding_vec_size;
+    vecs_size[i] = embedding_vec_size;
+  }
+
+  core23::Tensor out_tensor;
+  int64_t rows = batch_size * slot_num;
+  int64_t out_size = batch_size * slot_num * out_vector_size;
+  core23::FusedReshapeConcatGeneralLayer<T> fused_reshape_concat_general_layer(
+      in_tensors, out_tensor, test::get_default_gpu());
+  fused_reshape_concat_general_layer.initialize();
+  std::unique_ptr<T *[]> h_d_ins(new T *[num]);
+  for (int i = 0; i < num; i++) {
+    h_d_ins[i] = in_tensors[i].data<T>();
+  }
+  T *d_out = out_tensor.data<T>();
+
+  std::unique_ptr<T *[]> h_ins(new T *[num]);
+  for (int i = 0; i < num; i++) {
+    h_ins[i] = new T[rows * items[i]];
+  }
+
+  std::unique_ptr<T *[]> h_ins_b(new T *[num]);
+  for (int i = 0; i < num; i++) {
+    h_ins_b[i] = new T[rows * items[i]];
+  }
+  std::unique_ptr<T[]> h_out(new T[out_size]);
+  std::unique_ptr<T[]> h_cpu_out(new T[out_size]);
+
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+
+  // fprop
+  for (int i = 0; i < num; i++) {
+    size_t size = rows * items[i];
+    simulator.fill(h_ins[i], size);
+    // for(size_t j=0; j<size;j++){
+    //  h_ins[i][j] = i;
+    //  if(i==0 && j==32)
+    //    HCTR_LOG(INFO, WORLD, "%f\n",  h_ins[i][j]);
+    //}
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+  }
+
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  fused_reshape_concat_general_layer.fprop(true);
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+
+  fused_reshape_concat_general_cpu(true, h_cpu_out.get(), h_ins.get(), batch_size, slot_num,
+                                   vecs_size, num, out_vector_size);
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
+
+  // bprop
+  test::GaussianDataSimulator simulatorb(0.0f, 2.0f);
+  for (int i = 0; i < num; i++) {
+    size_t size = rows * items[i];
+    memset(h_ins[i], 0, size * sizeof(T));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+  }
+  simulatorb.fill(h_out.get(), out_size);
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  fused_reshape_concat_general_layer.bprop();  // compute wgrad and dgrad
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+
+  for (int i = 0; i < num; i++) {
+    size_t size = rows * items[i];
+    HCTR_LIB_THROW(cudaMemcpy(h_ins_b[i], h_d_ins[i], size * sizeof(T), cudaMemcpyDeviceToHost));
+  }
+
+  fused_reshape_concat_general_cpu(false, h_out.get(), h_ins.get(), batch_size, slot_num, vecs_size,
+                                   num, out_vector_size);
+  for (int i = 0; i < num; i++) {
+    size_t size = rows * items[i];
+    ASSERT_TRUE(test::compare_array_approx<T>(h_ins[i], h_ins_b[i], size,
+                                              Eps<T>::value()));  // compare dgrad
+  }
+}
 }  // namespace
 
 TEST(fused_reshape_concat_general_layer, fp32_32x20x12_3) {
@@ -185,4 +281,34 @@ TEST(fused_reshape_concat_general_layer, fp32_128x200_16) {
 TEST(fused_reshape_concat_general_layer, fp32_128x1024_11) {
   std::vector<int> items{211, 54, 270, 130, 75, 34, 131, 231, 76, 341, 130};
   fused_reshape_concat_general_test<float>(128, 1024, items);
+}
+
+TEST(core23_fused_reshape_concat_general_layer, fp32_32x20x12_3) {
+  std::vector<int> items;
+  int batch_size = 32, slot_num = 20;
+  int goodID_size = 3, shopID_size = 5, cateID_size = 4;
+  items.push_back(goodID_size);
+  items.push_back(shopID_size);
+  items.push_back(cateID_size);
+  core23_fused_reshape_concat_general_test<float>(batch_size, slot_num, items);
+}
+
+TEST(core23_fused_reshape_concat_general_layer, fp32_32x20_7) {
+  std::vector<int> items{21, 4, 7, 13, 75, 34, 13};
+  core23_fused_reshape_concat_general_test<float>(32, 20, items);
+}
+
+TEST(core23_fused_reshape_concat_general_layer, fp32_32x100_16) {
+  std::vector<int> items{21, 4, 7, 13, 75, 34, 13, 23, 76, 34, 13, 12, 14, 5, 8, 20};
+  core23_fused_reshape_concat_general_test<float>(32, 100, items);
+}
+
+TEST(core23_fused_reshape_concat_general_layer, fp32_128x200_16) {
+  std::vector<int> items{21, 54, 27, 13, 75, 34, 13, 23, 76, 34, 13, 12, 14, 5, 8, 20};
+  core23_fused_reshape_concat_general_test<float>(128, 200, items);
+}
+
+TEST(core23_fused_reshape_concat_general_layer, fp32_128x1024_11) {
+  std::vector<int> items{211, 54, 270, 130, 75, 34, 131, 231, 76, 341, 130};
+  core23_fused_reshape_concat_general_test<float>(128, 1024, items);
 }

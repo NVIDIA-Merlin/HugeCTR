@@ -39,7 +39,7 @@ using namespace HugeCTR::hybrid_embedding;
 size_t global_seed = 321654;
 size_t num_batches = 13;
 
-template <typename dtype, bool NewReader = false>
+template <typename dtype>
 void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
                             int num_threads_per_device, int batches_per_thread, int label_dim,
                             int dense_dim, int sparse_dim, int num_passes, int seed,
@@ -123,14 +123,14 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
   source.slot_id = 0;
 
   bool is_dense_float = false;
-  using DataReaderType = typename std::conditional<NewReader, core23_reader::AsyncDataReader<dtype>,
-                                                   AsyncDataReader<dtype>>::type;
+  using DataReaderType = HugeCTR::MultiHot::core23_reader::AsyncDataReader<dtype>;
+
   DataReaderType data_reader({source}, resource_manager, batch_size, num_threads_per_device,
                              batches_per_thread, params, label_dim, dense_dim, mixed_precision,
                              shuffle, schedule_uploads, is_dense_float);
 
-  auto label_tensors = bags_to_tensors<float>(data_reader.get_label_tensors());
-  auto dense_tensors = bags_to_tensors<__half>(data_reader.get_dense_tensors());
+  auto label_tensors = data_reader.get_label_tensor23s();
+  auto dense_tensors = data_reader.get_dense_tensor23s();
 
   data_reader.start();
   for (int pass = 0; pass < 0; pass++) {
@@ -138,7 +138,7 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
     for (size_t batch = 0; batch < num_batches; batch++) {
       size_t current_batch_size = data_reader.read_a_batch_to_device();
 
-      auto sparse_tensors = data_reader.get_current_sparse_tensors();
+      auto sparse_tensors = data_reader.get_current_sparse_tensor23s();
       std::cout << batch << " batch good:" << current_batch_size << std::endl;
 
       std::vector<size_t> device_batch_offsets(local_gpu_count + 1);
@@ -168,12 +168,10 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
         std::vector<float> labels;
         std::vector<__half> denses;
         std::vector<std::vector<dtype>> sparses(sparse_dim);
-
-        download_tensor(labels, label_tensors[id], device->get_stream());
-        download_tensor(denses, dense_tensors[id], device->get_stream());
+        core23::copy_sync(labels, label_tensors[id]);
+        core23::copy_sync(denses, dense_tensors[id]);
         for (int feat_id = 0; feat_id < sparse_dim; ++feat_id) {
-          download_tensor(sparses[feat_id], sparse_tensors[id][feat_id].get_value_tensor(),
-                          device->get_stream());
+          core23::copy_sync(sparses[feat_id], sparse_tensors[id][feat_id].get_value_tensor());
         }
 
         auto cur_ref = ref_data.data() + total_read * sample_dim;
@@ -224,24 +222,18 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
 //   device_list   batch  threads  batch_per_thread   label  dense  sparse  num_passes  seed
 
 TEST(async_data_reader_test, gpu_1x_basic) {
-  async_data_reader_test<uint32_t, false>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
-  async_data_reader_test<uint32_t, true>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
+  async_data_reader_test<uint32_t>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
 }
 TEST(async_data_reader_test, gpu_1x_basic_long_long) {
-  async_data_reader_test<long long, false>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
-  async_data_reader_test<long long, true>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
+  async_data_reader_test<long long>({0}, 100, 1, 1, 2, 3, 5, 1, global_seed += 128);
 }
 TEST(async_data_reader_test, gpu_1x_multi_threaded) {
-  async_data_reader_test<uint32_t, false>({0}, 100, 4, 1, 2, 3, 5, 1, global_seed += 128);
-  async_data_reader_test<uint32_t, true>({0}, 100, 4, 1, 2, 3, 5, 1, global_seed += 128);
+  async_data_reader_test<uint32_t>({0}, 100, 4, 1, 2, 3, 5, 1, global_seed += 128);
 }
 TEST(async_data_reader_test, gpu_1x_multiple_batches_per_thread) {
-  async_data_reader_test<uint32_t, false>({0}, 100, 4, 4, 2, 3, 5, 1, global_seed += 128);
-  async_data_reader_test<uint32_t, true>({0}, 100, 4, 4, 2, 3, 5, 1, global_seed += 128);
+  async_data_reader_test<uint32_t>({0}, 100, 4, 4, 2, 3, 5, 1, global_seed += 128);
 }
 TEST(async_data_reader_test, gpu_8x_incomplete_batch) {
-  async_data_reader_test<uint32_t, false>({0, 1, 2, 3, 4, 5, 6, 7}, 128, 1, 1, 2, 3, 5, 1,
-                                          global_seed += 128, true);
-  async_data_reader_test<uint32_t, true>({0, 1, 2, 3, 4, 5, 6, 7}, 128, 1, 1, 2, 3, 5, 1,
-                                         global_seed += 128, true);
+  async_data_reader_test<uint32_t>({0, 1, 2, 3, 4, 5, 6, 7}, 128, 1, 1, 2, 3, 5, 1,
+                                   global_seed += 128, true);
 }

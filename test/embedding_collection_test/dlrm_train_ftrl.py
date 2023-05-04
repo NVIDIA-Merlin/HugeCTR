@@ -15,6 +15,7 @@
 """
 import hugectr
 import argparse
+
 from mpi4py import MPI
 
 parser = argparse.ArgumentParser(
@@ -59,13 +60,16 @@ parser.add_argument(
     type=float,
     default=0.1,
 )
-
+parser.add_argument(
+    "--grouped_allreduce", help="group embedding wgrad with dense network", action="store_true"
+)
 args = parser.parse_args()
 
 comm = MPI.COMM_WORLD
 num_nodes = comm.Get_size()
 rank = comm.Get_rank()
 num_gpus_per_node = 8
+
 num_gpus = num_nodes * num_gpus_per_node
 
 
@@ -112,6 +116,7 @@ solver = hugectr.CreateSolver(
     i64_input_key=True,
     metrics_spec={hugectr.MetricsType.AverageLoss: 0.0},
     use_embedding_collection=True,
+    grouped_all_reduce=args.grouped_allreduce,
 )
 slot_size_array = [
     203931,

@@ -54,6 +54,8 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
 
   inline void* data(int64_t offset, AccessKey) const { return data_impl(offset); }
 
+  virtual std::pair<void*, int64_t> decay() const { return std::make_pair(nullptr, 0LL); }
+
  protected:
   using ClientOffsets = std::map<BufferClient*, int64_t>;
   using ClientRequirements = std::map<BufferClient*, BufferRequirements>;

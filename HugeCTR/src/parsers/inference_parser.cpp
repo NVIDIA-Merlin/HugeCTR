@@ -15,10 +15,10 @@
  */
 
 #include <core23/buffer_channel_helpers.hpp>
+#include <core23_helper.hpp>
 #include <inference/embedding_feature_combiner.hpp>
 #include <inference/inference_session.hpp>
 #include <parser.hpp>
-
 namespace HugeCTR {
 
 core23::BufferChannel GetInferenceBufferChannel() {
@@ -29,13 +29,17 @@ core23::BufferChannel GetInferenceBufferChannel() {
 //***** create_pipeline_inference with new tensor
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(
-    const InferenceParams& inference_params, TensorBag2& dense_input_bag,
+    const InferenceParams& inference_params, core23::Tensor& dense_input_bag,
     std::vector<std::shared_ptr<core23::Tensor>>& rows,
     std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
     std::vector<size_t>& embedding_table_slot_size, std::vector<std::shared_ptr<Layer>>* embeddings,
     Network** network, std::vector<TensorEntry>& inference_tensor_entries,
     const std::shared_ptr<ResourceManager> resource_manager) {
   // Not used, required as an argument by Network::create_network
+  core23::Device device_gpu(core23::DeviceType::GPU, inference_params.device_id);
+  core23::TensorParams tensor_params = core23::TensorParams()
+                                           .device(device_gpu)
+                                           .buffer_channel(HugeCTR::GetInferenceBufferChannel());
   std::vector<TensorEntry> train_tensor_entries;
   auto j_layers_array = get_json(config_, "layers");
   check_graph(tensor_active_, j_layers_array);
@@ -46,10 +50,15 @@ void InferenceParser::create_pipeline_inference(
 
     auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
     auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
-    Tensor2<TypeEmbeddingComp> dense_input;
-    input_buffer->reserve({inference_params.max_batchsize, dense_dim}, &dense_input);
-    inference_tensor_entries.push_back({top_strs_dense, dense_input.shrink()});
-    dense_input_bag = dense_input.shrink();
+    core23::Tensor dense_input(
+        tensor_params.shape({(int64_t)inference_params.max_batchsize, (int64_t)dense_dim})
+            .buffer_channel(core23::GetRandomBufferChannel())
+            .data_type(core23::ToScalarType<TypeEmbeddingComp>::value));
+    // input_buffer->reserve({inference_params.max_batchsize, dense_dim}, &dense_input);
+    inference_tensor_entries.push_back(
+        {top_strs_dense,
+         core_helper::convert_core23_tensor_to_tensorbag2<TypeEmbeddingComp>(dense_input)});
+    dense_input_bag = dense_input;
 
     auto j_label = get_json(j_data, "label");
     auto label_name_arr = get_json(j_label, "top");
@@ -60,16 +69,20 @@ void InferenceParser::create_pipeline_inference(
       for (int i = 0; i < label_dim_arr.size(); ++i) {
         label_dim = label_dim_arr[i].get<int>();
         top_strs_label = label_name_arr[i].get<std::string>();
-        Tensor2<float> label_input;
-        input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
-        inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
+        core23::Tensor label_input(
+            tensor_params.shape({(int64_t)inference_params.max_batchsize, (int64_t)label_dim})
+                .data_type(core23::ToScalarType<float>::value));
+        inference_tensor_entries.push_back(
+            {top_strs_label, core_helper::convert_core23_tensor_to_tensorbag2<float>(label_input)});
       }
     } else {
       top_strs_label = get_value_from_json<std::string>(j_label, "top");
       label_dim = get_value_from_json<size_t>(j_label, "label_dim");
-      Tensor2<float> label_input;
-      input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
-      inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
+      core23::Tensor label_input(
+          tensor_params.shape({(int64_t)inference_params.max_batchsize, (int64_t)label_dim})
+              .data_type(core23::ToScalarType<float>::value));
+      inference_tensor_entries.push_back(
+          {top_strs_label, core_helper::convert_core23_tensor_to_tensorbag2<float>(label_input)});
     }
   }
   create_embedding<unsigned int, TypeEmbeddingComp>()(
@@ -92,7 +105,7 @@ void InferenceParser::create_pipeline_inference(
 
 //****create_pipeline with new tensor
 void InferenceParser::create_pipeline(const InferenceParams& inference_params,
-                                      TensorBag2& dense_input_bag,
+                                      core23::Tensor& dense_input_bag,
                                       std::vector<std::shared_ptr<core23::Tensor>>& rows,
                                       std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
                                       std::vector<size_t>& embedding_table_slot_size,

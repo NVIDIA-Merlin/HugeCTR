@@ -16,6 +16,7 @@
 
 #include <common.hpp>
 #include <layers/reshape_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -103,7 +104,8 @@ ReshapeLayer<T>::ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor
 
     auto in_dims_1 = selected.empty() ? in_shape.size(1) : static_cast<int64_t>(n_active_slot_);
     const core23::Shape out_shape = {in_shape.size(0), in_dims_1 * in_shape.size(2)};
-    output_tensor = core23::Tensor(input_tensor.my_params().shape(out_shape));
+    core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
+    output_tensor = core23::Tensor(input_tensor.my_params().shape(out_shape).buffer_params(buf_p));
 
     if (!in_place_) {
       unsigned int i = 0;

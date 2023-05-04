@@ -79,10 +79,9 @@ class Concat3DLayer : public Layer {
   size_t num_;
   size_t batch_size_ = 0;
   size_t new_slot_num_ = 0;
-  Tensor2<size_t> vecs_size_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
-  core23::TensorContainer<T, 1, 1> input_tensor_container_;
+  core23::Tensor d_ptrs_;
 };
 
 }  // namespace HugeCTR

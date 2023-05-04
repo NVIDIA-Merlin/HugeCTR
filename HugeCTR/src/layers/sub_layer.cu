@@ -15,37 +15,20 @@
  */
 
 #include <algorithm>
+#include <core23/tensor_operations.hpp>
 #include <functional>
 #include <layers/sub_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
 namespace HugeCTR {
 
 namespace {
-
-template <typename ContainerView, typename T>
-__global__ void sub_kernel(ContainerView inputs, T* output, int size) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (tid < size) output[tid] = inputs[0][tid] - inputs[1][tid];
-}
 
 template <typename T>
 __global__ void sub_kernel(T** inputs, T* output, int size) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < size) output[tid] = inputs[0][tid] - inputs[1][tid];
-}
-
-template <typename ContainerView, typename T>
-__global__ void sub_dgrad_kernel(const T* top_grad, ContainerView dgrads, int size) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (tid < size) {
-    dgrads[0][tid] = top_grad[tid];
-    dgrads[1][tid] = 0.0 - top_grad[tid];
-  }
 }
 
 template <typename T>
@@ -64,9 +47,7 @@ template <typename T>
 SubLayer<T>::SubLayer(const std::vector<core23::Tensor>& input_tensors,
                       const core23::Tensor& output_tensor,
                       const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(input_tensors, {output_tensor}, gpu_resource),
-      size_(input_tensors_[0].num_elements()),
-      input_tensor_container_(input_tensors_, {static_cast<int64_t>(input_tensors_.size())}) {
+    : Layer(input_tensors, {output_tensor}, gpu_resource), size_(input_tensors_[0].num_elements()) {
   try {
     // error input checking
     int64_t dims = input_tensors_[0].dims();
@@ -131,6 +112,7 @@ SubLayer<T>::SubLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
 
 template <typename T>
 void SubLayer<T>::initialize() {
+  CudaDeviceContext context(get_device_id());
   // TODO: remove this later
   if (input_tensors_.empty()) {
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
@@ -145,7 +127,18 @@ void SubLayer<T>::initialize() {
                                    num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
   } else {
-    input_tensor_container_.flatten();
+    core23::TensorParams ptr_params =
+        core23::TensorParams()
+            .shape({static_cast<int64_t>(input_tensors_.size())})
+            .data_type(core23::ScalarType::Pointer)
+            .device({core23::DeviceType::GPU, static_cast<int8_t>(this->get_device_id())});
+    input_tensor_ptr_ = core23::Tensor(ptr_params);
+    std::vector<void*> ptr_cpu;
+    // the in_tensors_ must be allocated before initialize() is called
+    for (size_t i = 0; i < input_tensors_.size(); i++) {
+      ptr_cpu.push_back(input_tensors_[i].data());
+    }
+    core23::copy_async(input_tensor_ptr_, ptr_cpu, get_gpu().get_stream());
   }
 }
 
@@ -166,7 +159,7 @@ void SubLayer<T>::fprop(bool is_train) {
 
     dim3 block_size(256, 1, 1);
     dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
-    sub_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(input_tensor_container_.view(),
+    sub_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(input_tensor_ptr_.data<T*>(),
                                                                      output, size_);
   }
 #ifndef NDEBUG
@@ -192,7 +185,7 @@ void SubLayer<T>::bprop() {
     dim3 block_size(256, 1, 1);
     dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
     sub_dgrad_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-        output, input_tensor_container_.view(), size_);
+        output, input_tensor_ptr_.data<T*>(), size_);
   }
 #ifndef NDEBUG
   cudaDeviceSynchronize();

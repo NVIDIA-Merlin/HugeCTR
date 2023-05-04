@@ -16,6 +16,7 @@
 #pragma once
 
 #include <common.hpp>
+#include <core23_helper.hpp>
 #include <embedding.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding_storage/weight_io/parameter_IO.hpp>
@@ -26,6 +27,7 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
+#include <inference/preallocated_buffer2.hpp>
 #include <io/filesystem.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
@@ -360,7 +362,7 @@ std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::ID
 
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
-               std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
                std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
                std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
                std::shared_ptr<IDataReader>& train_data_reader,
@@ -370,18 +372,42 @@ void add_input(Input& input, DataReaderParams& reader_params,
                bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager> resource_manager);
 
+template <typename TypeKey>
+void add_input(Input& input, DataReaderParams& reader_params,
+               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+               std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
+               std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
+               std::shared_ptr<IDataReader>& train_data_reader,
+               std::shared_ptr<IDataReader>& evaluate_data_reader,
+               std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
+               size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+               bool train_intra_iteration_overlap, size_t num_iterations_statistics,
+               const std::shared_ptr<ResourceManager>);
+
+// TODO remove it
 template <typename TypeKey, typename TypeFP>
-void add_sparse_embedding(SparseEmbedding& sparse_embedding,
-                          std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                          std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-                          std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-                          std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                          const std::shared_ptr<ResourceManager>& resource_manager,
-                          size_t batch_size, size_t batch_size_eval,
-                          OptParams& embedding_opt_params,
-                          std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
-                          bool grouped_all_reduce, size_t num_iterations_statistics,
-                          GpuLearningRateSchedulers& gpu_lr_sches);
+void add_sparse_embedding(
+    SparseEmbedding& sparse_embedding,
+    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
+    std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
+    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+    const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
+    size_t batch_size_eval, OptParams& embedding_opt_params,
+    std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph, bool grouped_all_reduce,
+    size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches);
+
+template <typename TypeKey, typename TypeFP>
+void add_sparse_embedding(
+    SparseEmbedding& sparse_embedding,
+    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
+    std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
+    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+    const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
+    size_t batch_size_eval, OptParams& embedding_opt_params,
+    std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph, bool grouped_all_reduce,
+    size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -593,10 +619,12 @@ class Model final {
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 
-  std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
-  std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
+  std::map<std::string, core23_reader::SparseInput<long long>> sparse_input_map_64_;
+  std::map<std::string, core23_reader::SparseInput<unsigned int>> sparse_input_map_32_;
+  // TODO remove them
   std::vector<std::vector<TensorEntry>> train_tensor_entries_list_;
   std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
+
   std::vector<std::vector<TensorEntity>> train_tensor_entities_list_;
   std::vector<std::vector<TensorEntity>> evaluate_tensor_entities_list_;
 
@@ -633,7 +661,7 @@ class Model final {
   std::vector<SparseEmbedding> sparse_embedding_params_;
   std::vector<Input> input_params_;
   std::vector<std::string> data_input_info_; /**< data input name */
-  std::map<std::string, std::vector<size_t>> tensor_shape_info_;
+  std::map<std::string, core23::Shape> tensor_shape_info_;
   std::vector<std::pair<std::string, std::string>>
       input_output_info_;                          /**< input output name of each layer. */
   std::vector<std::string> layer_info_;            /**< type of each layer. */

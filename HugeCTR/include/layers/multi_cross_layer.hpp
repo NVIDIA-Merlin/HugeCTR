@@ -139,7 +139,6 @@ class MultiCrossLayer : public TrainableLayer<T> {
 
   cudaStream_t wgrad_stream_;
   cudaEvent_t event_fork_;
-  cudaEvent_t event_joint_;
 
  public:
   /**
@@ -225,10 +224,10 @@ struct Core23TempMultiCrossBackwardFunctorv2 {
   void operator()(cudaStream_t dgrad_stream, cudaStream_t wgrad_stream, bool async_wgrad,
                   cudaEvent_t& event_overlap, const core23::Tensor& input_tensor,
                   const std::vector<core23::Tensor>& kernel_tensors,
-                  const std::vector<core23::Tensor>& layer_output_tensors,
+                  const std::vector<core23::Tensor>& act_tensors,
                   const std::vector<core23::Tensor>& layer_hidden_tensors,
-                  const core23::Tensor& grad_tensor, core23::Tensor& output_tensor,
                   std::vector<core23::Tensor>& kernel_output_tensors,
+                  std::vector<core23::Tensor>& grad_tensors,
                   std::vector<core23::Tensor>& bias_output_tensors,
                   std::vector<core23::Tensor>& XU_tensors, core23::Tensor accum_dx_tensor_,
                   std::vector<core23::Tensor> bprop_bottoms, int num_layers,
@@ -241,24 +240,6 @@ struct Core23TempMultiCrossBackwardFunctorv2 {
                   const std::vector<CublasAlgo<T>>& du_bprop_algos_,
                   const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_,
                   cublasLtHandle_t cublaslt_handle = nullptr);
-
-  void operator()(cudaStream_t stream, const core23::Tensor& input_tensor,
-                  const std::vector<core23::Tensor>& kernel_tensors,
-                  const std::vector<core23::Tensor>& layer_output_tensors,
-                  const std::vector<core23::Tensor>& layer_hidden_tensors,
-                  const core23::Tensor& grad_tensor, core23::Tensor& output_tensor,
-                  std::vector<core23::Tensor>& kernel_output_tensors,
-                  std::vector<core23::Tensor>& bias_output_tensors,
-                  std::vector<core23::Tensor>& XU_tensors, core23::Tensor tmp_mat_tensors[],
-                  int num_layers, const std::vector<CublasDesc<T>>& xu_descr_,
-                  const std::vector<CublasDesc<T>>& xuvb_descr_,
-                  const std::vector<CublasDesc<T>>& du_descrs_bprop_,
-                  const std::vector<CublasDesc<T>>& dhidden_descrs_bprop_,
-                  const std::vector<CublasAlgo<T>>& xu_bprop_algo_,
-                  const std::vector<CublasAlgo<T>>& xuvb_bprop_algo_,
-                  const std::vector<CublasAlgo<T>>& du_bprop_algos_,
-                  const std::vector<CublasAlgo<T>>& dhidden_bprop_algos_,
-                  cublasLtHandle_t = nullptr);
 };
 
 template <typename T>
@@ -283,6 +264,8 @@ class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
  private:
   const int num_layers_;
   const int64_t projection_dim_;
+
+  std::vector<core23::Tensor> dgrads_;
   std::vector<core23::Tensor> activation_tensors_; /**< vector of internal blobs' tensors,
                                 intermediate output of each    interaction layer: T_4 */
   std::vector<core23::Tensor> hidden_tensors_;     // DCNv1: x_i * w ; DCNv2: x * x_i * w + b; T_7
@@ -293,6 +276,15 @@ class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
   core23::Tensor accum_dx_tensor_;
   std::vector<core23::Tensor> bprop_bottom_;
   core23::Tensor tmp_vec_tensor_;  //[h,1]
+
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
 
   std::vector<CublasDesc<T>> xu_descrs_fprop_;
   std::vector<CublasDesc<T>> xuvb_descrs_fprop_;
@@ -313,7 +305,7 @@ class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
   bool enable_tf32_compute_;
   bool async_wgrad_ = false;
   cudaStream_t wgrad_stream_;
-  cudaEvent_t overlap_event_;
+  cudaEvent_t event_fork_;
 
  public:
   /**
@@ -329,8 +321,8 @@ class Core23TempMultiCrossLayer : public Core23TempTrainableLayer<T> {
   void bprop() final;
   void initialize() override;
   Core23TempMultiCrossLayer(
-      const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
-      const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim = 0,
+      const std::vector<core23::Tensor>& in_tensors, const std::vector<core23::Tensor>& out_tensors,
+      const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
       bool enable_tf32_compute = false, bool async_wgrad = false);
   Core23TempMultiCrossLayer(const Core23TempMultiCrossLayer&) = delete;

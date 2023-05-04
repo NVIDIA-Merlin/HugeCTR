@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <core23_helper.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/data_reader.hpp>
 #include <loss.hpp>
@@ -32,8 +33,8 @@ void create_datareader<TypeKey>::operator()(
     const InferenceParams& inference_params, const InferenceParser& inference_parser,
     std::shared_ptr<IDataReader>& data_reader,
     const std::shared_ptr<ResourceManager> resource_manager,
-    std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
+    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+    std::map<std::string, core23::Tensor>& label_dense_map, const std::string& source,
     const DataReaderType_t data_reader_type, const Check_t check_type,
     const std::vector<long long>& slot_size_array, const bool repeat_dataset,
     const long long num_samples, const DataSourceParams& data_source_params) {
@@ -55,7 +56,7 @@ void create_datareader<TypeKey>::operator()(
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
     DataReaderSparseParam param = data_reader_sparse_param_array[i];
     std::string sparse_name = inference_parser.sparse_names[i];
-    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    core23_reader::SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
@@ -116,22 +117,15 @@ void create_datareader<TypeKey>::operator()(
     }
   }
 
-  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0]);
-  label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensors()[0]);
+  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensor23s()[0]);
+  label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensor23s()[0]);
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
     const std::string& sparse_name = inference_parser.sparse_names[i];
     const auto& sparse_input = sparse_input_map.find(sparse_name);
 
-    auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
-                   SparseTensors<TypeKey>& sparse_tensors) {
-      sparse_tensors.resize(tensorbags.size());
-      for (size_t j = 0; j < tensorbags.size(); ++j) {
-        sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
-      }
-    };
-    copy(data_reader_tk->get_sparse_tensors(sparse_name),
-         sparse_input->second.evaluate_sparse_tensors);
+    sparse_input->second.evaluate_sparse_tensors =
+        data_reader_tk->get_sparse_tensor23s(sparse_name);
   }
 }
 
@@ -141,8 +135,8 @@ void create_datareader<TypeKey>::operator()(
     const InferenceParams& inference_params, const InferenceParser& inference_parser,
     std::shared_ptr<IDataReader>& data_reader,
     const std::shared_ptr<ResourceManager> resource_manager,
-    std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<TensorBag2>& label_tensor_list, std::vector<TensorBag2>& dense_tensor_list,
+    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<core23::Tensor>& label_tensor_list, std::vector<core23::Tensor>& dense_tensor_list,
     const std::string& source, const DataReaderType_t data_reader_type, const Check_t check_type,
     const std::vector<long long>& slot_size_array, const bool repeat_dataset,
     const DataSourceParams& data_source_params, bool read_file_seq) {
@@ -170,7 +164,7 @@ void create_datareader<TypeKey>::operator()(
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
     DataReaderSparseParam param = data_reader_sparse_param_array[i];
     std::string sparse_name = inference_parser.sparse_names[i];
-    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    core23_reader::SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
@@ -225,7 +219,6 @@ void create_datareader<TypeKey>::operator()(
                                        parquet_eval_max_row_group_size,
                                        parquet_dense_cols + parquet_label_cols,
                                        inference_parser.dense_dim + inference_parser.label_dim);
-      HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;
     }
@@ -235,23 +228,15 @@ void create_datareader<TypeKey>::operator()(
   }
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-    label_tensor_list.push_back(data_reader_tk->get_label_tensors()[i]);
-    dense_tensor_list.push_back(data_reader_tk->get_dense_tensors()[i]);
+    label_tensor_list.push_back(data_reader_tk->get_label_tensor23s()[i]);
+    dense_tensor_list.push_back(data_reader_tk->get_dense_tensor23s()[i]);
   }
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
     const std::string& sparse_name = inference_parser.sparse_names[i];
     const auto& sparse_input = sparse_input_map.find(sparse_name);
-
-    auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
-                   SparseTensors<TypeKey>& sparse_tensors) {
-      sparse_tensors.resize(tensorbags.size());
-      for (size_t j = 0; j < tensorbags.size(); ++j) {
-        sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
-      }
-    };
-    copy(data_reader_tk->get_sparse_tensors(sparse_name),
-         sparse_input->second.evaluate_sparse_tensors);
+    sparse_input->second.evaluate_sparse_tensors =
+        data_reader_tk->get_sparse_tensor23s(sparse_name);
   }
 }
 
