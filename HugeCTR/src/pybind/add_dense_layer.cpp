@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <core23_network.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
@@ -52,13 +51,14 @@
 #include <layers/softmax_layer.hpp>
 #include <layers/sub_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <network_helpers.hpp>
 #include <pybind/add_dense_layer_helpers.hpp>
 #include <pybind/model.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
-
+#include <unordered_map>
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
@@ -2088,10 +2088,10 @@ void Model::add_dense_layer(DenseLayer& dense_layer) {
 }
 
 void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
+  for (auto& dense_layer : dense_layers) {
+    pre_add_dense_layer(dense_layer);
+  }
   auto add_dense_layers_op = [&dense_layers, this](bool is_train) {
-    for (auto& dense_layer : dense_layers) {
-      pre_add_dense_layer(dense_layer);
-    }
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       std::vector<std::unique_ptr<Layer>> layers;
       std::map<std::string, std::unique_ptr<ILoss>> losses;
@@ -2099,15 +2099,14 @@ void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
       std::vector<Layer*> top_layers;
       std::vector<Layer*> bottom_layers;
       for (auto& dense_layer : dense_layers) {
-        for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-          add_dense_layer_impl(
-              dense_layer, train_tensor_entities_list_[i], layers, losses,
-              is_train ? nullptr : &raw_metrics, resource_manager_->get_global_gpu_count(),
-              resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
-              solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search,
-              is_train ? &top_layers : nullptr, is_train ? &bottom_layers : nullptr,
-              is_train ? embedding_dependent_ : false, solver_);
-        }
+        add_dense_layer_impl(
+            dense_layer,
+            is_train ? train_tensor_entities_list_[i] : evaluate_tensor_entities_list_[i], layers,
+            losses, is_train ? nullptr : &raw_metrics, resource_manager_->get_global_gpu_count(),
+            resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
+            solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search,
+            is_train ? &top_layers : nullptr, is_train ? &bottom_layers : nullptr,
+            is_train ? embedding_dependent_ : false, solver_);
       }
       if (is_train) {
         core23_networks_[i]->set_train_layers(std::move(layers));
@@ -2121,8 +2120,22 @@ void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
       }
     }
   };
-  add_dense_layers_op(true);
+  // use default buffer channel for eval
   add_dense_layers_op(false);
+  std::unordered_map<NetworkBufferChannelType, std::string> new_channel = {
+      {NetworkBufferChannelType::Blobs, "TRAIN_BLOBS"},
+      {NetworkBufferChannelType::WeightHalf, "TRAIN_WEIGHT_HALF"},
+      {NetworkBufferChannelType::Weight, "TRAIN_WEIGHT"},
+      {NetworkBufferChannelType::Wgrad, "TRAIN_WGRAD"},
+      {NetworkBufferChannelType::WgradHalf, "TRAIN_WGRAD_HALF"},
+  };
+
+  //  set bufferchannel for train layer
+  //  freeze the train BufferChannel because the ExchangeWgrad needs it
+  for (auto it = new_channel.begin(); it != new_channel.end(); it++) {
+    SetNetworkBufferChannel(it->first, it->second);
+  }
+  add_dense_layers_op(true);
 }
 
 void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,

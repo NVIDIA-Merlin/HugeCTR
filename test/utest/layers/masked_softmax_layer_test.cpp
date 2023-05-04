@@ -265,8 +265,112 @@ void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, flo
       test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), tensor_size, eps));
 }
 
+template <typename T>
+void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t seq_len,
+                                float scalar) {
+  core23::Shape dims_output = {batch_size, head_num, seq_len, seq_len};
+  core23::Shape dims_input = {batch_size, head_num, seq_len, seq_len};
+  core23::Shape dims_mask = {batch_size, 1, 1, seq_len};
+  core23::Shape dims_input_len = {batch_size};
+
+  core23::Tensor input_len_tensor(core23::TensorParams()
+                                      .shape(dims_input_len)
+                                      .data_type(core23::ToScalarType<T>::value)
+                                      .device({core23::DeviceType::GPU, 0}));
+
+  std::vector<core23::Tensor> bottom_tensors;
+  core23::Tensor mask_tensor(core23::TensorParams()
+                                 .shape(dims_mask)
+                                 .data_type(core23::ToScalarType<T>::value)
+                                 .device({core23::DeviceType::GPU, 0}));
+  core23::Tensor input_tensor(core23::TensorParams()
+                                  .shape(dims_input)
+                                  .data_type(core23::ToScalarType<T>::value)
+                                  .device({core23::DeviceType::GPU, 0}));
+
+  bottom_tensors.push_back(input_tensor);
+  bottom_tensors.push_back(mask_tensor);
+
+  core23::Tensor top_tensor(core23::TensorParams()
+                                .shape(dims_output)
+                                .data_type(core23::ToScalarType<T>::value)
+                                .device({core23::DeviceType::GPU, 0}));
+
+  core23::MaskedSoftmaxLayer<T> masked_softmax_layer(bottom_tensors, top_tensor, scalar,
+                                                     test::get_default_gpu());
+  SequenceMaskLayer<T> sequence_mask_layer(input_len_tensor, mask_tensor, seq_len,
+                                           test::get_default_gpu());
+
+  const int64_t tensor_size = batch_size * head_num * seq_len * seq_len;
+
+  std::unique_ptr<T[]> h_in_len(new T[batch_size]);
+  std::unique_ptr<T[]> h_mask(new T[batch_size * seq_len]);
+  std::unique_ptr<T[]> h_bottom(new T[tensor_size]);
+  std::unique_ptr<T[]> h_top(new T[tensor_size]);
+  std::unique_ptr<T[]> h_softmax_out(new T[tensor_size]);
+  std::unique_ptr<T[]> d2h_top(new T[tensor_size]);
+  std::unique_ptr<T[]> h_bottom_grad(new T[tensor_size]);
+  std::unique_ptr<T[]> d2h_bottom_grad(new T[tensor_size]);
+
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  simulator.fill(h_in_len.get(), batch_size);
+  f2i_input(h_in_len.get(), batch_size, seq_len);
+
+  simulator.fill(h_bottom.get(), tensor_size);
+
+  // generate sequence mask
+  HCTR_LIB_THROW(cudaMemcpy(input_len_tensor.data(), h_in_len.get(), batch_size * sizeof(T),
+                            cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(input_tensor.data(), h_bottom.get(), tensor_size * sizeof(T),
+                            cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  sequence_mask_layer.fprop(true);
+  HCTR_LIB_THROW(cudaMemcpy(h_mask.get(), mask_tensor.data(), batch_size * seq_len * sizeof(T),
+                            cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+
+  masked_softmax_layer.fprop(true);
+
+  HCTR_LIB_THROW(cudaMemcpy(d2h_top.get(), top_tensor.data(), tensor_size * sizeof(T),
+                            cudaMemcpyDeviceToHost));
+
+  masked_softmax_fprop_cpu<T>(h_top.get(), h_bottom.get(), h_mask.get(), batch_size, head_num,
+                              seq_len, scalar);
+
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), tensor_size, eps));
+
+  // bprop
+  simulator.fill(h_top.get(), tensor_size);
+  masked_softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), h_mask.get(), batch_size,
+                              head_num, seq_len, scalar);
+
+  HCTR_LIB_THROW(
+      cudaMemcpy(top_tensor.data(), h_top.get(), tensor_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(masked_softmax_layer.get_softmax_tensor().data(), h_softmax_out.get(),
+                            tensor_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  masked_softmax_layer.bprop();
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), input_tensor.data(), tensor_size * sizeof(T),
+                            cudaMemcpyDeviceToHost));
+  masked_softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(),
+                              batch_size * head_num * seq_len, seq_len, scalar);
+
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), tensor_size, eps));
+}
+
 }  // namespace
 
 TEST(masked_softmax_layer, fp32_16x2x16) { masked_softmax_test<float>(16, 2, 16, 0.25); }
 TEST(masked_softmax_layer, fp32_512x4x128) { masked_softmax_test<float>(512, 4, 128, 0.884); }
 TEST(masked_softmax_layer, fp32_1024x4x16) { masked_softmax_test<float>(2048, 4, 8, 0.353); }
+TEST(core23_masked_softmax_layer, fp32_16x2x16) {
+  core23_masked_softmax_test<float>(16, 2, 16, 0.25);
+}
+TEST(core23_masked_softmax_layer, fp32_512x4x128) {
+  core23_masked_softmax_test<float>(512, 4, 128, 0.884);
+}
+TEST(core23_masked_softmax_layer, fp32_1024x4x16) {
+  core23_masked_softmax_test<float>(2048, 4, 8, 0.353);
+}

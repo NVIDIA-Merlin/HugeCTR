@@ -124,7 +124,7 @@ class InferenceParser {
 
   template <typename TypeEmbeddingComp>
   void create_pipeline_inference(const InferenceParams& inference_params,
-                                 TensorBag2& dense_input_bag,
+                                 core23::Tensor& dense_input_bag,
                                  std::vector<std::shared_ptr<core23::Tensor>>& rows,
                                  std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
                                  std::vector<size_t>& embedding_table_slot_size,
@@ -140,7 +140,7 @@ class InferenceParser {
   /**
    * Create inference pipeline, which only creates network and embedding
    */
-  void create_pipeline(const InferenceParams& inference_params, TensorBag2& dense_input_bag,
+  void create_pipeline(const InferenceParams& inference_params, core23::Tensor& dense_input_bag,
                        std::vector<std::shared_ptr<core23::Tensor>>& row,
                        std::vector<std::shared_ptr<core23::Tensor>>& embeddingvec,
                        std::vector<size_t>& embedding_table_slot_size,
@@ -447,8 +447,8 @@ struct create_datareader {
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
                   const std::shared_ptr<ResourceManager> resource_manager,
-                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
+                  std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+                  std::map<std::string, core23::Tensor>& label_dense_map, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset,
                   long long num_samples, const DataSourceParams& data_source_params);
@@ -456,9 +456,9 @@ struct create_datareader {
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
                   const std::shared_ptr<ResourceManager> resource_manager,
-                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<TensorBag2>& label_tensor_list,
-                  std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
+                  std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<core23::Tensor>& label_tensor_list,
+                  std::vector<core23::Tensor>& dense_tensor_list, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset,
                   const DataSourceParams& data_source_params,

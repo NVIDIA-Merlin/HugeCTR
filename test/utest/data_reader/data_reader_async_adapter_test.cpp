@@ -37,13 +37,13 @@ size_t global_seed = 321654;
 size_t io_alignment = 4096;
 // threads = 32.
 const size_t num_batches = 10;
-template <typename dtype, bool NewReader = true>
+template <typename dtype>
 void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int num_threads,
                          int batches_per_thread, int label_dim, int dense_dim, int sparse_dim,
                          int num_passes, int seed, bool wait_for_gpu_idle = false,
                          bool shuffle = false) {
-  using DataReaderType = typename std::conditional<NewReader, core23_reader::AsyncReader<dtype>,
-                                                   AsyncReader<dtype>>::type;
+  using DataReaderType = core23_reader::AsyncReader<dtype>;
+
   const std::string fname = "__tmp_test.dat";
   size_t io_block_size = io_alignment * 8;
   int bytes_per_batch = sizeof(int) * (label_dim + dense_dim + sparse_dim) * batch_size;
@@ -116,9 +116,9 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
                              resource_manager, num_threads, batches_per_thread, io_block_size, 2,
                              io_alignment, shuffle, wait_for_gpu_idle);
 
-  auto label_tensors = bags_to_tensors<float>(data_reader.get_label_tensors());
-  auto dense_tensors = bags_to_tensors<__half>(data_reader.get_dense_tensors());
-  auto sparse_tensors = data_reader.get_value_tensors();
+  auto label_tensors = data_reader.get_label_tensor23s();
+  auto dense_tensors = data_reader.get_dense_tensor23s();
+  auto sparse_tensors = data_reader.get_value_tensor23s();
 
   data_reader.start();
 
@@ -126,6 +126,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
     size_t total_read = 0;
     for (size_t batch = 0; batch < num_batches; batch++) {
       size_t sz = data_reader.read_a_batch_to_device();
+      HCTR_LOG_S(INFO, ROOT) << "iter " << batch << " batchsize " << sz << std::endl;
 
       std::vector<size_t> device_batch_offsets(local_gpu_count + 1);
       size_t total_offset = 0;
@@ -141,13 +142,13 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
         auto device = resource_manager->get_local_gpu(id);
         CudaDeviceContext context(device->get_device_id());
 
-        std::vector<float> labels;
-        std::vector<__half> denses;
-        std::vector<dtype> sparses;
+        std::vector<float> labels(label_tensors[id].num_elements());
+        std::vector<__half> denses(dense_tensors[id].num_elements());
+        std::vector<dtype> sparses(sparse_tensors[id].get_value_tensor().num_elements());
 
-        download_tensor(labels, label_tensors[id], device->get_stream());
-        download_tensor(denses, dense_tensors[id], device->get_stream());
-        download_tensor(sparses, sparse_tensors[id].get_value_tensor(), device->get_stream());
+        core23::copy_sync(labels, label_tensors[id]);
+        core23::copy_sync(denses, dense_tensors[id]);
+        core23::copy_sync(sparses, sparse_tensors[id].get_value_tensor());
 
         auto cur_ref = ref_data.data() + total_read * sample_dim;
 
@@ -190,71 +191,52 @@ class MPIEnvironment : public ::testing::Environment {
 //   device_list   batch  threads  batch_per_thread   label  dense  sparse  num_passes  seed
 //
 TEST(reader_adapter_test, dgxa100_longlong) {
-  reader_adapter_test<long long, false>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 26, 1,
-                                        global_seed += 128);
-  reader_adapter_test<long long, true>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 26, 1,
-                                       global_seed += 128);
+  reader_adapter_test<long long>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 26, 1,
+                                 global_seed += 128);
 }
 
 TEST(reader_adapter_test, test1) {
-  reader_adapter_test<uint32_t, false>({0}, 100, 1, 1, 2, 1, 1, 1, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 100, 1, 1, 2, 1, 1, 1, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 100, 1, 1, 2, 1, 1, 1, global_seed += 128);
 }
 TEST(reader_adapter_test, test2) {
-  reader_adapter_test<uint32_t, false>({0}, 100, 1, 1, 2, 1, 1, 2, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 100, 1, 1, 2, 1, 1, 2, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 100, 1, 1, 2, 1, 1, 2, global_seed += 128);
 }
 TEST(reader_adapter_test, test3) {
-  reader_adapter_test<uint32_t, false>({0}, 100, 1, 1, 2, 3, 1, 3, global_seed += 128);
   reader_adapter_test<uint32_t>({0}, 100, 1, 1, 2, 3, 1, 3, global_seed += 128);
 }
 TEST(reader_adapter_test, test4) {
-  reader_adapter_test<uint32_t, false>({0}, 100, 1, 1, 2, 3, 6, 7, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 100, 1, 1, 2, 3, 6, 7, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 100, 1, 1, 2, 3, 6, 7, global_seed += 128);
 }
 TEST(reader_adapter_test, test5) {
-  reader_adapter_test<uint32_t, false>({0}, 1012, 2, 1, 2, 3, 7, 18, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 1012, 2, 1, 2, 3, 7, 18, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 1012, 2, 1, 2, 3, 7, 18, global_seed += 128);
 }
 TEST(reader_adapter_test, test6) {
-  reader_adapter_test<uint32_t, false>({0}, 101256, 2, 1, 2, 3, 7, 8, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 101256, 2, 1, 2, 3, 7, 8, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 101256, 2, 1, 2, 3, 7, 8, global_seed += 128);
 }
 TEST(reader_adapter_test, test7) {
-  reader_adapter_test<uint32_t, false>({0}, 101256, 2, 4, 2, 3, 7, 5, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 101256, 2, 4, 2, 3, 7, 5, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 101256, 2, 4, 2, 3, 7, 5, global_seed += 128);
 }
 TEST(reader_adapter_test, test8) {
-  reader_adapter_test<uint32_t, false>({0}, 101256, 2, 3, 3, 3, 9, 2, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 101256, 2, 3, 3, 3, 9, 2, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 101256, 2, 3, 3, 3, 9, 2, global_seed += 128);
 }
 TEST(reader_adapter_test, test9) {
-  reader_adapter_test<uint32_t, false>({0}, 101256, 4, 4, 1, 8, 6, 4, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0}, 101256, 4, 4, 1, 8, 6, 4, global_seed += 128);
+  reader_adapter_test<uint32_t>({0}, 101256, 4, 4, 1, 8, 6, 4, global_seed += 128);
 }
 TEST(reader_adapter_test, test10) {
-  reader_adapter_test<uint32_t, false>({0, 1}, 10, 2, 2, 7, 2, 1, 21, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0, 1}, 10, 2, 2, 7, 2, 1, 21, global_seed += 128);
+  reader_adapter_test<uint32_t>({0, 1}, 10, 2, 2, 7, 2, 1, 21, global_seed += 128);
 }
 TEST(reader_adapter_test, test11) {
-  reader_adapter_test<uint32_t, false>({1, 4}, 6000, 3, 2, 7, 13, 26, 1, global_seed += 128);
-  reader_adapter_test<uint32_t, true>({1, 4}, 6000, 3, 2, 7, 13, 26, 1, global_seed += 128);
+  reader_adapter_test<uint32_t>({1, 4}, 6000, 3, 2, 7, 13, 26, 1, global_seed += 128);
 }
 TEST(reader_adapter_test, dgxa100_48slots) {
-  reader_adapter_test<uint32_t, false>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
-                                       global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
-                                      global_seed += 128);
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
+                                global_seed += 128);
 }
 TEST(reader_adapter_test, dgxa100_48slots_wait_for_idle) {
-  reader_adapter_test<uint32_t, false>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
-                                       global_seed += 128, true);
-  reader_adapter_test<uint32_t, true>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
-                                      global_seed += 128, true);
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1,
+                                global_seed += 128, true);
 }
 TEST(reader_adapter_test, dgxa100_26slots) {
-  reader_adapter_test<uint32_t, false>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 800, 1,
-                                       global_seed += 128);
-  reader_adapter_test<uint32_t, true>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 800, 1,
-                                      global_seed += 128);
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 4, 5, 6, 7}, 256, 32, 4, 1, 1, 800, 1,
+                                global_seed += 128);
 }

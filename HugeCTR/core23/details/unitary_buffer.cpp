@@ -26,7 +26,10 @@ namespace HugeCTR {
 namespace core23 {
 
 UnitaryBuffer::UnitaryBuffer(const Device& device, std::unique_ptr<Allocator> allocator)
-    : Buffer(device, std::move(allocator)), allocated_(false), ptr_(nullptr) {}
+    : Buffer(device, std::move(allocator)),
+      allocated_(false),
+      ptr_(nullptr),
+      current_offset_(0LL) {}
 
 UnitaryBuffer::~UnitaryBuffer() {
   if (allocated_ || ptr_ != nullptr) allocator()->deallocate(ptr_);
@@ -82,6 +85,7 @@ Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator
                    "The UnitaryBuffer failed to allocate the memory");
   }
   allocated_ = true;
+  current_offset_ = current_offset;
 
   return client_offsets;
 }

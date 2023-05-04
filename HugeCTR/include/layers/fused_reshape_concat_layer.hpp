@@ -69,4 +69,55 @@ class FusedReshapeConcatLayer : public Layer {
   Tensor2<T*> d_inputs_;
 };
 
+namespace core23 {
+template <typename T>
+class FusedReshapeConcatLayer : public Layer {
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  std::vector<core23::Tensor> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
+
+ public:
+  /**
+   * Ctor of FusedReshapeConcatLayer.
+   * @param in_tensor the input tensor
+   * @param out_tensor the resulting output tensor
+   * @param device_id the id of GPU where this layer belongs
+   */
+  FusedReshapeConcatLayer(const std::vector<core23::Tensor>& in_tensors,
+                          std::vector<core23::Tensor>& out_tensors,
+                          const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
+  /**
+   * FusedReshapeConcatLayer's foward propagation
+   * @param stream CUDA stream where the foward propagation is executed
+   */
+  void fprop(bool is_train) override;
+  /**
+   * FusedReshapeConcatLayer's backward propagation
+   * @param stream CUDA stream where the foward propagation is executed
+   */
+  void bprop() override;
+
+ private:
+  std::vector<uint64_t> h_vecs_size_;
+  int64_t new_width_ = 0;
+  int64_t num_;
+  int64_t batch_size_ = 0;
+  int64_t slot_num_ = 0;
+  core23::Tensor vecs_size_;
+  core23::Tensor h_inputs_;
+  core23::Tensor d_inputs_;
+};
+
+}  // namespace core23
 }  // namespace HugeCTR

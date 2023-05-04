@@ -95,7 +95,7 @@ class InferenceSessionPy : public InferenceSession {
   float* d_reader_dense_;
   std::vector<void*> d_reader_keys_list_;
   std::vector<void*> d_reader_row_ptrs_list_;
-  TensorBag2 label_tensor_;
+  core23::Tensor label_tensor_;
 
   // Parameter Server
   std::shared_ptr<HierParameterServerBase> parameter_server_;
@@ -234,8 +234,8 @@ void InferenceSessionPy::load_data(const std::string& source,
                                    const DataSourceParams& data_source_params) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   bool repeat_dataset = true;
-  std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
-  std::map<std::string, TensorBag2> label_dense_map;
+  std::map<std::string, core23_reader::SparseInput<TypeKey>> sparse_input_map;
+  std::map<std::string, core23::Tensor> label_dense_map;
   // force the data reader to not use mixed precision
   create_datareader<TypeKey>()(inference_params_, inference_parser_, data_reader_,
                                resource_manager_, sparse_input_map, label_dense_map, source,
@@ -244,18 +244,18 @@ void InferenceSessionPy::load_data(const std::string& source,
   if (data_reader_->is_started() == false) {
     HCTR_OWN_THROW(Error_t::IllegalCall, "Start the data reader first before evaluation");
   }
-  TensorBag2 dense_tensor;
+  core23::Tensor dense_tensor;
   if (!find_item_in_map(label_tensor_, inference_parser_.label_name, label_dense_map)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find " + inference_parser_.label_name);
   }
   if (!find_item_in_map(dense_tensor, inference_parser_.dense_name, label_dense_map)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
-  d_reader_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
+  d_reader_dense_ = reinterpret_cast<float*>(dense_tensor.data());
   d_reader_keys_list_.clear();
   d_reader_row_ptrs_list_.clear();
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-    SparseInput<TypeKey> sparse_input;
+    core23_reader::SparseInput<TypeKey> sparse_input;
     if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[i], sparse_input_map)) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[i]);
     }
@@ -290,8 +290,10 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
   Tensor2<float> pred_tensor(pred_dims, pred_buff);
   std::shared_ptr<metrics::AUC<float>> metric = std::make_shared<metrics::AUC<float>>(
       inference_params_.max_batchsize, num_batches, inference_parser_.label_dim, resource_manager_);
-  metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()},
-                                       {metrics::RawType::Label, label_tensor_}};
+  metrics::RawMetricMap metric_maps = {
+      {metrics::RawType::Pred, pred_tensor.shrink()},
+      {metrics::RawType::Label,
+       core_helper::convert_core23_tensor_to_tensorbag2<float>(label_tensor_)}};
   for (size_t batch = 0; batch < num_batches; batch++) {
     long long current_batchsize = data_reader_->read_a_batch_to_device();
     size_t keys_offset = 0;

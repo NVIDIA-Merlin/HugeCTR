@@ -20,6 +20,17 @@
 
 namespace HugeCTR {
 
+enum class NetworkBufferChannelType : int8_t {
+  Blobs = 1,
+  Weight = 2,
+  WeightHalf = 3,
+  Wgrad = 4,
+  WgradHalf = 5,
+  OptState = 6
+};
+
+std::string SetNetworkBufferChannel(NetworkBufferChannelType type, const std::string& new_name);
+std::string GetNetworkBufferChannel(NetworkBufferChannelType type);
 core23::BufferChannel GetBlobsBufferChannel();
 
 core23::BufferChannel GetWeightBufferChannel();

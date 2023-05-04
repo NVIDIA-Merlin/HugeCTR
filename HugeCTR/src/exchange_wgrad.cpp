@@ -35,7 +35,16 @@ NetworkExchangeWgrad<T>::NetworkExchangeWgrad(
   auto ar_comm = resource_manager_->get_ar_comm();
   ar_handle_ = ar_comm->register_coll();
 }
-
+template <typename T>
+void NetworkExchangeWgrad<T>::init_ar_comm(const std::vector<void*>& ptr, size_t sizes) {
+  network_wgrad_size_ = sizes;
+  auto ar_comm = resource_manager_->get_ar_comm();
+  for (size_t g = 0; g < num_gpus_; g++) {
+    HCTR_CHECK_HINT(ptr[g], "buffer does not exist");
+    ar_comm->set_coll_buf(ar_handle_, ptr[g], network_wgrad_size_, g);
+  }
+  ar_comm->register_coll_buf(ar_handle_);
+}
 template <typename T>
 void NetworkExchangeWgrad<T>::allocate() {
   int alignment = 16 * num_gpus_;
@@ -85,7 +94,16 @@ GroupedExchangeWgrad<T>::GroupedExchangeWgrad(
   auto ar_comm = resource_manager_->get_ar_comm();
   ar_handle_ = ar_comm->register_coll();
 }
-
+template <typename T>
+void GroupedExchangeWgrad<T>::init_ar_comm(const std::vector<void*>& ptr, size_t sizes) {
+  network_wgrad_size_ = sizes;
+  auto ar_comm = resource_manager_->get_ar_comm();
+  for (size_t g = 0; g < num_gpus_; g++) {
+    HCTR_CHECK_HINT(ptr[g], "buffer does not exist");
+    ar_comm->set_coll_buf(ar_handle_, ptr[g], network_wgrad_size_, g);
+  }
+  ar_comm->register_coll_buf(ar_handle_);
+}
 template <typename T>
 void GroupedExchangeWgrad<T>::allocate() {
   int alignment = 16 * num_gpus_;
@@ -109,7 +127,7 @@ void GroupedExchangeWgrad<T>::allocate() {
 
 template <typename T>
 void GroupedExchangeWgrad<T>::update_embed_wgrad_size(size_t size) {
-  int alignment = 16 * num_gpus_;
+  int alignment = 16 * num_gpus_;  // default 256B
   if (size % alignment != 0) {
     size += (alignment - (size % alignment));
   }

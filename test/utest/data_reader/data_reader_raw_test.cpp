@@ -194,7 +194,6 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
                                            resource_manager, repeat, num_threads,
                                            use_mixed_precision);
-  auto &sparse_tensorbag = data_reader.get_sparse_tensors("localized");
 
   data_reader.create_drwg_raw(file_name, num_samples, float_label_dense, false, true);
   int round = (num_samples - 1) / batchsize + 1;
@@ -203,7 +202,8 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   DensePreprocess dense_preprocess{float_label_dense};
   for (int iter = 0; iter < 12; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
-    HCTR_LOG_S(DEBUG, WORLD) << "current_batch_size:" << current_batch_size << std::endl;
+    auto &sparse_tensorbag = data_reader.get_sparse_tensors("localized");
+    HCTR_LOG_S(INFO, WORLD) << "current_batch_size:" << current_batch_size << std::endl;
     if (current_batch_size == 0) return;
     if (iter % round == round - 1) {
       ASSERT_TRUE(current_batch_size == num_samples % batchsize);
@@ -215,7 +215,6 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       auto sparse_tensor = SparseTensor<T>::stretch_from(sparse_tensorbag[local_id]);
 
       ASSERT_TRUE(sparse_tensor.nnz() == static_cast<size_t>(current_batch_size * slot_num));
-
       std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
       HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
                                 current_batch_size * slot_num * sizeof(T), cudaMemcpyDeviceToHost));
@@ -285,12 +284,11 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
         }
       }
 
-      auto label_tensorbag = data_reader.get_label_tensors()[local_id];
       {
-        auto label_tensor = Tensor2<float>::stretch_from(label_tensorbag);
+        auto label_tensor = data_reader.get_label_tensor23s()[local_id];
 
         std::unique_ptr<float[]> label(new float[batch_size_per_gpu * label_dim]);
-        HCTR_LIB_THROW(cudaMemcpy(label.get(), label_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(label.get(), label_tensor.data(),
                                   batch_size_per_gpu * label_dim * sizeof(float),
                                   cudaMemcpyDeviceToHost));
 

@@ -33,6 +33,8 @@ class UnitaryBuffer final : public Buffer {
 
   bool subscribable() const;
 
+  std::pair<void*, int64_t> decay() const override { return std::make_pair(ptr_, current_offset_); }
+
  private:
   using ClientRequirements = typename Buffer::ClientRequirements;
 
@@ -50,6 +52,7 @@ class UnitaryBuffer final : public Buffer {
 
   bool allocated_;
   void* ptr_;
+  int64_t current_offset_;
   std::queue<BufferClient*> new_insertion_order_;
 };
 

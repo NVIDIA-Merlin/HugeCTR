@@ -23,26 +23,11 @@
 #include <linalg/binary_op.cuh>
 #include <linalg/reduce.cuh>
 #include <linalg/unary_op.cuh>
+#include <network_buffer_channels.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
-
-template <typename T>
-ScaleLayer<T>::ScaleLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                          const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          int axis, int factor, const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  assert(axis < 2);
-  size_t out_y = axis == 1 ? in_tensor.get_dimensions()[0] * factor : in_tensor.get_dimensions()[0];
-  size_t out_x = axis == 0 ? in_tensor.get_dimensions()[1] * factor : in_tensor.get_dimensions()[1];
-  std::vector<size_t> out_dims = {out_y, out_x};
-  blobs_buff->reserve(out_dims, &out_tensor);
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-  axis_ = axis;
-  factor_ = factor;
-}
+namespace {
 
 template <typename T>
 void __global__ upscale_kernel(T* out, T* in, int batchsize, int num_elems, int axis, int factor) {
@@ -92,10 +77,24 @@ void scale(T* out, T* in, int batchsize, int num_elems, int axis, int factor, cu
     upscale_kernel<<<grid, block, 0, stream>>>(out, in, batchsize, num_elems, axis, factor);
   else
     downscale_kernel<<<grid, block, 0, stream>>>(out, in, batchsize, num_elems, axis, factor);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
+}
+
+}  // namespace
+template <typename T>
+ScaleLayer<T>::ScaleLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+                          const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                          int axis, int factor, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
+  assert(axis < 2);
+  size_t out_y = axis == 1 ? in_tensor.get_dimensions()[0] * factor : in_tensor.get_dimensions()[0];
+  size_t out_x = axis == 0 ? in_tensor.get_dimensions()[1] * factor : in_tensor.get_dimensions()[1];
+  std::vector<size_t> out_dims = {out_y, out_x};
+  blobs_buff->reserve(out_dims, &out_tensor);
+
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
+  axis_ = axis;
+  factor_ = factor;
 }
 
 template <typename T>
@@ -124,7 +123,55 @@ void ScaleLayer<T>::bprop() {
         axis, factor, get_gpu().get_stream(), false);
 }
 
+namespace core23 {
+template <typename T>
+ScaleLayer<T>::ScaleLayer(const core23::Tensor& in_tensor, core23::Tensor& out_tensor, int axis,
+                          int factor, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
+  assert(axis < 2);
+  auto out_y = axis == 1 ? in_tensor.shape()[0] * factor : in_tensor.shape()[0];
+  auto out_x = axis == 0 ? in_tensor.shape()[1] * factor : in_tensor.shape()[1];
+  core23::Shape out_dims = {out_y, out_x};
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
+
+  out_tensor =
+      core23::Tensor(in_tensor.my_params().shape(out_dims).buffer_params(blobs_buffer_params));
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
+  axis_ = axis;
+  factor_ = factor;
+}
+
+template <typename T>
+void ScaleLayer<T>::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+  auto& in_tensor = in_tensors_[0];
+  auto& out_tensor = out_tensors_[0];
+  const auto& in_tensor_dim = in_tensor.shape();
+  int axis = axis_;
+  int factor = factor_;
+
+  scale(out_tensor.data<T>(), in_tensor.data<T>(), in_tensor_dim[0], in_tensor_dim[1], axis, factor,
+        get_gpu().get_stream(), true);
+}
+
+template <typename T>
+void ScaleLayer<T>::bprop() {
+  CudaDeviceContext context(get_device_id());
+  auto& bottom_tensor = in_tensors_[0];
+  auto& top_tensor = out_tensors_[0];
+  const auto& bottom_tensor_dim = bottom_tensor.shape();
+  int axis = axis_;
+  int factor = factor_;
+
+  scale(bottom_tensor.data<T>(), top_tensor.data<T>(), bottom_tensor_dim[0], bottom_tensor_dim[1],
+        axis, factor, get_gpu().get_stream(), false);
+}
+
+}  // namespace core23
 template class ScaleLayer<float>;
+template class core23::ScaleLayer<float>;
 // template class ScaleLayer<__half>;
 
 }  // namespace HugeCTR

@@ -56,6 +56,7 @@ class TensorParams final {
     p.data_type_ = data_type;
     return p;
   }
+
   TensorParams alignment(int64_t alignment) const noexcept {
     TensorParams p = *this;
     p.alignment_ = alignment;

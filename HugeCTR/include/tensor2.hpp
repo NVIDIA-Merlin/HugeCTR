@@ -200,6 +200,7 @@ class Tensor2 {
       num_elements_ = new_num_elements;
     } catch (const std::runtime_error &rt_err) {
       HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
+      throw;
     }
   }
 };

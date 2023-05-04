@@ -63,6 +63,83 @@ namespace HugeCTR {
 
 namespace {
 
+class Core23WrappingBuffer : public TensorBuffer2 {
+ public:
+  Core23WrappingBuffer(const core23::Tensor& core23_tensor) : core23_tensor_(core23_tensor) {}
+  ~Core23WrappingBuffer() override {}
+  bool allocated() const override { return core23_tensor_.data() != nullptr; }
+  void* get_ptr() override { return core23_tensor_.data(); }
+
+ private:
+  core23::Tensor core23_tensor_;
+};
+
+template <typename T>
+class LegacyWrappingBuffer : public core23::Buffer {
+ public:
+  LegacyWrappingBuffer(HugeCTR::Tensor2<T> tensor2, const core23::Device& device,
+                       std::unique_ptr<core23::Allocator> allocator)
+      : core23::Buffer(device, std::move(allocator)), tensor2_(tensor2) {}
+  ~LegacyWrappingBuffer() override {}
+
+ private:
+  void* data_impl(int64_t offset) const override { return const_cast<float*>(tensor2_.get_ptr()); }
+  core23::Buffer::ClientOffsets do_allocate(
+      const std::unique_ptr<core23::Allocator>& allocator,
+      const ClientRequirements& client_requirements) override {
+    ClientOffsets client_offsets;
+    int64_t index = 0LL;
+    for (auto& [client, requirements] : client_requirements) {
+      client_offsets[client] = index++;
+    }
+    return client_offsets;
+  }
+
+  HugeCTR::Tensor2<T> tensor2_;
+};
+
+template <typename T>
+HugeCTR::Tensor2<T> wrap_tensor2_with_core23_tensor(const core23::Tensor& core23_tensor) {
+  HCTR_CHECK_HINT(core23::ToScalarType<T>::value == core23_tensor.data_type().type(),
+                  "cannot convert to different datatype ");
+  auto shape = core23_tensor.shape();
+  std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
+  auto buffer = std::make_shared<Core23WrappingBuffer>(core23_tensor);
+  return HugeCTR::Tensor2<T>(dimensions, buffer);
+}
+
+template <typename T>
+HugeCTR::Tensors2<T> wrap_tensors2_with_core23_tensors(
+    const std::vector<core23::Tensor>& core23_tensors) {
+  HugeCTR::Tensors2<T> tensors2;
+  std::transform(core23_tensors.begin(), core23_tensors.end(), std::back_inserter(tensors2),
+                 [](const core23::Tensor& t) { return wrap_tensor2_with_core23_tensor<T>(t); });
+  return tensors2;
+}
+
+template <typename T>
+core23::Tensor wrap_core23_tensor_with_tensor2(Tensor2<T> tensor2, const core23::Device& device) {
+  std::vector<int64_t> dimensions;
+  std::transform(tensor2.get_dimensions().begin(), tensor2.get_dimensions().end(),
+                 std::back_inserter(dimensions),
+                 [](const size_t& d) { return static_cast<int64_t>(d); });
+  core23::Shape shape(dimensions);
+  core23::BufferParams buffer_params;
+  buffer_params.custom_factory = [tensor2](const auto&, const auto& device, auto allocator) {
+    return std::make_shared<LegacyWrappingBuffer<T>>(tensor2, device, std::move(allocator));
+  };
+  return core23::Tensor(core23::TensorParams(shape).device(device).buffer_params(buffer_params));
+}
+
+template <typename T>
+std::vector<core23::Tensor> wrap_core23_tensors_with_tensors2(const Tensors2<T>& tensors2,
+                                                              const core23::Device& device) {
+  std::vector<core23::Tensor> core23_tensors;
+  std::transform(tensors2.begin(), tensors2.end(), std::back_inserter(core23_tensors),
+                 [device](const auto& t) { return wrap_core23_tensor_with_tensor2<T>(t, device); });
+  return core23_tensors;
+}
+
 template <typename DType, template <class T> class LossType>
 std::unique_ptr<ILoss> create_loss(core23::Tensor& label_tensor, core23::Tensor& input_tensor,
                                    core23::Tensor& loss_tensor, const DenseLayer& dense_layer,
@@ -71,8 +148,8 @@ std::unique_ptr<ILoss> create_loss(core23::Tensor& label_tensor, core23::Tensor&
                                    const std::shared_ptr<GPUResource>& gpu_resource, float scaler,
                                    bool gen_loss_summary) {
   auto weight_tensors = std::is_same_v<DType, __half>
-                            ? get_master_weight_tensor_vector<float>(layers)
-                            : get_weight_tensor_vector<float>(layers);
+                            ? get_master_weight_tensor_vector<DType>(layers)
+                            : get_weight_tensor_vector<DType>(layers);
   auto wgrad_tensors = get_wgrad_tensor_vector<DType>(layers);
   const int batch_size = input_tensor.size(0);
   auto regularizer = create_regularizer<DType>(
@@ -131,6 +208,9 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                           std::vector<Layer*>* embedding_independent_layers,
                           bool embedding_dependent, const Solver& solver) {
   bool skip_dgrad = layers.size() == 0;
+
+  // TODO: this must be removed once all the layers are implemented
+  auto blobs_buff = GeneralBuffer2<CudaAllocator>::create();
 
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -593,19 +673,19 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                                                    dense_layer.bias_init_type};
       [[maybe_unused]] int num_layers = dense_layer.num_layers;
       [[maybe_unused]] int projection_dim = dense_layer.projection_dim;
+      [[maybe_unused]] bool async_wgrad = dense_layer.compute_config.async_wgrad;
 
       auto& mc_in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor(tensor_params.shape(mc_in_tensor.shape()));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
-
       if (use_mixed_precision) {
         layers.emplace_back(new Core23TempMultiCrossLayer<__half>(
-            mc_in_tensor, out_tensor, gpu_resource, num_layers, projection_dim, initializer_types,
-            enable_tf32_compute));
+            {mc_in_tensor}, {out_tensor}, gpu_resource, num_layers, projection_dim,
+            initializer_types, enable_tf32_compute, async_wgrad));
       } else {
         layers.emplace_back(new Core23TempMultiCrossLayer<float>(
-            mc_in_tensor, out_tensor, gpu_resource, num_layers, projection_dim, initializer_types,
-            enable_tf32_compute));
+            {mc_in_tensor}, {out_tensor}, gpu_resource, num_layers, projection_dim,
+            initializer_types, enable_tf32_compute, async_wgrad));
       }
       break;
     }
@@ -729,7 +809,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         layers.emplace_back(new Core23TempWeightMultiplyLayer<float>(
             in_tensor, out_tensor, weight_dims, gpu_resource, initializer_types));
       }
-      output_tensor_entities.push_back({input_output_info.output_names[0], in_tensor});
+      output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
     case Layer_t::FmOrder2: {
@@ -747,7 +827,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     case Layer_t::Add: {
       auto& input_tensors = input_output_info.input_tensors;
       core23::Tensor output_tensor(tensor_params.shape(input_tensors[0].shape()));
-      // TODO: fill the details including layers.emplace_back
       if (use_mixed_precision) {
         layers.emplace_back(new AddLayer<__half>(input_tensors, output_tensor, gpu_resource));
       } else {
@@ -757,8 +836,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       break;
     }
     case Layer_t::ReduceSum: {
-      [[maybe_unused]] int axis = dense_layer.axis;
-      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      int axis = dense_layer.axis;
+      auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor;
       if (use_mixed_precision) {
         layers.emplace_back(new ReduceSumLayer<__half>(in_tensor, out_tensor, axis, gpu_resource));
@@ -769,24 +848,25 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       break;
     }
     case Layer_t::ReduceMean: {
-      [[maybe_unused]] int axis = dense_layer.axis;
-      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      int axis = dense_layer.axis;
+      auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(new ReduceMeanLayer<float>(in_tensor, out_tensor, axis, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
     case Layer_t::Sub: {
       auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(new SubLayer<float>(in_tensors, out_tensor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
     case Layer_t::Gather: {
-      [[maybe_unused]] auto& in_tensor = input_output_info.input_tensors[0];
+      auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(
+          new GatherLayer<float>(in_tensor, out_tensor, dense_layer.indices, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
@@ -803,9 +883,9 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       break;
     }
     case Layer_t::MatrixMultiply: {
-      [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
+      auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(new MatrixMultiplyLayer<float>(in_tensors, out_tensor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
@@ -813,7 +893,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       if (input_output_info.input_tensors.size() != 2) {
         auto& in_tensor = input_output_info.input_tensors[0];
         core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
-        // TODO: fill the details including layers.emplace_back
+        if (use_mixed_precision) {
+          layers.emplace_back(new SoftmaxLayer<__half>(in_tensor, out_tensor, gpu_resource));
+        } else {
+          layers.emplace_back(new SoftmaxLayer<float>(in_tensor, out_tensor, gpu_resource));
+        }
         output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       } else {
         HCTR_THROW_IF(use_mixed_precision, Error_t::IllegalCall,
@@ -823,7 +907,13 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         auto& mask_tensor = input_output_info.input_tensors[1];
         std::vector<core23::Tensor> in_tensors{in_tensor, mask_tensor};
         core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
-        // TODO: fill the details including layers.emplace_back
+        if (use_mixed_precision) {
+          layers.emplace_back(new core23::MaskedSoftmaxLayer<__half>(in_tensors, out_tensor,
+                                                                     scale_factor, gpu_resource));
+        } else {
+          layers.emplace_back(new core23::MaskedSoftmaxLayer<float>(in_tensors, out_tensor,
+                                                                    scale_factor, gpu_resource));
+        }
         output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       }
       break;
@@ -831,21 +921,25 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     case Layer_t::PReLU_Dice: {
       auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
+      layers.emplace_back(new PRelu_Dice_Layer<float>(in_tensor, out_tensor, dense_layer.elu_alpha,
+                                                      dense_layer.eps, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
-      // TODO: fill the details including layers.emplace_back
       break;
     }
     case Layer_t::Scale: {
       [[maybe_unused]] auto& scale_in_tensor = input_output_info.input_tensors[0];
       core23::Tensor scale_out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      HugeCTR::Tensor2<float> scale_out_tensor2;
+      layers.emplace_back(new core23::ScaleLayer<float>(
+          scale_in_tensor, scale_out_tensor, dense_layer.axis, dense_layer.factor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], scale_out_tensor});
       break;
     }
     case Layer_t::FusedReshapeConcat: {
       [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
       std::vector<core23::Tensor> out_tensors;
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(
+          new core23::FusedReshapeConcatLayer<float>(in_tensors, out_tensors, gpu_resource));
       for (size_t i = 0; i < out_tensors.size(); i++) {
         output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
       }
@@ -854,14 +948,21 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     case Layer_t::FusedReshapeConcatGeneral: {
       [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor;
-      // TODO: fill the details including layers.emplace_back
+      layers.emplace_back(
+          new core23::FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
     case Layer_t::ElementwiseMultiply: {
       auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
-      // TODO: fill the details including layers.emplace_back
+      if (use_mixed_precision) {
+        layers.emplace_back(
+            new core23::ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, gpu_resource));
+      } else {
+        layers.emplace_back(
+            new core23::ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, gpu_resource));
+      }
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
@@ -876,11 +977,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     }
     if (!embedding_dependent) {
       if (embedding_independent_layers) {
-        // embedding_independent_layers->emplace_back(layers.back().get());
+        embedding_independent_layers->emplace_back(layers.back().get());
       }
     } else {
       if (embedding_dependent_layers) {
-        // embedding_dependent_layers->emplace_back(layers.back().get());
+        embedding_dependent_layers->emplace_back(layers.back().get());
       }
     }
   } else if (raw_metrics) {
@@ -895,6 +996,9 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.input_tensors[1]));
     raw_metrics->insert(std::make_pair(name, new_map));
   }
+
+  // TODO: this must be removed once all the layers are implemented
+  blobs_buff->allocate();
 }
 
 }  // namespace HugeCTR

@@ -316,13 +316,19 @@ class Core23TempTrainableLayer : public Layer {
       const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
       : Layer(input_tensors, output_tensors, gpu_resource, initializer_types),
-        master_weights_params_(core23::TensorParams().buffer_channel(GetWeightBufferChannel())),
-        weights_params_(core23::TensorParams().buffer_channel(std::is_same<WeightType, float>::value
-                                                                  ? GetWeightBufferChannel()
-                                                                  : GetWeightHalfBufferChannel())),
-        wgrads_params_(core23::TensorParams().buffer_channel(std::is_same<WeightType, float>::value
-                                                                 ? GetWgradBufferChannel()
-                                                                 : GetWgradHalfBufferChannel())),
+        master_weights_params_(core23::TensorParams()
+                                   .alignment(sizeof(float))
+                                   .buffer_channel(GetWeightBufferChannel())),
+        weights_params_(core23::TensorParams()
+                            .alignment(sizeof(WeightType))
+                            .buffer_channel(std::is_same<WeightType, float>::value
+                                                ? GetWeightBufferChannel()
+                                                : GetWeightHalfBufferChannel())),
+        wgrads_params_(core23::TensorParams()
+                           .alignment(sizeof(WeightType))
+                           .buffer_channel(std::is_same<WeightType, float>::value
+                                               ? GetWgradBufferChannel()
+                                               : GetWgradHalfBufferChannel())),
         device_(core23::DeviceType::GPU, gpu_resource->get_device_id()) {
     static_assert(std::is_same_v<WeightType, float> || std::is_same_v<WeightType, __half>);
   }
@@ -343,6 +349,7 @@ void Core23TempTrainableLayer<DType, use_FP32_weight>::init_params(
   std::vector<core23::Tensor> weight_cpu_tensors;
   for (const core23::Tensor& weight : weights) {
     core23::TensorParams params = core23::TensorParams()
+                                      .alignment(weight.data_type().size())
                                       .shape(weight.shape())
                                       .device(core23::DeviceType::CPU)
                                       .data_type(weight.data_type());

@@ -163,19 +163,19 @@ void InferenceSession::predict_impl(float* d_dense, void* keys, bool key_on_devi
   }
 
   // convert dense input to dense tensor
-  auto dense_dims = dense_input_tensorbag_.get_dimensions();
-  size_t dense_size = 1;
-  for (auto dim : dense_dims) {
-    dense_size *= dim;
-  }
+  // auto dense_dims = dense_input_tensorbag_.get_dimensions();
+  // for (auto dim : dense_dims) {
+  //   dense_size *= dim;
+  // }
+  size_t dense_size = dense_input_tensorbag_.num_elements();
   if (inference_params_.use_mixed_precision) {
     convert_array_on_device(
-        reinterpret_cast<__half*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size,
+        dense_input_tensorbag_.data<__half>(), d_dense, dense_size,
         resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
 
   } else {
     convert_array_on_device(
-        reinterpret_cast<float*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size,
+        dense_input_tensorbag_.data<float>(), d_dense, dense_size,
         resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
   }
 

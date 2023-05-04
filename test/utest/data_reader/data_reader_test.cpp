@@ -177,11 +177,9 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     thread_buffer->state.store(BufferState::ReadyForWrite);
   }
 }
-template <bool NewReader = true>
 void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_threads, bool repeat,
                                 bool use_mixed_precision) {
-  using DataReaderType =
-      typename std::conditional<NewReader, core23_reader::DataReader<T>, DataReader<T>>::type;
+  using DataReaderType = core23_reader::DataReader<T>;
   std::vector<T> generated_sparse_value;
   std::vector<T> generated_sparse_rowoffset;
   std::vector<float> generated_label_data;
@@ -259,126 +257,5 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 }
 
 TEST(data_reader_test, legacy_reader_benchmark) {
-  data_reader_norm_test_impl<false>({0}, 12, true, false);
+  data_reader_norm_test_impl({0}, 12, true, false);
 }
-TEST(data_reader_test, core23_reader_benchmark) {
-  data_reader_norm_test_impl<true>({0}, 12, true, false);
-}
-// TEST(data_reader_test, data_reader_mixed_test) {
-//   const int batchsize = 2048;
-
-//   cudaSetDevice(0);
-//   test::mpi_init();
-//   const int numprocs{core23::MpiInitService::get().world_size()};
-
-//   std::vector<std::vector<int>> vvgpu;
-//   std::vector<int> device_list = {0, 1, 2, 3};
-//   for (int i = 0; i < numprocs; i++) {
-//     vvgpu.push_back(device_list);
-//   }
-//   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//   const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num - 5,
-//   max_nnz), false, slot_num - 5}; const DataReaderSparseParam param_distributed = {"localized",
-//   std::vector<int>(5, max_nnz), false, 5}; std::vector<DataReaderSparseParam> params;
-//   params.push_back(param_localized);
-//   params.push_back(param_distributed);
-
-//   DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
-//   true);
-
-//   data_reader.create_drwg_norm(file_list_name, CHK);
-
-//   data_reader.read_a_batch_to_device();
-//   /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
-//     print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-//     print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
-
-//   data_reader.read_a_batch_to_device();
-//   /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
-//     print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-//     print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
-
-//   data_reader.read_a_batch_to_device();
-//   /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
-//     print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-//     print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
-// }
-
-// #ifdef ENABLE_MPI
-// TEST(data_reader_test, two_nodes_localized) {
-//   int batchsize = 2048;
-
-//   HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_samples,
-//                                             slot_num, vocabulary_size, label_dim, dense_dim,
-//                                             max_nnz);
-
-//   test::mpi_init();
-//   const int numprocs{core23::MpiInitService::get().world_size()};
-//   const int pid{core23::MpiInitService::get().world_rank()};
-
-//   if (numprocs != 2) {
-//     HCTR_LOG_S(DEBUG, WORLD) << "numprocs != 2" << std::endl;
-//     ASSERT_TRUE(false);
-//   }
-
-//   {
-//     HCTR_LOG_S(DEBUG, WORLD) << "two Nodes 4 GPUs first batch\n" << std::endl;
-//     // vvgpu suppose you have at least 4 gpus for each node
-//     std::vector<std::vector<int>> vvgpu;
-//     std::vector<int> device_list_0 = {0, 1};
-//     std::vector<int> device_list_1 = {0, 3};
-//     vvgpu.push_back(device_list_0);
-//     vvgpu.push_back(device_list_1);
-
-//     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num,
-//     max_nnz), false, slot_num}; std::vector<DataReaderSparseParam> params;
-//     params.push_back(param_localized);
-
-//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
-//     false);
-
-//     data_reader.create_drwg_norm(file_list_name, CHK);
-
-//     data_reader.read_a_batch_to_device();
-//     /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-//         print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-//         print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-//         print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
-
-//     HCTR_LOG_S(DEBUG, WORLD) << "two Nodes 4 GPUs second batch\n" << std::endl;
-//     data_reader.read_a_batch_to_device();
-//     /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-//         print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-//         print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-//         print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
-//   }
-//   HCTR_LOG_S(DEBUG, WORLD) << "Single Node 4 GPUs\n" << std::endl;
-//   if (pid == 0) {
-//     std::vector<std::vector<int>> vvgpu;
-//     std::vector<int> device_list_0 = {0, 1, 2, 3};
-//     vvgpu.push_back(device_list_0);
-
-//     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num,
-//     max_nnz), false, slot_num}; std::vector<DataReaderSparseParam> params;
-//     params.push_back(param_localized);
-
-//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
-//     false, 0);
-
-//     data_reader.create_drwg_norm(file_list_name, CHK);
-
-//     data_reader.read_a_batch_to_device();
-//     /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-//         print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-//         print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-//         print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-
-//         print_tensor(*data_reader.get_label_tensors()[3], -10, -1);
-//         print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-//         print_tensor(*data_reader.get_value_tensors()[3], 0, 10);
-//         print_tensor(*data_reader.get_row_offsets_tensors()[3], 0, 10); */
-//   }
-// }
-// #endif

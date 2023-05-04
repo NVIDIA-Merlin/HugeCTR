@@ -50,7 +50,8 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   void* d_row_ptrs = allocator.allocate(row_ptrs_size_in_bytes);
   HCTR_LIB_THROW(
       cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes, cudaMemcpyHostToDevice));
-  std::shared_ptr<Tensor2<int>> row_ptrs_tensor = std::make_shared<Tensor2<int>>();
+  std::shared_ptr<Tensor2<int>> row_ptrs_tensor =
+      std::make_shared<Tensor2<int>>(row_ptrs_dims, nullptr);
 
   HCTR_LOG(INFO, ROOT, "Bind the tensor to preallocated buffer for the first time\n");
   std::shared_ptr<TensorBuffer2> row_ptrs_buff =
@@ -74,7 +75,8 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   HCTR_LIB_THROW(cudaMemcpy(d_embedding_features, h_embedding_features.get(),
                             embedding_features_size_in_bytes, cudaMemcpyHostToDevice));
 
-  std::shared_ptr<Tensor2<float>> embedding_features_tensor = std::make_shared<Tensor2<float>>();
+  std::shared_ptr<Tensor2<float>> embedding_features_tensor =
+      std::make_shared<Tensor2<float>>(embedding_features_dims, nullptr);
   std::shared_ptr<TensorBuffer2> embeddding_features_buff =
       PreallocatedBuffer2<float>::create(d_embedding_features, embedding_features_dims);
   bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff,

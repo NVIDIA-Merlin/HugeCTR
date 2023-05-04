@@ -28,6 +28,7 @@ using BuffPtrs = std::vector<BuffPtr<T>>;
 
 class ExchangeWgrad {
  public:
+  virtual void init_ar_comm(const std::vector<void*>& ptr, size_t sizes) = 0;
   virtual void allocate() = 0;
   virtual void update_embed_wgrad_size(size_t size) = 0;
   virtual void allreduce(size_t device_id, cudaStream_t stream) = 0;
@@ -39,6 +40,7 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
   const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
   const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return null_wgrad_buffs_; }
   void allocate() final;
+  void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
   NetworkExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager);
@@ -62,6 +64,7 @@ class GroupedExchangeWgrad : public ExchangeWgrad {
   const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
   const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return embed_wgrad_buffs_; }
   void allocate() final;
+  void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
   GroupedExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager);

@@ -40,7 +40,7 @@ class InferenceSession : public InferenceSessionBase {
   // std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_;  // embedding input row
   // std::vector<std::shared_ptr<Tensor2<float>>> embedding_features_tensors_; // embedding input
   // value vector
-  TensorBag2 dense_input_tensorbag_;                               // dense input vector
+  core23::Tensor dense_input_tensorbag_;                           // dense input vector
   std::vector<std::shared_ptr<core23::Tensor>> row_ptrs_tensors_;  // embedding input row
   std::vector<std::shared_ptr<core23::Tensor>>
       embedding_features_tensors_;                     // embedding input value vector

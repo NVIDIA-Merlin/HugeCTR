@@ -22,6 +22,44 @@ namespace HugeCTR {
 /**
  * Relu activation function as a derived class of Layer
  */
+namespace core23 {
+template <typename T>
+class ScaleLayer : public Layer {
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<core23::Tensor> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<core23::Tensor> out_tensors_;
+
+ public:
+  /**
+   * Ctor of ReluLayer.
+   * @param in_tensor the input tensor
+   * @param out_tensor the output tensor which has the same dim with in_tensor
+   * @param device_id the id of GPU where this layer belongs
+   */
+  ScaleLayer(const core23::Tensor& in_tensor, core23::Tensor& out_tensor, int axis, int factor,
+             const std::shared_ptr<GPUResource>& gpu_resource);
+
+  /**
+   * A method of implementing the forward pass of Relu
+   * @param stream CUDA stream where the foward propagation is executed
+   */
+  void fprop(bool is_train) override;
+  /**
+   * A method of implementing the backward pass of Relu
+   * @param stream CUDA stream where the backward propagation is executed
+   */
+  void bprop() override;
+
+  int axis_;
+  int factor_;
+};
+
+}  // namespace core23
 template <typename T>
 class ScaleLayer : public Layer {
   /*

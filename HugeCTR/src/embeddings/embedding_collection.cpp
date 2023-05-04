@@ -90,37 +90,64 @@ void EmbeddingCollection::init_wgrad(std::vector<std::shared_ptr<CoreResourceMan
       }
       HCTR_CHECK(!ebc_param_.table_id_to_vocabulary_size.empty());
 
-      // 2. not grouped dense allreduce
-      bool not_grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::Dense);
-      AllreduceWgradInitializer{core[gpu_id], ebc_param_, grouped_id,
-                                embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
-          .init(wgrad)
-          .init_indices()
-          .init_data(not_grouped);
-      if (not_grouped) continue;
+      int use_core23 = 1;
+      if (getenv("HUGECTR_CORE23_NETWORK")) {
+        use_core23 = atoi(getenv("HUGECTR_CORE23_NETWORK"));
+      }
+      if (use_core23) {
+        // 2. dense allreduce can be group or not grouped
+        bool grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::GroupDense);
+        if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Float) {
+          AllreduceWgradInitializer{core[gpu_id], ebc_param_, grouped_id,
+                                    embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
+              .init(wgrad)
+              .init_indices()
+              .init_data(grouped, HugeCTR::GetWgradBufferChannel());
 
-      // 3. grouped dense allreduce
-      HCTR_CHECK_HINT(exchange_wgrad != nullptr,
-                      "if you want to group allreduce , you need send a exchange_wgrad into "
-                      "embedding_collection");
+        } else if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Half) {
+          AllreduceWgradInitializer{core[gpu_id], ebc_param_, grouped_id,
+                                    embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
+              .init(wgrad)
+              .init_indices()
+              .init_data(grouped, HugeCTR::GetWgradHalfBufferChannel());
 
-      if (wgrad.attr.type.match<float>()) {
-        auto grouped_wgrad_buff =
-            std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<float>>(exchange_wgrad)
-                ->get_embed_wgrad_buffs()[gpu_id];
-        grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
-                                    &(wgrad_tensor2_float_list_[gpu_id]));
-        if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(float);
-      } else if (wgrad.attr.type.match<__half>()) {
-        auto grouped_wgrad_buff =
-            std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<__half>>(exchange_wgrad)
-                ->get_embed_wgrad_buffs()[gpu_id];
-        grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
-                                    &(wgrad_tensor2_half_list_[gpu_id]));
-        if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(__half);
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                         "Embedding wgrad type set wrong can't support!");
+        }
       } else {
-        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                       "have a wrong wgrad type, wgrad type need be float or __half");
+        // 2. not grouped dense allreduce
+        bool not_grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::Dense);
+        AllreduceWgradInitializer{core[gpu_id], ebc_param_, grouped_id,
+                                  embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
+            .init(wgrad)
+            .init_indices()
+            .init_data(not_grouped);
+        if (not_grouped) continue;
+
+        // 3. grouped dense allreduce
+        HCTR_CHECK_HINT(exchange_wgrad != nullptr,
+                        "if you want to group allreduce , you need send a exchange_wgrad into "
+                        "embedding_collection");
+
+        if (wgrad.attr.type.match<float>()) {
+          auto grouped_wgrad_buff =
+              std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<float>>(exchange_wgrad)
+                  ->get_embed_wgrad_buffs()[gpu_id];
+          grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
+                                      &(wgrad_tensor2_float_list_[gpu_id]));
+          if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(float);
+        } else if (wgrad.attr.type.match<__half>()) {
+          auto grouped_wgrad_buff =
+              std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<__half>>(exchange_wgrad)
+                  ->get_embed_wgrad_buffs()[gpu_id];
+          grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
+                                      &(wgrad_tensor2_half_list_[gpu_id]));
+          if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(__half);
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                         "have a wrong wgrad type, wgrad type need be float or __half");
+        }
       }
     }
   }

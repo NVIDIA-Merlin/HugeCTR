@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 #include <layers/multi_head_attention_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -196,9 +197,12 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
       size_per_head = input_tensors_[0].size(dims_ - 1) / h;
     }
     num_head_ = h;
+    core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
-    auto common_tensor_params =
-        input_tensors_[0].my_params().data_type(core23::ToScalarType<T>::value);
+    auto common_tensor_params = input_tensors_[0]
+                                    .my_params()
+                                    .data_type(core23::ToScalarType<T>::value)
+                                    .buffer_params(buf_p);
 
     if (transpose_b_) {
       core23::Shape out_shape = {b, h, m, k};

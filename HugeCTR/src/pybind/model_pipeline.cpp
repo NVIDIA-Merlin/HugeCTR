@@ -29,6 +29,27 @@
 
 namespace HugeCTR {
 
+namespace core_helper {
+std::vector<core23::Tensor> check_out_value_tensors(HugeCTR::IDataReader* reader, int gpu_id) {
+  std::vector<core23::Tensor> ret;
+  std::vector<SparseTensor23> sparse_tensors;
+  if (auto typed_reader =
+          dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(reader)) {
+    sparse_tensors = typed_reader->get_current_sparse_tensor23s()[gpu_id];
+  } else if (auto typed_reader =
+                 dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(reader)) {
+    sparse_tensors = typed_reader->get_current_sparse_tensor23s()[gpu_id];
+  } else {
+    throw std::runtime_error("Unknown type of AsyncDataReader");
+  }
+  for (const auto& sparse : sparse_tensors) {
+    ret.push_back(sparse.get_value_tensor());
+  }
+  return ret;
+}
+
+}  // namespace core_helper
+
 template <typename Network>
 void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
   graph_.train_pipeline_.resize(resource_manager_->get_local_gpu_count());
@@ -568,8 +589,8 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>
       if (skip_prefetch_in_last_batch(is_train)) return;
 
       if (is_scheduled_datareader()) {
-        auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core23_tensors(
-            train_data_reader_.get(), local_id);
+        auto sparse_dp_tensors =
+            core_helper::check_out_value_tensors(train_data_reader_.get(), local_id);
         train_data_distributor_->distribute(local_id, sparse_dp_tensors, {},
                                             train_ddl_output_[local_id],
                                             train_data_reader_->get_current_batchsize());
@@ -829,8 +850,7 @@ void Model::train_pipeline_with_ebc() {
       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       HCTR_CHECK(solver_.use_embedding_collection);
       if (is_scheduled_datareader()) {
-        auto sparse_dp_tensors =
-            core_helper::current_sparse_tensors_to_core23_tensors(train_data_reader_.get(), id);
+        auto sparse_dp_tensors = core_helper::check_out_value_tensors(train_data_reader_.get(), id);
         train_data_distributor_->distribute(id, sparse_dp_tensors, {}, train_ddl_output_[id],
                                             train_data_reader_->get_full_batchsize());
 
@@ -884,8 +904,8 @@ void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Networ
     auto eval_data_distribute = std::make_shared<StreamContextScheduleable>([=] {
       if (skip_prefetch_in_last_batch(is_train)) return;
       if (is_scheduled_datareader()) {
-        auto sparse_dp_tensors = core_helper::current_sparse_tensors_to_core23_tensors(
-            evaluate_data_reader_.get(), local_id);
+        auto sparse_dp_tensors =
+            core_helper::check_out_value_tensors(evaluate_data_reader_.get(), local_id);
         eval_data_distributor_->distribute(local_id, sparse_dp_tensors, {},
                                            evaluate_ddl_output_[local_id],
                                            evaluate_data_reader_->get_current_batchsize());
@@ -1001,7 +1021,7 @@ void Model::evaluate_pipeline_with_ebc() {
       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       if (is_scheduled_datareader()) {
         auto sparse_dp_tensors =
-            core_helper::current_sparse_tensors_to_core23_tensors(evaluate_data_reader_.get(), id);
+            core_helper::check_out_value_tensors(evaluate_data_reader_.get(), id);
         eval_data_distributor_->distribute(id, sparse_dp_tensors, {}, evaluate_ddl_output_[id],
                                            evaluate_data_reader_->get_current_batchsize());
       } else {

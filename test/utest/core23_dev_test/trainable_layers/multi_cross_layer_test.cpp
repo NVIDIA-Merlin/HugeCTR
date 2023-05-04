@@ -630,8 +630,8 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    layer_.reset(new Core23TempMultiCrossLayer<T>(d_input_, d_output_, test::get_default_gpu(),
-                                                  layers, projection_dim_));
+    layer_.reset(new Core23TempMultiCrossLayer<T>({d_input_}, {d_output_}, test::get_default_gpu(),
+                                                  layers, projection_dim_, {}, false, false));
 
     layer_->initialize();
 
@@ -650,7 +650,7 @@ class MultiCrossLayerTest {
 
   void test() {
     this->layer_->initialize();
-    // this->layer_->search_algorithm();
+    this->layer_->search_algorithm();
     // dcnv1
     if (this->projection_dim_ == 0) {
       reset_forward_();

@@ -995,7 +995,6 @@ MultiCrossLayer<T>::MultiCrossLayer(
     CudaDeviceContext context(this->get_device_id());
     wgrad_stream_ = gpu_resource->get_stream("cross_layer_wgrad");
     event_fork_ = gpu_resource->get_event("cross_layer_overlap");
-    // event_joint_ = gpu_resource->get_event("cross_layer_overlap_joint");
 
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
@@ -1234,6 +1233,7 @@ void MultiCrossLayer<T>::bprop() {
 }
 template <typename T>
 void MultiCrossLayer<T>::search_algorithm() {
+  std::cout << "legacy DCN search_algo starts" << std::endl;
   // dcnv1 no search_algorithm
   CudaDeviceContext context(this->get_device_id());
   auto cublaslt_handle = this->get_gpu().get_cublaslt_handle();
@@ -1283,8 +1283,6 @@ void MultiCrossLayer<T>::search_algorithm() {
         mat_a = bprop_bottom_[1 + 2 * i].get_ptr();
         mat_b = this->get_weight(3 * i).get_ptr();
         mat_c = this->dgrads_[i + 1].get_ptr();
-        // mat_c = i == num_layers_ - 1 ? activation_tensors_[i + 1].get_ptr()
-        //  : bprop_bottom_[3 * (i + 1) + 1].get_ptr();
         T* mat_d = this->dgrads_[i].get_ptr();
         this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_d,
                                                        dhidden_descrs_bprop_[i], cublaslt_handle,
@@ -1292,6 +1290,7 @@ void MultiCrossLayer<T>::search_algorithm() {
       }
     }
   }
+  std::cout << "DCN search_algo done" << std::endl;
 }
 template <typename T>
 void MultiCrossLayer<T>::initialize() {
@@ -1871,8 +1870,8 @@ void Core23TempMultiCrossBackwardFunctorv2<T>::operator()(
     cudaEvent_t& event_overlap, const core23::Tensor& input_tensor,
     const std::vector<core23::Tensor>& kernel_tensors,
     const std::vector<core23::Tensor>& layer_output_tensors,
-    const std::vector<core23::Tensor>& layer_hidden_tensors, const core23::Tensor& grad_tensor,
-    core23::Tensor& output_tensor, std::vector<core23::Tensor>& kernel_output_tensors,
+    const std::vector<core23::Tensor>& layer_hidden_tensors,
+    std::vector<core23::Tensor>& kernel_output_tensors, std::vector<core23::Tensor>& grad_tensors,
     std::vector<core23::Tensor>& bias_output_tensors, std::vector<core23::Tensor>& XU_tensors,
     core23::Tensor accum_dx_tensor_, std::vector<core23::Tensor> bprop_bottoms, int num_layers,
     const std::vector<CublasDesc<T>>& xu_descr_, const std::vector<CublasDesc<T>>& xuvb_descr_,
@@ -1888,53 +1887,58 @@ void Core23TempMultiCrossBackwardFunctorv2<T>::operator()(
   auto vec_length = input_tensor.shape()[1];
   auto U_row = kernel_tensors[0].shape()[0];
   auto V_col = kernel_tensors[1].shape()[1];
+  bool dgrad_act_shared = grad_tensors[0].data() == input_tensor.data();
   for (int i = num_layers - 1; i >= 0; i--) {
     // S0 = dY_i .* X , shape: (batchsize, w)
     // dX += dY_i .* H , shape: (batchsize, w)
-    fused_mul_fma3<T>(bprop_bottoms[3 * i], accum_dx_tensor_,
-                      i == num_layers - 1 ? grad_tensor : bprop_bottoms[3 * (i + 1) + 1],
-                      input_tensor, layer_hidden_tensors[i], dgrad_stream);
+    fused_mul_fma3<T>(bprop_bottoms[2 * i], accum_dx_tensor_, grad_tensors[i + 1], input_tensor,
+                      layer_hidden_tensors[i], dgrad_stream);
 
     {
       if (async_wgrad) {
         HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
         HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
       }
-      // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
-      const T* mat_a = XU_tensors[i].data<T>();
-      const T* mat_b = bprop_bottoms[3 * i].data<T>();
-      T* mat_c = kernel_output_tensors[2 * i + 1].data<T>();
-      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
-                          cublaslt_handle, async_wgrad ? wgrad_stream : dgrad_stream);
       // 2 dH = S1 = S0 * V^T shape: (batchsize, project_dim)
-      mat_a = bprop_bottoms[3 * i].data<T>();
-      mat_b = kernel_tensors[2 * i + 1].data<T>();
-      mat_c = bprop_bottoms[2 + 3 * i].data<T>();
+      const T* mat_a = bprop_bottoms[2 * i].data<T>();
+      const T* mat_b = kernel_tensors[2 * i + 1].data<T>();
+      T* mat_c = bprop_bottoms[1 + 2 * i].data<T>();
       this->gemm_functor_(1.0f, mat_a, mat_b, 0.0f, mat_c, mat_c, xuvb_descr_[i],
                           xuvb_bprop_algo_[i], cublaslt_handle, dgrad_stream);
+
+      // 1 db, dV = XU_{i}^T * S0 shape: (project_dim, w)
+      mat_a = XU_tensors[i].data<T>();
+      mat_b = bprop_bottoms[2 * i].data<T>();
+      mat_c = kernel_output_tensors[2 * i + 1].data<T>();
+      this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, xu_descr_[i], xu_bprop_algo_[i],
+                          cublaslt_handle, async_wgrad ? wgrad_stream : dgrad_stream);
       if (async_wgrad) {
         HCTR_LIB_THROW(cudaEventRecord(event_overlap, dgrad_stream));
         HCTR_LIB_THROW(cudaStreamWaitEvent(wgrad_stream, event_overlap));
       }
       // 3  dU = X_{i-1} ^T * S1 shape: (w, project_dim)
       mat_a = i == 0 ? input_tensor.data<T>() : layer_output_tensors[i - 1].data<T>();
-      mat_b = bprop_bottoms[2 + 3 * i].data<T>();
+      mat_b = bprop_bottoms[1 + 2 * i].data<T>();
       mat_c = kernel_output_tensors[2 * i].data<T>();
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_c, du_descrs_bprop_[i],
                           du_bprop_algos_[i], cublaslt_handle,
                           async_wgrad ? wgrad_stream : dgrad_stream);
+      if (!i && async_wgrad && dgrad_act_shared) {
+        HCTR_LIB_THROW(cudaEventRecord(event_overlap, wgrad_stream));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(dgrad_stream, event_overlap));
+      }
+
       // 4 dY_{i-1} = S1 * U^T + dY_{i} shape: (batchsize, w)
-      mat_a = bprop_bottoms[2 + 3 * i].data<T>();
+      mat_a = bprop_bottoms[1 + 2 * i].data<T>();
       mat_b = kernel_tensors[i * 2].data<T>();
-      auto dgrad = (i == num_layers - 1 ? grad_tensor : bprop_bottoms[3 * (i + 1) + 1]);
-      mat_c = dgrad.data<T>();
-      T* mat_d = bprop_bottoms[3 * i + 1].data<T>();
+      mat_c = grad_tensors[i + 1].data<T>();
+      T* mat_d = grad_tensors[i].data<T>();
       // gemm: mat_d = mat_a * mat_b + mat_c
       this->gemm_functor_(1.0f, mat_a, mat_b, 1.0f, mat_c, mat_d, dhidden_descrs_bprop_[i],
                           dhidden_bprop_algos_[i], cublaslt_handle, dgrad_stream);
     }
   }
-  matrix_add<T>(output_tensor, accum_dx_tensor_, bprop_bottoms[1], dgrad_stream);
+  matrix_add<T>(grad_tensors[0], accum_dx_tensor_, grad_tensors[0], dgrad_stream);
   if (async_wgrad) {
     HCTR_LIB_THROW(cudaEventRecord(event_overlap, wgrad_stream));
     HCTR_LIB_THROW(cudaStreamWaitEvent(dgrad_stream, event_overlap));
@@ -1943,16 +1947,19 @@ void Core23TempMultiCrossBackwardFunctorv2<T>::operator()(
 
 template <typename T>
 Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
-    const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
+    const std::vector<core23::Tensor>& in_tensors, const std::vector<core23::Tensor>& out_tensors,
     const std::shared_ptr<GPUResource>& gpu_resource, int num_layers, int64_t projection_dim,
     std::vector<Initializer_t> initializer_types, bool enable_tf32_compute, bool async_wgrad)
-    : Core23TempTrainableLayer<T>({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
+    : Core23TempTrainableLayer<T>(in_tensors, out_tensors, gpu_resource, initializer_types),
       num_layers_(num_layers),
       projection_dim_(projection_dim),
       enable_tf32_compute_(enable_tf32_compute),
       async_wgrad_(async_wgrad) {
   try {
     // check the in_tensor and out_tensor
+    const auto& in_tensor = in_tensors[0];
+    const auto& out_tensor = out_tensors[0];
+
     const auto& in_tensor_dim = in_tensor.shape();
     const auto& out_tensor_dim = out_tensor.shape();
     int64_t vec_length = in_tensor_dim.size(1);
@@ -1962,7 +1969,7 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     }
     CudaDeviceContext context(this->get_device_id());
     wgrad_stream_ = gpu_resource->get_stream("cross_layer_wgrad");
-    overlap_event_ = gpu_resource->get_event("cross_layer_overlap");
+    event_fork_ = gpu_resource->get_event("cross_layer_overlap");
     // 1. two dim?
     if (in_tensor_dim.dims() != 2 || out_tensor_dim.dims() != 2) {
       HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
@@ -2029,6 +2036,8 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
       }
     }
 
+    in_tensors_ = in_tensors;
+    out_tensors_ = out_tensors;
     // setup blobs
 
     core23::Shape blob_dim = {batchsize, vec_length};
@@ -2100,9 +2109,8 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
     }
     // bprop buffer
     /*
-      bottom[ 3*i ] => dY .* X (elementwise dot)
-      bottom[ 3*i+1] => dgrad (dY)
-      bottom[ 3*i+2] => dH
+      bottom[ 2*i ] => dY .* X (elementwise dot)
+      bottom[ 2*i+1] => dH
     */
     if (this->projection_dim_) {
       for (int i = 0; i < num_layers; i++) {
@@ -2113,14 +2121,28 @@ Core23TempMultiCrossLayer<T>::Core23TempMultiCrossLayer(
                                        .buffer_params(blobs_buffer_params));
         bprop_bottom_.emplace_back(core23::TensorParams()
                                        .data_type(core23::ToScalarType<T>::value)
-                                       .shape(blob_dim)
-                                       .device(device)
-                                       .buffer_params(blobs_buffer_params));
-        bprop_bottom_.emplace_back(core23::TensorParams()
-                                       .data_type(core23::ToScalarType<T>::value)
                                        .shape({batchsize, projection_dim_})
                                        .device(device)
                                        .buffer_params(blobs_buffer_params));
+      }
+      // backward output
+      if (in_tensors.size() == 2) {
+        dgrads_.push_back(in_tensors[1]);
+      } else {
+        dgrads_.push_back(in_tensors[0]);
+      }
+      for (int i = 0; i < num_layers - 1; i++) {
+        dgrads_.push_back(core23::Tensor(core23::TensorParams()
+                                             .data_type(core23::ToScalarType<T>::value)
+                                             .shape(blob_dim)
+                                             .device(device)
+                                             .buffer_params(blobs_buffer_params)));
+      }
+      // backward input
+      if (out_tensors.size() == 2) {
+        dgrads_.push_back(out_tensors[1]);
+      } else {
+        dgrads_.push_back(out_tensors[0]);
       }
     }
 
@@ -2215,17 +2237,17 @@ void Core23TempMultiCrossLayer<T>::bprop() {
   } else {
     // dcn v2
     this->dcnv2_backward_functor_(
-        this->get_gpu().get_stream(), this->wgrad_stream_, this->async_wgrad_, this->overlap_event_,
+        this->get_gpu().get_stream(), this->wgrad_stream_, this->async_wgrad_, this->event_fork_,
         activation_tensors_[0], kernel_tensors, forward_output_tensors, forward_hidden_tensors,
-        activation_tensors_[num_layers_], activation_tensors_[0], kernel_output_tensors,
-        bias_output_tensors, this->XU_tensors_, accum_dx_tensor_, bprop_bottom_, num_layers_,
-        xu_descrs_bprop_, xuvb_descrs_bprop_, du_descrs_bprop_, dhidden_descrs_bprop_,
-        xu_bprop_algos_, xuvb_bprop_algos_, du_bprop_algos_, dhidden_bprop_algos_,
-        this->get_gpu().get_cublaslt_handle());
+        kernel_output_tensors, this->dgrads_, bias_output_tensors, this->XU_tensors_,
+        accum_dx_tensor_, bprop_bottom_, num_layers_, xu_descrs_bprop_, xuvb_descrs_bprop_,
+        du_descrs_bprop_, dhidden_descrs_bprop_, xu_bprop_algos_, xuvb_bprop_algos_,
+        du_bprop_algos_, dhidden_bprop_algos_, this->get_gpu().get_cublaslt_handle());
   }
 }
 template <typename T>
 void Core23TempMultiCrossLayer<T>::search_algorithm() {
+  return;
   // dcnv1 no search_algorithm
   CudaDeviceContext context(this->get_device_id());
   auto cublaslt_handle = this->get_gpu().get_cublaslt_handle();
@@ -2254,36 +2276,36 @@ void Core23TempMultiCrossLayer<T>::search_algorithm() {
       for (int i = 0; i < num_layers_; i++) {
         // 1
         const T* mat_a = XU_tensors_[i].data<T>();
-        const T* mat_b = bprop_bottom_[3 * i].data<T>();
+        const T* mat_b = bprop_bottom_[2 * i].data<T>();
         T* mat_c = this->get_wgrad(3 * i + 1).template data<T>();
         this->xu_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   xu_descrs_bprop_[i], cublaslt_handle, stream);
         // 2
-        mat_a = bprop_bottom_[3 * i].data<T>();
+        mat_a = bprop_bottom_[2 * i].data<T>();
         mat_b = this->get_wgrad(3 * i + 1).template data<T>();
-        mat_c = bprop_bottom_[2 + 3 * i].data<T>();
+        mat_c = bprop_bottom_[1 + 2 * i].data<T>();
         this->xuvb_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 0.0, mat_c, mat_c,
                                                     xuvb_descrs_bprop_[i], cublaslt_handle, stream);
         // 3
         mat_a = activation_tensors_[i].data<T>();
-        mat_b = bprop_bottom_[2 + 3 * i].data<T>();
+        mat_b = bprop_bottom_[1 + 2 * i].data<T>();
         mat_c = this->get_wgrad(3 * i).template data<T>();
         this->du_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_c,
                                                   du_descrs_bprop_[i], cublaslt_handle, stream);
 
         // 4
 
-        mat_a = bprop_bottom_[2 + 3 * i].data<T>();
+        mat_a = bprop_bottom_[1 + 2 * i].data<T>();
         mat_b = this->get_weight(3 * i).template data<T>();
-        mat_c = i == num_layers_ - 1 ? activation_tensors_[i + 1].data<T>()
-                                     : bprop_bottom_[3 * (i + 1) + 1].data<T>();
-        T* mat_d = bprop_bottom_[3 * i + 1].data<T>();
+        mat_c = this->dgrads_[i + 1].data<T>();
+        T* mat_d = this->dgrads_[i].data<T>();
         this->dhidden_bprop_algos_[i].search_algorithm(1.0, mat_a, mat_b, 1.0, mat_c, mat_d,
                                                        dhidden_descrs_bprop_[i], cublaslt_handle,
                                                        stream);
       }
     }
   }
+  if (this->get_gpu().get_device_id() == 0) std::cout << "DCN search_algo done" << std::endl;
 }
 template <typename T>
 void Core23TempMultiCrossLayer<T>::initialize() {
@@ -2356,6 +2378,7 @@ void Core23TempMultiCrossLayer<T>::initialize() {
       }
     }
   }
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 }
 template <typename T>
 std::unique_ptr<DataSimulator> Core23TempMultiCrossLayer<T>::get_default_initializer(

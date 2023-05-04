@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <core23/allocator_factory.hpp>
+#include <core23/details/pool_cuda_allocator.hpp>
 #include <core23/logger.hpp>
 #include <core23/low_level_primitives.hpp>
 #include <core23/shape.hpp>
@@ -113,7 +114,7 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
     return FlattenedTensorView(flattened_start_addr_, Shape({flattened_num_elements_}).data());
   }
 
-  View view() const {
+  View view(core23::CUDAStream stream = core23::CUDAStream()) const {
     HCTR_THROW_IF(tensors_.empty() || Base::data_ == nullptr, HugeCTR::Error_t::IllegalCall,
                   "This empty TensorContainer cannot be flattened");
 
@@ -123,18 +124,18 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
                      [](const Tensor& tensor) { return tensor.view<BuiltInType, TensorDims>(); });
       int64_t size = sizeof(TargetTensorView) * shape_.size();
       if (allocator_) {
-        tensor_view_ptrs_ = static_cast<TargetTensorView*>(allocator_->allocate(size));
+        tensor_view_ptrs_ = static_cast<TargetTensorView*>(allocator_->allocate(size, stream));
       }
       auto dst_device = tensors_.begin()->device();
       auto src_device = Device(DeviceType::CPU);
-      copy_sync(tensor_view_ptrs_, host_tensor_views.data(), size, dst_device, src_device);
+      copy_async(tensor_view_ptrs_, host_tensor_views.data(), size, dst_device, src_device, stream);
       viewed_ = true;
     }
     return View(tensor_view_ptrs_, shape_.data());
   }
 
   Tensor at(int64_t t) const { return tensors_.at(t); }
-
+  bool empty() { return tensors_.empty(); }
   BuiltInType* data() const { return flatten().data(); }
 
   int64_t num_elements() const { return flatten().size(0); }
@@ -144,6 +145,9 @@ class TensorContainer : public TensorView<Tensor, ContainerDims> {
  private:
   std::unique_ptr<Allocator> create_allocator() {
     AllocatorParams allocator_params;
+    allocator_params.custom_factory = [](const auto& params, const auto& device) {
+      return std::unique_ptr<Allocator>(new PoolCUDAAllocator(device));
+    };
     auto device = tensors_.begin()->device();
     auto data_type = tensors_.begin()->data_type();
     for (auto it = tensors_.begin()++; it != tensors_.end(); ++it) {

@@ -101,7 +101,7 @@ static int get_logical_sector_size(std::string file) {
 
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
-               std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
                std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
                std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
                std::shared_ptr<IDataReader>& train_data_reader,
@@ -138,7 +138,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
     std::string sparse_name = param.top_name;
     total_max_sparse_dim += param.max_nnz * param.slot_num;
     sample_len_fixed &= param.is_fixed_length;
-    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    core23_reader::SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
@@ -315,25 +315,43 @@ void add_input(Input& input, DataReaderParams& reader_params,
       }
       const auto& sparse_input =
           sparse_input_map.find(input.data_reader_sparse_param_array[0].top_name);
-      sparse_input->second.train_sparse_tensors = train_data_reader_as->get_value_tensors();
-      sparse_input->second.evaluate_sparse_tensors = evaluate_data_reader_as->get_value_tensors();
+      sparse_input->second.train_sparse_tensors = train_data_reader_as->get_value_tensor23s();
+      sparse_input->second.evaluate_sparse_tensors = evaluate_data_reader_as->get_value_tensor23s();
     }
 
     auto schedulable_train_reader =
         std::dynamic_pointer_cast<SchedulableDataReader>(train_data_reader);
     auto schedulable_eval_reader =
         std::dynamic_pointer_cast<SchedulableDataReader>(evaluate_data_reader);
+    TensorEntry tmp_entry;
 
     for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-      train_tensor_entries_list[i].push_back(
-          {top_strs_label, schedulable_train_reader->get_label_tensors()[i]});
-      evaluate_tensor_entries_list[i].push_back(
-          {top_strs_label, schedulable_eval_reader->get_label_tensors()[i]});
+      tmp_entry.name = top_strs_label;
+      tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+          schedulable_train_reader->get_label_tensor23s()[i]);
+      train_tensor_entries_list[i].push_back(tmp_entry);
 
-      train_tensor_entries_list[i].push_back(
-          {top_strs_dense, schedulable_train_reader->get_dense_tensors()[i]});
-      evaluate_tensor_entries_list[i].push_back(
-          {top_strs_dense, schedulable_eval_reader->get_dense_tensors()[i]});
+      tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+          schedulable_eval_reader->get_label_tensor23s()[i]);
+      evaluate_tensor_entries_list[i].push_back(tmp_entry);
+      tmp_entry.name = top_strs_dense;
+
+      if (use_mixed_precision) {
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<__half>(
+            schedulable_train_reader->get_dense_tensor23s()[i]);
+        train_tensor_entries_list[i].push_back(tmp_entry);
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<__half>(
+            schedulable_eval_reader->get_dense_tensor23s()[i]);
+        evaluate_tensor_entries_list[i].push_back(tmp_entry);
+
+      } else {
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+            schedulable_train_reader->get_dense_tensor23s()[i]);
+        train_tensor_entries_list[i].push_back(tmp_entry);
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+            schedulable_eval_reader->get_dense_tensor23s()[i]);
+        evaluate_tensor_entries_list[i].push_back(tmp_entry);
+      }
     }
 
     return;
@@ -375,9 +393,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
       }
       parquet_label_cols = parquet_meta->get_label_names().size();
       parquet_dense_cols = parquet_meta->get_cont_names().size();
-      // parquet_cat_cols = parquet_meta->get_cat_names().size();
-      // HCTR_LOG(INFO,ROOT,"parquet_label_cols %ld,parquet_dense_cols
-      // %ld\n",parquet_label_cols,parquet_dense_cols);
+
       read_stream.close();
       std::vector<std::string> train_sources = reader_params.source;
       for (const auto& file_list_name : train_sources) {
@@ -474,7 +490,425 @@ void add_input(Input& input, DataReaderParams& reader_params,
             eval_source, reader_params.read_file_sequentially, slot_offset, repeat_dataset,
             parquet_eval_max_row_group_size, parquet_dense_cols + parquet_label_cols,
             dense_dim + total_label_dim);
-        HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
+#endif
+        break;
+      }
+      default: {
+        assert(!"Error: no such option && should never get here!");
+      }
+    }
+
+    for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+      TensorEntry tmp_entry;
+      tmp_entry.name = top_strs_label;
+      tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+          data_reader_tk->get_label_tensor23s()[i]);
+      train_tensor_entries_list[i].push_back(tmp_entry);
+      tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+          data_reader_eval_tk->get_label_tensor23s()[i]);
+      evaluate_tensor_entries_list[i].push_back(tmp_entry);
+
+      tmp_entry.name = top_strs_dense;
+
+      if (use_mixed_precision) {
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<__half>(
+            data_reader_tk->get_dense_tensor23s()[i]);
+        train_tensor_entries_list[i].push_back(tmp_entry);
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<__half>(
+            data_reader_eval_tk->get_dense_tensor23s()[i]);
+        evaluate_tensor_entries_list[i].push_back(tmp_entry);
+      } else {
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+            data_reader_tk->get_dense_tensor23s()[i]);
+        train_tensor_entries_list[i].push_back(tmp_entry);
+        tmp_entry.bag = core_helper::convert_core23_tensor_to_tensorbag2<float>(
+            data_reader_eval_tk->get_dense_tensor23s()[i]);
+        evaluate_tensor_entries_list[i].push_back(tmp_entry);
+      }
+    }
+
+    for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
+      auto& top_name = input.data_reader_sparse_param_array[i].top_name;
+      const auto& sparse_input = sparse_input_map.find(top_name);
+
+      sparse_input->second.train_sparse_tensors = data_reader_tk->get_sparse_tensor23s(top_name);
+      sparse_input->second.evaluate_sparse_tensors =
+          data_reader_eval_tk->get_sparse_tensor23s(top_name);
+    }
+  }  // end of else. not AsynRaw Reader
+}
+template <typename TypeKey>
+void add_input(Input& input, DataReaderParams& reader_params,
+               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+               std::vector<std::vector<TensorEntity>>& train_tensor_entries_list,
+               std::vector<std::vector<TensorEntity>>& evaluate_tensor_entries_list,
+               std::shared_ptr<IDataReader>& train_data_reader,
+               std::shared_ptr<IDataReader>& evaluate_data_reader,
+               std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
+               size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+               bool train_intra_iteration_overlap, size_t num_iterations_statistics,
+               const std::shared_ptr<ResourceManager> resource_manager) {
+  DataReaderType_t format = reader_params.data_reader_type;
+  Check_t check_type = reader_params.check_type;
+  std::string source_data = reader_params.source[0];
+  std::string eval_source = reader_params.eval_source;
+  long long num_samples = reader_params.num_samples;
+  long long eval_num_samples = reader_params.eval_num_samples;
+  bool float_label_dense = reader_params.float_label_dense;
+  // TODO - changes structures to support multiple labels
+  std::string top_strs_dense = input.dense_name;
+  int dense_dim = input.dense_dim;
+
+  std::string top_strs_label = input.labels_.begin()->first;
+  int total_label_dim = std::accumulate(
+      std::begin(input.labels_), std::end(input.labels_), 0,
+      [](const int previous, const std::pair<std::string, int>& p) { return previous + p.second; });
+
+  int total_max_sparse_dim = 0;
+  bool sample_len_fixed = true;
+  if (input.labels_.size() > 1) {
+    top_strs_label = "combined_multi_label";
+  }
+
+  for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
+    DataReaderSparseParam param = input.data_reader_sparse_param_array[i];
+    std::string sparse_name = param.top_name;
+    total_max_sparse_dim += param.max_nnz * param.slot_num;
+    sample_len_fixed &= param.is_fixed_length;
+    core23_reader::SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    sparse_input_map.emplace(sparse_name, sparse_input);
+  }
+
+  if ((format == DataReaderType_t::RawAsync)) {
+    if (reader_params.async_param.multi_hot_reader) {
+      bool is_float_dense = reader_params.async_param.is_dense_float;
+      int num_threads = reader_params.async_param.num_threads;
+      int num_batches_per_thread = reader_params.async_param.num_batches_per_thread;
+      bool shuffle = reader_params.async_param.shuffle;
+      int cache_eval_data = reader_params.cache_eval_data;
+      bool schedule_h2d = false;
+
+      // If we want to cache eval, make sure we have enough buffers
+      auto eval_num_batches_per_thread = num_batches_per_thread;
+      if (cache_eval_data > num_threads * num_batches_per_thread) {
+        eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
+        HCTR_LOG_S(INFO, ROOT)
+            << "Multi-Hot AsyncDataReader: eval reader increased batches per thread to "
+            << eval_num_batches_per_thread << " to accommodate for the caching" << std::endl;
+      }
+
+      HCTR_LOG_S(INFO, ROOT) << "Multi-Hot AsyncDataReader: num_threads = " << num_threads
+                             << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "Multi-Hot AsyncDataReader: num_batches_per_thread = "
+                             << num_batches_per_thread << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "Multi-Hot AsyncDataReader: shuffle = " << (shuffle ? "ON" : "OFF")
+                             << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "Multi-Hot AsyncDataReader: schedule_h2d = "
+                             << (schedule_h2d ? "ON" : "OFF") << std::endl;
+
+      MultiHot::FileSource file_source;
+      file_source.name = source_data;
+      file_source.slot_id = 0;
+
+      train_data_reader.reset(new MultiHot::core23_reader::AsyncDataReader<TypeKey>(
+          {file_source}, resource_manager, batch_size, num_threads, num_batches_per_thread,
+          input.data_reader_sparse_param_array, total_label_dim, dense_dim, use_mixed_precision,
+          shuffle, schedule_h2d, is_float_dense));
+
+      file_source.name = eval_source;
+      evaluate_data_reader.reset(new MultiHot::core23_reader::AsyncDataReader<TypeKey>(
+          {file_source}, resource_manager, batch_size_eval, num_threads,
+          eval_num_batches_per_thread, input.data_reader_sparse_param_array, total_label_dim,
+          dense_dim, use_mixed_precision, false, schedule_h2d, is_float_dense));
+
+    } else {  // use original one-hot async reader
+      bool is_float_dense = reader_params.async_param.is_dense_float;
+      HCTR_CHECK_HINT(!is_float_dense, "One-hot RawAsync Reader only supports int32 dense type\n");
+      if (!repeat_dataset) {
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "Epoch mode cannot be used with RawAsync reader, please set repeat_dataset as true");
+      }
+      std::string proc_file("/proc/sys/fs/aio-max-nr"), max_nr_str;
+      std::ifstream tmp_fs(proc_file, std::ifstream::in);
+      if (!tmp_fs.good()) {
+        HCTR_OWN_THROW(Error_t::InvalidEnv, "Can't read /proc/sys/fs/aio-max-nr");
+      }
+      int max_nr_requests_allowed_system = -1;
+      int actual_nr_requests = 2;
+      std::getline(tmp_fs, max_nr_str);
+      max_nr_requests_allowed_system = std::stoi(max_nr_str);
+      tmp_fs.close();
+      // TODO currently label+dense have to be int
+      size_t bytes_per_batch =
+          ((total_label_dim + dense_dim) * sizeof(int) + total_max_sparse_dim * sizeof(TypeKey)) *
+          batch_size;
+      Alignment_t aligned_type = reader_params.async_param.aligned_type;
+      int num_threads = reader_params.async_param.num_threads;
+      int num_batches_per_thread = reader_params.async_param.num_batches_per_thread;
+      int max_num_requests_per_thread = reader_params.async_param.max_num_requests_per_thread;
+      int io_depth = reader_params.async_param.io_depth;
+      int io_alignment = reader_params.async_param.io_alignment;
+      bool shuffle = reader_params.async_param.shuffle;
+
+      // Could be different if eval and train datasets are on different storage systems
+      int max_logical_sector_size =
+          std::max(get_logical_sector_size(source_data), get_logical_sector_size(eval_source));
+
+      if (max_logical_sector_size > io_alignment) {
+        std::string msg = "Invalid io_alignment of " + std::to_string(io_alignment) + ", using " +
+                          std::to_string(max_logical_sector_size) + "\n";
+        HCTR_LOG(WARNING, WORLD, msg.c_str());
+        io_alignment = max_logical_sector_size;
+      }
+
+      int io_block_size = io_alignment;
+      // TODO train_reader + evaluate_reader + init_reader?
+      int max_nr_requests_user = max_num_requests_per_thread * num_threads;
+      int max_num_batches = num_batches_per_thread * num_threads;
+
+      // note that nr_requests =  max_num_batches * (bytes_per_batch / io_block_size + 2). Each
+      // batch has at least 2 io requests
+      if (max_nr_requests_user > max_nr_requests_allowed_system) {
+        HCTR_LOG(
+            WARNING, WORLD,
+            "Too many concurrent io requests, will automatically compute (overall #io requests "
+            "= num_batches_per_thread * num_threads * (bytes_per_batch / io_block_size+2).\n");
+        max_nr_requests_user =
+            std::max(2, (max_nr_requests_allowed_system - 1) / max_num_batches) * max_num_batches;
+      }
+      if (max_nr_requests_user > max_nr_requests_allowed_system ||
+          max_num_batches * 2 >= max_nr_requests_user) {
+        HCTR_DIE("Too many batches for each thread!\n");
+      }
+      HCTR_LOG_S(INFO, ROOT) << "total_max_sparse_dim = " << total_max_sparse_dim << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "max_nr_requests_user = " << max_nr_requests_user << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "bytes_per_batch = " << bytes_per_batch << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "max_num_batches = " << max_num_batches << std::endl;
+      int next_nr_requests = 0;
+      for (int io_blk = io_alignment;; io_blk += io_alignment) {
+        actual_nr_requests = max_num_batches * (bytes_per_batch / io_blk + 2);
+        next_nr_requests = max_num_batches * (bytes_per_batch / (io_blk + 1) + 2);
+        // upper_bound
+        if ((actual_nr_requests <= max_nr_requests_user && actual_nr_requests > next_nr_requests) ||
+            bytes_per_batch < io_blk) {
+          io_block_size = io_blk;
+          break;
+        }
+      }
+      // int num_blocks_per_batch = max_nr_requests_user / max_num_batches - 2;
+
+      HCTR_CHECK_HINT(io_block_size % io_alignment == 0,
+                      " params_.io_block_size \% params_.io_alignment != 0");
+
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread
+                             << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: total_io_nr_requests = " << actual_nr_requests
+                             << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << io_depth << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_alignment = " << io_alignment << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: shuffle = " << (shuffle ? "ON" : "OFF") << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_iterations_statistics = "
+                             << num_iterations_statistics << std::endl;
+
+      const bool wait_for_gpu_idle = train_intra_iteration_overlap;  // scheduling H2D
+      train_data_reader.reset(new core23_reader::AsyncReader<TypeKey>(
+          source_data, batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
+          use_mixed_precision, resource_manager, num_threads, num_batches_per_thread, io_block_size,
+          io_depth, io_alignment, shuffle, wait_for_gpu_idle, aligned_type));
+
+      // If we want to cache eval, make sure we have enough buffers
+      auto eval_num_batches_per_thread = num_batches_per_thread;
+      int cache_eval_data = reader_params.cache_eval_data;
+      if (cache_eval_data > num_threads * num_batches_per_thread) {
+        eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
+        HCTR_LOG_S(INFO, ROOT) << "AsyncReader: eval reader increased batches per thread to "
+                               << eval_num_batches_per_thread << " to accommodate for the caching"
+                               << std::endl;
+      }
+
+      // Small IO block may lead to too many AIO requests which hang,
+      // so use a larger one for eval and init which are typically larger than train
+      evaluate_data_reader.reset(new core23_reader::AsyncReader<TypeKey>(
+          eval_source, batch_size_eval, total_label_dim, dense_dim,
+          input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, num_threads,
+          eval_num_batches_per_thread, io_block_size * 8, io_depth, io_alignment, false, false,
+          aligned_type));
+
+      init_data_reader.reset(new core23_reader::AsyncReader<TypeKey>(
+          source_data, num_iterations_statistics * batch_size, total_label_dim, dense_dim,
+          input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, 1, 1,
+          io_block_size * 8, 4, io_alignment, false, false, aligned_type));
+
+      auto train_data_reader_as =
+          std::dynamic_pointer_cast<core23_reader::AsyncReader<TypeKey>>(train_data_reader);
+      auto evaluate_data_reader_as =
+          std::dynamic_pointer_cast<core23_reader::AsyncReader<TypeKey>>(evaluate_data_reader);
+
+      if (input.data_reader_sparse_param_array.size() > 1) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "Only one sparse input is supported.");
+      }
+      const auto& sparse_input =
+          sparse_input_map.find(input.data_reader_sparse_param_array[0].top_name);
+      sparse_input->second.train_sparse_tensors = train_data_reader_as->get_value_tensor23s();
+      sparse_input->second.evaluate_sparse_tensors = evaluate_data_reader_as->get_value_tensor23s();
+    }
+
+    auto schedulable_train_reader =
+        std::dynamic_pointer_cast<SchedulableDataReader>(train_data_reader);
+    auto schedulable_eval_reader =
+        std::dynamic_pointer_cast<SchedulableDataReader>(evaluate_data_reader);
+
+    for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+      train_tensor_entries_list[i].push_back(
+          {top_strs_label, schedulable_train_reader->get_label_tensor23s()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_label, schedulable_eval_reader->get_label_tensor23s()[i]});
+
+      train_tensor_entries_list[i].push_back(
+          {top_strs_dense, schedulable_train_reader->get_dense_tensor23s()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_dense, schedulable_eval_reader->get_dense_tensor23s()[i]});
+    }
+
+    return;
+
+  } else {
+    int num_workers_train = reader_params.num_workers;
+    int num_workers_eval = reader_params.num_workers;
+    long long parquet_source_max_row_group_size = 0;
+    long long parquet_eval_max_row_group_size = 0;
+    size_t parquet_label_cols = 0;
+    size_t parquet_dense_cols = 0;
+    // size_t parquet_cat_cols = 0;
+    int local_gpu_count = resource_manager->get_local_gpu_count();
+    std::vector<int> variable_slots_id;
+    std::shared_ptr<Metadata> parquet_meta = std::make_shared<Metadata>();
+    auto get_meta_path = [&](std::string one_parquet_file_path) -> std::string {
+      std::size_t found = one_parquet_file_path.find_last_of("/\\");
+      std::string metadata_path = one_parquet_file_path.substr(0, found);
+      metadata_path.append("/_metadata.json");
+      return metadata_path;
+    };
+    if (format == DataReaderType_t::Parquet) {
+      // if parallelism granularity is file, num_files should be greater than num of workers
+      std::string first_file_name, buff;
+      std::ifstream read_stream(eval_source, std::ifstream::in);
+      if (!read_stream.is_open()) {
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
+      }
+      std::getline(read_stream, buff);
+      int num_of_files = std::stoi(buff);
+      std::string metadata_path;
+      if (num_of_files) {
+        std::getline(read_stream, first_file_name);
+        metadata_path = get_meta_path(first_file_name);
+        parquet_meta->reset_metadata(metadata_path);
+        parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
+        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %ld\n", eval_source.c_str(),
+                 parquet_eval_max_row_group_size);
+      }
+      parquet_label_cols = parquet_meta->get_label_names().size();
+      parquet_dense_cols = parquet_meta->get_cont_names().size();
+
+      read_stream.close();
+      std::vector<std::string> train_sources = reader_params.source;
+      for (const auto& file_list_name : train_sources) {
+        std::string first_file_name, buff;
+        std::ifstream read_stream(file_list_name, std::ifstream::in);
+        if (!read_stream.is_open()) {
+          HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
+        }
+        std::getline(read_stream, buff);
+        int num_of_files = std::stoi(buff);
+        std::string metadata_path;
+        if (num_of_files) {
+          std::getline(read_stream, first_file_name);
+          metadata_path = get_meta_path(first_file_name);
+          parquet_meta->reset_metadata(metadata_path);
+          parquet_source_max_row_group_size =
+              std::max(parquet_meta->get_max_row_group(), parquet_source_max_row_group_size);
+          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %ld\n", file_list_name.c_str(),
+                   parquet_source_max_row_group_size);
+        }
+      }
+
+      if (!reader_params.read_file_sequentially) {
+        // std::ifstream read_stream(eval_source, std::ifstream::in);
+        num_workers_eval = std::min(num_workers_eval, num_of_files);
+
+        std::vector<std::string> train_sources = reader_params.source;
+        int min_num_files = 0;
+        // there may exist multiple training sources
+        for (const auto& file_list_name : train_sources) {
+          std::ifstream read_stream(file_list_name, std::ifstream::in);
+          if (!read_stream.is_open()) {
+            HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
+          }
+
+          std::string buff;
+          std::getline(read_stream, buff);
+          int num_of_files = std::stoi(buff);
+          if (!min_num_files || num_of_files < min_num_files) min_num_files = num_of_files;
+          read_stream.close();
+        }
+        num_workers_train = std::min(num_workers_train, min_num_files);
+      }
+      num_workers_train = std::min(local_gpu_count, num_workers_train);
+      num_workers_eval = std::min(local_gpu_count, num_workers_eval);
+    }
+
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train
+                           << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for eval: " << num_workers_eval
+                           << std::endl;
+
+    core23_reader::DataReader<TypeKey>* data_reader_tk = new core23_reader::DataReader<TypeKey>(
+        batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
+        resource_manager, repeat_dataset, num_workers_train, use_mixed_precision,
+        reader_params.data_source_params);
+    train_data_reader.reset(data_reader_tk);
+    core23_reader::DataReader<TypeKey>* data_reader_eval_tk =
+        new core23_reader::DataReader<TypeKey>(
+            batch_size_eval, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
+            resource_manager, repeat_dataset, num_workers_eval, use_mixed_precision,
+            reader_params.data_source_params);
+    evaluate_data_reader.reset(data_reader_eval_tk);
+
+    long long slot_sum = 0;
+    std::vector<long long> slot_offset;
+    for (auto slot_size : reader_params.slot_size_array) {
+      slot_offset.push_back(slot_sum);
+      slot_sum += slot_size;
+    }
+    switch (format) {
+      case DataReaderType_t::Norm: {
+        bool start_right_now = repeat_dataset;
+        train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
+        evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
+        break;
+      }
+      case DataReaderType_t::Raw: {
+        train_data_reader->create_drwg_raw(source_data, num_samples, float_label_dense,
+                                           false /*true*/, false);
+        evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, float_label_dense,
+                                              false, false);
+        break;
+      }
+      case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
+        train_data_reader->create_drwg_parquet(
+            source_data, reader_params.read_file_sequentially, slot_offset, repeat_dataset,
+            parquet_source_max_row_group_size, parquet_dense_cols + parquet_label_cols,
+            dense_dim + total_label_dim);
+        evaluate_data_reader->create_drwg_parquet(
+            eval_source, reader_params.read_file_sequentially, slot_offset, repeat_dataset,
+            parquet_eval_max_row_group_size, parquet_dense_cols + parquet_label_cols,
+            dense_dim + total_label_dim);
 #endif
         break;
       }
@@ -485,47 +919,50 @@ void add_input(Input& input, DataReaderParams& reader_params,
 
     for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
       train_tensor_entries_list[i].push_back(
-          {top_strs_label, data_reader_tk->get_label_tensors()[i]});
+          {top_strs_label, data_reader_tk->get_label_tensor23s()[i]});
       evaluate_tensor_entries_list[i].push_back(
-          {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
+          {top_strs_label, data_reader_eval_tk->get_label_tensor23s()[i]});
 
       train_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+          {top_strs_dense, data_reader_tk->get_dense_tensor23s()[i]});
       evaluate_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
+          {top_strs_dense, data_reader_eval_tk->get_dense_tensor23s()[i]});
     }
 
     for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
       auto& top_name = input.data_reader_sparse_param_array[i].top_name;
       const auto& sparse_input = sparse_input_map.find(top_name);
 
-      auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
-                     SparseTensors<TypeKey>& sparse_tensors) {
-        sparse_tensors.resize(tensorbags.size());
-        for (size_t j = 0; j < tensorbags.size(); ++j) {
-          sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
-        }
-      };
-      copy(data_reader_tk->get_sparse_tensors(top_name), sparse_input->second.train_sparse_tensors);
-      copy(data_reader_eval_tk->get_sparse_tensors(top_name),
-           sparse_input->second.evaluate_sparse_tensors);
+      sparse_input->second.train_sparse_tensors = data_reader_tk->get_sparse_tensor23s(top_name);
+      sparse_input->second.evaluate_sparse_tensors =
+          data_reader_eval_tk->get_sparse_tensor23s(top_name);
     }
   }  // end of else. not AsynRaw Reader
 }
 
 template void add_input<long long>(Input&, DataReaderParams&,
-                                   std::map<std::string, SparseInput<long long>>&,
+                                   std::map<std::string, core23_reader::SparseInput<long long>>&,
                                    std::vector<std::vector<TensorEntry>>&,
                                    std::vector<std::vector<TensorEntry>>&,
                                    std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
                                    std::shared_ptr<IDataReader>&, size_t, size_t, bool, bool, bool,
                                    size_t, const std::shared_ptr<ResourceManager>);
-template void add_input<unsigned int>(Input&, DataReaderParams&,
-                                      std::map<std::string, SparseInput<unsigned int>>&,
-                                      std::vector<std::vector<TensorEntry>>&,
-                                      std::vector<std::vector<TensorEntry>>&,
-                                      std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
-                                      std::shared_ptr<IDataReader>&, size_t, size_t, bool, bool,
-                                      bool, size_t, const std::shared_ptr<ResourceManager>);
 
+template void add_input<long long>(Input&, DataReaderParams&,
+                                   std::map<std::string, core23_reader::SparseInput<long long>>&,
+                                   std::vector<std::vector<TensorEntity>>&,
+                                   std::vector<std::vector<TensorEntity>>&,
+                                   std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
+                                   std::shared_ptr<IDataReader>&, size_t, size_t, bool, bool, bool,
+                                   size_t, const std::shared_ptr<ResourceManager>);
+template void add_input<unsigned int>(
+    Input&, DataReaderParams&, std::map<std::string, core23_reader::SparseInput<unsigned int>>&,
+    std::vector<std::vector<TensorEntry>>&, std::vector<std::vector<TensorEntry>>&,
+    std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
+    size_t, size_t, bool, bool, bool, size_t, const std::shared_ptr<ResourceManager>);
+template void add_input<unsigned int>(
+    Input&, DataReaderParams&, std::map<std::string, core23_reader::SparseInput<unsigned int>>&,
+    std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
+    std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
+    size_t, size_t, bool, bool, bool, size_t, const std::shared_ptr<ResourceManager>);
 }  // namespace HugeCTR

@@ -75,7 +75,7 @@ class AddLayer : public Layer {
   size_t num_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
-  core23::TensorContainer<T, 1, 1> input_tensor_container_;
+  core23::Tensor input_tensor_ptr_;
 };
 
 }  // namespace HugeCTR

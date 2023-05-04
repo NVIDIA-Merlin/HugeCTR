@@ -22,6 +22,7 @@
 
 #include <common.hpp>
 #include <layers/interaction_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <type_traits>
 #include <utils.hpp>
 
@@ -921,8 +922,9 @@ void InteractionLayer<T>::init(const core23::Tensor &input_bottom_mlp_tensor,
     if (first_input_shape.size(1) != second_input_shape.size(2)) {
       HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' widths must be the same");
     }
+    core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
-    auto tensor_params = input_bottom_mlp_tensor.my_params();
+    auto tensor_params = input_bottom_mlp_tensor.my_params().buffer_params(buf_p);
 
     auto n_ins = 1 + second_input_shape.size(1);
     if (std::is_same<T, __half>::value == false ||

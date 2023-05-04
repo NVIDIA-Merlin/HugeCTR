@@ -20,6 +20,7 @@
 #include <ctime>
 #include <functional>
 #include <layers/dropout_layer.hpp>
+#include <network_buffer_channels.hpp>
 #include <prims/linalg/binary_op.cuh>
 #include <utils.cuh>
 #include <utils.hpp>
@@ -58,9 +59,12 @@ DropoutLayer<T>::DropoutLayer(const core23::Tensor& input_tensor,
   assert(size_in_bytes != 0);
 
   HCTR_LIB_THROW(cudnnDropoutGetReserveSpaceSize(in_out_desc_, &reserveSpaceSizeInBytes_));
+  core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
-  noise_mask_ = core23::Tensor(
-      input_tensors_[0].my_params().shape({1, static_cast<int64_t>(reserveSpaceSizeInBytes_)}));
+  noise_mask_ = core23::Tensor(input_tensors_[0]
+                                   .my_params()
+                                   .shape({1, static_cast<int64_t>(reserveSpaceSizeInBytes_)})
+                                   .buffer_params(buf_p));
 
   HCTR_LIB_THROW(cudaMalloc(&cudnn_status_, size_in_bytes));
 

@@ -15,6 +15,11 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
     sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
     python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan hybrid"
 
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    cd /dataset/criteo_kaggle/ && \
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_ftrl.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_ftrl.py --shard_plan hybrid --grouped_allreduce"
+
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" \
   env NCCL_LAUNCH_MODE=GROUP bash -cx " \
     cd /dataset/criteo_kaggle/ && \

@@ -69,7 +69,6 @@ void Core23TempNetwork::eval(int64_t current_batchsize) {
   std::transform(evaluate_layers_.begin(), evaluate_layers_.end(),
                  std::back_inserter(evaluate_layers_ptr),
                  [](const std::unique_ptr<Layer>& layer) { return layer.get(); });
-
   prop_layers(evaluate_layers_ptr, true, false);
 
   float rterm = evaluate_losses_.begin()->second->regularizer_compute_rterm();
@@ -134,14 +133,17 @@ void Core23TempNetwork::download_params_to_host(const std::string& write_path) {
 void Core23TempNetwork::download_opt_states_to_host(const std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
-
+  auto fs = FileSystemBuilder::build_unique_by_path(write_path);
+  if (opt_tensor_->empty()) {
+    fs->write(write_path, nullptr, 0, true);
+    return;
+  }
   size_t dst_size_in_byte = opt_tensor_->num_bytes();
   std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
 
   void* src = (void*)opt_tensor_->data();
   HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
-  auto fs = FileSystemBuilder::build_unique_by_path(write_path);
   fs->write(write_path, h_opt_states.get(), dst_size_in_byte, true);
 }
 

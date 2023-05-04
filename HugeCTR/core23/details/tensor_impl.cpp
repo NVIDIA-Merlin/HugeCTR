@@ -17,12 +17,13 @@
 #include <core23/allocator_factory.hpp>
 #include <core23/buffer_factory.hpp>
 #include <core23/cuda_stream.hpp>
+#include <core23/data_type.hpp>
 #include <core23/details/tensor_helpers.hpp>
 #include <core23/details/tensor_impl.hpp>
 #include <core23/device.hpp>
+#include <core23/logger.hpp>
 #include <core23/offsetted_buffer.hpp>
 #include <memory>
-
 namespace HugeCTR {
 
 namespace core23 {
@@ -41,7 +42,6 @@ void* TensorImpl::data() const {
   }
   return bound_data_ ? bound_data_.value() : nullptr;
 }
-
 }  // namespace core23
 
 }  // namespace HugeCTR

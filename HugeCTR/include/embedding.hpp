@@ -18,9 +18,9 @@
 #include <embeddings/hybrid_embedding/utils.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <optimizer.hpp>
+#include <sparse_tensor.hpp>
 #include <tensor2.hpp>
 #include <vector>
-
 namespace HugeCTR {
 
 struct BufferBag;
@@ -54,6 +54,7 @@ class IEmbedding {
   virtual void load_opt_states(std::string read_path) = 0;
 
   virtual const SparseEmbeddingHashParams& get_embedding_params() const = 0;
+  // TODO change it into core23::Tensor
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;
@@ -124,5 +125,30 @@ struct BufferBag {
   std::vector<TensorBag2> uvm_key_tensor_bags;
   Tensors2<size_t> d_value_index_tensors;
 };
+namespace core23_reader {
+
+template <typename T>
+struct SparseInput {
+  std::vector<SparseTensor23> train_sparse_tensors;
+  std::vector<SparseTensor23> evaluate_sparse_tensors;
+  size_t slot_num;
+  size_t max_feature_num_per_sample;
+  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
+      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
+  SparseInput() {}
+};
+
+struct BufferBag {
+  core23::Tensor keys;
+  core23::Tensor slot_id;
+  core23::Tensor embedding;
+  std::vector<core23::Tensor> opt_states;
+
+  std::vector<core23::Tensor> h_value_tensors;
+  std::vector<core23::Tensor> h_slot_id_tensors;
+  std::vector<core23::Tensor> uvm_key_tensor_bags;
+  std::vector<core23::Tensor> d_value_index_tensors;
+};
+};  // namespace core23_reader
 
 }  // namespace HugeCTR

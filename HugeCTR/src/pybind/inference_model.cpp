@@ -17,6 +17,7 @@
 #include <omp.h>
 #include <tqdm.h>
 
+#include <core23_helper.hpp>
 #include <inference/inference_session.hpp>
 #include <pybind/inference_model.hpp>
 
@@ -141,14 +142,14 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
           current_batch_size_ / resource_manager_->get_local_gpu_count();
       if (inference_params_.i64_input_key) {
         inference_sessions_[i]->predict_from_device(
-            reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_[i].data<long long>(), rowoffset_tensor_list_[i].data<int>(),
-            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
+            reader_dense_tensor_list_[i].data<float>(), key_tensor_list_[i].data<long long>(),
+            rowoffset_tensor_list_[i].data<int>(), pred_tensor_list_[i].data<float>(),
+            current_batchsize_per_device, true);
       } else {
         inference_sessions_[i]->predict_from_device(
-            reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_[i].data<unsigned int>(), rowoffset_tensor_list_[i].data<int>(),
-            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
+            reader_dense_tensor_list_[i].data<float>(), key_tensor_list_[i].data<unsigned int>(),
+            rowoffset_tensor_list_[i].data<int>(), pred_tensor_list_[i].data<float>(),
+            current_batchsize_per_device, true);
       }
       size_t pred_output_offset = (batch * current_batch_size_ + i * current_batchsize_per_device) *
                                   inference_parser_.label_dim;
@@ -211,8 +212,10 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
     std::shared_ptr<TensorBuffer2> pred_buffer =
         PreallocatedBuffer2<float>::create(pred_tensor_list_[i].data(), pred_tensor_shape);
     bind_tensor_to_buffer(pred_tensor_shape, pred_buffer, old_pred_tensor_list_[i]);
-    raw_metrics_map_list_.push_back({{metrics::RawType::Pred, old_pred_tensor_list_[i]->shrink()},
-                                     {metrics::RawType::Label, reader_label_tensor_list_[i]}});
+    raw_metrics_map_list_.push_back(
+        {{metrics::RawType::Pred, old_pred_tensor_list_[i]->shrink()},
+         {metrics::RawType::Label,
+          core_helper::convert_core23_tensor_to_tensorbag2<float>(reader_label_tensor_list_[i])}});
   }
 
   tqdm bar;
@@ -238,14 +241,14 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
           current_batch_size_ / resource_manager_->get_local_gpu_count();
       if (inference_params_.i64_input_key) {
         inference_sessions_[i]->predict_from_device(
-            reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_[i].data<long long>(), rowoffset_tensor_list_[i].data<int>(),
-            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
+            reader_dense_tensor_list_[i].data<float>(), key_tensor_list_[i].data<long long>(),
+            rowoffset_tensor_list_[i].data<int>(), pred_tensor_list_[i].data<float>(),
+            current_batchsize_per_device, true);
       } else {
         inference_sessions_[i]->predict_from_device(
-            reinterpret_cast<float*>(reader_dense_tensor_list_[i].get_ptr()),
-            key_tensor_list_[i].data<unsigned int>(), rowoffset_tensor_list_[i].data<int>(),
-            pred_tensor_list_[i].data<float>(), current_batchsize_per_device, true);
+            reader_dense_tensor_list_[i].data<float>(), key_tensor_list_[i].data<unsigned int>(),
+            rowoffset_tensor_list_[i].data<int>(), pred_tensor_list_[i].data<float>(),
+            current_batchsize_per_device, true);
       }
       metric_->local_reduce(i, raw_metrics_map_list_[i]);
     }
@@ -263,7 +266,7 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
 
 template <typename TypeKey>
 void InferenceModel::parse_input_from_data_reader(
-    const std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+    const std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
     std::vector<core23::Tensor>& key_tensor_list,
     std::vector<core23::Tensor>& rowoffset_tensor_list) {
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
@@ -282,32 +285,34 @@ void InferenceModel::parse_input_from_data_reader(
       size_t rowoffset_length =
           current_batch_size_per_gpu * inference_parser_.slot_num_for_tables[j] + 1;
 
-      SparseInput<TypeKey> sparse_input;
+      core23_reader::SparseInput<TypeKey> sparse_input;
       if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[j], sparse_input_map)) {
         HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[j]);
       }
-      Tensor2<TypeKey> value_tensor = sparse_input.evaluate_sparse_tensors[i].get_value_tensor();
-      Tensor2<TypeKey> rowoffset_tensor =
+      core23::Tensor& value_tensor = sparse_input.evaluate_sparse_tensors[i].get_value_tensor();
+      core23::Tensor& rowoffset_tensor =
           sparse_input.evaluate_sparse_tensors[i].get_rowoffset_tensor();
 
       std::vector<TypeKey> h_reader_rowoffset(rowoffset_length);
       std::vector<int> h_reader_rowoffset_int(rowoffset_length);
+
       HCTR_LIB_THROW(cudaMemcpyAsync(h_reader_rowoffset.data(),
-                                     rowoffset_tensor.get_ptr() + rowoffset_start,
+                                     rowoffset_tensor.data<TypeKey>() + rowoffset_start,
                                      rowoffset_length * sizeof(TypeKey), cudaMemcpyDeviceToHost,
                                      resource_manager_->get_local_gpu(i)->get_stream()));
       HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
       size_t num_keys = h_reader_rowoffset.back() - h_reader_rowoffset.front();
       if (inference_params_.i64_input_key) {
         HCTR_LIB_THROW(cudaMemcpyAsync(key_tensor_list[i].data<long long>() + value_stride,
-                                       value_tensor.get_ptr() + h_reader_rowoffset.front(),
+                                       value_tensor.data<long long>() + h_reader_rowoffset.front(),
                                        num_keys * sizeof(TypeKey), cudaMemcpyDeviceToDevice,
                                        resource_manager_->get_local_gpu(i)->get_stream()));
       } else {
-        HCTR_LIB_THROW(cudaMemcpyAsync(key_tensor_list[i].data<unsigned int>() + value_stride,
-                                       value_tensor.get_ptr() + h_reader_rowoffset.front(),
-                                       num_keys * sizeof(TypeKey), cudaMemcpyDeviceToDevice,
-                                       resource_manager_->get_local_gpu(i)->get_stream()));
+        HCTR_LIB_THROW(
+            cudaMemcpyAsync(key_tensor_list[i].data<unsigned int>() + value_stride,
+                            value_tensor.data<unsigned int>() + h_reader_rowoffset.front(),
+                            num_keys * sizeof(TypeKey), cudaMemcpyDeviceToDevice,
+                            resource_manager_->get_local_gpu(i)->get_stream()));
       }
       TypeKey tmp = h_reader_rowoffset.front();
       for (auto& entry : h_reader_rowoffset) {

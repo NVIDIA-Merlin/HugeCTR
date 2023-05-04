@@ -16,13 +16,13 @@
 
 #include <omp.h>
 
+#include <core23/buffer_channel_helpers.hpp>
 #include <cub/cub.cuh>
 #include <diagnose.hpp>
 #include <general_buffer2.hpp>
 #include <metrics.hpp>
 #include <network_buffer_channels.hpp>
 #include <utils.cuh>
-
 #define MMAP_DEBUG(...)  // HCTR_LOG(INFO, ROOT, __VA_ARGS__)
 
 namespace HugeCTR {
@@ -458,14 +458,17 @@ void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_ty
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
                                        int batch_size_eval, int n_batches, int label_dim,
-                                       const std::shared_ptr<ResourceManager>& resource_manager) {
+                                       const std::shared_ptr<ResourceManager>& resource_manager,
+                                       bool use_old_tensor) {
   std::unique_ptr<Metric> ret;
   switch (type) {
     case Type::AUC:
       if (use_mixed_precision) {
-        ret.reset(new AUC<__half>(batch_size_eval, n_batches, label_dim, resource_manager));
+        ret.reset(new AUC<__half>(batch_size_eval, n_batches, label_dim, resource_manager,
+                                  use_old_tensor));
       } else {
-        ret.reset(new AUC<float>(batch_size_eval, n_batches, label_dim, resource_manager));
+        ret.reset(new AUC<float>(batch_size_eval, n_batches, label_dim, resource_manager,
+                                 use_old_tensor));
       }
       break;
     case Type::AverageLoss:
@@ -686,7 +689,6 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
                             const std::vector<int>& peers, cudaStream_t stream) {
   num_classes_ = label_dim;
   gen_access_desc(access_desc_, peers);
-
   num_allocated_redistributed_.resize(num_streams, 0);
   allocated_temp_storage_.resize(num_streams, 0);
   workspace_.resize(num_streams);
@@ -696,7 +698,6 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
   core23::Device device = core23::Device(core23::DeviceType::GPU, device_id);
   core23::Device device_unified = core23::Device(core23::DeviceType::UNIFIED, device_id);
   core23::BufferParams buffer_params = {};
-  buffer_params.channel = GetBlobsBufferChannel();
 
   for (auto& st : finalize_storage_) {
     st.local_bins_ = core23::Tensor(core23::TensorParams()
@@ -1061,7 +1062,6 @@ template <typename T>
 void AUC<T>::local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) {
   core23::Tensor pred_tensor = raw_metrics[RawType::Pred];
   core23::Tensor label_tensor = raw_metrics[RawType::Label];
-
   int device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_device_id();
   int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_id();
   auto& st = storage_[local_gpu_id];
@@ -1073,7 +1073,6 @@ void AUC<T>::local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) {
       get_num_valid_samples(global_device_id, current_batch_size_, batch_size_per_gpu_);
   auto stream = resource_manager_->get_local_gpu(local_gpu_id)->get_stream();
   int num_sms = resource_manager_->get_local_gpu(local_gpu_id)->get_sm_count();
-
   if (num_classes_ == 1) {
     copy_all<T>(st.fst(0).d_preds() + offset, st.fst(0).d_labels() + offset,
                 pred_tensor.data<PredType>(), label_tensor.data<LabelType>(), num_valid_samples,
