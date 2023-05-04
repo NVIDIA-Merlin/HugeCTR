@@ -85,7 +85,7 @@
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.3`.
-  Afterward, the library will use calendar versioning only, such as `v23.01`.
+  Afterward, the library will use calendar versioning only, such as `v23.04`.
   ```
 
 + **Support for BERT and Variants**:
@@ -167,7 +167,7 @@ The [HugeCTR Training and Inference with Remote File System Example](https://nvi
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.2`.
-  Afterward, the library will use calendar versioning only, such as `v23.01`.
+  Afterward, the library will use calendar versioning only, such as `v23.04`.
   ```
 
 + **Change to HPS with Redis or Kafka**:
