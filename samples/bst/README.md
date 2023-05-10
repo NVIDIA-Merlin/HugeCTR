@@ -54,10 +54,10 @@ bash preprocess.sh
 ```
 
 ## Train with HugeCTR ##
-With the above steps, the preprocessed data is saved locally in the `bst_data/` directory. To train the DIN model using the data, simply run:
+With the above steps, the preprocessed data is saved locally in the `bst_data/` directory. To train the BST model using the data, simply run:
 ```
 python bst_avg_pooling.py
 ```
 By default, this will run 88000 iterations and the peak of the AUC could reach higher than 0.77.
 
-There is another implementation of the DIN model in `bst_concat.py`, which concatenate the output of transformer layer. It can achieve AUC 0.75 after 88,000 iterations.
+There is another implementation of the BST model in `bst_concat.py`, which concatenate the output of transformer layer. It can achieve AUC 0.75 after 88,000 iterations.
