@@ -1,6 +1,6 @@
 {
     "wdl_1gpu": 20.044,
-    "wdl_8gpu": 50,
+    "wdl_8gpu": 56,
     "dlrm_1node": 119,
     "dlrm_14node": 60,
     "dlrm_dcnv2_1node": 900,

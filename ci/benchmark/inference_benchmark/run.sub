@@ -10,5 +10,6 @@ fi
 export CATCOLUMN=$(( $BZ * 26 ))
 export DES=$(( 13 * $BZ ))
 export ROWINDEX=$(( 26 * $BZ + 1 ))
+export WORKDIR=${WORKDIR}
 
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" --container-workdir=/hugectr bash -cx "chmod +x ./ci/benchmark/inference_benchmark/test.sh && ./ci/benchmark/inference_benchmark/test.sh"
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" --container-workdir="${WORKDIR}" bash -cx "chmod +x ./ci/benchmark/inference_benchmark/test.sh && ./ci/benchmark/inference_benchmark/test.sh"

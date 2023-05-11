@@ -75,6 +75,7 @@
 
 .sok-source: &sok-source
   - "sparse_operation_kit/**/*"
+  - "HugeCTR/core/**/*"
   - "HugeCTR/core23/**/*"
   - "HugeCTR/embedding/**/*"
 
