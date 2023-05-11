@@ -328,6 +328,7 @@ stages:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data,${CI_PROJECT_DIR}:/hugectr
+    WORKDIR: /hugectr
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
