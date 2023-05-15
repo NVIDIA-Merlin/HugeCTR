@@ -30,18 +30,10 @@ UvmTable<TypeHashKey>::UvmTable(const InferenceParams& inference_params,
                                 const parameter_server_config& ps_config,
                                 HierParameterServerBase* const parameter_server)
     : EmbeddingCacheBase(), parameter_server_(parameter_server) {
-  auto b2s = [](const char val) { return val ? "True" : "False"; };
-  HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
-  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
-           inference_params.sparse_model_files.size());
-  HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
-  HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
-           inference_params.number_of_refresh_buffers_in_pool);
-  HCTR_LOG(INFO, ROOT, "Embedding cache type: %s\n",
-           hctr_enum_to_c_str(inference_params.embedding_cache_type));
-
   // Store the configuration
-  cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
+  cache_config_.num_emb_table_ = inference_params.fuse_embedding_table
+                                     ? inference_params.fused_sparse_model_files.size()
+                                     : inference_params.sparse_model_files.size();
   cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
   cache_config_.cache_refresh_percentage_per_iteration =
       inference_params.cache_refresh_percentage_per_iteration;
@@ -49,6 +41,16 @@ UvmTable<TypeHashKey>::UvmTable(const InferenceParams& inference_params,
   cache_config_.model_name_ = inference_params.model_name;
   cache_config_.cuda_dev_id_ = inference_params.device_id;
   cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
+
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
+  HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
+  HCTR_LOG(INFO, ROOT, "Fuse embedding tables: %s\n", b2s(inference_params.fuse_embedding_table));
+  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n", cache_config_.num_emb_table_);
+  HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
+  HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
+           inference_params.number_of_refresh_buffers_in_pool);
+  HCTR_LOG(INFO, ROOT, "Embedding cache type: %s\n",
+           hctr_enum_to_c_str(inference_params.embedding_cache_type));
 
   // initialize the profiler
   ec_profiler_ = std::make_unique<profiler>(ProfilerTarget_t::EC);
