@@ -47,7 +47,8 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
   HCTR_LOG(INFO, ROOT, "Max batch size: %lu\n", inference_params.max_batchsize);
   HCTR_LOG(INFO, ROOT, "Fuse embedding tables: %s\n", b2s(inference_params.fuse_embedding_table));
   HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n", cache_config_.num_emb_table_);
-  HCTR_LOG(INFO, ROOT, "Use static table: %s\n", b2s(inference_params.use_static_table));
+  HCTR_LOG(INFO, ROOT, "Embedding cache type: %s\n",
+           hctr_enum_to_c_str(inference_params.embedding_cache_type));
   HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
   HCTR_LOG(INFO, ROOT, "The size of worker memory pool: %u\n",
            inference_params.number_of_worker_buffers_in_pool);

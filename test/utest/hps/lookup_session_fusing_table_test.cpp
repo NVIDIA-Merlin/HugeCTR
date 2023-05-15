@@ -115,7 +115,8 @@ void compare_lookup(float* h_embeddingvector_gt, float* h_embeddingvector, size_
 void generate_config_file(const std::string& ps_config_file, bool i64_input_key,
                           const std::vector<std::string>& sparse_files,
                           const std::vector<size_t>& embedding_vecsize_per_table,
-                          const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample) {
+                          const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
+                          const std::string& embedding_cache_type) {
   EXPECT_EQ(sparse_files.size(), embedding_vecsize_per_table.size());
   EXPECT_EQ(sparse_files.size(), maxnum_catfeature_query_per_table_per_sample.size());
 
@@ -145,7 +146,7 @@ void generate_config_file(const std::string& ps_config_file, bool i64_input_key,
     model_config["hit_rate_threshold"] = 1.0;
     model_config["gpucacheper"] = 1.0;
     model_config["gpucache"] = true;
-    model_config["embedding_cache_type"] = "dynamic";
+    model_config["embedding_cache_type"] = embedding_cache_type;
     model_config["use_context_stream"] = true;
   }
 
@@ -191,11 +192,11 @@ void lookup_session_fusing_table_test(
     const std::vector<long long>& key_offset_per_table,
     const std::vector<size_t>& embedding_vecsize_per_table,
     const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
-    bool test_internal_multithreading) {
+    bool test_internal_multithreading, const std::string& embedding_cache_type) {
   bool i64_input_key = std::is_same<long long, TypeHashKey>::value;
   generate_embedding_tables(sparse_files, embedding_vecsize_per_table, key_offset_per_table);
   generate_config_file(ps_config_file, i64_input_key, sparse_files, embedding_vecsize_per_table,
-                       maxnum_catfeature_query_per_table_per_sample);
+                       maxnum_catfeature_query_per_table_per_sample, embedding_cache_type);
 
   // Parse configuration file
   parameter_server_config ps_config{ps_config_file};
@@ -254,6 +255,7 @@ void lookup_session_fusing_table_test(
            j < inference_params.max_batchsize * maxnum_catfeature_query_per_table_per_sample[i];
            ++j) {
         h_key[j] = rand() % (end_value - begin_value) + begin_value;
+        // h_key[j] = j % (end_value - begin_value) +  begin_value;
       }
       HCTR_LIB_THROW(cudaMemcpy(d_keys_per_table[i], h_keys_per_table[i],
                                 inference_params.max_batchsize *
@@ -318,58 +320,179 @@ void lookup_session_fusing_table_test(
 
 }  // end namespace
 
-TEST(lookup_session, unfused_table_1) {
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Fusion Test for Static Table
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+TEST(lookup_session, static_table_1) {
   lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
-                                                 {0, 10000}, {128}, {10}, false);
+                                                 {0, 10000}, {128}, {10}, false, "static");
 }
 
-TEST(lookup_session, unfused_table_1_i64) {
+TEST(lookup_session, static_table_1_i64) {
   lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
-                                              {0, 10000}, {128}, {10}, false);
+                                              {0, 10000}, {128}, {10}, false, "static");
 }
 
-TEST(lookup_session, unfused_table_8) {
+TEST(lookup_session, static_table_8) {
   lookup_session_fusing_table_test<unsigned int>(
       "fusion_utest.json",
       {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
        "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
       {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
-      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false);
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "static");
 }
 
-TEST(lookup_session, unfused_table_8_i64) {
+TEST(lookup_session, static_table_8_i64) {
   lookup_session_fusing_table_test<long long>(
       "fusion_utest.json",
       {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
        "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
       {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
-      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false);
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "static");
 }
 
-TEST(lookup_session, unfused_table_1_internal_multithreading) {
+TEST(lookup_session, static_table_1_internal_multithreading) {
   lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
-                                                 {0, 10000}, {128}, {10}, true);
+                                                 {0, 10000}, {128}, {10}, true, "static");
 }
 
-TEST(lookup_session, unfused_table_1_i64_internal_multithreading) {
+TEST(lookup_session, static_table_1_i64_internal_multithreading) {
   lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
-                                              {0, 10000}, {128}, {10}, true);
+                                              {0, 10000}, {128}, {10}, true, "static");
 }
 
-TEST(lookup_session, unfused_table_8_internal_multithreading) {
+TEST(lookup_session, static_table_8_internal_multithreading) {
   lookup_session_fusing_table_test<unsigned int>(
       "fusion_utest.json",
       {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
        "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
       {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
-      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true);
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "static");
 }
 
-TEST(lookup_session, unfused_table_8_i64_internal_multithreading) {
+TEST(lookup_session, static_table_8_i64_internal_multithreading) {
   lookup_session_fusing_table_test<long long>(
       "fusion_utest.json",
       {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
        "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
       {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
-      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true);
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "static");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Fusion Test for Dynamic Table
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+TEST(lookup_session, dynamic_table_1) {
+  lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
+                                                 {0, 10000}, {128}, {10}, false, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_1_i64) {
+  lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
+                                              {0, 10000}, {128}, {10}, false, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_8) {
+  lookup_session_fusing_table_test<unsigned int>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_8_i64) {
+  lookup_session_fusing_table_test<long long>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_1_internal_multithreading) {
+  lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
+                                                 {0, 10000}, {128}, {10}, true, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_1_i64_internal_multithreading) {
+  lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
+                                              {0, 10000}, {128}, {10}, true, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_8_internal_multithreading) {
+  lookup_session_fusing_table_test<unsigned int>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "dynamic");
+}
+
+TEST(lookup_session, dynamic_table_8_i64_internal_multithreading) {
+  lookup_session_fusing_table_test<long long>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "dynamic");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Fusion Test for UVM Table
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+TEST(lookup_session, uvm_table_1) {
+  lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
+                                                 {0, 10000}, {128}, {10}, false, "uvm");
+}
+
+TEST(lookup_session, uvm_table_1_i64) {
+  lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
+                                              {0, 10000}, {128}, {10}, false, "uvm");
+}
+
+TEST(lookup_session, uvm_table_8) {
+  lookup_session_fusing_table_test<unsigned int>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "uvm");
+}
+
+TEST(lookup_session, uvm_table_8_i64) {
+  lookup_session_fusing_table_test<long long>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, false, "uvm");
+}
+
+TEST(lookup_session, uvm_table_1_internal_multithreading) {
+  lookup_session_fusing_table_test<unsigned int>("fusion_utest.json", {"fusion_utest/table0"},
+                                                 {0, 10000}, {128}, {10}, true, "uvm");
+}
+
+TEST(lookup_session, uvm_table_1_i64_internal_multithreading) {
+  lookup_session_fusing_table_test<long long>("fusion_utest.json", {"fusion_utest/table0"},
+                                              {0, 10000}, {128}, {10}, true, "uvm");
+}
+
+TEST(lookup_session, uvm_table_8_internal_multithreading) {
+  lookup_session_fusing_table_test<unsigned int>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "uvm");
+}
+
+TEST(lookup_session, uvm_table_8_i64_internal_multithreading) {
+  lookup_session_fusing_table_test<long long>(
+      "fusion_utest.json",
+      {"fusion_utest/table0", "fusion_utest/table1", "fusion_utest/table2", "fusion_utest/table3",
+       "fusion_utest/table4", "fusion_utest/table5", "fusion_utest/table6", "fusion_utest/table7"},
+      {0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000},
+      {128, 32, 32, 128, 128, 128, 32, 128}, {10, 20, 10, 10, 30, 20, 10, 30}, true, "uvm");
 }

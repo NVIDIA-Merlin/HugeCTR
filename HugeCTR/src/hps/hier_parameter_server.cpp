@@ -525,52 +525,37 @@ void HierParameterServer<TypeHashKey>::init_ec(
       }
       // For UVM solution
       else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM) {
-        size_t length =
-            cache_config.num_set_in_cache_[j] * cache_config.cache_refresh_percentage_per_iteration;
-        length = std::max(length, cache_config.num_set_in_cache_[j] / 10);
+        *refreshspace_handler.h_length_ = cache_config.num_set_in_cache_[j];
         std::pair<void*, size_t> key_result;
         std::pair<void*, size_t> vec_result;
-
-        size_t num_iterations = (cache_config.num_set_in_cache_[j] - 1) / length + 1;
-
-        for (size_t it = 0; it < num_iterations; it++) {
-          refreshspace_handler.h_length_ = &length;
-          if (it == num_iterations - 1) {
-            length = cache_config.num_set_in_cache_[j] - length * it;
-          }
-          if (inference_params.fuse_embedding_table) {
-            size_t idx_set = it * length;
-            size_t table_id = idx_set % inference_params.fused_sparse_model_files[j].size();
-            rawreader->load(inference_params.embedding_table_names[j],
-                            inference_params.fused_sparse_model_files[j][table_id], length);
-            size_t iter_id = (idx_set / inference_params.fused_sparse_model_files[j].size()) %
-                             rawreader->get_num_iterations();
-            key_result = rawreader->getkeys(iter_id);
-            vec_result = rawreader->getvectors(iter_id, cache_config.embedding_vec_size_[j]);
-          } else {
-            rawreader->load(inference_params.embedding_table_names[j],
-                            inference_params.sparse_model_files[j], length);
-            key_result = rawreader->getkeys(it);
-            vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
-          }
-
-          std::pair<void*, size_t> key_result = rawreader->getkeys(it);
-          std::pair<void*, size_t> vec_result =
-              rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
-          HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_,
-                                         reinterpret_cast<const TypeHashKey*>(key_result.first),
-                                         *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
-                                         cudaMemcpyHostToHost, stream));
-
-          HCTR_LIB_THROW(cudaMemcpyAsync(
-              refreshspace_handler.h_refresh_emb_vec_,
-              reinterpret_cast<const float*>(vec_result.first),
-              *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
-              cudaMemcpyHostToHost, stream));
-
-          embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
-          HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+        if (inference_params.fuse_embedding_table) {
+          rawreader->load_fused_emb(inference_params.embedding_table_names[j],
+                                    inference_params.fused_sparse_model_files[j]);
+          key_result = std::make_pair(rawreader->getkeys(), *refreshspace_handler.h_length_);
+          vec_result =
+              std::make_pair(rawreader->getvectors(),
+                             *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j]);
+        } else {
+          rawreader->load(inference_params.embedding_table_names[j],
+                          inference_params.sparse_model_files[j], *refreshspace_handler.h_length_);
+          key_result = rawreader->getkeys(0);
+          vec_result = rawreader->getvectors(0, cache_config.embedding_vec_size_[j]);
         }
+
+        HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_,
+                                       reinterpret_cast<const TypeHashKey*>(key_result.first),
+                                       *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
+                                       cudaMemcpyHostToHost, stream));
+
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            refreshspace_handler.h_refresh_emb_vec_,
+            reinterpret_cast<const float*>(vec_result.first),
+            *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
+            cudaMemcpyHostToHost, stream));
+
+        embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+
       } else {
         HCTR_LOG(INFO, WORLD,
                  "To achieve the best performance, when using static table, the pointers of keys "
