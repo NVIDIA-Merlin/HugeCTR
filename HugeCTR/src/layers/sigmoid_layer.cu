@@ -79,11 +79,6 @@ void SigmoidLayer<T>::fprop(bool is_train) {
     MLCommon::LinAlg::unaryOp(output_tensors_[0].data<T>(), input_tensors_[0].data<T>(), len, fop,
                               get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -110,11 +105,6 @@ void SigmoidLayer<__half>::fprop(bool is_train) {
                               reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()), len / 2,
                               fop, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -143,11 +133,6 @@ void SigmoidLayer<T>::bprop() {
     MLCommon::LinAlg::binaryOp(input_tensors_[0].data<T>(), output_tensors_[0].data<T>(),
                                input_tensors_[0].data<T>(), len, bop, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -182,11 +167,6 @@ void SigmoidLayer<__half>::bprop() {
                                reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()),
                                len / 2, bop, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class SigmoidLayer<float>;

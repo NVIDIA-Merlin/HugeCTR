@@ -164,10 +164,6 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
 
   add_bias_and_re_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(
       top, middle, bias, output_size / 2, output_size / 2);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FusedFullyConnectedLayer::bprop() {
@@ -211,11 +207,6 @@ void FusedFullyConnectedLayer::bprop() {
                               batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size,
                               middle, CUDA_R_16F, output_size, &beta_x, bottom, CUDA_R_16F,
                               input_size, CUDA_R_32F, balgo_x_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void FusedFullyConnectedLayer::search_algorithm() {
@@ -498,10 +489,6 @@ void Core23TempFusedFullyConnectedLayer::fprop(bool is_train) {
 
   add_bias_and_re_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(
       top, middle, bias, output_size / 2, output_size / 2);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFusedFullyConnectedLayer::bprop() {
@@ -545,11 +532,6 @@ void Core23TempFusedFullyConnectedLayer::bprop() {
                               batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size,
                               middle, CUDA_R_16F, output_size, &beta_x, bottom, CUDA_R_16F,
                               input_size, CUDA_R_32F, balgo_x_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 void Core23TempFusedFullyConnectedLayer::search_algorithm() {

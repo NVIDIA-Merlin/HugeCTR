@@ -1204,11 +1204,6 @@ void InteractionLayer<T>::fprop_generic(bool is_train) {
         gather, in0, mat, h, n_ins, in_w);
   }
   HCTR_LIB_THROW(cudaGetLastError());
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 template <>
 void InteractionLayer<float>::fprop(bool is_train) {
@@ -1248,10 +1243,6 @@ void InteractionLayer<__half>::fprop(bool is_train) {
     }
     dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
   }
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -1407,11 +1398,6 @@ void InteractionLayer<T>::bprop_generic() {
     concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb,
                                                                 h, out_w, in_w, n_emb);
   }
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 template <>
 void InteractionLayer<float>::bprop() {
@@ -1451,10 +1437,6 @@ void InteractionLayer<__half>::bprop() {
     }
     dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
   }
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class InteractionLayer<float>;

@@ -242,11 +242,6 @@ void ReduceMeanLayer<T>::fprop(bool is_train) {
           static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -298,11 +293,6 @@ void ReduceMeanLayer<T>::bprop() {
           static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
     }
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class ReduceMeanLayer<float>;

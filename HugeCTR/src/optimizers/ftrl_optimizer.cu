@@ -128,10 +128,6 @@ void FtrlOptimizer<T>::update() {
     ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
   }
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class FtrlOptimizer<float>;

@@ -158,10 +158,6 @@ void FusedReshapeConcatLayer<T>::fprop(bool is_train) {
   fused_reshape_concat_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
       true, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_,
       vecs_size_.get_ptr(), new_width_, num_);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -176,10 +172,6 @@ void FusedReshapeConcatLayer<T>::bprop() {
   fused_reshape_concat_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
       false, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_,
       vecs_size_.get_ptr(), new_width_, num_);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 namespace core23 {
 

@@ -112,10 +112,6 @@ void Softmax_fprop(T* out, T* workspace, int m, int n, cudaStream_t stream) {
   dim3 grid(m);
   dim3 block(min(n, 1024));
   Softmax_fprop_kernel<<<grid, block, 0, stream>>>(out, workspace, m, n);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -167,10 +163,6 @@ void Softmax_bprop(T* top, T* bottom, T* softmax_out, int m, int n, cudaStream_t
   dim3 grid(m);
   dim3 block(min(n, 1024));
   Softmax_bprop_kernel<<<grid, block, 0, stream>>>(top, bottom, softmax_out, m, n);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -212,10 +204,6 @@ void SoftmaxLayer<T>::fprop(bool is_train) {
                                    output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
                                    get_gpu().get_stream()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -269,10 +257,6 @@ void SoftmaxLayer<__half>::fprop(bool is_train) {
                                    output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
                                    get_gpu().get_stream()));
   }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
@@ -296,11 +280,6 @@ void SoftmaxLayer<T>::bprop() {
     Softmax_bprop(top_tensor.data<T>(), bottom_tensor.data<T>(), softmax_out23_.data<T>(), n_rows_,
                   hidden_size_, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <>
@@ -322,11 +301,6 @@ void SoftmaxLayer<__half>::bprop() {
     Softmax_bprop(top_tensor.data<__half>(), bottom_tensor.data<__half>(),
                   softmax_out23_.data<__half>(), n_rows_, hidden_size_, get_gpu().get_stream());
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class SoftmaxLayer<float>;

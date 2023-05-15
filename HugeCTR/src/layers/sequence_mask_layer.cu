@@ -86,21 +86,11 @@ void SequenceMaskLayer<T>::fprop(bool is_train) {
     build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
         output, input, max_sequence_len);
   }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template <typename T>
 void SequenceMaskLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class SequenceMaskLayer<float>;

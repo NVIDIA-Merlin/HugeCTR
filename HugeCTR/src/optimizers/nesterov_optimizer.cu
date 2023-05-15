@@ -105,11 +105,6 @@ void NesterovOptimizer<T>::update() {
     nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, accum, wgrad, lr_, mu_, scaler_);
   }
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class NesterovOptimizer<float>;

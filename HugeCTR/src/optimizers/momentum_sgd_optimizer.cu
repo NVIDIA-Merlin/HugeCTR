@@ -110,11 +110,6 @@ void MomentumSGDOptimizer<T>::update() {
     momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
   }
-
-#ifndef NDEBUG
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
 }
 
 template class MomentumSGDOptimizer<float>;
