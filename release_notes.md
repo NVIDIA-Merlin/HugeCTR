@@ -1,6 +1,6 @@
 # Release Notes
 
-## What's New in Version 23.04
+## What's New in Version 23.05
 
 + **Hierarchical Parameter Server Enhancements**:
   + HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS.. To turn on table fusion, set `fuse_embedding_table` to `true` in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to [HPS configuration](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration) and [HPS table fusion demo notebook](https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html). This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.
@@ -85,7 +85,7 @@
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.3`.
-  Afterward, the library will use calendar versioning only, such as `v23.04`.
+  Afterward, the library will use calendar versioning only, such as `v23.05`.
   ```
 
 + **Support for BERT and Variants**:
@@ -167,7 +167,7 @@ The [HugeCTR Training and Inference with Remote File System Example](https://nvi
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.2`.
-  Afterward, the library will use calendar versioning only, such as `v23.04`.
+  Afterward, the library will use calendar versioning only, such as `v23.05`.
   ```
 
 + **Change to HPS with Redis or Kafka**:
