@@ -24,6 +24,8 @@ from tensorflow.python.ops import resource_variable_ops
 from sparse_operation_kit.experiment import raw_ops as dynamic_variable_ops
 from sparse_operation_kit.experiment.communication import num_gpus
 
+dynamic_variable_count = 0
+
 
 class DynamicVariable(ResourceVariable):
     """
@@ -89,12 +91,16 @@ class DynamicVariable(ResourceVariable):
         self._dimension = dimension
         self._indices = None
         self._mode = mode
+        if name == None:
+            global dynamic_variable_count
+            name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
+            dynamic_variable_count += 1
 
         self._base = super(DynamicVariable, self)
         self._base.__init__(
             initial_value=[[0.0] * dimension],
             trainable=trainable,
-            name="DynamicVariableBuffer",
+            name=name,
             dtype=self._handle_dtype,
             constraint=constraint,
             distribute_strategy=None,
@@ -104,7 +110,7 @@ class DynamicVariable(ResourceVariable):
         )
 
         with ops.init_scope():
-            name = "DynamicVariable" if name is None else name
+            # name = "DynamicVariable" if name is None else name
             with ops.name_scope(name) as name_scope:
                 self._dummy_name = ops.name_from_scope_name(name_scope)
                 if context.executing_eagerly():
@@ -227,6 +233,10 @@ class DynamicVariable(ResourceVariable):
                 )
             return target_gpu
         return -1
+
+    @property
+    def mode(self):
+        return self._mode
 
     @property
     def num_gpus(self):
