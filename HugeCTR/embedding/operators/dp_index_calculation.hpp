@@ -45,6 +45,10 @@ struct DenseAllreduceIndexCalculation {
   void cal_for_sparse_indices(const EmbeddingInput& embedding_input,
                               const core23::Tensor& ev_start_indices_in_allreduce_buffer,
                               ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
+
+  void cal_for_dense_indices(const EmbeddingInput& embedding_input,
+                             const core23::Tensor& ev_start_indices_in_allreduce_buffer,
+                             ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
 };
 
 struct BroadcastResult {

@@ -93,7 +93,7 @@ void NetworkIndices::init(std::shared_ptr<CoreResourceManager> core,
 void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam& ebc_param, size_t grouped_id,
                              const std::vector<std::vector<int>>& h_global_lookup_ids) {
-  const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
@@ -178,8 +178,7 @@ void NetworkBuffer::init(std::shared_ptr<CoreResourceManager> core, const Networ
   });
 }
 
-NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
-    : core_(core), num_gpus_(num_gpus) {}
+NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
 namespace {
 
@@ -346,10 +345,10 @@ void network_forward_to_feature_major_output(const core23::Tensor& dp_num_keys_p
 
 }  // namespace
 
-void NetworkForward::compute(const core23::Tensor& dp_num_keys_per_bucket,
-                             const NetworkBuffer& network_buffer,
-                             const NetworkIndices& network_indices,
-                             EmbeddingOutput& embedding_output, int batch_size) {
+void NetworkForward::sparse_forward(const core23::Tensor& dp_num_keys_per_bucket,
+                                    const NetworkBuffer& network_buffer,
+                                    const NetworkIndices& network_indices,
+                                    EmbeddingOutput& embedding_output, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int gpu_id = core_->get_global_gpu_id();
@@ -375,7 +374,7 @@ void NetworkForward::compute(
     const core23::Tensor& network_ev_offsets, core23::Tensor& output_buffer,
     const core23::Tensor& d_ev_size_offset, int batch_size, int max_ev_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
-  int batch_size_per_gpu = batch_size / num_gpus_;
+  int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
   DISPATCH_INTEGRAL_FUNCTION_CORE23(row_lengths.data_type().type(), offset_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(network_comm_buffer.data_type().type(), emb_t, [&] {
       DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(output_buffer.data_type().type(), dst_emb_t, [&] {

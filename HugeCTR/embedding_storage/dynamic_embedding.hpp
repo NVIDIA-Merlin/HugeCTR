@@ -44,7 +44,7 @@ class DynamicEmbeddingTable final : public IDynamicEmbeddingTable {
   DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
                         std::shared_ptr<CoreResourceManager> core,
                         const std::vector<EmbeddingTableParam> &table_params,
-                        const EmbeddingCollectionParam &ebc_param, size_t grouped_id,
+                        const EmbeddingCollectionParam &ebc_param, size_t grouped_table_id,
                         const HugeCTR::OptParams &opt_param);
 
   std::vector<size_t> remap_id_space(const core23::Tensor &id_space_list, cudaStream_t stream);

@@ -29,7 +29,7 @@ using namespace embedding;
 
 const std::vector<std::vector<int>> shard_matrix = {{1, 1, 1}};
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2}}};
 
 const size_t universal_batch_size = 1024;
@@ -65,7 +65,6 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
   };
 
   EmbeddingCollectionParam ebc_param{static_cast<int>(table_params.size()),
-                                     {10000, 20000, 4711},
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,

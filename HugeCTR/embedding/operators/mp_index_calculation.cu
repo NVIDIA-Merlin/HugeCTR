@@ -47,8 +47,7 @@ void MPLocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput& e
     }
   };
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, sort_op_, segmented_unique_,
-                                                       cal_dst_ids_, reduction_indices, wgrad,
-                                                       batch_size);
+                                                       reduction_indices, wgrad, batch_size);
   if (need_cal_unique_range) local_reduce_index_calculation_.cal_unique_key_table_range(wgrad);
   local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_local_wgrad);
 }

@@ -89,6 +89,35 @@ static void init_tensor_list(core23::Tensor &tensor_list,
 }  // namespace core23
 }  // namespace HugeCTR
 
+namespace HugeCTR {
+
+struct DataDistributionInput {
+  core23::Tensor h_ptrs_;
+  core23::Tensor d_ptrs_;
+  int num_lookup_;
+  core23::DataType key_type;
+  core23::DataType offset_type;
+
+  DataDistributionInput() = default;
+
+  DataDistributionInput(std::shared_ptr<core::CoreResourceManager> core, int num_lookup,
+                        core23::DataType key_type, core23::DataType offset_type);
+
+  void copy_tensor_vec(const std::vector<core23::Tensor> &dp_keys,
+                       const std::vector<core23::Tensor> &dp_bucket_range, cudaStream_t stream);
+
+  template <typename KeyType>
+  const KeyType **get_dp_keys_pointer_ptr() const {
+    return (const KeyType **)d_ptrs_.data();
+  }
+
+  template <typename BucketRangeType>
+  const BucketRangeType **get_dp_bucket_range_pointer_ptr() const {
+    return (const BucketRangeType **)(d_ptrs_.data()) + num_lookup_;
+  }
+};
+}  // namespace HugeCTR
+
 namespace embedding {
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
@@ -97,7 +126,10 @@ using core::CoreResourceManager;
 enum class Combiner : char { Sum, Average, Concat };
 std::ostream &operator<<(std::ostream &os, const Combiner &p);
 
-enum class TablePlacementStrategy : int8_t { DataParallel, ModelParallel, Hybrid };
+enum class TablePlacementStrategy : int8_t {
+  DataParallel,
+  ModelParallel,
+};
 enum class EmbeddingLayout : int8_t { FeatureMajor, BatchMajor };
 std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p);
 enum class CommunicationStrategy : int8_t { Uniform, Hierarchical };
@@ -108,11 +140,8 @@ enum class KeysPreprocessStrategy : int8_t { None, AddOffset };
 std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p);
 enum class AllreduceStrategy : int8_t { Sparse, Dense, GroupDense };
 std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p);
-
-const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
-    {"dp", TablePlacementStrategy::DataParallel},
-    {"mp", TablePlacementStrategy::ModelParallel},
-    {"hybrid", TablePlacementStrategy::Hybrid}};
+enum class EmbeddingType : int8_t { Sparse, Dense, FrequentDense, InfrequentDense };
+enum class DenseCompressionStrategy : int8_t { Unique, CacheFrequent };
 
 struct LookupParam {
   int lookup_id;
@@ -130,24 +159,43 @@ struct LookupParam {
 };
 std::ostream &operator<<(std::ostream &os, const LookupParam &p);
 
-struct GroupedEmbeddingParam {
+struct GroupedTableParam {
   TablePlacementStrategy table_placement_strategy;
   std::vector<int> table_ids;
 
-  GroupedEmbeddingParam(TablePlacementStrategy _table_placement_strategy,
-                        const std::vector<int> &_table_ids)
+  GroupedTableParam(TablePlacementStrategy _table_placement_strategy,
+                    const std::vector<int> &_table_ids)
       : table_placement_strategy(_table_placement_strategy), table_ids(_table_ids) {}
+};
+
+struct GroupedLookupParam {
+  int grouped_table_idx;  // -1 means lookup in local cache
+  TablePlacementStrategy table_placement_strategy;
+
+  std::vector<int> lookup_ids;
+  EmbeddingType embedding_type;
+  GroupedLookupParam(int table_idx, TablePlacementStrategy tps, const std::vector<int> &lookup_ids,
+                     EmbeddingType embedding_type)
+      : grouped_table_idx(table_idx),
+        table_placement_strategy(tps),
+        lookup_ids(lookup_ids),
+        embedding_type(embedding_type) {}
+};
+
+struct DenseFrequentKeysData {
+  std::vector<int> table_ids;
+  std::vector<core23::Tensor> h_frequent_keys;
 };
 
 struct EmbeddingCollectionParam {
   int num_table;
-  std::vector<int> table_id_to_vocabulary_size;
 
   int num_lookup;
   std::vector<LookupParam> lookup_params;  // num of lookup
 
   std::vector<std::vector<int>> shard_matrix;  // num_gpus * num_table
-  std::vector<GroupedEmbeddingParam> grouped_emb_params;
+  std::vector<GroupedTableParam> grouped_table_params;
+  std::vector<GroupedLookupParam> grouped_lookup_params;
 
   int universal_batch_size;
   core23::DataType key_type;
@@ -164,24 +212,23 @@ struct EmbeddingCollectionParam {
   AllreduceStrategy allreduce_strategy_;
   CommunicationStrategy comm_strategy_;
 
-  EmbeddingCollectionParam(int num_table, const std::vector<int> &table_id_to_vocabulary_size,
-                           int num_lookup, const std::vector<LookupParam> &lookup_params,
-                           const std::vector<std::vector<int>> &shard_matrix,
-                           const std::vector<GroupedEmbeddingParam> &grouped_emb_params,
-                           int universal_batch_size, core23::DataType key_type,
-                           core23::DataType index_type, core23::DataType offset_type,
-                           core23::DataType emb_type, core23::DataType wgrad_type,
-                           EmbeddingLayout input_layout_, EmbeddingLayout output_layout,
-                           SortStrategy sort_strategy,
-                           KeysPreprocessStrategy keys_preprocess_strategy,
-                           AllreduceStrategy allreduce_strategy,
-                           CommunicationStrategy comm_strategy)
+  DenseCompressionStrategy dense_compression_strategy_ = DenseCompressionStrategy::Unique;
+  DenseFrequentKeysData dense_freq_keys_data;
+
+  EmbeddingCollectionParam(
+      int num_table, int num_lookup, const std::vector<LookupParam> &lookup_params,
+      const std::vector<std::vector<int>> &shard_matrix,
+      const std::vector<GroupedTableParam> &grouped_table_params, int universal_batch_size,
+      core23::DataType key_type, core23::DataType index_type, core23::DataType offset_type,
+      core23::DataType emb_type, core23::DataType wgrad_type, EmbeddingLayout input_layout_,
+      EmbeddingLayout output_layout, SortStrategy sort_strategy,
+      KeysPreprocessStrategy keys_preprocess_strategy, AllreduceStrategy allreduce_strategy,
+      CommunicationStrategy comm_strategy)
       : num_table(num_table),
-        table_id_to_vocabulary_size(table_id_to_vocabulary_size),
         num_lookup(num_lookup),
         lookup_params(lookup_params),
         shard_matrix(shard_matrix),
-        grouped_emb_params(grouped_emb_params),
+        grouped_table_params(grouped_table_params),
         universal_batch_size(universal_batch_size),
         key_type(key_type),
         index_type(index_type),
@@ -193,13 +240,54 @@ struct EmbeddingCollectionParam {
         sort_strategy_(sort_strategy),
         keys_preprocess_strategy_(keys_preprocess_strategy),
         allreduce_strategy_(allreduce_strategy),
-        comm_strategy_(comm_strategy) {}
+        comm_strategy_(comm_strategy) {
+    for (size_t grouped_table_id = 0; grouped_table_id < grouped_table_params.size();
+         ++grouped_table_id) {
+      const auto &table_param = grouped_table_params[grouped_table_id];
+
+      std::vector<int> sparse_lookup_ids;
+      std::vector<int> dense_lookup_ids;
+
+      for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+        int table_id = lookup_params[lookup_id].table_id;
+        if (std::find(table_param.table_ids.begin(), table_param.table_ids.end(), table_id) ==
+            table_param.table_ids.end())
+          continue;
+        auto combiner = lookup_params[lookup_id].combiner;
+        if (combiner == Combiner::Concat) {
+          dense_lookup_ids.push_back(lookup_id);
+        } else if (combiner == Combiner::Sum || combiner == Combiner::Average) {
+          sparse_lookup_ids.push_back(lookup_id);
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                         "combiner not supported in embedding collection.");
+        }
+      }
+      if (!sparse_lookup_ids.empty()) {
+        grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
+                                           sparse_lookup_ids, EmbeddingType::Sparse);
+      }
+      if (!dense_lookup_ids.empty()) {
+        if (dense_compression_strategy_ == DenseCompressionStrategy::Unique) {
+          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
+                                             dense_lookup_ids, EmbeddingType::Dense);
+        } else if (dense_compression_strategy_ == DenseCompressionStrategy::CacheFrequent) {
+          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
+                                             dense_lookup_ids, EmbeddingType::InfrequentDense);
+          grouped_lookup_params.emplace_back(-1, table_param.table_placement_strategy,
+                                             dense_lookup_ids, EmbeddingType::FrequentDense);
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                         "dense_compression_strategy not supported in embedding collection.");
+        }
+      }
+    }
+  }
 
   bool lookup_id_in_group(size_t grouped_id, int lookup_id) const {
-    const auto &group_param = this->grouped_emb_params[grouped_id];
-    int table_id = this->lookup_params[lookup_id].table_id;
-    return std::find(group_param.table_ids.begin(), group_param.table_ids.end(), table_id) !=
-           group_param.table_ids.end();
+    const auto &group_param = this->grouped_lookup_params[grouped_id];
+    return std::find(group_param.lookup_ids.begin(), group_param.lookup_ids.end(), lookup_id) !=
+           group_param.lookup_ids.end();
   }
 
   bool has_table_shard(int gpu_id, size_t grouped_id, int lookup_id) const {
@@ -223,16 +311,37 @@ struct EmbeddingCollectionParam {
     *shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
     *num_shard = static_cast<int>(shard_gpus.size());
   }
-
-  std::vector<int> get_table_id_to_global_start_indices() const;
 };
 
 struct EmbeddingInput {
   core23::Tensor keys;
   core23::Tensor num_keys;  // TODO: move from cpu to gpu
+  size_t h_num_keys;        // TODO: remove
+
   core23::Tensor bucket_range;
-  size_t h_num_keys;  // TODO: remove
   core23::Tensor num_keys_per_bucket;
+
+  struct DenseCompressionInput {
+    struct DataParallelCompressionInput {
+      core23::Tensor reverse_idx;     // bucket_range_type
+      core23::Tensor dst_bucket_ids;  // bucket_range_type
+      size_t num_reverse_idx;
+    } data_parallel_compression_input;
+
+    struct ModelParallelCompressionInput {
+      core23::Tensor h_send_k_per_gpu;  // bucket_range_type
+      core23::Tensor h_recv_k_per_gpu;  // bucket_range_type
+
+      core23::Tensor model_reverse_idx;  // bucket_range_type
+      size_t num_model_reverse_idx;
+      core23::Tensor network_reverse_idx;  // bucket_range_type
+      size_t num_network_reverse_idx;
+      core23::Tensor network_dst_bucket_ids;  // bucket_range_type
+    } model_parallel_compression_input;
+
+    core23::Tensor num_keys_per_table_offset;  // bucket_range_type
+    core23::Tensor table_ids;                  //  int
+  } dense_compression_input;
 };
 
 struct EmbeddingOutputAttr {
@@ -267,6 +376,8 @@ struct EmbeddingOutput {
   EmbeddingOutputAttr attr;
 };
 
+// this struct is used in data distributor because this struct stores mapping needed for calculating
+// the backwward index calculation.
 struct WgradAttr {
   int num_table;
   int num_lookup;
@@ -321,6 +432,7 @@ struct WgradInitializer {
 struct AllreduceWgradInitializer {
   std::shared_ptr<CoreResourceManager> core;
   EmbeddingCollectionParam ebc_param;
+  std::vector<int> table_id_to_vocabulary_size;
   size_t grouped_id;
   WgradAttr wgrad_attr;
 

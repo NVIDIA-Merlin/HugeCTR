@@ -38,13 +38,14 @@ DynamicEmbeddingTable::DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_res
                                              std::shared_ptr<CoreResourceManager> core,
                                              const std::vector<EmbeddingTableParam> &table_params,
                                              const EmbeddingCollectionParam &ebc_param,
-                                             size_t grouped_id, const HugeCTR::OptParams &opt_param)
+                                             size_t grouped_table_id,
+                                             const HugeCTR::OptParams &opt_param)
     : core_(core), key_type_(ebc_param.key_type), opt_param_(opt_param) {
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
-  const auto &grouped_emb_params = ebc_param.grouped_emb_params[grouped_id];
-  const auto &table_ids = grouped_emb_params.table_ids;
+  const auto &grouped_table_params = ebc_param.grouped_table_params[grouped_table_id];
+  const auto &table_ids = grouped_table_params.table_ids;
 
   h_table_ids_.assign(table_ids.begin(), table_ids.end());
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type_.type(), key_t, [&] {

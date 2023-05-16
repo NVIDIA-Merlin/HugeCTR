@@ -107,5 +107,4 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
 
   bool is_valid_stage(Stage stage) const override;
 };
-
 }  // namespace embedding

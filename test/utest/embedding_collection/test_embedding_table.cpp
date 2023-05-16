@@ -33,7 +33,7 @@ std::vector<EmbeddingTableParam> table_param_list = {
 
 const std::vector<std::vector<int>> shard_matrix = {{1, 1, 1}};
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2}}};
 
 const std::vector<LookupParam> lookup_params = {
@@ -54,12 +54,7 @@ void test_embedding_table(int device_id, int table_type) {
   auto key_type = HugeCTR::core23::ToScalarType<key_t>::value;
   auto index_type = HugeCTR::core23::ToScalarType<index_t>::value;
 
-  std::vector<int> table_id_to_vocabulary_size;
-  for (auto& p : table_param_list) {
-    table_id_to_vocabulary_size.push_back(p.max_vocabulary_size);
-  }
   EmbeddingCollectionParam ebc_param{static_cast<int>(table_param_list.size()),
-                                     table_id_to_vocabulary_size,
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,

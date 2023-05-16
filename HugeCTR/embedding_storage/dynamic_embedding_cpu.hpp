@@ -103,11 +103,11 @@ class DynamicEmbeddingTableCPU final : public IDynamicEmbeddingTable {
 
  public:
   DynamicEmbeddingTableCPU(const std::vector<EmbeddingTableParam>& table_params,
-                           const EmbeddingCollectionParam& ebc_param, size_t group_id,
+                           const EmbeddingCollectionParam& ebc_param, size_t group_table_id,
                            const HugeCTR::OptParams& opt_param)
       : opt_param_{opt_param} {
-    const auto& grouped_emb_params = ebc_param.grouped_emb_params[group_id];
-    const auto& table_ids = grouped_emb_params.table_ids;
+    const auto& grouped_table_params = ebc_param.grouped_table_params[group_table_id];
+    const auto& table_ids = grouped_table_params.table_ids;
 
     // Build id_spaces.
     weights_.reserve(table_ids.size());

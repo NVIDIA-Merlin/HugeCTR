@@ -46,6 +46,7 @@ class IndexCalculation {
 };
 
 struct ReductionIndices {
+  core23::Tensor sorted_keys;
   core23::Tensor src_ids;
   core23::Tensor dst_ids;
   core23::Tensor table_ids;
@@ -54,51 +55,35 @@ struct ReductionIndices {
 
   size_t num_elements;
 
-  void init(std::shared_ptr<CoreResourceManager> core, int local_hotness_sum, int batch_size);
+  void init(std::shared_ptr<CoreResourceManager> core, int local_hotness_sum, int batch_size,
+            core23::DataType key_type);
 };
 
 struct PartitionedResult {
   core23::Tensor partitioned_keys;
   core23::Tensor partitioned_src_ids;
   core23::Tensor partitioned_bucket_range;
-  core23::Tensor partitioned_table_range;
 
-  void init(std::shared_ptr<CoreResourceManager> core, int num_lookup, int num_table,
-            int local_hotness_sum, int batch_size, core23::DataType key_type,
-            core23::DataType offset_type);
+  PartitionedResult() = default;
+
+  PartitionedResult(std::shared_ptr<CoreResourceManager> core, int num_lookup,
+                    int local_hotness_sum, int batch_size, core23::DataType key_type,
+                    core23::DataType offset_type);
 };
 
 struct LocalReduceIndexCalculationTempStorage {
   core23::Tensor temp_scan_storage;
-  core23::Tensor temp_select_storage;
-  core23::Tensor d_num_selected_table_range_;
-  core23::Tensor temp_lookup_range;
 
   template <typename offset_t>
-  void init(const std::shared_ptr<CoreResourceManager> &core, int num_lookup, int num_table,
-            int batch_size);
-};
-
-struct SortedResult {
-  core23::Tensor sorted_keys;
-
-  void init(std::shared_ptr<CoreResourceManager> core, int local_hotness_sum, int batch_size,
-            core23::DataType key_type);
+  void init(const std::shared_ptr<CoreResourceManager> &core, int num_lookup, int batch_size);
 };
 
 struct SortInput {
   // for sort
   core23::Tensor keys;
   core23::Tensor src_ids;
-  core23::Tensor table_range;
-  core23::Tensor unique_table_ids;
   size_t h_num_key;
-  // for cal table range
-  core23::Tensor partitioned_bucket_range;
-  core23::Tensor sorted_table_ids;
-  LocalReduceIndexCalculationTempStorage temp_storage;
-  int num_lookup;
-  int batch_size;
+  core23::Tensor bucket_range;
 };
 
 struct SortOutput {
@@ -110,16 +95,30 @@ using SortKeyAndSrcIdOp =
     std::function<void(SortInput &, SortOutput &, std::shared_ptr<CoreResourceManager> core)>;
 
 struct SegmentedSortDevice {
+ public:
+  SegmentedSortDevice() = default;
+
+  SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core,
+                      core23::Tensor sorted_table_ids, int max_num_keys, int batch_size,
+                      int num_lookup, int num_table, core23::DataType key_type);
+
+  void operator()(SortInput &input, SortOutput &output, std::shared_ptr<CoreResourceManager> core);
+
+ private:
   size_t max_key_num_;
   size_t cub_sort_temp_bytes_ = 0;
   core23::Tensor cub_sort_temp_buffer_;  // Void
 
-  SegmentedSortDevice() = default;
+  core23::Tensor temp_select_storage;
+  core23::Tensor d_num_selected_table_range_;
+  core23::Tensor temp_lookup_range;
 
-  SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
-                      int batch_size, int num_table, core23::DataType key_type);
+  core23::Tensor partitioned_table_range;
 
-  void operator()(SortInput &input, SortOutput &output, std::shared_ptr<CoreResourceManager> core);
+  core23::Tensor sorted_table_ids_;
+  int num_lookup_;
+  int num_table_;
+  int batch_size_;
 };
 
 struct IndicesSort {
@@ -209,21 +208,19 @@ class LocalReduceIndexCalculation {
  private:
   std::shared_ptr<CoreResourceManager> core_;
   PartitionedResult partitioned_result_;
-  SortedResult sorted_result;
   LocalReduceIndexCalculationTempStorage temp_storage_;
 
  public:
   LocalReduceIndexCalculation() = default;
 
   LocalReduceIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_lookup,
-                              int num_table, int local_hotness_sum, int batch_size,
-                              core23::DataType key_type, core23::DataType offset_type);
+                              int local_hotness_sum, int batch_size, core23::DataType key_type,
+                              core23::DataType offset_type);
 
   void cal_for_sparse_input(const EmbeddingInput &embedding_input,
                             SortKeyAndSrcIdOp sort_key_and_src_id_op,
-                            SegmentdUnique &segmented_unique, CalDstIds &cal_dst_ids,
-
-                            ReductionIndices &reduction_indices, Wgrad &wgrad, int batch_size);
+                            SegmentdUnique &segmented_unique, ReductionIndices &reduction_indices,
+                            Wgrad &wgrad, int batch_size);
   void cal_unique_key_table_range(Wgrad &wgrad);
 
   void cal_dst_ev_start(Wgrad &wgrad,

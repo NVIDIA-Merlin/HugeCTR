@@ -65,9 +65,8 @@ void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
         });
       };
 
-  local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, indices_sort_,
-                                                       segmented_unique_, cal_dst_ids_,
-                                                       reduction_indices, wgrad, batch_size);
+  local_reduce_index_calculation_.cal_for_sparse_input(
+      embedding_input, indices_sort_, segmented_unique_, reduction_indices, wgrad, batch_size);
   local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_allreduce_wgrad);
 }
 
@@ -503,9 +502,9 @@ void SparseAllreduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput&
                                      cal_ev_start_indices_storage_.temp_storage_, allreduce_wgrad,
                                      output, num_table, num_gpus, stream);
   };
-  local_reduce_index_calculation_.cal_for_sparse_input(
-      embedding_input, segmented_sort_device_, segmented_unique_, cal_dst_ids_, reduction_indices,
-      local_reduce_wgrad, batch_size);
+  local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, segmented_sort_device_,
+                                                       segmented_unique_, reduction_indices,
+                                                       local_reduce_wgrad, batch_size);
   local_reduce_index_calculation_.cal_unique_key_table_range(local_reduce_wgrad);
   local_reduce_index_calculation_.cal_dst_ev_start(local_reduce_wgrad,
                                                    sparse_allreduce_cal_ev_start_indices);

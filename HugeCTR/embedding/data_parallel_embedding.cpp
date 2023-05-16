@@ -32,7 +32,7 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
   const auto& lookup_params = ebc_param.lookup_params;
-  const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
                   "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
 
@@ -49,10 +49,7 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
 
     h_ev_size_list_.push_back(ev_size);
     h_combiner_list_.push_back(combiner);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
+    if (!ebc_param.lookup_id_in_group(grouped_id, lookup_id)) continue;
     HCTR_CHECK_HINT(ebc_param.shard_matrix[gpu_id][table_id] == 1,
                     "dp table must be shared on all gpus");
     h_local_combiner_list_.push_back(combiner);
@@ -104,7 +101,7 @@ void UniformDataParallelEmbeddingMeta::update_mutable_meta(
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto& lookup_params = ebc_param.lookup_params;
-  const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
                   "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
 
@@ -119,10 +116,7 @@ void UniformDataParallelEmbeddingMeta::update_mutable_meta(
     int max_hotness = lookup_params[lookup_id].max_hotness;
 
     h_hotness_list_.push_back(max_hotness);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
+    if (!ebc_param.lookup_id_in_group(grouped_id, lookup_id)) continue;
     HCTR_CHECK_HINT(ebc_param.shard_matrix[gpu_id][table_id] == 1,
                     "dp table must be shared on all gpus");
     h_local_hotness_list_.push_back(max_hotness);
@@ -147,7 +141,7 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
   // init op
   compress_offset_ = CompressOffset(core_, meta_.num_local_lookup_ + 1, offset_type);
 
-  dp_model_forward_ = DPModelForward(core_, num_gpus, meta_.num_lookup_, meta_.num_local_lookup_);
+  dp_model_forward_ = DPModelForward(core_);
 
   allreduce_comm_ = NcclAllReduceInplaceComm(core_);
   if (std::find(meta_.h_local_combiner_list_.begin(), meta_.h_local_combiner_list_.end(),
@@ -162,14 +156,14 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
   embedding_vec_ = core23::init_tensor_list<float>(universal_batch_size * meta_.num_local_hotness_,
                                                    core->get_device_id());
 
-  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus);
+  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus,
+                          key_type);
   // init_indices local reduce buffer
   WgradInitializer{core, params, grouped_id, meta_.wgrad_attr}
       .init(local_reduce_buffer_)
       .init_indices();
   LocalReduceIndexCalculation local_reduce_index_calculation{core,
                                                              meta_.wgrad_attr.num_lookup,
-                                                             meta_.wgrad_attr.num_table,
                                                              meta_.num_local_hotness_,
                                                              params.universal_batch_size / num_gpus,
                                                              key_type,
@@ -183,9 +177,13 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
                              key_type};
     sort_op = indices_sort;
   } else if (params.sort_strategy_ == SortStrategy::Segmented) {
-    SegmentedSortDevice segmented_sort{core, meta_.num_local_hotness_,
+    SegmentedSortDevice segmented_sort{core,
+                                       meta_.wgrad_attr.sorted_table_ids,
+                                       meta_.num_local_hotness_,
                                        params.universal_batch_size / num_gpus,
-                                       meta_.wgrad_attr.num_table, key_type};
+                                       meta_.wgrad_attr.num_lookup,
+                                       meta_.wgrad_attr.num_table,
+                                       key_type};
     sort_op = segmented_sort;
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
@@ -241,8 +239,9 @@ void UniformDPEmbedding::forward(const EmbeddingInput& embedding_input, ILookup*
   embedding_table->lookup(embedding_input.keys, embedding_input.h_num_keys,
                           num_key_per_lookup_offset, meta_.num_local_lookup_ + 1,
                           meta_.d_local_table_id_list_, embedding_vec_);
-  dp_model_forward_.compute(embedding_vec_, embedding_input.bucket_range,
-                            meta_.d_local_lookup_id_list_, embedding_output, batch_size_per_gpu);
+  dp_model_forward_.sparse_forward(embedding_vec_, embedding_input.bucket_range,
+                                   meta_.d_local_lookup_id_list_, embedding_output,
+                                   batch_size_per_gpu);
 }
 
 void UniformDPEmbedding::dense_allreduce(embedding::Wgrad& wgrad, int batch_size) {

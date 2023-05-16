@@ -247,7 +247,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
   auto key_type = ebc_param.key_type;
   auto index_type = ebc_param.index_type;
   auto emb_type = ebc_param.emb_type;
-  const auto &emb_param = ebc_param.grouped_emb_params[grouped_id];
+  const auto &grouped_table_param = ebc_param.grouped_table_params[grouped_id];
   for (const auto &table_param : table_params) {
     use_vectorized_kernel_ &= (table_param.ev_size % num_load_floats == 0);
   }
@@ -258,8 +258,8 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
       std::vector<index_t> h_num_key_per_table_offset{0};
       h_emb_table_ev_offset_.push_back(0);
 
-      if (emb_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
-        for (int table_id : emb_param.table_ids) {
+      if (grouped_table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        for (int table_id : grouped_table_param.table_ids) {
           uint64_t num_key = 0;
           h_table_ids_.push_back(table_id);
           h_table_max_vocabulary_size_.push_back(table_params[table_id].max_vocabulary_size);
@@ -276,8 +276,9 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
           h_local_ev_sizes_.push_back(table_params[table_id].ev_size);
           emb_table_size_ += segment_emb_table_size;
         }
-      } else if (emb_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-        for (int table_id : emb_param.table_ids) {
+      } else if (grouped_table_param.table_placement_strategy ==
+                 TablePlacementStrategy::ModelParallel) {
+        for (int table_id : grouped_table_param.table_ids) {
           std::vector<int> shard_gpu_list;
           for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
             HCTR_CHECK_HINT(table_id < static_cast<int>(ebc_param.shard_matrix[gpu_id].size()),
@@ -407,7 +408,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
     }
 
     // data parallel table should use same curand seed across all gpus
-    if (emb_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+    if (grouped_table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
       init_table_functor(gpu_resource.get_replica_uniform_curand_generator());
     } else {
       init_table_functor(gpu_resource.get_replica_variant_curand_generator());

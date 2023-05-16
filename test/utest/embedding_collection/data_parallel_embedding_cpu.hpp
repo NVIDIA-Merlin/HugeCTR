@@ -44,7 +44,7 @@ struct DataParallelEmbeddingMetaCPU {
   DataParallelEmbeddingMetaCPU(int _gpu_id, int _num_gpus,
                                const EmbeddingCollectionParam &ebc_param, int emb_id)
       : gpu_id(_gpu_id), num_gpus(_num_gpus), ev_offsets{0}, dst_buffer_ev_offsets{0} {
-    const auto &emb_param = ebc_param.grouped_emb_params[emb_id];
+    const auto &emb_param = ebc_param.grouped_table_params[emb_id];
     for (int lookup_id = 0; lookup_id < static_cast<int>(ebc_param.lookup_params.size());
          ++lookup_id) {
       const auto &lookup_param = ebc_param.lookup_params[lookup_id];

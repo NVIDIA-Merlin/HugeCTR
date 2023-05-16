@@ -25,7 +25,7 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
     : intra_model_buffer_attr(core, ebc_param, grouped_id) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(
       group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel &&
           ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
@@ -103,7 +103,7 @@ void HierModelParallelEmbeddingMeta::update_mutable_meta(std::shared_ptr<CoreRes
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
@@ -136,24 +136,19 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
                                                                core->get_local_gpu_count()],
           params.universal_batch_size) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  int num_gpus = core->get_global_gpu_count();
   auto key_type = params.key_type;
 
   compress_offset_ = CompressOffset(core, meta_.num_local_lookup_ + 1, params.offset_type);
   intra_model_forward_ = IntraModelForward{core};
   all2all_comm_ = NcclAll2AllComm(core);
-  network_forward_ = NetworkForward(core, num_gpus);
-  network_backward_ = NetworkBackward(core, num_gpus);
+  network_forward_ = NetworkForward(core);
+  network_backward_ = NetworkBackward(core);
   intra_model_backward_ = IntraModelBackward{core, meta_.hier_intra_model_backward_attr};
 
-  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size);
-  LocalReduceIndexCalculation local_reduce_index_calculation{core,
-                                                             meta_.wgrad_attr.num_lookup,
-                                                             meta_.wgrad_attr.num_table,
-                                                             meta_.num_local_hotness_,
-                                                             params.universal_batch_size,
-                                                             key_type,
-                                                             params.offset_type};
+  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size, key_type);
+  LocalReduceIndexCalculation local_reduce_index_calculation{
+      core,     meta_.wgrad_attr.num_lookup, meta_.num_local_hotness_, params.universal_batch_size,
+      key_type, params.offset_type};
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
   SegmentdUnique segmentd_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};
@@ -162,8 +157,13 @@ HierModelParallelEmbedding::HierModelParallelEmbedding(std::shared_ptr<CoreResou
     sort_op = IndicesSort{core, meta_.num_local_hotness_, params.universal_batch_size, key_type};
 
   } else if (params.sort_strategy_ == SortStrategy::Segmented) {
-    sort_op = SegmentedSortDevice{core, meta_.num_local_hotness_, params.universal_batch_size,
-                                  meta_.wgrad_attr.num_table, key_type};
+    sort_op = SegmentedSortDevice{core,
+                                  meta_.wgrad_attr.sorted_table_ids,
+                                  meta_.num_local_hotness_,
+                                  params.universal_batch_size,
+                                  meta_.wgrad_attr.num_lookup,
+                                  meta_.wgrad_attr.num_table,
+                                  key_type};
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
@@ -198,8 +198,8 @@ void HierModelParallelEmbedding::network_forward(const EmbeddingInput &embedding
                                                  EmbeddingOutput &embedding_output,
                                                  int batch_size) {
   all2all_comm_.hier_communicate(intra_reduction_buffer_.data_list, network_buffer_.data_list);
-  network_forward_.compute(embedding_input.num_keys_per_bucket, network_buffer_,
-                           meta_.hier_network_indices, embedding_output, batch_size);
+  network_forward_.sparse_forward(embedding_input.num_keys_per_bucket, network_buffer_,
+                                  meta_.hier_network_indices, embedding_output, batch_size);
 }
 
 void HierModelParallelEmbedding::backward_index_calculation(const EmbeddingInput &embedding_input,
@@ -211,8 +211,8 @@ void HierModelParallelEmbedding::backward_index_calculation(const EmbeddingInput
 void HierModelParallelEmbedding::network_backward(const EmbeddingOutput &top_grad,
                                                   const EmbeddingInput &embedding_input,
                                                   Wgrad &wgrad, int batch_size) {
-  network_backward_.compute(embedding_input.num_keys_per_bucket, top_grad,
-                            meta_.hier_network_indices, network_buffer_, batch_size);
+  network_backward_.sparse_backward(embedding_input.num_keys_per_bucket, top_grad,
+                                    meta_.hier_network_indices, network_buffer_, batch_size);
   all2all_comm_.hier_communicate(network_buffer_.data_list, intra_reduction_buffer_.data_list);
   gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
   intra_model_backward_.backward(intra_model_comm_buffer_.attr, intra_reduction_buffer_,

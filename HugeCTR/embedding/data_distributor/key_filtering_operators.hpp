@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <nccl.h>
-
 #include <core/core.hpp>
 #include <embedding/common.hpp>
 #include <memory>
@@ -63,9 +61,7 @@ class LabelAndCountKeysOperator {
                             const embedding::EmbeddingCollectionParam &ebc_param,
                             size_t grouped_id);
 
-  void operator()(const std::vector<core23::Tensor> &dp_keys,
-                  const std::vector<core23::Tensor> &dp_bucket_range, Result &output,
-                  cudaStream_t stream);
+  void operator()(const DataDistributionInput &input, Result &output, cudaStream_t stream);
 
   std::vector<uint32_t> h_per_gpu_lookup_range;
 
@@ -76,8 +72,6 @@ class LabelAndCountKeysOperator {
   core23::Tensor hotness_bucket_range;
   core23::Tensor gpu_lookup_range;
   core23::Tensor lookup_ids;
-  core23::Tensor h_ptrs_;
-  core23::Tensor d_ptrs_;
 
   int batch_size_ = 0;
   int batch_size_per_gpu_ = 0;
@@ -143,17 +137,15 @@ class ConcatKeysAndBucketRangeOperator {
                                    const embedding::EmbeddingCollectionParam &ebc_param,
                                    size_t grouped_id);
 
-  void operator()(std::vector<core23::Tensor> dp_keys, std::vector<core23::Tensor> dp_bucket_range,
-                  core23::Tensor &result_keys, core23::Tensor &result_bucket_ranges,
-                  cudaStream_t stream);
+  void operator()(const DataDistributionInput &input, core23::Tensor &result_keys,
+                  core23::Tensor &result_bucket_ranges, cudaStream_t stream);
 
  private:
   int batch_size_per_gpu_;
   std::vector<int> h_shard_ids_;
+  core23::Tensor d_shard_ids_;
   core23::Tensor shard_bucket_threads_;
   core23::Tensor shard_ranges_;
-  core23::Tensor h_ptrs_;
-  core23::Tensor d_ptrs_;
 };
 }  // namespace dp
 

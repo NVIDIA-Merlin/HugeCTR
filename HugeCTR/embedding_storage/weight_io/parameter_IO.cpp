@@ -114,7 +114,7 @@ void EmbeddingParameterIO::get_parameter_info_from_model(
     for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
       HugeCTR::CudaDeviceContext context(core_list_[gpu_id]->get_device_id());
       int global_gpu_id = core_list_[gpu_id]->get_global_gpu_id();
-      int embedding_group_num = tmp_ebc_param.grouped_emb_params.size();
+      int embedding_group_num = tmp_ebc_param.grouped_table_params.size();
       if (embedding_group_num == 0) {
         HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError,
                        "don't have any grouped embedding table  , please check your model");
@@ -130,10 +130,10 @@ void EmbeddingParameterIO::get_parameter_info_from_model(
           size_t tmp_key_num = group_table_kns[tmp_table_index];
           tmp_epi.gemb_distribution->set(tmp_key_num, global_gpu_id, tmp_table_id);
 
-          if (tmp_ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+          if (tmp_ebc_param.grouped_table_params[grouped_id].table_placement_strategy ==
               TablePlacementStrategy::DataParallel) {
             tmp_epi.gemb_distribution->set_parallel(tmp_table_id, 1);
-          } else if (tmp_ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
+          } else if (tmp_ebc_param.grouped_table_params[grouped_id].table_placement_strategy ==
                      TablePlacementStrategy::ModelParallel) {
             tmp_epi.gemb_distribution->set_parallel(tmp_table_id, 2);
           } else {
@@ -317,7 +317,7 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
         int group_index = -1;
         for (int group_id = 0; group_id < group_nums; ++group_id) {
           std::vector<int>& group_table_ids =
-              tmp_ebc->ebc_param_.grouped_emb_params[group_id].table_ids;
+              tmp_ebc->ebc_param_.grouped_table_params[group_id].table_ids;
           auto find_iter = std::find(group_table_ids.begin(), group_table_ids.end(), table_id);
           if (find_iter != group_table_ids.end()) {
             group_index = group_id;
@@ -357,7 +357,7 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
         int group_index = -1;
         for (int group_id = 0; group_id < group_nums; ++group_id) {
           std::vector<int>& group_table_ids =
-              tmp_ebc->ebc_param_.grouped_emb_params[group_id].table_ids;
+              tmp_ebc->ebc_param_.grouped_table_params[group_id].table_ids;
 
           auto find_iter = std::find(group_table_ids.begin(), group_table_ids.end(), table_id);
           if (find_iter != group_table_ids.end()) {

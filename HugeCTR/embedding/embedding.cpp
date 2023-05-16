@@ -24,8 +24,8 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
     std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param) {
   std::vector<std::unique_ptr<IGroupedEmbeddingOp>> embeddings;
 
-  for (size_t emb_id = 0; emb_id < ebc_param.grouped_emb_params.size(); ++emb_id) {
-    switch (ebc_param.grouped_emb_params[emb_id].table_placement_strategy) {
+  for (size_t emb_id = 0; emb_id < ebc_param.grouped_lookup_params.size(); ++emb_id) {
+    switch (ebc_param.grouped_lookup_params[emb_id].table_placement_strategy) {
       case TablePlacementStrategy::DataParallel:
         embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
         break;

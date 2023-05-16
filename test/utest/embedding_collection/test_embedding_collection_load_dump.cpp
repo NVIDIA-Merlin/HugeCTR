@@ -87,13 +87,15 @@ class EmbeddingIO {
       int model_table_id = table_id_iter->second;
       int target_grouped_id = -1;
       embedding::TablePlacementStrategy target_placement;
-      for (int grouped_id = 0; grouped_id < tmp_ebc_param.grouped_emb_params.size(); ++grouped_id) {
-        auto& tmp_table_ids = tmp_ebc_param.grouped_emb_params[grouped_id].table_ids;
+      for (int grouped_id = 0; grouped_id < tmp_ebc_param.grouped_table_params.size();
+           ++grouped_id) {
+        auto& tmp_table_ids = tmp_ebc_param.grouped_table_params[grouped_id].table_ids;
 
         auto tmp_it = std::find(tmp_table_ids.begin(), tmp_table_ids.end(), model_table_id);
         if (tmp_it != tmp_table_ids.end()) {
           target_grouped_id = grouped_id;
-          target_placement = tmp_ebc_param.grouped_emb_params[grouped_id].table_placement_strategy;
+          target_placement =
+              tmp_ebc_param.grouped_table_params[grouped_id].table_placement_strategy;
           break;
         }
       }
@@ -258,11 +260,10 @@ std::vector<EmbeddingTableParam> get_table_param_list_io(core23::DataType emb_ty
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                  const std::vector<std::vector<int>>& shard_matrix,
-                                 const std::vector<GroupedEmbeddingParam>& grouped_emb_params) {
+                                 const std::vector<GroupedTableParam>& grouped_emb_params) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
   ASSERT_EQ(table_ev_size_list.size(), num_table);
   EmbeddingCollectionParam ebc_param{num_table,
-                                     table_max_vocabulary_list,
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,
@@ -365,9 +366,8 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
   }
 
   std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
-      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
-                                                 resource_manager, core_resource_manager_list,
-                                                 ebc_param, table_param_list);
+      std::make_shared<HugeCTR::DataDistributor>(core_resource_manager_list, ebc_param,
+                                                 table_param_list);
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
@@ -624,7 +624,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {1, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::DataParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection_load_dump, dp_plan0) {
@@ -639,7 +639,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {0, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection_load_dump, mp_plan0) {
@@ -659,7 +659,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {0, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::DataParallel, {2}},
     {TablePlacementStrategy::ModelParallel, {0, 1, 3}}};
 
