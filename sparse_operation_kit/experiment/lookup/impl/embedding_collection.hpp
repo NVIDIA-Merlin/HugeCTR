@@ -79,7 +79,6 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
   
   return std::unique_ptr<::embedding::EmbeddingCollectionParam>( new ::embedding::EmbeddingCollectionParam(
     num_lookups,
-    {},
     num_lookups,
     lookup_params,
     shard_matrix,

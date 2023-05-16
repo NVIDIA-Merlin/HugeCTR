@@ -1097,12 +1097,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     }
   }
 
-  bool need_vocabulary_size =
-      (ebc_config.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) ||
-      (ebc_config.allreduce_strategy_ == embedding::AllreduceStrategy::Dense);
-  std::vector<int> table_id_to_vocabulary_size =
-      get_table_id_to_vocabulary_size(emb_table_list, need_vocabulary_size);
-
   embedding::AllreduceStrategy allreduce_strategy = ebc_config.allreduce_strategy_;
   if (solver_.grouped_all_reduce) {
     if (allreduce_strategy == embedding::AllreduceStrategy::Dense) {
@@ -1114,7 +1108,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   }
 
   embedding::EmbeddingCollectionParam ebc_param{num_table,
-                                                table_id_to_vocabulary_size,
                                                 num_lookup,
                                                 lookup_params,
                                                 shard_matrix,
@@ -1133,7 +1126,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 ebc_config.comm_strategy_};
 
   embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
-                                                     table_id_to_vocabulary_size,
                                                      num_lookup,
                                                      lookup_params,
                                                      shard_matrix,
@@ -1340,11 +1332,9 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   }
 
   // create data distributors
-  train_data_distributor_ = std::make_shared<DataDistributor>(
-      solver_.batchsize, key_type, resource_manager_, core_list, ebc_param, emb_table_list);
+  train_data_distributor_ = std::make_shared<DataDistributor>(core_list, ebc_param, emb_table_list);
   eval_data_distributor_ =
-      std::make_shared<DataDistributor>(solver_.batchsize_eval, key_type, resource_manager_,
-                                        core_list, eval_ebc_param, emb_table_list);
+      std::make_shared<DataDistributor>(core_list, eval_ebc_param, emb_table_list);
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
@@ -1688,13 +1678,13 @@ void Model::embedding_load(const std::string& path, const std::vector<std::strin
 
     int target_grouped_id = -1;
     embedding::TablePlacementStrategy target_placement;
-    for (int grouped_id = 0; grouped_id < tmp_ebc_param.grouped_emb_params.size(); ++grouped_id) {
-      auto& tmp_table_ids = tmp_ebc_param.grouped_emb_params[grouped_id].table_ids;
+    for (int grouped_id = 0; grouped_id < tmp_ebc_param.grouped_table_params.size(); ++grouped_id) {
+      auto& tmp_table_ids = tmp_ebc_param.grouped_table_params[grouped_id].table_ids;
 
       auto tmp_it = std::find(tmp_table_ids.begin(), tmp_table_ids.end(), model_table_id);
       if (tmp_it != tmp_table_ids.end()) {
         target_grouped_id = grouped_id;
-        target_placement = tmp_ebc_param.grouped_emb_params[grouped_id].table_placement_strategy;
+        target_placement = tmp_ebc_param.grouped_table_params[grouped_id].table_placement_strategy;
         break;
       }
     }

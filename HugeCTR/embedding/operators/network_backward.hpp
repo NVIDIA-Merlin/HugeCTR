@@ -20,19 +20,19 @@ using core::CoreResourceManager;
 
 struct NetworkIndices;
 struct NetworkBuffer;
+struct DenseNetworkBuffer;
+
 class NetworkBackward {
   std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
 
  public:
   NetworkBackward() = default;
 
-  NetworkBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
-      : core_(core), num_gpus_(num_gpus) {}
+  NetworkBackward(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
-  void compute(const core23::Tensor &dp_num_keys_per_bucket, const EmbeddingOutput &top_grad,
-               const NetworkIndices &network_indices, NetworkBuffer &network_buffer,
-               int batch_size);
+  void sparse_backward(const core23::Tensor &dp_num_keys_per_bucket,
+                       const EmbeddingOutput &top_grad, const NetworkIndices &network_indices,
+                       NetworkBuffer &network_buffer, int batch_size);
 
   void compute(const core23::Tensor &row_lengths, const core23::Tensor &d_combiner_list,
                const core23::Tensor &top_grad, const core23::Tensor &network_ids,

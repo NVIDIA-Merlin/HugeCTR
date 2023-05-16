@@ -51,17 +51,20 @@ KeysToIndicesConverter::KeysToIndicesConverter(std::shared_ptr<CoreResourceManag
   int global_gpu_id = core_->get_global_gpu_id();
   int num_gpus = core_->get_global_gpu_count();
 
-  const auto& emb_param = ebc_param.grouped_emb_params[grouped_id];
+  const auto& grouped_lookup_param = ebc_param.grouped_lookup_params[grouped_id];
+  const auto& grouped_table_param =
+      ebc_param.grouped_table_params[grouped_lookup_param.grouped_table_idx];
 
   std::vector<uint64_t> h_num_keys_per_table_offset{0};
-  if (emb_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
-    for (int table_id : emb_param.table_ids) {
+  if (grouped_table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+    for (int table_id : grouped_table_param.table_ids) {
       h_local_table_ids_.push_back(table_id);
       h_num_keys_per_table_offset.push_back(table_params[table_id].max_vocabulary_size);
     }
-  } else if (emb_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+  } else if (grouped_table_param.table_placement_strategy ==
+             TablePlacementStrategy::ModelParallel) {
     h_num_shards_.resize(ebc_param.shard_matrix[0].size());
-    for (int table_id : emb_param.table_ids) {
+    for (int table_id : grouped_table_param.table_ids) {
       if (ebc_param.shard_matrix[global_gpu_id][table_id] == 0) continue;
       h_local_table_ids_.push_back(table_id);
 

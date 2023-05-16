@@ -50,8 +50,9 @@ std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_ta
   // check_optimizer();
 
   std::vector<std::unique_ptr<IGroupedEmbeddingTable>> embedding_table_list;
-  for (size_t grouped_id = 0; grouped_id < ebc_param.grouped_emb_params.size(); ++grouped_id) {
-    const auto &table_ids = ebc_param.grouped_emb_params[grouped_id].table_ids;
+  for (size_t grouped_table_id = 0; grouped_table_id < ebc_param.grouped_table_params.size();
+       ++grouped_table_id) {
+    const auto &table_ids = ebc_param.grouped_table_params[grouped_table_id].table_ids;
     if (table_ids.size() == 0) {
       HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError,
                      "grouped embedding table does not support empty grouped ids.");
@@ -62,11 +63,11 @@ std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_ta
       // ebc_param.is_dynamic = true;
       embedding_table_list.push_back(std::make_unique<DynamicEmbeddingTable>(
           *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list, ebc_param,
-          grouped_id, opt_params));
+          grouped_table_id, opt_params));
     } else {
       embedding_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
           *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list, ebc_param,
-          grouped_id, opt_params));
+          grouped_table_id, opt_params));
     }
   }
   return embedding_table_list;

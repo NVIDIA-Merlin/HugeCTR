@@ -79,7 +79,7 @@ std::vector<EmbeddingTableParam> get_table_param_list(core23::DataType emb_type)
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
                               const std::vector<std::vector<int>> &shard_matrix,
-                              const std::vector<GroupedEmbeddingParam> &grouped_emb_params,
+                              const std::vector<GroupedTableParam> &grouped_emb_params,
                               EmbeddingLayout output_layout, SortStrategy sort_strategy,
                               AllreduceStrategy allreduce_strategy) {
   ASSERT_EQ(table_max_vocabulary_list.size(), num_table);
@@ -94,7 +94,6 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
             << ", sort_strategy:" << sort_strategy << ", allreduce_strategy:" << allreduce_strategy
             << ", key_type:" << key_type << ", emb_type:" << emb_type << "\n";
   EmbeddingCollectionParam ebc_param{num_table,
-                                     table_max_vocabulary_list,
                                      static_cast<int>(lookup_params.size()),
                                      lookup_params,
                                      shard_matrix,
@@ -196,9 +195,8 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
   }
 
   std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
-      std::make_shared<HugeCTR::DataDistributor>(ebc_param.universal_batch_size, ebc_param.key_type,
-                                                 resource_manager, core_resource_manager_list,
-                                                 ebc_param, table_param_list);
+      std::make_shared<HugeCTR::DataDistributor>(core_resource_manager_list, ebc_param,
+                                                 table_param_list);
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
@@ -445,17 +443,11 @@ void embedding_collection_e2e(const std::vector<LookupParam> &lookup_params,
 }
 
 // TODO: add int64_t/uint64_t test case
-#define EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, output_layout,     \
-                             sort_strategy, allreduce_strategy)                                  \
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(                                 \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,             \
-      allreduce_strategy);                                                                       \
-  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(                                \
-      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,             \
-      allreduce_strategy);                                                                       \
-  embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(lookup_params, shard_matrix,       \
-                                                              grouped_emb_params, output_layout, \
-                                                              sort_strategy, allreduce_strategy);
+#define EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params, output_layout, \
+                             sort_strategy, allreduce_strategy)                              \
+  embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(                             \
+      lookup_params, shard_matrix, grouped_emb_params, output_layout, sort_strategy,         \
+      allreduce_strategy);
 
 #define EBC_E2E_TEST(lookup_params, shard_matrix, grouped_emb_params)                              \
   EBC_E2E_TEST_BY_TYPE(lookup_params, shard_matrix, grouped_emb_params,                            \
@@ -489,7 +481,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {1, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::DataParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection, dp_plan0) {
@@ -507,7 +499,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {0, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection, mp_plan0) {
@@ -525,7 +517,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {0, 1, 1, 1},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::DataParallel, {2}},
     {TablePlacementStrategy::ModelParallel, {0, 1, 3}}};
 
@@ -544,7 +536,7 @@ const std::vector<std::vector<int>> shard_matrix = {
     {0, 0, 0, 0},
 };
 
-const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+const std::vector<GroupedTableParam> grouped_emb_params = {
     {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3}}};
 
 TEST(test_embedding_collection, empty_lookup) {

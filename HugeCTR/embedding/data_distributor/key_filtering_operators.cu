@@ -32,22 +32,6 @@ using namespace dp;
 
 namespace kernels {
 
-__inline__ __device__ int32_t atomic_add(int32_t* address, int32_t val) {
-  return (int32_t)atomicAdd((unsigned int*)address, (unsigned int)val);
-}
-
-__inline__ __device__ uint32_t atomic_add(uint32_t* address, uint32_t val) {
-  return (uint32_t)atomicAdd((unsigned int*)address, (unsigned int)val);
-}
-
-__inline__ __device__ int64_t atomic_add(int64_t* address, int64_t val) {
-  return (int64_t)atomicAdd((unsigned long long int*)address, (unsigned long long int)val);
-}
-
-__inline__ __device__ uint64_t atomic_add(uint64_t* address, uint64_t val) {
-  return (uint64_t)atomicAdd((unsigned long long int*)address, (unsigned long long int)val);
-}
-
 template <typename key_t, typename offset_t>
 __global__ void label_and_count_keys(
     const key_t** __restrict keys, const offset_t** __restrict bucket_range,
@@ -252,8 +236,9 @@ __global__ void compute_bucket_ranges_with_padding(offset_t** bucket_ranges,
 
 template <int TILE_SIZE, typename offset_t>
 __global__ void compute_shard_ranges(uint32_t* shard_ranges,
-                                     const offset_t** __restrict bucket_ranges, int num_shards,
-                                     int num_shards_padded, int batch_size_per_gpu) {
+                                     const offset_t** __restrict bucket_ranges,
+                                     const int* shard_ids, int num_shards, int num_shards_padded,
+                                     int batch_size_per_gpu) {
   assert(gridDim.x == 1 && gridDim.y == 1);  // only need 1 CTA for this
 
   auto block = cg::this_thread_block();
@@ -268,18 +253,19 @@ __global__ void compute_shard_ranges(uint32_t* shard_ranges,
     scan_start = 0;
   }
 
-  for (int shard_id = tid; shard_id < num_shards_padded; shard_id += tile.size()) {
+  for (int i = tid; i < num_shards_padded; i += tile.size()) {
     tile.sync();
 
     uint32_t num_keys = 0;
-    if (shard_id < num_shards) {
+    if (i < num_shards) {
+      int shard_id = shard_ids[i];
       num_keys = static_cast<uint32_t>(bucket_ranges[shard_id][batch_size_per_gpu]);
     }
 
     uint32_t scan_out = scan_start + cg::inclusive_scan(tile, num_keys);
 
-    if (shard_id < num_shards) {
-      shard_ranges[shard_id + 1] = scan_out;
+    if (i < num_shards) {
+      shard_ranges[i + 1] = scan_out;
     }
 
     if (tid == tile.size() - 1) {
@@ -292,16 +278,18 @@ template <typename key_t, typename offset_t>
 __global__ void concat_keys_and_bucket_range(key_t* concat_keys, offset_t* concat_bucket_ranges,
                                              const key_t** __restrict dp_keys,
                                              const offset_t** __restrict dp_bucket_ranges,
+                                             const int* shard_ids,
                                              const uint32_t* __restrict shard_ranges,
                                              const int* __restrict shard_bucket_threads,
                                              int batch_size_per_gpu) {
-  int shard_id = blockIdx.y;
+  int i = blockIdx.y;
+  int shard_id = shard_ids[i];
   const offset_t* shard_bucket_range = dp_bucket_ranges[shard_id];
   const key_t* shard_keys = dp_keys[shard_id];
-  offset_t offset = static_cast<offset_t>(shard_ranges[shard_id]);
-  int bucket_threads = shard_bucket_threads[shard_id];
+  offset_t offset = static_cast<offset_t>(shard_ranges[i]);
+  int bucket_threads = shard_bucket_threads[i];
 
-  int end_bucket = shard_id == (gridDim.y - 1);
+  int end_bucket = i == (gridDim.y - 1);
 
   cg::thread_group bucket_group = cg::tiled_partition(cg::this_thread_block(), bucket_threads);
 
@@ -320,14 +308,14 @@ __global__ void concat_keys_and_bucket_range(key_t* concat_keys, offset_t* conca
     }
 
     if (bucket_group.thread_rank() == 0) {
-      concat_bucket_ranges[shard_id * batch_size_per_gpu + bucket_idx] = offset + start_range;
+      concat_bucket_ranges[i * batch_size_per_gpu + bucket_idx] = offset + start_range;
     }
   }
 
   if (end_bucket && blockIdx.x == 0 && threadIdx.x == 0) {
     int bucket_idx = batch_size_per_gpu;
     offset_t start_range = shard_bucket_range[bucket_idx];
-    concat_bucket_ranges[shard_id * batch_size_per_gpu + bucket_idx] = offset + start_range;
+    concat_bucket_ranges[i * batch_size_per_gpu + bucket_idx] = offset + start_range;
   }
 }
 
@@ -419,32 +407,11 @@ LabelAndCountKeysOperator::LabelAndCountKeysOperator(
   core23::copy_sync(hotness_bucket_range, h_hotness_bucket_range);
   core23::copy_sync(gpu_lookup_range, h_per_gpu_lookup_range);
   core23::copy_sync(lookup_ids, h_lookup_ids);
-
-  // 2x for both keys & bucket_range
-  d_ptrs_ = core23::Tensor(params.shape({static_cast<int64_t>(ebc_param.num_lookup * 2)})
-                               .data_type(core23::ScalarType::Pointer));
-  h_ptrs_ = core23::Tensor(core23::TensorParams()
-                               .device(core23::DeviceType::CPU)
-                               .shape({static_cast<int64_t>(ebc_param.num_lookup * 2)})
-                               .data_type(core23::ScalarType::Pointer));
 }
 
-void LabelAndCountKeysOperator::operator()(const std::vector<core23::Tensor>& dp_keys,
-                                           const std::vector<core23::Tensor>& dp_bucket_range,
+void LabelAndCountKeysOperator::operator()(const DataDistributionInput& input,
                                            LabelAndCountKeysOperator::Result& output,
                                            cudaStream_t stream) {
-  int num_lookup = dp_keys.size();
-
-  // concat both arrays so we only need to copy up one array of pointers
-  std::vector<core23::Tensor> all_tensors(num_lookup * 2);
-  for (int i = 0; i < num_lookup; ++i) {
-    all_tensors[i] = dp_keys[i];
-    all_tensors[num_lookup + i] = dp_bucket_range[i];
-  }
-
-  init_tensor_list(h_ptrs_, all_tensors);
-  core23::copy_async(d_ptrs_, h_ptrs_, stream);
-
   HCTR_LIB_THROW(cudaMemsetAsync(output.keys_per_bucket.data(), 0,
                                  output.keys_per_bucket.num_bytes(), stream));
   HCTR_LIB_THROW(
@@ -462,18 +429,18 @@ void LabelAndCountKeysOperator::operator()(const std::vector<core23::Tensor>& dp
   int smem_keys_per_gpu = global_gpu_count_ * sizeof(uint32_t);
   int smem_bytes = smem_keys_per_gpu + smem_lookup_gpus_bytes;
 
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_keys[0].data_type().type(), KeyType, [&] {
-    DISPATCH_INTEGRAL_FUNCTION_CORE23(dp_bucket_range[0].data_type().type(), BucketRangeType, [&] {
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(input.key_type.type(), KeyType, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(input.offset_type.type(), BucketRangeType, [&] {
       kernels::label_and_count_keys<<<grid, block, smem_bytes, stream>>>(
-          (const KeyType**)(d_ptrs_.data<void*>()),
-          (const BucketRangeType**)(d_ptrs_.data<void*>()) + num_lookup,
+          input.get_dp_keys_pointer_ptr<KeyType>(),
+          input.get_dp_bucket_range_pointer_ptr<BucketRangeType>(),
           (const int*)lookup_bucket_threads.data<int>(), (const int*)lookup_ids.data<int>(),
           (const int*)lookup_num_gpus.data<int>(), (const int*)lookup_gpu_ids.data<int>(),
           (const int*)hotness_bucket_range.data<int>(),
           (const uint32_t*)gpu_lookup_range.data<uint32_t>(), output.flat_keys.data<KeyType>(),
           output.local_labels.data<uint32_t>(), output.keys_per_gpu.data<BucketRangeType>(),
           output.keys_per_bucket.data<BucketRangeType>(), batch_size_per_gpu_, global_gpu_count_,
-          global_gpu_id_, num_lookup);
+          global_gpu_id_, input.num_lookup_);
     });
   });
 
@@ -486,7 +453,7 @@ LabelAndCountKeysOperator::Result::Result(
   CudaDeviceContext ctx(resource_manager->get_device_id());
 
   const auto& lookup_params = ebc_param.lookup_params;
-  const auto& group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto& group_params = ebc_param.grouped_table_params[grouped_id];
   const int batch_size_per_gpu =
       ebc_param.universal_batch_size / resource_manager->get_global_gpu_count();
 
@@ -704,51 +671,33 @@ ConcatKeysAndBucketRangeOperator::ConcatKeysAndBucketRangeOperator(
   buffer_params.unitary = false;
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
+  d_shard_ids_ = core23::Tensor(params.shape({static_cast<int64_t>(h_shard_ids_.size())})
+                                    .data_type(core23::ScalarType::Int32));
   shard_bucket_threads_ = core23::Tensor(params.shape({static_cast<int64_t>(h_shard_ids_.size())})
                                              .data_type(core23::ScalarType::Int32));
   shard_ranges_ = core23::Tensor(params.shape({static_cast<int64_t>(h_shard_ids_.size()) + 1})
                                      .data_type(core23::ScalarType::UInt32));
 
+  core23::copy_sync(d_shard_ids_, h_shard_ids_);
   core23::copy_sync(shard_bucket_threads_, h_shard_bucket_threads);
-
-  // 2x for both keys & bucket_range
-  d_ptrs_ = core23::Tensor(params.shape({static_cast<int64_t>(h_shard_ids_.size() * 2)})
-                               .data_type(core23::ScalarType::Pointer));
-  h_ptrs_ = core23::Tensor(core23::TensorParams()
-                               .device(core23::DeviceType::CPU)
-                               .shape({static_cast<int64_t>(h_shard_ids_.size() * 2)})
-                               .data_type(core23::ScalarType::Pointer));
 }
 
-void ConcatKeysAndBucketRangeOperator::operator()(std::vector<core23::Tensor> dp_keys,
-                                                  std::vector<core23::Tensor> dp_bucket_ranges,
+void ConcatKeysAndBucketRangeOperator::operator()(const DataDistributionInput& input,
                                                   core23::Tensor& result_keys,
                                                   core23::Tensor& result_bucket_range,
                                                   cudaStream_t stream) {
   int num_shards = h_shard_ids_.size();
 
-  auto key_scalar_type = dp_keys[0].data_type().type();
-  auto range_scalar_type = dp_bucket_ranges[0].data_type().type();
-
-  // concat both arrays so we only need to copy up one array of pointers
-  std::vector<core23::Tensor> selected_tensors(num_shards * 2);
-  for (int i = 0; i < num_shards; ++i) {
-    int lookup_id = h_shard_ids_[i];
-    selected_tensors[i] = dp_keys[lookup_id];
-    selected_tensors[num_shards + i] = dp_bucket_ranges[lookup_id];
-  }
-
-  init_tensor_list(h_ptrs_, selected_tensors);
-  core23::copy_async(d_ptrs_, h_ptrs_, stream);
+  auto key_scalar_type = input.key_type.type();
+  auto range_scalar_type = input.offset_type.type();
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(range_scalar_type, BucketRangeType, [&] {
     constexpr int block_dim = 32;
     int num_shards_padded = ((num_shards + block_dim - 1) / block_dim) * block_dim;
 
-    kernels::compute_shard_ranges<block_dim>
-        <<<1, block_dim, 0, stream>>>(shard_ranges_.data<uint32_t>(),
-                                      (const BucketRangeType**)(d_ptrs_.data<void*>()) + num_shards,
-                                      num_shards, num_shards_padded, batch_size_per_gpu_);
+    kernels::compute_shard_ranges<block_dim><<<1, block_dim, 0, stream>>>(
+        shard_ranges_.data<uint32_t>(), input.get_dp_bucket_range_pointer_ptr<BucketRangeType>(),
+        d_shard_ids_.data<int>(), num_shards, num_shards_padded, batch_size_per_gpu_);
   });
   HCTR_LIB_THROW(cudaGetLastError());
 
@@ -759,8 +708,8 @@ void ConcatKeysAndBucketRangeOperator::operator()(std::vector<core23::Tensor> dp
 
       kernels::concat_keys_and_bucket_range<<<grid, block, 0, stream>>>(
           result_keys.data<KeyType>(), result_bucket_range.data<BucketRangeType>(),
-          (const KeyType**)(d_ptrs_.data<void*>()),
-          (const BucketRangeType**)(d_ptrs_.data<void*>()) + num_shards,
+          input.get_dp_keys_pointer_ptr<KeyType>(),
+          input.get_dp_bucket_range_pointer_ptr<BucketRangeType>(), d_shard_ids_.data<int>(),
           shard_ranges_.data<uint32_t>(), shard_bucket_threads_.data<int>(), batch_size_per_gpu_);
     });
   });

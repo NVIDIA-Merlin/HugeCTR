@@ -39,6 +39,22 @@ __forceinline__ __device__ uint64_t atomicCAS(uint64_t *address, uint64_t compar
                              (unsigned long long)val);
 }
 
+__inline__ __device__ int32_t atomic_add(int32_t *address, int32_t val) {
+  return (int32_t)atomicAdd((unsigned int *)address, (unsigned int)val);
+}
+
+__inline__ __device__ uint32_t atomic_add(uint32_t *address, uint32_t val) {
+  return (uint32_t)atomicAdd((unsigned int *)address, (unsigned int)val);
+}
+
+__inline__ __device__ int64_t atomic_add(int64_t *address, int64_t val) {
+  return (int64_t)atomicAdd((unsigned long long int *)address, (unsigned long long int)val);
+}
+
+__inline__ __device__ uint64_t atomic_add(uint64_t *address, uint64_t val) {
+  return (uint64_t)atomicAdd((unsigned long long int *)address, (unsigned long long int)val);
+}
+
 namespace HugeCTR {
 
 template <typename T>

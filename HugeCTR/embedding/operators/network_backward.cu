@@ -179,10 +179,10 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& dp_num_key
 }
 
 }  // namespace
-void NetworkBackward::compute(const core23::Tensor& dp_num_keys_per_bucket,
-                              const EmbeddingOutput& top_grad,
-                              const NetworkIndices& network_indices, NetworkBuffer& network_buffer,
-                              int batch_size) {
+void NetworkBackward::sparse_backward(const core23::Tensor& dp_num_keys_per_bucket,
+                                      const EmbeddingOutput& top_grad,
+                                      const NetworkIndices& network_indices,
+                                      NetworkBuffer& network_buffer, int batch_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int gpu_id = core_->get_global_gpu_id();
@@ -208,7 +208,7 @@ void NetworkBackward::compute(
     const core23::Tensor& network_ev_offsets, core23::Tensor& network_comm_buffer,
     const core23::Tensor& d_ev_size_offset, int batch_size, int max_ev_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
-  int batch_size_per_gpu = batch_size / num_gpus_;
+  int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
   auto stream = core_->get_local_gpu()->get_stream();
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(row_lengths.data_type().type(), offset_t, [&] {

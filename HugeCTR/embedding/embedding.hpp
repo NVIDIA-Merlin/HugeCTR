@@ -35,6 +35,17 @@ enum class Stage {
   MPBackwardIndexCalculation,
   MPNetworkBackward,
   MPLocalReduce,
+
+  DenseDPForward,
+  DenseDPBackwardIndexCalculation,
+  DenseDPLocalReduce,
+  DenseDPAllReduce,
+
+  DenseMPModelForward,
+  DenseMPNetworkForward,
+  DenseMPBackwardIndexCalculation,
+  DenseMPNetworkBackward,
+  DenseMPLocalReduce,
 };
 
 class IGroupedEmbeddingOp {

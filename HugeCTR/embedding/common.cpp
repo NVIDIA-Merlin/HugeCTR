@@ -20,6 +20,43 @@
 #include <embedding/common.hpp>
 #include <utils.hpp>
 
+namespace HugeCTR {
+DataDistributionInput::DataDistributionInput(std::shared_ptr<core::CoreResourceManager> core,
+                                             int num_lookup, core23::DataType key_type,
+                                             core23::DataType offset_type)
+    : num_lookup_(num_lookup), key_type(key_type), offset_type(offset_type) {
+  CudaDeviceContext ctx(core->get_device_id());
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
+  // 2x for both keys & bucket_range
+  this->d_ptrs_ = core23::Tensor(
+      params.shape({static_cast<int64_t>(num_lookup_ * 2)}).data_type(core23::ScalarType::Pointer));
+  this->h_ptrs_ = core23::Tensor(core23::TensorParams()
+                                     .device(core23::DeviceType::CPU)
+                                     .shape({static_cast<int64_t>(num_lookup_ * 2)})
+                                     .data_type(core23::ScalarType::Pointer));
+}
+
+void DataDistributionInput::copy_tensor_vec(const std::vector<core23::Tensor> &dp_keys,
+                                            const std::vector<core23::Tensor> &dp_bucket_range,
+                                            cudaStream_t stream) {
+  int num_lookup = dp_keys.size();
+  HCTR_CHECK(num_lookup == num_lookup_);
+
+  // concat both arrays so we only need to copy up one array of pointers
+  std::vector<core23::Tensor> all_tensors(num_lookup * 2);
+  for (int i = 0; i < num_lookup; ++i) {
+    all_tensors[i] = dp_keys[i];
+    all_tensors[num_lookup + i] = dp_bucket_range[i];
+  }
+
+  init_tensor_list(h_ptrs_, all_tensors);
+  core23::copy_async(d_ptrs_, h_ptrs_, stream);
+}
+}  // namespace HugeCTR
+
 namespace embedding {
 
 std::ostream &operator<<(std::ostream &os, const Combiner &p) {
@@ -119,15 +156,6 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   os << "max_hotness:" << p.max_hotness << ",";
   os << "ev_size:" << p.ev_size;
   return os;
-}
-
-std::vector<int> EmbeddingCollectionParam::get_table_id_to_global_start_indices() const {
-  if (this->table_id_to_vocabulary_size.empty()) return {};
-
-  std::vector<int> table_id_to_table_offsets{0};
-  std::partial_sum(table_id_to_vocabulary_size.begin(), table_id_to_vocabulary_size.end(),
-                   std::back_inserter(table_id_to_table_offsets));
-  return table_id_to_table_offsets;
 }
 
 void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
@@ -429,13 +457,6 @@ WgradInitializer &WgradInitializer::init_data() {
 }
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init(Wgrad &other) {
-  HCTR_CHECK_HINT(ebc_param.table_id_to_vocabulary_size.size() > 0 &&
-                      (ebc_param.allreduce_strategy_ == AllreduceStrategy::Dense ||
-                       ebc_param.allreduce_strategy_ == AllreduceStrategy::GroupDense) &&
-                      ebc_param.grouped_emb_params[grouped_id].table_placement_strategy ==
-                          TablePlacementStrategy::DataParallel,
-                  "allreduce buffer can only be initialized in Dense/GroupDense Allreduce and "
-                  "dataparallel embedding");
   this->wgrad = &other;
   wgrad->attr = wgrad_attr;
   return *this;
@@ -449,7 +470,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
 
   std::vector<int> h_local_num_keys_list =
-      get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
+      get_allreduce_buffer_num_keys(h_unique_table_ids, table_id_to_vocabulary_size);
   auto key_type = ebc_param.key_type;
 
   int max_num_keys = std::accumulate(h_local_num_keys_list.begin(), h_local_num_keys_list.end(), 0);
@@ -531,7 +552,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(bool not_grouped
   std::vector<int> h_unique_table_ids(wgrad_attr.sorted_unique_table_ids.num_elements());
   core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
   std::vector<int> h_local_num_keys_list =
-      get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
+      get_allreduce_buffer_num_keys(h_unique_table_ids, table_id_to_vocabulary_size);
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
@@ -557,7 +578,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
   std::vector<int> h_unique_table_ids(wgrad_attr.sorted_unique_table_ids.num_elements());
   core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
   std::vector<int> h_local_num_keys_list =
-      get_allreduce_buffer_num_keys(h_unique_table_ids, ebc_param.table_id_to_vocabulary_size);
+      get_allreduce_buffer_num_keys(h_unique_table_ids, table_id_to_vocabulary_size);
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 

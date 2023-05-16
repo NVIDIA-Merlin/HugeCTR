@@ -479,8 +479,8 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   ModelForward model_forward_{core};
   ModelCommBuffer model_comm_buffer;
   model_comm_buffer.init_from_device_buffer(core, emb_vec_model_buffer, meta.model_buffer_attr);
-  model_forward_.compute(embedding_vec, embedding_input.bucket_range, model_comm_buffer,
-                         ebc_param.universal_batch_size);
+  model_forward_.sparse_forward(embedding_vec, embedding_input.bucket_range, model_comm_buffer,
+                                ebc_param.universal_batch_size);
 
   *ret_model_key = embedding_input.keys;
   *ret_model_offset = embedding_input.bucket_range;
@@ -566,7 +566,7 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   cudaStream_t stream = core->get_local_gpu()->get_stream();
   int num_gpus = core->get_global_gpu_count();
-  NetworkForward network_forward = NetworkForward(core, num_gpus);
+  NetworkForward network_forward = NetworkForward(core);
   int batch_size_per_gpu = row_lengths[0].num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
   int global_gpu_id = core->get_global_gpu_id();
@@ -655,7 +655,7 @@ void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   int batch_size_per_gpu = row_lengths[0].num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
 
-  NetworkBackward network_backward = NetworkBackward(core, num_gpus);
+  NetworkBackward network_backward = NetworkBackward(core);
 
   core23::Tensor row_lengths_buffer;
   DISPATCH_INTEGRAL_FUNCTION_CORE23(row_lengths[0].data_type().type(), row_length_type, [&] {
@@ -768,15 +768,19 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   LocalReduceIndexCalculation local_reduce_index_calculation{core,
                                                              meta.wgrad_attr.num_lookup,
-                                                             meta.wgrad_attr.num_table,
                                                              meta.num_local_hotness_,
                                                              ebc_param.universal_batch_size,
                                                              ebc_param.key_type,
                                                              ebc_param.offset_type};
   CalDstIds cal_dst_ids{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
   SegmentdUnique segmentd_unique{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
-  SegmentedSortDevice segmented_sort{core, meta.num_local_hotness_, ebc_param.universal_batch_size,
-                                     meta.wgrad_attr.num_table, ebc_param.key_type};
+  SegmentedSortDevice segmented_sort{core,
+                                     meta.wgrad_attr.sorted_table_ids,
+                                     meta.num_local_hotness_,
+                                     ebc_param.universal_batch_size,
+                                     meta.wgrad_attr.num_lookup,
+                                     meta.wgrad_attr.num_table,
+                                     ebc_param.key_type};
   CalDstOffsetMP cal_dst_offset_mp{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
 
   MPLocalReduceIndexCalculation local_reduce_index_calculation_;
@@ -784,7 +788,8 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                                        cal_dst_ids, segmentd_unique, cal_dst_offset_mp);
 
   ReductionIndices reduction_indices_;
-  reduction_indices_.init(core, meta.num_local_hotness_, ebc_param.universal_batch_size);
+  reduction_indices_.init(core, meta.num_local_hotness_, ebc_param.universal_batch_size,
+                          ebc_param.key_type);
 
   Wgrad wgrad;
   WgradInitializer{core, ebc_param, 0, meta.wgrad_attr}.init(wgrad).init_indices().init_data();

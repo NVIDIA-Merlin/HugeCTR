@@ -50,11 +50,11 @@ class EmbeddingCollectionCPU {
         ebc_param_(ebc_param),
         num_table_(num_table),
         emb_table_cpu_(num_table, emb_table_list, table_param_list) {
-    for (size_t emb_id = 0; emb_id < ebc_param.grouped_emb_params.size(); ++emb_id) {
-      if (ebc_param.grouped_emb_params[emb_id].table_placement_strategy ==
+    for (size_t emb_id = 0; emb_id < ebc_param.grouped_table_params.size(); ++emb_id) {
+      if (ebc_param.grouped_table_params[emb_id].table_placement_strategy ==
           TablePlacementStrategy::DataParallel) {
         dp_embedding_list_.emplace_back(num_gpus, ebc_param, emb_id);
-      } else if (ebc_param.grouped_emb_params[emb_id].table_placement_strategy ==
+      } else if (ebc_param.grouped_table_params[emb_id].table_placement_strategy ==
                  TablePlacementStrategy::ModelParallel) {
         mp_embedding_list_.emplace_back(num_gpus, ebc_param, emb_id);
       } else {

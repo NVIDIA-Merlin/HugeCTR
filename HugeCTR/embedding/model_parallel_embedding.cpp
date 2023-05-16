@@ -30,7 +30,7 @@ UniformModelParallelEmbeddingMeta::UniformModelParallelEmbeddingMeta(
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
   const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
@@ -139,7 +139,7 @@ void UniformModelParallelEmbeddingMeta::update_mutable_meta(
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &lookup_params = ebc_param.lookup_params;
-  const auto &group_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
   HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
                   "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
 
@@ -150,18 +150,10 @@ void UniformModelParallelEmbeddingMeta::update_mutable_meta(
                   "shard matrix should contain num_gpus row.");
 
   for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
-    int table_id = lookup_params[lookup_id].table_id;
     int max_hotness = lookup_params[lookup_id].max_hotness;
 
     h_hotness_list_.push_back(max_hotness);
-    if (std::find(group_params.table_ids.begin(), group_params.table_ids.end(), table_id) ==
-        group_params.table_ids.end()) {
-      continue;
-    }
-
-    if (ebc_param.shard_matrix[gpu_id][table_id] == 0) {
-      continue;
-    }
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
 
     h_local_hotness_list_.push_back(max_hotness);
   }
@@ -175,23 +167,18 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
     size_t grouped_id)
     : core_(core), meta_(core, params, grouped_id) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
-  int num_gpus = core->get_global_gpu_count();
   auto key_type = params.key_type;
 
   compress_offset_ = CompressOffset(core, meta_.num_local_lookup_ + 1, params.offset_type);
   model_forward_ = ModelForward{core};
   all2all_comm_ = NcclAll2AllComm(core);
-  network_forward_ = NetworkForward(core, num_gpus);
-  network_backward_ = NetworkBackward(core, num_gpus);
+  network_forward_ = NetworkForward(core);
+  network_backward_ = NetworkBackward(core);
 
-  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size);
-  LocalReduceIndexCalculation local_reduce_index_calculation{core,
-                                                             meta_.wgrad_attr.num_lookup,
-                                                             meta_.wgrad_attr.num_table,
-                                                             meta_.num_local_hotness_,
-                                                             params.universal_batch_size,
-                                                             key_type,
-                                                             params.offset_type};
+  reduction_indices_.init(core, meta_.num_local_hotness_, params.universal_batch_size, key_type);
+  LocalReduceIndexCalculation local_reduce_index_calculation{
+      core,     meta_.wgrad_attr.num_lookup, meta_.num_local_hotness_, params.universal_batch_size,
+      key_type, params.offset_type};
   CalDstIds cal_dst_ids{core, meta_.num_local_hotness_, params.universal_batch_size};
   SegmentdUnique segmented_unique{core, meta_.num_local_hotness_, params.universal_batch_size};
   CalDstOffsetMP cal_dst_offset_mp{core, meta_.num_local_hotness_, params.universal_batch_size};
@@ -200,8 +187,13 @@ UniformModelParallelEmbedding::UniformModelParallelEmbedding(
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, indices_sort,
                                          cal_dst_ids, segmented_unique, cal_dst_offset_mp);
   } else if (params.sort_strategy_ == SortStrategy::Segmented) {
-    SegmentedSortDevice segmented_sort{core, meta_.num_local_hotness_, params.universal_batch_size,
-                                       meta_.wgrad_attr.num_table, key_type};
+    SegmentedSortDevice segmented_sort{core,
+                                       meta_.wgrad_attr.sorted_table_ids,
+                                       meta_.num_local_hotness_,
+                                       params.universal_batch_size,
+                                       meta_.wgrad_attr.num_lookup,
+                                       meta_.wgrad_attr.num_table,
+                                       key_type};
     local_reduce_index_calculation_.init(core, local_reduce_index_calculation, segmented_sort,
                                          cal_dst_ids, segmented_unique, cal_dst_offset_mp);
   } else {
@@ -229,23 +221,23 @@ void UniformModelParallelEmbedding::model_forward(const EmbeddingInput &embeddin
   embedding_table->lookup(embedding_input.keys, embedding_input.h_num_keys,
                           num_key_per_lookup_offset, meta_.num_local_lookup_ + 1,
                           meta_.d_local_table_id_list_, embedding_vec_);
-  model_forward_.compute(embedding_vec_, embedding_input.bucket_range, model_comm_buffer_,
-                         batch_size);
+  model_forward_.sparse_forward(embedding_vec_, embedding_input.bucket_range, model_comm_buffer_,
+                                batch_size);
 }
 
 void UniformModelParallelEmbedding::network_forward(const EmbeddingInput &embedding_input,
                                                     EmbeddingOutput &embedding_output,
                                                     int batch_size) {
   all2all_comm_.communicate(model_comm_buffer_.data_list, network_buffer_.data_list);
-  network_forward_.compute(embedding_input.num_keys_per_bucket, network_buffer_,
-                           meta_.network_indices, embedding_output, batch_size);
+  network_forward_.sparse_forward(embedding_input.num_keys_per_bucket, network_buffer_,
+                                  meta_.network_indices, embedding_output, batch_size);
 }
 
 void UniformModelParallelEmbedding::network_backward(const EmbeddingOutput &top_grad,
                                                      const EmbeddingInput &embedding_input,
                                                      Wgrad &wgrad, int batch_size) {
-  network_backward_.compute(embedding_input.num_keys_per_bucket, top_grad, meta_.network_indices,
-                            network_buffer_, batch_size);
+  network_backward_.sparse_backward(embedding_input.num_keys_per_bucket, top_grad,
+                                    meta_.network_indices, network_buffer_, batch_size);
 
   all2all_comm_.communicate(network_buffer_.data_list, model_comm_buffer_.data_list);
 }

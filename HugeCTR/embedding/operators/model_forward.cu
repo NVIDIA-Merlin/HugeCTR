@@ -22,12 +22,7 @@
 namespace embedding {
 using HugeCTR::CudaDeviceContext;
 
-DPModelForward::DPModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus,
-                               int num_embedding, int num_local_embedding)
-    : core_(core),
-      num_gpus_(num_gpus),
-      num_embedding_(num_embedding),
-      num_local_embedding_(num_local_embedding) {}
+DPModelForward::DPModelForward(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
 namespace {
 
@@ -149,10 +144,10 @@ void dp_forward_to_batch_major_output(const core23::Tensor &lookup_res,
 }
 }  // namespace
 
-void DPModelForward::compute(const core23::Tensor &lookup_res,
-                             const core23::Tensor &dp_bucket_range,
-                             const core23::Tensor &local_lookup_ids,
-                             EmbeddingOutput &embedding_output, int batch_size_per_gpu) {
+void DPModelForward::sparse_forward(const core23::Tensor &lookup_res,
+                                    const core23::Tensor &dp_bucket_range,
+                                    const core23::Tensor &local_lookup_ids,
+                                    EmbeddingOutput &embedding_output, int batch_size_per_gpu) {
   CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int gpu_id = core_->get_global_gpu_id();
@@ -169,8 +164,8 @@ void DPModelForward::compute(const core23::Tensor &lookup_res,
   }
 }
 
-void ModelForward::compute(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
-                           ModelCommBuffer &model_comm_buffer, int batch_size) {
+void ModelForward::sparse_forward(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
+                                  ModelCommBuffer &model_comm_buffer, int batch_size) {
   CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / model_comm_buffer.attr.num_gpus;
   auto stream = core_->get_local_gpu()->get_stream();

@@ -67,16 +67,15 @@ struct NetworkBuffer {
 
 class NetworkForward {
   std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
 
  public:
   NetworkForward() = default;
 
-  NetworkForward(std::shared_ptr<CoreResourceManager> core, int num_gpus);
+  NetworkForward(std::shared_ptr<CoreResourceManager> core);
 
-  void compute(const core23::Tensor &dp_num_keys_per_bucket, const NetworkBuffer &network_buffer,
-               const NetworkIndices &network_indices, EmbeddingOutput &embedding_output,
-               int batch_size);
+  void sparse_forward(const core23::Tensor &dp_num_keys_per_bucket,
+                      const NetworkBuffer &network_buffer, const NetworkIndices &network_indices,
+                      EmbeddingOutput &embedding_output, int batch_size);
 
   void compute(const core23::Tensor &row_lengths, const core23::Tensor &d_combiner_list,
                const core23::Tensor &network_comm_buffer, const core23::Tensor &network_ids,

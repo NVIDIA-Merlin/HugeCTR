@@ -22,6 +22,7 @@
 #include <embedding/gpu_barrier/gpu_barrier.hpp>
 #include <embedding/operators/transpose_input.hpp>
 #include <embedding_storage/embedding_table.hpp>
+#include <embedding_storage/ragged_static_embedding.hpp>
 #include <include/exchange_wgrad.hpp>
 #include <include/network_buffer_channels.hpp>
 #include <optimizer.hpp>
@@ -238,10 +239,9 @@ inline std::vector<std::vector<int>> create_shard_matrix_from_ebc_config(
   return shard_matrix;
 }
 
-inline std::vector<::embedding::GroupedEmbeddingParam>
-create_grouped_embedding_param_from_ebc_config(const TableNameToIDDict &table_name_to_id_dict,
-                                               const EmbeddingCollectionConfig &config) {
-  std::vector<::embedding::GroupedEmbeddingParam> grouped_embedding_params;
+inline std::vector<::embedding::GroupedTableParam> create_grouped_embedding_param_from_ebc_config(
+    const TableNameToIDDict &table_name_to_id_dict, const EmbeddingCollectionConfig &config) {
+  std::vector<::embedding::GroupedTableParam> grouped_embedding_params;
   for (auto &shard_strategy : config.shard_strategy_) {
     auto placement_strategy_string = get_table_place_strategy(shard_strategy);
     ::embedding::TablePlacementStrategy placement_strategy;
@@ -263,7 +263,7 @@ create_grouped_embedding_param_from_ebc_config(const TableNameToIDDict &table_na
     }
     // require ordered
     std::sort(table_ids.begin(), table_ids.end());
-    ::embedding::GroupedEmbeddingParam grouped_emb_param{placement_strategy, table_ids};
+    ::embedding::GroupedTableParam grouped_emb_param{placement_strategy, table_ids};
     grouped_embedding_params.push_back(std::move(grouped_emb_param));
   }
   return grouped_embedding_params;
@@ -295,12 +295,25 @@ class EmbeddingCollection {
 
   void init_peer_buffer(std::vector<std::shared_ptr<CoreResourceManager>> core);
 
+  IGroupedEmbeddingTable *get_table(int gpu_id, size_t grouped_id) {
+    int grouped_table_id = ebc_param_.grouped_lookup_params[grouped_id].grouped_table_idx;
+    if (grouped_table_id == -1) {
+      HCTR_CHECK(ebc_param_.grouped_lookup_params[grouped_id].embedding_type ==
+                 EmbeddingType::FrequentDense);
+      return frequent_embedding_tables_[gpu_id].get();
+    }
+
+    return embedding_tables_[gpu_id][grouped_table_id].get();
+  }
+
  public:
   // Fix:load and dump use these , put it on public temporary
   std::vector<HugeCTR::OptParams> embedding_optimizers_;
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingTable>>> embedding_tables_;
+  std::vector<std::unique_ptr<RaggedStaticEmbeddingTable>> frequent_embedding_tables_;
   EmbeddingCollectionParam ebc_param_;
   EmbeddingCollectionParam eval_ebc_param_;
+  std::vector<EmbeddingTableParam> emb_table_param_list_;
 
  public:
   EmbeddingCollection(std::shared_ptr<HugeCTR::ResourceManager> resource_manager,

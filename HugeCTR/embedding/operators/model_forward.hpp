@@ -22,19 +22,15 @@ namespace embedding {
 
 class DPModelForward {
   std::shared_ptr<CoreResourceManager> core_;
-  int num_gpus_;
-  int num_embedding_;
-  int num_local_embedding_;
 
  public:
   DPModelForward() = default;
 
-  DPModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_embedding,
-                 int num_local_embedding);
+  DPModelForward(std::shared_ptr<CoreResourceManager> core);
 
-  void compute(const core23::Tensor &lookup_res, const core23::Tensor &dp_bucket_range,
-               const core23::Tensor &local_lookup_ids, EmbeddingOutput &embedding_output,
-               int batch_size_per_gpu);
+  void sparse_forward(const core23::Tensor &lookup_res, const core23::Tensor &dp_bucket_range,
+                      const core23::Tensor &local_lookup_ids, EmbeddingOutput &embedding_output,
+                      int batch_size_per_gpu);
 };
 
 struct ModelCommBufferAttr {
@@ -75,8 +71,8 @@ struct ModelCommBuffer {
 struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;
 
-  void compute(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
-               ModelCommBuffer &model_comm_buffer, int batch_size);
+  void sparse_forward(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
+                      ModelCommBuffer &model_comm_buffer, int batch_size);
 };
 
 }  // namespace embedding
