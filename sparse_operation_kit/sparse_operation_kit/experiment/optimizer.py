@@ -101,6 +101,19 @@ class OptimizerWrapperV1(object):
             return (var.op.graph, var.op.name)
         return var._unique_id
 
+    def _create_slots(self, var):
+        self._optimizer._create_slots(var)
+
+    def get_slot_names(self):
+        return self._optimizer.get_slot_names()
+
+    def get_slot(self, var, name):
+        return self._optimizer.get_slot(var, name)
+
+    @property
+    def _slots(self):
+        return self._optimizer._slots
+
     def apply_gradients(self, grads_and_vars, global_step=None, name=None):
         # 1. Create slots and do sparse_read
         to_static_ops = []
@@ -181,12 +194,25 @@ class OptimizerWrapperV2(object):
     def lr(self):
         return self._optimizer.lr
 
+    def _create_slots(self, var):
+        self._optimizer._create_slots(var)
+
     def _var_key(self, var):
         if hasattr(var, "_distributed_container"):
             var = var._distributed_container()
         if var._in_graph_mode:
             return var._shared_name
         return var._unique_id
+
+    def get_slot_names(self):
+        return self._optimizer.get_slot_names()
+
+    def get_slot(self, var, name):
+        return self._optimizer.get_slot(var, name)
+
+    @property
+    def _slots(self):
+        return self._optimizer._slots
 
     def apply_gradients(self, grads_and_vars, global_step=None, name=None):
         # 1. Create slots and do sparse_read
@@ -239,7 +265,6 @@ class OptimizerWrapperV2(object):
                 for name in self._initial_vals:
                     slot = self._optimizer._slots[key][name]
                     to_dynamic_ops.append(slot.to_dynamic())
-
         return tf.group(to_dynamic_ops)
 
 

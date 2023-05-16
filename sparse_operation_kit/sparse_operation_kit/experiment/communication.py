@@ -113,6 +113,14 @@ class CommToolBase(object):
         """
         raise NotImplementedError("allgather() is not implemented")
 
+    def broadcast(self, tensor, root):
+        """Performs an allgather operation.
+
+        Args:
+          tensor: A tensorflow tensor to be sent.
+        """
+        raise NotImplementedError("allgather() is not implemented")
+
 
 class HorovodTool(CommToolBase):
     def rank(self):
@@ -149,6 +157,9 @@ class HorovodTool(CommToolBase):
 
     def allgather(self, tensor):
         return hvd.allgather(tensor)
+
+    def broadcast(self, tensor, root):
+        return hvd.broadcast(tensor, root)
 
 
 # The global communication tool instance, it should only be set by `set_comm_tool` method.
@@ -225,3 +236,8 @@ def allreduce(*args, **kwargs):
 def allgather(*args, **kwargs):
     check_comm_tool()
     return _COMM_TOOL.allgather(*args, **kwargs)
+
+
+def broadcast(*args, **kwargs):
+    check_comm_tool()
+    return _COMM_TOOL.broadcast(*args, **kwargs)

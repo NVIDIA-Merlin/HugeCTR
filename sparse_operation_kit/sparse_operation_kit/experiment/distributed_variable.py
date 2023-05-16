@@ -20,6 +20,8 @@ from tensorflow.python.ops.resource_variable_ops import ResourceVariable
 
 from sparse_operation_kit.experiment.communication import global_gpu_id, num_gpus
 
+variable_count = 0
+
 
 def Variable(*args, **kwargs):
     """
@@ -145,6 +147,11 @@ class DistributedVariable(ResourceVariable):
         self._global_gpu_id = global_gpu_id
         self._num_gpus = num_gpus
 
+        if name == None:
+            global variable_count
+            name = "sok_static_Variable_" + str(variable_count)
+            variable_count += 1
+
         if initial_value is not None:
             if isinstance(initial_value, list):
                 initial_value = np.array(initial_value)
@@ -254,6 +261,11 @@ class LocalizedVariable(ResourceVariable):
                 "There are only %d GPU(s), cannot put embedding table on %dth(zero-indexed) GPU."
                 % (self._num_gpus, target_gpu)
             )
+
+        if name == None:
+            global variable_count
+            name = "sok_static_Variable_" + str(variable_count)
+            variable_count += 1
 
         if initial_value is not None:
             if isinstance(initial_value, list):

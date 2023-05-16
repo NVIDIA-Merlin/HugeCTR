@@ -62,6 +62,8 @@ from sparse_operation_kit.experiment.optimizer import SGD
 from sparse_operation_kit.experiment.lookup import lookup_sparse
 from sparse_operation_kit.experiment.lookup import all2all_dense_embedding
 
+from sparse_operation_kit.experiment.dump_load import dump, load
+
 
 # a specific code path for dl framework tf2.11.0
 import tensorflow
@@ -114,6 +116,7 @@ def init(comm_tool="horovod", use_legacy_optimizer=True):
         try:
             if tensorflow.keras.optimizers.legacy.Optimizer.__name__ == "OptimizerV2":
                 tensorflow.keras.optimizers = tensorflow.keras.optimizers.legacy
+                tensorflow.optimizers = tensorflow.optimizers.legacy
         except:
             pass
 
