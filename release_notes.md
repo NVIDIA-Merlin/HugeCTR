@@ -1,9 +1,55 @@
 # Release Notes
 
+## What's New in Version 23.05
+
+In this release, we have fixed issues and enhanced the code.
+
++ **3G Embedding Updates**:
+  + Refactored the `DataDistributor` related code
+  + New SOK `load()` and `dump()` APIs are usable in TensorFlow 2. To use the API, specify `sok_vars` in addition to `path`. 
+  + `sok_vars` is a list of `sok.variable` and/or `sok.dynamic_variable`. 
+  + If you want to store optimizer states such as `m` and `v` of `Adam`,  the `optimizer` must be specified as well.   
+  + The `optimizer` must be a `tf.keras.optimizers.Optimizer` or `sok.OptimizerWrapper` while their underlying type must be `SGD`, `Adamax`, `Adadelta`, `Adagrad`, or `Ftrl`.
+
+  ```python
+  import sparse_operation_kit as sok
+  
+  sok.load(path, sok_vars, optimizer=None)
+  
+  sok.dump(path, sok_vars, optimizer=None)
+  ```
+ 
+  These APIs are independent from the number of GPUs in use and the sharding strategy. For instance, a distributed embedding table trained and dumped with 8 GPUs can be loaded to train on a 4-GPU machine.
+
++ **Issues Fixed**:
+  + Fixed the segmentation fault and wrong initialization when the embedding table fusion is enabled in using the HPS UVM implementation
+  + `cudaDeviceSynchronize()` is removed when building the HugeCTR in the debug mode, so you can enable the CUDA Graph even in the debug mode.
+  + Modified some Notebooks to use the most recent version of NGC container
+  + Fixed the `EmbeddingTableCollection` utest to run correctly with multiple GPUs
+
+
+
++ **Known Issues**:
+  + HugeCTR can lead to a runtime error if client code calls RMM’s `rmm::mr::set_current_device_resource()` or  `rmm::mr::set_current_device_resource()` because HugeCTR’s Parquet Data Reader also calls `rmm::mr::set_current_device_resource()`, and it becomes visible to other libraries in the same process. Refer to [this issue] (https://github.com/NVIDIA-Merlin/HugeCTR/issues/356) . As a workaround, set an environment variable `HCTR_RMM_SETTABLE` to 0 to disable HugeCTR to set a custom RMM device resource, if they know `rmm::mr::set_current_device_resource()`  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also [this NCCL known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and [this GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka,make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers. Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
+
 ## What's New in Version 23.04
 
 + **Hierarchical Parameter Server Enhancements**:
-  + HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS.. To turn on table fusion, set `fuse_embedding_table` to `true` in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to [HPS configuration](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration) and [HPS table fusion demo notebook](https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html). This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.
+  + HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS. To turn on table fusion, set `fuse_embedding_table` to `true` in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to [HPS configuration](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration) and [HPS table fusion demo notebook](https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html). This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.
 
   + UVM Support: We have upgraded the static embedding solution. For embedding tables whose size exceeds the device memory, we will save high-frequency embeddings in the HBM as an embedding cache and offload the remaining embeddings to the UVM. Compared with the dynamic cache solution that offloads the remaining embeddings to the [Volatile DB](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#volatile-database-configuration), the UVM solution has higher CPU lookup throughput. We will support online updating of the UVM solution in a future release. Users can switch between different embedding cache solutions through the [embedding_cache_type](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#inference-parameters) configuration parameter.
   + Triton Perf Analayzer’s Request Generator: We have added an [inference request generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/request_generator) to generate the JSON request format required by Triton Perf Analyzer. By using this request generator together with the [model generator](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/model_generator), you can use the Triton Perf Analyzer to profile the HPS performance and do stress testing. For API documentation and demo usage, please refer to [README](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md)
