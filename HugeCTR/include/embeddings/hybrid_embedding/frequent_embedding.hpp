@@ -18,6 +18,7 @@
 #include <cuda_runtime.h>
 
 #include <common.hpp>
+#include <core23_wrapper.hpp>
 #include <embeddings/hybrid_embedding/communication.hpp>
 #include <embeddings/hybrid_embedding/data.hpp>
 #include <embeddings/hybrid_embedding/hybrid_indices.hpp>
@@ -61,10 +62,10 @@ class FrequentEmbeddingData {
   Tensor2<float> float_frequent_gradients_;
   // buffer for communication can have fp16 type instead of fp32: input for all-reduce
   Tensor2<emtype> frequent_gradients_;
-
   template <typename T>
   using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
   BuffPtr<emtype> grouped_wgrad_buff_;
+  std::shared_ptr<Core23WrappingBuffer> wgrad_core23_buffer_;
 
   uint32_t embedding_vec_size_;
   size_t max_num_frequent_categories_;

@@ -143,14 +143,7 @@ void broadcast(const std::shared_ptr<ThreadBuffer23>& thread_buffer,
                                        src_sparse_tensor.nnz() * sizeof(T),
                                        cudaMemcpyDeviceToDevice, local_gpu->get_p2p_stream()));
         auto src_tensor23 = src_sparse_tensor.get_rowoffset_tensor();
-        // auto convert_op = [] __device__ (int32_t in ){ return static_cast<T>(in); };
         // TODO remove this conversion after changing output of data reader.
-        // auto dst_tensor23 = core23::Tensor::bind(
-        //   static_cast<void*>(dst_sparse_tensor.get_rowoffset_ptr()),
-        //   src_tensor23.shape(),
-        //   core23::ToScalarType<T>::value,
-        //   core23::Device(core23::DeviceType::GPU, static_cast<int8_t>(gpu_id)));
-        // core23::convert_to(dst_tensor23, src_tensor23, local_gpu->get_p2p_stream());
         HCTR_LIB_THROW(cudaMemcpyAsync(dst_sparse_tensor.get_rowoffset_ptr(),
                                        src_sparse_tensor.get_rowoffset_ptr(),
                                        src_sparse_tensor.get_rowoffset_tensor().num_bytes(),

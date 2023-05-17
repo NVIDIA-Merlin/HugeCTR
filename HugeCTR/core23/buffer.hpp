@@ -55,12 +55,17 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   inline void* data(int64_t offset, AccessKey) const { return data_impl(offset); }
 
   virtual std::pair<void*, int64_t> decay() const { return std::make_pair(nullptr, 0LL); }
+  size_t reserved_size() { return do_get_reserved_size(allocator_, new_client_requirements_); };
 
  protected:
   using ClientOffsets = std::map<BufferClient*, int64_t>;
   using ClientRequirements = std::map<BufferClient*, BufferRequirements>;
 
   const std::unique_ptr<Allocator>& allocator() const { return allocator_; }
+  virtual size_t do_get_reserved_size(const std::unique_ptr<Allocator>& allocator,
+                                      const ClientRequirements& client_requirements) {
+    return 0;
+  };
 
  private:
   void unsubscribe(BufferClient* client);
@@ -68,6 +73,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   virtual void* data_impl(int64_t offset) const = 0;
   virtual ClientOffsets do_allocate(const std::unique_ptr<Allocator>& allocator,
                                     const ClientRequirements& client_requirements) = 0;
+
   virtual bool subscribable_impl() const { return true; }
   virtual bool allocatable_impl() const { return true; }
 

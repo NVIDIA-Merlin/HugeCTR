@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <common.hpp>
+#include <core23_wrapper.hpp>
 #include <cub/cub.cuh>
 #include <data_simulator.hpp>
 #include <embeddings/hybrid_embedding/data.hpp>
@@ -27,6 +28,7 @@
 #include <embeddings/hybrid_embedding/utils.cuh>
 #include <embeddings/hybrid_embedding/utils.hpp>
 #include <iostream>
+#include <network_buffer_channels.hpp>
 #include <shuffle/shuffle.cuh>
 #include <tensor2.hpp>
 #include <utils.cuh>
@@ -129,6 +131,7 @@ FrequentEmbeddingData<dtype, emtype>::FrequentEmbeddingData(const Model<dtype>& 
     : model_(model),
       gpu_resource_(gpu_resource),
       grouped_wgrad_buff_(grouped_wgrad_buff),
+      wgrad_core23_buffer_(nullptr),
       embedding_vec_size_(embedding_vec_size),
       max_num_frequent_categories_(max_num_frequent_categories) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
@@ -141,7 +144,30 @@ FrequentEmbeddingData<dtype, emtype>::FrequentEmbeddingData(const Model<dtype>& 
   if (grouped_wgrad_buff == NULL) {
     buf->reserve({max_num_frequent_categories, embedding_vec_size_}, &gradients);
   } else {
-    grouped_wgrad_buff->reserve({max_num_frequent_categories, embedding_vec_size_}, &gradients);
+    int use_core23 = 1;
+    if (getenv("HUGECTR_CORE23_NETWORK")) {
+      use_core23 = atoi(getenv("HUGECTR_CORE23_NETWORK"));
+    }
+    if (use_core23) {
+      core23::BufferParams buffer_params = {};
+      // TODO this has to be consistent with add_dense_layer.cpp:2126
+      buffer_params.channel = std::is_same_v<emtype, float> ? "TRAIN_WGRAD" : "TRAIN_WGRAD_HALF";
+      core23::Device device(core23::DeviceType::GPU, gpu_resource.get_device_id());
+      core23::Shape shape{(int64_t)max_num_frequent_categories, (int64_t)embedding_vec_size_};
+
+      core23::TensorParams t_params = core23::TensorParams()
+                                          .data_type(core23::ToScalarType<emtype>::value)
+                                          .shape(shape)
+                                          .device(device)
+                                          .buffer_params(buffer_params)
+                                          .alignment(256);  // default 256 Byte
+      core23::Tensor grad_tensor(t_params);
+      wgrad_core23_buffer_ = std::make_shared<Core23WrappingBuffer>(grad_tensor);
+      gradients =
+          Tensor2<emtype>({max_num_frequent_categories, embedding_vec_size_}, wgrad_core23_buffer_);
+    } else {
+      grouped_wgrad_buff->reserve({max_num_frequent_categories, embedding_vec_size_}, &gradients);
+    }
   }
 
   buf->allocate();
@@ -198,7 +224,16 @@ void FrequentEmbeddingData<dtype, emtype>::initialize_embedding_vectors(
                              gpu_resource_.get_stream());
     }
   }
-  if (grouped_wgrad_buff_ != NULL) {
+
+  if (wgrad_core23_buffer_) {
+    // update wgrad tensors
+    size_t grad_size = model_.num_frequent * embedding_vec_size_;
+    if (sizeof(float) != sizeof(emtype)) {
+      frequent_gradients_ = Tensor2<emtype>({grad_size}, wgrad_core23_buffer_);
+    } else {
+      float_frequent_gradients_ = Tensor2<float>({grad_size}, wgrad_core23_buffer_);
+    }
+  } else if (grouped_wgrad_buff_) {
     // update wgrad tensors
     size_t grad_size = model_.num_frequent * embedding_vec_size_;
     if (sizeof(float) != sizeof(emtype)) {

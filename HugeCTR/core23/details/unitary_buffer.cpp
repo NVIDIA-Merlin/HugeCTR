@@ -35,6 +35,32 @@ UnitaryBuffer::~UnitaryBuffer() {
   if (allocated_ || ptr_ != nullptr) allocator()->deallocate(ptr_);
 }
 
+size_t UnitaryBuffer::do_get_reserved_size(const std::unique_ptr<Allocator>& allocator,
+                                           const ClientRequirements& client_requirements) {
+  if (client_requirements.empty()) {
+    return 0;
+  }
+  int64_t current_offset = 0;
+  bool is_first = true;
+
+  std::queue<BufferClient*> tmp_order = new_insertion_order_;
+  while (!tmp_order.empty()) {
+    auto client = tmp_order.front();
+    auto search = client_requirements.find(client);
+    if (search != client_requirements.end()) {
+      auto requirements = search->second;
+      int64_t alignment = requirements.alignment;
+      if (is_first) {
+        alignment = allocator->get_valid_alignment(alignment);
+        is_first = false;
+      }
+      current_offset = compute_offset(current_offset, alignment);
+      current_offset += requirements.num_bytes;
+    }
+    tmp_order.pop();
+  }
+  return current_offset;
+}
 Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator>& allocator,
                                                  const ClientRequirements& client_requirements) {
   if (client_requirements.empty()) {

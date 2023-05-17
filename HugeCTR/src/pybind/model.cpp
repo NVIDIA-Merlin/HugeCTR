@@ -573,7 +573,8 @@ void Model::create_copy_ops_for_network_input(const std::string& dense_name,
     copy_ops.resize(2 * num_local_gpus);
 
     for (int id = 0; id < num_local_gpus; ++id) {
-      core23::Device device(core23::DeviceType::GPU, id);
+      core23::Device device(core23::DeviceType::GPU,
+                            resource_manager_->get_local_gpu(id)->get_device_id());
       for (auto& tensor_entry : tensor_entries_list[id]) {
         if (tensor_entry.name == dense_name) {
           if (solver_.use_mixed_precision) {
@@ -767,6 +768,10 @@ void Model::add(Input& input) {
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
+  if (resource_manager_->get_num_process() == 1 && solver_.grouped_all_reduce &&
+      sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
+    HCTR_DIE("Grouped all reduce for HybridEmbedding is not supported on single node\n");
+  }
   if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync &&
        sparse_embedding.embedding_type != Embedding_t::HybridSparseEmbedding) ||
       (reader_params_.data_reader_type != DataReaderType_t::RawAsync &&
@@ -1501,10 +1506,12 @@ void Model::compile() {
              "===================================================Model "
              "Compile===================================================\n");
   build_networks();
+
   // TODO: this is a WAR; need to find a way to remove the preallocation
   for (int local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
        ++local_gpu_id) {
-    core23::Device device(core23::DeviceType::GPU, local_gpu_id);
+    auto device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_device_id();
+    core23::Device device(core23::DeviceType::GPU, device_id);
     bool success = core23::AllocateBuffers(device);
     if (!success) {
       HCTR_LOG_S(DEBUG, ROOT) << "Nothing to preallocate" << std::endl;
@@ -3218,6 +3225,24 @@ void Model::build_networks() {
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       core23_networks_[i]->create_and_set_optimizer(opt_params_);
     }
+    auto aligned_size = 16 * resource_manager_->get_local_gpu_count();
+    core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
+                                                                   : GetWgradBufferChannel()};
+    for (int g = 0; g < resource_manager_->get_local_gpu_count(); g++) {
+      auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
+      core23::Device device(core23::DeviceType::GPU, device_id);
+      auto wgrad_buffer = core23::GetBuffer(bp, device);
+      auto wgrad_size = wgrad_buffer->reserved_size();
+      size_t padded_bytes = wgrad_size % aligned_size;
+      padded_bytes += aligned_size - padded_bytes;
+
+      wgrad_tensor_successor_.emplace_back(core23::TensorParams()
+                                               .device(device)
+                                               .shape({static_cast<int64_t>(padded_bytes)})
+                                               .data_type(core23::ScalarType::Char)
+                                               .buffer_params(bp));
+    }
+
   } else {
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       if (solver_.use_mixed_precision) {
@@ -3297,7 +3322,8 @@ void Model::initialize() {
     core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
                                                                    : GetWgradBufferChannel()};
     for (int g = 0; g < num_gpus; g++) {
-      core23::Device device(core23::DeviceType::GPU, g);
+      auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
+      core23::Device device(core23::DeviceType::GPU, device_id);
       auto wgrad_buffer = core23::GetBuffer(bp, device);
       auto [ptr_, size_] = wgrad_buffer->decay();
       wgrad_buffer_size = size_;
