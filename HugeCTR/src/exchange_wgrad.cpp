@@ -127,14 +127,16 @@ void GroupedExchangeWgrad<T>::allocate() {
 
 template <typename T>
 void GroupedExchangeWgrad<T>::update_embed_wgrad_size(size_t size) {
-  int alignment = 16 * num_gpus_;  // default 256B
-  if (size % alignment != 0) {
-    size += (alignment - (size % alignment));
-  }
-  embed_wgrad_size_ = size;
+  if (const char* env_p = std::getenv("HUGECTR_CORE23_NETWORK"); env_p && std::atoi(env_p) == 0) {
+    int alignment = 16 * num_gpus_;  // default 256B
+    if (size % alignment != 0) {
+      size += (alignment - (size % alignment));
+    }
+    embed_wgrad_size_ = size;
 
-  auto ar_comm = resource_manager_->get_ar_comm();
-  ar_comm->update_size(ar_handle_, network_wgrad_size_ + embed_wgrad_size_);
+    auto ar_comm = resource_manager_->get_ar_comm();
+    ar_comm->update_size(ar_handle_, network_wgrad_size_ + embed_wgrad_size_);
+  }
 }
 
 template <typename T>

@@ -26,6 +26,7 @@
 #include <core23/cuda_stream.hpp>
 #include <core23/data_type_helpers.cuh>
 #include <core23/details/host_launch_helpers.hpp>
+#include <core23/details/pinned_host_allocator.hpp>
 #include <core23/details/pool_cuda_allocator.hpp>
 #include <core23/device.hpp>
 #include <core23/device_guard.hpp>
@@ -182,6 +183,26 @@ void normal_async(Type* data, int64_t num_elements, const Type mean, const Type 
   DeviceGuard device_guard(device);
   generator.set_stream(stream);
   int64_t even_length = num_elements / 2 * 2;
+  if (num_elements == 1) {
+    AllocatorParams allocator_params;
+    allocator_params.custom_factory = [](const auto& params, const auto& device) {
+      if (device.type() == DeviceType::CPU) {
+        return std::unique_ptr<Allocator>(new PinnedHostAllocator());
+      }
+      return std::unique_ptr<Allocator>(new PoolCUDAAllocator(device));
+    };
+    auto allocator = GetAllocator(allocator_params, device);
+    Type* tmp = static_cast<Type*>(allocator->allocate(2 * sizeof(Type), stream));
+    if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
+      HCTR_LIB_THROW(curandGenerateNormal(generator(), tmp, 2, mean, stddev));
+    } else {
+      static_assert(std::is_same<Type, double>::value);
+      HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), tmp, 2, mean, stddev));
+    }
+    copy_async(data, tmp, sizeof(Type), device, device, stream);
+    return;
+  }
+
   if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
     HCTR_LIB_THROW(curandGenerateNormal(generator(), data, even_length, mean, stddev));
   } else {

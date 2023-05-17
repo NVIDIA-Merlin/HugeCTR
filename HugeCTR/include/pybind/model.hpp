@@ -761,6 +761,7 @@ class Model final {
   void initialize();
   void create_metrics();
   void create_pipelines();
+  std::vector<core23::Tensor> wgrad_tensor_successor_;
 
   size_t number_of_networks() const;
 

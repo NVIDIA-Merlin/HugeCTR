@@ -347,12 +347,10 @@ void Core23TempTrainableLayer<DType, use_FP32_weight>::init_params(
   }
 
   std::vector<core23::Tensor> weight_cpu_tensors;
+  core23::AllocatorParams alloc_params{.pinned = true};
   for (const core23::Tensor& weight : weights) {
-    core23::TensorParams params = core23::TensorParams()
-                                      .alignment(weight.data_type().size())
-                                      .shape(weight.shape())
-                                      .device(core23::DeviceType::CPU)
-                                      .data_type(weight.data_type());
+    core23::TensorParams params =
+        weight.my_params().device(core23::DeviceType::CPU).allocator_params(alloc_params);
     weight_cpu_tensors.emplace_back(params);
   }
 

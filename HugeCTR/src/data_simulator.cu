@@ -125,10 +125,24 @@ void HostUniformGenerator::fill<float>(core23::Tensor& tensor, float a, float b,
   if (a >= b) {
     HCTR_OWN_THROW(Error_t::WrongInput, "a must be smaller than b");
   }
-  HCTR_LIB_THROW(curandGenerateUniform(
-      generator, tensor.data<float>(),
-      tensor.num_elements() % 2 != 0 ? tensor.num_elements() + 1 : tensor.num_elements()));
+  int64_t num_elements = tensor.num_elements();
+  int64_t even_length = tensor.num_elements() / 2 * 2;
   float* p = tensor.data<float>();
+
+  if (num_elements == 1) {
+    float tmp[2];
+    HCTR_LIB_THROW(curandGenerateUniform(generator, tmp, 2));
+    p[0] = tmp[0];
+    return;
+  }
+
+  HCTR_LIB_THROW(curandGenerateUniform(generator, tensor.data<float>(), even_length));
+  if (num_elements - even_length) {
+    float* last_element_ptr = tensor.data<float>() + even_length;
+    const float* first_element_ptr = tensor.data<float>();
+    // assignment
+    *last_element_ptr = *first_element_ptr;
+  }
   for (int64_t i = 0; i < tensor.num_elements(); i++) {
     p[i] = p[i] * (b - a) + a;
   }
@@ -144,10 +158,23 @@ void NormalGenerator::fill<float>(core23::Tensor& tensor, float mean, float stdd
 template <>
 void HostNormalGenerator::fill<float>(core23::Tensor& tensor, float mean, float stddev,
                                       const curandGenerator_t& gen) {
-  HCTR_LIB_THROW(curandGenerateNormal(
-      gen, tensor.data<float>(),
-      tensor.num_elements() % 2 != 0 ? tensor.num_elements() + 1 : tensor.num_elements(), mean,
-      stddev));
+  int64_t num_elements = tensor.num_elements();
+  int64_t even_length = tensor.num_elements() / 2 * 2;
+  float* p = tensor.data<float>();
+  if (num_elements == 1) {
+    float tmp[2];
+    HCTR_LIB_THROW(curandGenerateNormal(gen, tmp, 2, mean, stddev));
+    p[0] = tmp[0];
+    return;
+  }
+
+  HCTR_LIB_THROW(curandGenerateNormal(gen, p, even_length, mean, stddev));
+  if (num_elements - even_length) {
+    float* last_element_ptr = p + even_length;
+    const float* first_element_ptr = p;
+    // assignment
+    *last_element_ptr = *first_element_ptr;
+  }
 }
 
 void ConstantDataSimulator::fill(core23::Tensor& tensor, const curandGenerator_t& gen) {

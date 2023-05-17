@@ -34,6 +34,8 @@ class UnitaryBuffer final : public Buffer {
   bool subscribable() const;
 
   std::pair<void*, int64_t> decay() const override { return std::make_pair(ptr_, current_offset_); }
+  size_t do_get_reserved_size(const std::unique_ptr<Allocator>& allocator,
+                              const ClientRequirements& client_requirements) override;
 
  private:
   using ClientRequirements = typename Buffer::ClientRequirements;

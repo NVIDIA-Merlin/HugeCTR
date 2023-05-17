@@ -256,7 +256,7 @@ void Core23TempNetwork::upload_opt_states_to_device(char* h_opt_states) {
 void Core23TempNetwork::init_params(size_t index) {
   CudaDeviceContext context(get_device_id());
   for (auto& layer : train_layers_) {
-    layer->init_params(cpu_resource_->get_replica_uniform_curand_generator(get_device_id()));
+    layer->init_params(cpu_resource_->get_replica_uniform_curand_generator(index));
   }
 }
 
