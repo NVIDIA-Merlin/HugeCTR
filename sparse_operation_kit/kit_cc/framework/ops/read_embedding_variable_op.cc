@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using ::tensorflow::shape_inference::InferenceContext;
@@ -33,7 +34,7 @@ Status ReadEmbeddingVariableShapeFn(InferenceContext* c) {
               std::back_inserter(variant_shape_and_type));
     c->set_output_handle_shapes_and_types(0, variant_shape_and_type);
   }
-  return Status::OK();
+  return sok_tsl_status();
 }
 
 REGISTER_OP("ReadEmbeddingVariableOp")

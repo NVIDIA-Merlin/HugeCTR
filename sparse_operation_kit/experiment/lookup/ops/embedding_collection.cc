@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "common/utils_experiment.h"
 namespace tensorflow {
 
 using shape_inference::InferenceContext;
@@ -34,7 +34,7 @@ REGISTER_OP("HotnessCalculate")
         
         c->set_output(0, unknown_1d_shape);
         
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 REGISTER_OP("PreprocessingForward")
@@ -60,8 +60,8 @@ REGISTER_OP("PreprocessingForward")
         
         c->set_output(0, unknown_1d_shape);
         c->set_output(1, unknown_1d_shape);
-        
-        return Status::OK(); 
+       
+        return sok_tsl_status(); 
     });
 
 REGISTER_OP("PreprocessingForwardWithWeight")
@@ -89,7 +89,7 @@ REGISTER_OP("PreprocessingForwardWithWeight")
         c->set_output(0, unknown_1d_shape);
         c->set_output(1, unknown_1d_shape);
         
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 // There may be duplicates in the `handles`
@@ -142,7 +142,7 @@ REGISTER_OP("LookupForward")
             c->set_output(i, emb_vec_buffer_shape);
         }
 
-        return Status::OK();  
+        return sok_tsl_status();  
     });
 
 // There may be duplicates in the `handles`
@@ -195,7 +195,7 @@ REGISTER_OP("LookupForwardDynamic")
             c->set_output(i, emb_vec_buffer_shape);
         }
 
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 #ifdef GOOGLE_CUDA
@@ -249,8 +249,7 @@ REGISTER_OP("LookupForwardEmbeddingVarGPU")
         for  (int i = 0; i < num_gpus; ++i) {
             c->set_output(i, emb_vec_buffer_shape);
         }
-
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 #endif
 #endif
@@ -292,7 +291,7 @@ REGISTER_OP("LookupBackward")
             c->set_output(num_lookups + i, wgrad_shape);
         }
 
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 REGISTER_OP("PostprocessingForward")
@@ -333,7 +332,7 @@ REGISTER_OP("PostprocessingForward")
         }
         c->set_output(num_lookups, c->MakeShape({num_gpus}));
 
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 REGISTER_OP("PostprocessingBackward")
@@ -363,7 +362,7 @@ REGISTER_OP("PostprocessingBackward")
         for  (int i = 0; i < num_gpus; ++i) {
             c->set_output(i, unknown_1d_shape);
         }
-        return Status::OK(); 
+        return sok_tsl_status(); 
     });
 
 }  // namespace tensorflow

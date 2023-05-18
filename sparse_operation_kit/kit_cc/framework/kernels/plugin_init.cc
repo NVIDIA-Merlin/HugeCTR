@@ -21,10 +21,18 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #ifndef TF_GE_211
 #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/stream.h"
 #else
 #include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
 #endif
+
+#ifndef TF_GE_212
 #include "tensorflow/stream_executor/stream.h"
+#else
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
+#endif
+
 
 namespace stream_executor {
 namespace gpu {

@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "common/utils_experiment.h"
 namespace tensorflow {
 
 using shape_inference::DimensionHandle;
@@ -61,7 +61,7 @@ REGISTER_OP("DummyVarHandle")
       st.push_back({s_known_rank, t});
       c->set_output_handle_shapes_and_types(0, st);
 
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 REGISTER_OP("DummyVarInitialize")
@@ -72,7 +72,7 @@ REGISTER_OP("DummyVarInitialize")
     .Attr("unique_name: string")
     .Attr("key_type: {int32, int64} = DT_INT64")
     .Attr("dtype: {float32} = DT_FLOAT")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); });
+    .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
 REGISTER_OP("DummyVarShape")
     .Input("input: resource")
@@ -82,7 +82,7 @@ REGISTER_OP("DummyVarShape")
     .Attr("dtype: {float32} = DT_FLOAT")
     .SetShapeFn([](InferenceContext* c) {
       c->set_output(0, c->Vector(2));
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 }  // namespace tensorflow

@@ -20,6 +20,7 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/types.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -34,7 +35,7 @@ REGISTER_OP("EmbeddingVariableAssignSub")
       TF_RETURN_IF_ERROR(
           shape_inference::ValidateVariableResourceHandle(c, &handle_shape_and_type));
 
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 #endif

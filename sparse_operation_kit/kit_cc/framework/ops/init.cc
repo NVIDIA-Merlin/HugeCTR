@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -26,7 +27,7 @@ REGISTER_OP("GetNcclUniqueId")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle output_shape = ctx->Vector(32);
       ctx->set_output(0, output_shape);
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 REGISTER_OP("GenRandomSeed")
@@ -35,7 +36,7 @@ REGISTER_OP("GenRandomSeed")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle output_shape = ctx->Vector(1);
       ctx->set_output(0, output_shape);
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 REGISTER_OP("PluginInit")
@@ -72,5 +73,5 @@ REGISTER_OP("PluginInit")
       ShapeHandle visible_devices_shape;
       TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(4), 1, &visible_devices_shape));
 
-      return Status::OK();
+      return sok_tsl_status();
     });

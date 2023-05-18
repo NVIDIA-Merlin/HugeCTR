@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "common/utils_experiment.h"
 namespace tensorflow {
 
 using shape_inference::DimensionHandle;
@@ -31,7 +31,7 @@ REGISTER_OP("DummyVarAssign")
     .Input("values: dtype")
     .Attr("key_type: {int32, int64}")
     .Attr("dtype: {float32}")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); });
+    .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
 REGISTER_OP("DummyVarExport")
     .Input("resource: resource")
@@ -39,7 +39,7 @@ REGISTER_OP("DummyVarExport")
     .Output("values: dtype")
     .Attr("key_type: {int32, int64} = DT_INT64")
     .Attr("dtype: {float32} = DT_FLOAT")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); });
+    .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
 REGISTER_OP("DummyVarSparseRead")
     .Input("resource: resource")
@@ -51,7 +51,7 @@ REGISTER_OP("DummyVarSparseRead")
       // Get handle.shape[1]
       auto handle_shapes_and_types = c->input_handle_shapes_and_types(0);
       if (handle_shapes_and_types == nullptr) {
-          return Status::OK();
+          return sok_tsl_status();
       }
       auto handle_shape = (*handle_shapes_and_types)[0].shape;
       ShapeHandle handle_shape_1;
@@ -66,7 +66,7 @@ REGISTER_OP("DummyVarSparseRead")
       TF_RETURN_IF_ERROR(c->Concatenate(c->input(1), handle_shape_1, &output_shape));
       c->set_output(0, output_shape);
 
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 namespace {
@@ -74,7 +74,7 @@ Status DummyVarScatterShapeFn(InferenceContext* c) {
   // Get handle.shape[1]
   auto handle_shapes_and_types = c->input_handle_shapes_and_types(0);
   if (handle_shapes_and_types == nullptr) {
-      return Status::OK();
+      return sok_tsl_status();
   }
   auto handle_shape = (*handle_shapes_and_types)[0].shape;
   ShapeHandle handle_shape_1;
@@ -93,7 +93,7 @@ Status DummyVarScatterShapeFn(InferenceContext* c) {
   TF_RETURN_IF_ERROR(c->Concatenate(indices_shape, handle_shape_1, &correct_updates_shape));
   TF_RETURN_IF_ERROR(c->Merge(updates_shape, correct_updates_shape, &unused));
 
-  return Status::OK();
+  return sok_tsl_status();
 }
 }  // namespace
 

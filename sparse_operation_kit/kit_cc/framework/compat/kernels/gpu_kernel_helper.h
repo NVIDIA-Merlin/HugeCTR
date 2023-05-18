@@ -17,6 +17,7 @@ limitations under the License.
 #define TENSORFLOW_CORE_UTIL_GPU_KERNEL_HELPER_H_
 
 #include "gpu_device_functions.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 #include "tensorflow/core/util/gpu_launch_config.h"
 
 #define GPU_1D_KERNEL_LOOP(i, n) for (int i : ::tensorflow::GpuGridRangeX<int>(n))
@@ -52,7 +53,7 @@ Status GpuLaunchKernel(void (*function)(Ts...), dim3 grid_dim, dim3 block_dim,
   if (result != cudaSuccess) {
     return errors::Internal(cudaGetErrorString(result));
   }
-  return Status::OK();
+  return sok_tsl_status();
 }
 
 }  // namespace tensorflow

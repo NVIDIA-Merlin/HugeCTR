@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -41,7 +42,7 @@ Status ValidateVariableResourceHandle(InferenceContext* c,
     TF_RETURN_IF_ERROR(c->GetAttr("dtype", &value_dtype));
     if (shape_and_type->at(0).dtype != value_dtype) {
       if (DataType::DT_HALF == value_dtype) {
-        return Status::OK();
+        return sok_tsl_status();
       } else {
         return errors::InvalidArgument(
             "Trying to read variable with wrong dtype. "
@@ -50,7 +51,7 @@ Status ValidateVariableResourceHandle(InferenceContext* c,
       }  // if DT_HALF == value_dtype
     }    // if DataType != value_dtype
   }
-  return Status::OK();
+  return sok_tsl_status();
 }
 }  // anonymous namespace
 }  // namespace OP_OVERLOAD
@@ -86,7 +87,7 @@ REGISTER_OP("PluginSparseFprop")
       ShapeHandle output_shape = ctx->MakeShape({batch_dim, slot_num_dim, emb_vec_size_dim});
       ctx->set_output(0, output_shape);
 
-      return Status::OK();
+      return sok_tsl_status();
     })
     .Doc(R"doc(
         This op can be used for all kinds of embedding forward propagation,

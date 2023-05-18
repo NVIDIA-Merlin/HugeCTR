@@ -23,6 +23,7 @@ limitations under the License.
 #else
 #include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
 #endif
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 namespace tensorflow {
 
@@ -109,7 +110,7 @@ Status GatherOutputsAndInvertPermutation(const GPUDevice &d, int64 uniq_size, co
                                          const TIndex *sorted_unique_perm,
                                          const TIndex *segment_ends, T *output,
                                          TIndex *inv_sorted_unique_perm, TIndex *count) {
-  if (uniq_size == 0) return Status::OK();
+  if (uniq_size == 0) return sok_tsl_status();
   GpuLaunchConfig config =
       GetGpuLaunchConfig(uniq_size, d, &GatherOutputsAndInvertPermutationKernel<T, TIndex>,
                          /*dynamic_shared_memory_size=*/0, /*block_size_limit=*/0);
@@ -157,7 +158,7 @@ __global__ void RangeInitKernel(const T start, const T delta, const T size, T *o
 // Initialize out with range start, start + delta, start + 2 * delta, ...
 template <typename T>
 Status RangeInit(const Eigen::GpuDevice &d, const T start, const T delta, const T size, T *out) {
-  if (size == 0) return Status::OK();
+  if (size == 0) return sok_tsl_status();
   GpuLaunchConfig config = GetGpuLaunchConfig(size, d);
   return GpuLaunchKernel(RangeInitKernel<T>, config.block_count, config.thread_per_block, 0,
                          d.stream(), start, delta, size, out);
@@ -173,7 +174,7 @@ Status GpuRadixSort(OpKernelContext *context, int size, const Tkey *keys_in,
                     Tkey *keys_out,            // Optional
                     const Tindex *indices_in,  // Optional
                     Tindex *indices_out, int num_bits = sizeof(Tkey) * 8) {
-  if (size == 0) return Status::OK();
+  if (size == 0) return sok_tsl_status();
   // Allocate temporary inputs/outputs if necessary.
   Tensor tmp_indices_in;
   if (!indices_in) {
@@ -218,7 +219,7 @@ Status GpuRadixSort(OpKernelContext *context, int size, const Tkey *keys_in,
         "temp_storage_bytes: ",
         temp_storage_bytes, "status: ", cudaGetErrorString(err));
   }
-  return Status::OK();
+  return sok_tsl_status();
 }
 
 template <typename InputIteratorT, typename OutputIteratorT>
@@ -227,7 +228,7 @@ Status GpuInclusivePrefixSum(OpKernelContext *context, int size, InputIteratorT 
   static_assert(!std::is_same<typename std::remove_reference<decltype(*input)>::type, bool>::value,
                 "GpuInclusivePrefixSum does not work correct with booleans, please use "
                 "TransformInputIterator to explicitly cast to an integer.");
-  if (size == 0) return Status::OK();
+  if (size == 0) return sok_tsl_status();
   const auto &cu_stream = GetGpuStream(context);
   size_t temp_storage_bytes;
   auto err =
@@ -249,7 +250,7 @@ Status GpuInclusivePrefixSum(OpKernelContext *context, int size, InputIteratorT 
         "temp_storage_bytes: ",
         temp_storage_bytes, ", status: ", cudaGetErrorString(err));
   }
-  return Status::OK();
+  return sok_tsl_status();
 }
 
 // Helper class to allocate scratch memory and keep track of debug info.

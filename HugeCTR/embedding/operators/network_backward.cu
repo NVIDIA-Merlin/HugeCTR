@@ -157,7 +157,6 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& dp_num_key
               int lookup_id = network_dst_lookup_ids_ptr[i % num_network_dst_lookup_ids];
 
               int ev_offset = d_ev_size_offset_ptr[num_lookup] * bid;
-              int ev_size = d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
               return top_grad_ptr + ev_offset + d_ev_size_offset_ptr[lookup_id];
             },
             [=] __device__(int i) {

@@ -143,10 +143,6 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
 
     pack_dense_features(denses.data() + file_num * dense_feature_per_file, sample_per_file,
                         dense_dim, dense_dim_array, dense_vectors);
-    constexpr size_t bitmask_bits = cudf::detail::size_in_bits<cudf::bitmask_type>();
-    size_t bits = (sample_per_file + bitmask_bits - 1) / bitmask_bits;
-    std::vector<cudf::bitmask_type> null_mask(bits, 0);
-
     for (int i = 0; i < dense_num; i++) {
       size_t cur_dense_size = sample_per_file * dense_dim_array[i];
       rmm::device_buffer dev_buffer(dense_vectors[i].data(), sizeof(DENSE_TYPE) * cur_dense_size,
@@ -161,12 +157,10 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
         auto row_off = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
                                                       cudf::size_type(dense_row_off[i].size()),
                                                       std::move(dev_buffer_1));
-        auto null_mask_df =
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type),
-                               rmm::cuda_stream_default);
         cols.emplace_back(cudf::make_lists_column(
             sample_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            std::move(null_mask_df), rmm::cuda_stream_default));
+            cudf::create_null_mask(sample_per_file, cudf::mask_state::ALL_VALID),
+            rmm::cuda_stream_default));
       } else {
         auto pcol =
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
@@ -217,13 +211,11 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
         auto row_off = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
                                                       cudf::size_type(row_off_vector.size()),
                                                       std::move(dev_buffer_1));
-        // auto cur_col =
-        auto null_mask_df =
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type),
-                               rmm::cuda_stream_default);
+
         cols.emplace_back(cudf::make_lists_column(
             sample_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            std::move(null_mask_df), rmm::cuda_stream_default));
+            cudf::create_null_mask(sample_per_file, cudf::mask_state::ALL_VALID),
+            rmm::cuda_stream_default));
       }
     }
     // HCTR_LOG(INFO, WORLD, "cuDF bug input_table\n");

@@ -18,6 +18,7 @@ limitations under the License.
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #pragma GCC diagnostic pop
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
@@ -61,7 +62,7 @@ Status ValidateUnsortedSegmentReduction(OpKernel *op_kernel, OpKernelContext *co
         " does not start with segment_ids.shape = ", segment_ids.shape().DebugString());
   }
 
-  return Status::OK();
+  return sok_tsl_status();
 }
 
 template <typename T>
