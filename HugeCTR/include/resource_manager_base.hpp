@@ -33,6 +33,9 @@ class ResourceManagerBase {
       size_t device_id) const = 0;
   virtual size_t get_local_gpu_count() const = 0;
   virtual size_t get_global_gpu_count() const = 0;
+  virtual size_t get_gpu_local_id_from_global_id(size_t global_gpu_id) const = 0;
+  virtual size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const = 0;
+  virtual const std::vector<int>& get_local_gpu_device_id_list() const = 0;
 };
 
 }  // namespace HugeCTR

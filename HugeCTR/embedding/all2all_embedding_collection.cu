@@ -17,7 +17,6 @@
 #include <cub/cub.cuh>
 #include <embedding/all2all_embedding_collection.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
-#include <embeddings/embedding_collection.hpp>
 #include <utils.hpp>
 
 namespace embedding {

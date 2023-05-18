@@ -146,6 +146,59 @@ REGISTER_OP("LookupForward")
     });
 
 // There may be duplicates in the `handles`
+REGISTER_OP("LookupForwardVariable")
+    .Input("embeddings: num_lookups * dtype")
+    .Input("key_recv_buffer: Tindices")
+    .Input("row_length_recv_buffer: Toffsets")
+    .Input("hotness: int32")
+    .Input("sp_weight: dtype")
+    .Output("emb_vec_buffer: num_gpus * dtype")
+    .Output("model_key: Tindices")
+    .Output("model_offsets: Toffsets")
+    .Output("model_sp_weight: dtype")
+    .Attr("num_lookups: int")
+    .Attr("combiners: list(string)")
+    .Attr("shard: list(int)")
+    .Attr("dimensions: list(int)")
+    .Attr("rank: int")
+    .Attr("num_ranks: int")
+    .Attr("id_in_local_rank: int")
+    .Attr("num_gpus: int")
+    .Attr("use_sp_weight: bool")
+    .Attr("Tindices: {int32, int64} = DT_INT64")
+    .Attr("Toffsets: {int32, int64} = DT_INT64")
+    .Attr("dtype: {float32, float16} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) {
+      int num_lookups;
+      TF_RETURN_IF_ERROR(c->GetAttr("num_lookups", &num_lookups));
+
+      int num_gpus;
+      TF_RETURN_IF_ERROR(c->GetAttr("num_gpus", &num_gpus));
+
+      std::vector<int> dimensions;
+      TF_RETURN_IF_ERROR(c->GetAttr("dimensions", &dimensions));
+      int sum_dimensions = std::accumulate(dimensions.begin(), dimensions.end(), 0);
+
+      ShapeHandle row_length_recv_buffer = c->input(num_lookups);
+      shape_inference::DimensionHandle row_length_recv_buffer_dimension = c->NumElements(row_length_recv_buffer);
+      shape_inference::DimensionHandle global_batch_size;
+      TF_RETURN_IF_ERROR(c->Divide(row_length_recv_buffer_dimension, num_lookups, true, &global_batch_size));
+
+      shape_inference::DimensionHandle batch_size;
+      TF_RETURN_IF_ERROR(c->Divide(global_batch_size, num_gpus, true, &batch_size));
+
+      shape_inference::DimensionHandle emb_vec_buffer_size;
+      TF_RETURN_IF_ERROR(c->Multiply(batch_size, sum_dimensions, &emb_vec_buffer_size));
+
+      ShapeHandle emb_vec_buffer_shape = c->MakeShape({emb_vec_buffer_size});
+      for  (int i = 0; i < num_gpus; ++i) {
+        c->set_output(i, emb_vec_buffer_shape);
+      }
+
+      return Status::OK();
+    });
+
+// There may be duplicates in the `handles`
 REGISTER_OP("LookupForwardDynamic")
     .Input("handles: num_lookups * resource")
     .Input("key_recv_buffer: Tindices")

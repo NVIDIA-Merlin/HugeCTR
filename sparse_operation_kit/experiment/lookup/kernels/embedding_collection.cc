@@ -388,45 +388,18 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, int32_t, int32_t, float, float);
 // -----------------------------------------------------------------------------------------------
 // LookupForward
 // -----------------------------------------------------------------------------------------------
-template <typename KeyType, typename OffsetType, typename DType, typename VarType, typename Adapter>
-class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DType> {
- private:
+template <typename KeyType, typename OffsetType, typename DType, typename Adapter>
+class LookupFowardBase : public EmbeddingCollectionBase<KeyType, OffsetType, DType> {
+ protected:
   Adapter adapter_;
 
  public:
-  explicit LookupForwardOp(OpKernelConstruction* ctx)
+  explicit LookupFowardBase(OpKernelConstruction* ctx)
       : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
 
-  void Compute(OpKernelContext* ctx) override {
-    std::vector<tf_shared_lock> locks;
-    std::vector<core::RefCountPtr<VarType>> vars;
-    std::vector<int> scale;
-    int tensor_device_id = this->make_core_resource(ctx)->get_device_id();
-    for (int i = 0; i < this->num_lookups_; ++i) {
-      auto handle = HandleFromInput(ctx, i);
-      auto dtypes_and_shapes = handle.dtypes_and_shapes();
-      auto shape = dtypes_and_shapes[0].shape;
-      OP_REQUIRES(ctx, dtypes_and_shapes[0].dtype == DataType::DT_FLOAT,
-                  errors::InvalidArgument("Type of variable must be float."));
-      OP_REQUIRES(ctx, this->dimensions_[i] == shape.dim_size(1),
-                  errors::InvalidArgument("Invalid dimension"));
-
-      core::RefCountPtr<VarType> var;
-      OP_REQUIRES_OK(ctx, LookupResource(ctx, handle, &var));
-      vars.push_back(std::move(var));
-
-      if (this->shard_[i] < 0) {
-        scale.push_back(this->num_gpus_);
-      } else {
-        scale.push_back(1);
-      }
-    }
-
-    // stream
-    auto device_ctx = ctx->op_device_context();
-    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
-    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
-
+  void forward(OpKernelContext* ctx, std::shared_ptr<sok::CoreResourceManager>& tf_backend,
+               cudaStream_t stream) {
+    int tensor_device_id = tf_backend->get_device_id();
     // Prepare inputs (except handles)
     const Tensor* key_recv_buffer = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("key_recv_buffer", &key_recv_buffer));
@@ -455,15 +428,7 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
     }
 
     // Instance 3g embedding
-    auto tf_backend = this->make_core_resource(ctx);
     this->update_meta(tf_backend, global_batch_size, hotness_vector);
-
-    // Prepare ILookup (i.e. embedding table)
-    std::vector<int> ev_size_per_lookup;
-    for (auto& p : this->ebc_param_->lookup_params) {
-      ev_size_per_lookup.push_back(p.ev_size);
-    }
-    adapter_.set(vars, locks, this->dimensions_, scale, stream);
 
     // Prepare outputs
     auto buffer_size_list = ::embedding::tf::model_forward::get_model_comm_buffer_size(
@@ -527,6 +492,89 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
   }
 };
 
+template <typename KeyType, typename OffsetType, typename DType, typename VarType, typename Adapter>
+class LookupForwardOp : public LookupFowardBase<KeyType, OffsetType, DType, Adapter> {
+ public:
+  using Base = LookupFowardBase<KeyType, OffsetType, DType, Adapter>;
+
+  explicit LookupForwardOp(OpKernelConstruction* ctx) : Base(ctx) {}
+
+  void Compute(OpKernelContext* ctx) override {
+    // stream
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+    auto tf_backend = this->make_core_resource(ctx);
+
+    std::vector<tf_shared_lock> locks;
+    std::vector<core::RefCountPtr<VarType>> vars;
+    std::vector<int> scale;
+    int tensor_device_id = tf_backend->get_device_id();
+    for (int i = 0; i < this->num_lookups_; ++i) {
+      auto handle = HandleFromInput(ctx, i);
+      auto dtypes_and_shapes = handle.dtypes_and_shapes();
+      auto shape = dtypes_and_shapes[0].shape;
+      OP_REQUIRES(ctx, dtypes_and_shapes[0].dtype == DataType::DT_FLOAT,
+                  errors::InvalidArgument("Type of variable must be float."));
+      OP_REQUIRES(ctx, this->dimensions_[i] == shape.dim_size(1),
+                  errors::InvalidArgument("Invalid dimension"));
+
+      core::RefCountPtr<VarType> var;
+      OP_REQUIRES_OK(ctx, LookupResource(ctx, handle, &var));
+      vars.push_back(std::move(var));
+
+      if (this->shard_[i] < 0) {
+        scale.push_back(this->num_gpus_);
+      } else {
+        scale.push_back(1);
+      }
+    }
+    // Prepare ILookup (i.e. embedding table)
+    this->adapter_.set(vars, locks, this->dimensions_, scale, stream);
+
+    Base::forward(ctx, tf_backend, stream);
+  }
+};
+
+template <typename KeyType, typename OffsetType, typename DType>
+class LookupForwardVarOp : public LookupFowardBase<KeyType, OffsetType, DType,
+                                                   sok::TFAdapter<KeyType, OffsetType, DType>> {
+ public:
+  using Base =
+      LookupFowardBase<KeyType, OffsetType, DType, sok::TFAdapter<KeyType, OffsetType, DType>>;
+
+  explicit LookupForwardVarOp(OpKernelConstruction* ctx) : Base(ctx) {}
+
+  void Compute(OpKernelContext* ctx) override {
+    // stream
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+    auto tf_backend = this->make_core_resource(ctx);
+
+    std::vector<float*> vars;
+    std::vector<int> scale;
+    for (int i = 0; i < this->num_lookups_; ++i) {
+      auto embedding_weights = ctx->input(i);
+      auto embedding_data = const_cast<float*>(embedding_weights.flat<float>().data());
+      int64 dimension = embedding_weights.shape().dim_size(1);
+      OP_REQUIRES(ctx, this->dimensions_[i] == dimension,
+                  errors::InvalidArgument("Invalid dimension"));
+
+      vars.emplace_back(embedding_data);
+      if (this->shard_[i] < 0) {
+        scale.push_back(this->num_gpus_);
+      } else {
+        scale.push_back(1);
+      }
+    }
+    // Prepare ILookup (i.e. embedding table)
+    this->adapter_.set(vars, this->dimensions_, scale, stream);
+
+    Base::forward(ctx, tf_backend, stream);
+  }
+};
+
 // clang-format off
 #define REGISTER_GPU_KERNELS(key_type_tf, key_type, offset_type_tf, offset_type, dtype_tf, dtype)  \
   REGISTER_KERNEL_BUILDER(Name("LookupForward")                                                    \
@@ -546,8 +594,14 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
                               .TypeConstraint<offset_type_tf>("Toffsets")                          \
                               .TypeConstraint<dtype_tf>("dtype"),                                  \
                           LookupForwardOp<key_type, offset_type, dtype, DummyVar<key_type, dtype>, \
-                                          sok::DummyVarAdapter<key_type, offset_type, dtype>>)
-// clang-format on
+                                          sok::DummyVarAdapter<key_type, offset_type, dtype>>)     \
+  REGISTER_KERNEL_BUILDER(Name("LookupForwardVariable")                                             \
+                              .Device(DEVICE_GPU)                                                  \
+                              .HostMemory("hotness")                                               \
+                              .TypeConstraint<key_type_tf>("Tindices")                             \
+                              .TypeConstraint<offset_type_tf>("Toffsets")                          \
+                              .TypeConstraint<dtype_tf>("dtype"),                                  \
+                          LookupForwardVarOp<key_type, offset_type, dtype>)  // clang-format on
 
 #if TF_VERSION_MAJOR == 1
 REGISTER_GPU_KERNELS(int64, int64_t, int64, int64_t, float, float);
@@ -653,7 +707,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
         num_unique_key = num_unique_key_per_table[idx];
         num_unique_keys.push_back(num_unique_key);
       }
-      
+
       Tensor* unique_key_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {num_unique_key}, &unique_key_tf));
       Tensor* grad_tf = nullptr;
@@ -661,14 +715,15 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
                                                {num_unique_key, this->dimensions_[i]}, &grad_tf));
       if (target_id_space_iter != unique_id_space_list.end()) {
         num_grad_length.push_back(grad_tf->NumElements());
-        unique_key.push_back(sok::convert_tensor_core23<KeyType>(unique_key_tf,tensor_device_id));
-        grad.push_back(sok::convert_tensor_core23<DType>(grad_tf,tensor_device_id));
+        unique_key.push_back(sok::convert_tensor_core23<KeyType>(unique_key_tf, tensor_device_id));
+        grad.push_back(sok::convert_tensor_core23<DType>(grad_tf, tensor_device_id));
       }
     }
 
     // Copy output
     ::embedding::tf::model_backward::copy_backward_key_and_emb_vec(
-        tf_backend, num_unique_keys,num_grad_length,ret_continous_unique_key, ret_continous_emb_vec, unique_key, grad);
+        tf_backend, num_unique_keys, num_grad_length, ret_continous_unique_key,
+        ret_continous_emb_vec, unique_key, grad);
   }
 };
 
@@ -942,26 +997,35 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, int32_t, int32_t, Eigen::half, __half);
 #ifdef TENSORFLOW_USE_GPU_EV
 #include "lookup_adapter.hpp"
 
-// clang-format off
 namespace tensorflow {
 
 template <typename KeyType, typename OffsetType, typename DType>
-class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, OffsetType, DType> {
+class LookupForwardEmbeddingVarGPUOp
+    : public LookupFowardBase<KeyType, OffsetType, DType,
+                              EmbeddingVarGPUAdapter<KeyType, OffsetType, float>> {
  private:
   using VarType = EmbeddingVar<KeyType, float>;
-  EmbeddingVarGPUAdapter<KeyType, float> adapter_;
+  using Base = LookupFowardBase<KeyType, OffsetType, DType,
+                                EmbeddingVarGPUAdapter<KeyType, OffsetType, float>>;
 
  public:
-  explicit LookupForwardEmbeddingVarGPUOp(OpKernelConstruction* ctx) : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
-  
+  explicit LookupForwardEmbeddingVarGPUOp(OpKernelConstruction* ctx) : Base(ctx) {}
+
   void Compute(OpKernelContext* ctx) override {
-    // std::vector<tf_shared_lock> locks;
+    // stream
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+
+    auto tf_backend = this->make_core_resource(ctx);
+    int tensor_device_id = tf_backend->get_device_id();
+
     std::vector<core::RefCountPtr<VarType>> vars;
     std::vector<int> scale;
     std::vector<int> ev_size_per_lookup;
     for (int i = 0; i < this->num_lookups_; ++i) {
       auto handle = HandleFromInput(ctx, i);
-      
+
       core::RefCountPtr<VarType> var;
       OP_REQUIRES_OK(ctx, LookupResource(ctx, handle, &var));
       ev_size_per_lookup.push_back(var->ValueLen());
@@ -973,78 +1037,22 @@ class LookupForwardEmbeddingVarGPUOp : public EmbeddingCollectionBase<KeyType, O
         scale.push_back(1);
       }
     }
+    this->adapter_.set(ctx, vars, ev_size_per_lookup, stream);
 
-    // stream
-    auto device_ctx = ctx->op_device_context();
-    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
-    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
-    
-    const Tensor* key_recv_buffer = nullptr;
-    OP_REQUIRES_OK(ctx, ctx->input("key_recv_buffer", &key_recv_buffer));
-    sok::Tensor key_recv_buffer_tensor(sok::convert_tensor<KeyType>(key_recv_buffer));
-
-    const Tensor* row_length_recv_buffer = nullptr;
-    OP_REQUIRES_OK(ctx, ctx->input("row_length_recv_buffer", &row_length_recv_buffer));
-    sok::Tensor row_length_recv_buffer_tensor(
-        sok::convert_tensor<OffsetType>(row_length_recv_buffer));
-
-    int global_batch_size = row_length_recv_buffer->NumElements() / this->num_lookups_;
-
-    const Tensor* hotness = nullptr;
-    OP_REQUIRES_OK(ctx, ctx->input("hotness", &hotness));
-    std::vector<int> hotness_vector;
-    int* t_hotness = (int*)hotness->data();
-    int64_t hotness_num = hotness->NumElements();
-    for (int64_t i =0;i<hotness_num;++i){
-       hotness_vector.push_back(t_hotness[i]);
-    }
-    // Instance 3g embedding
-    auto tf_backend = this->make_core_resource(ctx);
-    this->update_meta(tf_backend, global_batch_size, hotness_vector);
-
-    // Prepare outputs
-    auto buffer_size_list = ::embedding::tf::model_forward::get_model_comm_buffer_size(*this->meta_, tf_backend->get_global_gpu_count(), global_batch_size);
-    std::vector<sok::Tensor> emb_vec_model_buffer;
-    for (size_t i = 0; i < buffer_size_list.size(); ++i) {
-      Tensor* output = nullptr;
-      OP_REQUIRES_OK(ctx,
-                     ctx->allocate_output(i, {static_cast<int64_t>(buffer_size_list[i])}, &output));
-      emb_vec_model_buffer.push_back(sok::convert_tensor<DType>(output));
-    }
-
-    adapter_.set(ctx, vars, ev_size_per_lookup, stream);
-
-    // Do forward
-    int64_t num_model_key, num_model_offsets;
-    sok::Tensor ret_model_key, ret_model_offset;
-    ::embedding::tf::model_forward::sparse_forward_per_gpu(tf_backend, *this->meta_, key_recv_buffer_tensor, row_length_recv_buffer_tensor, &adapter_,
-                                  emb_vec_model_buffer, &num_model_key, &num_model_offsets, &ret_model_key, &ret_model_offset);
-
-    // Prepare model_key & model_offsets
-    Tensor* model_key = nullptr;
-    OP_REQUIRES_OK(ctx, ctx->allocate_output(this->num_gpus_, {num_model_key}, &model_key));
-    sok::Tensor model_key_tensor(sok::convert_tensor<KeyType>(model_key));
-    Tensor* model_offsets = nullptr;
-    OP_REQUIRES_OK(ctx,
-                   ctx->allocate_output(this->num_gpus_ + 1, {num_model_offsets}, &model_offsets));
-    sok::Tensor model_offsets_tensor(sok::convert_tensor<OffsetType>(model_offsets));
-
-    // Copy tensors that will be used in backward
-    ::embedding::tf::model_forward::copy_model_keys_and_offsets(tf_backend, ret_model_key, ret_model_offset, model_key_tensor, model_offsets_tensor);
-    adapter_.clear_tmp_ev_list();
+    Base::forward(ctx, tf_backend, stream);
+    this->adapter_.clear_tmp_ev_list();
   }
 };
 
-#define REGISTER_GPU_KERNELS(key_type, offset_type, dtype)                   \
-  REGISTER_KERNEL_BUILDER(                                                   \
-    Name("LookupForwardEmbeddingVarGPU")                                     \
-      .Device(DEVICE_GPU)                                                    \
-      .HostMemory("handles")                                                 \
-       .HostMemory("hotness")                                               \
-      .TypeConstraint<key_type>("Tindices")                                  \
-      .TypeConstraint<offset_type>("Toffsets")                               \
-      .TypeConstraint<dtype>("dtype"),                                       \
-    LookupForwardEmbeddingVarGPUOp<key_type, offset_type, dtype>)
+#define REGISTER_GPU_KERNELS(key_type, offset_type, dtype)             \
+  REGISTER_KERNEL_BUILDER(Name("LookupForwardEmbeddingVarGPU")         \
+                              .Device(DEVICE_GPU)                      \
+                              .HostMemory("handles")                   \
+                              .HostMemory("hotness")                   \
+                              .TypeConstraint<key_type>("Tindices")    \
+                              .TypeConstraint<offset_type>("Toffsets") \
+                              .TypeConstraint<dtype>("dtype"),         \
+                          LookupForwardEmbeddingVarGPUOp<key_type, offset_type, dtype>)
 REGISTER_GPU_KERNELS(int32, int32, float)
 REGISTER_GPU_KERNELS(int32, int64, float)
 REGISTER_GPU_KERNELS(int64, int32, float)

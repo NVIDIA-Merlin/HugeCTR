@@ -18,7 +18,6 @@
 #include <core/core.hpp>
 #include <embedding/common.hpp>
 #include <memory>
-#include <resource_manager.hpp>
 #include <unordered_map>
 #include <vector>
 

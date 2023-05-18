@@ -18,7 +18,7 @@
 #include <cuda_runtime.h>
 
 #include <core/core.hpp>
-#include <resource_manager.hpp>
+#include <resource_manager_base.hpp>
 #include <unordered_map>
 
 namespace hctr_internal {
@@ -44,7 +44,7 @@ class GPUResource final : public core::GPUResourceBase {
 };
 
 class HCTRCoreResourceManager : public core::CoreResourceManager {
-  std::shared_ptr<HugeCTR::ResourceManager> ext_;
+  std::shared_ptr<HugeCTR::ResourceManagerBase> ext_;
   int local_id_;
   int global_id_;
   int device_id_;
@@ -52,7 +52,7 @@ class HCTRCoreResourceManager : public core::CoreResourceManager {
   std::shared_ptr<core::GPUResourceBase> gpu_resource_;
 
  public:
-  HCTRCoreResourceManager(std::shared_ptr<HugeCTR::ResourceManager> ext, int local_id)
+  HCTRCoreResourceManager(std::shared_ptr<HugeCTR::ResourceManagerBase> ext, int local_id)
       : ext_(ext),
         local_id_(local_id),
         global_id_(ext_->get_gpu_global_id_from_local_id(local_id)),

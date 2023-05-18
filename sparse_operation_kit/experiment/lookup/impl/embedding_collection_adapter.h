@@ -35,12 +35,18 @@
 
 namespace sok {
 namespace core23 = HugeCTR::core23;
+
 template <typename KeyType, typename OffsetType, typename DType>
 class TFAdapter : public ::embedding::ILookup {
  public:
   TFAdapter();
   virtual ~TFAdapter();
 
+  // for Variable
+  void set(std::vector<float*>& vars, std::vector<int>& dimensions, std::vector<int>& scale,
+           cudaStream_t stream = 0);
+
+  // for ResourceVariable
   void set(std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
@@ -60,7 +66,6 @@ class TFAdapter : public ::embedding::ILookup {
   int* d_id_space_to_local_index_;
   int* d_scale_;
   cudaStream_t stream_;
-
   void free();
 };
 
