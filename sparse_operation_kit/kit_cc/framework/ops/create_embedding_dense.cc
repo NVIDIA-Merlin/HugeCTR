@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -36,7 +37,7 @@ REGISTER_OP("CreateEmbeddingDense")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle output_shape = ctx->Scalar();
       ctx->set_output(0, output_shape);
-      return Status::OK();
+      return sok_tsl_status();
     })
     .Doc(R"doc(
         This operation is used to create embedding layer that will not 

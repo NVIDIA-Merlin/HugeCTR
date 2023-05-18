@@ -18,7 +18,7 @@ limitations under the License.
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
-
+#ifndef TF_GE_212
 REGISTER_OP("GPUUnsortedSegmentSum")
     .Input("data: T")
     .Input("segment_ids: Tindices")
@@ -28,3 +28,14 @@ REGISTER_OP("GPUUnsortedSegmentSum")
     .Attr("Tindices: {int32,int64}")
     .Attr("Tnumsegments: {int32,int64} = DT_INT32")
     .SetShapeFn(shape_inference::UnsortedSegmentReductionShapeFn);
+#else
+REGISTER_OP("GPUUnsortedSegmentSum")
+    .Input("data: T")
+    .Input("segment_ids: Tindices")
+    .Input("num_segments: Tnumsegments")
+    .Output("output: T")
+    .Attr("T: numbertype")
+    .Attr("Tindices: {int32,int64}")
+    .Attr("Tnumsegments: {int32,int64} = DT_INT32")
+    .SetShapeFn(shape_inference::SegmentReductionWithNumSegmentsShapeFn);
+#endif 

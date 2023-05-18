@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "common/utils_experiment.h"
 namespace tensorflow {
 
 using shape_inference::InferenceContext;
@@ -45,7 +45,7 @@ REGISTER_OP("Reorder")
       }
       // Step 4: Set shape of output
       c->set_output(0, embedding_shape);
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 REGISTER_OP("GatherEx")
@@ -70,7 +70,7 @@ REGISTER_OP("GatherEx")
       }
       // Step 4: Set shape of output
       c->set_output(0, grads_shape);
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 }  // namespace tensorflow

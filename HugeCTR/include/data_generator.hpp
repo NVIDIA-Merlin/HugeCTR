@@ -464,9 +464,6 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     for (int k = 0; k < slot_num; k++) {
       std::vector<T> slot_vector;
       std::vector<int32_t> row_offset_vector(num_records_per_file + 1);
-      constexpr size_t bitmask_bits = cudf::detail::size_in_bits<cudf::bitmask_type>();
-      size_t bits = (num_records_per_file + bitmask_bits - 1) / bitmask_bits;
-      std::vector<cudf::bitmask_type> null_mask(bits, 0);
       int32_t offset = 0;
       for (int i = 0; i < num_records_per_file; i++) {
         int nnz = 1 + rand() % nnz_array[k];
@@ -499,8 +496,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
                                                       std::move(dev_buffer_1));
         cols.emplace_back(cudf::make_lists_column(
             num_records_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type),
-                               rmm::cuda_stream_default)));
+            cudf::create_null_mask(num_records_per_file, cudf::mask_state::ALL_VALID)));
       }
     }
     cudf::table input_table(std::move(cols));

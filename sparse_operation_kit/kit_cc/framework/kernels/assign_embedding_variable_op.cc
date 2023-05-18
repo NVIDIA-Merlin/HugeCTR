@@ -22,7 +22,7 @@
 #include "tensor_buffer/embedding_buffer.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/resource_var.h"
-
+#include "sparse_operation_kit/kit_cc/utils.h"
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice;
@@ -94,7 +94,7 @@ class AssignEmbeddingVariableOp : public OpKernel {
         ctx, LookupOrCreateResource<EmbeddingVariable>(ctx, HandleFromInput(ctx, 0), &emb_variable,
                                                        /*creator=*/[](EmbeddingVariable** ptr) {
                                                          *ptr = new EmbeddingVariable();
-                                                         return Status::OK();
+                                                         return sok_tsl_status();
                                                        }));
     Tensor tensor;  // used to hold the pointer to allocated GPU memory
     try {
@@ -129,7 +129,7 @@ class AssignEmbeddingVariableOp : public OpKernel {
                                                       *ptr = new Var(DT_FLOAT);
                                                       *(*ptr)->tensor() = tensor;
                                                       (*ptr)->is_initialized = true;
-                                                      return Status::OK();
+                                                      return sok_tsl_status();
                                                     }));
 
     // set the flag

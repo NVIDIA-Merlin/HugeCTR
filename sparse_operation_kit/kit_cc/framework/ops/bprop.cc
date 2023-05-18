@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -32,7 +33,7 @@ REGISTER_OP("PluginBprop")
     .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
       ctx->set_output(0, ctx->UnknownShape());
-      return Status::OK();
+      return sok_tsl_status();
     })
     .Doc(R"doc(
         the output value_index is the hash_value_index_tensor used internally.

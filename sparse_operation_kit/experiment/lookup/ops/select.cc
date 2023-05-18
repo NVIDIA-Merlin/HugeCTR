@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "common/utils_experiment.h"
 
 namespace tensorflow {
 
@@ -45,7 +46,7 @@ REGISTER_OP("DistSelect")
       c->set_output(0, indices_shape);
       c->set_output(1, indices_shape);
       c->set_output(2, c->Vector(num_splits));
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 }  // namespace tensorflow

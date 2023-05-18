@@ -17,6 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -31,5 +32,5 @@ REGISTER_OP("CustomOptimizerApplyGradients")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle grad_shape;
       TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(1), 2, &grad_shape));
-      return Status::OK();
+      return sok_tsl_status();
     });

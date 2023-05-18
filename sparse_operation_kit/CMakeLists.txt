@@ -21,7 +21,7 @@ message(STATUS "Building Sparse Operation Kit from source.")
 set(TF_VERSION,"")
 #check TF version
 execute_process(COMMAND python -c "import tensorflow as tf;print(tf.__version__)" OUTPUT_VARIABLE TF_VERSION)
-#message(STATUS "TF_VERSION = ${TF_VERSION}")
+message(STATUS "TF_VERSION = ${TF_VERSION}")
 string(COMPARE EQUAL "${TF_VERSION}" "" TF_RESULT)
 if (NOT TF_RESULT)
     string(REPLACE "." ";" TF_VERSION_LIST ${TF_VERSION})
@@ -39,6 +39,11 @@ if (NOT TF_RESULT)
     
     if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 10)
         add_definitions(-DTF_GE_211)
+    endif()
+
+
+    if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 11)
+        add_definitions(-DTF_GE_212)
     endif()
 else()
     message(FATAL_ERROR "Can not detect tensorflow in your environment,please install tensorflow(tf1 support version 1.15, for tf2 support version 2.60~latest) ")
@@ -162,7 +167,9 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
+    ${PROJECT_SOURCE_DIR}/kit_cc/
     ${PROJECT_SOURCE_DIR}/
+    ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/HugeCTR/
     ${PROJECT_SOURCE_DIR}/HugeCTR/include
     ${PROJECT_SOURCE_DIR}/HugeCTR/core
@@ -179,6 +186,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
+    ${PROJECT_SOURCE_DIR}/kit_cc/
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include

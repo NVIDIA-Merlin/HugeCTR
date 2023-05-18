@@ -14,20 +14,23 @@
  * limitations under the License.
  */
 
+#ifndef UTILS_EXPERIMENT_H
+#define UTILS_EXPERIMENT_H
+
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "common/utils_experiment.h"
+
 namespace tensorflow {
 
-using shape_inference::InferenceContext;
-using shape_inference::ShapeHandle;
-
-REGISTER_OP("SetDefaultAllocator")
- .Output("return_status:string")
- .SetShapeFn([](InferenceContext* c) {
-return sok_tsl_status();
-
-});
+static Status sok_tsl_status() {
+#ifndef TF_GE_212
+  return Status::OK();
+#else
+  return OkStatus();
+#endif
+}
 
 }  // namespace tensorflow
+
+#endif  // UTILS_EXPERIMENT_H

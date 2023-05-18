@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "common/utils_experiment.h"
 namespace tensorflow {
 
 using shape_inference::InferenceContext;
@@ -47,7 +47,7 @@ REGISTER_OP("GroupLookup")
         // output shape: (indices.shape[0], handle.shape[1])
         c->set_output(i, c->Matrix(c->Dim(indices_shape, 0), c->Dim(handle_shape, 1)));
       }
-      return Status::OK();
+      return sok_tsl_status();
     });
 
 }  // namespace tensorflow

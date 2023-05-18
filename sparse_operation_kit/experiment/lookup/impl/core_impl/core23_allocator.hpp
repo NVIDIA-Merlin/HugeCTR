@@ -92,7 +92,11 @@ class TFAllocatorImpl  : public core23::Allocator{
 
     } else {
       // CPU Id should be 0 at almost time.
+#ifndef TF_GE_212
       allocator_ = GPUProcessState::singleton()->GetGpuHostAllocator(cpu_id_);
+#else
+      allocator_ = GPUProcessState::singleton()->GetGpuHostAllocator({},cpu_id_);
+#endif
     }
 
   }

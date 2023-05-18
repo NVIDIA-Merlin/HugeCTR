@@ -18,6 +18,7 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/types.h"
+#include "sparse_operation_kit/kit_cc/utils.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -42,7 +43,7 @@ REGISTER_OP("CreateVar")
       c->set_output_handle_shapes_and_types(0, std::vector<ShapeAndType>{{s, t}});
       c->set_output_handle_shapes_and_types(1, std::vector<ShapeAndType>{{s, t}});
 
-      return Status::OK();
+      return sok_tsl_status();
     })
     .Doc(R"doc(
         This op is used create variables used by a embedding layer on all GPUs in single worker.
