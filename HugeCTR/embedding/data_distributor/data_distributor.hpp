@@ -28,7 +28,6 @@
 #include <embedding/operators/mp_index_calculation.hpp>
 #include <embedding/operators/transpose_input.hpp>
 #include <optional>
-#include <resource_manager.hpp>
 #include <unordered_map>
 #include <vector>
 

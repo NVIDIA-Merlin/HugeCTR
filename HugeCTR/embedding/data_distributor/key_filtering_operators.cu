@@ -20,6 +20,7 @@
 #include <cuda_runtime.h>
 
 #include <utils.cuh>
+#include <utils.hpp>
 
 #include "key_filtering_operators.hpp"
 

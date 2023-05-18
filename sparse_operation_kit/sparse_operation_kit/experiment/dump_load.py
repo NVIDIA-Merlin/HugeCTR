@@ -197,7 +197,6 @@ def get_meta_info_offset(variable_type, table_num):
 
 
 def save_meta_file(path: str, sok_var_info_list: list):
-
     meta_path = path + "/meta_info"
     num_tables = len(sok_var_info_list)
 
@@ -404,7 +403,6 @@ def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
         state_tensor = tf.convert_to_tensor(slot_var, dtype=slot_var.dtype)
         # is distribute
         if target_gpu == -1:
-
             if global_gpu_num > 1:
                 state_tensor = allgather(state_tensor)
             if gpu_id == 0:
@@ -464,7 +462,6 @@ def save_optimizer_to_filesysyem_dynamic(optimizer, var, path, sok_var_info):
 
         # is distribute
         if target_gpu == -1:
-
             if global_gpu_num > 1:
                 state_tensor = allgather(state_tensor)
                 indices_tensor = allgather(indices_tensor)
@@ -984,7 +981,6 @@ def load_table_to_filesystem_dynamic(var, optimizer, path):
 
 
 def dump_per_table(var, optimizer, path, have_states):
-
     if isinstance(var, DynamicVariable):
         save_table_to_filesystem_dynamic(var, optimizer, path, have_states)
 
@@ -999,7 +995,6 @@ def dump_per_table(var, optimizer, path, have_states):
 
 
 def load_per_table(var, optimizer, path):
-
     if isinstance(var, DynamicVariable):
         load_table_to_filesystem_dynamic(var, optimizer, path)
     elif isinstance(var, DistributedVariable):

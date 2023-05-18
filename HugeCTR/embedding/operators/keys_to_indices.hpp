@@ -16,7 +16,6 @@
 #pragma once
 #include <HugeCTR/embedding/common.hpp>
 #include <HugeCTR/embedding_storage/common.hpp>
-#include <resource_manager.hpp>
 namespace embedding {
 class KeysToIndicesConverter {
  private:
