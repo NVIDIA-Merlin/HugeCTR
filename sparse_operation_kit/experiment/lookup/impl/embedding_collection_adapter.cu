@@ -63,6 +63,64 @@ TFAdapter<KeyType, OffsetType, DType>::TFAdapter()
 }
 
 template <typename KeyType, typename OffsetType, typename DType>
+void TFAdapter<KeyType, OffsetType, DType>::set(std::vector<float*>& vars,
+                                                std::vector<int>& dimensions,
+                                                std::vector<int>& scale, cudaStream_t stream) {
+  std::vector<float*> data;
+  std::vector<int> id_space;
+  for (int i = 0; i < vars.size(); ++i) {
+    float* input = vars[i];
+    data.push_back(input);
+    id_space.push_back(i);
+  }
+
+  if (data_.size() == data.size()) {
+    bool skip = true;
+    for (int i = 0; i < data.size(); ++i) {
+      if (data_[i] != data[i]) {
+        skip = false;
+        break;
+      }
+    }
+    if (skip) {
+      return;
+    }
+  }
+
+  data_ = data;
+  dimensions_ = dimensions;
+  scale_ = scale;
+  stream_ = stream;
+
+  id_space_to_local_index_.resize(vars.size(), -1);
+  for (int i = 0; i < id_space.size(); ++i) {
+    id_space_to_local_index_[id_space[i]] = i;
+  }
+
+  free();
+
+  CUDACHECK(cudaMalloc(&d_data_, sizeof(float*) * data_.size()));
+  CUDACHECK(cudaMalloc(&d_dimensions_, sizeof(int) * dimensions_.size()));
+  CUDACHECK(cudaMalloc(&d_id_space_to_local_index_, sizeof(int) * id_space_to_local_index_.size()));
+  CUDACHECK(cudaMalloc(&d_scale_, sizeof(int) * scale_.size()));
+
+  // clang-format off
+  CUDACHECK(cudaMemcpyAsync(d_data_, data_.data(),
+                            sizeof(float*) * data_.size(),
+                            cudaMemcpyHostToDevice, stream_));
+  CUDACHECK(cudaMemcpyAsync(d_dimensions_, dimensions_.data(),
+                            sizeof(int) * dimensions_.size(),
+                            cudaMemcpyHostToDevice, stream_));
+  CUDACHECK(cudaMemcpyAsync(d_id_space_to_local_index_, id_space_to_local_index_.data(),
+                            sizeof(int) * id_space_to_local_index_.size(),
+                            cudaMemcpyHostToDevice, stream_));
+  CUDACHECK(cudaMemcpyAsync(d_scale_, scale_.data(),
+                            sizeof(int) * scale_.size(),
+                            cudaMemcpyHostToDevice, stream_));
+  // clang-format on
+}
+
+template <typename KeyType, typename OffsetType, typename DType>
 void TFAdapter<KeyType, OffsetType, DType>::set(
     std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
     std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,

@@ -43,6 +43,11 @@ try:
 except:
     pass
 
+try:
+    from tensorflow.python.ops import resource_variable_ops
+except:
+    pass
+
 
 def group_lookup(params, indices, dtype=None, name=None):
     # Fused-version of tf.nn.embedding_lookup on single GPU
@@ -128,6 +133,41 @@ def _hotness_calculate(*args, **kwargs):
         return raw_ops.hotness_calculate(*args, **kwargs)
 
 
+def isDynamicVariable(variable):
+    return isinstance(variable, DynamicVariable)
+
+
+def isEmbeddingVariable(variable):
+    return importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
+        variable, kv_variable_ops.EmbeddingVariable
+    )
+
+
+def isResourceVariable(variable):
+    return (
+        importlib.find_loader("tensorflow.python.ops.resource_variable_ops")
+        and isinstance(variable, resource_variable_ops.ResourceVariable)
+        and not isEmbeddingVariable(variable)
+    )
+
+
+def isVariable(variable):
+    return (
+        isinstance(variable, tf.Variable)
+        and not isResourceVariable(variable)
+        and not isEmbeddingVariable(variable)
+    )
+
+
+def allSupportedVariableCheckFunc():
+    return [
+        isDynamicVariable,
+        isEmbeddingVariable,
+        isResourceVariable,
+        isVariable,
+    ]
+
+
 def _lookup_forward(params, *args, **kwargs):
     """
     This function should not be used by user directly.
@@ -137,15 +177,19 @@ def _lookup_forward(params, *args, **kwargs):
         for param in params:
             # For tf.GradientTape
             variable_accessed(param)
-        handles = [param.handle for param in params]
-        if isinstance(params[0], DynamicVariable):
+        if isDynamicVariable(params[0]):
+            handles = [param.handle for param in params]
             return raw_ops.lookup_forward_dynamic(handles, *args, **kwargs)
-        elif importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
-            params[0], kv_variable_ops.EmbeddingVariable
-        ):
+        elif isEmbeddingVariable(params[0]):
+            handles = [param.handle for param in params]
             return raw_ops.lookup_forward_embedding_var_gpu(handles, *args, **kwargs)
-        else:
+        elif isResourceVariable(params[0]):
+            handles = [param.handle for param in params]
             return raw_ops.lookup_forward(handles, *args, **kwargs)
+        elif isVariable(params[0]):
+            return raw_ops.lookup_forward_variable(params, *args, **kwargs)
+        else:
+            raise NotImplementedError(str(type(params[0])) + " is not supported in lookup")
 
 
 @tf.RegisterGradient("LookupForward")
@@ -175,6 +219,42 @@ def _LookupBackward(op, *top_grads):
     for i in range(len(indices)):
         handle = op.inputs[i]
         params_shape = variable_shape(handle)
+        size = array_ops.expand_dims(array_ops.size(indices[i]), 0)
+        values_shape = array_ops.concat([size, params_shape[1:]], 0)
+        values[i] = tf.reshape(values[i], values_shape)
+        if kwargs["shard"][i] < 0 and num_gpus > 1:
+            indices[i] = indices[i] // num_gpus
+        grads.append(tf.IndexedSlices(values[i], indices[i], params_shape))
+    return grads + [None] * (len(op.inputs) - len(grads))
+
+
+@tf.RegisterGradient("LookupForwardVariable")
+def _LookupBackward(op, *top_grads):
+    attr_list = [
+        "num_lookups",
+        "combiners",
+        "shard",
+        "dimensions",
+        "rank",
+        "num_ranks",
+        "id_in_local_rank",
+        # "Toffsets",
+        "use_sp_weight",
+    ]
+    kwargs = {}
+    for attr in attr_list:
+        kwargs[attr] = op.get_attr(attr)
+
+    num_gpus = op.get_attr("num_gpus")
+    num_lookups = op.get_attr("num_lookups")
+    top_grads = top_grads[:num_gpus]
+    other_data = op.outputs[num_gpus : num_gpus + 3]
+    hotness = op.inputs[num_lookups + 2]
+    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    grads = []
+    for i in range(len(indices)):
+        handle = op.inputs[i]
+        params_shape = handle.shape
         size = array_ops.expand_dims(array_ops.size(indices[i]), 0)
         values_shape = array_ops.concat([size, params_shape[1:]], 0)
         values[i] = tf.reshape(values[i], values_shape)
@@ -232,7 +312,7 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
         "rank",
         "num_ranks",
         "id_in_local_rank",
-        "Toffsets",
+        # "Toffsets",
         "use_sp_weight",
     ]
     kwargs = {}
@@ -242,12 +322,9 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
     num_gpus = op.get_attr("num_gpus")
     num_lookups = op.get_attr("num_lookups")
     top_grads = top_grads[:num_gpus]
-    other_data = op.outputs[num_gpus : num_gpus + 2]
+    other_data = op.outputs[num_gpus : num_gpus + 3]
     hotness = op.inputs[num_lookups + 2]
-    sp_weight = op.inputs[num_lookups + 3]
-    indices, values, _ = raw_ops.lookup_backward(
-        top_grads, *other_data, hotness, sp_weight, **kwargs
-    )
+    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -307,114 +384,7 @@ def to_list(any_obj):
         return any_obj
 
 
-def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
-    """
-    Abbreviated as ``sok.experiment.lookup_sparse``.
-
-    Peform fused sparse lookup on the given embedding ``params``. This function
-    is similar to the ``tf.nn.embedding_lookup_sparse``, but with two differences:
-
-        - It can do distributed lookup.
-        - It can accept multiple params and multiple sp_ids to do fused lookup at once,
-          which brings performance benifits.
-
-    Parameters
-    ----------
-    params: list, tuple
-            a list or tuple of trainable *sok.Variable*.
-    sp_ids: list, tuple
-            a list or tuple of tf.SparseTensor or tf.RaggedTensor.
-    sp_weights: list tuple,optional
-            a list or tuple of tf.SparseTensor or tf.RaggedTensor(float / double weights).
-            if don't specify , indicate all weights should be taken to be 1.
-    combiners: list, tuple,optional
-            a list or tuple of string to specify the combiner of each lookup,for now only suupport "mean" "sum".
-            if don't specify , indicate all elements(numbero of elements is same with number of sok.Variables) in combiners will should be set to be mean.
-
-    Returns
-    -------
-    emb_vec: list
-            a list of tf.Tensor(the results of lookup).
-
-    Example
-    -------
-    .. code-block:: python
-
-        import numpy as np
-        import tensorflow as tf
-        import horovod.tensorflow as hvd
-        from sparse_operation_kit import experiment as sok
-
-        hvd.init()
-        gpus = tf.config.experimental.list_physical_devices("GPU")
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        if gpus:
-            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
-
-        sok.init()
-
-        v1 = sok.Variable(np.arange(17 * 3).reshape(17, 3), dtype=tf.float32)
-        v2 = sok.Variable(np.arange(7 * 5).reshape(7, 5), dtype=tf.float32)
-
-        indices1 = tf.SparseTensor(
-            indices=[[0, 0], [0, 1], [1, 0], [1, 1], [1, 2]],
-            values=[1, 1, 3, 4, 5],
-            dense_shape=[2, 3])
-        )
-        indices2 = tf.SparseTensor(
-            indices=[[0, 0], [1, 0], [1, 1]],
-            values=[1, 2, 3],
-            dense_shape=[2, 2]
-        )
-
-        embeddings = sok.lookup_sparse(
-            [v1, v2], [indices1, indices2], combiners=["sum", "sum"]
-        )
-        print(embeddings[0])
-        print(embeddings[1])
-    """
-    # `is_list` determines whether to return a list or a tensor in the end
-    #
-
-    # check every gpu have lookup
-    gpu_flag = [0] * num_gpus()
-    all_gpu_allocate = False
-    for param in params:
-        tmp_target_gpu = param.target_gpu
-        if tmp_target_gpu == -1:
-            all_gpu_allocate = True
-            break
-        if isinstance(tmp_target_gpu, int):
-            tmp_target_gpu = [tmp_target_gpu]
-        for tmp_gpu_id in tmp_target_gpu:
-            gpu_flag[tmp_gpu_id] += 1
-
-    if all_gpu_allocate == False:
-        for tmp_gpu_flag in gpu_flag:
-            if tmp_gpu_flag == 0:
-                raise Exception("every gpu must have table!")
-
-    is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple) or isinstance(sp_weights, tuple)
-
-    params = to_list(params)
-    sp_ids = to_list(sp_ids)
-    num_tables = len(params)
-
-    # check combiners
-    if combiners == None:
-        combiners_numpy = np.chararray(num_tables, itemsize=4)
-        combiners_numpy[:] = "mean"
-        combiners = combiners_numpy.tolist()
-    else:
-        combiners = to_list(combiners)
-    if sp_weights == None:
-        sp_weights = [] * len(params)
-    else:
-        if len(sp_ids) != len(sp_weights):
-            raise RuntimeError("sp_ids length is not equal sp_weights")
-        sp_weights = to_list(sp_weights)
-
+def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     shard, dimensions = [], []
     for param in params:
         shard.append(param.target_gpu)
@@ -525,6 +495,139 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
         emb_vec_buffer, row_lengths, hotness, sp_sum, Tindices=keys[0].dtype, **kwargs
     )
 
+    return emb_vec
+
+
+def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
+    """
+    Abbreviated as ``sok.experiment.lookup_sparse``.
+
+    Peform fused sparse lookup on the given embedding ``params``. This function
+    is similar to the ``tf.nn.embedding_lookup_sparse``, but with two differences:
+
+        - It can do distributed lookup.
+        - It can accept multiple params and multiple sp_ids to do fused lookup at once,
+          which brings performance benifits.
+
+    Parameters
+    ----------
+    params: list, tuple
+            a list or tuple of trainable *sok.Variable*.
+    sp_ids: list, tuple
+            a list or tuple of tf.SparseTensor or tf.RaggedTensor.
+    sp_weights: list tuple,optional
+            a list or tuple of tf.SparseTensor or tf.RaggedTensor(float / double weights).
+            if don't specify , indicate all weights should be taken to be 1.
+    combiners: list, tuple,optional
+            a list or tuple of string to specify the combiner of each lookup,for now only suupport "mean" "sum".
+            if don't specify , indicate all elements(numbero of elements is same with number of sok.Variables) in combiners will should be set to be mean.
+
+    Returns
+    -------
+    emb_vec: list
+            a list of tf.Tensor(the results of lookup).
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
+
+        sok.init()
+
+        v1 = sok.Variable(np.arange(17 * 3).reshape(17, 3), dtype=tf.float32)
+        v2 = sok.Variable(np.arange(7 * 5).reshape(7, 5), dtype=tf.float32)
+
+        indices1 = tf.SparseTensor(
+            indices=[[0, 0], [0, 1], [1, 0], [1, 1], [1, 2]],
+            values=[1, 1, 3, 4, 5],
+            dense_shape=[2, 3])
+        )
+        indices2 = tf.SparseTensor(
+            indices=[[0, 0], [1, 0], [1, 1]],
+            values=[1, 2, 3],
+            dense_shape=[2, 2]
+        )
+
+        embeddings = sok.lookup_sparse(
+            [v1, v2], [indices1, indices2], combiners=["sum", "sum"]
+        )
+        print(embeddings[0])
+        print(embeddings[1])
+    """
+    # `is_list` determines whether to return a list or a tensor in the end
+    #
+
+    # check every gpu have lookup
+    gpu_flag = [0] * num_gpus()
+    all_gpu_allocate = False
+    for param in params:
+        tmp_target_gpu = param.target_gpu
+        if tmp_target_gpu == -1:
+            all_gpu_allocate = True
+            break
+        if isinstance(tmp_target_gpu, int):
+            tmp_target_gpu = [tmp_target_gpu]
+        for tmp_gpu_id in tmp_target_gpu:
+            gpu_flag[tmp_gpu_id] += 1
+
+    if all_gpu_allocate == False:
+        for tmp_gpu_flag in gpu_flag:
+            if tmp_gpu_flag == 0:
+                raise Exception("every gpu must have table!")
+
+    is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple) or isinstance(sp_weights, tuple)
+
+    params = to_list(params)
+    sp_ids = to_list(sp_ids)
+    num_tables = len(params)
+
+    # check combiners
+    if combiners == None:
+        combiners_numpy = np.chararray(num_tables, itemsize=4)
+        combiners_numpy[:] = "mean"
+        combiners = combiners_numpy.tolist()
+    else:
+        combiners = to_list(combiners)
+    if sp_weights == None:
+        sp_weights = [] * len(params)
+    else:
+        if len(sp_ids) != len(sp_weights):
+            raise RuntimeError("sp_ids length is not equal sp_weights")
+        sp_weights = to_list(sp_weights)
+
+    # group same type of variable
+    assert len(params) == len(sp_ids)
+
+    emb_vec = [None for _ in range(len(params))]
+    variable_type_check_func = allSupportedVariableCheckFunc()
+    for check_func in variable_type_check_func:
+        selected_idx = [i for i in range(len(params)) if check_func(params[i])]
+
+        if len(selected_idx) > 0:
+            selected_params = [params[i] for i in selected_idx]
+            selected_sp_ids = [sp_ids[i] for i in selected_idx]
+            selected_sp_weights = (
+                [] if len(sp_weights) == 0 else [sp_weights[i] for i in selected_idx]
+            )
+            selected_combiners = [combiners[i] for i in selected_idx]
+            selected_emb_vec = lookup_sparse_impl(
+                selected_params, selected_sp_ids, selected_sp_weights, selected_combiners
+            )
+            for ii, i in enumerate(selected_idx):
+                emb_vec[i] = selected_emb_vec[ii]
+
+    assert None not in emb_vec
     if not is_list:
         emb_vec = emb_vec[0]
     return emb_vec

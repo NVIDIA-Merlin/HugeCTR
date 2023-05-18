@@ -16,6 +16,7 @@
 
 #include <HugeCTR/embedding/common.hpp>
 #include <HugeCTR/include/utils.cuh>
+#include <HugeCTR/include/utils.hpp>
 #include <cub/cub.cuh>
 #include <embedding/data_distributor/data_distribution_op.hpp>
 #include <embedding/operators/communication.hpp>
