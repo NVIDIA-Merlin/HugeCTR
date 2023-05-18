@@ -95,12 +95,60 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-23-05">
+<h2>What’s New in Version 23.05<a class="headerlink" href="#what-s-new-in-version-23-05" title="Permalink to this headline"></a></h2>
+<p>In this release, we have fixed issues and enhanced the code.</p>
+<ul>
+<li><p><strong>3G Embedding Updates</strong>:</p>
+<ul class="simple">
+<li><p>Refactored the <code class="docutils literal notranslate"><span class="pre">DataDistributor</span></code> related code</p></li>
+<li><p>New SOK <code class="docutils literal notranslate"><span class="pre">load()</span></code> and <code class="docutils literal notranslate"><span class="pre">dump()</span></code> APIs are usable in TensorFlow 2. To use the API, specify <code class="docutils literal notranslate"><span class="pre">sok_vars</span></code> in addition to <code class="docutils literal notranslate"><span class="pre">path</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sok_vars</span></code> is a list of <code class="docutils literal notranslate"><span class="pre">sok.variable</span></code> and/or <code class="docutils literal notranslate"><span class="pre">sok.dynamic_variable</span></code>.</p></li>
+<li><p>If you want to store optimizer states such as <code class="docutils literal notranslate"><span class="pre">m</span></code> and <code class="docutils literal notranslate"><span class="pre">v</span></code> of <code class="docutils literal notranslate"><span class="pre">Adam</span></code>,  the <code class="docutils literal notranslate"><span class="pre">optimizer</span></code> must be specified as well.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">optimizer</span></code> must be a <code class="docutils literal notranslate"><span class="pre">tf.keras.optimizers.Optimizer</span></code> or <code class="docutils literal notranslate"><span class="pre">sok.OptimizerWrapper</span></code> while their underlying type must be <code class="docutils literal notranslate"><span class="pre">SGD</span></code>, <code class="docutils literal notranslate"><span class="pre">Adamax</span></code>, <code class="docutils literal notranslate"><span class="pre">Adadelta</span></code>, <code class="docutils literal notranslate"><span class="pre">Adagrad</span></code>, or <code class="docutils literal notranslate"><span class="pre">Ftrl</span></code>.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sok_vars</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sok_vars</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>These APIs are independent from the number of GPUs in use and the sharding strategy. For instance, a distributed embedding table trained and dumped with 8 GPUs can be loaded to train on a 4-GPU machine.</p>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>Fixed the segmentation fault and wrong initialization when the embedding table fusion is enabled in using the HPS UVM implementation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cudaDeviceSynchronize()</span></code> is removed when building the HugeCTR in the debug mode, so you can enable the CUDA Graph even in the debug mode.</p></li>
+<li><p>Modified some Notebooks to use the most recent version of NGC container</p></li>
+<li><p>Fixed the <code class="docutils literal notranslate"><span class="pre">EmbeddingTableCollection</span></code> utest to run correctly with multiple GPUs</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR can lead to a runtime error if client code calls RMM’s <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> or  <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> because HugeCTR’s Parquet Data Reader also calls <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>, and it becomes visible to other libraries in the same process. Refer to [this issue] (<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/356">https://github.com/NVIDIA-Merlin/HugeCTR/issues/356</a>) . As a workaround, set an environment variable <code class="docutils literal notranslate"><span class="pre">HCTR_RMM_SETTABLE</span></code> to 0 to disable HugeCTR to set a custom RMM device resource, if they know <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.</p></li>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">this NCCL known issue</a> and <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">this GitHub issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka,make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers. Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>Dumping Adam optimizer states to AWS S3 is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-23-04">
 <h2>What’s New in Version 23.04<a class="headerlink" href="#what-s-new-in-version-23-04" title="Permalink to this headline"></a></h2>
 <ul>
 <li><p><strong>Hierarchical Parameter Server Enhancements</strong>:</p>
 <ul class="simple">
-<li><p>HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS… To turn on table fusion, set <code class="docutils literal notranslate"><span class="pre">fuse_embedding_table</span></code> to <code class="docutils literal notranslate"><span class="pre">true</span></code> in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration">HPS configuration</a> and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html">HPS table fusion demo notebook</a>. This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.</p></li>
+<li><p>HPS Table Fusion: From this release, you can fuse tables of the same embedding vector size in HPS. We support this feature in the HPS plugin for TensorFlow and the Triton backend for HPS. To turn on table fusion, set <code class="docutils literal notranslate"><span class="pre">fuse_embedding_table</span></code> to <code class="docutils literal notranslate"><span class="pre">true</span></code> in the HPS JSON file. This feature requires that the key values in different tables do not overlap and the embedding lookup layers are not dependent on each other in the model graph. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration">HPS configuration</a> and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html">HPS table fusion demo notebook</a>. This feature can reduce the embedding lookup latency significantly when there are multiple tables and GPU embedding cache is employed. About 3x speedup is achieved on V100 for the fused case demonstrated in the notebook compared to the unfused one.</p></li>
 <li><p>UVM Support: We have upgraded the static embedding solution. For embedding tables whose size exceeds the device memory, we will save high-frequency embeddings in the HBM as an embedding cache and offload the remaining embeddings to the UVM. Compared with the dynamic cache solution that offloads the remaining embeddings to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#volatile-database-configuration">Volatile DB</a>, the UVM solution has higher CPU lookup throughput. We will support online updating of the UVM solution in a future release. Users can switch between different embedding cache solutions through the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#inference-parameters">embedding_cache_type</a> configuration parameter.</p></li>
 <li><p>Triton Perf Analayzer’s Request Generator: We have added an <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/request_generator">inference request generator</a> to generate the JSON request format required by Triton Perf Analyzer. By using this request generator together with the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/tools/inference_test_scripts/model_generator">model generator</a>, you can use the Triton Perf Analyzer to profile the HPS performance and do stress testing. For API documentation and demo usage, please refer to <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md">README</a></p></li>
 </ul>
@@ -200,7 +248,7 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as <code class="docutils literal notranslate"><span class="pre">v4.3</span></code>.
-Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.01</span></code>.</p>
+Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.05</span></code>.</p>
 </div>
 <ul>
 <li><p><strong>Support for BERT and Variants</strong>:
@@ -288,7 +336,7 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as <code class="docutils literal notranslate"><span class="pre">v4.2</span></code>.
-Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.01</span></code>.</p>
+Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.05</span></code>.</p>
 </div>
 <ul>
 <li><p><strong>Change to HPS with Redis or Kafka</strong>:
@@ -1098,7 +1146,7 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       <dt>Tags</dt>
       <dd><a href="../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../v23.04.00/index.html">v23.04.00</a></dd>
-      <dd><a href="../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../v4.2/index.html">v4.2</a></dd>
       <dd><a href="../v4.3/index.html">v4.3</a></dd>
       <dd><a href="../v4.3.1/index.html">v4.3.1</a></dd>

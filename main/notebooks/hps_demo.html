@@ -268,8 +268,10 @@ HPS supports different database backends and GPU embedding caches.</p>
 
 <span class="c1"># `model.export_predictions` will open files with `std::ios::out | std::ios::app`. In order to allow</span>
 <span class="c1"># repeatedly executing the notebook without altering results, we delete the files here.</span>
-<span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_pred_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_label_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_pred_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
+  <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_pred_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_label_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
+  <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_label_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="n">model</span><span class="o">.</span><span class="n">export_predictions</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;hps_demo_pred_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;hps_demo_label_</span><span class="si">{</span><span class="mi">1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -2928,7 +2930,7 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
       <dt>Tags</dt>
       <dd><a href="../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
-      <dd><a href="../../v4.1.1/index.html">v4.1.1</a></dd>
+      <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v4.2/index.html">v4.2</a></dd>
       <dd><a href="../../v4.3/index.html">v4.3</a></dd>
       <dd><a href="../../v4.3.1/index.html">v4.3.1</a></dd>
