@@ -195,7 +195,7 @@ REGISTER_OP("LookupForwardVariable")
         c->set_output(i, emb_vec_buffer_shape);
       }
 
-      return Status::OK();
+      return sok_tsl_status(); 
     });
 
 // There may be duplicates in the `handles`
