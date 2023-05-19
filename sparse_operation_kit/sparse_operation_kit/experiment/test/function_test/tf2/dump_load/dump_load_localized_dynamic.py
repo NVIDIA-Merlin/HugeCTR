@@ -147,7 +147,6 @@ if __name__ == "__main__":
             sok_var_index_nps_raw.append(ex_indices.numpy())
         sok.dump("./weight", sok_vars, sok_optimizer)
 
-        print("kanghui debug 0 ")
         for sok_var in sok_vars:
             ex_indices, ex_values = sok.export(sok_var)
             zeros_values = tf.zeros(ex_values.shape)
