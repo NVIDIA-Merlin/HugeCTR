@@ -13,6 +13,10 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
+import warnings
+
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore", UserWarning)
 
 import os
 import sys
@@ -20,27 +24,22 @@ import argparse
 import glob
 import time
 import numpy as np
-import pandas as pd
 import shutil
 
 import dask_cudf
 from dask_cuda import LocalCUDACluster
 from dask.distributed import Client
 
-import cudf
-import rmm
 import nvtabular as nvt
-from nvtabular.utils import device_mem_size
+from merlin.core.compat import device_mem_size
 from nvtabular.ops import (
     Categorify,
     Clip,
     FillMissing,
-    LambdaOp,
     Normalize,
-    Rename,
-    Operator,
     get_embedding_sizes,
 )
+
 
 # %load_ext memory_profiler
 
@@ -65,13 +64,6 @@ CROSS_COLUMNS = []
 NUM_INTEGER_COLUMNS = 13
 NUM_CATEGORICAL_COLUMNS = 26
 NUM_TOTAL_COLUMNS = 1 + NUM_INTEGER_COLUMNS + NUM_CATEGORICAL_COLUMNS
-
-
-# Initialize RMM pool on ALL workers
-def setup_rmm_pool(client, pool_size):
-    client.run(rmm.reinitialize, pool_allocator=True, initial_pool_size=pool_size)
-    return None
-
 
 # compute the partition size with GB
 def bytesto(bytes, to, bsize=1024):
@@ -106,6 +98,7 @@ def process_NVT(args):
 
     # Deploy a Single-Machine Multi-GPU Cluster
     device_size = device_mem_size(kind="total")
+    device_pool_size = int(args.device_pool_frac * device_size)
     cluster = None
     if args.protocol == "ucx":
         UCX_TLS = os.environ.get("UCX_TLS", "tcp,cuda_copy,cuda_ipc,sockcm")
@@ -114,9 +107,9 @@ def process_NVT(args):
             protocol=args.protocol,
             CUDA_VISIBLE_DEVICES=args.devices,
             n_workers=len(args.devices.split(",")),
-            enable_nvlink=True,
             device_memory_limit=int(device_size * args.device_limit_frac),
             dashboard_address=":" + args.dashboard_port,
+            rmm_pool_size=(device_pool_size // 256) * 256,
         )
     else:
         cluster = LocalCUDACluster(
@@ -125,12 +118,14 @@ def process_NVT(args):
             CUDA_VISIBLE_DEVICES=args.devices,
             device_memory_limit=int(device_size * args.device_limit_frac),
             dashboard_address=":" + args.dashboard_port,
+            rmm_pool_size=(device_pool_size // 256) * 256,
         )
 
     # Create the distributed client
-    client = Client(cluster)
-    if args.device_pool_frac > 0.01:
-        setup_rmm_pool(client, int(args.device_pool_frac * device_size))
+    if cluster:
+        client = Client(cluster)
+    else:
+        client = Client(processes=False)
 
     # calculate the total processing time
     runtime = time.time()
@@ -155,6 +150,12 @@ def process_NVT(args):
             input, sep="\t", names=LABEL_COLUMNS + CONTINUOUS_COLUMNS + CATEGORICAL_COLUMNS
         )
 
+        if args.feature_cross_list:
+            feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
+            for pair in args.feature_cross_list.split(","):
+                feature_pair = pair.split("_")
+                ddf[pair] = ddf[feature_pair[0]] + ddf[feature_pair[1]]
+
         ## Convert label col to FP32
         if args.parquet_format and args.dataset_type == "train":
             ddf["label"] = ddf["label"].astype("float32")
@@ -170,16 +171,13 @@ def process_NVT(args):
     categorify_op = Categorify(freq_threshold=args.freq_limit)
     cat_features = CATEGORICAL_COLUMNS >> categorify_op
     cont_features = CONTINUOUS_COLUMNS >> FillMissing() >> Clip(min_value=0) >> Normalize()
-    cross_cat_op = Categorify(encode_type="combo", freq_threshold=args.freq_limit)
+    cross_cat_op = Categorify(freq_threshold=args.freq_limit)
 
     features = LABEL_COLUMNS
-
     if args.criteo_mode == 0:
         features += cont_features
-        if args.feature_cross_list:
-            feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
-            for pair in feature_pairs:
-                features += [pair] >> cross_cat_op
+        for pair in args.feature_cross_list.split(","):
+            features += [pair] >> cross_cat_op
 
     features += cat_features
 
@@ -224,7 +222,7 @@ def process_NVT(args):
 
     if output_format == "hugectr":
         workflow.transform(train_ds_iterator).to_hugectr(
-            cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+            cats=CROSS_COLUMNS + CATEGORICAL_COLUMNS,
             conts=conts,
             labels=LABEL_COLUMNS,
             output_path=train_output,
@@ -236,24 +234,13 @@ def process_NVT(args):
         workflow.transform(train_ds_iterator).to_parquet(
             output_path=train_output,
             dtypes=dict_dtypes,
-            cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+            cats=CROSS_COLUMNS + CATEGORICAL_COLUMNS,
             conts=conts,
             labels=LABEL_COLUMNS,
             shuffle=shuffle,
             out_files_per_proc=args.out_files_per_proc,
             num_threads=args.num_io_threads,
         )
-
-    ###Getting slot size###
-    # --------------------##
-    embeddings_dict_cat = categorify_op.get_embedding_sizes(CATEGORICAL_COLUMNS)
-    embeddings_dict_cross = cross_cat_op.get_embedding_sizes(CROSS_COLUMNS)
-    embeddings = [embeddings_dict_cross[c][0] for c in CROSS_COLUMNS] + [
-        embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS
-    ]
-
-    print(embeddings)
-    ##--------------------##
 
     logging.info("Valid Datasets Preprocessing.....")
 
@@ -285,11 +272,9 @@ def process_NVT(args):
         embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS
     ]
 
-    print(embeddings)
+    print("Slot size array is: ", embeddings)
     ##--------------------##
 
-    ## Shutdown clusters
-    client.close()
     logging.info("NVTabular processing done")
 
     runtime = time.time() - runtime
