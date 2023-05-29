@@ -179,18 +179,6 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 </div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span><span class="nv">$train_path</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 0
-</pre></div>
-</div>
-</div>
-</div>
 </div>
 <div class="section" id="download-the-original-criteo-dataset">
 <h3>Download the original Criteo dataset<a class="headerlink" href="#download-the-original-criteo-dataset" title="Permalink to this headline"></a></h3>
@@ -212,7 +200,7 @@ We show how to produce prediction results based on different types of local data
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="ch">#!gzip -d -c $train_path/day_0.gz &gt; day_0</span>
-<span class="o">!</span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">45840617</span><span class="w"> </span>day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$train_path</span>/train.txt
+<span class="o">!</span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">10000000</span><span class="w"> </span>day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$train_path</span>/train.txt
 <span class="o">!</span>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">2000000</span><span class="w"> </span>day_0<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$val_path</span>/test.txt<span class="w"> </span>
 </pre></div>
 </div>
@@ -223,42 +211,52 @@ We show how to produce prediction results based on different types of local data
 <h3>Preprocessing with NVTabular<a class="headerlink" href="#preprocessing-with-nvtabular" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> /wdl_train/preprocess.py
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;/wdl_train/preprocess.py&#39;
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
+
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">argparse</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 
 <span class="kn">import</span> <span class="nn">dask_cudf</span>
 <span class="kn">from</span> <span class="nn">dask_cuda</span> <span class="kn">import</span> <span class="n">LocalCUDACluster</span>
 <span class="kn">from</span> <span class="nn">dask.distributed</span> <span class="kn">import</span> <span class="n">Client</span>
 
-<span class="kn">import</span> <span class="nn">cudf</span>
-<span class="kn">import</span> <span class="nn">rmm</span>
 <span class="kn">import</span> <span class="nn">nvtabular</span> <span class="k">as</span> <span class="nn">nvt</span>
-<span class="kn">from</span> <span class="nn">nvtabular.io</span> <span class="kn">import</span> <span class="n">Shuffle</span>
-<span class="kn">from</span> <span class="nn">nvtabular.utils</span> <span class="kn">import</span> <span class="n">device_mem_size</span>
-<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">Categorify</span><span class="p">,</span> <span class="n">Clip</span><span class="p">,</span> <span class="n">FillMissing</span><span class="p">,</span> <span class="n">LambdaOp</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">Rename</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">get_embedding_sizes</span>
-<span class="c1">#%load_ext memory_profiler</span>
+<span class="kn">from</span> <span class="nn">merlin.core.compat</span> <span class="kn">import</span> <span class="n">device_mem_size</span>
+<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Categorify</span><span class="p">,</span>
+    <span class="n">Clip</span><span class="p">,</span>
+    <span class="n">FillMissing</span><span class="p">,</span>
+    <span class="n">Normalize</span><span class="p">,</span>
+    <span class="n">get_embedding_sizes</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="c1"># %load_ext memory_profiler</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">NOTSET</span><span class="p">)</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;numba&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;asyncio&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;numba&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;asyncio&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
 
 <span class="c1"># define dataset schema</span>
-<span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span>
-<span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
-<span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
-<span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
-<span class="c1">#/samples/criteo mode doesn&#39;t have dense features</span>
-<span class="n">criteo_COLUMN</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
-<span class="c1">#For new feature cross columns</span>
+<span class="n">CATEGORICAL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span>
+<span class="n">CONTINUOUS_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
+<span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+<span class="n">COLUMNS</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1"># /samples/criteo mode doesn&#39;t have dense features</span>
+<span class="n">criteo_COLUMN</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1"># For new feature cross columns</span>
 <span class="n">CROSS_COLUMNS</span> <span class="o">=</span> <span class="p">[]</span>
 
 
@@ -266,32 +264,25 @@ We show how to produce prediction results based on different types of local data
 <span class="n">NUM_CATEGORICAL_COLUMNS</span> <span class="o">=</span> <span class="mi">26</span>
 <span class="n">NUM_TOTAL_COLUMNS</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">NUM_INTEGER_COLUMNS</span> <span class="o">+</span> <span class="n">NUM_CATEGORICAL_COLUMNS</span>
 
-
-<span class="c1"># Initialize RMM pool on ALL workers</span>
-<span class="k">def</span> <span class="nf">setup_rmm_pool</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">pool_size</span><span class="p">):</span>
-    <span class="n">client</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">rmm</span><span class="o">.</span><span class="n">reinitialize</span><span class="p">,</span> <span class="n">pool_allocator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initial_pool_size</span><span class="o">=</span><span class="n">pool_size</span><span class="p">)</span>
-    <span class="k">return</span> <span class="kc">None</span>
-
-<span class="c1">#compute the partition size with GB</span>
+<span class="c1"># compute the partition size with GB</span>
 <span class="k">def</span> <span class="nf">bytesto</span><span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">to</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
-    <span class="n">a</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;k&#39;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span> <span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span> <span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;p&#39;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">}</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;t&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;e&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">}</span>
     <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">bytes</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">bytes</span> <span class="o">/</span> <span class="p">(</span><span class="n">bsize</span> <span class="o">**</span> <span class="n">a</span><span class="p">[</span><span class="n">to</span><span class="p">])</span>
 
-<span class="c1">#process the data with NVTabular</span>
-<span class="k">def</span> <span class="nf">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
 
+<span class="c1"># process the data with NVTabular</span>
+<span class="k">def</span> <span class="nf">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
         <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
         <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
-            <span class="n">CROSS_COLUMNS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">CROSS_COLUMNS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
-
-    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;NVTabular processing&#39;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;NVTabular processing&quot;</span><span class="p">)</span>
     <span class="n">train_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;train/train.txt&quot;</span><span class="p">)</span>
     <span class="n">val_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;val/test.txt&quot;</span><span class="p">)</span>
-    <span class="n">PREPROCESS_DIR_temp_train</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;train/temp-parquet-after-conversion&#39;</span><span class="p">)</span>
-    <span class="n">PREPROCESS_DIR_temp_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;val/temp-parquet-after-conversion&#39;</span><span class="p">)</span>
+    <span class="n">PREPROCESS_DIR_temp_train</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;train/temp-parquet-after-conversion&quot;</span><span class="p">)</span>
+    <span class="n">PREPROCESS_DIR_temp_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;val/temp-parquet-after-conversion&quot;</span><span class="p">)</span>
     <span class="n">PREPROCESS_DIR_temp</span> <span class="o">=</span> <span class="p">[</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="n">PREPROCESS_DIR_temp_val</span><span class="p">]</span>
     <span class="n">train_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
     <span class="n">val_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
@@ -302,45 +293,44 @@ We show how to produce prediction results based on different types of local data
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
 
-
     <span class="c1">## Get Dask Client</span>
 
     <span class="c1"># Deploy a Single-Machine Multi-GPU Cluster</span>
     <span class="n">device_size</span> <span class="o">=</span> <span class="n">device_mem_size</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;total&quot;</span><span class="p">)</span>
+    <span class="n">device_pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
     <span class="n">cluster</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="s2">&quot;ucx&quot;</span><span class="p">:</span>
         <span class="n">UCX_TLS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UCX_TLS&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp,cuda_copy,cuda_ipc,sockcm&quot;</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;UCX_TLS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">UCX_TLS</span>
         <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
-            <span class="n">protocol</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
-            <span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
-            <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
-            <span class="n">enable_nvlink</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">device_memory_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
-            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
+            <span class="n">n_workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+            <span class="n">device_memory_limit</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
+            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span><span class="p">,</span>
+            <span class="n">rmm_pool_size</span><span class="o">=</span><span class="p">(</span><span class="n">device_pool_size</span> <span class="o">//</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
-            <span class="n">protocol</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
-            <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
-            <span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
-            <span class="n">device_memory_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
-            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="n">n_workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+            <span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
+            <span class="n">device_memory_limit</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
+            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span><span class="p">,</span>
+            <span class="n">rmm_pool_size</span><span class="o">=</span><span class="p">(</span><span class="n">device_pool_size</span> <span class="o">//</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span><span class="p">,</span>
         <span class="p">)</span>
 
-
-
     <span class="c1"># Create the distributed client</span>
-    <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span> <span class="o">&gt;</span> <span class="mf">0.01</span><span class="p">:</span>
-        <span class="n">setup_rmm_pool</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span><span class="o">*</span><span class="n">device_size</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">cluster</span><span class="p">:</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-
-    <span class="c1">#calculate the total processing time</span>
+    <span class="c1"># calculate the total processing time</span>
     <span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 
-    <span class="c1">#test dataset without the label feature</span>
-    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s1">&#39;test&#39;</span><span class="p">:</span>
+    <span class="c1"># test dataset without the label feature</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span>
         <span class="k">global</span> <span class="n">LABEL_COLUMNS</span>
         <span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -349,50 +339,62 @@ We show how to produce prediction results based on different types of local data
     <span class="c1"># Dask cudf dataframe = ddf</span>
 
     <span class="c1">## train/valid txt to parquet</span>
-    <span class="n">train_valid_paths</span> <span class="o">=</span> <span class="p">[(</span><span class="n">train_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">),(</span><span class="n">val_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">)]</span>
+    <span class="n">train_valid_paths</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">train_input</span><span class="p">,</span> <span class="n">PREPROCESS_DIR_temp_train</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">val_input</span><span class="p">,</span> <span class="n">PREPROCESS_DIR_temp_val</span><span class="p">),</span>
+    <span class="p">]</span>
 
     <span class="k">for</span> <span class="nb">input</span><span class="p">,</span> <span class="n">temp_output</span> <span class="ow">in</span> <span class="n">train_valid_paths</span><span class="p">:</span>
+        <span class="n">ddf</span> <span class="o">=</span> <span class="n">dask_cudf</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="nb">input</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+        <span class="p">)</span>
 
-        <span class="n">ddf</span> <span class="o">=</span> <span class="n">dask_cudf</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">names</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
+            <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
+                <span class="n">feature_pair</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                <span class="n">ddf</span><span class="p">[</span><span class="n">pair</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="n">feature_pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="n">ddf</span><span class="p">[</span><span class="n">feature_pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
 
         <span class="c1">## Convert label col to FP32</span>
-        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parquet_format</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s1">&#39;train&#39;</span><span class="p">:</span>
-            <span class="n">ddf</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parquet_format</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+            <span class="n">ddf</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span>
 
         <span class="c1"># Save it as parquet format for better memory usage</span>
-        <span class="n">ddf</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">temp_output</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ddf</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">temp_output</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="c1">##-----------------------------------##</span>
 
-    <span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+    <span class="n">COLUMNS</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
     <span class="n">train_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
     <span class="n">valid_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
 
     <span class="n">categorify_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
     <span class="n">cat_features</span> <span class="o">=</span> <span class="n">CATEGORICAL_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">categorify_op</span>
     <span class="n">cont_features</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">FillMissing</span><span class="p">()</span> <span class="o">&gt;&gt;</span> <span class="n">Clip</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">Normalize</span><span class="p">()</span>
-    <span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">encode_type</span><span class="o">=</span><span class="s2">&quot;combo&quot;</span><span class="p">,</span> <span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
+    <span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
 
     <span class="n">features</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span>
-    
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">criteo_mode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">features</span> <span class="o">+=</span> <span class="n">cont_features</span>
-        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
-            <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
-            <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
-                <span class="n">features</span> <span class="o">+=</span> <span class="p">[</span><span class="n">pair</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
+            <span class="n">features</span> <span class="o">+=</span> <span class="p">[</span><span class="n">pair</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
+
     <span class="n">features</span> <span class="o">+=</span> <span class="n">cat_features</span>
 
     <span class="n">workflow</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Workflow</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
 
     <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preprocessing&quot;</span><span class="p">)</span>
 
-    <span class="n">output_format</span> <span class="o">=</span> <span class="s1">&#39;hugectr&#39;</span>
+    <span class="n">output_format</span> <span class="o">=</span> <span class="s2">&quot;hugectr&quot;</span>
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parquet_format</span><span class="p">:</span>
-        <span class="n">output_format</span> <span class="o">=</span> <span class="s1">&#39;parquet&#39;</span>
+        <span class="n">output_format</span> <span class="o">=</span> <span class="s2">&quot;parquet&quot;</span>
 
     <span class="c1"># just for /samples/criteo model</span>
-    <span class="n">train_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">train_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">))</span>
-    <span class="n">valid_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">valid_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">))</span>
+    <span class="n">train_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span>
+        <span class="n">train_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;parquet&quot;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">valid_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span>
+        <span class="n">valid_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;parquet&quot;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+    <span class="p">)</span>
 
     <span class="n">shuffle</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">shuffle</span> <span class="o">==</span> <span class="s2">&quot;PER_WORKER&quot;</span><span class="p">:</span>
@@ -400,7 +402,7 @@ We show how to produce prediction results based on different types of local data
     <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">shuffle</span> <span class="o">==</span> <span class="s2">&quot;PER_PARTITION&quot;</span><span class="p">:</span>
         <span class="n">shuffle</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span>
 
-    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Train Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Train Datasets Preprocessing.....&quot;</span><span class="p">)</span>
 
     <span class="n">dict_dtypes</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">:</span>
@@ -412,74 +414,67 @@ We show how to produce prediction results based on different types of local data
         <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
     <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">LABEL_COLUMNS</span><span class="p">:</span>
         <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
-    
+
     <span class="n">conts</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">criteo_mode</span> <span class="k">else</span> <span class="p">[]</span>
-    
+
     <span class="n">workflow</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span>
-    
-    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s2">&quot;hugectr&quot;</span><span class="p">:</span>
         <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
-                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
-                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
-                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
-                <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
-                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
-                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
-                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+            <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+            <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
-                <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
-                <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
-                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
-                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
-                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
-                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
-                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
-                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
-        
-        
-        
-    <span class="c1">###Getting slot size###    </span>
-    <span class="c1">#--------------------##</span>
-    <span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
-    <span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
-    <span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
-    
-    <span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
-    <span class="c1">##--------------------##</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+            <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+            <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+            <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">,</span>
+        <span class="p">)</span>
 
-    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Valid Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Valid Datasets Preprocessing.....&quot;</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s2">&quot;hugectr&quot;</span><span class="p">:</span>
         <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
-                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
-                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
-                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
-                <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
-                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
-                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
-                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+            <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+            <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
-                <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
-                <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
-                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
-                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
-                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
-                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
-                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
-                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+            <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+            <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+            <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+            <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+            <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+            <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
     <span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
-    <span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
-    
-    <span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span>
+    <span class="p">]</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Slot size array is: &quot;</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
     <span class="c1">##--------------------##</span>
 
-    <span class="c1">## Shutdown clusters</span>
-    <span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;NVTabular processing done&#39;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;NVTabular processing done&quot;</span><span class="p">)</span>
 
     <span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">runtime</span>
 
@@ -513,7 +508,7 @@ We show how to produce prediction results based on different types of local data
         <span class="s2">&quot;--devices&quot;</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">),</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Comma-separated list of visible devices (e.g. &quot;0,1,2,3&quot;). &#39;</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Comma-separated list of visible devices (e.g. &quot;0,1,2,3&quot;). &#39;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">&quot;-p&quot;</span><span class="p">,</span>
@@ -527,7 +522,7 @@ We show how to produce prediction results based on different types of local data
         <span class="s2">&quot;--device_limit_frac&quot;</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Worker device-memory limit as a fraction of GPU capacity (Default 0.8). &quot;</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Worker device-memory limit as a fraction of GPU capacity (Default 0.8). &quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">&quot;--device_pool_frac&quot;</span><span class="p">,</span>
@@ -557,9 +552,9 @@ We show how to produce prediction results based on different types of local data
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">&quot;--out_files_per_proc&quot;</span><span class="p">,</span>
-        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of output files to write on each worker (Default 1)&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of output files to write on each worker (Default 8)&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="c1">#</span>
@@ -582,7 +577,10 @@ We show how to produce prediction results based on different types of local data
     <span class="p">)</span>
 
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--feature_cross_list&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;List of feature crossing cols (e.g. C1_C2, C3_C4)&quot;</span>
+        <span class="s2">&quot;--feature_cross_list&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;List of feature crossing cols (e.g. C1_C2, C3_C4)&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="c1">#</span>
@@ -605,19 +603,16 @@ We show how to produce prediction results based on different types of local data
         <span class="s2">&quot;The dashboard will be hosted at http://&lt;IP&gt;:&lt;PORT&gt;/status&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="c1">#</span>
-    <span class="c1"># Format</span>
-    <span class="c1">#</span>
-
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--criteo_mode&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--parquet_format&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--dataset_type&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;train&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--criteo_mode&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--parquet_format&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--dataset_type&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
 
     <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
     <span class="n">args</span><span class="o">.</span><span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">args</span>
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
 
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">args</span> <span class="o">=</span> <span class="n">parse_args</span><span class="p">()</span>
 
     <span class="n">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
@@ -625,7 +620,7 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing /wdl_train/preprocess.py
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting /wdl_train/preprocess.py
 </pre></div>
 </div>
 </div>
@@ -639,39 +634,14 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-02-10 10:32:34,808 NVTabular processing
-2023-02-10 10:32:36,590 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
-2023-02-10 10:32:36,590 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
-2023-02-10 10:32:36,604 Unable to start CUDA Context
-Traceback (most recent call last):
-  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 782, in _nvmlGetFunctionPointer
-    _nvmlGetFunctionPointer_cache[name] = getattr(nvmlLib, name)
-  File &quot;/usr/lib/python3.8/ctypes/__init__.py&quot;, line 386, in __getattr__
-    func = self.__getitem__(name)
-  File &quot;/usr/lib/python3.8/ctypes/__init__.py&quot;, line 391, in __getitem__
-    func = self._FuncPtr((name_or_ordinal, self))
-AttributeError: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1: undefined symbol: nvmlDeviceGetComputeRunningProcesses_v2
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File &quot;/usr/local/lib/python3.8/dist-packages/dask_cuda/initialize.py&quot;, line 41, in _create_cuda_context
-    ctx = has_cuda_context()
-  File &quot;/usr/local/lib/python3.8/dist-packages/distributed/diagnostics/nvml.py&quot;, line 164, in has_cuda_context
-    running_processes = pynvml.nvmlDeviceGetComputeRunningProcesses_v2(handle)
-  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 2191, in nvmlDeviceGetComputeRunningProcesses_v2
-    fn = _nvmlGetFunctionPointer(&quot;nvmlDeviceGetComputeRunningProcesses_v2&quot;)
-  File &quot;/usr/local/lib/python3.8/dist-packages/pynvml/nvml.py&quot;, line 785, in _nvmlGetFunctionPointer
-    raise NVMLError(NVML_ERROR_FUNCTION_NOT_FOUND)
-pynvml.nvml.NVMLError_FunctionNotFound: Function Not Found
-/usr/local/lib/python3.8/dist-packages/merlin/core/utils.py:384: FutureWarning: The `client` argument is deprecated from DaskExecutor and will be removed in a future version of NVTabular. By default, a global client in the same python context will be detected automatically, and `merlin.utils.set_dask_client` (as well as `Distributed` and `Serial`) can be used for explicit control.
-  warnings.warn(
-2023-02-10 10:32:54,260 Preprocessing
-2023-02-10 10:32:54,521 Train Datasets Preprocessing.....
-[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 281564, 415262]
-2023-02-10 10:34:09,155 Valid Datasets Preprocessing.....
-[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 281564, 415262]
-2023-02-10 10:34:10,596 NVTabular processing done
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-05-26 04:30:43,128 NVTabular processing
+2023-05-26 04:30:45,000 - distributed.preloading - INFO - Creating preload: dask_cuda.initialize
+2023-05-26 04:30:45,000 - distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+2023-05-26 04:30:53,847 Preprocessing
+2023-05-26 04:30:54,160 Train Datasets Preprocessing.....
+2023-05-26 04:31:14,725 Valid Datasets Preprocessing.....
+Slot size array is:  [62962, 127889, 56869, 12448, 11969, 6832, 18364, 4, 5960, 1170, 43, 57084, 29015, 33861, 11, 1956, 5598, 55, 4, 913, 15, 56488, 48591, 57463, 26037, 7790, 58, 34]
+2023-05-26 04:31:18,677 NVTabular processing done
 
 Dask-NVTabular Criteo Preprocessing
 --------------------------------------
@@ -681,12 +651,15 @@ partition size     | 3.97 GB
 protocol           | tcp
 device(s)          | 0
 rmm-pool-frac      | 0.5
-out-files-per-proc | 1
+out-files-per-proc | 8
 num_io_threads     | 2
 shuffle            | PER_PARTITION
 ======================================
-Runtime[s]         | 92.90126419067383
+Runtime[s]         | 32.06131315231323
 ======================================
+
+2023-05-26 04:31:18,682 Attempted to close worker that is already Status.closing. Reason: worker-handle-scheduler-connection-broken
+2023-05-26 04:31:18,683 Attempted to close worker that is already Status.closed. Reason: worker-close
 </pre></div>
 </div>
 </div>
@@ -700,14 +673,21 @@ Runtime[s]         | 92.90126419067383
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14449264
--rw-r--r-- 1 root root          34 Feb 10 10:34 _file_list.txt
--rw-r--r-- 1 root root      450893 Feb 10 10:34 _metadata
--rw-r--r-- 1 root root        1510 Feb 10 10:34 _metadata.json
--rw-r--r-- 1 root root  3245838178 Feb 10 10:34 part_0.parquet
--rw-r--r-- 1 root root       27296 Feb 10 10:33 schema.pbtxt
-drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
--rw-r--r-- 1 root root 11549710546 Feb 10 10:32 train.txt
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 3103496
+-rw-r--r-- 1 root root        258 May 26 04:31 _file_list.txt
+-rw-r--r-- 1 root root     271567 May 26 04:31 _metadata
+-rw-r--r-- 1 root root       1887 May 26 04:31 _metadata.json
+-rw-r--r-- 1 root root   79777109 May 26 04:31 part_0.parquet
+-rw-r--r-- 1 root root   79821862 May 26 04:31 part_1.parquet
+-rw-r--r-- 1 root root   79946970 May 26 04:31 part_2.parquet
+-rw-r--r-- 1 root root   79783392 May 26 04:31 part_3.parquet
+-rw-r--r-- 1 root root   79875076 May 26 04:31 part_4.parquet
+-rw-r--r-- 1 root root   79844899 May 26 04:31 part_5.parquet
+-rw-r--r-- 1 root root   79876452 May 26 04:31 part_6.parquet
+-rw-r--r-- 1 root root   79767942 May 26 04:31 part_7.parquet
+-rw-r--r-- 1 root root      31277 May 26 04:31 schema.pbtxt
+drwxr-xr-x 2 root root        226 May 26 04:30 temp-parquet-after-conversion
+-rw-r--r-- 1 root root 2538954147 May 26 04:30 train.txt
 </pre></div>
 </div>
 </div>
@@ -725,7 +705,7 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
                               <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
                               <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
                               <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
-                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">2</span><span class="p">]],</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">]],</span>
                               <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
                               <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 
@@ -733,7 +713,7 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
                                   <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;/wdl_train/train/_file_list.txt&quot;</span><span class="p">],</span>
                                   <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;/wdl_train/val/_file_list.txt&quot;</span><span class="p">,</span>
                                   <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
-                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">249058</span><span class="p">,</span> <span class="mi">19561</span><span class="p">,</span> <span class="mi">14212</span><span class="p">,</span> <span class="mi">6890</span><span class="p">,</span> <span class="mi">18592</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6356</span><span class="p">,</span> <span class="mi">1254</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">226170</span><span class="p">,</span> <span class="mi">80508</span><span class="p">,</span> <span class="mi">72308</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2169</span><span class="p">,</span> <span class="mi">7597</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">923</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">249619</span><span class="p">,</span> <span class="mi">168974</span><span class="p">,</span> <span class="mi">243480</span><span class="p">,</span> <span class="mi">68212</span><span class="p">,</span> <span class="mi">9169</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">278018</span><span class="p">,</span> <span class="mi">415262</span><span class="p">])</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">278018</span><span class="p">,</span> <span class="mi">415262</span><span class="p">,</span> <span class="mi">249058</span><span class="p">,</span> <span class="mi">19561</span><span class="p">,</span> <span class="mi">14212</span><span class="p">,</span> <span class="mi">6890</span><span class="p">,</span> <span class="mi">18592</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6356</span><span class="p">,</span> <span class="mi">1254</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">226170</span><span class="p">,</span> <span class="mi">80508</span><span class="p">,</span> <span class="mi">72308</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2169</span><span class="p">,</span> <span class="mi">7597</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">923</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">249619</span><span class="p">,</span> <span class="mi">168974</span><span class="p">,</span> <span class="mi">243480</span><span class="p">,</span> <span class="mi">68212</span><span class="p">,</span> <span class="mi">9169</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">34</span><span class="p">])</span>
 <span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
                                     <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
                                     <span class="n">beta1</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
@@ -748,14 +728,14 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
                         <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
 
 <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
-                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
                             <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
                             <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
                             <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
                             <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;wide_data&quot;</span><span class="p">,</span>
                             <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
 <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
-                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">405</span><span class="p">,</span>
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">1350</span><span class="p">,</span>
                             <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
                             <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
                             <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
@@ -811,8 +791,8 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
 <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">21000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">)</span>
-<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">21000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;/wdl_train/model/wdl/&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;/wdl_train/model/wdl.json&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -829,42 +809,44 @@ drwxr-xr-x 2 root root        4096 Feb 10 10:32 temp-parquet-after-conversion
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 4.2
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>MpiInitService: Initialized!
+HugeCTR Version: 23.4
 ====================================================Model Init=====================================================
-[HCTR][10:35:38.637][WARNING][RK0][main]: The model name is not specified when creating the solver.
-[HCTR][10:35:38.637][INFO][RK0][main]: Global seed is 1886280762
-[HCTR][10:35:38.640][INFO][RK0][main]: Device to NUMA mapping:
-  GPU 2 -&gt;  node 0
-[HCTR][10:35:40.821][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][10:35:40.821][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.8035 
-[HCTR][10:35:40.821][INFO][RK0][main]: Start all2all warmup
-[HCTR][10:35:40.821][INFO][RK0][main]: End all2all warmup
-[HCTR][10:35:40.822][INFO][RK0][main]: Using All-reduce algorithm: NCCL
-[HCTR][10:35:40.823][INFO][RK0][main]: Device 2: Tesla V100-SXM2-32GB
-[HCTR][10:35:40.824][INFO][RK0][main]: num of DataReader workers for train: 1
-[HCTR][10:35:40.824][INFO][RK0][main]: num of DataReader workers for eval: 1
-[HCTR][10:35:40.824][DEBUG][RK0][main]: [device 2] allocating 0.0054 GB, available 30.5476 
-[HCTR][10:35:40.825][DEBUG][RK0][main]: [device 2] allocating 0.0054 GB, available 30.5417 
-[HCTR][10:35:40.825][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.5417 
-[HCTR][10:35:40.826][DEBUG][RK0][main]: [device 2] allocating 0.0000 GB, available 30.5417 
-[HCTR][10:35:40.826][INFO][RK0][main]: Vocabulary size: 2138588
-[HCTR][10:35:40.826][INFO][RK0][main]: max_vocabulary_size_per_gpu_=2097152
-[HCTR][10:35:40.838][DEBUG][RK0][main]: [device 2] allocating 0.0241 GB, available 30.3914 
-[HCTR][10:35:40.845][INFO][RK0][main]: max_vocabulary_size_per_gpu_=2211840
-[HCTR][10:35:40.851][DEBUG][RK0][main]: [device 2] allocating 0.4288 GB, available 29.9617 
-[HCTR][10:35:40.851][INFO][RK0][main]: Graph analysis to resolve tensor dependency
+[HCTR][05:22:57.077][WARNING][RK0][main]: The model name is not specified when creating the solver.
+[HCTR][05:22:57.077][INFO][RK0][main]: Global seed is 1262996030
+[HCTR][05:22:57.759][INFO][RK0][main]: Device to NUMA mapping:
+  GPU 1 -&gt;  node 0
+[HCTR][05:23:01.750][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:23:01.750][DEBUG][RK0][main]: [device 1] allocating 0.0000 GB, available 30.6238 
+[HCTR][05:23:01.750][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:23:01.751][INFO][RK0][main]: End all2all warmup
+[HCTR][05:23:01.780][INFO][RK0][main]: Using All-reduce algorithm: NCCL
+[HCTR][05:23:01.786][INFO][RK0][main]: Device 1: Tesla V100-SXM2-32GB
+[HCTR][05:23:01.789][INFO][RK0][main]: eval source /wdl_train/val/_file_list.txt max_row_group_size 33421
+[HCTR][05:23:01.792][INFO][RK0][main]: train source /wdl_train/train/_file_list.txt max_row_group_size 133025
+[HCTR][05:23:01.793][INFO][RK0][main]: num of DataReader workers for train: 1
+[HCTR][05:23:01.793][INFO][RK0][main]: num of DataReader workers for eval: 1
+[HCTR][05:23:01.794][DEBUG][RK0][main]: [device 1] allocating 0.0018 GB, available 30.3679 
+[HCTR][05:23:01.795][DEBUG][RK0][main]: [device 1] allocating 0.0018 GB, available 30.3621 
+[HCTR][05:23:01.808][INFO][RK0][main]: Vocabulary size: 2138588
+[HCTR][05:23:01.808][INFO][RK0][main]: max_vocabulary_size_per_gpu_=6990506
+[HCTR][05:23:01.812][DEBUG][RK0][main]: [device 1] allocating 0.0788 GB, available 29.8347 
+[HCTR][05:23:01.812][INFO][RK0][main]: max_vocabulary_size_per_gpu_=7372800
+[HCTR][05:23:01.816][DEBUG][RK0][main]: [device 1] allocating 1.3516 GB, available 28.3562 
+[HCTR][05:23:01.817][INFO][RK0][main]: Graph analysis to resolve tensor dependency
 ===================================================Model Compile===================================================
-[HCTR][10:35:40.856][DEBUG][RK0][main]: [device 2] allocating 0.2162 GB, available 29.4792 
-[HCTR][10:35:40.856][DEBUG][RK0][main]: [device 2] allocating 0.0056 GB, available 29.4734 
-[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 start to init embedding
-[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 init embedding done
-[HCTR][10:35:50.016][INFO][RK0][main]: gpu0 start to init embedding
-[HCTR][10:35:50.017][INFO][RK0][main]: gpu0 init embedding done
-[HCTR][10:35:50.017][DEBUG][RK0][main]: [device 2] allocating 0.0001 GB, available 29.4734 
-[HCTR][10:35:50.019][INFO][RK0][main]: Starting AUC NCCL warm-up
-[HCTR][10:35:50.023][INFO][RK0][main]: Warm-up done
+[HCTR][05:23:01.821][DEBUG][RK0][main]: [device 1] allocating 0.2162 GB, available 28.1238 
+[HCTR][05:23:01.821][DEBUG][RK0][main]: [device 1] allocating 0.0056 GB, available 28.1179 
+[HCTR][05:23:10.289][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][05:23:10.289][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][05:23:10.289][INFO][RK0][main]: gpu0 start to init embedding
+[HCTR][05:23:10.292][INFO][RK0][main]: gpu0 init embedding done
+[HCTR][05:23:10.292][DEBUG][RK0][main]: [device 1] allocating 0.0001 GB, available 28.1179 
+[HCTR][05:23:10.294][INFO][RK0][main]: Starting AUC NCCL warm-up
+[HCTR][05:23:10.299][INFO][RK0][main]: Warm-up done
+[HCTR][05:23:10.299][DEBUG][RK0][main]: Nothing to preallocate
 ===================================================Model Summary===================================================
-[HCTR][10:35:50.023][INFO][RK0][main]: Model structure on each GPU
+[HCTR][05:23:10.299][INFO][RK0][main]: Model structure on each GPU
 Label                                   Dense                         Sparse                        
 label                                   dense                          wide_data,deep_data           
 (2720,1)                                (2720,13)                               
@@ -905,74 +887,64 @@ BinaryCrossEntropyLoss                  add1                          loss
                                         label                                                                                     
 ------------------------------------------------------------------------------------------------------------------
 =====================================================Model Fit=====================================================
-[HCTR][10:35:50.024][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
-[HCTR][10:35:50.024][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
-[HCTR][10:35:50.024][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
-[HCTR][10:35:50.024][INFO][RK0][main]: Dense network trainable: True
-[HCTR][10:35:50.024][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
-[HCTR][10:35:50.024][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
-[HCTR][10:35:50.024][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
-[HCTR][10:35:50.024][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
-[HCTR][10:35:50.024][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
-[HCTR][10:35:50.024][INFO][RK0][main]: Training source file: /wdl_train/train/_file_list.txt
-[HCTR][10:35:50.024][INFO][RK0][main]: Evaluation source file: /wdl_train/val/_file_list.txt
-[HCTR][10:35:55.354][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 5.32919s Loss: 0.117964 lr:0.001
-[HCTR][10:36:00.665][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 5.30907s Loss: 0.126084 lr:0.001
-[HCTR][10:36:06.002][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 5.33581s Loss: 0.138335 lr:0.001
-[HCTR][10:36:11.349][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 5.34525s Loss: 0.101962 lr:0.001
-[HCTR][10:36:15.933][INFO][RK0][main]: Evaluation, AUC: 0.763947
-[HCTR][10:36:15.933][INFO][RK0][main]: Eval Time for 4000 iters: 4.583s
-[HCTR][10:36:21.258][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 9.90761s Loss: 0.120185 lr:0.001
-[HCTR][10:36:26.620][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 5.35972s Loss: 0.128626 lr:0.001
-[HCTR][10:36:31.947][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 5.32628s Loss: 0.125264 lr:0.001
-[HCTR][10:36:37.320][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 5.37131s Loss: 0.121486 lr:0.001
-[HCTR][10:36:41.803][INFO][RK0][main]: Evaluation, AUC: 0.767916
-[HCTR][10:36:41.803][INFO][RK0][main]: Eval Time for 4000 iters: 4.48175s
-[HCTR][10:36:47.154][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 9.83223s Loss: 0.109454 lr:0.001
-[HCTR][10:36:52.522][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 5.36677s Loss: 0.149472 lr:0.001
-[HCTR][10:36:57.896][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 5.37183s Loss: 0.118341 lr:0.001
-[HCTR][10:37:03.264][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 5.36706s Loss: 0.128496 lr:0.001
-[HCTR][10:37:07.728][INFO][RK0][main]: Evaluation, AUC: 0.769081
-[HCTR][10:37:07.728][INFO][RK0][main]: Eval Time for 4000 iters: 4.46314s
-[HCTR][10:37:13.098][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 9.83154s Loss: 0.118482 lr:0.001
-[HCTR][10:37:18.447][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 5.34802s Loss: 0.122699 lr:0.001
-[HCTR][10:37:23.812][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 5.36294s Loss: 0.118947 lr:0.001
-[HCTR][10:37:29.176][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 5.36303s Loss: 0.112516 lr:0.001
-[HCTR][10:37:33.646][INFO][RK0][main]: Evaluation, AUC: 0.772322
-[HCTR][10:37:33.646][INFO][RK0][main]: Eval Time for 4000 iters: 4.46896s
-[HCTR][10:37:39.146][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 9.96806s Loss: 0.11619 lr:0.001
-[HCTR][10:37:44.517][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 5.37011s Loss: 0.113035 lr:0.001
-[HCTR][10:37:49.891][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 5.37157s Loss: 0.116589 lr:0.001
-[HCTR][10:37:55.236][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 5.34424s Loss: 0.127488 lr:0.001
-[HCTR][10:37:59.698][INFO][RK0][main]: Evaluation, AUC: 0.768523
-[HCTR][10:37:59.698][INFO][RK0][main]: Eval Time for 4000 iters: 4.46044s
-[HCTR][10:37:59.698][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:37:59.771][INFO][RK0][main]: Rank0: Write hash table to file
-[HCTR][10:37:59.810][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:37:59.867][INFO][RK0][main]: Rank0: Write hash table to file
-[HCTR][10:38:00.091][INFO][RK0][main]: Dumping sparse weights to files, successful
-[HCTR][10:38:00.092][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][10:38:00.092][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:00.115][INFO][RK0][main]: Done
-[HCTR][10:38:00.116][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][10:38:00.116][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:00.140][INFO][RK0][main]: Done
-[HCTR][10:38:00.245][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][10:38:00.245][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:00.610][INFO][RK0][main]: Done
-[HCTR][10:38:00.695][INFO][RK0][main]: Rank0: Write optimzer state to file
-[HCTR][10:38:00.695][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:01.057][INFO][RK0][main]: Done
-[HCTR][10:38:01.063][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
-[HCTR][10:38:01.064][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:01.079][INFO][RK0][main]: Dumping dense weights to file, successful
-[HCTR][10:38:01.081][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:38:01.116][INFO][RK0][main]: Dumping dense optimizer states to file, successful
-[HCTR][10:38:06.487][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 136.46s.
-[HCTR][10:38:06.488][INFO][RK0][main]: Save the model graph to wdl.json successfully
-[1676025486.656545] [dgx1v-loki-23:602  :0] cuda_copy_iface.c:468  UCX  ERROR cuCtxGetCurrent(&amp;cuda_context)() failed: p�
-[1676025486.656590] [dgx1v-loki-23:602  :0]  cuda_ipc_iface.c:531  UCX  ERROR cuCtxGetCurrent(&amp;cuda_context)() failed: 
-[HCTR][10:38:06.707][INFO][RK0][main]: MPI finalization done.
+[HCTR][05:23:10.299][INFO][RK0][main]: Use non-epoch mode with number of iterations: 21000
+[HCTR][05:23:10.299][INFO][RK0][main]: Training batchsize: 2720, evaluation batchsize: 2720
+[HCTR][05:23:10.299][INFO][RK0][main]: Evaluation interval: 4000, snapshot interval: 20000
+[HCTR][05:23:10.299][INFO][RK0][main]: Dense network trainable: True
+[HCTR][05:23:10.299][INFO][RK0][main]: Sparse embedding sparse_embedding1 trainable: True
+[HCTR][05:23:10.299][INFO][RK0][main]: Sparse embedding sparse_embedding2 trainable: True
+[HCTR][05:23:10.299][INFO][RK0][main]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HCTR][05:23:10.299][INFO][RK0][main]: lr: 0.001000, warmup_steps: 1, end_lr: 0.000000
+[HCTR][05:23:10.299][INFO][RK0][main]: decay_start: 0, decay_steps: 1, decay_power: 2.000000
+[HCTR][05:23:10.299][INFO][RK0][main]: Training source file: /wdl_train/train/_file_list.txt
+[HCTR][05:23:10.299][INFO][RK0][main]: Evaluation source file: /wdl_train/val/_file_list.txt
+[HCTR][05:23:18.987][INFO][RK0][main]: Iter: 1000 Time(1000 iters): 8.68321s Loss: 0.125823 lr:0.001
+[HCTR][05:23:27.587][INFO][RK0][main]: Iter: 2000 Time(1000 iters): 8.5956s Loss: 0.11697 lr:0.001
+[HCTR][05:23:36.175][INFO][RK0][main]: Iter: 3000 Time(1000 iters): 8.58384s Loss: 0.115881 lr:0.001
+[HCTR][05:23:44.749][INFO][RK0][main]: Iter: 4000 Time(1000 iters): 8.56965s Loss: 0.114301 lr:0.001
+[HCTR][05:23:49.496][INFO][RK0][main]: Evaluation, AUC: 0.747877
+[HCTR][05:23:49.496][INFO][RK0][main]: Eval Time for 4000 iters: 4.74613s
+[HCTR][05:23:58.100][INFO][RK0][main]: Iter: 5000 Time(1000 iters): 13.3459s Loss: 0.126996 lr:0.001
+[HCTR][05:24:06.702][INFO][RK0][main]: Iter: 6000 Time(1000 iters): 8.59771s Loss: 0.108037 lr:0.001
+[HCTR][05:24:15.301][INFO][RK0][main]: Iter: 7000 Time(1000 iters): 8.59455s Loss: 0.126929 lr:0.001
+[HCTR][05:24:23.899][INFO][RK0][main]: Iter: 8000 Time(1000 iters): 8.59391s Loss: 0.105164 lr:0.001
+[HCTR][05:24:28.506][INFO][RK0][main]: Evaluation, AUC: 0.719409
+[HCTR][05:24:28.506][INFO][RK0][main]: Eval Time for 4000 iters: 4.60613s
+[HCTR][05:24:37.102][INFO][RK0][main]: Iter: 9000 Time(1000 iters): 13.1988s Loss: 0.108601 lr:0.001
+[HCTR][05:24:45.695][INFO][RK0][main]: Iter: 10000 Time(1000 iters): 8.58771s Loss: 0.114181 lr:0.001
+[HCTR][05:24:54.294][INFO][RK0][main]: Iter: 11000 Time(1000 iters): 8.59515s Loss: 0.102487 lr:0.001
+[HCTR][05:25:02.895][INFO][RK0][main]: Iter: 12000 Time(1000 iters): 8.59662s Loss: 0.101383 lr:0.001
+[HCTR][05:25:07.517][INFO][RK0][main]: Evaluation, AUC: 0.696508
+[HCTR][05:25:07.517][INFO][RK0][main]: Eval Time for 4000 iters: 4.62149s
+[HCTR][05:25:16.101][INFO][RK0][main]: Iter: 13000 Time(1000 iters): 13.2012s Loss: 0.106047 lr:0.001
+[HCTR][05:25:24.690][INFO][RK0][main]: Iter: 14000 Time(1000 iters): 8.58473s Loss: 0.114361 lr:0.001
+[HCTR][05:25:33.283][INFO][RK0][main]: Iter: 15000 Time(1000 iters): 8.58798s Loss: 0.0902672 lr:0.001
+[HCTR][05:25:41.863][INFO][RK0][main]: Iter: 16000 Time(1000 iters): 8.57613s Loss: 0.0979891 lr:0.001
+[HCTR][05:25:46.496][INFO][RK0][main]: Evaluation, AUC: 0.686972
+[HCTR][05:25:46.496][INFO][RK0][main]: Eval Time for 4000 iters: 4.63229s
+[HCTR][05:25:55.091][INFO][RK0][main]: Iter: 17000 Time(1000 iters): 13.2233s Loss: 0.115308 lr:0.001
+[HCTR][05:26:03.673][INFO][RK0][main]: Iter: 18000 Time(1000 iters): 8.57796s Loss: 0.0990158 lr:0.001
+[HCTR][05:26:12.256][INFO][RK0][main]: Iter: 19000 Time(1000 iters): 8.578s Loss: 0.0970965 lr:0.001
+[HCTR][05:26:20.853][INFO][RK0][main]: Iter: 20000 Time(1000 iters): 8.59287s Loss: 0.0835783 lr:0.001
+[HCTR][05:26:25.485][INFO][RK0][main]: Evaluation, AUC: 0.662475
+[HCTR][05:26:25.485][INFO][RK0][main]: Eval Time for 4000 iters: 4.63122s
+[HCTR][05:26:25.497][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][05:26:25.519][INFO][RK0][main]: Rank0: Write hash table to file
+[HCTR][05:26:25.537][INFO][RK0][main]: Dumping sparse weights to files, successful
+[HCTR][05:26:25.550][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:26:25.563][INFO][RK0][main]: Done
+[HCTR][05:26:25.578][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:26:25.591][INFO][RK0][main]: Done
+[HCTR][05:26:25.856][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:26:26.071][INFO][RK0][main]: Done
+[HCTR][05:26:26.348][INFO][RK0][main]: Rank0: Write optimzer state to file
+[HCTR][05:26:26.561][INFO][RK0][main]: Done
+[HCTR][05:26:26.576][INFO][RK0][main]: Dumping sparse optimzer states to files, successful
+[HCTR][05:26:26.579][INFO][RK0][main]: Dumping dense weights to file, successful
+[HCTR][05:26:26.586][INFO][RK0][main]: Dumping dense optimizer states to file, successful
+[HCTR][05:26:35.196][INFO][RK0][main]: Iter: 21000 Time(1000 iters): 14.3386s Loss: 0.0844829 lr:0.001
+[HCTR][05:26:35.196][INFO][RK0][main]: Finish 21000 iterations with batchsize: 2720 in 204.90s.
+[HCTR][05:26:35.197][INFO][RK0][main]: Save the model graph to /wdl_train/model/wdl.json successfully
 </pre></div>
 </div>
 </div>
@@ -988,14 +960,21 @@ BinaryCrossEntropyLoss                  add1                          loss
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 633080
--rw-r--r-- 1 root root        32 Feb 10 10:34 _file_list.txt
--rw-r--r-- 1 root root     21894 Feb 10 10:34 _metadata
--rw-r--r-- 1 root root      1509 Feb 10 10:34 _metadata.json
--rw-r--r-- 1 root root 138441430 Feb 10 10:34 part_0.parquet
--rw-r--r-- 1 root root     27296 Feb 10 10:34 schema.pbtxt
-drwxr-xr-x 2 root root        50 Feb 10 10:32 temp-parquet-after-conversion
--rw-r--r-- 1 root root 509766965 Feb 10 10:32 test.txt
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 634936
+-rw-r--r-- 1 root root       242 May 26 04:31 _file_list.txt
+-rw-r--r-- 1 root root    217718 May 26 04:31 _metadata
+-rw-r--r-- 1 root root      1879 May 26 04:31 _metadata.json
+-rw-r--r-- 1 root root  17489097 May 26 04:31 part_0.parquet
+-rw-r--r-- 1 root root  17521515 May 26 04:31 part_1.parquet
+-rw-r--r-- 1 root root  17459606 May 26 04:31 part_2.parquet
+-rw-r--r-- 1 root root  17556341 May 26 04:31 part_3.parquet
+-rw-r--r-- 1 root root  17527364 May 26 04:31 part_4.parquet
+-rw-r--r-- 1 root root  17492305 May 26 04:31 part_5.parquet
+-rw-r--r-- 1 root root  17508965 May 26 04:31 part_6.parquet
+-rw-r--r-- 1 root root  17575602 May 26 04:31 part_7.parquet
+-rw-r--r-- 1 root root     31277 May 26 04:31 schema.pbtxt
+drwxr-xr-x 2 root root        50 May 26 04:30 temp-parquet-after-conversion
+-rw-r--r-- 1 root root 509766965 May 26 04:30 test.txt
 </pre></div>
 </div>
 </div>
@@ -1054,123 +1033,123 @@ drwxr-xr-x 2 root root        50 Feb 10 10:32 temp-parquet-after-conversion
   <tbody>
     <tr>
       <th>0</th>
-      <td>-0.054112</td>
-      <td>-0.267624</td>
-      <td>0.371471</td>
-      <td>-0.076760</td>
-      <td>-0.131771</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.208772</td>
-      <td>0.324461</td>
-      <td>-0.470383</td>
+      <td>-0.051831</td>
+      <td>-0.490904</td>
+      <td>-0.512615</td>
+      <td>-0.135830</td>
+      <td>-0.222800</td>
+      <td>-0.164725</td>
+      <td>-0.053983</td>
+      <td>-0.298238</td>
+      <td>-0.435927</td>
+      <td>-0.409435</td>
       <td>...</td>
-      <td>1</td>
-      <td>49</td>
-      <td>1</td>
-      <td>3</td>
-      <td>3</td>
-      <td>3</td>
-      <td>9</td>
-      <td>402</td>
-      <td>1</td>
+      <td>2</td>
+      <td>2</td>
       <td>4</td>
+      <td>0</td>
+      <td>24804</td>
+      <td>0</td>
+      <td>14164</td>
+      <td>2028</td>
+      <td>1</td>
+      <td>5</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>-0.048792</td>
-      <td>-0.547466</td>
-      <td>-0.594327</td>
-      <td>-0.157301</td>
-      <td>-0.224758</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>0.949396</td>
-      <td>-0.760031</td>
-      <td>-0.470383</td>
+      <td>-0.067326</td>
+      <td>-0.015481</td>
+      <td>-0.512615</td>
+      <td>-0.135830</td>
+      <td>-0.222800</td>
+      <td>-0.164725</td>
+      <td>-0.053983</td>
+      <td>-0.298238</td>
+      <td>2.166419</td>
+      <td>-0.409435</td>
       <td>...</td>
-      <td>3</td>
+      <td>0</td>
+      <td>27</td>
+      <td>7</td>
       <td>2</td>
-      <td>1</td>
+      <td>2</td>
+      <td>2</td>
       <td>0</td>
-      <td>1645</td>
-      <td>0</td>
-      <td>1358</td>
-      <td>1232</td>
-      <td>1</td>
+      <td>813</td>
+      <td>2</td>
       <td>1</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>-0.059432</td>
-      <td>-0.516221</td>
-      <td>-0.594327</td>
-      <td>-0.115539</td>
-      <td>-0.209261</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.281810</td>
-      <td>-0.687732</td>
-      <td>-0.470383</td>
+      <td>-0.065389</td>
+      <td>-0.486852</td>
+      <td>-0.626555</td>
+      <td>-0.100009</td>
+      <td>-0.172440</td>
+      <td>-0.164725</td>
+      <td>-0.053983</td>
+      <td>-0.295652</td>
+      <td>-0.761220</td>
+      <td>-0.409435</td>
       <td>...</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
-      <td>33190</td>
-      <td>32473</td>
-      <td>34242</td>
-      <td>0</td>
-      <td>954</td>
+      <td>2</td>
       <td>3</td>
-      <td>3</td>
+      <td>1</td>
+      <td>0</td>
+      <td>890</td>
+      <td>0</td>
+      <td>1483</td>
+      <td>167</td>
+      <td>5</td>
+      <td>9</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>-0.029284</td>
-      <td>-0.548824</td>
-      <td>-0.057773</td>
-      <td>-0.105099</td>
-      <td>-0.224758</td>
-      <td>-0.206385</td>
-      <td>-0.064249</td>
-      <td>-0.255725</td>
-      <td>-0.760031</td>
-      <td>-0.470383</td>
+      <td>0.198029</td>
+      <td>-0.494956</td>
+      <td>-0.398675</td>
+      <td>-0.045562</td>
+      <td>-0.206014</td>
+      <td>-0.164725</td>
+      <td>-0.053983</td>
+      <td>-0.202561</td>
+      <td>-0.679897</td>
+      <td>-0.409435</td>
       <td>...</td>
+      <td>3</td>
       <td>1</td>
       <td>1</td>
-      <td>2</td>
+      <td>672</td>
+      <td>466</td>
+      <td>722</td>
+      <td>794</td>
+      <td>2261</td>
+      <td>5</td>
       <td>1</td>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
-      <td>622</td>
-      <td>1</td>
-      <td>2</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>-0.061206</td>
-      <td>-0.548824</td>
-      <td>-0.594327</td>
-      <td>-0.145369</td>
-      <td>-0.209261</td>
-      <td>-0.206385</td>
-      <td>0.339399</td>
-      <td>-0.281810</td>
-      <td>0.035263</td>
-      <td>-0.470383</td>
+      <td>-0.007282</td>
+      <td>-0.484151</td>
+      <td>0.740724</td>
+      <td>-0.125800</td>
+      <td>-0.222800</td>
+      <td>0.398216</td>
+      <td>-0.053983</td>
+      <td>-0.298238</td>
+      <td>0.214659</td>
+      <td>1.698777</td>
       <td>...</td>
-      <td>0</td>
       <td>1</td>
       <td>1</td>
-      <td>90</td>
-      <td>143</td>
-      <td>101</td>
-      <td>0</td>
-      <td>21</td>
       <td>1</td>
-      <td>3</td>
+      <td>338</td>
+      <td>482</td>
+      <td>364</td>
+      <td>102</td>
+      <td>5759</td>
+      <td>1</td>
+      <td>1</td>
     </tr>
   </tbody>
 </table>
@@ -1270,63 +1249,64 @@ drwxr-xr-x 2 root root        50 Feb 10 10:32 temp-parquet-after-conversion
 <h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>/wdl_train/wdl_predict.py<span class="w"> </span><span class="s2">&quot;wdl&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl.json&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl_dense_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span><span class="w"> </span><span class="s2">&quot;disabled&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>/wdl_train/wdl_predict.py<span class="w"> </span><span class="s2">&quot;wdl&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl.json&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl/_dense_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl/0_sparse_20000.model/,/wdl_train/model/wdl/1_sparse_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span><span class="w"> </span><span class="s2">&quot;disabled&quot;</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
-wdl multi-embedding table prediction network is ./wdl.json
-wdl multi-embedding table prediction dense file is ./wdl_dense_20000.model
-wdl multi-embedding table prediction sparse files are [&#39;./wdl0_sparse_20000.model/&#39;, &#39;./wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction network is /wdl_train/model/wdl.json
+wdl multi-embedding table prediction dense file is /wdl_train/model/wdl/_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_train/model/wdl/0_sparse_20000.model/&#39;, &#39;/wdl_train/model/wdl/1_sparse_20000.model&#39;]
 wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
 wdl multi-embedding table prediction input dbtype path is disabled
-[HCTR][10:53:44.990][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-[HCTR][10:53:44.990][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
-[HCTR][10:53:44.990][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+MpiInitService: MPI was already initialized by another (non-HugeCTR) mechanism.
+[HCTR][05:28:49.476][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][05:28:49.476][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][05:28:49.476][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
 ====================================================HPS Create====================================================
-[HCTR][10:53:44.990][INFO][RK0][main]: Creating HashMap CPU database backend...
-[HCTR][10:53:44.991][DEBUG][RK0][main]: Created blank database backend in local memory!
-[HCTR][10:53:44.991][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][10:53:44.991][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][10:53:44.991][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][10:53:44.991][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:53:45.479][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 / 664320 embeddings in volatile database (HashMapBackend); load: 664320 / 18446744073709551615 (0.00%).
-[HCTR][10:53:45.479][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:53:45.829][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 / 1030499 embeddings in volatile database (HashMapBackend); load: 1030499 / 18446744073709551615 (0.00%).
-[HCTR][10:53:45.836][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][10:53:45.836][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][10:53:45.842][INFO][RK0][main]: Model name: wdl
-[HCTR][10:53:45.842][INFO][RK0][main]: Max batch size: 64
-[HCTR][10:53:45.842][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][10:53:45.842][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
-[HCTR][10:53:45.842][INFO][RK0][main]: Use static table: False
-[HCTR][10:53:45.842][INFO][RK0][main]: Use I64 input key: True
-[HCTR][10:53:45.842][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
-[HCTR][10:53:45.842][INFO][RK0][main]: The size of thread pool: 80
-[HCTR][10:53:45.842][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][10:53:45.842][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][10:53:45.842][INFO][RK0][main]: The refresh percentage : 0.000000
-[HCTR][10:53:46.786][INFO][RK0][main]: Global seed is 1984285016
-[HCTR][10:53:46.789][INFO][RK0][main]: Device to NUMA mapping:
+[HCTR][05:28:49.476][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][05:28:49.476][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][05:28:49.476][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][05:28:49.476][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][05:28:49.476][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:28:49.675][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 190851 / 190851 embeddings in volatile database (HashMapBackend); load: 190851 / 18446744073709551615 (0.00%).
+[HCTR][05:28:49.881][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 438628 / 438628 embeddings in volatile database (HashMapBackend); load: 438628 / 18446744073709551615 (0.00%).
+[HCTR][05:28:49.881][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][05:28:49.881][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][05:28:49.886][INFO][RK0][main]: Model name: wdl
+[HCTR][05:28:49.886][INFO][RK0][main]: Max batch size: 64
+[HCTR][05:28:49.886][INFO][RK0][main]: Fuse embedding tables: False
+[HCTR][05:28:49.886][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][05:28:49.886][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
+[HCTR][05:28:49.886][INFO][RK0][main]: Embedding cache type: dynamic
+[HCTR][05:28:49.886][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:28:49.886][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
+[HCTR][05:28:49.886][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][05:28:49.886][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][05:28:49.886][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][05:28:49.886][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][05:28:51.447][INFO][RK0][main]: Global seed is 3595974557
+[HCTR][05:28:51.531][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
-[HCTR][10:53:47.797][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][10:53:47.797][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.7156 
-[HCTR][10:53:47.797][INFO][RK0][main]: Start all2all warmup
-[HCTR][10:53:47.797][INFO][RK0][main]: End all2all warmup
-[HCTR][10:53:47.798][INFO][RK0][main]: Model name: wdl
-[HCTR][10:53:47.798][INFO][RK0][main]: Use mixed precision: False
-[HCTR][10:53:47.798][INFO][RK0][main]: Use cuda graph: True
-[HCTR][10:53:47.798][INFO][RK0][main]: Max batchsize: 64
-[HCTR][10:53:47.798][INFO][RK0][main]: Use I64 input key: True
-[HCTR][10:53:47.798][INFO][RK0][main]: start create embedding for inference
-[HCTR][10:53:47.798][INFO][RK0][main]: sparse_input name wide_data
-[HCTR][10:53:47.798][INFO][RK0][main]: sparse_input name deep_data
-[HCTR][10:53:47.798][INFO][RK0][main]: create embedding for inference success
-[HCTR][10:53:47.798][DEBUG][RK0][main]: [device 0] allocating 0.0003 GB, available 30.4636 
-[HCTR][10:53:47.799][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-[HCTR][10:53:47.799][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.4421 
-WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737061232328, 0.005509266164153814, 0.0118627417832613, 0.01798960007727146, 0.010030664503574371, 0.02108118124306202, 0.008684462867677212, 0.07753805071115494, 0.011398322880268097]
+[HCTR][05:28:53.402][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:28:53.402][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.5847 
+[HCTR][05:28:53.402][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:28:53.402][INFO][RK0][main]: End all2all warmup
+[HCTR][05:28:53.403][INFO][RK0][main]: Model name: wdl
+[HCTR][05:28:53.403][INFO][RK0][main]: Use mixed precision: False
+[HCTR][05:28:53.403][INFO][RK0][main]: Use cuda graph: True
+[HCTR][05:28:53.403][INFO][RK0][main]: Max batchsize: 64
+[HCTR][05:28:53.403][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:28:53.403][INFO][RK0][main]: start create embedding for inference
+[HCTR][05:28:53.403][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][05:28:53.403][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][05:28:53.403][INFO][RK0][main]: create embedding for inference success
+[HCTR][05:28:53.403][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 30.3347 
+[HCTR][05:28:53.404][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][05:28:53.404][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.3132 
+[HCTR][05:28:53.985][WARNING][RK0][main]: InferenceSession is not suitable for multi-GPU offline inference. Please use InferenceModel: https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inferencemodel
+WDL multi-embedding table inference result is [0.09066542983055115, 0.26852551102638245, 0.28295737504959106, 0.07364904880523682, 0.2965098023414612, 0.10407719761133194, 0.4754742681980133, 0.5024058818817139, 0.05602413788437843, 0.07264009118080139]
 </pre></div>
 </div>
 </div>
@@ -1345,8 +1325,8 @@ WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;./wdl.json&quot; \
-&quot;./wdl_dense_20000.model&quot; \
-&quot;./wdl0_sparse_20000.model/,./wdl1_sparse_20000.model&quot; \
+&quot;/wdl_train/model/wdl/_dense_20000.model&quot; \
+&quot;/wdl_train/model/wdl/0_sparse_20000.model/,/wdl_train/model/wdl/1_sparse_20000.model&quot; \
 &quot;/wdl_train/infer_test.csv&quot; \
 &quot;rocksdb&quot;  &quot;/wdl_train/rocksdb&quot;
 </pre></div>
@@ -1355,66 +1335,64 @@ WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
 wdl multi-embedding table prediction network is ./wdl.json
-wdl multi-embedding table prediction dense file is ./wdl_dense_20000.model
-wdl multi-embedding table prediction sparse files are [&#39;./wdl0_sparse_20000.model/&#39;, &#39;./wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction dense file is /wdl_train/model/wdl/_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_train/model/wdl/0_sparse_20000.model/&#39;, &#39;/wdl_train/model/wdl/1_sparse_20000.model&#39;]
 wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
 wdl multi-embedding table prediction input dbtype path is rocksdb
 wdl multi-embedding table prediction rocksdb_path path is /wdl_train/rocksdb
-[HCTR][10:56:41.546][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
-[HCTR][10:56:41.546][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
-[HCTR][10:56:41.546][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+MpiInitService: MPI was already initialized by another (non-HugeCTR) mechanism.
+[HCTR][05:29:24.931][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][05:29:24.932][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
+[HCTR][05:29:24.932][INFO][RK0][main]: default_emb_vec_value is not specified using default: 0
 ====================================================HPS Create====================================================
-[HCTR][10:56:41.546][INFO][RK0][main]: Creating HashMap CPU database backend...
-[HCTR][10:56:41.547][DEBUG][RK0][main]: Created blank database backend in local memory!
-[HCTR][10:56:41.547][INFO][RK0][main]: Volatile DB: initial cache rate = 1
-[HCTR][10:56:41.547][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
-[HCTR][10:56:41.547][INFO][RK0][main]: Creating RocksDB backend...
-[HCTR][10:56:41.547][INFO][RK0][main]: Connecting to RocksDB database...
-[HCTR][10:56:41.548][ERROR][RK0][main]: RocksDB /wdl_train/rocksdb: Listing column names failed!
-[HCTR][10:56:41.548][INFO][RK0][main]: RocksDB /wdl_train/rocksdb, found column family &quot;default&quot;.
-[HCTR][10:56:41.583][INFO][RK0][main]: Connected to RocksDB database!
-[HCTR][10:56:41.583][DEBUG][RK0][main]: Created raw model loader in local memory!
-[HCTR][10:56:41.583][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:56:42.084][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 / 664320 embeddings in volatile database (HashMapBackend); load: 664320 / 18446744073709551615 (0.00%).
-[HCTR][10:56:43.351][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 664320 embeddings in persistent database (RocksDB).
-[HCTR][10:56:43.351][INFO][RK0][main]: Using Local file system backend.
-[HCTR][10:56:43.693][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 / 1030499 embeddings in volatile database (HashMapBackend); load: 1030499 / 18446744073709551615 (0.00%).
-[HCTR][10:56:45.979][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 1030499 embeddings in persistent database (RocksDB).
-[HCTR][10:56:45.985][DEBUG][RK0][main]: Real-time subscribers created!
-[HCTR][10:56:45.985][INFO][RK0][main]: Creating embedding cache in device 0.
-[HCTR][10:56:45.991][INFO][RK0][main]: Model name: wdl
-[HCTR][10:56:45.991][INFO][RK0][main]: Max batch size: 64
-[HCTR][10:56:45.991][INFO][RK0][main]: Number of embedding tables: 2
-[HCTR][10:56:45.991][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
-[HCTR][10:56:45.991][INFO][RK0][main]: Use static table: False
-[HCTR][10:56:45.991][INFO][RK0][main]: Use I64 input key: True
-[HCTR][10:56:45.991][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
-[HCTR][10:56:45.991][INFO][RK0][main]: The size of thread pool: 80
-[HCTR][10:56:45.991][INFO][RK0][main]: The size of worker memory pool: 2
-[HCTR][10:56:45.991][INFO][RK0][main]: The size of refresh memory pool: 1
-[HCTR][10:56:45.991][INFO][RK0][main]: The refresh percentage : 0.000000
-[HCTR][10:56:46.953][INFO][RK0][main]: Global seed is 3196997041
-[HCTR][10:56:46.956][INFO][RK0][main]: Device to NUMA mapping:
+[HCTR][05:29:24.932][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][05:29:24.932][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][05:29:24.932][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][05:29:24.932][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][05:29:24.932][INFO][RK0][main]: Creating RocksDB backend...
+[HCTR][05:29:24.932][INFO][RK0][main]: Connecting to RocksDB database...
+[HCTR][05:29:24.934][INFO][RK0][main]: RocksDB /wdl_train/rocksdb, found column family `default`.
+[HCTR][05:29:24.962][INFO][RK0][main]: Connected to RocksDB database!
+[HCTR][05:29:24.962][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][05:29:25.190][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding2; cached 190851 / 190851 embeddings in volatile database (HashMapBackend); load: 190851 / 18446744073709551615 (0.00%).
+[HCTR][05:29:25.734][INFO][RK0][main]: Table: hps_et.wdl.sparse_embedding1; cached 438628 / 438628 embeddings in volatile database (HashMapBackend); load: 438628 / 18446744073709551615 (0.00%).
+[HCTR][05:29:26.579][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][05:29:26.579][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][05:29:26.584][INFO][RK0][main]: Model name: wdl
+[HCTR][05:29:26.584][INFO][RK0][main]: Max batch size: 64
+[HCTR][05:29:26.584][INFO][RK0][main]: Fuse embedding tables: False
+[HCTR][05:29:26.584][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][05:29:26.584][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 0.900000
+[HCTR][05:29:26.584][INFO][RK0][main]: Embedding cache type: dynamic
+[HCTR][05:29:26.584][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:29:26.584][INFO][RK0][main]: Configured cache hit rate threshold: 0.500000
+[HCTR][05:29:26.584][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][05:29:26.584][INFO][RK0][main]: The size of worker memory pool: 2
+[HCTR][05:29:26.584][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][05:29:26.584][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][05:29:28.096][INFO][RK0][main]: Global seed is 1275207064
+[HCTR][05:29:28.175][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
-[HCTR][10:56:48.005][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
-[HCTR][10:56:48.005][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.7156 
-[HCTR][10:56:48.005][INFO][RK0][main]: Start all2all warmup
-[HCTR][10:56:48.005][INFO][RK0][main]: End all2all warmup
-[HCTR][10:56:48.006][INFO][RK0][main]: Model name: wdl
-[HCTR][10:56:48.006][INFO][RK0][main]: Use mixed precision: False
-[HCTR][10:56:48.006][INFO][RK0][main]: Use cuda graph: True
-[HCTR][10:56:48.006][INFO][RK0][main]: Max batchsize: 64
-[HCTR][10:56:48.006][INFO][RK0][main]: Use I64 input key: True
-[HCTR][10:56:48.006][INFO][RK0][main]: start create embedding for inference
-[HCTR][10:56:48.006][INFO][RK0][main]: sparse_input name wide_data
-[HCTR][10:56:48.006][INFO][RK0][main]: sparse_input name deep_data
-[HCTR][10:56:48.006][INFO][RK0][main]: create embedding for inference success
-[HCTR][10:56:48.006][DEBUG][RK0][main]: [device 0] allocating 0.0003 GB, available 30.4636 
-[HCTR][10:56:48.007][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
-[HCTR][10:56:48.007][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.4421 
-WDL multi-embedding table inference result is [0.011136045679450035, 0.006747737061232328, 0.005509266164153814, 0.0118627417832613, 0.01798960007727146, 0.010030664503574371, 0.02108118124306202, 0.008684462867677212, 0.07753805071115494, 0.011398322880268097]
-[HCTR][10:56:48.571][INFO][RK0][main]: Disconnecting from RocksDB database...
-[HCTR][10:56:48.573][INFO][RK0][main]: Disconnected from RocksDB database!
+[HCTR][05:29:30.024][WARNING][RK0][main]: Peer-to-peer access cannot be fully enabled.
+[HCTR][05:29:30.024][DEBUG][RK0][main]: [device 0] allocating 0.0000 GB, available 30.5847 
+[HCTR][05:29:30.024][INFO][RK0][main]: Start all2all warmup
+[HCTR][05:29:30.024][INFO][RK0][main]: End all2all warmup
+[HCTR][05:29:30.025][INFO][RK0][main]: Model name: wdl
+[HCTR][05:29:30.025][INFO][RK0][main]: Use mixed precision: False
+[HCTR][05:29:30.025][INFO][RK0][main]: Use cuda graph: True
+[HCTR][05:29:30.025][INFO][RK0][main]: Max batchsize: 64
+[HCTR][05:29:30.025][INFO][RK0][main]: Use I64 input key: True
+[HCTR][05:29:30.025][INFO][RK0][main]: start create embedding for inference
+[HCTR][05:29:30.025][INFO][RK0][main]: sparse_input name wide_data
+[HCTR][05:29:30.025][INFO][RK0][main]: sparse_input name deep_data
+[HCTR][05:29:30.025][INFO][RK0][main]: create embedding for inference success
+[HCTR][05:29:30.025][DEBUG][RK0][main]: [device 0] allocating 0.0001 GB, available 30.3347 
+[HCTR][05:29:30.026][INFO][RK0][main]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+[HCTR][05:29:30.026][DEBUG][RK0][main]: [device 0] allocating 0.0128 GB, available 30.3132 
+[HCTR][05:29:30.573][WARNING][RK0][main]: InferenceSession is not suitable for multi-GPU offline inference. Please use InferenceModel: https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#inferencemodel
+WDL multi-embedding table inference result is [0.09066542983055115, 0.26852551102638245, 0.28295737504959106, 0.07364904880523682, 0.2965098023414612, 0.10407719761133194, 0.4754742681980133, 0.5024058818817139, 0.05602413788437843, 0.07264009118080139]
+[HCTR][05:29:30.576][INFO][RK0][main]: Disconnecting from RocksDB database...
+[HCTR][05:29:30.578][INFO][RK0][main]: Disconnected from RocksDB database!
 </pre></div>
 </div>
 </div>
