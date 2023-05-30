@@ -79,6 +79,20 @@ class IntPowerLawKeySimulator : public IKeySimulator<T> {
 };
 
 template <typename T>
+class IntHistogramKeySimulator : public IKeySimulator<T> {
+ public:
+  IntHistogramKeySimulator(std::vector<double>& histogram)
+      : gen_(std::random_device()()), dis_(histogram.begin(), histogram.end()) {}
+
+  T get_num() override { return dis_(gen_); }
+
+ private:
+  std::mt19937 gen_;
+  // Create a discrete distribution based on the histogram
+  std::discrete_distribution<T> dis_;
+};
+
+template <typename T>
 void batch_key_generator_by_powerlaw(T* data, size_t batch_size, size_t embedding_size,
                                      float alpha = 0.0) {
   HCTR_CHECK_HINT(embedding_size > 0, "Invalid Embedding size: less or equal to 0");
@@ -110,6 +124,18 @@ void batch_key_generator_by_hotkey(T* data, size_t batch_size, size_t embedding_
 }
 
 template <typename T>
+void batch_key_generator_by_histogram(T* data, size_t batch_size, size_t embedding_size,
+                                      std::vector<double>& histogram) {
+  HCTR_CHECK_HINT(embedding_size > 0, "Invalid Embedding size: less or equal to 0");
+  T stride = embedding_size / histogram.size();
+  IntHistogramKeySimulator<T> bin_simulator(histogram);
+  IntUniformKeySimulator<T> pos_simulator(0, stride);
+  for (size_t idx = 0; idx < batch_size; idx++) {
+    data[idx] = bin_simulator.get_num() * stride + pos_simulator.get_num();
+  }
+}
+
+template <typename T>
 void key_vector_generator_by_powerlaw(std::vector<T>& data, size_t batch_size,
                                       size_t embedding_size, float alpha = 0.0) {
   HCTR_CHECK_HINT(embedding_size > 0, "Invalid Embedding size: less or equal to 0");
@@ -137,6 +163,20 @@ void key_vector_generator_by_hotkey(std::vector<T>& data, size_t batch_size, siz
     } else {
       data.push_back(nonhotkey_simulator.get_num());
     }
+  }
+}
+
+template <typename T>
+void key_vector_generator_by_histogram(std::vector<T>& data, size_t batch_size,
+                                       size_t embedding_size, std::vector<double>& histogram) {
+  HCTR_CHECK_HINT(embedding_size > 0, "Invalid Embedding size: less or equal to 0");
+  size_t stride = embedding_size / histogram.size();
+  IntHistogramKeySimulator<T> bin_simulator(histogram);
+  IntUniformKeySimulator<T> pos_simulator(0, stride);
+  for (size_t idx = 0; idx < batch_size; idx++) {
+    T bin = bin_simulator.get_num();
+    T pos = pos_simulator.get_num();
+    data.push_back(bin * stride + pos);
   }
 }
 }  // namespace HugeCTR

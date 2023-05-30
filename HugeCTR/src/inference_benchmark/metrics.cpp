@@ -246,15 +246,26 @@ int main(int argc, char** argv) {
       .required()
       .action([](const std::string& value) { return value; });
 
-  args.add_argument("--powerlaw")
-      .help("Generate the queried key that  in each iteration based on the power distribution")
-      .default_value(false)
-      .implicit_value(true);
-
   args.add_argument("--table_size")
       .help("The number of keys in the embedded table")
       .default_value(100000)
       .action([](const std::string& value) { return std::stoi(value); });
+
+  args.add_argument("--distribution")
+      .help(
+          "The distribution of the generated query key in each iteration. Can be 'powerlaw', "
+          "'hotkey', or 'histogram'")
+      .default_value("powerlaw")
+      .action([](const std::string& value) { return value; });
+
+  args.add_argument("--histogram")
+      .help(
+          "The histogram with probabilities of each bin, please provide probablities numbers "
+          "separated by space")
+      .nargs(1, 20)
+      .default_value<std::vector<double>>({0.4, 0.3, 0.2, 0.1})
+      .scan<'g', double>();
+
   args.add_argument("--alpha")
       .help("Alpha of power distribution")
       .default_value<float>(1.2)
@@ -316,6 +327,22 @@ int main(int argc, char** argv) {
     std::cout << args;
     exit(1);
   }
+
+  enum class KeyDistribution_t { Powerlaw, Hotkey, Histogram };
+  std::unordered_map<std::string, KeyDistribution_t> distmap{
+      {"powerlaw", KeyDistribution_t::Powerlaw},
+      {"hotkey", KeyDistribution_t::Hotkey},
+      {"histogram", KeyDistribution_t::Histogram}};
+  auto it = distmap.find(args.get<std::string>("--distribution"));
+  KeyDistribution_t dist;
+  if (it != distmap.end()) {
+    dist = it->second;
+  } else {
+    std::cout << "Unsupported distribution type. Will use power-law distribution instead."
+              << std::endl;
+    dist = KeyDistribution_t::Powerlaw;
+  }
+
   metrics_argues metrics_config;
   metrics_config.table_size = args.get<int>("--table_size") - 1;
 
@@ -345,15 +372,22 @@ int main(int argc, char** argv) {
     long long* h_query_keys_index;  // Buffer holding index for keys to be queried
     cudaMallocHost(&h_query_keys_index, metrics_config.num_keys * sizeof(long long));
     for (int i = 0; i < metrics_config.iterations; i++) {
-      if (args.get<bool>("--powerlaw")) {
-        batch_key_generator_by_powerlaw(h_query_keys_index, metrics_config.num_keys,
-                                        metrics_config.table_size, args.get<float>("--alpha"));
-      } else {
-        batch_key_generator_by_hotkey(
-            h_query_keys_index, metrics_config.num_keys, metrics_config.table_size,
-            args.get<float>("--hot_key_percentage"), args.get<float>("--hot_key_coverage"));
+      switch (dist) {
+        case KeyDistribution_t::Powerlaw:
+          batch_key_generator_by_powerlaw(h_query_keys_index, metrics_config.num_keys,
+                                          metrics_config.table_size, args.get<float>("--alpha"));
+          break;
+        case KeyDistribution_t::Hotkey:
+          batch_key_generator_by_hotkey(
+              h_query_keys_index, metrics_config.num_keys, metrics_config.table_size,
+              args.get<float>("--hot_key_percentage"), args.get<float>("--hot_key_coverage"));
+          break;
+        case KeyDistribution_t::Histogram:
+          auto histogram = args.get<std::vector<double>>("--histogram");
+          batch_key_generator_by_histogram(h_query_keys_index, metrics_config.num_keys,
+                                           metrics_config.table_size, histogram);
+          break;
       }
-
       metrics.lookup(h_query_keys_index, metrics_config.num_keys);
     }
     std::cout << "*** Measurement Results ***" << std::endl;

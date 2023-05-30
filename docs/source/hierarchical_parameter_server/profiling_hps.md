@@ -13,13 +13,16 @@
 # limitations under the License.
 -->
 
-# HPS Profiler
+# Profiling HPS
 
 A critical part of optimizing the inference performance of HPS
 is being able to measure changes in performance as you experiment with
-different optimization strategies and data distribution. The hps_profiler application performs benchmark tasks for the Hierarchical Parameter Server. The hps_profiler will be compiled and installed from the following instructions in [Build and install the HPS Profiler](#section-1).
+different optimization strategies and data distribution. There are two ways to profile HPS:
+1. The HPS profiler.
+The hps_profiler application performs benchmark tasks for the Hierarchical Parameter Server. The hps_profiler will be compiled and installed from the following instructions in [Build and install the HPS Profiler](#section-1).
+2. The Triton Perf Analyzer. For detailed documentation of Triton Perf Analyzer, please refer to [here](https://github.com/triton-inference-server/client/blob/main/src/c++/perf_analyzer/README.md). For how to use Trion Perf Analyzer to profile HPS, take a look at the [procedure](#profile-hps-with-triton-perf-analyzer).
 
-
+## HPS profiler
 The hps_profiler application generates inference requests to HPS and measures the throughput and latency of different components, such as embedding cache, Database Backend and Lookup session. To
 get representative results, hps_profiler measures the throughput and
 latency over the configurable iteration, and then repeats the measurements until it reaches a specified number of iterations. 
@@ -162,3 +165,37 @@ Latencies [900 iterations] min = 0.075086ms, mean = 0.127312ms, median = 0.12123
 For example `--hot_key_percentage=0.01`,  `--hot_key_coverage=0.9` and `--table_size=1000`, then the first 1000*0.01=10 keys will appear in the request with a probability of 90%.
 3. It is recommended that users make mutually exclusive selections of three components(`--embedding_cache`,`--database_backend` and `--lookup_session`) to ensure the most accurate performance. Because the measurement results of the lookup session will include the performance results of the database backend and embedding cache.
 4. If enable the [static embedding table](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/docs/source/hugectr_parameter_server.md#inference-parameters-and-embedding-cache-configuration) in HPS json file, the hps_profiler does not support the refresh operation.
+
+## Profile HPS with Triton Perf Analyzer:
+
+To profile HPS with Triton Perf Analyzer, make sure you know how to deploy your model using the hugectr backend in Triton. If you don't, please refer to [here](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment).
+
+To profile HPS, follow the procedure below:
+1. Prepare your embedding table. This can be either a real model trained by HugeCTR or a synthetic model generated using the [model generator](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md).
+
+2. Prepare your HPS configuration file `ps.config`, demo showed above.
+
+3. Prepare the Triton required JSON like request. The request can be generated using the [request generator](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/tools/inference_test_scripts/README.md)
+
+4. After everything is prepared, start Triton. For example:
+
+```bash
+tritonserver --model-repository=/dir/to/model/ --load-model=your_model_name --model-control-mode=explicit --backend-directory=/usr/local/hugectr/backends --backend-config=hugectr,ps=/dir/to/your/ps.json
+```
+
+5. Run the Triton Perf Analyzer. For example:
+
+```bash
+perf_analyzer -m your_model_name --collect-metrics -f perf_output.csv --verbose-csv --input-data your_generated_request.json
+```
+
+## HPS Profiler vs. Triton Perf Analyzer:
+|Functionalities|HPS profiler|Triton Perf Analyzer|
+|--------------------|-----|-----|
+|Profile client side E2E Pipeline|NO|YES|
+|Profile sever side key lookup session|YES|YES|
+|Pofile the embedding cache component|YES|NO|
+|Profile the database backend component|YES|NO|
+|Support different key distributions|YES|YES|
+|Concurrency Suppport|NO|YES|
+|GPU/Memory Utilization|NO|YES|

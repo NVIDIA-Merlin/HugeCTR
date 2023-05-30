@@ -39,6 +39,8 @@ subtrees:
                 title: API Documentation
           - file: hierarchical_parameter_server/hps_dlrm_benchmark.md
             title: Benchmark HPS-integrated DLRM
+          - file: hierarchical_parameter_server/profling_hps.md
+            title: Profiling HPS
       - file: sparse_operation_kit.md
         title: Sparse Operation Kit
       - file: performance.md
