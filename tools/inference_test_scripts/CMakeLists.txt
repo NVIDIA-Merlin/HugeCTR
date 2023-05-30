@@ -24,8 +24,8 @@ file(GLOB triton_request_generator_src
 
 add_executable(model_generator ${model_generator_src})
 target_compile_features(model_generator PUBLIC cxx_std_17)
-target_link_libraries(model_generator PUBLIC huge_ctr_static)
+target_link_libraries(model_generator PUBLIC huge_ctr_shared)
 
 add_executable(request_generator ${triton_request_generator_src})
 target_compile_features(request_generator PUBLIC cxx_std_17)
-target_link_libraries(request_generator PUBLIC huge_ctr_static)
+target_link_libraries(request_generator PUBLIC huge_ctr_shared)
