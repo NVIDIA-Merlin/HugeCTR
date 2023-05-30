@@ -16,7 +16,6 @@
 
 #include <cooperative_groups.h>
 #include <cuda_runtime_api.h>
-#include <immintrin.h>
 
 #include <atomic>
 #include <iostream>
