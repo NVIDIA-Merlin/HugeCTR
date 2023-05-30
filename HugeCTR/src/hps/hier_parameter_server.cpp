@@ -286,10 +286,10 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
         for (size_t i = 0; i < rawreader->get_num_iterations(); i++) {
           std::pair<void*, size_t> key_result = rawreader->getkeys(i);
           std::pair<void*, size_t> vec_result = rawreader->getvectors(i, embedding_size);
-          HCTR_CHECK(volatile_db_->insert(
-              tag_name, key_result.second, reinterpret_cast<const TypeHashKey*>(key_result.first),
-              reinterpret_cast<const char*>(vec_result.first), embedding_size * sizeof(float),
-              embedding_size * sizeof(float)));
+          volatile_db_->insert(tag_name, key_result.second,
+                               reinterpret_cast<const TypeHashKey*>(key_result.first),
+                               reinterpret_cast<const char*>(vec_result.first),
+                               embedding_size * sizeof(float), embedding_size * sizeof(float));
         }
       } else {
         for (int table_id = 0; table_id < inference_params.fused_sparse_model_files[j].size();
@@ -299,10 +299,10 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
           for (size_t i = 0; i < rawreader->get_num_iterations(); i++) {
             std::pair<void*, size_t> key_result = rawreader->getkeys(i);
             std::pair<void*, size_t> vec_result = rawreader->getvectors(i, embedding_size);
-            HCTR_CHECK(volatile_db_->insert(
-                tag_name, key_result.second, reinterpret_cast<const TypeHashKey*>(key_result.first),
-                reinterpret_cast<const char*>(vec_result.first), embedding_size * sizeof(float),
-                embedding_size * sizeof(float)));
+            volatile_db_->insert(tag_name, key_result.second,
+                                 reinterpret_cast<const TypeHashKey*>(key_result.first),
+                                 reinterpret_cast<const char*>(vec_result.first),
+                                 embedding_size * sizeof(float), embedding_size * sizeof(float));
           }
         }
       }
@@ -323,10 +323,10 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
         for (size_t i = 0; i < rawreader->get_num_iterations(); i++) {
           std::pair<void*, size_t> key_result = rawreader->getkeys(i);
           std::pair<void*, size_t> vec_result = rawreader->getvectors(i, embedding_size);
-          HCTR_CHECK(persistent_db_->insert(
-              tag_name, key_result.second, reinterpret_cast<const TypeHashKey*>(key_result.first),
-              reinterpret_cast<const char*>(vec_result.first), embedding_size * sizeof(float),
-              embedding_size * sizeof(float)));
+          persistent_db_->insert(tag_name, key_result.second,
+                                 reinterpret_cast<const TypeHashKey*>(key_result.first),
+                                 reinterpret_cast<const char*>(vec_result.first),
+                                 embedding_size * sizeof(float), embedding_size * sizeof(float));
         }
       } else {
         for (int table_id = 0; table_id < inference_params.fused_sparse_model_files[j].size();
@@ -336,10 +336,10 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
           for (size_t i = 0; i < rawreader->get_num_iterations(); i++) {
             std::pair<void*, size_t> key_result = rawreader->getkeys(i);
             std::pair<void*, size_t> vec_result = rawreader->getvectors(i, embedding_size);
-            HCTR_CHECK(persistent_db_->insert(
-                tag_name, key_result.second, reinterpret_cast<const TypeHashKey*>(key_result.first),
-                reinterpret_cast<const char*>(vec_result.first), embedding_size * sizeof(float),
-                embedding_size * sizeof(float)));
+            persistent_db_->insert(tag_name, key_result.second,
+                                   reinterpret_cast<const TypeHashKey*>(key_result.first),
+                                   reinterpret_cast<const char*>(vec_result.first),
+                                   embedding_size * sizeof(float), embedding_size * sizeof(float));
           }
         }
         HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << num_key
