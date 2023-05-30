@@ -34,7 +34,7 @@ file(GLOB dense_layer_test_src
 add_executable(dense_layer_test ${dense_layer_test_src})
 target_compile_features(dense_layer_test PUBLIC cxx_std_17)
 # TODO: remove rocksdb redis++ rdkafka once the pybind dependency is resolved
-target_link_libraries(dense_layer_test PUBLIC hugectr_core23 huge_ctr_static rocksdb redis++ rdkafka gtest gtest_main)
+target_link_libraries(dense_layer_test PUBLIC hugectr_core23 huge_ctr_shared rocksdb redis++ rdkafka gtest gtest_main)
 target_link_libraries(dense_layer_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(dense_layer_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(dense_layer_test PROPERTIES CUDA_ARCHITECTURES OFF)

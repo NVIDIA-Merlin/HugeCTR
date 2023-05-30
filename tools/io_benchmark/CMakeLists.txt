@@ -15,10 +15,11 @@
 
 cmake_minimum_required(VERSION 3.8)
 set(CMAKE_CXX_STANDARD 17)
+find_package(CUDAToolkit)
 
 file(GLOB data_reader_bench_src
   main.cpp
 )
 
 add_executable(io_bench ${data_reader_bench_src})
-target_link_libraries(io_bench PUBLIC huge_ctr_static)
+target_link_libraries(io_bench PUBLIC CUDA::nvml huge_ctr_shared)

@@ -19,14 +19,14 @@ file(GLOB embedding_collection_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.c
 
 add_executable(embedding_collection_test ${embedding_collection_test_src})
 target_compile_features(embedding_collection_test PUBLIC cxx_std_17)
-target_link_libraries(embedding_collection_test PUBLIC gtest gtest_main stdc++fs embedding huge_ctr_static)
+target_link_libraries(embedding_collection_test PUBLIC gtest gtest_main stdc++fs embedding huge_ctr_shared)
 target_link_libraries(embedding_collection_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(embedding_collection_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(embedding_collection_test PROPERTIES CUDA_ARCHITECTURES OFF)
 
 add_executable(embedding_table_test_optimizer test_embedding_table_optimizer.cpp)
 target_compile_features(embedding_table_test_optimizer PUBLIC cxx_std_17)
-target_link_libraries(embedding_table_test_optimizer PUBLIC gtest gtest_main stdc++fs embedding huge_ctr_static)
+target_link_libraries(embedding_table_test_optimizer PUBLIC gtest gtest_main stdc++fs embedding huge_ctr_shared)
 target_link_libraries(embedding_table_test_optimizer PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(embedding_table_test_optimizer PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(embedding_table_test_optimizer PROPERTIES CUDA_ARCHITECTURES OFF)

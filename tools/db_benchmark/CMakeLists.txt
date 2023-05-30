@@ -23,4 +23,4 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mavx2")
 
 add_executable(db_bench main.cpp)
 target_compile_features(db_bench PUBLIC cxx_std_17)
-target_link_libraries(db_bench PUBLIC huge_ctr_static rocksdb redis++ rdkafka)
+target_link_libraries(db_bench PUBLIC huge_ctr_shared rocksdb redis++ rdkafka)

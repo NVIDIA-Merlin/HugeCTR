@@ -19,6 +19,6 @@ file(GLOB_RECURSE test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
 add_executable(data_distributor_tests ${test_src})
 target_compile_features(data_distributor_tests PUBLIC cxx_std_17)
-target_link_libraries(data_distributor_tests PRIVATE embedding huge_ctr_static gtest gtest_main)
+target_link_libraries(data_distributor_tests PRIVATE embedding huge_ctr_shared gtest gtest_main)
 set_target_properties(data_distributor_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(data_distributor_tests PROPERTIES CUDA_ARCHITECTURES OFF)

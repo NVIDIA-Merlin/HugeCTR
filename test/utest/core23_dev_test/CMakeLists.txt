@@ -19,6 +19,6 @@ file(GLOB_RECURSE core23_dev_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp
 
 add_executable(core23_dev_test ${core23_dev_test_src})
 target_compile_features(core23_dev_test PUBLIC cxx_std_17)
-target_link_libraries(core23_dev_test PUBLIC hugectr_core23 huge_ctr_static gtest gtest_main)
+target_link_libraries(core23_dev_test PUBLIC hugectr_core23 huge_ctr_shared gtest gtest_main)
 set_target_properties(core23_dev_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(core23_dev_test PROPERTIES CUDA_ARCHITECTURES OFF)
