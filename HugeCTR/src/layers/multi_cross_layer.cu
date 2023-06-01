@@ -2247,7 +2247,6 @@ void Core23TempMultiCrossLayer<T>::bprop() {
 }
 template <typename T>
 void Core23TempMultiCrossLayer<T>::search_algorithm() {
-  return;
   // dcnv1 no search_algorithm
   CudaDeviceContext context(this->get_device_id());
   auto cublaslt_handle = this->get_gpu().get_cublaslt_handle();
