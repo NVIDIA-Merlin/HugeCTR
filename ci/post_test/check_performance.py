@@ -22,7 +22,11 @@ log_pattern = {
     },
     "dlrm_dcnv2_1node": {
         "cmd_log": r"python3 train.py",
-        "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average",
+        "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average speed is (\d+\.?\d*) records/s",
+    },
+    "dlrm_dcnv2_8node": {
+        "cmd_log": r"python3 train.py",
+        "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average speed is (\d+\.?\d*) records/s",
     },
     "inference_benchmark": {
         "cmd_log": r"Server:",
@@ -81,8 +85,8 @@ def extract_result_from_log(job_name, log_path):
                     match = re.search(job_log_pattern["result_log"], line)
                     if match is None:
                         continue
-                    if job_name == "dlrm_dcnv2_1node":
-                        result = float(match.group(3))
+                    if job_name == "dlrm_dcnv2_1node" or job_name == "dlrm_dcnv2_8node":
+                        result = float(match.group(4))
                     else:
                         result = float(match.group(1))
                     results.append(result)
@@ -235,19 +239,33 @@ def collect_benchmark_result(log_path):
         print(",".join(str(i) for i in benchmark))
 
 
-def check_perf_result(perf_result, expected_result):
-    if float(perf_result) > float(expected_result):
-        raise RuntimeError(
-            "performance get worse. perf_result:{} vs. expected result:{}".format(
-                perf_result, expected_result
+def check_perf_result(perf_result, expected_result, compare_flag=True):
+    if compare_flag:
+        if float(perf_result) > float(expected_result):
+            raise RuntimeError(
+                "performance get worse. perf_result:{} vs. expected result:{}".format(
+                    perf_result, expected_result
+                )
             )
-        )
+        else:
+            print(
+                "performance check pass. perf_result:{} vs. expected result:{}".format(
+                    perf_result, expected_result
+                )
+            )
     else:
-        print(
-            "performance check pass. perf_result:{} vs. expected result:{}".format(
-                perf_result, expected_result
+        if float(perf_result) < float(expected_result):
+            raise RuntimeError(
+                "performance get worse. perf_result:{} vs. expected result:{}".format(
+                    perf_result, expected_result
+                )
             )
-        )
+        else:
+            print(
+                "performance check pass. perf_result:{} vs. expected result:{}".format(
+                    perf_result, expected_result
+                )
+            )
 
 
 if __name__ == "__main__":
@@ -341,4 +359,7 @@ if __name__ == "__main__":
                 idx += 1
         else:
             perf_result = extract_result_from_log(args.job_name, args.log_path)
-            check_perf_result(perf_result, expected_result)
+            if args.job_name in ["dlrm_dcnv2_1node", "dlrm_dcnv2_8node"]:
+                check_perf_result(perf_result, expected_result, False)
+            else:
+                check_perf_result(perf_result, expected_result)

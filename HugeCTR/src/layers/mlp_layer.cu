@@ -376,7 +376,6 @@ void Core23TempMLPLayer<T>::fprop(bool is_train) {
     const T* bottom =
         i == 0 ? this->input_tensors_[0].template data<T>() : train_tensors_[i - 1].data<T>();
     T* top_fprop = train_tensors_[i].data<T>();
-
     layer_functors_.fprop(kernel, bottom, top_fprop, layer_desc_[i], layer_algo_[i],
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream());
     if (i == num_layers - 1 && acts_[i] == Activation_t::Relu) {
@@ -426,7 +425,6 @@ void Core23TempMLPLayer<T>::bprop() {
         bottom_bprop = this->input_tensors_[1].template data<T>();
       }
     }
-
     layer_functors_.bprop(kernel, bottom, train_top, mask_top, batch_size * top_size, grad_top,
                           bottom_bprop, kernel_grad, layer_desc_[i], layer_algo_[i],
                           this->get_gpu().get_cublaslt_handle(), this->get_gpu().get_stream(),

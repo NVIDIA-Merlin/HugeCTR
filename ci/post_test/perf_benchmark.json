@@ -3,7 +3,8 @@
     "wdl_8gpu": 56,
     "dlrm_1node": 119,
     "dlrm_14node": 60,
-    "dlrm_dcnv2_1node": 900,
+    "dlrm_dcnv2_1node": 6660000,
+    "dlrm_dcnv2_8node": 18250000,
     "inference_benchmark": 500,
     "hps_plugin_benchmark": {
         "native_tf": {"32":800, "1024":3000, "16384":50000},
