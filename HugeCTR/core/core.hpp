@@ -34,6 +34,9 @@ class GPUResourceBase {
 class CoreResourceManager {
  public:
   CoreResourceManager() { kernel_params_ = HugeCTR::core23::KernelParams().init(); }
+  CoreResourceManager(HugeCTR::core23::KernelParams kernel_params) {
+    kernel_params_ = kernel_params;
+  }
   virtual ~CoreResourceManager() = default;
 
   virtual std::shared_ptr<GPUResourceBase> get_local_gpu() = 0;

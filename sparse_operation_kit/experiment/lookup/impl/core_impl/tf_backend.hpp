@@ -26,8 +26,10 @@ namespace tf_internal {
 class TFCoreResourceManager : public core::CoreResourceManager {
  public:
   TFCoreResourceManager(OpKernelContext *ctx, int device_id, int local_rank, int num_rank,
-                        int id_in_local_rank, int num_gpu_per_rank)
-      : ctx_(ctx),
+                        int id_in_local_rank, int num_gpu_per_rank,
+                        HugeCTR::core23::KernelParams kernel_params)
+      : core::CoreResourceManager(kernel_params),
+        ctx_(ctx),
         device_id_(device_id),
         local_rank_(local_rank),
         num_rank_(num_rank),

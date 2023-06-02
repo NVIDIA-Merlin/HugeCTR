@@ -109,6 +109,7 @@ class SOKEmbedding(tf.keras.layers.Layer):
             emb_vectors = sok.lookup_sparse(
                 self._vars,
                 input_list,
+                None,
                 ["sum" for _ in range(len(self._vocab_sizes))],
             )
             for i in range(len(self._vocab_sizes)):

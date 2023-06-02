@@ -165,10 +165,13 @@ class TFAllocatorImpl  : public core23::Allocator{
   GPUOptions gpu_option_;
 };
 
-void set_default_alloctor(){  
-   core23::AllocatorParams::default_allocator_factory= [](const auto& params, const auto& device) {
+
+int set_default_alloctor(){
+   core23::AllocatorParams::default_allocator_factory = [](const auto& params, const auto& device) {
     return std::unique_ptr<core23::Allocator>(new TFAllocatorImpl(device));
   };
+  return 0;
 }
 
+static int register_default_allocator = set_default_alloctor();
 }  // namespace tf_internal

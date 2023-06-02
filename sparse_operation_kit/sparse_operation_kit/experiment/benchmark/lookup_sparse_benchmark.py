@@ -54,7 +54,7 @@ if __name__ == "__main__":
     @tf.function
     def sok_step(param, indices):
         with tf.GradientTape() as tape:
-            embedding = sok.lookup_sparse(param, indices, args.combiner)
+            embedding = sok.lookup_sparse(param, indices, None, args.combiner)
             loss = tf.reduce_sum(embedding)
         grads = tape.gradient(loss, [param])
         return loss, grads

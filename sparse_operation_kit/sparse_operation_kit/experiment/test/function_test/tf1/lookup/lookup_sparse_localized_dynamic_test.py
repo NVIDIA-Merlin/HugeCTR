@@ -111,7 +111,7 @@ if __name__ == "__main__":
     sok_optimizer = sok.OptimizerWrapper(optimizer)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, total_indices, combiners)
+        embeddings = sok.lookup_sparse(params, total_indices, None, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])
@@ -126,7 +126,8 @@ if __name__ == "__main__":
     t = time.time()
 
     init_op = tf.compat.v1.global_variables_initializer()
-    sess.run(init_op, feed_dict={weights[0]: weights_numpy[0], weights[1]: weights_numpy[1]})
+    # sess.run(init_op, feed_dict={weights[0]: weights_numpy[0], weights[1]: weights_numpy[1]})
+    sess.run(init_op, feed_dict=dict(zip(weights, weights_numpy)))
 
     sok_embedding = step(sok_vars)
     for i in range(iters):
@@ -145,12 +146,7 @@ if __name__ == "__main__":
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
         loss = sess.run(
             sok_embedding,
-            feed_dict={
-                offsets[0]: tmp_offset_numpy[0],
-                offsets[1]: tmp_offset_numpy[1],
-                values[0]: tmp_values_numpy[0],
-                values[1]: tmp_values_numpy[1],
-            },
+            feed_dict=dict(zip(offsets + values, tmp_offset_numpy + tmp_values_numpy)),
         )
 
         loss1.append(loss)
@@ -195,13 +191,7 @@ if __name__ == "__main__":
             )
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
         loss = sess.run(
-            tf_embedding,
-            feed_dict={
-                offsets[0]: tmp_offset_numpy[0],
-                offsets[1]: tmp_offset_numpy[1],
-                values[0]: tmp_values_numpy[0],
-                values[1]: tmp_values_numpy[1],
-            },
+            tf_embedding, feed_dict=dict(zip(offsets + values, tmp_offset_numpy + tmp_values_numpy))
         )
 
         loss2.append(loss)

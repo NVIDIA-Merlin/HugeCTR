@@ -47,6 +47,7 @@ opt_name_max_length = 32
 opt_var_name_max_length = 32
 table_name_max_length = 256
 file_head_length = 296
+save_buffer_size_bytes = 1024 * 1024 * 1024  # 1Gb
 optimizer_names = ["SGD", "Adamax", "Adadelta", "Adagrad", "Ftrl"]
 
 
@@ -388,6 +389,23 @@ def activate_optimizer_state(optimizer, load_vars):
     optimizer._create_slots(load_vars)
 
 
+def get_save_rounds(tensor_shape, tensor_data_size):
+    num_vector = tensor_shape[0]
+    embedding_length = tensor_shape[1]
+    total_data_size = tensor_shape.num_elements() * tensor_data_size
+    if total_data_size <= save_buffer_size_bytes:
+        num_rounds = 1
+        tmp_num_vector = num_vector
+    else:
+        tmp_num_vector = int(
+            np.floor(save_buffer_size_bytes / (embedding_length * tensor_data_size))
+        )
+        num_rounds = np.ceil(num_vector / tmp_num_vector).astype(np.int64)
+    num_rounds_tensor = tf.convert_to_tensor(num_rounds)
+    num_rounds_tensor = allreduce(num_rounds_tensor, "max")
+    return num_rounds_tensor.numpy(), tmp_num_vector
+
+
 def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
     optimizer_name = get_sok_optimizer_name(optimizer)
     slot_names = optimizer.get_slot_names()
@@ -403,8 +421,9 @@ def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
         state_tensor = tf.convert_to_tensor(slot_var, dtype=slot_var.dtype)
         # is distribute
         if target_gpu == -1:
-            if global_gpu_num > 1:
-                state_tensor = allgather(state_tensor)
+            tmp_dtype = state_tensor.dtype
+            dtype_size = tmp_dtype.size
+            num_rounds, num_vector_per_round = get_save_rounds(state_tensor.shape, dtype_size)
             if gpu_id == 0:
                 write_file_head(
                     slot_path,
@@ -413,9 +432,22 @@ def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
                     slot_name,
                     data_type_convert.convert_to_int(state_tensor.dtype),
                 )
-                state_tensor_np = state_tensor.numpy()
-                with open(slot_path, mode="ba+") as fstate:
-                    state_tensor_np.tofile(fstate)
+            save_offset = 0
+            for i in range(num_rounds):
+                start_offset = save_offset
+                end_offset = save_offset + num_vector_per_round
+                save_offset += num_vector_per_round
+                if start_offset > state_tensor.shape[0]:
+                    start_offset = state_tensor.shape[0]
+                if end_offset > state_tensor.shape[0]:
+                    end_offset = state_tensor.shape[0]
+                tmp_state_tensor = state_tensor[start_offset:end_offset, :]
+                if global_gpu_num > 1:
+                    tmp_state_tensor = allgather(tmp_state_tensor)
+                if gpu_id == 0:
+                    tmp_state_tensor_np = tmp_state_tensor.numpy()
+                    with open(slot_path, mode="ba+") as fstate:
+                        tmp_state_tensor_np.tofile(fstate)
 
         else:
             if gpu_id == target_gpu:
@@ -441,30 +473,23 @@ def save_optimizer_to_filesysyem_dynamic(optimizer, var, path, sok_var_info):
     for i in string.punctuation:
         table_name = table_name.replace(i, "_")
 
-    indices_var, _ = export(var)
-    indices_var_np = indices_var.numpy()
+    # indices_var, _ = export(var)
+    # indices_var_np = indices_var.numpy()
     for slot_name in slot_names:
         slot_path = path + "/" + table_name + "-" + optimizer_name + "-" + slot_name
         target_gpu = var.target_gpu
         slot_var = optimizer.get_slot(var, slot_name)
         indices_tensor, state_tensor = export(slot_var)
 
-        # indices_np = indices.numpy()
-        # state_weight_np = state_weight.numpy()
-        # var_sorted = np.argsort(indices_var_np)
-        # var_pos = np.searchsorted(indices_var_np[var_sorted], indices_np)
-        # remap_indices = var_sorted[var_pos]
-
-        # var_sorted = np.argsort(indices_np)
-        # var_pos = np.searchsorted(indices_np[var_sorted], indices_var_np)
-        # remap_indices = var_sorted[var_pos]
-        # state_weight_np = state_weight_np[remap_indices, :]
+        sort_indice_tensor = tf.cast(tf.argsort(indices_tensor), tf.int64)
+        state_tensor = tf.gather(state_tensor, sort_indice_tensor)
+        indices_tensor = tf.gather(indices_tensor, sort_indice_tensor)
 
         # is distribute
         if target_gpu == -1:
-            if global_gpu_num > 1:
-                state_tensor = allgather(state_tensor)
-                indices_tensor = allgather(indices_tensor)
+            tmp_dtype = state_tensor.dtype
+            dtype_size = tmp_dtype.size
+            num_rounds, num_vector_per_round = get_save_rounds(state_tensor.shape, dtype_size)
             if gpu_id == 0:
                 write_file_head(
                     slot_path,
@@ -473,13 +498,22 @@ def save_optimizer_to_filesysyem_dynamic(optimizer, var, path, sok_var_info):
                     slot_name,
                     data_type_convert.convert_to_int(state_tensor.dtype),
                 )
-                indices_np = indices_tensor.numpy()
-                state_np = state_tensor.numpy()
-                sort_indice_index = np.argsort(indices_np)
-                indices_np = indices_np[sort_indice_index]
-                state_np = state_np[sort_indice_index]
-                with open(slot_path, mode="ba+") as fstate:
-                    state_np.tofile(fstate)
+            save_offset = 0
+            for i in range(num_rounds):
+                start_offset = save_offset
+                end_offset = save_offset + num_vector_per_round
+                save_offset += num_vector_per_round
+                if start_offset > state_tensor.shape[0]:
+                    start_offset = state_tensor.shape[0]
+                if end_offset > state_tensor.shape[0]:
+                    end_offset = state_tensor.shape[0]
+                tmp_state_tensor = state_tensor[start_offset:end_offset, :]
+                if global_gpu_num > 1:
+                    tmp_state_tensor = allgather(tmp_state_tensor)
+                if gpu_id == 0:
+                    tmp_state_np = tmp_state_tensor.numpy()
+                    with open(slot_path, mode="ba+") as fstate:
+                        tmp_state_np.tofile(fstate)
 
         else:
             if gpu_id == target_gpu:
@@ -491,11 +525,7 @@ def save_optimizer_to_filesysyem_dynamic(optimizer, var, path, sok_var_info):
                     data_type_convert.convert_to_int(state_tensor.dtype),
                 )
                 state_np = state_tensor.numpy()
-                indices_np = indices_tensor.numpy()
 
-                sort_indice_index = np.argsort(indices_np)
-                indices_np = indices_np[sort_indice_index]
-                state_np = state_np[sort_indice_index]
                 with open(slot_path, mode="ba+") as fstate:
                     state_np.tofile(fstate)
 
@@ -519,21 +549,22 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
         num_np = np.zeros(global_gpu_num, dtype=np.uint64)
         num_np[gpu_id] = num_ev
         num_evs = tf.convert_to_tensor(num_np, dtype=tf.uint64)
-        indice_np = np.arange(int(num_ev), dtype=np.uint64)
+        indice_np = np.arange(int(num_ev), dtype=np.int64)
         indice_np = indice_np * global_gpu_num + gpu_id
-        indice = tf.convert_to_tensor(indice_np, dtype=tf.uint64)
+        indice = tf.convert_to_tensor(indice_np, dtype=tf.int64)
         weight = tf.convert_to_tensor(var, var.dtype)
 
-        if global_gpu_num > 1:
-            indice = allgather(indice)
-            weight = allgather(weight)
+        tmp_dtype = weight.dtype
+        dtype_size = tmp_dtype.size
+        num_rounds, num_vector_per_round = get_save_rounds(weight.shape, dtype_size)
+
+        total_indice = allgather(indice)
+        if gpu_id == 0:
             sok_var_info.key_type = data_type_convert.convert_to_int(indice.dtype)
             sok_var_info.emb_type = data_type_convert.convert_to_int(weight.dtype)
-            sok_var_info.emb_num = indice.shape[0]
+            sok_var_info.emb_num = total_indice.shape[0]
             sok_var_info.emb_length = var.shape[1]
-        if gpu_id == 0:
-            indice_np = indice.numpy()
-            weight_np = weight.numpy()
+
             write_file_head(
                 key_path,
                 sok_var_info,
@@ -541,9 +572,6 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
                 "",
                 data_type_convert.convert_to_int(indice.dtype),
             )
-            with open(key_path, mode="ba+") as fkey:
-                indice_np.tofile(fkey)
-
             write_file_head(
                 weight_path,
                 sok_var_info,
@@ -551,8 +579,30 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
                 "",
                 data_type_convert.convert_to_int(weight.dtype),
             )
-            with open(weight_path, mode="ba+") as femb:
-                weight_np.tofile(femb)
+
+        save_offset = 0
+        for i in range(num_rounds):
+            start_offset = save_offset
+            end_offset = save_offset + num_vector_per_round
+            save_offset += num_vector_per_round
+            if start_offset > weight.shape[0]:
+                start_offset = weight.shape[0]
+            if end_offset > weight.shape[0]:
+                end_offset = weight.shape[0]
+            tmp_indice = indice[start_offset:end_offset]
+            tmp_weight = weight[start_offset:end_offset, :]
+            if global_gpu_num > 1:
+
+                tmp_indice = allgather(tmp_indice)
+                tmp_weight = allgather(tmp_weight)
+            if gpu_id == 0:
+                indice_np = tmp_indice.numpy()
+                weight_np = tmp_weight.numpy()
+                with open(key_path, mode="ba+") as fkey:
+                    indice_np.tofile(fkey)
+
+                with open(weight_path, mode="ba+") as femb:
+                    weight_np.tofile(femb)
 
     else:
         if gpu_id == target_gpu:
@@ -611,24 +661,24 @@ def save_table_to_filesystem_dynamic(var, optimizer, path, have_states):
     # is distribute
     if target_gpu == -1:
         indice, weight = export(var)
+        sort_indice_tensor = tf.cast(tf.argsort(indice), tf.int64)
+        weight = tf.gather(weight, sort_indice_tensor)
+        indice = tf.gather(indice, sort_indice_tensor)
+
         ev_length = weight.shape[1]
-        if global_gpu_num > 1:
-            indice = allgather(indice)
-            weight = allgather(weight)
-            num_ev = weight.shape[0]
-            if num_ev == 0:
+        tmp_dtype = weight.dtype
+        dtype_size = tmp_dtype.size
+        num_rounds, num_vector_per_round = get_save_rounds(weight.shape, dtype_size)
+
+        total_indice = allgather(indice)
+        if gpu_id == 0:
+
+            if total_indice.shape[0] == 0:
                 raise Exception("dynamic table don't have value in it , table_name:", table_name)
             sok_var_info.key_type = data_type_convert.convert_to_int(indice.dtype)
             sok_var_info.emb_type = data_type_convert.convert_to_int(weight.dtype)
-            sok_var_info.emb_num = indice.shape[0]
-            sok_var_info.emb_length = weight.shape[1]
-
-        if gpu_id == 0:
-            indice_np = indice.numpy()
-            weight_np = weight.numpy()
-            sort_indice_index = np.argsort(indice_np)
-            indice_np = indice_np[sort_indice_index]
-            weight_np = weight_np[sort_indice_index]
+            sok_var_info.emb_num = total_indice.shape[0]
+            sok_var_info.emb_length = ev_length
 
             write_file_head(
                 key_path,
@@ -644,10 +694,30 @@ def save_table_to_filesystem_dynamic(var, optimizer, path, have_states):
                 "",
                 data_type_convert.convert_to_int(weight.dtype),
             )
-            with open(key_path, mode="ba+") as fkey:
-                indice_np.tofile(fkey)
-            with open(weight_path, mode="ba+") as femb:
-                weight_np.tofile(femb)
+        save_offset = 0
+        for i in range(num_rounds):
+            start_offset = save_offset
+            end_offset = save_offset + num_vector_per_round
+            save_offset += num_vector_per_round
+            if start_offset > weight.shape[0]:
+                start_offset = weight.shape[0]
+            if end_offset > weight.shape[0]:
+                end_offset = weight.shape[0]
+
+            tmp_indice = indice[start_offset:end_offset]
+            tmp_weight = weight[start_offset:end_offset, :]
+            if global_gpu_num > 1:
+                tmp_indice = allgather(tmp_indice)
+                tmp_weight = allgather(tmp_weight)
+
+            if gpu_id == 0:
+                indice_np = tmp_indice.numpy()
+                weight_np = tmp_weight.numpy()
+
+                with open(key_path, mode="ba+") as fkey:
+                    indice_np.tofile(fkey)
+                with open(weight_path, mode="ba+") as femb:
+                    weight_np.tofile(femb)
 
     else:
         if gpu_id == target_gpu:

@@ -171,9 +171,7 @@ static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
     if (window_contains_exist) {
       auto const src_lane = __ffs(window_contains_exist) - 1;
       auto const value = g.shfl(current_slot.value(), src_lane);
-      current_slot.lock().acquire(g, src_lane);
-      detail::copy_array(g, this->get_dimension(), lookup_or_insert_pair.second, value);
-      current_slot.lock().release(g, src_lane);
+      *lookup_or_insert_pair.second =  const_cast<element_type *>(value);
       return insert_result::DUPLICATE;
     }
 
@@ -200,9 +198,7 @@ static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
         current_slot.lock().release(g, src_lane);
       } else if (status == insert_result::DUPLICATE) {
         auto const value = g.shfl(current_slot.value(), src_lane);
-        current_slot.lock().acquire(g, src_lane);
-        detail::copy_array(g, this->get_dimension(), lookup_or_insert_pair.second, value);
-        current_slot.lock().release(g, src_lane);
+        *lookup_or_insert_pair.second =  const_cast<element_type *>(value);
       }
 
       // successful insert
@@ -331,9 +327,7 @@ __device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
     if (exists) {
       auto const src_lane = __ffs(exists) - 1;
       auto const value = g.shfl(current_slot.value(), src_lane);
-      current_slot.lock().acquire(g, src_lane);
-      detail::copy_array(g, this->get_dimension(), lookup_pair.second, value);
-      current_slot.lock().release(g, src_lane);
+      *lookup_pair.second =  const_cast<element_type *>(value);
       return true;
     }
 
