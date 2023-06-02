@@ -261,6 +261,7 @@ class PreprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTyp
         sok::convert_tensor_core23<DType>(sp_weight_send_buffer_tf, tensor_device_id));
 
     // Do forward
+    //copy all the key and row length in one buffer
     ::embedding::tf::swizzle_key::sparse_forward_per_gpu(this->make_core_resource(ctx), keys_sok,
                                                          row_lengths_sok, key_send_buffer_sok,
                                                          row_length_send_buffer_sok);
@@ -402,6 +403,13 @@ class LookupFowardBase : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 
   void forward(OpKernelContext* ctx, std::shared_ptr<sok::CoreResourceManager>& tf_backend,
                cudaStream_t stream) {
+    /*
+       There are some steps in this op:
+       1.reorder key to feature major
+       2.select keys ,the key need be stored in this gpu variable
+       3.gpu variable lookup selected keys first address 
+       4.copy embedding vector and combine them when embedding vector lookup in same sample.
+    */
     int tensor_device_id = tf_backend->get_device_id();
     // Prepare inputs (except handles)
     const Tensor* key_recv_buffer = nullptr;
@@ -638,6 +646,14 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
       : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
 
   void Compute(OpKernelContext* ctx) override {
+    /*
+       There some steps in this OP:
+       1. backward index calculation:
+          (1) get wgrad index
+          (2) sort pair , we need the same keys are lined up consecutively , so we reduce wgrad is high performance
+          (3) unique key ,we need know which key's wgrad should be output.
+       2. wgrad reduce , use average reduce all the same key wgrad.
+    */
     if (this->num_local_lookups_ == 0) {
       for (int i = 0; i < this->num_lookups_; ++i) {
         Tensor* unused = nullptr;
@@ -772,6 +788,10 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
 
   void Compute(OpKernelContext* ctx) override {
     // Prepare emb_vec_buffer_shape, this will be used in backward
+    /*
+       after all2all done , every gpu get partial results from every other gpu,
+       so need combine partial results , get the final result.
+    */
     Tensor* emb_vec_buffer_shape = nullptr;
     OP_REQUIRES_OK(
         ctx, ctx->allocate_output(this->num_lookups_, {this->num_gpus_}, &emb_vec_buffer_shape));
@@ -888,6 +908,10 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
       : EmbeddingCollectionBase<KeyType, OffsetType, DType>(ctx) {}
 
   void Compute(OpKernelContext* ctx) override {
+    /*
+       input is dense layer wgrad , we can assume every gpu maybe need this wgrad ,
+       so we need copy the grad to all2all buffer , the all2all buffer then can send the wgrad to every other gpu.
+    */
     // Prepare input
     int batch_size = -1;
     int tensor_device_id = this->make_core_resource(ctx)->get_device_id();

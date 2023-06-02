@@ -353,6 +353,13 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             ILookup *emb_storage, std::vector<core23::Tensor> &emb_vec_model_buffer,
                             int64_t *num_model_key, int64_t *num_model_offsets,
                             core23::Tensor *ret_model_key, core23::Tensor *ret_model_offset) {
+  /*
+  There are some steps in this function:
+  1.reorder key to feature major
+  2.select keys ,the key need be stored in this gpu variable
+  3.gpu variable lookup selected keys first address
+  4.copy embedding vector and combine them when embedding vector lookup in same sample.
+  */
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::BufferParams buffer_params;
@@ -559,6 +566,10 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const std::vector<core23::Tensor> &emb_vec_network_buffer,
                             const std::vector<core23::Tensor> &row_lengths,
                             std::vector<core23::Tensor> &forward_emb_vec) {
+  /*
+     after all2all done , every gpu get partial results from every other gpu,
+     so need combine partial results , get the final result.
+  */
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
@@ -645,6 +656,11 @@ void backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                       const std::vector<core23::Tensor> &top_grad,
                       const std::vector<core23::Tensor> &row_lengths,
                       std::vector<core23::Tensor> &emb_vec_network_buffer) {
+  /*
+     input is dense layer wgrad , we can assume every gpu maybe need this wgrad ,
+     so we need copy the grad to all2all buffer , the all2all buffer then can send the wgrad to
+     every other gpu.
+  */
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
@@ -759,6 +775,14 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                              std::vector<int> *table_id_list,
                              core23::Tensor *ret_continous_unique_key,
                              core23::Tensor *ret_continous_emb_vec) {
+  /*
+     There some steps in this Function:
+     1. backward index calculation:
+        (1) get wgrad index
+        (2) sort pair , we need the same keys are lined up consecutively , so we reduce wgrad is
+     high performance (3) unique key ,we need know which key's wgrad should be output.
+     2. wgrad reduce , use average reduce all the same key wgrad.
+  */
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   int num_gpus = core->get_global_gpu_count();
   cudaStream_t stream = core->get_local_gpu()->get_stream();
