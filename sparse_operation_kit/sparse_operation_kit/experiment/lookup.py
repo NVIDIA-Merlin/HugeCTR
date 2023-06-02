@@ -405,6 +405,9 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     row_lengths = []
     sp_weight_value = []
     use_sp_weight = False if len(sp_weights) == 0 else True
+    # first collect keys from Ragged tensors
+    # keys means lookup key
+    # every element in row_lengths meas number of lookup keys in a table for a sample
     for index in range(len(sp_ids)):
         sp_id = sp_ids[index]
         if isinstance(sp_id, tf.SparseTensor):
@@ -440,6 +443,7 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     }
 
     # Step1
+    # copy all the key and row length in one buffer
     key_send_buffer, row_length_send_buffer, sp_weight_send_buffer = _preprocessing_forward(
         keys, row_lengths, sp_weight_value, num_gpus=num_gpus(), **kwargs
     )
