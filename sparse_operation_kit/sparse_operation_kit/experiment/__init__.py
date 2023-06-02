@@ -67,6 +67,7 @@ from sparse_operation_kit.experiment.dump_load import dump, load
 
 # a specific code path for dl framework tf2.11.0
 import tensorflow
+from tensorflow.python.framework import ops
 
 
 def init(comm_tool="horovod", use_legacy_optimizer=True):
@@ -121,7 +122,6 @@ def init(comm_tool="horovod", use_legacy_optimizer=True):
             pass
 
     set_comm_tool(comm_tool)
-    status = raw_ops.set_default_allocator()
     print("[SOK INFO] Initialize finished, communication tool: " + comm_tool)
 
 

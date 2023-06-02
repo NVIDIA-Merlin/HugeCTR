@@ -56,6 +56,7 @@ class EmbeddingCollectionBase : public OpKernel {
   int global_gpu_id_;
   int num_local_lookups_;
   bool use_sp_weight_;
+  HugeCTR::core23::KernelParams kernel_params_;
 
   std::unique_ptr<sok::EmbeddingCollectionParam> ebc_param_;
   std::unique_ptr<sok::UniformModelParallelEmbeddingMeta> meta_;
@@ -66,7 +67,8 @@ class EmbeddingCollectionBase : public OpKernel {
                                                         /*local_rank*/ rank_,
                                                         /*num_rank*/ num_ranks_,
                                                         /*id_in_local_rank*/ id_in_local_rank_,
-                                                        /*num_gpu_per_rank*/ num_gpu_per_rank_);
+                                                        /*num_gpu_per_rank*/ num_gpu_per_rank_,
+               kernel_params_);
   }
 
   void make_shard_matrix(std::vector<std::vector<int>>& shard_matrix) {
@@ -131,6 +133,7 @@ class EmbeddingCollectionBase : public OpKernel {
                 errors::InvalidArgument("num_gpus % num_ranks must be 0."));
     OP_REQUIRES(ctx, id_in_local_rank_ >= 0 && id_in_local_rank_ < (num_gpus_ / num_ranks_),
                 errors::InvalidArgument("Invalid id_in_local_rank."));
+    kernel_params_ = HugeCTR::core23::KernelParams().init();
 
     for (int i = 0; i < num_lookups_; ++i) {
       OP_REQUIRES(ctx, shard_[i] < num_gpus_,

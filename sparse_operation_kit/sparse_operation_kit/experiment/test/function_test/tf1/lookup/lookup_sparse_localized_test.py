@@ -90,7 +90,7 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
     def step(params):
-        embeddings = sok.lookup_sparse(params, indices, combiners)
+        embeddings = sok.lookup_sparse(params, indices, None, combiners)
         loss = 0
         for i in range(len(embeddings)):
             loss = loss + tf.reduce_sum(embeddings[i])
@@ -124,13 +124,15 @@ if __name__ == "__main__":
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
         loss = sess.run(
             sok_embedding,
-            feed_dict={
-                offsets[0]: tmp_offset_numpy[0],
-                offsets[1]: tmp_offset_numpy[1],
-                values[0]: tmp_values_numpy[0],
-                values[1]: tmp_values_numpy[1],
-            },
+            feed_dict=dict(zip(offsets + values, tmp_offset_numpy + tmp_values_numpy)),
         )
+        #            feed_dict={
+        #                offsets[0]: tmp_offset_numpy[0],
+        #                offsets[1]: tmp_offset_numpy[1],
+        #                values[0]: tmp_values_numpy[0],
+        #                values[1]: tmp_values_numpy[1],
+        #            },
+
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)
         print("loss:", loss)
@@ -168,12 +170,13 @@ if __name__ == "__main__":
             tmp_values_numpy.append(values_numpy[j][tmp_value_left_offset:tmp_value_rigth_offset])
         loss = sess.run(
             step2(tf_vars),
-            feed_dict={
-                offsets[0]: tmp_offset_numpy[0],
-                offsets[1]: tmp_offset_numpy[1],
-                values[0]: tmp_values_numpy[0],
-                values[1]: tmp_values_numpy[1],
-            },
+            feed_dict=dict(zip(offsets + values, tmp_offset_numpy + tmp_values_numpy))
+            # feed_dict={
+            #    offsets[0]: tmp_offset_numpy[0],
+            #    offsets[1]: tmp_offset_numpy[1],
+            #    values[0]: tmp_values_numpy[0],
+            #    values[1]: tmp_values_numpy[1],
+            # },
         )
         loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30)

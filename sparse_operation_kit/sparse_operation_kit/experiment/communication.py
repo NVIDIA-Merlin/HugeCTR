@@ -153,6 +153,10 @@ class HorovodTool(CommToolBase):
             op = hvd.Sum
         elif op == "average":
             op = hvd.Average
+        elif op == "max":
+            op = hvd.Max
+        elif op == "min":
+            op = hvd.Min
         return hvd.allreduce(tensor, op=op)
 
     def allgather(self, tensor):
