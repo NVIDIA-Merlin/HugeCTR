@@ -52,6 +52,8 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
                             : inference_params_.sparse_model_files.size();
 
     if (inference_params_.fuse_embedding_table) {
+      original_key_buffers_for_each_fused_table_.resize(num_tables);
+      original_vec_buffers_for_each_fused_table_.resize(num_tables);
       num_keys_of_original_tables_for_each_fused_table_.resize(num_tables);
       key_buffer_offset_for_each_fused_table_.resize(num_tables);
       vec_buffer_offset_for_each_fused_table_.resize(num_tables);
@@ -60,15 +62,13 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
             inference_params_.fused_table_id_to_original_table_id_map[fused_id].size();
         num_original_tables_in_each_fused_table_.push_back(current_num_tables);
         num_keys_of_original_tables_for_each_fused_table_[fused_id].resize(current_num_tables);
+        original_key_buffers_for_each_fused_table_[fused_id].resize(current_num_tables);
+        original_vec_buffers_for_each_fused_table_[fused_id].resize(current_num_tables);
         key_buffer_offset_for_each_fused_table_[fused_id].resize(current_num_tables + 1);
         vec_buffer_offset_for_each_fused_table_[fused_id].resize(current_num_tables + 1);
-        ready_to_copy_key_for_each_fused_table_.push_back(0);
-        ready_to_copy_vec_for_each_fused_table_.push_back(0);
       }
     }
     counter_for_each_fused_table_ = num_original_tables_in_each_fused_table_;
-    copy_key_counter_for_each_fused_table_ = num_original_tables_in_each_fused_table_;
-    copy_vec_counter_for_each_fused_table_ = num_original_tables_in_each_fused_table_;
 
     CudaDeviceContext dev_restorer;
     dev_restorer.set_device(inference_params_.device_id);
@@ -130,12 +130,15 @@ void LookupSession::lookup_with_table_fusion_impl(const void* keys, float* d_vec
       original_table_id_list.begin();
   size_t key_size_in_byte =
       inference_params_.i64_input_key ? sizeof(long long) : sizeof(unsigned int);
+  size_t current_num_tables = num_original_tables_in_each_fused_table_[fused_table_id];
 
   // Decrement the counter for the current fused table
   {
     std::unique_lock lock(mutex_);
     counter_for_each_fused_table_[fused_table_id] -= 1;
     num_keys_of_original_tables_for_each_fused_table_[fused_table_id][idx_in_list] = num_keys;
+    original_key_buffers_for_each_fused_table_[fused_table_id][idx_in_list] = keys;
+    original_vec_buffers_for_each_fused_table_[fused_table_id][idx_in_list] = d_vectors;
     cv_.notify_all();
   }
 
@@ -147,7 +150,7 @@ void LookupSession::lookup_with_table_fusion_impl(const void* keys, float* d_vec
       if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
             return counter_for_each_fused_table_[fused_table_id] == 0;
           })) {
-        size_t current_num_tables = num_original_tables_in_each_fused_table_[fused_table_id];
+        // Calculate the offset for key and vector buffers
         key_buffer_offset_for_each_fused_table_[fused_table_id][0] = 0;
         vec_buffer_offset_for_each_fused_table_[fused_table_id][0] = 0;
         for (size_t idx{0}; idx < current_num_tables; ++idx) {
@@ -160,107 +163,52 @@ void LookupSession::lookup_with_table_fusion_impl(const void* keys, float* d_vec
               num_keys_of_original_tables_for_each_fused_table_[fused_table_id][idx] *
                   inference_params_.embedding_vecsize_per_table[fused_table_id] * sizeof(float);
         }
-        ready_to_copy_key_for_each_fused_table_[fused_table_id] = 1;
-        cv_.notify_all();
-      } else {
-        HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
-                                    "multithreading for embedding lookup."
-                                 << std::endl;
-        return;
-      }
-    }
-  }
 
-  // Copy from keys to key buffer of current fused table
-  {
-    std::unique_lock lock(mutex_);
-    if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
-          return ready_to_copy_key_for_each_fused_table_[fused_table_id] == 1;
-        })) {
-      if (key_on_gpu) {
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            reinterpret_cast<char*>(key_buffer_for_each_fused_table_[fused_table_id]) +
-                key_buffer_offset_for_each_fused_table_[fused_table_id][idx_in_list],
-            keys, num_keys * key_size_in_byte, cudaMemcpyDeviceToDevice, stream));
-      } else {
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            reinterpret_cast<char*>(key_buffer_for_each_fused_table_[fused_table_id]) +
-                key_buffer_offset_for_each_fused_table_[fused_table_id][idx_in_list],
-            keys, num_keys * key_size_in_byte, cudaMemcpyHostToDevice, stream));
-      }
-      copy_key_counter_for_each_fused_table_[fused_table_id] -= 1;
-      cv_.notify_all();
-    } else {
-      HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
-                                  "multithreading for embedding lookup."
-                               << std::endl;
-      return;
-    }
-  }
+        // Copy from original key buffers to fused key buffer
+        if (key_on_gpu) {
+          for (size_t idx{0}; idx < current_num_tables; ++idx) {
+            HCTR_LIB_THROW(cudaMemcpyAsync(
+                reinterpret_cast<char*>(key_buffer_for_each_fused_table_[fused_table_id]) +
+                    key_buffer_offset_for_each_fused_table_[fused_table_id][idx],
+                original_key_buffers_for_each_fused_table_[fused_table_id][idx],
+                num_keys_of_original_tables_for_each_fused_table_[fused_table_id][idx] *
+                    key_size_in_byte,
+                cudaMemcpyDeviceToDevice, stream));
+          }
+        } else {
+          for (size_t idx{0}; idx < current_num_tables; ++idx) {
+            HCTR_LIB_THROW(cudaMemcpyAsync(
+                reinterpret_cast<char*>(key_buffer_for_each_fused_table_[fused_table_id]) +
+                    key_buffer_offset_for_each_fused_table_[fused_table_id][idx],
+                original_key_buffers_for_each_fused_table_[fused_table_id][idx],
+                num_keys_of_original_tables_for_each_fused_table_[fused_table_id][idx] *
+                    key_size_in_byte,
+                cudaMemcpyHostToDevice, stream));
+          }
+        }
 
-  // Perform embedding lookup for current fused table
-  {
-    if (table_id ==
-        inference_params_.fused_table_id_to_original_table_id_map[fused_table_id].back()) {
-      std::unique_lock lock(mutex_);
-      if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
-            return copy_key_counter_for_each_fused_table_[fused_table_id] == 0;
-          })) {
+        // Conduct fused embedding lookup
         size_t fused_num_keys =
             key_buffer_offset_for_each_fused_table_[fused_table_id][idx_in_list + 1] /
             key_size_in_byte;
         this->lookup_from_device_impl(key_buffer_for_each_fused_table_[fused_table_id],
                                       vec_buffer_for_each_fused_table_[fused_table_id],
                                       fused_num_keys, fused_table_id, stream);
-        ready_to_copy_vec_for_each_fused_table_[fused_table_id] = 1;
-        cv_.notify_all();
-      } else {
-        HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
-                                    "multithreading for embedding lookup."
-                                 << std::endl;
-        return;
-      }
-    }
-  }
 
-  // Copy from vector buffer of current fused table to d_vectors
-  {
-    std::unique_lock lock(mutex_);
-    if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
-          return ready_to_copy_vec_for_each_fused_table_[fused_table_id] == 1;
-        })) {
-      HCTR_LIB_THROW(cudaMemcpyAsync(
-          d_vectors,
-          reinterpret_cast<char*>(vec_buffer_for_each_fused_table_[fused_table_id]) +
-              vec_buffer_offset_for_each_fused_table_[fused_table_id][idx_in_list],
-          num_keys * inference_params_.embedding_vecsize_per_table[fused_table_id] * sizeof(float),
-          cudaMemcpyDeviceToDevice, stream));
-      copy_vec_counter_for_each_fused_table_[fused_table_id] -= 1;
-      cv_.notify_all();
-    } else {
-      HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
-                                  "multithreading for embedding lookup."
-                               << std::endl;
-      return;
-    }
-  }
+        // Copy from fused vector buffer to original vector buffers
+        for (size_t idx{0}; idx < current_num_tables; ++idx) {
+          HCTR_LIB_THROW(cudaMemcpyAsync(
+              original_vec_buffers_for_each_fused_table_[fused_table_id][idx],
+              reinterpret_cast<char*>(vec_buffer_for_each_fused_table_[fused_table_id]) +
+                  vec_buffer_offset_for_each_fused_table_[fused_table_id][idx],
+              num_keys_of_original_tables_for_each_fused_table_[fused_table_id][idx] *
+                  inference_params_.embedding_vecsize_per_table[fused_table_id] * sizeof(float),
+              cudaMemcpyDeviceToDevice, stream));
+        }
 
-  // Reset counters and flags
-  {
-    if (table_id ==
-        inference_params_.fused_table_id_to_original_table_id_map[fused_table_id].back()) {
-      std::unique_lock lock(mutex_);
-      if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
-            return copy_vec_counter_for_each_fused_table_[fused_table_id] == 0;
-          })) {
+        // Reset the counter
         counter_for_each_fused_table_[fused_table_id] =
             num_original_tables_in_each_fused_table_[fused_table_id];
-        copy_key_counter_for_each_fused_table_[fused_table_id] =
-            num_original_tables_in_each_fused_table_[fused_table_id];
-        copy_vec_counter_for_each_fused_table_[fused_table_id] =
-            num_original_tables_in_each_fused_table_[fused_table_id];
-        ready_to_copy_key_for_each_fused_table_[fused_table_id] = 0;
-        ready_to_copy_vec_for_each_fused_table_[fused_table_id] = 0;
         cv_.notify_all();
       } else {
         HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
@@ -268,22 +216,6 @@ void LookupSession::lookup_with_table_fusion_impl(const void* keys, float* d_vec
                                  << std::endl;
         return;
       }
-    }
-  }
-
-  {
-    std::unique_lock lock(mutex_);
-    if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
-          return counter_for_each_fused_table_[fused_table_id] ==
-                 num_original_tables_in_each_fused_table_[fused_table_id];
-        })) {
-      HCTR_LOG_S(TRACE, WORLD) << "Finish embedding lookup for original table id: " << table_id
-                               << std::endl;
-    } else {
-      HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
-                                  "multithreading for embedding lookup."
-                               << std::endl;
-      return;
     }
   }
 }

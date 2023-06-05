@@ -61,6 +61,10 @@ log_pattern = {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
     },
+    "hps_tf_fuse_table_benchmark": {
+        "cmd_log": r"compute infer",
+        "result_log": r"compute infer (\d+\.?\d*) usec",
+    },
     "hps_backend_avg_latency": {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
@@ -90,7 +94,7 @@ def extract_result_from_log(job_name, log_path):
                     else:
                         result = float(match.group(1))
                     results.append(result)
-    if job_name == "hps_plugin_benchmark":
+    if job_name == "hps_plugin_benchmark" or job_name == "hps_tf_fuse_table_benchmark":
         return results
     return sum(results) / len(results) if len(results) > 0 else float("inf")
 
@@ -243,13 +247,13 @@ def check_perf_result(perf_result, expected_result, compare_flag=True):
     if compare_flag:
         if float(perf_result) > float(expected_result):
             raise RuntimeError(
-                "performance get worse. perf_result:{} vs. expected result:{}".format(
+                "performance get worse. perf latency: {} vs. upper bound latency :{}".format(
                     perf_result, expected_result
                 )
             )
         else:
             print(
-                "performance check pass. perf_result:{} vs. expected result:{}".format(
+                "performance check pass. perf latency: {} vs. upper bound latency :{}".format(
                     perf_result, expected_result
                 )
             )
@@ -311,6 +315,38 @@ if __name__ == "__main__":
                     "tf_with_hps",
                     "fp32_trt_with_hps",
                     "fp16_trt_with_hps",
+                ]:
+                    perf = perf_result[idx]
+                    expected = expected_result[model_name][batch_size]
+                    check_perf_result(perf, expected)
+                    idx += 1
+        elif args.job_name == "hps_tf_fuse_table_benchmark":
+            perf_result = extract_result_from_log(args.job_name, args.log_path)
+            idx = 0
+            batch_sizes = ["256", "1024", "4096", "16384"]
+            print("HPS Fuse Table TF Model Inference Latency (usec)")
+            print("-" * 137)
+            print(
+                "batch_size\t8_static_table_unfused\t\t8_static_table_autofused\t8_dynamic_table_unfused\t\t8_dynamic_table_autofused"
+            )
+            print("-" * 137)
+            for i in range(len(perf_result) // 4):
+                print(
+                    "{}\t\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}".format(
+                        batch_sizes[i],
+                        perf_result[i * 4],
+                        perf_result[i * 4 + 1],
+                        perf_result[i * 4 + 2],
+                        perf_result[i * 4 + 3],
+                    )
+                )
+            print("-" * 137)
+            for batch_size in batch_sizes:
+                for model_name in [
+                    "8_static_table_unfused",
+                    "8_static_table_autofused",
+                    "8_dynamic_table_unfused",
+                    "8_dynamic_table_autofused",
                 ]:
                     perf = perf_result[idx]
                     expected = expected_result[model_name][batch_size]
