@@ -264,9 +264,12 @@ void parameter_server_config::fuse_embedding_table_in_json_config(nlohmann::json
   nlohmann::json& models = hps_config.find("models").value();
   for (size_t j = 0; j < models.size(); j++) {
     nlohmann::json& model = models[j];
-    // [0] model_name -> std::string
-    std::string model_name = get_value_from_json_soft<std::string>(model, "model", "");
 
+    // Per-model flag for table fusion
+    bool fuse_embedding_table = get_value_from_json_soft<bool>(model, "fuse_embedding_table", true);
+    if (!fuse_embedding_table) continue;
+
+    std::string model_name = get_value_from_json_soft<std::string>(model, "model", "");
     std::map<size_t, size_t> original_table_id_to_fused_table_id_map;
     std::map<size_t, std::vector<size_t>> emb_vec_size_to_original_id_map;
     std::map<size_t, std::vector<size_t>> fused_table_id_to_original_table_id_map;
@@ -513,11 +516,9 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     // [2] sparse_model_files -> std::vector<std::string>
     auto sparse_model_files_in_json = get_json(model, "sparse_files");
     std::vector<std::string> sparse_files;
-    if (!fuse_embedding_table) {
-      if (sparse_model_files_in_json.is_array()) {
-        for (size_t sparse_id = 0; sparse_id < sparse_model_files_in_json.size(); ++sparse_id) {
-          sparse_files.emplace_back(sparse_model_files_in_json[sparse_id].get<std::string>());
-        }
+    if (sparse_model_files_in_json.is_array()) {
+      for (size_t sparse_id = 0; sparse_id < sparse_model_files_in_json.size(); ++sparse_id) {
+        sparse_files.emplace_back(sparse_model_files_in_json[sparse_id].get<std::string>());
       }
     }
     // [3] use_gpu_embedding_cache -> bool
@@ -627,8 +628,11 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     }
 
     // [19] fused_sparse_model_files -> std::vector<std::vector<std::string>>
-    params.fuse_embedding_table = fuse_embedding_table;
-    if (fuse_embedding_table) {
+    params.fuse_embedding_table =
+        fuse_embedding_table ? get_value_from_json_soft<bool>(model, "fuse_embedding_table", true)
+                             : false;
+
+    if (params.fuse_embedding_table) {
       for (auto name : params.embedding_table_names) {
         params.fused_sparse_model_files.emplace_back(sparse_model_files_in_json[name]);
       }

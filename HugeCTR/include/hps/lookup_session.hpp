@@ -67,6 +67,8 @@ class LookupSession : public LookupSessionBase {
   std::mutex mutex_;
   std::condition_variable cv_;
 
+  std::vector<std::vector<const void*>> original_key_buffers_for_each_fused_table_;
+  std::vector<std::vector<float*>> original_vec_buffers_for_each_fused_table_;
   std::vector<void*> key_buffer_for_each_fused_table_;
   std::vector<float*> vec_buffer_for_each_fused_table_;
   std::vector<std::vector<size_t>> key_buffer_offset_for_each_fused_table_;
@@ -75,10 +77,6 @@ class LookupSession : public LookupSessionBase {
 
   std::vector<size_t> num_original_tables_in_each_fused_table_;
   std::vector<size_t> counter_for_each_fused_table_;
-  std::vector<size_t> copy_key_counter_for_each_fused_table_;
-  std::vector<size_t> copy_vec_counter_for_each_fused_table_;
-  std::vector<int> ready_to_copy_key_for_each_fused_table_;
-  std::vector<int> ready_to_copy_vec_for_each_fused_table_;
 
   ThreadPool table_fusion_thread_pool_;
   const std::chrono::milliseconds wait_duration_{1000};

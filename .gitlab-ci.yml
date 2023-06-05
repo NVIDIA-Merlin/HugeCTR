@@ -990,6 +990,21 @@ hps_plugin_benchmark:
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/hps_plugin_benchmark/run.sub
 
+hps_tf_fuse_table_benchmark:
+  extends: .cluster_test_job
+  needs:
+    - build_tf_hps_trt_plugin
+    - check_selene_idle
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_tf_fuse_table_benchmark
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/hps_tf_fuse_table_benchmark/ci_model_repo:/model_repo,/lustre/fsw/devtech/hpc-hugectr/hps_tf_fuse_table_benchmark/perf_data:/perf_data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/hps_tf_fuse_table_benchmark/run.sub
+
 inference_benchmark:
   extends: .cluster_test_job_daily
   needs:
@@ -1150,6 +1165,20 @@ hps_plugin_benchmark_check:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_hps_plugin_benchmark.sub
+
+hps_tf_fuse_table_benchmark_check:
+  extends: .cluster_post_test_job
+  needs:
+    - hps_tf_fuse_table_benchmark
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_tf_fuse_table_benchmark_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/hps_tf_fuse_table_benchmark:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_hps_tf_fuse_table_benchmark.sub
 
 inference_benchmark_check:
   extends: .cluster_post_test_job_daily
