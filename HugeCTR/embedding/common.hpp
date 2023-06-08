@@ -311,6 +311,8 @@ struct EmbeddingCollectionParam {
     *shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
     *num_shard = static_cast<int>(shard_gpus.size());
   }
+
+  void init_dense_frequent_keys(const DenseFrequentKeysData &data) { dense_freq_keys_data = data; }
 };
 
 struct EmbeddingInput {
@@ -404,11 +406,9 @@ struct Wgrad {
   WgradAttr attr;
 
   core23::Tensor unique_keys;
-  core23::Tensor num_unique_keys;
-  core23::Tensor table_ids;
-  core23::Tensor ev_start_indices;
-
-  core23::Tensor table_range;
+  core23::Tensor num_unique_keys;   // uint64_t
+  core23::Tensor table_ids;         // int
+  core23::Tensor ev_start_indices;  // uint32_t
 
   core23::Tensor data;
   int64_t max_buffer_size;

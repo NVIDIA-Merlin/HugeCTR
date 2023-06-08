@@ -36,20 +36,15 @@ void MPLocalReduceIndexCalculation::init(
 
 void MPLocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput& embedding_input,
                                                          ReductionIndices& reduction_indices,
-                                                         Wgrad& wgrad, int batch_size,
-                                                         bool need_cal_unique_range) {
-  auto cal_ev_start_indices_in_local_wgrad = [&](const WgradEvStartIndicesCalculationInput& input,
-                                                 WgradEvStartIndicesCalculationOutput& output,
-                                                 cudaStream_t stream) {
-    if (!wgrad.attr.is_same_ev_size) {
-      cal_dst_offset_mp_(input.table_ids, input.table_id_to_ev_size, input.num_unique_keys,
-                         output.ev_start_indices, core_, stream);
-    }
-  };
+                                                         Wgrad& wgrad, int batch_size) {
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, sort_op_, segmented_unique_,
                                                        reduction_indices, wgrad, batch_size);
-  if (need_cal_unique_range) local_reduce_index_calculation_.cal_unique_key_table_range(wgrad);
-  local_reduce_index_calculation_.cal_dst_ev_start(wgrad, cal_ev_start_indices_in_local_wgrad);
+
+  auto stream = core_->get_local_gpu()->get_stream();
+  if (!wgrad.attr.is_same_ev_size) {
+    cal_dst_offset_mp_(wgrad.table_ids, wgrad.attr.table_id_to_ev_size, wgrad.num_unique_keys,
+                       wgrad.ev_start_indices, core_, stream);
+  }
 }
 
 }  // namespace embedding

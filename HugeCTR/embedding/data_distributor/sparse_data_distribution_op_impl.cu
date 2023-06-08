@@ -30,9 +30,9 @@ SparseDPDataDistributionOp::SparseDPDataDistributionOp(
       ebc_param_(ebc_param),
       concat_keys_and_bucket_range_operator_(core, ebc_param, group_id) {}
 
-void SparseDPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
-                                                       embedding::EmbeddingInput& output,
-                                                       cudaStream_t stream) {
+void SparseDPDataDistributionOp::distribute(const DataDistributionInput& input,
+                                            embedding::EmbeddingInput& output,
+                                            cudaStream_t stream) {
   // --- copy DP keys and sparse_forward DP bucket range
   concat_keys_and_bucket_range_operator_(input, output.keys, output.bucket_range, stream);
 

@@ -430,8 +430,6 @@ WgradInitializer &WgradInitializer::init_indices() {
       params.shape({batch_size * max_num_keys}).data_type(core23::ScalarType::Int32));
   wgrad->ev_start_indices = core23::Tensor(
       params.shape({batch_size * max_num_keys + 1}).data_type(core23::ScalarType::UInt32));
-  wgrad->table_range = core23::Tensor(
-      params.shape({wgrad_attr.num_table + 1}).data_type(core23::ScalarType::UInt32));
   return *this;
 }
 
@@ -486,11 +484,8 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
       core23::Tensor(params.shape({max_num_keys}).data_type(core23::ScalarType::Int32));
   wgrad->ev_start_indices =
       core23::Tensor(params.shape({max_num_keys + 1}).data_type(core23::ScalarType::UInt32));
-  wgrad->table_range =
-      core23::Tensor(params.shape({static_cast<int64_t>(h_unique_table_ids.size() + 1)})
-                         .data_type(core23::ScalarType::UInt32));
 
-  // FIXME: move those initialization on GPU
+  // TODO: move those initialization on GPU
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     std::vector<key_t> h_unique_keys;
     size_t num_keys = 0;
@@ -526,20 +521,6 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
     h_ev_start_indices.push_back(cnt);
     core23::copy_sync(wgrad->ev_start_indices.data(), h_ev_start_indices.data(),
                       wgrad->ev_start_indices.num_bytes(), wgrad->ev_start_indices.device(),
-                      core23::DeviceType::CPU);
-  }
-
-  {
-    std::vector<uint32_t> h_table_range;
-    uint32_t cnt = 0;
-    for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
-      int num_keys = h_local_num_keys_list[i];
-      h_table_range.push_back(cnt);
-      cnt += num_keys;
-    }
-    h_table_range.push_back(cnt);
-    core23::copy_sync(wgrad->table_range.data(), h_table_range.data(),
-                      wgrad->table_range.num_bytes(), wgrad->table_range.device(),
                       core23::DeviceType::CPU);
   }
   return *this;

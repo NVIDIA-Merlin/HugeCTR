@@ -187,23 +187,6 @@ struct CalDstOffsetMP {
                   cudaStream_t stream);
 };
 
-struct WgradEvStartIndicesCalculationInput {
-  core23::Tensor unique_keys;
-  core23::Tensor num_unique_keys;
-  core23::Tensor unique_table_ids;
-  core23::Tensor table_range;
-  core23::Tensor table_id_to_ev_size;
-  core23::Tensor table_ids;  // wgrad table_ids per key
-};
-
-struct WgradEvStartIndicesCalculationOutput {
-  core23::Tensor ev_start_indices;
-};
-
-using WgradEvStartIndicesCalculationOp =
-    std::function<void(const WgradEvStartIndicesCalculationInput &,
-                       WgradEvStartIndicesCalculationOutput &, cudaStream_t)>;
-
 class LocalReduceIndexCalculation {
  private:
   std::shared_ptr<CoreResourceManager> core_;
@@ -221,9 +204,5 @@ class LocalReduceIndexCalculation {
                             SortKeyAndSrcIdOp sort_key_and_src_id_op,
                             SegmentdUnique &segmented_unique, ReductionIndices &reduction_indices,
                             Wgrad &wgrad, int batch_size);
-  void cal_unique_key_table_range(Wgrad &wgrad);
-
-  void cal_dst_ev_start(Wgrad &wgrad,
-                        WgradEvStartIndicesCalculationOp cal_ev_start_indices_in_wgrad);
 };
 }  // namespace embedding

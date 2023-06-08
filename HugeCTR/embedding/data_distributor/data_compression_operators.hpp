@@ -19,6 +19,7 @@
 
 #include <core/core.hpp>
 #include <embedding/common.hpp>
+#include <gpu_cache/include/hash_functions.cuh>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -29,23 +30,32 @@ template <typename KeyType>
 struct KeyPair {
   KeyType key;
   int feature_id;
-
-  static constexpr KeyType kEmptyKey = std::numeric_limits<KeyType>::max();
-  static constexpr KeyType kEmptyFeatureId = std::numeric_limits<int>::max();
 };
 
 struct Hash {
-  constexpr size_t operator()(const KeyPair<uint32_t> &key_pair) {
-    return key_pair.key + key_pair.feature_id;
+  HOST_DEVICE_INLINE size_t operator()(const KeyPair<uint32_t> &key_pair) {
+    using hash_func = MurmurHash3_32<uint32_t>;
+    uint32_t key_hash = hash_func::hash(key_pair.key);
+    uint32_t feature_id_hash = hash_func::hash(key_pair.feature_id);
+    return hash_func ::hash_combine(key_hash, feature_id_hash);
   }
-  constexpr size_t operator()(const KeyPair<int32_t> &key_pair) {
-    return key_pair.key + key_pair.feature_id;
+  HOST_DEVICE_INLINE size_t operator()(const KeyPair<int32_t> &key_pair) {
+    using hash_func = MurmurHash3_32<int32_t>;
+    uint32_t key_hash = hash_func::hash(key_pair.key);
+    uint32_t feature_id_hash = hash_func::hash(key_pair.feature_id);
+    return hash_func ::hash_combine(key_hash, feature_id_hash);
   }
-  constexpr size_t operator()(const KeyPair<uint64_t> &key_pair) {
-    return key_pair.key + key_pair.feature_id;
+  HOST_DEVICE_INLINE size_t operator()(const KeyPair<uint64_t> &key_pair) {
+    using hash_func = MurmurHash3_32<uint64_t>;
+    uint32_t key_hash = hash_func::hash(key_pair.key);
+    uint32_t feature_id_hash = hash_func::hash(key_pair.feature_id);
+    return hash_func ::hash_combine(key_hash, feature_id_hash);
   }
-  constexpr size_t operator()(const KeyPair<int64_t> &key_pair) {
-    return key_pair.key + key_pair.feature_id;
+  HOST_DEVICE_INLINE size_t operator()(const KeyPair<int64_t> &key_pair) {
+    using hash_func = MurmurHash3_32<int64_t>;
+    uint32_t key_hash = hash_func::hash(key_pair.key);
+    uint32_t feature_id_hash = hash_func::hash(key_pair.feature_id);
+    return hash_func ::hash_combine(key_hash, feature_id_hash);
   }
 };
 
@@ -196,6 +206,8 @@ struct UniqueTableView {
         insert_value.detail.feature_id_and_key_lo = (feature_id << 1U | key_lo);
         *table_value_ptr = insert_value.value;
         current_partitioned_keys[r_idx_plus_one - 1] = key;
+
+        assert(r_idx_plus_one <= result.max_num_key_per_partition);
         current_feature_ids[r_idx_plus_one - 1] = feature_id;
       } else if (old_key == key_hi) {
         TableValue insert_value;
@@ -206,7 +218,7 @@ struct UniqueTableView {
         if (table_r_idx_plus_one == 0 && table_feature_id_and_key_lo == 0) {
           // do nothing
         } else if ((table_feature_id_and_key_lo & 0x1) == key_lo &&
-                   (table_feature_id_and_key_lo | 0x1) >> 1U == feature_id) {
+                   table_feature_id_and_key_lo >> 1U == feature_id) {
           r_idx_plus_one = table_r_idx_plus_one;
         } else {
           prob_next = true;
@@ -214,6 +226,7 @@ struct UniqueTableView {
       } else {
         prob_next = true;
       }
+
       if (prob_next) {
         pos += 1;
         if (pos >= capacity) {
@@ -349,10 +362,11 @@ class PartitionAndUniqueOperator {
 
   void init_hash_table_with_frequent_keys(
       std::shared_ptr<core::CoreResourceManager> core,
-      const embedding::DenseFrequentKeysData &dense_frequent_keys_data);
+      const embedding::DenseFrequentKeysData &dense_frequent_keys_data, core23::DataType key_type,
+      core23::DataType bucket_range_type);
 
   void fill_continuous_bucket_ids(const DataDistributionInput &input, core23::Tensor &bucket_ids,
-                                  core23::Tensor &num_bucket_ids, cudaStream_t stream);
+                                  core23::Tensor &h_num_bucket_ids, cudaStream_t stream);
 
   // dense mp
   template <typename Partitioner>
@@ -368,6 +382,8 @@ class PartitionAndUniqueOperator {
                                         CompressedData &compressed_data, cudaStream_t stream);
 
  private:
+  std::shared_ptr<core::CoreResourceManager> core_;
+
   core23::Tensor frequent_key_hash_table_storage_;
   size_t frequent_key_hash_table_capacity_;
 
@@ -379,6 +395,7 @@ class PartitionAndUniqueOperator {
   core23::Tensor d_lookup_ids_;  // int
   int num_local_lookup_;
   int num_local_features_;
+  int num_features_;
   int batch_size_;
   int global_gpu_count_;
   int batch_size_per_gpu_;
@@ -386,33 +403,41 @@ class PartitionAndUniqueOperator {
 
 class CompactPartitionDataOperator {
  public:
-  CompactPartitionDataOperator(std::shared_ptr<core::CoreResourceManager> core, int num_table,
-                               core23::DataType offset_type);
+  CompactPartitionDataOperator(std::shared_ptr<core::CoreResourceManager> core, int num_table);
 
   void operator()(const PartitionedData &partitioned_data,
                   CompactedPartitionData &compacted_partition_data, cudaStream_t stream) const;
 
  private:
+  std::shared_ptr<core::CoreResourceManager> core_;
+
   core23::Tensor d_scan_num_key_per_table_temp_storage;
 };
 
 class CompressReverseIdxRangeOperator {
  public:
-  CompressReverseIdxRangeOperator(std::shared_ptr<core::CoreResourceManager> core) {}
+  explicit CompressReverseIdxRangeOperator(std::shared_ptr<core::CoreResourceManager> core)
+      : core_(core) {}
 
   void operator()(size_t num_bucket_ids, CompressedData &compressed_data,
                   cudaStream_t stream) const;
-};
-
-class SelecteValidReverseIdxOperator {
- public:
-  SelecteValidReverseIdxOperator(std::shared_ptr<core::CoreResourceManager> core) {}
-
-  void operator()(core23::Tensor &reverse_idx, core23::Tensor &h_reverse_idx,
-                  cudaStream_t stream) const {}
 
  private:
-  core23::Tensor d_select_infreq_bucket_ids_temp_storage;
-  core23::Tensor d_num_select_infreq_bucket_ids;
+  std::shared_ptr<core::CoreResourceManager> core_;
+};
+
+class SelectValidReverseIdxOperator {
+ public:
+  SelectValidReverseIdxOperator(std::shared_ptr<core::CoreResourceManager> core,
+                                const embedding::EmbeddingCollectionParam &ebc_param,
+                                size_t group_id);
+
+  void operator()(core23::Tensor &reverse_idx, core23::Tensor &h_num_reverse_idx,
+                  cudaStream_t stream) const;
+
+ private:
+  std::shared_ptr<core::CoreResourceManager> core_;
+
+  core23::Tensor d_temp_select_storage_;
 };
 }  // namespace HugeCTR

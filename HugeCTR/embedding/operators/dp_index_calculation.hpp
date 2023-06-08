@@ -44,7 +44,8 @@ struct DenseAllreduceIndexCalculation {
 
   void cal_for_sparse_indices(const EmbeddingInput& embedding_input,
                               const core23::Tensor& ev_start_indices_in_allreduce_buffer,
-                              ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
+                              ReductionIndices& reduction_indices, Wgrad& wgrad,
+                              int batch_size_per_gpu);
 
   void cal_for_dense_indices(const EmbeddingInput& embedding_input,
                              const core23::Tensor& ev_start_indices_in_allreduce_buffer,
@@ -52,41 +53,28 @@ struct DenseAllreduceIndexCalculation {
 };
 
 struct BroadcastResult {
-  core23::Tensor h_table_range_;
-  core23::Tensor allgather_table_range_;
-  core23::Tensor reordered_allgather_table_range_;
-  core23::Tensor h_reordered_allgather_table_range_;
+  core23::Tensor allgather_num_unique_keys_;    // uint64_t, [num_gpus]
+  core23::Tensor h_allgather_num_unique_keys_;  // uint64_t, [num_gpus]
   core23::Tensor allgather_unique_keys_;
-};
-
-template <typename key_t>
-struct TableEntry {
-  key_t key;
-  uint32_t value;
-};
-
-struct HashTable {
-  core23::Tensor hash_table_;
-  core23::Tensor d_temp_scan_table_range_storage_;
+  core23::Tensor allgather_table_ids_;
+  size_t num_allgather_keys_;
 };
 
 struct SparseAllreduceCalEVStartIndicesTempStorage {
-  core23::Tensor mask_unique_keys_in_allgather_unique_keys_;
-  core23::Tensor d_temp_select_temp_storage_;
+  core23::Tensor mask_unique_keys_in_allgather_unique_keys_;  // int
+  core23::Tensor d_temp_select_unique_keys_in_allgather_unique_keys_;
   core23::Tensor d_temp_scan_ev_start_indices_storage_;
-  core23::Tensor unique_idx_;
-  core23::Tensor d_temp_scan_unique_idx_temp_storage_;
 };
 
 struct SparseAllreduceCalEVStartIndicesStorage {
   BroadcastResult broadcast_result_;
-  HashTable hash_table_;
+  core23::Tensor hash_table_;
   SparseAllreduceCalEVStartIndicesTempStorage temp_storage_;
 
   SparseAllreduceCalEVStartIndicesStorage() = default;
 
-  SparseAllreduceCalEVStartIndicesStorage(std::shared_ptr<CoreResourceManager> core, int num_table,
-                                          int local_hotness_sum, int batch_size,
+  SparseAllreduceCalEVStartIndicesStorage(std::shared_ptr<CoreResourceManager> core,
+                                          int local_hotness_sum, int batch_size_per_gpu,
                                           core23::DataType key_type);
 };
 
@@ -101,7 +89,7 @@ struct SparseAllreduceIndexCalculation {
 
   void cal_for_sparse_input(const EmbeddingInput& embedding_input,
                             ReductionIndices& reduction_indices, Wgrad& local_reduce_wgrad,
-                            Wgrad& allreduce_wgrad, int batch_size);
+                            Wgrad& allreduce_wgrad, int batch_size_per_gpu);
 };
 
 struct DPLocalReduceIndexCalculation {

@@ -30,10 +30,10 @@ class KeysToIndicesConverter {
 
  public:
   KeysToIndicesConverter(std::shared_ptr<CoreResourceManager> core,
-                         const std::vector<EmbeddingTableParam> &table_params,
-                         const EmbeddingCollectionParam &ebc_param, size_t grouped_id);
-  void convert(core23::Tensor &keys, size_t num_keys,
-               const core23::Tensor &num_keys_per_lookup_offset, size_t num_lookups,
-               const core23::Tensor &table_id_list);
+                         const std::vector<EmbeddingTableParam>& table_params,
+                         const EmbeddingCollectionParam& ebc_param, size_t grouped_id);
+  void convert(core23::Tensor& keys, size_t num_keys,
+               const core23::Tensor& num_keys_per_lookup_offset,
+               const core23::Tensor& table_id_list);
 };
 }  // namespace embedding

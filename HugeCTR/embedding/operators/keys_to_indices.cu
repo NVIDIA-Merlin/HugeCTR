@@ -119,11 +119,12 @@ KeysToIndicesConverter::KeysToIndicesConverter(std::shared_ptr<CoreResourceManag
 
 void KeysToIndicesConverter::convert(core23::Tensor& keys, size_t num_keys,
                                      const core23::Tensor& num_keys_per_lookup_offset,
-                                     size_t num_lookups, const core23::Tensor& table_id_list) {
+                                     const core23::Tensor& table_id_list) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   if (num_keys == 0) return;
 
+  size_t num_lookups = num_keys_per_lookup_offset.num_elements() - 1;
   DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
     DISPATCH_INTEGRAL_FUNCTION_CORE23(num_keys_per_lookup_offset.data_type().type(), offset_t, [&] {
       // key for lookup

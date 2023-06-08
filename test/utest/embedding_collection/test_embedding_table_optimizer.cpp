@@ -158,8 +158,7 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
 
     if (table.get() != ref_table.get()) {
       KeysToIndicesConverter converter(core, table_params, ebc_param, 0);
-      converter.convert(keys_buf, keys_buf.num_elements(), id_space_offsets_buf,
-                        id_space_offsets_buf.num_elements() - 1, id_spaces_buf);
+      converter.convert(keys_buf, keys_buf.num_elements(), id_space_offsets_buf, id_spaces_buf);
     }
     table->lookup(keys_buf, keys_buf.num_elements(), id_space_offsets_buf,
                   id_space_offsets_buf.num_elements(), id_spaces_buf, embs_ptrs_buf);

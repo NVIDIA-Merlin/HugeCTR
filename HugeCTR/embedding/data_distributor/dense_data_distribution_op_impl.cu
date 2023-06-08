@@ -22,12 +22,11 @@
 
 namespace HugeCTR {
 
-int calc_max_num_features_in_current_group(const embedding::EmbeddingCollectionParam& ebc_param,
+int calc_sum_num_features_in_current_group(const embedding::EmbeddingCollectionParam& ebc_param,
                                            size_t group_id) {
   int max_num_features_in_current_group = 0;
   for (int lookup_id : ebc_param.grouped_lookup_params[group_id].lookup_ids) {
-    max_num_features_in_current_group =
-        std::max(max_num_features_in_current_group, ebc_param.lookup_params[lookup_id].max_hotness);
+    max_num_features_in_current_group += ebc_param.lookup_params[lookup_id].max_hotness;
   }
   return max_num_features_in_current_group;
 }
@@ -77,8 +76,8 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
     const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id) {
   CudaDeviceContext ctx(core->get_device_id());
 
-  int max_num_features_in_current_group =
-      calc_max_num_features_in_current_group(ebc_param, group_id);
+  int sum_num_features_in_current_group =
+      calc_sum_num_features_in_current_group(ebc_param, group_id);
   int global_gpu_id = core->get_global_gpu_id();
   int num_features_in_current_gpu =
       calc_num_features_in_current_gpu(global_gpu_id, ebc_param, group_id);
@@ -111,7 +110,7 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
   this->h_num_network_reverse_idx = core23::Tensor(
       params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
   this->partitioned_data_after_shard_matrix_partition =
-      PartitionedData(core, global_gpu_count, batch_size * max_num_features_in_current_group,
+      PartitionedData(core, global_gpu_count, batch_size * sum_num_features_in_current_group,
                       key_type, offset_type);
   this->d_num_key_gpu_major =
       core23::Tensor(params.shape({global_gpu_count}).data_type(offset_type));
@@ -173,22 +172,21 @@ DenseDPDataDistributionOp::DenseDPDataDistributionOp(
       dense_temp_storage_(core, ebc_param_, group_id),
       partition_and_unique_operator_(core, ebc_param_, group_id),
       compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table,
-                                         ebc_param.offset_type),
-      select_valid_reverse_idx_operator_(core) {
+      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
+      select_valid_reverse_idx_operator_(core, ebc_param, group_id) {
   CudaDeviceContext context(core->get_device_id());
 
   if (embedding_type_ == embedding::EmbeddingType::FrequentDense) {
     partition_and_unique_operator_.init_hash_table_with_frequent_keys(
-        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data);
+        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data,
+        ebc_param_.key_type, ebc_param_.offset_type);
   }
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
 }
 
-void DenseDPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
-                                                      embedding::EmbeddingInput& output,
-                                                      cudaStream_t stream) {
+void DenseDPDataDistributionOp::distribute(const DataDistributionInput& input,
+                                           embedding::EmbeddingInput& output, cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
 
   if (embedding_type_ == embedding::EmbeddingType::Dense) {
@@ -203,17 +201,17 @@ void DenseDPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
   partition_and_unique_operator_.partition_and_unique_on_dp_input(
       embedding_type_, input, dense_temp_storage_.table_partitioner_, compressed_data, stream);
 
-  if (embedding_type_ == embedding::EmbeddingType::FrequentDense) {
-    select_valid_reverse_idx_operator_(compressed_data.reverse_idx,
-                                       dense_temp_storage_.h_num_reverse_idx, stream);
-  }
-
   CompactedPartitionData continuous_partition_data{
       output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
   compact_partitioned_data_operator_(compressed_data.partitioned_data, continuous_partition_data,
                                      stream);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  if (embedding_type_ == embedding::EmbeddingType::FrequentDense) {
+    select_valid_reverse_idx_operator_(compressed_data.reverse_idx,
+                                       dense_temp_storage_.h_num_reverse_idx, stream);
+  }
+
   dense_compression_output.data_parallel_compression_input.num_reverse_idx =
       *(dense_temp_storage_.h_num_reverse_idx.data<uint64_t>());
   compress_reverse_idx_range_operator_(
@@ -231,14 +229,14 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
       dense_temp_storage_(core, ebc_param_, group_id),
       partition_and_unique_operator_(core, ebc_param_, group_id),
       compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table,
-                                         ebc_param.offset_type),
-      select_valid_reverse_idx_operator_(core) {
+      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
+      select_valid_reverse_idx_operator_(core, ebc_param, group_id) {
   CudaDeviceContext context(core->get_device_id());
 
   if (embedding_type_ == embedding::EmbeddingType::InfrequentDense) {
     partition_and_unique_operator_.init_hash_table_with_frequent_keys(
-        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data);
+        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data,
+        ebc_param_.key_type, ebc_param_.offset_type);
   }
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
@@ -249,9 +247,6 @@ void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
                                                       cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
 
-  //    partition_and_unique_operator_.copy_tensor_vec_to_pointer_tensor(dp_keys,
-  //    dp_bucket_range,
-  //                                                                     stream);
   if (embedding_type_ == embedding::EmbeddingType::Dense) {
     partition_and_unique_operator_.fill_continuous_bucket_ids(
         input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
@@ -322,7 +317,7 @@ void DenseMPDataDistributionOp::all2all_keys(embedding::EmbeddingInput& output,
   //  {
   //    std::stringstream ss;
   //
-  //    ss << "global gpu_id:" << core->get_device_id() << std::endl;
+  //    ss << "global gpu_id:" << core_->get_device_id() << std::endl;
   //    ss << "gpu_send_tensor:";
   //    for (size_t i = 0; i < num_global_gpus_; ++i) {
   //      ss << h_send_k_per_g.data<uint32_t>()[i] << " ";

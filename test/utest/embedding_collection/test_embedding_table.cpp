@@ -109,7 +109,7 @@ void test_embedding_table(int device_id, int table_type) {
   if (table_type == 0) {
     KeysToIndicesConverter converter(core, table_param_list, ebc_param, 0);
     converter.convert(searched_keys, searched_keys.num_elements(), searched_id_space_offset,
-                      searched_id_space_offset.num_elements() - 1, searched_id_space_list);
+                      searched_id_space_list);
   }
 
   embedding_table->lookup(searched_keys, searched_keys.num_elements(), searched_id_space_offset,
