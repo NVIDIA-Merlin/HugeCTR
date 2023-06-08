@@ -52,8 +52,7 @@ class MPLocalReduceIndexCalculation {
             const SegmentdUnique& segmented_unique, const CalDstOffsetMP& cal_dst_offset_mp);
 
   void cal_for_sparse_input(const EmbeddingInput& embedding_input,
-                            ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size,
-                            bool need_cal_unique_range = false);
+                            ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
 };
 
 }  // namespace embedding

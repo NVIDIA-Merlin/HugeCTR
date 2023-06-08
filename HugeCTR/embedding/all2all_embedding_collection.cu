@@ -17,6 +17,7 @@
 #include <cub/cub.cuh>
 #include <embedding/all2all_embedding_collection.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
+#include <utils.cuh>
 #include <utils.hpp>
 
 namespace embedding {
@@ -103,6 +104,30 @@ __global__ void sp_weight_sum_kernel(const offset_t *row_offsets, const dtype *s
   }
 }
 
+__global__ void get_unique_valid_range(const int *__restrict__ unique_key_table_ids,
+                                       const uint64_t *num_unique_key, int table_num,
+                                       uint32_t *__restrict__ unique_table_range) {
+  CUDA_1D_KERNEL_LOOP(tid, table_num + 1) { unique_table_range[tid] = 0; }
+  uint64_t key_num = *num_unique_key;
+  CUDA_1D_KERNEL_LOOP(tid, key_num) {
+    if (tid > 0 && unique_key_table_ids[tid] != unique_key_table_ids[tid - 1]) {
+      unique_table_range[unique_key_table_ids[tid - 1] + 1] = tid;
+    }
+    if (tid == 0) {
+      unique_table_range[table_num] = key_num;
+    }
+  }
+}
+
+__global__ void fill_unique_range(uint32_t *__restrict__ unique_table_range, int table_num) {
+  CUDA_1D_KERNEL_LOOP(tid, table_num - 1) {
+    int table_start = tid + 1;
+    while (table_start < table_num && unique_table_range[table_start] < unique_table_range[tid]) {
+      unique_table_range[table_start] = unique_table_range[tid];
+      table_start++;
+    }
+  }
+}
 }  // namespace
 
 namespace swizzle_key {
@@ -766,6 +791,22 @@ void weighted_sparse_backward_per_gpu(
   }
 }
 
+void cal_unique_key_table_range(const std::shared_ptr<CoreResourceManager> &core,
+                                const core23::Tensor &unique_table_ids,
+                                const core23::Tensor &num_unique_key,
+                                core23::Tensor &unique_table_ranges, int table_num) {
+  HugeCTR::CudaDeviceContext ctx(core->get_device_id());
+  auto stream = core->get_local_gpu()->get_stream();
+  const int block_size = 256;
+  const int grid_size =
+      core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
+  get_unique_valid_range<<<block_size, grid_size, 0, stream>>>(
+      unique_table_ids.data<int>(), num_unique_key.data<uint64_t>(), table_num,
+      unique_table_ranges.data<uint32_t>());
+  fill_unique_range<<<block_size, grid_size, 0, stream>>>(unique_table_ranges.data<uint32_t>(),
+                                                          table_num);
+}
+
 void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam &ebc_param,
                              const UniformModelParallelEmbeddingMeta &meta,
@@ -821,7 +862,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   embedding_input.bucket_range = model_offsets;
   embedding_input.h_num_keys = num_model_key;
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, reduction_indices_, wgrad,
-                                                       batch_size, true);
+                                                       batch_size);
 
   ModelCommBuffer model_comm_buffer;
   model_comm_buffer.init_from_device_buffer(core, emb_vec_model_buffer, meta.model_buffer_attr);
@@ -837,8 +878,18 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   *ret_continous_unique_key = wgrad.unique_keys;
   *ret_continous_emb_vec = wgrad.data;
-  std::vector<uint32_t> gpu_num_key_per_table_offset(wgrad.table_range.num_elements());
-  core23::copy_sync(gpu_num_key_per_table_offset, wgrad.table_range);
+
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+
+  core23::Tensor table_range =
+      core23::Tensor(params.shape({static_cast<int64_t>(wgrad.attr.num_table + 1)})
+                         .data_type(core23::ScalarType::UInt32));
+
+  cal_unique_key_table_range(core, wgrad.table_ids, wgrad.num_unique_keys, table_range,
+                             wgrad.attr.num_table);
+  std::vector<uint32_t> gpu_num_key_per_table_offset(table_range.num_elements());
+  core23::copy_sync(gpu_num_key_per_table_offset, table_range);
 
   num_unique_key_per_table->resize(d_table_id_list.num_elements());
   for (int i = 0; i < d_table_id_list.num_elements(); ++i) {

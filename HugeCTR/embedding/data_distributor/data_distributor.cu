@@ -228,11 +228,8 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
   data_distribution_input_[gpu_id].copy_tensor_vec(dp_keys, fixed_dp_bucket_range_[gpu_id], stream);
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); grouped_id++) {
-    data_distribution_ops_[grouped_id][gpu_id]->filter_before_all2all(
-        data_distribution_input_[gpu_id], output[grouped_id], stream);
-    data_distribution_ops_[grouped_id][gpu_id]->all2all_keys_per_bucket(output[grouped_id], stream);
-    data_distribution_ops_[grouped_id][gpu_id]->all2all_keys(output[grouped_id], stream);
-    data_distribution_ops_[grouped_id][gpu_id]->filter_after_all2all(output[grouped_id], stream);
+    data_distribution_ops_[grouped_id][gpu_id]->distribute(data_distribution_input_[gpu_id],
+                                                           output[grouped_id], stream);
   }
 
   convert_indices(gpu_id, output);
@@ -256,7 +253,6 @@ void DataDistributor::convert_indices(int gpu_id, DataDistributor::Result& outpu
 
     indices_converters_[gpu_id * num_groups + grouped_id].convert(
         output[grouped_id].keys, output[grouped_id].h_num_keys, num_keys_per_lookup_offset,
-        num_keys_per_lookup_offset.num_elements() - 1,
         d_local_table_id_lists_[gpu_id * num_groups + grouped_id]);
   }
 }

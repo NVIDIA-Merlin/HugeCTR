@@ -195,8 +195,7 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
         core, local_reduce_index_calculation, sort_op, cal_dst_ids, segmented_unique};
   } else if (params.allreduce_strategy_ == AllreduceStrategy::Sparse) {
     SparseAllreduceCalEVStartIndicesStorage sparse_allreduce_storage{
-        core, meta_.wgrad_attr.num_table, meta_.num_local_hotness_,
-        params.universal_batch_size / num_gpus, key_type};
+        core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus, key_type};
     local_reduce_index_calculation_.sparse_allreduce_index_calculation = {
         core,
         local_reduce_index_calculation,

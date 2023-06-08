@@ -29,14 +29,8 @@ class IDataDistributionOp {
  public:
   virtual ~IDataDistributionOp() = default;
 
-  virtual void filter_before_all2all(const DataDistributionInput &input,
-                                     embedding::EmbeddingInput &output, cudaStream_t stream) = 0;
-
-  virtual void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream) {}
-
-  virtual void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream) {}
-
-  virtual void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream) {}
+  virtual void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
+                          cudaStream_t stream) = 0;
 };
 
 class DenseMPDataDistributionOp final : public IDataDistributionOp {
@@ -44,14 +38,22 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   DenseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
                             const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
 
+  void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
+                  cudaStream_t stream) override {
+    filter_before_all2all(input, output, stream);
+    all2all_keys_per_bucket(output, stream);
+    all2all_keys(output, stream);
+    filter_after_all2all(output, stream);
+  }
+
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                             cudaStream_t stream) override;
+                             cudaStream_t stream);
 
-  void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream);
 
-  void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream);
 
-  void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -82,7 +84,7 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   PartitionAndUniqueOperator partition_and_unique_operator_;
   CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
   CompactPartitionDataOperator compact_partitioned_data_operator_;
-  SelecteValidReverseIdxOperator select_valid_reverse_idx_operator_;
+  SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
 };
 
 class DenseDPDataDistributionOp final : public IDataDistributionOp {
@@ -90,8 +92,8 @@ class DenseDPDataDistributionOp final : public IDataDistributionOp {
   DenseDPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
                             const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
 
-  void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                             cudaStream_t stream) override;
+  void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
+                  cudaStream_t stream) override;
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -115,7 +117,7 @@ class DenseDPDataDistributionOp final : public IDataDistributionOp {
   PartitionAndUniqueOperator partition_and_unique_operator_;
   CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
   CompactPartitionDataOperator compact_partitioned_data_operator_;
-  SelecteValidReverseIdxOperator select_valid_reverse_idx_operator_;
+  SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
 };
 
 class SparseMPDataDistributionOp : public IDataDistributionOp {
@@ -123,14 +125,22 @@ class SparseMPDataDistributionOp : public IDataDistributionOp {
   SparseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
                              const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
 
+  void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
+                  cudaStream_t stream) override {
+    filter_before_all2all(input, output, stream);
+    all2all_keys_per_bucket(output, stream);
+    all2all_keys(output, stream);
+    filter_after_all2all(output, stream);
+  }
+
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                             cudaStream_t stream) override;
+                             cudaStream_t stream);
 
-  void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream);
 
-  void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream);
 
-  void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream) override;
+  void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -173,8 +183,8 @@ class SparseDPDataDistributionOp final : public IDataDistributionOp {
   SparseDPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
                              const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
 
-  void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                             cudaStream_t stream) override;
+  void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
+                  cudaStream_t stream) override;
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;

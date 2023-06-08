@@ -23,6 +23,7 @@
 #include <numeric>
 #include <unordered_set>
 #include <utest/embedding_collection/embedding_collection_utils.hpp>
+#include <utest/embedding_collection/embedding_table_cpu.hpp>
 
 using namespace embedding;
 

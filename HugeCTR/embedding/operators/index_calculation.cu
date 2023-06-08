@@ -740,45 +740,6 @@ void intra_partition_sort(SortKeyAndSrcIdOp sort_op, const PartitionedResult &pa
   sort_op(input, output, core);
 }
 
-__global__ void get_unique_valid_range(const int *__restrict__ unique_key_table_ids,
-                                       const uint64_t *num_unique_key, int table_num,
-                                       uint32_t *__restrict__ unique_table_range) {
-  CUDA_1D_KERNEL_LOOP(tid, table_num + 1) { unique_table_range[tid] = 0; }
-  uint64_t key_num = *num_unique_key;
-  CUDA_1D_KERNEL_LOOP(tid, key_num) {
-    if (tid > 0 && unique_key_table_ids[tid] != unique_key_table_ids[tid - 1]) {
-      unique_table_range[unique_key_table_ids[tid - 1] + 1] = tid;
-    }
-    if (tid == 0) {
-      unique_table_range[table_num] = key_num;
-    }
-  }
-}
-
-__global__ void fill_unique_range(uint32_t *__restrict__ unique_table_range, int table_num) {
-  CUDA_1D_KERNEL_LOOP(tid, table_num - 1) {
-    int table_start = tid + 1;
-    while (table_start < table_num && unique_table_range[table_start] < unique_table_range[tid]) {
-      unique_table_range[table_start] = unique_table_range[tid];
-      table_start++;
-    }
-  }
-}
-
-void get_unique_range(const core23::Tensor &unique_table_ids, core23::Tensor &unique_table_ranges,
-                      core23::Tensor &num_unique_key, int table_num,
-                      std::shared_ptr<CoreResourceManager> core) {
-  auto stream = core->get_local_gpu()->get_stream();
-  const int block_size = 256;
-  const int grid_size =
-      core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
-  get_unique_valid_range<<<block_size, grid_size, 0, stream>>>(
-      unique_table_ids.data<int>(), num_unique_key.data<uint64_t>(), table_num,
-      unique_table_ranges.data<uint32_t>());
-  fill_unique_range<<<block_size, grid_size, 0, stream>>>(unique_table_ranges.data<uint32_t>(),
-                                                          table_num);
-}
-
 __global__ void get_dst_length_per_key(const int *__restrict__ unique_key_table_ids,
                                        const int *table_id_to_evsizes,
                                        const uint64_t *num_unique_keys, uint32_t *dst_key_offset) {
@@ -850,21 +811,4 @@ void LocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput &emb
   HCTR_LIB_THROW(cudaGetLastError());
 }
 
-void LocalReduceIndexCalculation::cal_unique_key_table_range(Wgrad &wgrad) {
-  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
-  get_unique_range(wgrad.table_ids, wgrad.table_range, wgrad.num_unique_keys, wgrad.attr.num_table,
-                   core_);
-}
-
-void LocalReduceIndexCalculation::cal_dst_ev_start(
-    Wgrad &wgrad, WgradEvStartIndicesCalculationOp cal_ev_start_indices_in_wgrad) {
-  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
-  auto stream = core_->get_local_gpu()->get_stream();
-
-  WgradEvStartIndicesCalculationInput input{
-      wgrad.unique_keys, wgrad.num_unique_keys,          wgrad.attr.get_unique_table_ids(),
-      wgrad.table_range, wgrad.attr.table_id_to_ev_size, wgrad.table_ids};
-  WgradEvStartIndicesCalculationOutput output{wgrad.ev_start_indices};
-  cal_ev_start_indices_in_wgrad(input, output, stream);
-}
 }  // namespace embedding
