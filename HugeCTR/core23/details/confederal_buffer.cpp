@@ -47,7 +47,7 @@ Buffer::ClientOffsets ConfederalBuffer::do_allocate(const std::unique_ptr<Alloca
   for (auto& [client, requirements] : client_requirements) {
     int64_t size = requirements.num_bytes;
     auto ptr = allocator->allocate(size, requirements.stream);
-    if (ptr == nullptr) {
+    if (ptr == nullptr && size) {
       HCTR_OWN_THROW(HugeCTR::Error_t::OutOfMemory,
                      "The ConfederalBuffer failed to allocate the memory");
     }

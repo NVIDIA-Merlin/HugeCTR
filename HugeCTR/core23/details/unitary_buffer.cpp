@@ -20,6 +20,7 @@
 #include <core23/device.hpp>
 #include <core23/logger.hpp>
 #include <core23/offsetted_buffer.hpp>
+#include <memory>
 
 namespace HugeCTR {
 
@@ -104,9 +105,8 @@ Buffer::ClientOffsets UnitaryBuffer::do_allocate(const std::unique_ptr<Allocator
     }
     new_insertion_order_.pop();
   }
-
   ptr_ = allocator->allocate(current_offset, first_stream);
-  if (ptr_ == nullptr) {
+  if (ptr_ == nullptr && current_offset) {
     HCTR_OWN_THROW(HugeCTR::Error_t::OutOfMemory,
                    "The UnitaryBuffer failed to allocate the memory");
   }
