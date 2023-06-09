@@ -378,7 +378,7 @@ ParquetDataReaderWorker<T>::ParquetDataReaderWorker(
       epoch_cv_(epoch_cv) {
   auto gpu_id = gpu_resource->get_device_id();
   CudaDeviceContext ctx(gpu_resource->get_device_id());
-  core23::TensorParams default_param{};
+  core23::TensorParams default_param = core23::TensorParams();
   host_pinned_csr_inc_ = core23::Tensor({32l}, core23::ScalarType::Int32,
                                         default_param.device(core23::DeviceType::CPU));
   memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
@@ -395,6 +395,7 @@ ParquetDataReaderWorker<T>::ParquetDataReaderWorker(
   host_memory_pointer_staging_ =
       core23::Tensor({static_cast<int64_t>(num_of_pointer_staging)}, core23::ScalarType::Int64,
                      default_param.device(core23::Device(core23::DeviceType::CPU)));
+
   // global_batches_offset = worker_id * buffer->batch_size;
   // pinned dense dim , can't know dense_dim_array in advance
   // label_dim + dense_dim > label_num + dense_num
@@ -402,13 +403,20 @@ ParquetDataReaderWorker<T>::ParquetDataReaderWorker(
   host_memory_dense_dim_array_ = core23::Tensor(
       {static_cast<int64_t>(buffer23_->label_dim + buffer23_->dense_dim)},
       core23::ScalarType::Int64, default_param.device(core23::Device(core23::DeviceType::CPU)));
+
+  // TODO this eager allocation is a WAR of resolving race condition with the main thread;
+  // Do not remove the allocation before we have a better way to resolve the race condition
+  host_memory_dense_dim_array_.data();
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff_gpu = GeneralBuffer2<CudaAllocator>::create();
-  // clone of dense_dim_array on gpu
 
   device_memory_dense_dim_array_ =
       core23::Tensor({static_cast<int64_t>(buffer23_->label_dim + buffer23_->dense_dim)},
                      core23::ScalarType::Int64,
                      default_param.device(core23::Device(core23::DeviceType::GPU, gpu_id)));
+
+  // TODO this eager allocation is a WAR of resolving race condition with the main thread;
+  // Do not remove the allocation before we have a better way to resolve the race condition
+  device_memory_dense_dim_array_.data();
   source_ = std::make_shared<ParquetFileSource>(
       worker_id, worker_num, file_list, strict_order_of_batches, repeat, data_source_params);
 
