@@ -258,13 +258,15 @@ EmbeddingCacheRefreshspace UvmTable<TypeHashKey>::create_refreshspace() {
   const int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
                                               cache_config_.embedding_vec_size_.end());
   CudaDeviceContext dev_restorer;
+  const size_t max_num_key_in_buffer =
+      std::max(float(1), cache_config_.cache_refresh_percentage_per_iteration* max_num_keys);
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   // Create memory buffers.
   HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
-                               max_num_keys * sizeof(TypeHashKey), cudaHostAllocPortable));
+                               max_num_key_in_buffer * sizeof(TypeHashKey), cudaHostAllocPortable));
   HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_refresh_emb_vec_),
-                               max_num_keys * max_embedding_size * sizeof(float),
+                               max_num_key_in_buffer * max_embedding_size * sizeof(float),
                                cudaHostAllocPortable));
   HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_length_),
                                sizeof(size_t), cudaHostAllocPortable));
@@ -280,6 +282,16 @@ void UvmTable<TypeHashKey>::init(const size_t table_id,
   uvm_tables_[table_id]->add(
       static_cast<TypeHashKey*>(refreshspace_handler.h_refresh_embeddingcolumns_),
       refreshspace_handler.h_refresh_emb_vec_, *refreshspace_handler.h_length_);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+}
+
+template <typename TypeHashKey>
+void UvmTable<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
+                                 float* h_refresh_emb_vec_, size_t h_length_, cudaStream_t stream) {
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  uvm_tables_[table_id]->add(static_cast<TypeHashKey*>(h_refresh_embeddingcolumns_),
+                             h_refresh_emb_vec_, h_length_);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 

@@ -16,9 +16,15 @@
 
 #include <cooperative_groups.h>
 #include <cuda.h>
+#include <linux/mman.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/mman.h>
 
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <memory>
 #include <static_hash_table.hpp>
 
 namespace gpu_cache {
@@ -43,7 +49,7 @@ __device__ __forceinline__ int64_t atomicCASHelper(int64_t *address, int64_t com
 
 template <unsigned int group_size, typename key_type, typename size_type, typename hasher,
           typename CG>
-__device__ size_type insert(key_type *table, size_type capacity, key_type key, const hasher &hash,
+__device__ size_type insert(key_type *table, int64_t capacity, key_type key, const hasher &hash,
                             const CG &cg, const key_type empty_key, const size_type invalid_slot) {
   // If insert successfully, return its position in the table,
   // otherwise return invalid_slot.
@@ -60,7 +66,7 @@ __device__ size_type insert(key_type *table, size_type capacity, key_type key, c
   size_type slot = hash(key) & (capacity - 1);
   slot = slot - (slot & (size_type)(group_size - 1)) + cg.thread_rank();
 
-  for (size_type step = 0; step < num_groups; ++step) {
+  for (size_t step = 0; step < static_cast<int64_t>(num_groups); ++step) {
     for (unsigned int i = 0; i < num_tiles_per_group; ++i) {
       key_type existed_key = table[slot];
 
@@ -114,8 +120,8 @@ __device__ size_type insert(key_type *table, size_type capacity, key_type key, c
 
 template <unsigned int tile_size, unsigned int group_size, typename key_type, typename size_type,
           typename hasher>
-__global__ void InsertKeyKernel(key_type *table_keys, size_type *table_indices, size_type capacity,
-                                const key_type *keys, size_type num_keys, size_type offset,
+__global__ void InsertKeyKernel(key_type *table_keys, size_type *table_indices, int64_t capacity,
+                                const key_type *keys, size_type num_keys, int64_t offset,
                                 hasher hash, const key_type empty_key,
                                 const size_type invalid_slot) {
   static_assert(tile_size <= group_size, "tile_size cannot be larger than group_size");
@@ -126,7 +132,7 @@ __global__ void InsertKeyKernel(key_type *table_keys, size_type *table_indices, 
   int tile_idx = tile.meta_group_size() * block.group_index().x + tile.meta_group_rank();
   int tile_cnt = tile.meta_group_size() * gridDim.x;
 
-  for (size_type i = tile_idx; i < num_keys; i += tile_cnt) {
+  for (size_t i = tile_idx; i < static_cast<size_t>(num_keys); i += tile_cnt) {
     key_type key = keys[i];
     if (key == empty_key) {
       if (tile.thread_rank() == 0 && table_keys[capacity] != empty_key) {
@@ -145,7 +151,7 @@ __global__ void InsertKeyKernel(key_type *table_keys, size_type *table_indices, 
 
 template <unsigned int group_size, typename key_type, typename size_type, typename hasher,
           typename CG>
-__device__ size_type lookup(key_type *table, size_type capacity, key_type key, const hasher &hash,
+__device__ size_type lookup(key_type *table, int64_t capacity, key_type key, const hasher &hash,
                             const CG &cg, const key_type empty_key, const size_type invalid_slot) {
   // If lookup successfully, return the target key's position in the table,
   // otherwise return invalid_slot.
@@ -220,7 +226,7 @@ __forceinline__ __device__ void warp_tile_copy(const size_t lane_idx,
 
 template <unsigned int tile_size, unsigned int group_size, typename key_type, typename value_type,
           typename size_type, typename hasher>
-__global__ void LookupKernel(key_type *table_keys, size_type *table_indices, size_type capacity,
+__global__ void LookupKernel(key_type *table_keys, size_type *table_indices, int64_t capacity,
                              const key_type *keys, int num_keys, const value_type *values,
                              int value_dim, value_type *output, hasher hash,
                              const key_type empty_key, const value_type default_value,
@@ -290,7 +296,7 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
   }
 
   // Make key_capacity_ be a power of 2
-  size_t new_capacity = group_size;
+  int64_t new_capacity = group_size;
   while (new_capacity < key_capacity_) {
     new_capacity *= 2;
   }
@@ -302,7 +308,38 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
   size_t num_values = (value_capacity_ * value_dim_ + align_m - 1) / align_m * align_m;
   CUDA_CHECK(cudaMalloc(&table_keys_, sizeof(key_type) * num_keys));
   CUDA_CHECK(cudaMalloc(&table_indices_, sizeof(size_type) * num_keys));
+// Allocate embedding on host
+#ifdef USE_HUGE_PAGES
+  // Align size at hugepage boundaries.
+  constexpr size_t page_size_mb{2};
+  size_t n = sizeof(value_type) * num_values;
+  int page_shift{20};
+  for (size_t ps{page_size_mb}; (ps & 1) == 0; ps >>= 1) {
+    ++page_shift;
+  }
+  constexpr size_t page_size{page_size_mb * 1024 * 1024};
+  const size_t num_pages{(n + page_size - 1) / page_size};
+  n = num_pages * page_size;
+
+  // Fetch memory.
+  void *p;
+  if (n != 0) {
+    p = mmap(nullptr, n, PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_UNINITIALIZED |
+                 (page_shift << HUGETLB_FLAG_ENCODE_SHIFT),
+             -1, 0);
+    if (p == MAP_FAILED) {
+      p = nullptr;
+      printf("Error: mmap allocation failed! \n");
+    }
+    CUDA_CHECK(cudaHostRegister(p, n, cudaHostRegisterMapped));
+  } else {
+    p = nullptr;
+  }
+  table_values_ = static_cast<value_type *>(p);
+#else
   CUDA_CHECK(cudaMalloc(&table_values_, sizeof(value_type) * num_values));
+#endif
 
   // Initialize table_keys_
   CUDA_CHECK(cudaMemset(table_keys_, 0xff, sizeof(key_type) * key_capacity_));
@@ -327,9 +364,10 @@ void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::inser
   InsertKeyKernel<tile_size, group_size>
       <<<grid, block, 0, stream>>>(table_keys_, table_indices_, key_capacity_, keys, num_keys,
                                    size_, hash_, empty_key, invalid_slot);
+
   // Copy values
   CUDA_CHECK(cudaMemcpyAsync(table_values_ + size_ * value_dim_, values,
-                             sizeof(value_type) * num_keys * value_dim_, cudaMemcpyDeviceToDevice,
+                             sizeof(value_type) * num_keys * value_dim_, cudaMemcpyDefault,
                              stream));
   size_ += num_keys;
 }
@@ -348,7 +386,23 @@ template <typename key_type, typename value_type, unsigned int tile_size, unsign
 StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::~StaticHashTable() {
   CUDA_CHECK(cudaFree(table_keys_));
   CUDA_CHECK(cudaFree(table_indices_));
+
+#ifdef USE_HUGE_PAGES
+  CUDA_CHECK(cudaHostUnregister(table_values_));
+  size_t align_m = 16;
+  size_t num_values = (value_capacity_ * value_dim_ + align_m - 1) / align_m * align_m;
+  size_t n = sizeof(value_type) * num_values;
+  constexpr size_t page_size_mb{2};
+  constexpr size_t page_size{page_size_mb * 1024 * 1024};
+  const size_t num_pages{(n + page_size - 1) / page_size};
+  n = num_pages * page_size;
+  if (munmap(table_values_, n) != 0) {
+    printf("Error: mmap free failed! \n");
+  }
+  CUDA_CHECK(cudaFreeHost(table_values_));
+#else
   CUDA_CHECK(cudaFree(table_values_));
+#endif
 }
 
 template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,

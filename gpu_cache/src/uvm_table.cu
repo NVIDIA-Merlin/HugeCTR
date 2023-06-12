@@ -16,6 +16,7 @@
 
 #include <cooperative_groups.h>
 #include <cuda_runtime_api.h>
+#include <immintrin.h>
 
 #include <atomic>
 #include <iostream>
@@ -288,7 +289,7 @@ UvmTable<key_type, index_type, vec_type>::UvmTable(const size_t device_table_cap
       table_capacity_(num_set_ * set_size),
       default_vector_(vec_size, default_value),
       device_table_(device_table_capacity, set_size, max_batch_size_),
-      host_table_(host_table_capacity * 1.3, set_size, max_batch_size_) {
+      host_table_(host_table_capacity * 1.1, set_size, max_batch_size_) {
   CUDA_CHECK(cudaMalloc(&d_keys_buffer_, sizeof(key_type) * max_batch_size_));
   CUDA_CHECK(cudaMalloc(&d_vectors_buffer_, sizeof(vec_type) * max_batch_size_ * vec_size_));
   CUDA_CHECK(cudaMalloc(&d_vectors_, sizeof(vec_type) * device_table_.capacity * vec_size_));

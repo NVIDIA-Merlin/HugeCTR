@@ -65,13 +65,13 @@ class StaticHashTable {
  private:
   key_type *table_keys_;
   size_type *table_indices_;
-  size_type key_capacity_;
+  int64_t key_capacity_;
 
   value_type *table_values_;
-  size_type value_capacity_;
+  int64_t value_capacity_;
   int value_dim_;
 
-  size_type size_;
+  int64_t size_;
   hasher hash_;
 };
 }  // namespace gpu_cache

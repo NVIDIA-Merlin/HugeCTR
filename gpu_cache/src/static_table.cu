@@ -49,6 +49,12 @@ void static_table<key_type>::Init(const key_type* d_keys, const size_t len, cons
 }
 
 template <typename key_type>
+void static_table<key_type>::Add(const key_type* d_keys, const size_t len, const float* d_values,
+                                 cudaStream_t stream) {
+  static_hash_table_.insert(d_keys, d_values, len, stream);
+}
+
+template <typename key_type>
 void static_table<key_type>::Clear(cudaStream_t stream) {
   static_hash_table_.clear(stream);
 }
