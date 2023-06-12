@@ -459,4 +459,6 @@ TEST(static_embedding_table, optimizer) {
                                                     10);
   test_embedding_table_optimizer<int64_t, uint32_t>(0, "RaggedStatic",
                                                     HugeCTR::Optimizer_t::AdaGrad, 10);
+  test_embedding_table_optimizer<int64_t, uint32_t>(0, "RaggedStatic", HugeCTR::Optimizer_t::Ftrl,
+                                                    10);
 }

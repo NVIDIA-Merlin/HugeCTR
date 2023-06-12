@@ -15,6 +15,7 @@
  */
 
 #include <curand_kernel.h>
+#include <float.h>
 
 #include <data_simulator.hpp>
 #include <embedding/operators/generic_lookup.cuh>
@@ -82,21 +83,25 @@ struct OptimizierInput {
 constexpr int num_load_floats = 4;
 template <typename wgrad_t>
 struct SGDOptimizer {
-  DEVICE_INLINE float4 update4(const OptimizierInput<wgrad_t> &input) {
+  DEVICE_INLINE void update4(const OptimizierInput<wgrad_t> &input, float *ev) {
     Vec4T<float> gi;
     gi.load(input.wgrad + input.ev_id, 4);
-    float4 ret;
-    ret.x = -input.lr * gi.val.x / input.scaler;
-    ret.y = -input.lr * gi.val.y / input.scaler;
-    ret.z = -input.lr * gi.val.z / input.scaler;
-    ret.w = -input.lr * gi.val.w / input.scaler;
-    return ret;
+    Vec4T<float> ev_plus_gi;
+    ev_plus_gi.load(ev + input.ev_id, 4);
+    Vec4T<float> ret;
+    ret.val.x = -input.lr * gi.val.x / input.scaler;
+    ret.val.y = -input.lr * gi.val.y / input.scaler;
+    ret.val.z = -input.lr * gi.val.z / input.scaler;
+    ret.val.w = -input.lr * gi.val.w / input.scaler;
+    ev_plus_gi.accumulate(ret);
+    ev_plus_gi.store(ev + input.ev_id, 4);
   }
 
-  DEVICE_INLINE float update(const OptimizierInput<wgrad_t> &input) {
-    return -input.lr *
-           (HugeCTR::TypeConvertFunc<float, wgrad_t>::convert(input.wgrad[input.ev_id]) /
-            input.scaler);
+  DEVICE_INLINE void update(const OptimizierInput<wgrad_t> &input, float *ev) {
+    ev[input.ev_id] =
+        ev[input.ev_id] -
+        input.lr * (HugeCTR::TypeConvertFunc<float, wgrad_t>::convert(input.wgrad[input.ev_id]) /
+                    input.scaler);
   }
 };
 
@@ -105,11 +110,13 @@ struct AdaGradOptimizer {
   acc_t *v;
   float epsilon;
 
-  DEVICE_INLINE float4 update4(const OptimizierInput<wgrad_t> &input) {
+  DEVICE_INLINE void update4(const OptimizierInput<wgrad_t> &input, float *ev) {
     Vec4T<float> vi;
     vi.load(v + input.ev_start_indices + input.ev_id, 4);
     Vec4T<float> gi;
     gi.load(input.wgrad + input.ev_id, 4);
+    Vec4T<float> ev_plus_gi;
+    ev_plus_gi.load(ev + input.ev_id, 4);
 
     gi.val.x = gi.val.x / input.scaler;
     gi.val.y = gi.val.y / input.scaler;
@@ -126,10 +133,13 @@ struct AdaGradOptimizer {
     gi.val.w = -input.lr * gi.val.w / (sqrtf(vi.val.w) + epsilon);
 
     vi.store(v + input.ev_start_indices + input.ev_id, 4);
-    return gi.val;
+
+    ev_plus_gi.accumulate(gi);
+
+    ev_plus_gi.store(ev + input.ev_id, 4);
   }
 
-  DEVICE_INLINE float update(const OptimizierInput<wgrad_t> &input) {
+  DEVICE_INLINE void update(const OptimizierInput<wgrad_t> &input, float *ev) {
     float vi =
         HugeCTR::TypeConvertFunc<float, acc_t>::convert(v[input.ev_start_indices + input.ev_id]);
     float gi = HugeCTR::TypeConvertFunc<float, wgrad_t>::convert(input.wgrad[input.ev_id]);
@@ -138,7 +148,124 @@ struct AdaGradOptimizer {
 
     gi = -input.lr * gi / (sqrtf(vi) + epsilon);
     v[input.ev_start_indices + input.ev_id] = HugeCTR::TypeConvertFunc<acc_t, float>::convert(vi);
-    return gi;
+    ev[input.ev_id] += gi;
+  }
+};
+
+template <typename wgrad_t, typename opt_t>
+struct FtrlOptimizer {
+  opt_t *z;
+  opt_t *n;
+
+  float beta;
+  float lambda1;
+  float lambda2;
+  /**
+   * FTRL
+   * ----
+      ```
+  Update rule for one variable `w`:
+  ```python
+  prev_n = n
+  n = n + g ** 2
+  sigma = (sqrt(n) - sqrt(prev_n)) / lr
+  z = z + g - sigma * w
+  if abs(z) < lambda_1:
+    w = 0
+  else:
+    w = (sgn(z) * lambda_1 - z) / ((beta + sqrt(n)) / lr + lambda_2)
+  ```
+   */
+  DEVICE_INLINE void update4(const OptimizierInput<wgrad_t> &input, float *ev) {
+    float lambda2_plus_beta_div_lr = lambda2 + beta / input.lr;
+    Vec4T<float> zi;
+    zi.load(z + input.ev_start_indices + input.ev_id, 4);
+    Vec4T<float> ni;
+    ni.load(n + input.ev_start_indices + input.ev_id, 4);
+    Vec4T<float> weight;
+    weight.load(ev + input.ev_id, 4);
+
+    Vec4T<float> sigma;
+    Vec4T<float> sqrt_ni;
+    Vec4T<float> sqrt_ni_new;
+    Vec4T<float> p;
+    Vec4T<float> q;
+
+    Vec4T<float> gi;
+    gi.load(input.wgrad + input.ev_id, 4);
+
+    gi.val.x = gi.val.x / input.scaler;
+    gi.val.y = gi.val.y / input.scaler;
+    gi.val.z = gi.val.z / input.scaler;
+    gi.val.w = gi.val.w / input.scaler;
+
+    sqrt_ni.val.x = sqrtf(ni.val.x + FLT_EPSILON);
+    sqrt_ni.val.y = sqrtf(ni.val.y + FLT_EPSILON);
+    sqrt_ni.val.z = sqrtf(ni.val.z + FLT_EPSILON);
+    sqrt_ni.val.w = sqrtf(ni.val.w + FLT_EPSILON);
+    ni.val.x = ni.val.x + gi.val.x * gi.val.x;
+    ni.val.y = ni.val.y + gi.val.y * gi.val.y;
+    ni.val.z = ni.val.z + gi.val.z * gi.val.z;
+    ni.val.w = ni.val.w + gi.val.w * gi.val.w;
+    sqrt_ni_new.val.x = sqrtf(ni.val.x + FLT_EPSILON);
+    sqrt_ni_new.val.y = sqrtf(ni.val.y + FLT_EPSILON);
+    sqrt_ni_new.val.z = sqrtf(ni.val.z + FLT_EPSILON);
+    sqrt_ni_new.val.w = sqrtf(ni.val.w + FLT_EPSILON);
+
+    sigma.val.x = (sqrt_ni_new.val.x - sqrt_ni.val.x) / input.lr;
+    sigma.val.y = (sqrt_ni_new.val.y - sqrt_ni.val.y) / input.lr;
+    sigma.val.z = (sqrt_ni_new.val.z - sqrt_ni.val.z) / input.lr;
+    sigma.val.w = (sqrt_ni_new.val.w - sqrt_ni.val.w) / input.lr;
+
+    zi.val.x = zi.val.x + gi.val.x - sigma.val.x * weight.val.x;
+    zi.val.y = zi.val.y + gi.val.y - sigma.val.y * weight.val.y;
+    zi.val.z = zi.val.z + gi.val.z - sigma.val.z * weight.val.z;
+    zi.val.w = zi.val.w + gi.val.w - sigma.val.w * weight.val.w;
+
+    p.val.x = (1.f - 2.f * signbit(zi.val.x)) * lambda1 - zi.val.x;
+    p.val.y = (1.f - 2.f * signbit(zi.val.y)) * lambda1 - zi.val.y;
+    p.val.z = (1.f - 2.f * signbit(zi.val.z)) * lambda1 - zi.val.z;
+    p.val.w = (1.f - 2.f * signbit(zi.val.w)) * lambda1 - zi.val.w;
+
+    q.val.x = sqrt_ni_new.val.x / input.lr + lambda2_plus_beta_div_lr;
+    q.val.y = sqrt_ni_new.val.y / input.lr + lambda2_plus_beta_div_lr;
+    q.val.z = sqrt_ni_new.val.z / input.lr + lambda2_plus_beta_div_lr;
+    q.val.w = sqrt_ni_new.val.w / input.lr + lambda2_plus_beta_div_lr;
+
+    //(p / q) * signbit(lambda1 - abs(zi)) - wi
+
+    weight.val.x = p.val.x / q.val.x * signbit(lambda1 - abs(zi.val.x));
+    weight.val.y = p.val.y / q.val.y * signbit(lambda1 - abs(zi.val.y));
+    weight.val.z = p.val.z / q.val.z * signbit(lambda1 - abs(zi.val.z));
+    weight.val.w = p.val.w / q.val.w * signbit(lambda1 - abs(zi.val.w));
+
+    ni.store(n + input.ev_start_indices + input.ev_id, 4);
+    zi.store(z + input.ev_start_indices + input.ev_id, 4);
+    weight.store(ev + input.ev_id, 4);
+  }
+
+  DEVICE_INLINE void update(const OptimizierInput<wgrad_t> &input, float *ev) {
+    float lambda2_plus_beta_div_lr = lambda2 + beta / input.lr;
+    float ni =
+        HugeCTR::TypeConvertFunc<float, opt_t>::convert(n[input.ev_start_indices + input.ev_id]);
+    float zi =
+        HugeCTR::TypeConvertFunc<float, opt_t>::convert(z[input.ev_start_indices + input.ev_id]);
+    float gi = HugeCTR::TypeConvertFunc<float, wgrad_t>::convert(input.wgrad[input.ev_id]);
+
+    gi = gi / input.scaler;
+    float sqrt_ni = sqrtf(ni + FLT_EPSILON);
+    ni = ni + gi * gi;
+    float sqrt_ni_new = sqrtf(ni + FLT_EPSILON);
+
+    float sigma = (sqrt_ni_new - sqrt_ni) / input.lr;
+    zi = zi + gi - sigma * ev[input.ev_id];
+
+    float p = (1.f - 2.f * signbit(zi)) * lambda1 - zi;
+    float q = sqrt_ni_new / input.lr + lambda2_plus_beta_div_lr;
+
+    n[input.ev_start_indices + input.ev_id] = HugeCTR::TypeConvertFunc<opt_t, float>::convert(ni);
+    z[input.ev_start_indices + input.ev_id] = HugeCTR::TypeConvertFunc<opt_t, float>::convert(zi);
+    ev[input.ev_id] = p / q * signbit(lambda1 - abs(zi));
   }
 };
 
@@ -176,16 +303,8 @@ __global__ void update4_kernel(const key_t *keys, const size_t *num_keys_ptr, co
       for (int i = threadIdx.x % warpSize; i < ev_size / num_load_floats; i += warpSize) {
         OptimizierInput<wgrad_t> input{grad_ev_for_update, ev_start_indices_v, i * num_load_floats,
                                        lr, scaler};
-        float4 gi = optimizer.update4(input);
-        Vec4T<float> ev_plus_gi;
-        ev_plus_gi.load(ev + i * num_load_floats, num_load_floats);
-
-        ev_plus_gi.val.x += gi.x;
-        ev_plus_gi.val.y += gi.y;
-        ev_plus_gi.val.z += gi.z;
-        ev_plus_gi.val.w += gi.w;
-
-        ev_plus_gi.store(ev + i * 4, num_load_floats);
+        optimizer.update4(input, ev);
+        // float4 gi = optimizer.update4(input, ev);
       }
     }
   }
@@ -224,8 +343,7 @@ __global__ void update_kernel(const key_t *keys, const uint64_t *num_keys_ptr, c
 
       for (int i = threadIdx.x % warpSize; i < ev_size; i += warpSize) {
         OptimizierInput<emb_t> input{grad_ev_for_update, ev_start_indices_v, i, lr, scaler};
-        float gi = optimizer.update(input);
-        ev[i] += gi;
+        optimizer.update(input, ev);
       }
     }
   }
@@ -359,6 +477,20 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
 
       HCTR_LIB_THROW(cudaMemset(accum_tensor.data(), 0, accum_tensor.num_bytes()));
       opt_buffer_ = AdaGradOptBuffer{accum_tensor};
+    });
+  }
+  if (opt_param.optimizer == HugeCTR::Optimizer_t::Ftrl) {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(emb_type.type(), emb_t, [&] {
+      core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+      core23::TensorParams params = core23::TensorParams().device(device);
+      auto z_tensor = core23::Tensor(params.shape({static_cast<int64_t>(emb_table_size_)})
+                                         .data_type(core23::ScalarType::Float));
+      auto n_tensor = core23::Tensor(params.shape({static_cast<int64_t>(emb_table_size_)})
+                                         .data_type(core23::ScalarType::Float));
+
+      HCTR_LIB_THROW(cudaMemset(z_tensor.data(), 0, z_tensor.num_bytes()));
+      HCTR_LIB_THROW(cudaMemset(n_tensor.data(), 0, n_tensor.num_bytes()));
+      opt_buffer_ = FtrlOptBuffer{z_tensor, n_tensor};
     });
   }
 
@@ -505,6 +637,44 @@ void RaggedStaticEmbeddingTable::update(const core23::Tensor &unique_keys,
                 AdaGradOptimizer<wgrad_t, acc_t> optimizer{
                     adagrad_opt_buffer->opt_accum_tensor.data<acc_t>(),
                     opt_param_.hyperparams.adagrad.epsilon};
+
+                constexpr int block_size = 256;
+                const auto &kernel_param = core_->get_kernel_param();
+                const int grid_size = HugeCTR::ceildiv(
+                    kernel_param.num_sms * kernel_param.max_thread_per_sm, block_size);
+                auto kernel = use_vectorized_kernel_
+                                  ? update4_kernel<key_t, index_t, wgrad_t, decltype(optimizer),
+                                                   decltype(key_to_indices_func)>
+                                  : update_kernel<key_t, index_t, wgrad_t, decltype(optimizer),
+                                                  decltype(key_to_indices_func)>;
+                kernel<<<grid_size, block_size, 0, stream>>>(
+                    unique_keys.data<key_t>(), num_unique_keys.data<size_t>(),
+                    table_ids.data<int>(), wgrad.data<wgrad_t>(), ev_start_indices.data<uint32_t>(),
+                    key_to_indices_func, emb_table_.data<float>(), optimizer, opt_param_.lr,
+                    opt_param_.scaler);
+              });
+        });
+      });
+    });
+  } else if (opt_param_.optimizer == HugeCTR::Optimizer_t::Ftrl) {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(unique_keys.data_type().type(), key_t, [&] {
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(num_key_per_table_offset_.data_type().type(), index_t, [&] {
+        DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.data_type().type(), wgrad_t, [&] {
+          auto ftrl_opt_buffer = std::get_if<FtrlOptBuffer>(&opt_buffer_);
+          HCTR_CHECK_HINT(ftrl_opt_buffer != nullptr, "Ftrl Opt Buffer not initialized.");
+          DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(
+              ftrl_opt_buffer->opt_z_tensor.data_type().type(), opt_t, [&] {
+                RaggedKeyToIndicesFunc<key_t, index_t> key_to_indices_func{
+                    table_ids_.data<int>(),
+                    local_ev_size_list_.data<int>(),
+                    table_ids_.num_elements(),
+                    num_key_per_table_offset_.data<index_t>(),
+                    emb_table_ev_offset_.data<uint64_t>(),
+                };
+                FtrlOptimizer<wgrad_t, opt_t> optimizer{
+                    ftrl_opt_buffer->opt_z_tensor.data<opt_t>(),
+                    ftrl_opt_buffer->opt_n_tensor.data<opt_t>(), opt_param_.hyperparams.ftrl.beta,
+                    opt_param_.hyperparams.ftrl.lambda1, opt_param_.hyperparams.ftrl.lambda2};
 
                 constexpr int block_size = 256;
                 const auto &kernel_param = core_->get_kernel_param();

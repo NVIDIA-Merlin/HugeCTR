@@ -26,7 +26,12 @@ struct AdaGradOptBuffer {
   core23::Tensor opt_accum_tensor;
 };
 
-using OptBuffer = std::variant<AdaGradOptBuffer>;
+struct FtrlOptBuffer {
+  core23::Tensor opt_z_tensor;
+  core23::Tensor opt_n_tensor;
+};
+
+using OptBuffer = std::variant<AdaGradOptBuffer, FtrlOptBuffer>;
 
 class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   std::shared_ptr<CoreResourceManager> core_;
