@@ -468,6 +468,11 @@ void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
 }
 
 template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
+                                       float* h_refresh_emb_vec_, size_t h_length_,
+                                       cudaStream_t stream) {}
+
+template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::dump(const size_t table_id, void* const d_keys,
                                        size_t* const d_length, const size_t start_index,
                                        const size_t end_index, cudaStream_t stream) {
@@ -528,24 +533,37 @@ void EmbeddingCache<TypeHashKey>::finalize() {
 template <typename TypeHashKey>
 EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
   EmbeddingCacheWorkspace workspace_handler;
-  // Allocate common buffer.
-  for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
-    void* h_embeddingcolumns;
-    HCTR_LIB_THROW(cudaHostAlloc(
-        &h_embeddingcolumns, cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey),
-        cudaHostAllocPortable));
-    workspace_handler.h_embeddingcolumns_.push_back(h_embeddingcolumns);
+  if (!cache_config_.use_gpu_embedding_cache_) {  // Allocate host buffer.
+    for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
+      void* h_embeddingcolumns =
+          malloc(cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey));
+      workspace_handler.h_embeddingcolumns_.push_back(h_embeddingcolumns);
 
-    float* h_missing_emb_vec;
-    HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&h_missing_emb_vec),
-                                 cache_config_.max_query_len_per_emb_table_[i] *
-                                     cache_config_.embedding_vec_size_[i] * sizeof(float),
-                                 cudaHostAllocPortable));
-    workspace_handler.h_missing_emb_vec_.push_back(h_missing_emb_vec);
+      float* h_missing_emb_vec =
+          (float*)malloc(cache_config_.max_query_len_per_emb_table_[i] *
+                         cache_config_.embedding_vec_size_[i] * sizeof(float));
+      workspace_handler.h_missing_emb_vec_.push_back(h_missing_emb_vec);
+    }
   }
   // If GPU embedding cache is enabled.
-  workspace_handler.use_gpu_embedding_cache_ = cache_config_.use_gpu_embedding_cache_;
   if (cache_config_.use_gpu_embedding_cache_) {
+    workspace_handler.use_gpu_embedding_cache_ = cache_config_.use_gpu_embedding_cache_;
+    // Allocate common buffer.
+    for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
+      void* h_embeddingcolumns;
+      HCTR_LIB_THROW(cudaHostAlloc(
+          &h_embeddingcolumns, cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey),
+          cudaHostAllocPortable));
+      workspace_handler.h_embeddingcolumns_.push_back(h_embeddingcolumns);
+
+      float* h_missing_emb_vec;
+      HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&h_missing_emb_vec),
+                                   cache_config_.max_query_len_per_emb_table_[i] *
+                                       cache_config_.embedding_vec_size_[i] * sizeof(float),
+                                   cudaHostAllocPortable));
+      workspace_handler.h_missing_emb_vec_.push_back(h_missing_emb_vec);
+    }
+
     CudaDeviceContext dev_restorer;
     dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
@@ -621,14 +639,22 @@ EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& workspace_handler) {
   // Free common buffer.
-  for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
-    HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_embeddingcolumns_[i]));
-    workspace_handler.h_embeddingcolumns_[i] = nullptr;
-    HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_missing_emb_vec_[i]));
-    workspace_handler.h_missing_emb_vec_[i] = nullptr;
-  }
+  if (!cache_config_.use_gpu_embedding_cache_)
+    for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
+      free(workspace_handler.h_embeddingcolumns_[i]);
+      workspace_handler.h_embeddingcolumns_[i] = nullptr;
+      free(workspace_handler.h_missing_emb_vec_[i]);
+      workspace_handler.h_missing_emb_vec_[i] = nullptr;
+    }
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
+    // Free common buffer.
+    for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
+      HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_embeddingcolumns_[i]));
+      workspace_handler.h_embeddingcolumns_[i] = nullptr;
+      HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_missing_emb_vec_[i]));
+      workspace_handler.h_missing_emb_vec_[i] = nullptr;
+    }
     CudaDeviceContext dev_restorer;
     dev_restorer.check_device(cache_config_.cuda_dev_id_);
     for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {

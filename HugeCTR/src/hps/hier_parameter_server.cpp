@@ -217,8 +217,12 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
   // Insert embeddings to embedding cache for each embedding table of each mode
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if ((inference_params_array[i].use_gpu_embedding_cache &&
-         inference_params_array[i].cache_refresh_percentage_per_iteration > 0) ||
+         inference_params_array[i].cache_refresh_percentage_per_iteration > 0 &&
+         inference_params_array[i].init_ec) ||
         inference_params_array[i].embedding_cache_type != HugeCTR::EmbeddingCacheType_t::Dynamic) {
+      HCTR_LOG_S(INFO, ROOT) << "Initialize the embedding cache by by inserting the same size "
+                                "model file with embedding cache from beginning"
+                             << std::endl;
       init_ec(inference_params_array[i], model_cache_map_[inference_params_array[i].model_name]);
     }
   }
@@ -273,7 +277,8 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
         inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
     const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];
     // Populate volatile database(s).
-    if (volatile_db_ && volatile_db_initialize_after_startup_) {
+    if (volatile_db_ && volatile_db_initialize_after_startup_ &&
+        inference_params.embedding_cache_type == HugeCTR::EmbeddingCacheType_t::Dynamic) {
       const size_t volatile_capacity = volatile_db_->capacity(tag_name);
       const size_t volatile_cache_amount =
           (num_key <= volatile_capacity)
@@ -318,7 +323,8 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
     }
 
     // Persistent database - by definition - always gets all keys.
-    if (persistent_db_ && persistent_db_initialize_after_startup_) {
+    if (persistent_db_ && persistent_db_initialize_after_startup_ &&
+        inference_params.embedding_cache_type == HugeCTR::EmbeddingCacheType_t::Dynamic) {
       if (!inference_params.fuse_embedding_table) {
         for (size_t i = 0; i < rawreader->get_num_iterations(); i++) {
           std::pair<void*, size_t> key_result = rawreader->getkeys(i);
@@ -517,49 +523,78 @@ void HierParameterServer<TypeHashKey>::init_ec(
               reinterpret_cast<const float*>(vec_result.first),
               *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
               cudaMemcpyHostToDevice, stream));
-
+          HCTR_LOG_S(INFO, ROOT) << "Initilize the embedding table " << j << " for interation "
+                                 << idx_set / stride_set << " with number of " << length << " keys."
+                                 << std::endl;
           embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
           HCTR_LIB_THROW(cudaStreamSynchronize(stream));
           num_iteration++;
         }
       }
       // For UVM solution
-      else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM) {
-        *refreshspace_handler.h_length_ = cache_config.num_set_in_cache_[j];
-        std::pair<void*, size_t> key_result;
-        std::pair<void*, size_t> vec_result;
-        if (inference_params.fuse_embedding_table) {
-          rawreader->load_fused_emb(inference_params.embedding_table_names[j],
-                                    inference_params.fused_sparse_model_files[j]);
-          key_result = std::make_pair(rawreader->getkeys(), *refreshspace_handler.h_length_);
-          vec_result =
-              std::make_pair(rawreader->getvectors(),
-                             *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j]);
-        } else {
-          rawreader->load(inference_params.embedding_table_names[j],
-                          inference_params.sparse_model_files[j], *refreshspace_handler.h_length_);
-          key_result = rawreader->getkeys(0);
-          vec_result = rawreader->getvectors(0, cache_config.embedding_vec_size_[j]);
-        }
-
-        HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_,
-                                       reinterpret_cast<const TypeHashKey*>(key_result.first),
-                                       *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
-                                       cudaMemcpyHostToHost, stream));
-
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            refreshspace_handler.h_refresh_emb_vec_,
-            reinterpret_cast<const float*>(vec_result.first),
-            *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
-            cudaMemcpyHostToHost, stream));
-
-        embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
-        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-
-      } else {
+      else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM ||
+               inference_params.embedding_cache_type == EmbeddingCacheType_t::Static) {
         HCTR_LOG(INFO, WORLD,
                  "To achieve the best performance, when using static table, the pointers of keys "
                  "and vectors in HPS lookup should preferably be aligned to at least 16 Bytes.\n");
+        float ratio_per_ini_iteration = 0.1;
+        size_t length = cache_config.num_set_in_cache_[j] * ratio_per_ini_iteration;
+        size_t num_fused_tables = 1;
+        size_t total_emb_keys = cache_config.num_set_in_cache_[j];
+        std::vector<size_t> num_emb_keys_per_table;
+        std::pair<void*, size_t> key_result;
+        std::pair<void*, size_t> vec_result;
+        if (inference_params.fuse_embedding_table) {
+          num_fused_tables = inference_params.fused_sparse_model_files[j].size();
+          total_emb_keys = 0;
+          for (int table_id = 0; table_id < inference_params.fused_sparse_model_files[j].size();
+               table_id++) {
+            rawreader->load(inference_params.embedding_table_names[j],
+                            inference_params.fused_sparse_model_files[j][table_id]);
+            // Get the number of keys in each table
+            num_emb_keys_per_table.emplace_back(rawreader->getkeycount());
+            // Get the total number of keys in fused table
+            total_emb_keys += rawreader->getkeycount();
+          }
+        } else {
+          // Get the total number of keys in non-fused table
+          num_emb_keys_per_table.emplace_back(cache_config.num_set_in_cache_[j]);
+        }
+        // Calculate the number of iterations required to initialize ec
+        size_t num_iterations = 0;
+        // The number of keys that need to be inserted into the cache for each table
+        size_t numkeys_in_EC_pertable = 0;
+        for (size_t table_id = 0; table_id < num_fused_tables; table_id++) {
+          if (inference_params.fuse_embedding_table) {
+            // Get the number of keys in the cache for  the current table
+            numkeys_in_EC_pertable = ((float)num_emb_keys_per_table[table_id] / total_emb_keys) *
+                                     cache_config.num_set_in_cache_[j];
+            length = ratio_per_ini_iteration * numkeys_in_EC_pertable;
+            rawreader->load(inference_params.embedding_table_names[j],
+                            inference_params.fused_sparse_model_files[j][table_id], length);
+            num_iterations = (numkeys_in_EC_pertable - 1) / length + 1;
+          } else {
+            rawreader->load(inference_params.embedding_table_names[j],
+                            inference_params.sparse_model_files[j], length);
+            num_iterations = (cache_config.num_set_in_cache_[j] - 1) / length + 1;
+            numkeys_in_EC_pertable = cache_config.num_set_in_cache_[j];
+          }
+          // initializing ec by iteratively inserting keys
+          for (size_t it = 0; it < num_iterations; it++) {
+            if (it == num_iterations - 1) {
+              length = numkeys_in_EC_pertable - length * it;
+            }
+            key_result = rawreader->getkeys(it);
+            vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
+            HCTR_LOG_S(INFO, ROOT) << "Initilize the embedding table " << j << " for interation "
+                                   << it << " with number of " << length << " keys." << std::endl;
+            embedding_cache_map[device_id]->init(
+                j, key_result.first, reinterpret_cast<float*>(vec_result.first), length, stream);
+            HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+          }
+        }
+
+      } else {
         *refreshspace_handler.h_length_ = cache_config.num_set_in_cache_[j];
         std::pair<void*, size_t> key_result;
         std::pair<void*, size_t> vec_result;

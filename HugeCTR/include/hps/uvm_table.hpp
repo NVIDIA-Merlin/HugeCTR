@@ -45,6 +45,9 @@ class UvmTable : public EmbeddingCacheBase,
                                   cudaStream_t stream) override;
   virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refreshspace_handler,
                     cudaStream_t stream) override;
+
+  virtual void init(const size_t table_id, void* h_refresh_embeddingcolumns_,
+                    float* h_refresh_emb_vec_, size_t h_length_, cudaStream_t stream) override;
   virtual void refresh(size_t table_id, const void* d_keys, const float* d_vectors, size_t length,
                        cudaStream_t stream) override;
 

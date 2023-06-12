@@ -6,6 +6,7 @@ parser.add_argument("--config_template", type=str)
 parser.add_argument("--ps_template", type=str)
 parser.add_argument("--batchsize", type=str)
 parser.add_argument("--mixed_precision", type=str)
+parser.add_argument("--ec_type", type=str, default="dynamic")
 parser.add_argument("--config_output", type=str)
 parser.add_argument("--ps_output", type=str)
 args = parser.parse_args()
@@ -30,6 +31,7 @@ def str2bool(v):
 
 ps_json_template["models"][0]["max_batch_size"] = args.batchsize
 ps_json_template["models"][0]["mixed_precision"] = str2bool(args.mixed_precision)
+ps_json_template["models"][0]["embedding_cache_type"] = args.ec_type
 
 with open(args.ps_output, "w") as f:
     json.dump(ps_json_template, f)

@@ -1195,6 +1195,40 @@ inference_benchmark_check:
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
 
+
+inference_cpu_memory_usage:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_inference
+  before_script:
+    - export BZ=1
+    - export MIXED_PRECISION=FP32
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_cpu_memory
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $INFER_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,$LOGDIR/inference_cpu_memory:/logs
+    WORKDIR: /workdir
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:20:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/hps_memory_check/run.sub
+
+inference_CPU_Memory_check:
+  extends: .cluster_post_test_job_daily
+  needs:
+    - inference_cpu_memory_usage
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_cpu_memory
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/inference_cpu_memory:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_cpu_usage.sub
+
 dlrm_1node_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job

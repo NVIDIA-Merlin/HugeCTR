@@ -192,7 +192,7 @@ InferenceParams::InferenceParams(
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
     const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file,
     bool use_static_table, EmbeddingCacheType_t embedding_cache_type, bool use_context_stream,
-    bool fuse_embedding_table, bool use_hctr_cache_implementation)
+    bool fuse_embedding_table, bool use_hctr_cache_implementation, bool init_ec)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -231,7 +231,8 @@ InferenceParams::InferenceParams(
       embedding_cache_type(embedding_cache_type),
       use_context_stream(use_context_stream),
       fuse_embedding_table(fuse_embedding_table),
-      use_hctr_cache_implementation(use_hctr_cache_implementation) {
+      use_hctr_cache_implementation(use_hctr_cache_implementation),
+      init_ec(init_ec) {
   // this code path is only used by hps python interface!
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
@@ -659,6 +660,9 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     // [23] use_hctr_cache_implementation -> bool
     params.use_hctr_cache_implementation =
         get_value_from_json_soft<bool>(model, "use_hctr_cache_implementation", true);
+
+    // [23] init_ec -> bool
+    params.init_ec = get_value_from_json_soft<bool>(model, "init_ec", true);
 
     params.volatile_db = volatile_db_params;
     params.persistent_db = persistent_db_params;

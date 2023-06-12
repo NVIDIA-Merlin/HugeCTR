@@ -94,6 +94,10 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
     cache_config_.num_set_in_cache_.push_back(num_row);
   }
 
+  const size_t max_num_keys =
+      *max_element(cache_config_.num_set_in_cache_.begin(), cache_config_.num_set_in_cache_.end());
+  HCTR_LIB_THROW(cudaMalloc(&d_insert_keys_buffer_, sizeof(TypeHashKey) * max_num_keys));
+
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     cudaStream_t stream;
     cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
@@ -257,27 +261,35 @@ EmbeddingCacheWorkspace StaticTable<TypeHashKey>::create_workspace() {
 template <typename TypeHashKey>
 EmbeddingCacheRefreshspace StaticTable<TypeHashKey>::create_refreshspace() {
   EmbeddingCacheRefreshspace refreshspace_handler;
-  const size_t max_num_keys =
-      *max_element(cache_config_.num_set_in_cache_.begin(), cache_config_.num_set_in_cache_.end());
-  const int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
-                                              cache_config_.embedding_vec_size_.end());
-  CudaDeviceContext dev_restorer;
-  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  refreshspace_handler.h_refresh_embeddingcolumns_ = nullptr;
+  refreshspace_handler.h_refresh_emb_vec_ = nullptr;
+  refreshspace_handler.h_length_ = nullptr;
+  refreshspace_handler.d_refresh_embeddingcolumns_ = nullptr;
+  refreshspace_handler.d_refresh_emb_vec_ = nullptr;
+  refreshspace_handler.d_length_ = nullptr;
 
-  // Create memory buffers.
-  HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
-                               max_num_keys * sizeof(TypeHashKey), cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_refresh_emb_vec_),
-                               max_num_keys * max_embedding_size * sizeof(float),
-                               cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_length_),
-                               sizeof(size_t), cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaMalloc(&refreshspace_handler.d_refresh_embeddingcolumns_,
-                            max_num_keys * sizeof(TypeHashKey)));
-  HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&refreshspace_handler.d_refresh_emb_vec_),
-                            max_num_keys * max_embedding_size * sizeof(float)));
-  HCTR_LIB_THROW(
-      cudaMalloc(reinterpret_cast<void**>(&refreshspace_handler.d_length_), sizeof(size_t)));
+  // const size_t max_num_keys =
+  //     *max_element(cache_config_.num_set_in_cache_.begin(),
+  //     cache_config_.num_set_in_cache_.end());
+  // const int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
+  //                                             cache_config_.embedding_vec_size_.end());
+  // CudaDeviceContext dev_restorer;
+  // dev_restorer.check_device(cache_config_.cuda_dev_id_);
+
+  // // Create memory buffers.
+  // HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
+  //                              max_num_keys * sizeof(TypeHashKey), cudaHostAllocPortable));
+  // HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_refresh_emb_vec_),
+  //                              max_num_keys * max_embedding_size * sizeof(float),
+  //                              cudaHostAllocPortable));
+  // HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_length_),
+  //                              sizeof(size_t), cudaHostAllocPortable));
+  // HCTR_LIB_THROW(cudaMalloc(&refreshspace_handler.d_refresh_embeddingcolumns_,
+  //                           max_num_keys * sizeof(TypeHashKey)));
+  // HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&refreshspace_handler.d_refresh_emb_vec_),
+  //                           max_num_keys * max_embedding_size * sizeof(float)));
+  // HCTR_LIB_THROW(
+  //     cudaMalloc(reinterpret_cast<void**>(&refreshspace_handler.d_length_), sizeof(size_t)));
   return refreshspace_handler;
 }
 
@@ -285,11 +297,24 @@ template <typename TypeHashKey>
 void StaticTable<TypeHashKey>::init(const size_t table_id,
                                     EmbeddingCacheRefreshspace& refreshspace_handler,
                                     cudaStream_t stream) {
+  // CudaDeviceContext dev_restorer;
+  // dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  // static_tables_[table_id]->Init(
+  //     static_cast<TypeHashKey*>(refreshspace_handler.d_refresh_embeddingcolumns_),
+  //     *refreshspace_handler.h_length_, refreshspace_handler.d_refresh_emb_vec_, stream);
+  // HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+}
+
+template <typename TypeHashKey>
+void StaticTable<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
+                                    float* h_refresh_emb_vec_, size_t h_length_,
+                                    cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
-  static_tables_[table_id]->Init(
-      static_cast<TypeHashKey*>(refreshspace_handler.d_refresh_embeddingcolumns_),
-      *refreshspace_handler.h_length_, refreshspace_handler.d_refresh_emb_vec_, stream);
+  HCTR_LIB_THROW(cudaMemcpyAsync(d_insert_keys_buffer_, h_refresh_embeddingcolumns_,
+                                 sizeof(TypeHashKey) * h_length_, cudaMemcpyHostToDevice, stream));
+  static_tables_[table_id]->Add(static_cast<TypeHashKey*>(d_insert_keys_buffer_), h_length_,
+                                h_refresh_emb_vec_, stream);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
@@ -374,6 +399,7 @@ StaticTable<TypeHashKey>::~StaticTable() {
   // This is the only two places to set the cuda context in static table
   CudaDeviceContext dev_restorer;
   dev_restorer.set_device(cache_config_.cuda_dev_id_);
+  cudaFree(d_insert_keys_buffer_);
   // Destroy resources.
   for (auto& stream : refresh_streams_) {
     cudaStreamDestroy(stream);

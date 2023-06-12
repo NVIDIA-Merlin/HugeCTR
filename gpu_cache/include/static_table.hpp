@@ -41,6 +41,8 @@ class static_table {
   // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
   void Init(const key_type* d_keys, const size_t len, const float* d_values, cudaStream_t stream);
 
+  void Add(const key_type* d_keys, const size_t len, const float* d_values, cudaStream_t stream);
+
   void Clear(cudaStream_t stream);
 
  private:
