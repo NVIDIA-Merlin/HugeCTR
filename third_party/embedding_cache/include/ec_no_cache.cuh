@@ -29,7 +29,7 @@ public:
             atomicAdd(data.misses, 1);
         }
 
-        return (uint64_t)pTable + laneIdx * data.rowSizeInBytes;
+        return (uint64_t)pTable + laneIdx * (uint64_t)data.rowSizeInBytes;
     }
 };
 }

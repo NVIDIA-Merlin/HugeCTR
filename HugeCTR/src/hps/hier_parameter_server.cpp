@@ -485,7 +485,8 @@ void HierParameterServer<TypeHashKey>::init_ec(
       }
       EmbeddingCacheRefreshspace refreshspace_handler = memory_block->refresh_buffer;
 
-      if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic) {
+      if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic ||
+          (inference_params.embedding_cache_type == EmbeddingCacheType_t::Stochastic)) {
         // initilize the embedding cache for each table
         const size_t stride_set =
             std::max(1.0f, floor(cache_config.num_set_in_cache_[j] *

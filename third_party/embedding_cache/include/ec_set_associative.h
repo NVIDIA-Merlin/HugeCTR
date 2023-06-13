@@ -34,6 +34,11 @@ void callCacheQuery(const IndexT* d_keys, const size_t len,
     typename EmbedCache<IndexT, TagT>::CacheData data,
     cudaStream_t stream, uint32_t currTable, size_t stride);
 
+template<typename IndexT, typename CacheDataT>
+void callCacheQueryUVM(const IndexT* d_keys, const size_t len,
+    int8_t* d_values, const int8_t* d_table,
+    CacheDataT data, cudaStream_t stream, uint32_t currTable, size_t stride);
+
 template<typename IndexT, typename TagT>
 void callModifyKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream);
 
@@ -234,7 +239,15 @@ public:
 
     ECError PerformanceMetricReset(PerformanceMetric& pMetric) const override
     {
-        return ECERROR_NOT_IMPLEMENTED;
+        try
+        {
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(pMetric.p_dVal, 0, sizeof(uint32_t)));
+            return ECERROR_SUCCESS;
+        }
+        catch(const ECExcption& e)
+        {
+            return e.m_err;
+        }
     }
 
     ECError ModifyContextCreate(ModifyContextHandle& outHandle, uint32_t maxUpdateSize) const override
@@ -309,6 +322,9 @@ public:
 
     ~EmbedCache()
     {
+        this->m_pAllocator->deviceFree(m_dpPool);
+        this->m_pAllocator->hostFree(m_hpTags);
+        this->m_pAllocator->hostFree(m_pMagicNumber);
     }
     
     ECError Init() override
@@ -565,10 +581,22 @@ public:
                                             uint32_t currTable, size_t stride, cudaStream_t stream) override
     {
         auto data = GetCacheData(hLookup);
-        cudaMemset(d_missing_len, 0, sizeof(*d_missing_len));
+        cudaMemsetAsync(d_missing_len, 0, sizeof(*d_missing_len), stream);
         if (len > 0)
         {
             callCacheQuery<IndexT, TagT>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, stream, currTable, stride);
+        }
+        return ECERROR_SUCCESS;
+    }
+
+    ECError Lookup(const LookupContextHandle& hLookup, const IndexT* d_keys, const size_t len,
+                                            int8_t* d_values, const int8_t* d_table, uint32_t currTable, 
+                                            size_t stride, cudaStream_t stream) override
+    {
+        auto data = GetCacheData(hLookup);
+        if (len > 0)
+        {
+            callCacheQueryUVM<IndexT>(d_keys, len, d_values, d_table, data, stream, currTable, stride);
         }
         return ECERROR_SUCCESS;
     }

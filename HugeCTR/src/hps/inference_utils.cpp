@@ -661,7 +661,9 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.use_hctr_cache_implementation =
         get_value_from_json_soft<bool>(model, "use_hctr_cache_implementation", true);
 
-    // [23] init_ec -> bool
+    // [24] thread_pool_size -> int
+    params.thread_pool_size = get_value_from_json_soft<int>(model, "thread_pool_size", 16);
+    // [25] init_ec -> bool
     params.init_ec = get_value_from_json_soft<bool>(model, "init_ec", true);
 
     params.volatile_db = volatile_db_params;
@@ -938,6 +940,11 @@ EmbeddingCacheType_t get_hps_embeddingcache_type(const nlohmann::json& json, con
   }
 
   enum_value = EmbeddingCacheType_t::UVM;
+  if (hctr_enum_to_c_str(enum_value) == tmp) {
+    return enum_value;
+  }
+
+  enum_value = EmbeddingCacheType_t::Stochastic;
   if (hctr_enum_to_c_str(enum_value) == tmp) {
     return enum_value;
   }

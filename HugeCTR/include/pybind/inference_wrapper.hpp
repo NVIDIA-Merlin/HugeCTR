@@ -527,6 +527,7 @@ void InferencePybind(pybind11::module& m) {
       .value("Dynamic", EmbeddingCacheType_t::Dynamic)
       .value("UVM", EmbeddingCacheType_t::UVM)
       .value("Static", EmbeddingCacheType_t::Static)
+      .value(hctr_enum_to_c_str(EmbeddingCacheType_t::Stochastic), EmbeddingCacheType_t::Stochastic)
       .export_values();
 
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(

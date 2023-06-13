@@ -234,6 +234,9 @@ public:
                                             IndexT* d_missing_keys, size_t* d_missing_len,
                                             uint32_t currTable, size_t stride, cudaStream_t stream) = 0;
 
+    virtual ECError Lookup(const LookupContextHandle& hLookup, const IndexT* d_keys, const size_t len,
+                                            int8_t* d_values, const int8_t* d_table, uint32_t currTable, size_t stride, cudaStream_t stream) = 0;
+
     // performance 
     virtual ECError PerformanceMetricCreate(PerformanceMetric& outMetric, PerformanceMerticTypes type) const = 0;
     virtual ECError PerformanceMetricDestroy(PerformanceMetric& metric) const = 0;
@@ -259,8 +262,8 @@ public:
     virtual ECError ModifyContextGetProperty(const ModifyContextHandle& handle) const = 0;
 
 protected:
-    CACHE_IMPLEMENTATION_TYPE m_type;
     IAllocator* m_pAllocator;
     mutable ILogger* m_pLogger;
+    CACHE_IMPLEMENTATION_TYPE m_type;
 };
 }
