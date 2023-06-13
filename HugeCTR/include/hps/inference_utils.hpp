@@ -54,6 +54,7 @@ enum class EmbeddingCacheType_t {
   Dynamic,
   Static,
   UVM,
+  Stochastic,
 };
 
 constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
@@ -84,6 +85,8 @@ constexpr const char* hctr_enum_to_c_str(const EmbeddingCacheType_t value) {
       return "static";
     case EmbeddingCacheType_t::UVM:
       return "uvm";
+    case EmbeddingCacheType_t::Stochastic:
+      return "stochastic";
     default:
       return "dynamic";
   }
@@ -432,7 +435,8 @@ struct EmbeddingCacheWorkspace {
   size_t* h_unique_length_;   // The # of emb_id after the unique operation for each emb_table on
                               // host, size = # of emb_table
   double* h_hit_rate_;        // The hit rate for each emb_table on host, size = # of emb_table
-  bool use_gpu_embedding_cache_;  // whether to use gpu embedding cache
+  bool use_gpu_embedding_cache_;     // whether to use gpu embedding cache
+  std::vector<void*> private_data_;  // per embedding cache implementation private data (C-Style)
 };
 
 struct EmbeddingCacheRefreshspace {

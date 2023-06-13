@@ -43,8 +43,8 @@ static __device__ inline uint64_t EmbedCacheGetAddress(IndexT laneIdx, const int
     uint32_t setIdx = laneIdx % data.nSets;
     uint32_t out = EmbedCacheGetWayMask<IndexT, TagT>(laneIdx, currTable, data);
     uint32_t way = __ffs(out) - 1;
-    uint64_t lanePtr = (out == 0) ? (uint64_t)pTable + (laneIdx)*data.rowSizeInBytes : 
-        (uint64_t)data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, TagT>::NUM_WAYS + way)*data.rowSizeInBytes;
+    uint64_t lanePtr = (out == 0) ? (uint64_t)pTable + (laneIdx)*(uint64_t)data.rowSizeInBytes : 
+        (uint64_t)data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, TagT>::NUM_WAYS + way)*(uint64_t)data.rowSizeInBytes;
 
     if (out == 0 && data.bCountMisses)
     {
@@ -73,8 +73,8 @@ public:
             out |= (b << i); 
         }
         uint32_t way = __ffs(out) - 1;
-        uint64_t lanePtr = (out == 0) ? (uint64_t)pTable + (laneIdx)*data.rowSizeInBytes : 
-            (uint64_t)data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, uint16_t>::NUM_WAYS + way)*data.rowSizeInBytes;
+        uint64_t lanePtr = (out == 0) ? (uint64_t)pTable + (laneIdx)*(uint64_t)data.rowSizeInBytes : 
+            (uint64_t)data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, uint16_t>::NUM_WAYS + way)*(uint64_t)data.rowSizeInBytes;
 
         if (out == 0 && data.bCountMisses)
         {
@@ -128,11 +128,11 @@ public:
     }
 };
 
-template<typename IndexT, typename TagT>
+template<typename IndexT, typename TagT, typename DataType>
 __global__ void GPUModify(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t sz)
 {
     typename EmbedCache<IndexT, TagT>::ModifyEntry e = pEntries[blockIdx.x];
-    memcpy(e.pDst, e.pSrc, sz);
+    MemcpyWarp<32, DataType>(e.pDst, e.pSrc, sz);
 }
 
 template<typename IndexT, typename TagT, uint32_t SUBWARP_WIDTH, typename DataType>
@@ -141,7 +141,13 @@ __global__ void Query(const IndexT* d_keys, const size_t len,
     IndexT* d_missing_keys, size_t* d_missing_len,
     typename EmbedCache<IndexT, TagT>::CacheData data, uint32_t currTable, size_t stride)
 {
-    uint32_t tid = blockIdx.x * 32 + threadIdx.x; // each tid search for one index, and then we do a "transpose" and copy them out if needed
+    const uint32_t blockDims = blockDim.x * blockDim.y;
+    uint32_t block_ptr = blockIdx.x * blockDims;
+    uint32_t tid = block_ptr + threadIdx.x; // each tid search for one index, and then we do a "transpose" and copy them out if needed
+    const uint32_t subwarp_idx = threadIdx.x / SUBWARP_WIDTH;
+    const uint32_t subwarp_ptr = block_ptr + subwarp_idx * SUBWARP_WIDTH;
+    const uint32_t intra_subwarp_idx = threadIdx.x % SUBWARP_WIDTH;
+
     uint64_t laneptr;
     if (tid >= len)
     {
@@ -164,7 +170,7 @@ __global__ void Query(const IndexT* d_keys, const size_t len,
         else
         {
             auto way = laneway;
-            laneptr = (uint64_t)(data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, TagT>::NUM_WAYS + way)*data.rowSizeInBytes);
+            laneptr = (uint64_t)(data.pCache + (cacheOffset + setIdx * EmbedCache<IndexT, TagT>::NUM_WAYS + way)*(uint64_t)data.rowSizeInBytes);
         }
     }
 
@@ -178,11 +184,11 @@ __global__ void Query(const IndexT* d_keys, const size_t len,
         }
         for (uint32_t k = 0; k < data.rowSizeInBytes; k += ELEMENT_SIZE*SUBWARP_WIDTH)
         {
-            uint32_t offset = k + threadIdx.x * ELEMENT_SIZE;
+            uint32_t offset = k + intra_subwarp_idx * ELEMENT_SIZE;
             if (offset < data.rowSizeInBytes)
             {
                 DataType d = *(DataType*)(src_ptr + offset);
-                DataType* dst_ptr = (DataType*)(d_values + (blockIdx.x*32 + s) * stride + offset);
+                DataType* dst_ptr = (DataType*)(d_values + (subwarp_ptr + s) * stride + offset);
                 *dst_ptr = d;
             }
         }
@@ -217,8 +223,18 @@ void callModifyKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, 
 {
     dim3 gridSize(nEntries,1);
     dim3 blockSize(32, 1); 
-
-    GPUModify<IndexT, TagT><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+    if (rowSizeInBytes % sizeof(uint4) == 0)
+    {
+        GPUModify<IndexT, TagT, uint4><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+    }
+    else if (rowSizeInBytes % sizeof(uint32_t) == 0)
+    {
+        GPUModify<IndexT, TagT, uint32_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+    }
+    else
+    {
+        GPUModify<IndexT, TagT, int8_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+    }
 }
 
 template<typename IndexT, typename TagT>
@@ -228,21 +244,27 @@ void callCacheQuery(const IndexT* d_keys, const size_t len,
     typename EmbedCache<IndexT, TagT>::CacheData data,
     cudaStream_t stream, uint32_t currTable, size_t stride)
 {
-    const uint32_t blockSize = 32;
+    const uint32_t blockX = 32;
+    const uint32_t blockY = 4;
+    const uint32_t blockSize = blockX * blockY;
     const uint32_t nBlock = len / blockSize + std::min(len % blockSize, (size_t)1);
     dim3 gridDims(nBlock);
     dim3 blockDims(blockSize);
-    if (data.rowSizeInBytes % sizeof(uint4) == 0)
+    if (data.rowSizeInBytes % (sizeof(uint4)*32) == 0)
     {
-        Query<IndexT, TagT, blockSize, uint4><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
+        Query<IndexT, TagT, 32, uint4><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
     }
-    else if (data.rowSizeInBytes % sizeof(uint32_t) == 0)
+    else if (data.rowSizeInBytes % (sizeof(uint32_t)*32) == 0)
     {
-        Query<IndexT, TagT, blockSize, uint32_t><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
+        Query<IndexT, TagT, 32, uint32_t><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
+    }
+    else if (data.rowSizeInBytes % (sizeof(uint4)*4) == 0)
+    {
+        Query<IndexT, TagT, 4, uint4><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
     }
     else
     {
-        Query<IndexT, TagT, blockSize, uint8_t><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
+        Query<IndexT, TagT, blockX, uint8_t><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
     }
 }
 

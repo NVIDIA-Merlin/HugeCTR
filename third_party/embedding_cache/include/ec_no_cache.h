@@ -24,6 +24,12 @@
 
 namespace ecache {
 
+template<typename IndexT, typename CacheDataT>
+void callCacheQueryUVM(const IndexT* d_keys, const size_t len,
+    int8_t* d_values, const int8_t* d_table,
+    CacheDataT data, cudaStream_t stream, uint32_t currTable, size_t stride);
+
+
 template<typename IndexT>
 class ECNoCache : public EmbedCacheBase<IndexT>
 {
@@ -164,7 +170,15 @@ public:
 
     ECError PerformanceMetricReset(PerformanceMetric& pMetric) const override
     {
-        return ECERROR_NOT_IMPLEMENTED;
+        try
+        {
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(pMetric.p_dVal, 0, sizeof(uint32_t)));
+            return ECERROR_SUCCESS;
+        }
+        catch(const ECExcption& e)
+        {
+            return e.m_err;
+        }
     }
 
     ECError ModifyContextCreate(ModifyContextHandle& outHandle, uint32_t maxUpdateSize) const override
@@ -261,6 +275,17 @@ public:
         }
     }
 
+    ECError Lookup(const LookupContextHandle& hLookup, const IndexT* d_keys, const size_t len,
+                                            int8_t* d_values, const int8_t* d_table, uint32_t currTable, 
+                                            size_t stride, cudaStream_t stream) override
+    {
+        auto data = GetCacheData(hLookup);
+        if (len > 0)
+        {
+            callCacheQueryUVM<IndexT>(d_keys, len, d_values, d_table, data, stream, currTable, stride);
+        }
+        return ECERROR_SUCCESS;
+    }
 
 private:
     void Log(VERBOSITY_LEVEL verbosity, const char* format, ...) const

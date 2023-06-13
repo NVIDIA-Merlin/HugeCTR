@@ -28,7 +28,7 @@ namespace HugeCTR {
 template <typename key_type>
 class EmbeddingCacheWrapper : public gpu_cache::gpu_cache_api<key_type> {
  public:
-  using ModifyOp = typename EmbedCache<key_type, uint32_t>::ModifyOpType;
+  using ModifyOp = typename EmbedCache<key_type, key_type>::ModifyOpType;
 
   // Ctor
   EmbeddingCacheWrapper(const size_t capacity_in_set, const size_t embedding_vec_size);
@@ -84,7 +84,8 @@ class EmbeddingCacheWrapper : public gpu_cache::gpu_cache_api<key_type> {
   mutable std::shared_mutex
       lookup_map_read_write_lock_;  // mutable since query doesn't change cache but require a lock
 
-  typename EmbedCache<key_type, uint32_t>::CacheConfig config_;
+  PerStreamLookupData m_gLData;
+  typename EmbedCache<key_type, key_type>::CacheConfig config_;
   using WriteLock = std::unique_lock<std::shared_mutex>;
   using ReadLock = std::shared_lock<std::shared_mutex>;
 };

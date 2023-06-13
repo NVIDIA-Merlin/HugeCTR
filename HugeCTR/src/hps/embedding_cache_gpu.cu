@@ -27,9 +27,9 @@ EmbeddingCacheWrapper<key_type>::EmbeddingCacheWrapper(const size_t capacity_in_
   config_.cacheSzInBytes =
       SLAB_SIZE * SET_ASSOCIATIVITY * capacity_in_set * embedding_vec_size * sizeof(float);
   config_.embedWidth = embedding_vec_size * sizeof(float);
-  config_.maxUpdateSampleSz = capacity_in_set * EmbedCache<key_type, uint32_t>::NUM_WAYS;
+  config_.maxUpdateSampleSz = capacity_in_set * EmbedCache<key_type, key_type>::NUM_WAYS;
   config_.numTables = 1;
-  cache_ptr_ = std::make_shared<EmbedCache<key_type, uint32_t>>(&allocator_, &logger_, config_);
+  cache_ptr_ = std::make_shared<EmbedCache<key_type, key_type>>(&allocator_, &logger_, config_);
   cache_ptr_->Init();
 }
 
@@ -212,3 +212,23 @@ template class EmbeddingCacheWrapper<uint64_t>;
 template class EmbeddingCacheWrapper<long long>;
 
 }  // namespace HugeCTR
+
+template class ecache::EmbedCache<long long, long long>;
+template void ecache::callModifyKernel<long long, long long>(
+    typename ecache::EmbedCache<long long, long long>::ModifyEntry* pEntries, uint32_t nEntries,
+    uint32_t rowSizeInBytes, cudaStream_t stream);
+template void ecache::callModifyKernel<unsigned int, unsigned int>(
+    typename ecache::EmbedCache<unsigned int, unsigned int>::ModifyEntry* pEntries,
+    uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream);
+
+template void
+ecache::callCacheQueryUVM<long long, typename ecache::EmbedCache<long long, long long>::CacheData>(
+    const long long* d_keys, const size_t len, int8_t* d_values, const int8_t* d_table,
+    typename ecache::EmbedCache<long long, long long>::CacheData data, cudaStream_t stream,
+    uint32_t currTable, size_t stride);
+
+template void ecache::callCacheQueryUVM<
+    unsigned int, typename ecache::EmbedCache<unsigned int, unsigned int>::CacheData>(
+    const unsigned int* d_keys, const size_t len, int8_t* d_values, const int8_t* d_table,
+    typename ecache::EmbedCache<unsigned int, unsigned int>::CacheData data, cudaStream_t stream,
+    uint32_t currTable, size_t stride);
