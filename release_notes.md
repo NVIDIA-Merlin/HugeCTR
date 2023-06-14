@@ -1,6 +1,6 @@
 # Release Notes
 
-## What's New in Version 23.05
+## What's New in Version 23.06
 In this release, we have fixed issues and enhanced the code.
 
 + **3G Embedding Updates**:
@@ -130,7 +130,7 @@ In this release, we have fixed issues and enhanced the code.
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.3`.
-  Afterward, the library will use calendar versioning only, such as `v23.05`.
+  Afterward, the library will use calendar versioning only, such as `v23.06`.
   ```
 
 + **Support for BERT and Variants**:
@@ -212,7 +212,7 @@ The [HugeCTR Training and Inference with Remote File System Example](https://nvi
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.2`.
-  Afterward, the library will use calendar versioning only, such as `v23.05`.
+  Afterward, the library will use calendar versioning only, such as `v23.06`.
   ```
 
 + **Change to HPS with Redis or Kafka**:
