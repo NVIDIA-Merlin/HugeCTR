@@ -735,24 +735,24 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     std::vector<size_t> num_grad_length;
     for (int i = 0; i < this->num_lookups_; ++i) {
       int num_unique_key = 0;
-      auto target_id_space_iter =
-          std::find(unique_id_space_list.begin(), unique_id_space_list.end(), i);
-      if (target_id_space_iter != unique_id_space_list.end()) {
-        const auto idx = std::distance(unique_id_space_list.begin(), target_id_space_iter);
-        num_unique_key = num_unique_key_per_table[idx];
+      //auto target_id_space_iter =
+      //    std::find(unique_id_space_list.begin(), unique_id_space_list.end(), i);
+      //if (target_id_space_iter != unique_id_space_list.end()) {
+      //  const auto idx = std::distance(unique_id_space_list.begin(), target_id_space_iter);
+        num_unique_key = num_unique_key_per_table[i];
         num_unique_keys.push_back(num_unique_key);
-      }
+      //}
 
       Tensor* unique_key_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {num_unique_key}, &unique_key_tf));
       Tensor* grad_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i + this->num_lookups_,
                                                {num_unique_key, this->dimensions_[i]}, &grad_tf));
-      if (target_id_space_iter != unique_id_space_list.end()) {
+      //if (target_id_space_iter != unique_id_space_list.end()) {
         num_grad_length.push_back(grad_tf->NumElements());
         unique_key.push_back(sok::convert_tensor_core23<KeyType>(unique_key_tf, tensor_device_id));
         grad.push_back(sok::convert_tensor_core23<DType>(grad_tf, tensor_device_id));
-      }
+      //}
     }
 
     // Copy output

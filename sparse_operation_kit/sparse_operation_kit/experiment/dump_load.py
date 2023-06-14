@@ -48,7 +48,7 @@ opt_var_name_max_length = 32
 table_name_max_length = 256
 file_head_length = 296
 save_buffer_size_bytes = 1024 * 1024 * 1024  # 1Gb
-optimizer_names = ["SGD", "Adamax", "Adadelta", "Adagrad", "Ftrl"]
+optimizer_names = ["SGD", "Adamax", "Adadelta", "Adagrad", "Ftrl", "Adam"]
 
 
 class data_type_convert:
@@ -386,6 +386,16 @@ def check_optimizer_is_valid(optimizer, dump_vars):
 
 
 def activate_optimizer_state(optimizer, load_vars):
+    have_dynamic = False
+    for load_var in load_vars:
+        if isinstance(load_var, DynamicVariable):
+            have_dynamic = True
+            break
+    if have_dynamic and (
+        "sparse_operation_kit.experiment.optimizer.OptimizerWrapper" not in str(type(optimizer))
+    ):
+        raise ("load a dynamic variable but optimize is not sok OptimizerWrapper")
+
     optimizer._create_slots(load_vars)
 
 
@@ -401,9 +411,11 @@ def get_save_rounds(tensor_shape, tensor_data_size):
             np.floor(save_buffer_size_bytes / (embedding_length * tensor_data_size))
         )
         num_rounds = np.ceil(num_vector / tmp_num_vector).astype(np.int64)
-    num_rounds_tensor = tf.convert_to_tensor(num_rounds)
-    num_rounds_tensor = allreduce(num_rounds_tensor, "max")
-    return num_rounds_tensor.numpy(), tmp_num_vector
+    num_rounds_tensor = tf.convert_to_tensor([num_rounds])
+    # num_rounds_tensor = allreduce(num_rounds_tensor, "max")
+    num_rounds_tensor_all = allgather(num_rounds_tensor)
+    num_rounds_tensor_all = tf.math.reduce_max(num_rounds_tensor_all)
+    return num_rounds_tensor_all.numpy(), tmp_num_vector
 
 
 def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
@@ -889,6 +901,7 @@ def load_table_to_filesystem_static(var, optimizer, path):
         except:
             raise Exception("weight file(%s)'s weight is not same with sok variable" % weight_path)
         if len(optimizer_state_paths) > 0:
+            # activate_optimizer_state(optimizer, [var])
             for i, optimizer_state_path in enumerate(optimizer_state_paths):
                 _, _, _, tmp_data_index = read_file_head(optimizer_state_path)
                 tmp_tf_dtype = data_type_convert.get_tf_dtype_by_index(tmp_data_index)
@@ -929,6 +942,7 @@ def load_table_to_filesystem_static(var, optimizer, path):
                     "weight file(%s)'s weight is not same with sok variable" % weight_path
                 )
             if len(optimizer_state_paths) > 0:
+                # activate_optimizer_state(optimizer, [var])
                 for i, optimizer_state_path in enumerate(optimizer_state_paths):
                     _, _, _, tmp_data_index = read_file_head(optimizer_state_path)
                     tmp_tf_dtype = data_type_convert.get_tf_dtype_by_index(tmp_data_index)
@@ -1001,10 +1015,13 @@ def load_table_to_filesystem_dynamic(var, optimizer, path):
         mask_np = indice_np % global_gpu_num == gpu_id
         indice_np = indice_np[mask_np]
         weight_np = weight_np[mask_np]
+
         indice = tf.convert_to_tensor(indice_np, dtype=key_tf_dtype)
         weight = tf.convert_to_tensor(weight_np, dtype=emb_tf_dtype)
         assign(var, indice, weight)
         if len(optimizer_state_paths) > 0:
+
+            # activate_optimizer_state(optimizer, [var])
             for i, optimizer_state_path in enumerate(optimizer_state_paths):
                 _, _, _, tmp_data_index = read_file_head(optimizer_state_path)
                 tmp_tf_dtype = data_type_convert.get_tf_dtype_by_index(tmp_data_index)
@@ -1033,6 +1050,7 @@ def load_table_to_filesystem_dynamic(var, optimizer, path):
             weight = tf.convert_to_tensor(weight_np, dtype=emb_tf_dtype)
             assign(var, indice, weight)
             if len(optimizer_state_paths) > 0:
+                # activate_optimizer_state(optimizer, [var])
                 for i, optimizer_state_path in enumerate(optimizer_state_paths):
                     _, _, _, tmp_data_index = read_file_head(optimizer_state_path)
                     tmp_tf_dtype = data_type_convert.get_tf_dtype_by_index(tmp_data_index)
@@ -1087,10 +1105,13 @@ def load_table(path, load_vars, optimizer):
             raise Exception(
                 "the type of your input optimizer is not tf.optimizers.Optimizer or sok.experiment.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
             )
-    activate_optimizer_state(optimizer, load_vars)
+        activate_optimizer_state(optimizer, load_vars)
     for var in load_vars:
         load_per_table(var, optimizer, path)
 
+    ar_flag_np = np.arange(1)
+    ar_flag = tf.convert_to_tensor(ar_flag_np, dtype=tf.int32)
+    _ = allreduce(ar_flag, op="sum")
     return
 
 
@@ -1124,7 +1145,8 @@ def dump(path, dump_vars, optimizer=None):
     Dump the embedding tables into one folder , will generate key and value file per table
     table name prefix is same as variable name in tensorflow
 
-    Now is only support "SGD","Adamax","Adadelta","Adagrad","Ftrl" optimizers
+    Now is only support "SGD","Adamax","Adadelta","Adagrad","Ftrl","Adam" optimizers
+    Note: for Adam optimizers , it functions in the same way as LazyAdam in SOK, rather than tensorflow's Adam
     Parameters
     ----------
     path: weight file folder
@@ -1171,7 +1193,8 @@ def load(path, load_vars, optimizer=None):
     Load the embedding tables from sok weight folder
     the sok table name must be the same with the weight file prefix
 
-    Now is only support "SGD","Adamax","Adadelta","Adagrad","Ftrl" optimizers
+    Now is only support "SGD","Adamax","Adadelta","Adagrad","Ftrl","Adam" optimizers
+    Note: for Adam optimizers , it functions in the same way as LazyAdam in SOK, rather than tensorflow's Adam
     Parameters
     ----------
     path: weight file folder

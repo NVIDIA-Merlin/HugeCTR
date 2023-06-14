@@ -796,7 +796,7 @@ void cal_unique_key_table_range(const std::shared_ptr<CoreResourceManager> &core
                                 core23::Tensor &unique_table_ranges, int table_num) {
   HugeCTR::CudaDeviceContext ctx(core->get_device_id());
   auto stream = core->get_local_gpu()->get_stream();
-  const int block_size = 256;
+  const int block_size = 1024;
   const int grid_size =
       core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
   HCTR_LIB_THROW(
@@ -875,7 +875,8 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   const auto &d_table_id_list = wgrad.attr.get_unique_table_ids();
   table_id_list->resize(d_table_id_list.num_elements());
-  core23::copy_sync(*table_id_list, d_table_id_list);
+  // core23::copy_sync(*table_id_list, d_table_id_list);
+  std::iota(table_id_list->begin(), table_id_list->end(), 0);
 
   *ret_continous_unique_key = wgrad.unique_keys;
   *ret_continous_emb_vec = wgrad.data;
