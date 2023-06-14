@@ -35,7 +35,7 @@ struct BufferParams {
 
   BufferChannel channel = GetRandomBufferChannel();
   bool unitary = true;
-  CustomFactory custom_factory;
+  static CustomFactory custom_factory;
 };
 
 }  // namespace core23

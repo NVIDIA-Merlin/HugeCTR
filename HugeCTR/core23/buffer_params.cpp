@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,13 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <memory>
+#include <core23/buffer_factory.hpp>
+#include <core23/buffer_params.hpp>
 
 namespace HugeCTR {
 
 namespace core23 {
 
-class Allocator;
-class Device;
-class BufferChannel;
-class Buffer;
-struct BufferParams;
-
-[[nodiscard]] std::shared_ptr<Buffer> CreateBuffer(BufferParams buffer_params, const Device& device,
-                                                   std::unique_ptr<Allocator> allocator);
-
+BufferParams::CustomFactory BufferParams::custom_factory = nullptr;
 }  // namespace core23
-
 }  // namespace HugeCTR

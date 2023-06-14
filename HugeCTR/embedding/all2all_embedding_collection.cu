@@ -107,7 +107,6 @@ __global__ void sp_weight_sum_kernel(const offset_t *row_offsets, const dtype *s
 __global__ void get_unique_valid_range(const int *__restrict__ unique_key_table_ids,
                                        const uint64_t *num_unique_key, int table_num,
                                        uint32_t *__restrict__ unique_table_range) {
-  CUDA_1D_KERNEL_LOOP(tid, table_num + 1) { unique_table_range[tid] = 0; }
   uint64_t key_num = *num_unique_key;
   CUDA_1D_KERNEL_LOOP(tid, key_num) {
     if (tid > 0 && unique_key_table_ids[tid] != unique_key_table_ids[tid - 1]) {
@@ -800,6 +799,8 @@ void cal_unique_key_table_range(const std::shared_ptr<CoreResourceManager> &core
   const int block_size = 256;
   const int grid_size =
       core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(unique_table_ranges.data(), 0, unique_table_ranges.num_bytes(), stream));
   get_unique_valid_range<<<block_size, grid_size, 0, stream>>>(
       unique_table_ids.data<int>(), num_unique_key.data<uint64_t>(), table_num,
       unique_table_ranges.data<uint32_t>());

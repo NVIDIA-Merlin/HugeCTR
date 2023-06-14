@@ -28,6 +28,8 @@
 #include "lookup/impl/embedding_collection.hpp"
 #include "lookup/impl/embedding_collection_adapter.h"
 #include "lookup/impl/hotness_calculate.h"
+#include "lookup/impl/core_impl/core23_allocator.hpp"
+
 // clang-format on
 
 namespace stream_executor {
@@ -35,6 +37,19 @@ namespace gpu {
 cudaStream_t AsGpuStreamValue(Stream* stream);
 }  // namespace gpu
 }  // namespace stream_executor
+
+namespace tf_internal {
+
+int set_default_alloctor() {
+  core23::AllocatorParams::default_allocator_factory = [](const auto& params, const auto& device) {
+    return std::unique_ptr<core23::Allocator>(new TFAllocatorImpl(device));
+  };
+  core23::BufferParams::custom_factory = TFGetBuffer;
+  return 0;
+}
+
+static int register_default_allocator = set_default_alloctor();
+}  // namespace tf_internal
 
 namespace tensorflow {
 
@@ -68,7 +83,7 @@ class EmbeddingCollectionBase : public OpKernel {
                                                         /*num_rank*/ num_ranks_,
                                                         /*id_in_local_rank*/ id_in_local_rank_,
                                                         /*num_gpu_per_rank*/ num_gpu_per_rank_,
-               kernel_params_);
+                                                        kernel_params_);
   }
 
   void make_shard_matrix(std::vector<std::vector<int>>& shard_matrix) {
@@ -261,7 +276,7 @@ class PreprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTyp
         sok::convert_tensor_core23<DType>(sp_weight_send_buffer_tf, tensor_device_id));
 
     // Do forward
-    //copy all the key and row length in one buffer
+    // copy all the key and row length in one buffer
     ::embedding::tf::swizzle_key::sparse_forward_per_gpu(this->make_core_resource(ctx), keys_sok,
                                                          row_lengths_sok, key_send_buffer_sok,
                                                          row_length_send_buffer_sok);
@@ -407,7 +422,7 @@ class LookupFowardBase : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
        There are some steps in this op:
        1.reorder key to feature major
        2.select keys ,the key need be stored in this gpu variable
-       3.gpu variable lookup selected keys first address 
+       3.gpu variable lookup selected keys first address
        4.copy embedding vector and combine them when embedding vector lookup in same sample.
     */
     int tensor_device_id = tf_backend->get_device_id();
@@ -650,7 +665,8 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
        There some steps in this OP:
        1. backward index calculation:
           (1) get wgrad index
-          (2) sort pair , we need the same keys are lined up consecutively , so we reduce wgrad is high performance
+          (2) sort pair , we need the same keys are lined up consecutively , so we reduce wgrad is
+       high performance
           (3) unique key ,we need know which key's wgrad should be output.
        2. wgrad reduce , use average reduce all the same key wgrad.
     */
@@ -910,7 +926,8 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
   void Compute(OpKernelContext* ctx) override {
     /*
        input is dense layer wgrad , we can assume every gpu maybe need this wgrad ,
-       so we need copy the grad to all2all buffer , the all2all buffer then can send the wgrad to every other gpu.
+       so we need copy the grad to all2all buffer , the all2all buffer then can send the wgrad to
+       every other gpu.
     */
     // Prepare input
     int batch_size = -1;

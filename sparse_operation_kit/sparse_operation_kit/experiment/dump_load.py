@@ -592,7 +592,6 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
             tmp_indice = indice[start_offset:end_offset]
             tmp_weight = weight[start_offset:end_offset, :]
             if global_gpu_num > 1:
-
                 tmp_indice = allgather(tmp_indice)
                 tmp_weight = allgather(tmp_weight)
             if gpu_id == 0:
@@ -672,7 +671,6 @@ def save_table_to_filesystem_dynamic(var, optimizer, path, have_states):
 
         total_indice = allgather(indice)
         if gpu_id == 0:
-
             if total_indice.shape[0] == 0:
                 raise Exception("dynamic table don't have value in it , table_name:", table_name)
             sok_var_info.key_type = data_type_convert.convert_to_int(indice.dtype)
