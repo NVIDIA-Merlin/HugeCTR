@@ -101,8 +101,24 @@ class OptimizerWrapperV1(object):
             return (var.op.graph, var.op.name)
         return var._unique_id
 
-    def _create_slots(self, var):
-        self._optimizer._create_slots(var)
+    def _create_slots(self, vars):
+        for var in vars:
+            if isinstance(var, DynamicVariable):
+                self._create_slots_dynamic(var)
+            else:
+                self._optimizer._create_slots(var)
+
+    def _create_slots_dynamic(self, var):
+        key = self._var_key(var)
+        for slot_name in self._initial_vals:
+            if key not in self._optimizer._slots[slot_name]:
+                slot = DynamicVariable(
+                    dimension=v.dimension,
+                    initializer=self._initial_vals[slot_name],
+                    name="DynamicSlot",
+                    trainable=False,
+                )
+                self._optimizer._slots[slot_name][key] = slot
 
     def get_slot_names(self):
         return self._optimizer.get_slot_names()
@@ -194,8 +210,26 @@ class OptimizerWrapperV2(object):
     def lr(self):
         return self._optimizer.lr
 
-    def _create_slots(self, var):
-        self._optimizer._create_slots(var)
+    def _create_slots(self, vars):
+        for tmp_var in vars:
+            if isinstance(tmp_var, DynamicVariable):
+                self._create_slots_dynamic(tmp_var)
+            else:
+                self._optimizer._create_slots(tmp_var)
+
+    def _create_slots_dynamic(self, var):
+        key = self._var_key(var)
+        if key not in self._optimizer._slots:
+            self._optimizer._slots[key] = {}
+        for slot_name in self._initial_vals:
+            if slot_name not in self._optimizer._slots[key]:
+                slot = DynamicVariable(
+                    dimension=var.dimension,
+                    initializer=self._initial_vals[slot_name],
+                    name="DynamicSlot",
+                    trainable=False,
+                )
+                self._optimizer._slots[key][slot_name] = slot
 
     def _var_key(self, var):
         if hasattr(var, "_distributed_container"):

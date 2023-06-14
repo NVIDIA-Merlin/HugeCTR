@@ -140,9 +140,9 @@ if __name__ == "__main__":
         sok_var_index_nps_raw = []
         sok_var_nps_new = []
         sok_var_index_nps_new = []
-
         for sok_var in sok_vars:
             ex_indices, ex_values = sok.export(sok_var)
+
             sok_var_nps_raw.append(ex_values.numpy())
             sok_var_index_nps_raw.append(ex_indices.numpy())
         sok.dump("./weight", sok_vars, sok_optimizer)
@@ -186,7 +186,8 @@ if __name__ == "__main__":
             remap_indices = var_sorted[var_pos]
             tmp_sok_var_nps_raw = sok_var_nps_raw[i][remap_indices, :]
 
-            assert ((sok_var_nps_new[i] - tmp_sok_var_nps_raw) < 1e-5).all()
+            if hvd.rank() == sok_vars[i].target_gpu:
+                assert ((sok_var_nps_new[i] - tmp_sok_var_nps_raw) < 1e-5).all()
 
         if have_state:
             for i, tmp_slot_states_list in enumerate(slot_states_list_new):
