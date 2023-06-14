@@ -17,9 +17,9 @@
 #include <core23/allocator_factory.hpp>
 #include <core23/buffer_factory.hpp>
 #include <core23/buffer_params.hpp>
-#include <core23/details/buffer_factory_impl.hpp>
 #include <core23/details/confederal_buffer.hpp>
 #include <core23/details/unitary_buffer.hpp>
+#include <core23/logger.hpp>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -37,20 +37,31 @@ std::unordered_map<Device, std::unordered_set<BufferChannel>> g_buffers;
 
 std::shared_ptr<Buffer> GetBuffer(const BufferParams& buffer_params, const Device& device,
                                   std::unique_ptr<Allocator> allocator) {
-  auto p_dev = g_buffers.insert({device, {}});
-  bool should_create = p_dev.second;
+  std::shared_ptr<Buffer> buffer;
+  if (BufferParams::custom_factory) {
+    buffer = BufferParams::custom_factory(buffer_params, device, std::move(allocator));
+  } else {
+    auto p_dev = g_buffers.insert({device, {}});
 
-  auto& channels = p_dev.first->second;
-  auto p_ch = channels.insert(buffer_params.channel);
-  auto& channel = *p_ch.first;
-  should_create = (p_ch.second || !channel.has_buffer({}));
+    auto& channels = p_dev.first->second;
+    auto p_ch = channels.insert(buffer_params.channel);
+    auto& channel = *p_ch.first;
+    bool should_create = (p_ch.second || !channel.has_buffer({}));
 
-  std::shared_ptr<Buffer> buffer = nullptr;
-  if (should_create) {
-    buffer = CreateBuffer(buffer_params, device, std::move(allocator));
-    channel.set_buffer(buffer, {});
+    if (should_create) {
+      HCTR_THROW_IF(allocator == nullptr, HugeCTR::Error_t::IllegalCall,
+                    "A Buffer must be created but no allocator is specified.");
+
+      if (buffer_params.unitary) {
+        buffer = std::make_shared<UnitaryBuffer>(device, std::move(allocator));
+      } else {
+        buffer = std::make_shared<ConfederalBuffer>(device, std::move(allocator));
+      }
+      channel.set_buffer(buffer, {});
+    }
+    buffer = channel.get_buffer({});
   }
-  return channel.get_buffer({});
+  return buffer;
 }
 
 bool AllocateBuffers(const Device& device) {

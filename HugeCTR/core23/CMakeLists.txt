@@ -24,6 +24,7 @@ buffer_client.cpp
 buffer_channel.cpp
 buffer_channel_helpers.cpp
 buffer_factory.cpp
+buffer_params.cpp
 device.cpp
 device_guard.cpp
 device_type.cpp
@@ -42,7 +43,6 @@ details/unitary_buffer.cpp
 details/confederal_buffer.cpp
 details/tensor_impl.cpp
 details/tensor_helpers.cpp
-details/buffer_factory_impl.cpp
 details/host_launch_helpers.cpp
 tensor.cpp
 tensor_operations.cpp

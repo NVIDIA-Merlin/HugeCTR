@@ -31,8 +31,6 @@ class ConfederalBuffer final : public Buffer {
   ConfederalBuffer(const Device& device, std::unique_ptr<Allocator> allocator);
   ~ConfederalBuffer() override;
 
-  bool subscribable() const;
-
  private:
   using ClientRequirements = typename Buffer::ClientRequirements;
 

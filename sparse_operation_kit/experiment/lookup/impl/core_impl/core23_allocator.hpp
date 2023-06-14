@@ -34,6 +34,8 @@
 #include "HugeCTR/core23/device.hpp"
 #include "HugeCTR/core23/allocator.hpp"
 #include "HugeCTR/core23/allocator_params.hpp"
+#include "HugeCTR/core23/buffer_params.hpp"
+#include "HugeCTR/core23/details/confederal_buffer.hpp"
 #include "HugeCTR/core23/cuda_stream.hpp"
 
 namespace tf_internal {
@@ -165,13 +167,9 @@ class TFAllocatorImpl  : public core23::Allocator{
   GPUOptions gpu_option_;
 };
 
-
-int set_default_alloctor(){
-   core23::AllocatorParams::default_allocator_factory = [](const auto& params, const auto& device) {
-    return std::unique_ptr<core23::Allocator>(new TFAllocatorImpl(device));
-  };
-  return 0;
+std::shared_ptr<core23::Buffer> TFGetBuffer(const core23::BufferParams& buffer_params, const core23::Device& device,
+                                  std::unique_ptr<core23::Allocator> allocator) {
+  return std::make_shared<core23::ConfederalBuffer>(device, std::move(allocator));
 }
 
-static int register_default_allocator = set_default_alloctor();
 }  // namespace tf_internal
