@@ -51,6 +51,7 @@ class VariableFactory {
   static std::shared_ptr<VariableBase<KeyType, ValueType>> create(int64_t rows, int64_t cols,
                                                                   const std::string &type,
                                                                   const std::string &initializer,
+                                                                  const std::string &config,
                                                                   cudaStream_t stream = 0);
 };
 

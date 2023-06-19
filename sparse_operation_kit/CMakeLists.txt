@@ -176,6 +176,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/HugeCTR/embedding
     ${PROJECT_SOURCE_DIR}/HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/third_party/json/include
+    ${PROJECT_SOURCE_DIR}/third_party/HierarchicalKV/include
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
@@ -194,6 +195,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/../HugeCTR/embedding
     ${PROJECT_SOURCE_DIR}/../HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/../third_party/json/include
+    ${PROJECT_SOURCE_DIR}/../third_party/HierarchicalKV/include
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}

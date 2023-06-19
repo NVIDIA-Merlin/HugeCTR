@@ -20,10 +20,12 @@ namespace tensorflow {
 
 template <typename KeyType, typename ValueType>
 DummyVar<KeyType, ValueType>::DummyVar(int64_t rows, int64_t cols, const std::string& type,
-                                       const std::string& initializer, const std::string& container,
-                                       const std::string& name, cudaStream_t stream)
+                                       const std::string& initializer, const std::string& config,
+                                       const std::string& container, const std::string& name,
+                                       cudaStream_t stream)
     : var_(nullptr), type_(type), container_(container), name_(name) {
-  var_ = sok::VariableFactory::create<KeyType, ValueType>(rows, cols, type, initializer, stream);
+  var_ = sok::VariableFactory::create<KeyType, ValueType>(rows, cols, type, initializer, config,
+                                                          stream);
 }
 
 template <typename KeyType, typename ValueType>

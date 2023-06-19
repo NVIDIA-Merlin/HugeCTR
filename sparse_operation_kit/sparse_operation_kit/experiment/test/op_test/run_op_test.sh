@@ -4,12 +4,18 @@ set -e
 cd dummy_var
 python dummy_var_handle_test.py
 python dummy_var_initialize_test.py
+python dummy_var_initialize_hkv_test.py
 python dummy_var_shape_test.py
 python dummy_var_assign_test.py
+python dummy_var_assign_hkv_test.py
 python dummy_var_export_test.py
+python dummy_var_export_hkv_test.py
 python dummy_var_sparse_read_test.py
+python dummy_var_sparse_read_hkv_test.py
 python dummy_var_scatter_add_test.py
+python dummy_var_scatter_add_hkv_test.py
 python dummy_var_scatter_update_test.py
+python dummy_var_scatter_update_hkv_test.py
 cd ..
 
 # -------- embedding collection -------------- #

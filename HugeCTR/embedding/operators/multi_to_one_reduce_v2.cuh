@@ -260,41 +260,41 @@ void multi_to_one_reduce_v2(CopyDesc1 copy_desc1, CopyDesc2 copy_desc2,
   int block_size = WGRAD_REDUCE_BLOCK_SIZE;
 
   if (max_ev_length <= 128) {
-    if (grid_size > 1) {
-      multi_to_one_reduce_vec4_v2<CopyDesc1, 1, kWarpSize><<<grid_size, block_size, 0, stream>>>(
-          copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
-      int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
-      int second_local_sample = EV_NUM;
-      get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
-                                 WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
-                                 second_stage_key_num, &second_grid_size, &second_local_sample, 1);
-      if (second_local_sample < 8) second_local_sample = 8;
-      multi_to_one_reduce_final_v2<CopyDesc2, 1, kWarpSize>
-          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
+    // if (grid_size > 1) {
+    multi_to_one_reduce_vec4_v2<CopyDesc1, 1, kWarpSize><<<grid_size, block_size, 0, stream>>>(
+        copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
+    int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+    int second_local_sample = EV_NUM;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
+                               WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
+                               second_stage_key_num, &second_grid_size, &second_local_sample, 1);
+    if (second_local_sample < 8) second_local_sample = 8;
+    multi_to_one_reduce_final_v2<CopyDesc2, 1, kWarpSize>
+        <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
 
-    } else {
-      multi_to_one_reduce_final_v2<CopyDesc1, 1, kWarpSize>
-          <<<1, block_size, 0, stream>>>(copy_desc1);
-    }
+    //} else {
+    //  multi_to_one_reduce_final_v2<CopyDesc1, 1, kWarpSize>
+    //      <<<1, block_size, 0, stream>>>(copy_desc1);
+    //}
 
   } else if (max_ev_length <= 256) {
-    if (grid_size > 1) {
-      multi_to_one_reduce_vec4_v2<CopyDesc1, 2, kWarpSize><<<grid_size, block_size, 0, stream>>>(
-          copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
+    // if (grid_size > 1) {
+    multi_to_one_reduce_vec4_v2<CopyDesc1, 2, kWarpSize><<<grid_size, block_size, 0, stream>>>(
+        copy_desc1, partial_buffer, partial_dst_ids, partial_ev_length, max_ev_length);
 
-      int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
-      int second_local_sample = EV_NUM;
-      get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
-                                 WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
-                                 second_stage_key_num, &second_grid_size, &second_local_sample, 1);
-      if (second_local_sample < 8) second_local_sample = 8;
-      multi_to_one_reduce_final_v2<CopyDesc2, 2, kWarpSize>
-          <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
+    int second_grid_size = (second_stage_key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+    int second_local_sample = EV_NUM;
+    get_kernel_config_use_warp(kernel_params.num_sms, kernel_params.max_thread_per_sm,
+                               WGRAD_REDUCE_BLOCK_SIZE, kernel_params.warp_size,
+                               second_stage_key_num, &second_grid_size, &second_local_sample, 1);
+    if (second_local_sample < 8) second_local_sample = 8;
+    multi_to_one_reduce_final_v2<CopyDesc2, 2, kWarpSize>
+        <<<second_grid_size, block_size, 0, stream>>>(copy_desc2, second_local_sample);
 
-    } else {
-      multi_to_one_reduce_final_v2<CopyDesc1, 2, kWarpSize>
-          <<<1, block_size, 0, stream>>>(copy_desc1);
-    }
+    //} else {
+    //  multi_to_one_reduce_final_v2<CopyDesc1, 2, kWarpSize>
+    //      <<<1, block_size, 0, stream>>>(copy_desc1);
+    //}
 
   } else if (max_ev_length <= 1024) {
     // multi_to_one_reduce_large_ev<SRC_TENSOR, DST_TENSOR, DST_T, kWarpSize>

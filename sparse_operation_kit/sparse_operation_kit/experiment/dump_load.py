@@ -1020,7 +1020,6 @@ def load_table_to_filesystem_dynamic(var, optimizer, path):
         weight = tf.convert_to_tensor(weight_np, dtype=emb_tf_dtype)
         assign(var, indice, weight)
         if len(optimizer_state_paths) > 0:
-
             # activate_optimizer_state(optimizer, [var])
             for i, optimizer_state_path in enumerate(optimizer_state_paths):
                 _, _, _, tmp_data_index = read_file_head(optimizer_state_path)

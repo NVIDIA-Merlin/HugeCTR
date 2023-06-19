@@ -136,6 +136,8 @@ class DummyVarInitializeOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("var_type", &var_type_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("key_type", &key_type_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("dtype", &dtype_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("config", &config_));
+
   }
 
   void Compute(OpKernelContext* ctx) override {
@@ -179,7 +181,7 @@ class DummyVarInitializeOp : public OpKernel {
     // Create DummyVar
     // TODO: maybe use LookupOrCreateResource is better?
     DummyVar<KeyType, ValueType>* var = new DummyVar<KeyType, ValueType>(
-        rows, cols, var_type_, initializer, handle.container(), handle.name(), stream);
+        rows, cols, var_type_, initializer, config_, handle.container(), handle.name(), stream);
     OP_REQUIRES_OK(ctx, CreateResource<DummyVar<KeyType, ValueType>>(ctx, handle, var));
 
     // set the initialize flag
@@ -195,6 +197,7 @@ class DummyVarInitializeOp : public OpKernel {
 
  private:
   std::string var_type_;
+  std::string config_;
   mutex mu_;
   std::atomic<bool> initialized_{false};
   DataType key_type_;

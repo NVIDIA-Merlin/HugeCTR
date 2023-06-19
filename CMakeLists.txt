@@ -234,6 +234,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
   ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table
   ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/cuCollections/include
+  ${PROJECT_SOURCE_DIR}/third_party/HierarchicalKV/include
   ${PROJECT_SOURCE_DIR}/third_party/embedding_cache/include
 
   ${CUDNN_INC_PATHS}

@@ -24,6 +24,8 @@ from tensorflow.python.ops import resource_variable_ops
 from sparse_operation_kit.experiment import raw_ops as dynamic_variable_ops
 from sparse_operation_kit.experiment.communication import num_gpus
 
+import json
+
 dynamic_variable_count = 0
 
 
@@ -43,6 +45,10 @@ class DynamicVariable(ResourceVariable):
         a string to specify how to initialize this variable.
         Currently, only support "random" or string of a float
         value(meaning const initializer). Default value is "random".
+
+    var_type: string
+        a string to specify to use DET or HKV as the backend.
+        If use HKV as the backend, only support tf.int64 as key_type
 
     key_type: dtype
         specify the data type of indices. Unlike the static variable of
@@ -85,12 +91,16 @@ class DynamicVariable(ResourceVariable):
         key_type=None,
         dtype=None,
         mode=None,
+        **kwargs
     ):
         self._key_type = key_type if key_type is not None else tf.int64
         self._handle_dtype = dtype if dtype is not None else tf.float32
         self._dimension = dimension
         self._indices = None
         self._mode = mode
+        self._config = json.dumps(kwargs)
+        if var_type == "hybrid" and self._key_type != tf.int64:
+            raise NotImplementedError("only key_type tf.int64 is supported in HKV backend")
         if name == None:
             global dynamic_variable_count
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
@@ -118,7 +128,7 @@ class DynamicVariable(ResourceVariable):
                 with ops.NullContextmanager():
                     shape = [None, dimension]
                     initializer = "" if initializer is None else initializer
-                    var_type = "dynamic" if var_type is None else var_type
+                    var_type = "hbm" if var_type is None else var_type
                     handle = dynamic_variable_ops.dummy_var_handle(
                         container="DummyVariableContainer",
                         shared_name=self._dummy_name,
@@ -134,6 +144,7 @@ class DynamicVariable(ResourceVariable):
                             unique_name=self._dummy_name,
                             key_type=self._key_type,
                             dtype=self._handle_dtype,
+                            config=self._config,
                         )
                     else:
                         with tf.control_dependencies([initializer._initializer_op]):
@@ -471,4 +482,5 @@ def assign(var, indices, values):
     variable: sok.DynamicVariable
     """
     if isinstance(var, DynamicVariable):
+        tf.cast(indices, var._key_type)
         return dynamic_variable_ops.dummy_var_assign(var.handle, indices, values)

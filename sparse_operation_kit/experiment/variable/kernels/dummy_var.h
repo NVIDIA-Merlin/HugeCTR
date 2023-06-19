@@ -42,7 +42,8 @@ template <typename KeyType, typename ValueType>
 class DummyVar : public ResourceBase {
  public:
   DummyVar(int64_t rows, int64_t cols, const std::string &type, const std::string &initializer,
-           const std::string &container, const std::string &name, cudaStream_t stream);
+           const std::string &config, const std::string &container, const std::string &name,
+           cudaStream_t stream);
   ~DummyVar() = default;
 
   std::string DebugString() const override;

@@ -498,7 +498,6 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
       CompressOffset(core, meta.num_local_lookup_ + 1, embedding_input.bucket_range.data_type());
   core23::Tensor num_key_per_lookup_offset;
   compress_offset_.compute(embedding_input.bucket_range, batch_size, &num_key_per_lookup_offset);
-
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   core23::Tensor embedding_vec = core23::init_tensor_list<float>(

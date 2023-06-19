@@ -72,6 +72,7 @@ REGISTER_OP("DummyVarInitialize")
     .Attr("unique_name: string")
     .Attr("key_type: {int32, int64} = DT_INT64")
     .Attr("dtype: {float32} = DT_FLOAT")
+    .Attr("config: string = '{}'")
     .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
 REGISTER_OP("DummyVarShape")

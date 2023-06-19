@@ -26,7 +26,7 @@ def test():
     sok.raw_ops.dummy_var_initialize(
         handle,
         initializer=[2.71828],
-        var_type="",
+        var_type="hbm",
         unique_name="",
         key_type=tf.int64,
         dtype=tf.float32,
