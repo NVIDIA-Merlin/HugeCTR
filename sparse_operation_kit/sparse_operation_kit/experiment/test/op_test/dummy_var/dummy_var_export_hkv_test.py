@@ -25,22 +25,23 @@ def test():
     )
     sok.raw_ops.dummy_var_initialize(
         handle,
-        initializer=[2.71828],
-        var_type="hbm",
+        initializer="",
+        var_type="hybrid",
         unique_name="",
         key_type=tf.int64,
         dtype=tf.float32,
+        config='{"init_capacity":1048576,"max_capacity":1048576}',
     )
-    indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
+    indices = tf.convert_to_tensor([0, 1, 2], dtype=tf.int64)
     embedding_vector = sok.raw_ops.dummy_var_sparse_read(handle, indices)
-    assert embedding_vector.shape[0] == 3
-    assert embedding_vector.shape[1] == 128
-    err = tf.reduce_mean((embedding_vector - 2.71828) ** 2)
+    indices, values = sok.raw_ops.dummy_var_export(handle, key_type=tf.int64, dtype=tf.float32)
+    embedding_vector = tf.nn.embedding_lookup(embedding_vector, indices)
+    err = tf.reduce_mean((embedding_vector - values) ** 2)
     assert err < 1e-8
 
 
 if __name__ == "__main__":
-    op_name = "dummy_var_sparse_read"
+    op_name = "dummy_var_export"
     if not hasattr(sok.raw_ops, op_name):
         raise RuntimeError("There is no op called " + op_name)
 

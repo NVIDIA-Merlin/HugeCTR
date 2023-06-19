@@ -26,10 +26,11 @@ def test():
     sok.raw_ops.dummy_var_initialize(
         handle,
         initializer=[2.71828],
-        var_type="",
+        var_type="hybrid",
         unique_name="",
         key_type=tf.int64,
         dtype=tf.float32,
+        config='{"init_capacity":1048576,"max_capacity":1048576}',
     )
     indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
     embedding_vector = sok.raw_ops.dummy_var_sparse_read(handle, indices)

@@ -33,14 +33,16 @@ def test():
     )
     indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
     embedding_vector = sok.raw_ops.dummy_var_sparse_read(handle, indices)
+    sok.raw_ops.dummy_var_scatter_update(handle, indices, embedding_vector - 1)
+    embedding_vector = sok.raw_ops.dummy_var_sparse_read(handle, indices)
     assert embedding_vector.shape[0] == 3
     assert embedding_vector.shape[1] == 128
-    err = tf.reduce_mean((embedding_vector - 2.71828) ** 2)
+    err = tf.reduce_mean((embedding_vector - 2.71828 + 1) ** 2)
     assert err < 1e-8
 
 
 if __name__ == "__main__":
-    op_name = "dummy_var_sparse_read"
+    op_name = "dummy_var_scatter_update"
     if not hasattr(sok.raw_ops, op_name):
         raise RuntimeError("There is no op called " + op_name)
 

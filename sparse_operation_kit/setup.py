@@ -89,6 +89,7 @@ def get_cmake_args():
 os.system("cp -r ../HugeCTR ./")
 os.system("mkdir third_party")
 os.system("cp -r ../third_party/json ./third_party/")
+os.system("cp -r ../third_party/HierarchicalKV ./third_party/")
 
 
 setup(

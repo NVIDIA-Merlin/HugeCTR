@@ -38,3 +38,6 @@
 [submodule "third_party/hadoop"]
 	path = third_party/hadoop
 	url = https://github.com/apache/hadoop.git
+[submodule "third_party/HierarchicalKV"]
+	path = third_party/HierarchicalKV
+	url = https://github.com/NVIDIA-Merlin/HierarchicalKV.git

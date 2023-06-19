@@ -24,7 +24,7 @@ def test():
         shared_name="Var_0", shape=[None, 128], key_type=tf.int64, dtype=tf.float32
     )
     sok.raw_ops.dummy_var_initialize(
-        handle, initializer="", var_type="", unique_name="", key_type=tf.int64, dtype=tf.float32
+        handle, initializer="", var_type="hbm", unique_name="", key_type=tf.int64, dtype=tf.float32
     )
     indices = tf.convert_to_tensor([0, 1, 2], dtype=tf.int64)
     embedding_vector = sok.raw_ops.dummy_var_sparse_read(handle, indices)
