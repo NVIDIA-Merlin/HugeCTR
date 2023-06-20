@@ -716,7 +716,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (has_key_(j_mlp_param, "activations")) {
           auto j_acts = get_json(j_mlp_param, "activations");
           assert(j_acts.is_array());
-          for (const auto j_act : j_acts) {
+          for (const auto& j_act : j_acts) {
             auto act_name = j_act.get<std::string>();
             Activation_t act_type;
             if (find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
