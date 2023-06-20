@@ -769,29 +769,21 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   // If have volatile and persistant database.
   if (volatile_db_ && persistent_db_) {
     // Do a sequential lookup in the volatile DB, and remember the missing keys.
-    std::vector<char> missing(length, 0);
+    constexpr size_t invalid_index{std::numeric_limits<size_t>::max()};
+    std::vector<size_t> indices(length, invalid_index);
 
     start = profiler::start();
     hit_count += volatile_db_->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
                                      reinterpret_cast<char*>(h_vectors), expected_value_size,
-                                     [&](const size_t index) { missing[index] = 1; });
+                                     [&](const size_t index) { indices[index] = index; });
     hps_profiler->end(start, "Lookup the embedding key from VDB");
 
-    const size_t num_missing{std::accumulate(missing.begin(), missing.end(), UINT64_C(0),
-                                             [](const size_t n, const char m) { return n + m; })};
+    HCTR_LOG_C(TRACE, WORLD, volatile_db_->get_name(), ": ", hit_count, " hits, ",
+               length - hit_count, " missing!\n");
 
-    HCTR_LOG_C(TRACE, WORLD, volatile_db_->get_name(), ": ", hit_count, " hits, ", num_missing,
-               " missing!\n");
-
-    if (num_missing) {
-      // Convert flags to list of indices.
-      std::vector<size_t> indices;
-      indices.reserve(num_missing);
-      for (auto it{missing.begin()}; it != missing.end(); ++it) {
-        if (*it) {
-          indices.emplace_back(it - missing.begin());
-        }
-      }
+    if (hit_count != length) {
+      // Compress indices (Erase-remove idiom).
+      indices.erase(std::remove(indices.begin(), indices.end(), invalid_index), indices.end());
 
       // Do a sparse lookup in the persisent DB, to fill gaps and set others to default.
       start = profiler::start();
@@ -806,20 +798,19 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
       // Elevate KV pairs if desired and possible.
       if (volatile_db_cache_missed_embeddings_) {
         // If the layer 0 cache should be optimized as we go, elevate missed keys.
-        std::shared_ptr<std::vector<TypeHashKey>> keys_to_elevate;
-        keys_to_elevate->reserve(indices.size());
+        auto keys_to_elevate{std::make_shared<std::vector<TypeHashKey>>(indices.size())};
+        auto values_to_elevate{
+            std::make_shared<std::vector<float>>(indices.size() * embedding_size)};
 
-        std::shared_ptr<std::vector<float>> values_to_elevate;
-        values_to_elevate->reserve(indices.size() * embedding_size);
+        start = profiler::start();
+        for (size_t i{}; i != indices.size(); ++i) {
+          const size_t index{indices[i]};
 
-        for (const size_t index : indices) {
-          keys_to_elevate->emplace_back(reinterpret_cast<const TypeHashKey*>(h_keys)[index]);
-          const float* const value{&h_vectors[index * embedding_size]};
-          start = profiler::start();
-          values_to_elevate->insert(values_to_elevate->end(), value, &value[embedding_size]);
-          hps_profiler->end(start, "Insert the missing embedding key into the VDB");
+          (*keys_to_elevate)[i] = reinterpret_cast<const TypeHashKey*>(h_keys)[index];
+          std::copy_n(&h_vectors[index * embedding_size], embedding_size,
+                      &(*values_to_elevate)[i * embedding_size]);
         }
-        HCTR_CHECK(keys_to_elevate->size() * expected_value_size == values_to_elevate->size());
+        hps_profiler->end(start, "Insert the missing embedding key into the VDB");
 
         HCTR_LOG_C(DEBUG, WORLD, "Attempting to migrate ", keys_to_elevate->size(),
                    " embeddings from ", persistent_db_->get_name(), " to ",
