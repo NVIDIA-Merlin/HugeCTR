@@ -91,7 +91,7 @@ template <typename T>
 SparseTensors<T> convert_sparse_tensors23_to_sparse_tensors(
     const std::vector<HugeCTR::SparseTensor23>& sparse23s) {
   SparseTensors<T> ret;
-  for (const auto sparse23 : sparse23s) {
+  for (const auto& sparse23 : sparse23s) {
     auto value_tensor = sparse23.get_value_tensor();
     auto off_tensor = sparse23.get_rowoffset_tensor();
     auto shape = value_tensor.shape();
