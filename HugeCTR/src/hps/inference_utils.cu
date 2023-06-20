@@ -16,6 +16,7 @@
 
 // Do not include this header file, NVCC is not compatible with nlohmann/json in some versions
 // #include <hps/inference_utils.hpp>
+#include <cstdint>
 
 namespace HugeCTR {
 

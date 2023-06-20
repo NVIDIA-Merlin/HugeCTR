@@ -16,9 +16,14 @@
 #pragma once
 
 #include <common.hpp>
+#include <functional>
 #include <gpu_resource.hpp>
 #include <graph_wrapper.hpp>
+#include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <vector>
 
 namespace HugeCTR {
 

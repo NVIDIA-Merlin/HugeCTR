@@ -16,7 +16,11 @@
 #pragma once
 
 #include <core23/tensor_container.hpp>
+#include <memory>
+#include <optional>
 #include <trainable_layer.hpp>
+#include <utility>
+#include <vector>
 
 namespace HugeCTR {
 
