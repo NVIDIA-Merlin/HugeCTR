@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 using hash_value_type = uint32_t;
 
 // MurmurHash3_32 implementation from

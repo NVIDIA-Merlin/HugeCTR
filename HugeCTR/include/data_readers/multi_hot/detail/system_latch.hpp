@@ -18,6 +18,8 @@
 #include <cuda_runtime.h>
 #include <unistd.h>
 
+#include <cstdint>
+
 namespace HugeCTR {
 
 class SystemLatch {
