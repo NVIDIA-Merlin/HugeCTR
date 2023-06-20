@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <config.hpp>
 #include <core23/logger.hpp>
+#include <core23/mpi_init_service.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
