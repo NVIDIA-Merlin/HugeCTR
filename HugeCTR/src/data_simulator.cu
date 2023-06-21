@@ -56,6 +56,7 @@ void SinusoidalGenerator::fill<float>(float* ptr, size_t num_elements, int ev_si
                                                                        max_sequence_len);
 }
 
+// TODO remove Tensor2 fill
 template <>
 void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, size_t sm_count,
                                    const curandGenerator_t& generator, const cudaStream_t& stream) {
@@ -63,6 +64,7 @@ void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, siz
                                 generator, stream);
 }
 
+// TODO remove Tensor2 fill
 template <>
 void HostUniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b,
 
@@ -79,7 +81,7 @@ void HostUniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b,
     p[i] = p[i] * (b - a) + a;
   }
 }
-
+// TODO remove Tensor2 fill
 template <>
 void NormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stddev, size_t sm_count,
                                   const curandGenerator_t& generator, const cudaStream_t& stream) {
@@ -87,6 +89,7 @@ void NormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stdd
       curandGenerateNormal(generator, tensor.get_ptr(), tensor.get_num_elements(), mean, stddev));
 }
 
+// TODO remove Tensor2 fill
 template <>
 void HostNormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stddev,
                                       const curandGenerator_t& gen) {
@@ -97,6 +100,7 @@ void HostNormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float 
                                       mean, stddev));
 }
 
+// TODO remove Tensor2 fill
 void ConstantDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t& gen) {
   float* p = tensor.get_ptr();
   for (size_t i = 0; i < tensor.get_num_elements(); i++) {
@@ -104,10 +108,12 @@ void ConstantDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t
   }
 }
 
+// TODO remove Tensor2 fill
 void UniformDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t& gen) {
   HostUniformGenerator::fill(tensor, min_, max_, gen);
 }
 
+// TODO remove Tensor2 fill
 void GaussianDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t& gen) {
   HostNormalGenerator::fill(tensor, mu_, sigma_, gen);
 }
@@ -128,21 +134,16 @@ void HostUniformGenerator::fill<float>(core23::Tensor& tensor, float a, float b,
   int64_t num_elements = tensor.num_elements();
   int64_t even_length = tensor.num_elements() / 2 * 2;
   float* p = tensor.data<float>();
-
-  if (num_elements == 1) {
-    float tmp[2];
-    HCTR_LIB_THROW(curandGenerateUniform(generator, tmp, 2));
-    p[0] = tmp[0];
-    return;
-  }
-
-  HCTR_LIB_THROW(curandGenerateUniform(generator, tensor.data<float>(), even_length));
-  if (num_elements - even_length) {
+  float tmp[2];
+  // in case the length is odd
+  if (num_elements & 1) {
     float* last_element_ptr = tensor.data<float>() + even_length;
-    const float* first_element_ptr = tensor.data<float>();
-    // assignment
-    *last_element_ptr = *first_element_ptr;
+    HCTR_LIB_THROW(curandGenerateUniform(generator, tmp, 2));
+    tmp[0] = tmp[0] * (b - a) + a;
+    *last_element_ptr = tmp[0];
   }
+  // even_length=0 is allowed
+  HCTR_LIB_THROW(curandGenerateUniform(generator, tensor.data<float>(), even_length));
   for (int64_t i = 0; i < tensor.num_elements(); i++) {
     p[i] = p[i] * (b - a) + a;
   }
@@ -161,20 +162,14 @@ void HostNormalGenerator::fill<float>(core23::Tensor& tensor, float mean, float 
   int64_t num_elements = tensor.num_elements();
   int64_t even_length = tensor.num_elements() / 2 * 2;
   float* p = tensor.data<float>();
-  if (num_elements == 1) {
-    float tmp[2];
+  float tmp[2];
+  if (num_elements & 1) {
+    float* last_element_ptr = p + even_length;
     HCTR_LIB_THROW(curandGenerateNormal(gen, tmp, 2, mean, stddev));
-    p[0] = tmp[0];
-    return;
+    *last_element_ptr = tmp[0];
   }
 
   HCTR_LIB_THROW(curandGenerateNormal(gen, p, even_length, mean, stddev));
-  if (num_elements - even_length) {
-    float* last_element_ptr = p + even_length;
-    const float* first_element_ptr = p;
-    // assignment
-    *last_element_ptr = *first_element_ptr;
-  }
 }
 
 void ConstantDataSimulator::fill(core23::Tensor& tensor, const curandGenerator_t& gen) {
