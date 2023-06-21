@@ -178,29 +178,22 @@ template <typename Type>
 void normal_async(Type* data, int64_t num_elements, const Type mean, const Type stddev,
                   const Device& device, CURANDGenerator generator, CUDAStream stream) {
   static_assert(std::is_floating_point<Type>::value);
-  if (data == nullptr) return;
+  if (data == nullptr || num_elements == 0) return;
 
+  // in case odd length
+  Type tmp[2];
   DeviceGuard device_guard(device);
   generator.set_stream(stream);
   int64_t even_length = num_elements / 2 * 2;
-  if (num_elements == 1) {
-    AllocatorParams allocator_params;
-    allocator_params.custom_factory = [](const auto& params, const auto& device) {
-      if (device.type() == DeviceType::CPU) {
-        return std::unique_ptr<Allocator>(new PinnedHostAllocator());
-      }
-      return std::unique_ptr<Allocator>(new PoolCUDAAllocator(device));
-    };
-    auto allocator = GetAllocator(allocator_params, device);
-    Type* tmp = static_cast<Type*>(allocator->allocate(2 * sizeof(Type), stream));
+  if (num_elements & 1) {
     if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
       HCTR_LIB_THROW(curandGenerateNormal(generator(), tmp, 2, mean, stddev));
     } else {
       static_assert(std::is_same<Type, double>::value);
       HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), tmp, 2, mean, stddev));
     }
-    copy_async(data, tmp, sizeof(Type), device, device, stream);
-    return;
+    copy_async(data + even_length, tmp, 1, device, core23::Device(core23::DeviceType::CPU, 0),
+               stream);
   }
 
   if constexpr (ToScalarType<Type>::value == ScalarType::Float) {
@@ -208,9 +201,6 @@ void normal_async(Type* data, int64_t num_elements, const Type mean, const Type 
   } else {
     static_assert(std::is_same<Type, double>::value);
     HCTR_LIB_THROW(curandGenerateNormalDouble(generator(), data, even_length, mean, stddev));
-  }
-  if (auto odd_length = num_elements - even_length) {
-    copy_async(data + even_length, data, odd_length, device, device, stream);
   }
 }
 
