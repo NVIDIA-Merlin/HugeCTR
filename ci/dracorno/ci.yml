@@ -62,7 +62,6 @@ criteo:
     GPFSFOLDER: $DRACO_LOGDIR/criteo
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
-    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
     TEST_CMD: ./ci/integration_test/criteo/criteo.sub
 
 dcn:
@@ -86,7 +85,6 @@ dcn:
 #    GPFSFOLDER: $DRACO_LOGDIR/dcn_8gpu
 #    CONT: $TRAIN_IMAGE_VERSIONED
 #    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
-#    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
 #    TEST_CMD: ./ci/integration_test/dcn/dcn_8gpu.sub
 
 wdl:
@@ -110,7 +108,6 @@ deepfm:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
     TEST_CMD: ./ci/integration_test/deepfm/deepfm.sub
-    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
 
 mmoe:
   extends: .dracorno_test_job
@@ -167,7 +164,6 @@ py_single_node:
     GPFSFOLDER: $DRACO_LOGDIR/py_single_node
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
-    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
     TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 hugectr2onnx:

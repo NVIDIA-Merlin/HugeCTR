@@ -224,6 +224,7 @@ stages:
   variables:
     SLURM_ACCOUNT: devtech
     DGXNNODES: 1
+    WALLTIME: "00:30:00"
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
   allow_failure: false
 
@@ -234,9 +235,10 @@ stages:
   variables:
     CLUSTER:       "dracorno"
     SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
-    SLURM_PARTITION: ${SLURM_PARTITION}
+    SLURM_PARTITION: ${DRACO_SLURM_PARTITION}
+    DATA_PREFIX: ${DRACO_DATA_PREFIX}
     WALLTIME:      "02:00:00"
-    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+    SBATCH_OTHER_PARAMS: "--nv-meta ml-model.hugectr --gpus-per-node=8"
   tags:
     - $RUNNER_TAG
   allow_failure: false
@@ -279,6 +281,7 @@ stages:
   variables:
     SLURM_ACCOUNT: devtech
     DGXNNODES: 1
+    WALLTIME: "00:30:00"
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
   allow_failure: false
 
@@ -289,9 +292,10 @@ stages:
   variables:
     CLUSTER:       "dracorno"
     SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
-    SLURM_PARTITION: ${SLURM_PARTITION}
+    DATA_PREFIX: ${DRACO_DATA_PREFIX}
+    SLURM_PARTITION: ${DRACO_SLURM_PARTITION}
     WALLTIME:      "02:00:00"
-    SBATCH_OTHER_PARAMS: ${SBATCH_OTHER_PARAMS}
+    SBATCH_OTHER_PARAMS: "--nv-meta ml-model.hugectr --gpus-per-node=8"
   tags:
     - $RUNNER_TAG
   allow_failure: false
@@ -306,6 +310,17 @@ stages:
   extends:
     - .cluster_test_job
     - .hugectr:rules:sanity-test
+  stage: post_test
+
+.selene_post_test_job:
+  extends:
+    - .selene_test_job
+    - .hugectr:rules:test_in_child
+  variables:
+    SLURM_ACCOUNT: devtech
+    DGXNNODES: 1
+    WALLTIME: "00:30:00"
+    GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
   stage: post_test
 
 .cluster_post_test_job_daily:
