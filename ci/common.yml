@@ -53,4 +53,3 @@ variables:
   DRACO_BST_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/bst
   DRACO_CLUSTER: "dracorno"
   DRACO_LOGDIR: ${DATA_PREFIX}/fs1/projects/gpu_compute/users/svcnvdlfw/hugectr_ci/${PARENT_PIPELINE_ID}
-  DRACORNO_SBATCH_OTHER_PARAMS: "--nv-meta ml-model.${CI_PROJECT_NAME} --gpus-per-node=8 "
