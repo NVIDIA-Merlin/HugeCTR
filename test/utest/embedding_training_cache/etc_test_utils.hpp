@@ -231,7 +231,7 @@ inline void generate_sparse_model(
   }
 }
 
-auto get_data_file = [](Optimizer_t opt_type) {
+inline std::vector<std::string> get_data_file(Optimizer_t opt_type) {
   std::vector<std::string> data_files;
   data_files.emplace_back("emb_vector");
   switch (opt_type) {
@@ -258,7 +258,7 @@ auto get_data_file = [](Optimizer_t opt_type) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Wrong optimizer type");
   }
   return data_files;
-};
+}
 
 inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_type) {
   std::string emb_vec_file(sparse_model_file + "/emb_vector");
