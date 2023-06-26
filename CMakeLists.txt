@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
+# Step 1) Clangformat, before we do anything else.
 option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
@@ -64,6 +65,11 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+# Step 2) Build dependencies before we adjust the compiler configuration.
+option(ENABLE_GCS "Enable GCS" OFF)
+add_subdirectory(third_party)
+
+# Step 3) Configure and build HugeCTR.
 option(DISABLE_A2A_WARMUP "Disable nccl a2a warm up" OFF)
 if (DISABLE_A2A_WARMUP)
   message(STATUS "-- DISABLE_A2A_WARMUP is ON")
@@ -119,8 +125,6 @@ if (OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
-
-set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 option(KEY_HIT_RATIO "Verbose mode of embedding training cache: print out the key hit ratio" OFF)
 if (KEY_HIT_RATIO)
@@ -203,7 +207,7 @@ if(ENABLE_MULTINODES)
   link_directories(/opt/hpcx/ompi/lib)
 endif()
 
-configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
+# configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
 
 # building
 include_directories(
@@ -236,6 +240,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table/cuCollections/include
   ${PROJECT_SOURCE_DIR}/third_party/HierarchicalKV/include
   ${PROJECT_SOURCE_DIR}/third_party/embedding_cache/include
+  
+  ${CMAKE_BINARY_DIR}/_deps/google-cloud-cpp-src
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
@@ -264,15 +270,12 @@ link_directories(
   ${SHARP_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
-#install dependencies
-add_subdirectory(third_party)
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION hugectr)
 #install inference header files
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION hugectr/include)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/hps DESTINATION hugectr/include)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference_benchmark DESTINATION hugectr/include)
-add_subdirectory(third_party/json)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hugectr)
 
 add_subdirectory(gpu_cache/src)
@@ -285,8 +288,8 @@ if(ENABLE_HDFS)
   else()
     message("HDFS build mode: Full")
   endif()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_HDFS")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_HDFS")
+  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DENABLE_HDFS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_HDFS")
 
   # Build and Install Hadoop
   include(SetupHadoop)
@@ -296,20 +299,16 @@ endif()
 
 option(ENABLE_S3 "Enable S3" OFF)
 if(ENABLE_S3)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_S3")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_S3")
+  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DENABLE_S3")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_S3")
 
   include(SetupS3)
   s3_setup()
 endif()
 
-option(ENABLE_GCS "Enable GCS" OFF)
 if(ENABLE_GCS)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_GCS")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_GCS")
-
-  include(SetupGCS)
-  gcs_setup()
+  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DENABLE_GCS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_GCS")
 endif()
 
 option(ENABLE_INFERENCE "Enable Inference" OFF)

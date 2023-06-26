@@ -61,7 +61,7 @@ if(ENABLE_S3)
 endif()
 
 if(ENABLE_GCS)
-  target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so)
+  target_link_libraries(huge_ctr_shared PUBLIC google_cloud_cpp_storage)
 endif()
 
 if(MPI_FOUND)

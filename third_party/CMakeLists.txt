@@ -15,50 +15,139 @@
 
 cmake_minimum_required(VERSION 3.17)
 message(STATUS "Building third_party dependencies.")
-set(CMAKE_CXX_STANDARD 17)
 
-#install dependencies
+include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
 
-#hiredis
-SET(ENABLE_SSL ON CACHE BOOL "Build with SSL support")
-SET(DISABLE_TESTS ON CACHE BOOL "Disable building tests")
-add_subdirectory(hiredis)
-set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
-file(WRITE "${stub_dir}/hiredis-config.cmake" "")
-file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
-set(hiredis_DIR ${stub_dir})
-set(hiredis_LIBRARIES hiredis::hiredis)
-set(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
-if(NOT TARGET hiredis::hiredis)
-  add_library(hiredis::hiredis ALIAS hiredis)
+# NOTE: Confine individual dependencies in a function scope to avoid unintentionally
+#       leaking genericly named variables (e.g.: WITH_SSL).
+
+function(build_json)
+  message("=== Dependency: NLohmann / JSON ===============================================")
+  set(JSON_BuildTests OFF CACHE BOOL "Disable building tests")
+  if(ENABLE_GCS)
+    set(JSON_Install ON CACHE BOOL "Create install target")
+  endif()
+  add_subdirectory(json)
+endfunction()
+build_json()
+
+function(build_redis)
+  message("=== Dependency: Hiredis =======================================================")
+  set(ENABLE_SSL ON CACHE BOOL "Build with SSL support")
+  set(DISABLE_TESTS ON CACHE BOOL "Disable building tests")
+  add_subdirectory(hiredis)
+  
+  set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
+  file(WRITE "${stub_dir}/hiredis-config.cmake" "")
+  file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
+  
+  set(hiredis_DIR ${stub_dir})
+  set(hiredis_LIBRARIES hiredis::hiredis)
+  set(hiredis_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+  if(NOT TARGET hiredis::hiredis)
+    add_library(hiredis::hiredis ALIAS hiredis)
+  endif()
+  
+  set(hiredis_ssl_DIR ${stub_dir})
+  set(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
+  set(hiredis_ssl_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+  if(NOT TARGET hiredis::hiredis_ssl)
+    add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
+  endif()
+
+  message("=== Dependency: Redis++ =======================================================")
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+  set(REDIS_PLUS_PLUS_BUILD_STATIC OFF CACHE BOOL "Build static library")
+  set(REDIS_PLUS_PLUS_BUILD_TEST OFF CACHE BOOL "Build tests")
+  set(REDIS_PLUS_PLUS_USE_TLS ON CACHE BOOL "Build with TLS support")
+  add_subdirectory(redis_pp)
+endfunction()
+build_redis()
+
+function(build_rocksdb)
+  message("=== Dependency: RocksDB =======================================================")
+  set(PORTABLE ON CACHE BOOL "Build as portable binary")
+  set(WITH_TESTS OFF CACHE BOOL "Build with tests")
+  set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "Build with benchmark tools")
+  set(WITH_TOOLS OFF CACHE BOOL "Build with tools")
+  add_subdirectory(rocksdb)
+endfunction()
+build_rocksdb()
+
+function(build_librdkafka)
+  message("=== Dependency: librdkafka ====================================================")
+  set(RDKAFKA_BUILD_EXAMPLES OFF CACHE BOOL "rdkafka build examples")
+  set(RDKAFKA_BUILD_TESTS OFF CACHE BOOL "rdkafka build tests")
+  add_subdirectory(librdkafka)
+endfunction()
+build_librdkafka()
+
+function(build_gcs)
+  message("=== Optional dependency: Abseil C++ ===========================================")
+  find_package(absl QUIET)
+  if(${absl_FOUND})
+    message("Abseil is already present.")
+  else()
+    message("Couldn't find abseil. Attempting to download, build and install it now.")
+    FetchContent_Declare(abseil-cpp
+      DOWNLOAD_COMMAND git clone --branch 20230125.3 --depth 1 https://github.com/abseil/abseil-cpp.git ${CMAKE_BINARY_DIR}/_deps/abseil-cpp-src
+    )
+    FetchContent_Populate(abseil-cpp)
+    execute_process(WORKING_DIRECTORY ${abseil-cpp_BINARY_DIR}
+      COMMAND cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DABSL_BUILD_TESTING=OFF -DABSL_PROPAGATE_CXX_STD=ON ${abseil-cpp_SOURCE_DIR}
+    )
+    execute_process(WORKING_DIRECTORY ${abseil-cpp_BINARY_DIR}
+      COMMAND make -j install
+    )
+    find_package(absl REQUIRED)
+  endif()
+
+  message("=== Optional dependency: CRC32C ===============================================")
+  find_package(Crc32c QUIET)
+  if(${Crc32c_FOUND})
+    message("CRC32C is already present.")
+  else()
+    FetchContent_Declare(crc32c
+      DOWNLOAD_COMMAND git clone --branch 1.1.2 --depth 1 https://github.com/google/crc32c ${CMAKE_BINARY_DIR}/_deps/crc32c-src
+    )
+    FetchContent_Populate(crc32c)
+    execute_process(WORKING_DIRECTORY ${crc32c_BINARY_DIR}
+      COMMAND cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCRC32C_BUILD_TESTS=OFF -DCRC32C_BUILD_BENCHMARKS=OFF -DCRC32C_USE_GLOG=OFF ${crc32c_SOURCE_DIR}
+    )
+    execute_process(WORKING_DIRECTORY ${crc32c_BINARY_DIR}
+      COMMAND make -j install
+    )
+  endif()
+
+  message("=== Optional dependency: Google Cloud Storage C++ Client Library ============")
+  FetchContent_Declare(google-cloud-cpp
+    DOWNLOAD_COMMAND git clone --branch v2.12.0 --depth 1 https://github.com/googleapis/google-cloud-cpp.git ${CMAKE_BINARY_DIR}/_deps/google-cloud-cpp-src
+  )
+  FetchContent_Populate(google-cloud-cpp)
+  
+  # NLohmann / JSON is already available and the discovery here will fail.
+  # Must check whenever `--branch` is adjusted in the `git clone` command above.
+  execute_process(WORKING_DIRECTORY ${google-cloud-cpp_SOURCE_DIR}
+    COMMAND sed -i /find_nlohmann_json\(\)/d cmake/IncludeNlohmannJson.cmake
+  )
+
+  set(CMAKE_CXX_FLAGS "-fPIC")
+  set(BUILD_SHARED_LIBS ON CACHE BOOL "Build as shared library")
+  set(BUILD_TESTING OFF CACHE BOOL "Build tests")
+  set(GOOGLE_CLOUD_CPP_ENABLE_EXAMPLES OFF CACHE BOOL "Build examples")
+  set(GOOGLE_CLOUD_CPP_ENABLE "storage")
+  set(CMAKE_INCLUDE_PATH "${CMAKE_INCLUDE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/json/include")
+  find_path(NLOHMANN_JSON_EXISTS "nlohmann/json.hpp" REQUIRED)
+  add_subdirectory(${google-cloud-cpp_SOURCE_DIR} ${google-cloud-cpp_BINARY_DIR})
+endfunction()
+if (ENABLE_GCS)
+  build_gcs()
 endif()
-set(hiredis_ssl_DIR ${stub_dir})
-set(hiredis_ssl_LIBRARIES hiredis::hiredis_ssl)
-set(hiredis_ssl_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps")
-if(NOT TARGET hiredis::hiredis_ssl)
-  add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
-endif()
 
-#redis++
-set(REDIS_PLUS_PLUS_BUILD_STATIC OFF CACHE BOOL "Build static library")
-set(REDIS_PLUS_PLUS_BUILD_TEST OFF CACHE BOOL "Build test_redes++")
-set(REDIS_PLUS_PLUS_USE_TLS ON CACHE BOOL "Build with TLS support")
-add_subdirectory(redis_pp)
-
-#rocksdb
-set(PORTABLE ON CACHE BOOL "build a portable binary")
-set(WITH_TESTS OFF CACHE BOOL "build with tests")
-set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "build with benchmark tools")
-set(WITH_TOOLS OFF CACHE BOOL "build with tools")
-add_subdirectory(rocksdb)
-
-#librdkafka
-set(RDKAFKA_BUILD_EXAMPLES OFF CACHE BOOL "rdkafka build examples")
-set(RDKAFKA_BUILD_TESTS OFF CACHE BOOL "rdkafka build tests")
-add_subdirectory(librdkafka)
-
+message("=== Dependency configuration complete =========================================")
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-# Set default installation to /usr/local
+  # Set default installation to /usr/local
   set(CMAKE_INSTALL_PREFIX /usr/local CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
 endif()
 

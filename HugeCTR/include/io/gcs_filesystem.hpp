@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace HugeCTR {
@@ -43,7 +44,7 @@ struct GCSPath {
   std::string object;
   std::string endpoint_override;
 
-  static GCSPath FromString(const std::string& s);
+  static GCSPath FromString(std::string_view s);
 
   bool has_bucket_and_object() const { return !bucket.empty() && !object.empty(); }
 };
