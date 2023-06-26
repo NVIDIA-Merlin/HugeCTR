@@ -22,23 +22,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
 
-# setting environment variables
-macro(set_ifndef var val)
-    if (NOT ${var})
-        set(${var} ${val})
-    endif()
-    message(STATUS "Configurable variable ${var} set to ${${var}}")
-endmacro()
-
-if(NOT MSVC)
-  set_ifndef(TRT_LIB_DIRS /usr/lib/x86_64-linux-gnu)
-  set_ifndef(TRT_INCLUDE_DIRS /usr/include/x86_64-linux-gnu) 
-endif()
-
-find_library(_NVINFER_LIB nvinfer HINTS ${TRT_LIB_DIRS} PATH_SUFFIXES lib lib64)
-set_ifndef(NVINFER_LIB ${_NVINFER_LIB})
-
-# applying clang format
+# Step 1) Clangformat source code.
 option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
@@ -56,17 +40,39 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/hps_plugin/*.h
     ${PROJECT_SOURCE_DIR}/hps_plugin/*.cuh
   )
+
   set(clangformat_srcs ${HPS_PLUGIN_SRC})
   clangformat_setup("${clangformat_srcs}")
 endif()
+
+# Step 2) Build dependencies before we adjust the compiler configuration.
+add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
+
+# Step 3) Configure and build HugeCTR HPS + TRT plugin.
+
+# setting environment variables
+macro(set_ifndef var val)
+  if (NOT ${var})
+    set(${var} ${val})
+  endif()
+  message(STATUS "Configurable variable ${var} set to ${${var}}")
+endmacro()
+
+if(NOT MSVC)
+  set_ifndef(TRT_LIB_DIRS /usr/lib/x86_64-linux-gnu)
+  set_ifndef(TRT_INCLUDE_DIRS /usr/include/x86_64-linux-gnu) 
+endif()
+
+find_library(_NVINFER_LIB nvinfer HINTS ${TRT_LIB_DIRS} PATH_SUFFIXES lib lib64)
+set_ifndef(NVINFER_LIB ${_NVINFER_LIB})
 
 find_package(CUDA REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # setting compiler flags
 if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release")
-    message(STATUS "Setting default CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+  set(CMAKE_BUILD_TYPE "Release")
+  message(STATUS "Setting default CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 endif()
 
 if (OPENMP_FOUND)
@@ -77,36 +83,36 @@ if (OPENMP_FOUND)
 endif()
 
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 90 OR
-        arch_name STREQUAL 80 OR
-        arch_name STREQUAL 75 OR
-        arch_name STREQUAL 70)
-        list(APPEND cuda_arch_list ${arch_name})
-        message(STATUS "Assign GPU architecture (sm=${arch_name})")
-    else()
-        message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=70)")
-    endif()
+  if (arch_name STREQUAL 90 OR
+    arch_name STREQUAL 80 OR
+    arch_name STREQUAL 75 OR
+    arch_name STREQUAL 70)
+    list(APPEND cuda_arch_list ${arch_name})
+    message(STATUS "Assign GPU architecture (sm=${arch_name})")
+  else()
+    message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=70)")
+  endif()
 endforeach()
 
 list(LENGTH cuda_arch_list cuda_arch_list_length)
 if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "70")
-    message(STATUS "Assign default GPU architecture sm=70")
+  list(APPEND cuda_arch_list "70")
+  message(STATUS "Assign default GPU architecture sm=70")
 endif()
 list(REMOVE_DUPLICATES cuda_arch_list)
 
 foreach(arch_name ${cuda_arch_list})
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
 endforeach()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Release")
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
 else()
-    set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-    set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-    set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses,-Wno-sign-compare")
+  set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+  set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+  set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses,-Wno-sign-compare")
 endif()
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
@@ -122,24 +128,23 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # headers
 include_directories(
-    ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/
-    ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/
-    ${PROJECT_SOURCE_DIR}/../
-    ${PROJECT_SOURCE_DIR}/../HugeCTR/
-    ${PROJECT_SOURCE_DIR}/../HugeCTR/include
-    ${PROJECT_SOURCE_DIR}/../third_party
-    ${PROJECT_SOURCE_DIR}/../third_party/parallel-hashmap
-    ${PROJECT_SOURCE_DIR}/../third_party/json/single_include
-    ${PROJECT_SOURCE_DIR}/../third_party/xxhash
-    ${PROJECT_SOURCE_DIR}/../gpu_cache/include
-    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src
-    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/tls
-    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/cxx17
-    ${PROJECT_SOURCE_DIR}/../third_party/rocksdb/include
-    ${PROJECT_SOURCE_DIR}/../third_party/librdkafka/src
-    ${PROJECT_SOURCE_DIR}/../third_party/embedding_cache/include
-    ${CUDA_INCLUDE_DIRS}
-    ${TRT_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include
+  ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels
+  ${PROJECT_SOURCE_DIR}/..
+  ${PROJECT_SOURCE_DIR}/../HugeCTR
+  ${PROJECT_SOURCE_DIR}/../HugeCTR/include
+  ${PROJECT_SOURCE_DIR}/../third_party
+  ${PROJECT_SOURCE_DIR}/../third_party/parallel-hashmap
+  ${PROJECT_SOURCE_DIR}/../third_party/json/single_include
+  ${PROJECT_SOURCE_DIR}/../gpu_cache/include
+  ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src
+  ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/cxx17
+  ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/tls
+  ${PROJECT_SOURCE_DIR}/../third_party/rocksdb/include
+  ${PROJECT_SOURCE_DIR}/../third_party/librdkafka/src
+  ${PROJECT_SOURCE_DIR}/../third_party/embedding_cache/include
+  ${CUDA_INCLUDE_DIRS}
+  ${TRT_INCLUDE_DIRS}
 )
 
 add_definitions(-DTENSORRT_BUILD_LIB)
@@ -149,7 +154,6 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hps_trt)
 
 # building third party libraries
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
-add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
 
 # building HPS C++ source code
 add_subdirectory(${PROJECT_SOURCE_DIR}/../gpu_cache/src gpu_cache)
@@ -157,9 +161,9 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps hps)
 
 # building hps tensorrt plugin
 file(GLOB_RECURSE HPS_PLUGIN_SRC
-    ${CMAKE_SOURCE_DIR}/hps_plugin/hps_plugin.cpp
-    # ${CMAKE_SOURCE_DIR}/hps_plugin/facade.cc
-    # ${CMAKE_SOURCE_DIR}/hps_plugin/lookup_manager.cc
+  ${CMAKE_SOURCE_DIR}/hps_plugin/hps_plugin.cpp
+  # ${CMAKE_SOURCE_DIR}/hps_plugin/facade.cc
+  # ${CMAKE_SOURCE_DIR}/hps_plugin/lookup_manager.cc
 )
 add_library(hps_plugin MODULE ${HPS_PLUGIN_SRC})
 

@@ -31,36 +31,41 @@ auto constexpr kUploadBufferSize = 256 * 1024;
 
 namespace gcs = google::cloud::storage;
 
-GCSPath GCSPath::FromString(const std::string& s) {
-  std::string_view sv(s);
-  auto exist_colon = sv.find_first_of(':');
-  HCTR_CHECK_HINT(exist_colon != std::string::npos,
-                  "This is not a valid GCS path. Please provide a correct GCS object url.");
-  std::string_view scheme = sv.substr(0, exist_colon);
-  HCTR_CHECK_HINT(scheme == "gs" || scheme == "https",
-                  "The path format is not correct. Please provide a GCS URI or URL");
-  std::string_view body = sv.substr(exist_colon + 3);
-  auto first_slash = body.find_first_of('/');
-  if (scheme == "gs") {
-    if (first_slash == std::string::npos) {
-      return GCSPath{std::string(body)};
-    } else {
-      return GCSPath{std::string(body.substr(0, first_slash)),
-                     std::string(body.substr(first_slash + 1))};
+GCSPath GCSPath::FromString(std::string_view s) {
+  // Split URL and check schema.
+  auto pos{s.find("://")};
+  HCTR_CHECK_HINT(pos != std::string_view::npos,
+                  "Not a valid GCS path. Please provide a proper GCS object URI/URL.");
+  const std::string_view schema{s.substr(0, pos)};
+  HCTR_CHECK_HINT(schema == "gs" || schema == "https",
+                  "Path format is incorrect. Please provide a proper GCS URI or URL.");
+  s = s.substr(pos + 3);
+
+  // Parse URL.
+  pos = s.find("/");
+
+  if (schema == "gs") {
+    const std::string bucket{s.substr(0, pos)};
+    if (pos == std::string_view::npos) {
+      return {bucket};
     }
+    s = s.substr(pos + 1);  // s = object
+
+    return {bucket, static_cast<std::string>(s)};
   } else {
-    HCTR_CHECK_HINT(first_slash != std::string::npos, "The path has no bucket information");
-    std::string_view end_point = body.substr(0, first_slash);
-    std::string_view bucket_and_object = body.substr(first_slash + 1);
-    auto second_slash = bucket_and_object.find_first_of('/');
-    if (second_slash == std::string::npos) {
-      return GCSPath{std::string(bucket_and_object.substr(0, second_slash)), NULL,
-                     std::string(end_point)};
-    } else {
-      return GCSPath{std::string(bucket_and_object.substr(0, second_slash)),
-                     std::string(bucket_and_object.substr(second_slash + 1)),
-                     std::string(end_point)};
+    HCTR_CHECK_HINT(pos != std::string::npos, "The URL has no bucket information.");
+    const std::string host_name{s.substr(0, pos)};
+    s = s.substr(pos + 1);
+
+    pos = s.find("/");
+
+    const std::string bucket{s.substr(0, pos)};
+    if (pos == std::string_view::npos) {
+      return {bucket, {}, host_name};
     }
+    s = s.substr(pos + 1);  // s = object
+
+    return {bucket, static_cast<std::string>(s), host_name};
   }
 }
 

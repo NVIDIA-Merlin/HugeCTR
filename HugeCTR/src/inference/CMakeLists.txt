@@ -114,11 +114,7 @@ if(ENABLE_S3)
 endif()
 
 if(ENABLE_GCS)
-  target_link_libraries(
-    huge_ctr_inference
-    PUBLIC
-      ${DB_LIB_PATHS}/libgoogle_cloud_cpp_common.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_rest_internal.so ${DB_LIB_PATHS}/libgoogle_cloud_cpp_storage.so
-  )
+  target_link_libraries(huge_ctr_inference PUBLIC google_cloud_cpp_storage)
 endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC hugectr_core23 cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})

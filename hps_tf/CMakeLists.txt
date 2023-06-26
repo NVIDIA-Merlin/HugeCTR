@@ -26,6 +26,7 @@ SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 SET(CMAKE_INSTALL_RPATH "\${ORIGIN}")
 
+# Step 1) Clangformat source code.
 option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
@@ -50,6 +51,10 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+# Step 2) Build dependencies before we adjust the compiler configuration.
+add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
+
+# Step 3) Configure and build HugeCTR HPS + TF plugin.
 find_package(CUDA REQUIRED)
 find_package(TensorFlow REQUIRED)
 find_package(Threads)
@@ -151,7 +156,6 @@ include_directories(
 )
 
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
-add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
 # building HPS C++ source code
 add_subdirectory(${PROJECT_SOURCE_DIR}/../gpu_cache/src gpu_cache)
 add_subdirectory(${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps hps)
