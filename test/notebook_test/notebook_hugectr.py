@@ -75,7 +75,7 @@ def test_hugectr_wdl_prediction():
     ) as nb:
         # Create data folder
         nb.execute_cell(list(range(0, 5)))
-        nb.execute_cell(list(range(10, len(nb.cells))))
+        nb.execute_cell(list(range(9, len(nb.cells))))
 
 
 @pytest.mark.skipif(hugectr is None, reason="hugectr not installed")
