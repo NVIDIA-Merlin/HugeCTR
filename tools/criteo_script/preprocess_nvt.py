@@ -177,8 +177,9 @@ def process_NVT(args):
     features = LABEL_COLUMNS
     if args.criteo_mode == 0:
         features += cont_features
-        for pair in args.feature_cross_list.split(","):
-            features += [pair] >> cross_cat_op
+        if args.feature_cross_list:
+            for pair in args.feature_cross_list.split(","):
+                features += [pair] >> cross_cat_op
 
     features += cat_features
 
