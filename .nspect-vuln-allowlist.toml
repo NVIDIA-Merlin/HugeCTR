@@ -5,7 +5,7 @@ version = "4.3.0"
 [oss.excluded]
  
 [[oss.excluded.directories]]
-paths = ['third_party/hadoop'] 
+paths = ['third_party/hadoop/*'] 
 comment = 'We do not use and are not planning on using the Hadoop Yarn Web UI'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
@@ -15,6 +15,6 @@ comment = 'The package is for the RocksDB documentation and its hosting on the G
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/protobuf']
+paths = ['third_party/protobuf/*']
 comment = 'We never use csharp, java, php, the thir party googletest, etc., inside ptotobuf'
 nspect_ids = ['NSPECT-OZP9-WUQA']
