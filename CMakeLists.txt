@@ -207,7 +207,7 @@ if(ENABLE_MULTINODES)
   link_directories(/opt/hpcx/ompi/lib)
 endif()
 
-# configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
+configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
 
 # building
 include_directories(
