@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <common.hpp>
 #include <core23/logger.hpp>
 #ifdef ENABLE_MPI
 #include <core23/mpi_init_service.hpp>
