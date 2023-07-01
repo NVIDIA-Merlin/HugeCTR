@@ -63,7 +63,7 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   auto j_sparse_inputs = get_json(j_data, "sparse");
 
   for (size_t i = 0; i < j_sparse_inputs.size(); i++) {
-    const nlohmann::json& j_sparse = j_sparse_inputs[0];
+    const nlohmann::json& j_sparse = j_sparse_inputs[i];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
 
     size_t max_feature_num_per_sample_ =
