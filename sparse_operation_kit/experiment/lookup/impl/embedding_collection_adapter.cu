@@ -19,6 +19,16 @@
 
 namespace sok {
 
+template <typename DType>
+__global__ static void UniqueReverseKernel(DType** unique_output, uint64_t* reverse_ids,uint64_t num, DType** output){
+    uint64_t id = threadIdx.x + blockIdx.x * blockDim.x;
+    if (id < num)
+    {
+       output[id] = unique_output[reverse_ids[id]];
+    }
+    return;
+}
+
 template <typename KeyType, typename OffsetType, typename DType>
 __global__ static void TFAdapterKernel(float** data, int* dimensions, int* scales,
                                        int* id_space_to_local_index, const KeyType* keys,
@@ -52,7 +62,7 @@ __global__ static void TFAdapterKernel(float** data, int* dimensions, int* scale
 
 template <typename KeyType, typename OffsetType, typename DType>
 TFAdapter<KeyType, OffsetType, DType>::TFAdapter()
-    : d_data_(nullptr),
+    :d_data_(nullptr),
       d_dimensions_(nullptr),
       d_id_space_to_local_index_(nullptr),
       d_scale_(nullptr),
@@ -122,9 +132,12 @@ void TFAdapter<KeyType, OffsetType, DType>::set(std::vector<float*>& vars,
 
 template <typename KeyType, typename OffsetType, typename DType>
 void TFAdapter<KeyType, OffsetType, DType>::set(
+    std::shared_ptr<sok::CoreResourceManager> tf_backend,
     std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
     std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
     std::vector<int>& scale, cudaStream_t stream) {
+
+  tf_backend_ = tf_backend;
   std::vector<float*> data;
   std::vector<int> id_space;
   for (int i = 0; i < vars.size(); ++i) {
@@ -245,9 +258,11 @@ DummyVarAdapter<KeyType, OffsetType, DType>::DummyVarAdapter() : stream_(0) {
 
 template <typename KeyType, typename OffsetType, typename DType>
 void DummyVarAdapter<KeyType, OffsetType, DType>::set(
+    std::shared_ptr<sok::CoreResourceManager> tf_backend,
     std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
     std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
     std::vector<int>& scale, cudaStream_t stream) {
+    tf_backend_ = tf_backend;
   vars_.resize(vars.size());
   // id_space_to_local_index_.resize(vars.size());
   for (int i = 0; i < vars.size(); ++i) {
@@ -289,10 +304,42 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
 
   DType** output = static_cast<DType**>(embedding_vec.data());
   const KeyType* input = keys.data<KeyType>();
+
+  //HugeCTR::CudaDeviceContext context(tf_backend_->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, tf_backend_->get_device_id());
+  core23::Device device_cpu(core23::DeviceType::CPU, tf_backend_->get_device_id());
+  core23::BufferParams buffer_params;
+  buffer_params.unitary = false;
+  core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
+  core23::TensorParams params_cpu = core23::TensorParams().device(device_cpu).buffer_params(buffer_params);
   for (int i = 0; i < num_id_space_offset - 1; ++i) {
+
+
+    
+
     size_t num = id_space_offset_[i + 1] - id_space_offset_[i];
+
+    core23::Tensor unique_keys = core23::Tensor(params.shape({static_cast<int64_t>(num)}).data_type(core23::ToScalarType<KeyType>::value));
+    core23::Tensor num_unique_keys = core23::Tensor(params_cpu.shape({static_cast<int64_t>(1)}).data_type(core23::ScalarType::UInt64));
+    core23::Tensor unique_reverse_idxs = core23::Tensor(params.shape({static_cast<int64_t>(num)}).data_type(core23::ScalarType::UInt64));
+    core23::Tensor unique_output =
+    core23::Tensor(params
+                         .shape({static_cast<int64_t>(num *
+                                                      sizeof(float *))})
+                         .data_type(core23::ScalarType::Char));
+
+    embedding::unique_op<KeyType,uint64_t,std::numeric_limits<KeyType>::max(),std::numeric_limits<uint64_t>::max()> unique = embedding::unique_op<KeyType,uint64_t,std::numeric_limits<KeyType>::max(),std::numeric_limits<uint64_t>::max()>(tf_backend_,num);
+    
+
+    unique.unique(input,num,unique_reverse_idxs.data<uint64_t>(),unique_keys.data<KeyType>(),num_unique_keys.data<uint64_t>(),stream_);
+
+    CUDACHECK(cudaStreamSynchronize(stream_));
     auto var = vars_[id_space_[i]];
-    var->lookup(input, output, num, stream_);
+    //var->lookup(input, output, num, stream_);
+    DType** unique_output_ptr = static_cast<DType**>(unique_output.data());
+    var->lookup(unique_keys.data<KeyType>(), unique_output_ptr, static_cast<size_t>(*(num_unique_keys.data<uint64_t>())), stream_);
+    UniqueReverseKernel<<<((num - 1)/1024)+1, 1024, 0, stream_>>>(unique_output_ptr, unique_reverse_idxs.data<uint64_t>(), num,output);
+    CUDACHECK(cudaStreamSynchronize(stream_));
     input += num;
     output += num;
   }

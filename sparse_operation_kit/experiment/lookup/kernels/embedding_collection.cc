@@ -556,7 +556,7 @@ class LookupForwardOp : public LookupFowardBase<KeyType, OffsetType, DType, Adap
       }
     }
     // Prepare ILookup (i.e. embedding table)
-    this->adapter_.set(vars, locks, this->dimensions_, scale, stream);
+    this->adapter_.set(tf_backend ,vars, locks, this->dimensions_, scale, stream);
 
     Base::forward(ctx, tf_backend, stream);
   }

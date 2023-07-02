@@ -99,13 +99,15 @@ class DynamicVariable(ResourceVariable):
         self._indices = None
         self._mode = mode
         self._config = json.dumps(kwargs)
+        self._config_dict = kwargs
         if var_type == "hybrid" and self._key_type != tf.int64:
             raise NotImplementedError("only key_type tf.int64 is supported in HKV backend")
         if name == None:
             global dynamic_variable_count
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
             dynamic_variable_count += 1
-
+        
+        self._var_type = var_type
         self._base = super(DynamicVariable, self)
         self._base.__init__(
             initial_value=[[0.0] * dimension],
@@ -232,6 +234,15 @@ class DynamicVariable(ResourceVariable):
     @property
     def handle_dtype(self):
         return self._handle_dtype
+
+    @property
+    def backend_type(self):
+        return self._var_type
+
+
+    @property
+    def config_dict(self):
+        return self._config_dict
 
     @property
     def target_gpu(self):
