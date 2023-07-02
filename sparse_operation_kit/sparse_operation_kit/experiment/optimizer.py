@@ -112,12 +112,24 @@ class OptimizerWrapperV1(object):
         key = self._var_key(var)
         for slot_name in self._initial_vals:
             if key not in self._optimizer._slots[slot_name]:
-                slot = DynamicVariable(
-                    dimension=v.dimension,
-                    initializer=self._initial_vals[slot_name],
-                    name="DynamicSlot",
-                    trainable=False,
-                )
+                if var.backend_type=="hbm":
+                    slot = DynamicVariable(
+                        dimension=var.dimension,
+                        initializer=self._initial_vals[slot_name],
+                        name="DynamicSlot",
+                        trainable=False,
+                    )
+                else:
+                     tmp_config = var.config_dict
+                     slot = DynamicVariable(
+                        dimension=var.dimension,
+                        initializer=self._initial_vals[slot_name],
+                        var_type=var.backend_type,
+                        name="DynamicSlot",
+                        trainable=False,
+                        **tmp_config
+                    )
+             
                 self._optimizer._slots[slot_name][key] = slot
 
     def get_slot_names(self):
@@ -145,12 +157,24 @@ class OptimizerWrapperV1(object):
                 key = self._var_key(v)
                 for slot_name in self._initial_vals:
                     if key not in self._optimizer._slots[slot_name]:
-                        slot = DynamicVariable(
-                            dimension=v.dimension,
-                            initializer=self._initial_vals[slot_name],
-                            name="DynamicSlot",
-                            trainable=False,
-                        )
+                        if v.backend_type=="hbm":
+                            slot = DynamicVariable(
+                                dimension=v.dimension,
+                                initializer=self._initial_vals[slot_name],
+                                name="DynamicSlot",
+                                trainable=False,
+                            )
+                        else:
+                             tmp_config = v.config_dict
+                             slot = DynamicVariable(
+                                dimension=v.dimension,
+                                initializer=self._initial_vals[slot_name],
+                                var_type=v.backend_type,
+                                name="DynamicSlot",
+                                trainable=False,
+                                **tmp_config
+                            )
+
                         self._optimizer._slots[slot_name][key] = slot
                     else:
                         slot = self._optimizer._slots[slot_name][key]
@@ -223,12 +247,23 @@ class OptimizerWrapperV2(object):
             self._optimizer._slots[key] = {}
         for slot_name in self._initial_vals:
             if slot_name not in self._optimizer._slots[key]:
-                slot = DynamicVariable(
-                    dimension=var.dimension,
-                    initializer=self._initial_vals[slot_name],
-                    name="DynamicSlot",
-                    trainable=False,
-                )
+                if var.backend_type=="hbm":
+                   slot = DynamicVariable(
+                       dimension=var.dimension,
+                       initializer=self._initial_vals[slot_name],
+                       name="DynamicSlot",
+                       trainable=False,
+                   )
+                else:
+                    tmp_config = var.config_dict
+                    slot = DynamicVariable(
+                       dimension=var.dimension,
+                       initializer=self._initial_vals[slot_name],
+                       var_type=var.backend_type,
+                       name="DynamicSlot",
+                       trainable=False,
+                       **tmp_config
+                   )
                 self._optimizer._slots[key][slot_name] = slot
 
     def _var_key(self, var):
@@ -265,12 +300,24 @@ class OptimizerWrapperV2(object):
                     self._optimizer._slots[key] = {}
                 for slot_name in self._initial_vals:
                     if slot_name not in self._optimizer._slots[key]:
-                        slot = DynamicVariable(
-                            dimension=v.dimension,
-                            initializer=self._initial_vals[slot_name],
-                            name="DynamicSlot",
-                            trainable=False,
-                        )
+                        if v.backend_type=="hbm":
+                            slot = DynamicVariable(
+                                dimension=v.dimension,
+                                initializer=self._initial_vals[slot_name],
+                                name="DynamicSlot",
+                                trainable=False,
+                            )
+                        else:
+                             tmp_config = v.config_dict
+                             slot = DynamicVariable(
+                                dimension=v.dimension,
+                                initializer=self._initial_vals[slot_name],
+                                var_type=v.backend_type,
+                                name="DynamicSlot",
+                                trainable=False,
+                                **tmp_config
+                            )
+
                         self._optimizer._slots[key][slot_name] = slot
                     else:
                         slot = self._optimizer._slots[key][slot_name]
