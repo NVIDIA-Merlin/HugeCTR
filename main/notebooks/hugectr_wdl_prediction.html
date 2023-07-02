@@ -1324,7 +1324,7 @@ WDL multi-embedding table inference result is [0.09066542983055115, 0.2685255110
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;./wdl.json&quot; \
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;/wdl_train/model/wdl.json&quot; \
 &quot;/wdl_train/model/wdl/_dense_20000.model&quot; \
 &quot;/wdl_train/model/wdl/0_sparse_20000.model/,/wdl_train/model/wdl/1_sparse_20000.model&quot; \
 &quot;/wdl_train/infer_test.csv&quot; \
@@ -1334,7 +1334,7 @@ WDL multi-embedding table inference result is [0.09066542983055115, 0.2685255110
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
-wdl multi-embedding table prediction network is ./wdl.json
+wdl multi-embedding table prediction network is /wdl_train/model/wdl.json
 wdl multi-embedding table prediction dense file is /wdl_train/model/wdl/_dense_20000.model
 wdl multi-embedding table prediction sparse files are [&#39;/wdl_train/model/wdl/0_sparse_20000.model/&#39;, &#39;/wdl_train/model/wdl/1_sparse_20000.model&#39;]
 wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
