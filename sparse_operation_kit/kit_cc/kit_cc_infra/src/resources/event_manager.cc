@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <mutex>
 #include "resources/event_manager.h"
 
 #include "common.h"

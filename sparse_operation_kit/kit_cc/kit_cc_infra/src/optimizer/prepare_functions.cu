@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <cstdint>
 
 #include "optimizer/prepare_functions.h"
 
