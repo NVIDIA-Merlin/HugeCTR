@@ -17,6 +17,8 @@
 #ifndef PREPARE_FUNCTIONS_H
 #define PREPARE_FUNCTIONS_H
 
+#include <cstdint>
+
 #include "cuda_runtime_api.h"
 
 namespace SparseOperationKit {

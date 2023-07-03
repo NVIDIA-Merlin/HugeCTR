@@ -94,6 +94,6 @@ set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
 add_library(hugectr MODULE pybind/module_main.cpp)
-target_link_libraries(hugectr PUBLIC pybind11::module python3.8 ${CUDA_LIBRARIES} huge_ctr_shared)
+target_link_libraries(hugectr PUBLIC pybind11::module python$ENV{PYTHON_VERSION} ${CUDA_LIBRARIES} huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")
 target_link_libraries(huge_ctr_shared PUBLIC hugectr_core23)

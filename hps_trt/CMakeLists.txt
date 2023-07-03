@@ -49,6 +49,9 @@ endif()
 add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
 
 # Step 3) Configure and build HugeCTR HPS + TRT plugin.
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 
 # setting environment variables
 macro(set_ifndef var val)
@@ -150,7 +153,6 @@ include_directories(
 add_definitions(-DTENSORRT_BUILD_LIB)
 
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION hps_trt)
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hps_trt)
 
 # building third party libraries
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
