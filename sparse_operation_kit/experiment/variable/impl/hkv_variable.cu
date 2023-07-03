@@ -37,12 +37,12 @@ __device__ __forceinline__ unsigned int GlobalThreadId() {
 }
 
 template <typename T>
-__global__ void generate_uniform_kernel(curandState* state, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_uniform_kernel(curandState* state, T* result, size_t n) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random uniforms */
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = curand_uniform_double(&localState);
   }
   /* Copy state back to global memory */
@@ -50,15 +50,15 @@ __global__ void generate_uniform_kernel(curandState* state, T* result, int n) {
 }
 
 template <typename T>
-__global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+__global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_found, size_t dim) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random uniforms */
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = curand_uniform_double(&localState);
     }
   }
@@ -67,32 +67,32 @@ __global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_
 }
 
 template <typename T>
-__global__ void const_initializer_kernel(float val, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+__global__ void const_initializer_kernel(float val, T* result, size_t n) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = static_cast<T>(val);
   }
 }
 
 template <typename T>
-__global__ void const_initializer_kernel(float val, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+__global__ void const_initializer_kernel(float val, T** result, bool* d_found, size_t dim) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = static_cast<T>(val);
     }
   }
 }
 
 template <typename T>
-__global__ void generate_normal_kernel(curandState* state, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_normal_kernel(curandState* state, T* result, size_t n) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random normals */
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = curand_normal_double(&localState);
   }
   /* Copy state back to global memory */
@@ -100,16 +100,16 @@ __global__ void generate_normal_kernel(curandState* state, T* result, int n) {
 }
 
 template <typename T>
-__global__ void generate_normal_kernel(curandState* state, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_normal_kernel(curandState* state, T** result, bool* d_found, size_t dim) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
 
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random normals */
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = curand_normal_double(&localState);
     }
   }
@@ -256,10 +256,10 @@ void HKVVariable<KeyType, ValueType>::lookup(const KeyType* keys, ValueType* val
   int64_t dim = cols();
 
   if (initializer_ == "normal" || initializer_ == "random") {
-    generate_normal_kernel<<<(num_keys * dim - 1) / 1024, 1024, 0, stream>>>(curand_states_, values,
+    generate_normal_kernel<<<(num_keys * dim + 1024 - 1) / 1024, 1024, 0, stream>>>(curand_states_, values,
                                                                              num_keys * dim);
   } else if (initializer_ == "uniform") {
-    generate_uniform_kernel<<<(num_keys * dim - 1) / 1024, 1024, 0, stream>>>(
+    generate_uniform_kernel<<<(num_keys * dim + 1024 - 1) / 1024, 1024, 0, stream>>>(
         curand_states_, values, num_keys * dim);
   } else {
     try {
