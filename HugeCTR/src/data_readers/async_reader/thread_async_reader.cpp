@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
+
 #include <cassert>
 #include <common.hpp>
 #include <data_readers/async_reader/async_reader_common.hpp>
