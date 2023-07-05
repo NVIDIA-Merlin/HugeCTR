@@ -58,13 +58,13 @@ class MatrixMultiplyLayer : public Layer {
                       const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
-   * MatrixMultiplyLayer's foward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * MatrixMultiplyLayer's forward propagation
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * MatrixMultiplyLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

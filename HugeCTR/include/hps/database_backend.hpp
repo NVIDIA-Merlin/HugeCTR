@@ -106,7 +106,7 @@ class DatabaseBackendBase {
 
   /**
    * Insert key/value pairs into the underlying database. For existing keys, the respective value is
-   * overriden.
+   * overridden.
    *
    * @param table_name The name of the table to be queried (see also
    * paramter_server_base::make_tag_name).
@@ -291,7 +291,7 @@ struct VolatileBackendParams : public DatabaseBackendParams {
   size_t num_partitions{
       16};  // The number of parallel partitions. Determines the maximum degree of parallelization.
             // For Redis, this equates to the amount of separate storage partitions. For achieving
-            // the best performance, this should be signficantly higher than the number of cluster
+            // the best performance, this should be significantly higher than the number of cluster
             // nodes! We use modulo-N to assign partitions. Hence, you must not change this value
             // after writing the first data to a table.
 

@@ -105,7 +105,7 @@ class DotInteraction(tf.keras.layers.Layer):
     True, otherwise dot(e_i, e_j) i < j.
     Attributes:
         self_interaction: Boolean indicating if features should self-interact.
-        If it is True, then the diagonal enteries of the interaction matric are
+        If it is True, then the diagonal entries of the interaction matric are
         also taken.
         skip_gather: An optimization flag. If it's set then the upper triangle part
         of the dot interaction matrix dot(e_i, e_j) is set to 0. The resulting

@@ -494,7 +494,7 @@ void out_product(Tensor2<T>& out_mat, const Tensor2<T>& vec_a, const Tensor2<T>&
 }
 
 /**
- * Each row in `mat` scale with the coresponding element in vec. and accum across rows
+ * Each row in `mat` scale with the corresponding element in vec. and accum across rows
  * The length of vec should be h.
  * @param o_mat: hxw
  * @param mat: hxw
@@ -596,7 +596,7 @@ void MultiCrossForwardFunctor<T>::operator()(
 
 //
 /*
-  ouput is x_{l+1} =  x_0 \. (w * x_l + b) + x_l , where
+  output is x_{l+1} =  x_0 \. (w * x_l + b) + x_l , where
   input is
     input_tensor : x_0
     kernel_tensors : w
@@ -1735,7 +1735,7 @@ void Core23TempMultiCrossForwardFunctor<T>::operator()(
 
 //
 /*
-  ouput is x_{l+1} =  x_0 \. (w * x_l + b) + x_l , where
+  output is x_{l+1} =  x_0 \. (w * x_l + b) + x_l , where
   input is
     input_tensor : x_0
     kernel_tensors : w

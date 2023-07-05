@@ -5,7 +5,7 @@ The release notes for SparseOperationKit.
 + Add `sok.experiment` module to integrate hugectr 3G embedding:
     * Add `sok.experiment.lookup_sparse`, which support distributed and fused embedding lookup.
     * Add `sok.experiment.DynamicVariable`, whose size can grow dynamically when doing lookup.
-    * See API Docs -> Experiment to get other functino of `sok.experiment`
+    * See API Docs -> Experiment to get other function of `sok.experiment`
 
 ## What's new in Version 1.1.3 ##
 + Update pip install instruction and fix some bugs.

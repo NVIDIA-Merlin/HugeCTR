@@ -169,7 +169,7 @@ class GaussianDataSimulator {
   }
 
   void fill(__half* arr, size_t len) {
-    // To workaround "cuRAND length requested is not a multple of dimension"
+    // To workaround "cuRAND length requested is not a multiple of dimension"
     size_t even_len = len / 2 * 2;
 
     std::unique_ptr<float[]> farr(new float[len]);

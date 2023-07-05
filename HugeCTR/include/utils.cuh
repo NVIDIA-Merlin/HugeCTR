@@ -28,7 +28,7 @@
   for (type i = blockIdx.x * blockDim.x + threadIdx.x, step = blockDim.x * gridDim.x; i < (n); \
        i += step)
 
-// Overload CUDA atomic for other 64bit unsinged/signed integer type
+// Overload CUDA atomic for other 64bit unsigned/signed integer type
 __forceinline__ __device__ int64_t atomicCAS(int64_t *address, int64_t compare, int64_t val) {
   return (int64_t)atomicCAS((unsigned long long *)address, (unsigned long long)compare,
                             (unsigned long long)val);

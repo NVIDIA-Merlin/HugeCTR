@@ -216,7 +216,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -252,7 +252,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -288,7 +288,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -324,7 +324,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -361,7 +361,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -645,7 +645,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -681,7 +681,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -717,7 +717,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -753,7 +753,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -790,7 +790,7 @@ void Core23TempFullyConnectedLayer<__half>::search_algorithm() {
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
     HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {

@@ -231,7 +231,7 @@ void WeightMultiplyLayer<T>::bprop() {
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
                         embedding_vec_size_, this->get_gpu().get_stream());
 
-  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
+  // CAUTION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad(output, weight, input, batch_size_, slot_num_, embedding_vec_size_,
                         this->get_gpu().get_stream());
 }
@@ -358,7 +358,7 @@ void Core23TempWeightMultiplyLayer<T>::bprop() {
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
                         embedding_vec_size_, this->get_gpu().get_stream());
 
-  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
+  // CAUTION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad(output, weight, input, batch_size_, slot_num_, embedding_vec_size_,
                         this->get_gpu().get_stream());
 }

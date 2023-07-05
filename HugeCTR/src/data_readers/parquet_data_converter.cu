@@ -400,7 +400,7 @@ size_t convert_parquet_cat_columns(
     size_t max_smem_size = 48 * 1024;
 
     if (smem_size > max_smem_size)
-      HCTR_OWN_THROW(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory availble");
+      HCTR_OWN_THROW(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory available");
 
     offset_kernel__<IndexType><<<grid, block, smem_size, task_stream>>>(
         reinterpret_cast<int64_t *>(dev_csr_offset_in_buffer.data()), view_offset, num_params,

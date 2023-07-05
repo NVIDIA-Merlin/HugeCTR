@@ -54,7 +54,7 @@ class MmapOffsetList {
   int fd_;
 
  public:
-  // stride: samle size in byte
+  // stride: sample size in byte
   MmapOffsetList(const std::string& file_name, long long num_samples, long long stride,
                  long long batchsize, bool use_shuffle, int num_workers, bool repeat);
 

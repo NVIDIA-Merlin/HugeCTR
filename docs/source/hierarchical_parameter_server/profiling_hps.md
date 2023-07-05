@@ -82,7 +82,7 @@ Launch the container in interactive mode (mount the HugeCTR root directory into 
    $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON -DENABLE_PROFILER=ON .. # Target is NVIDIA V100 / A100 with Inference mode ON.
    $ make -j && make install
    ```
-4. You will get `hps_profiler` under bin foler.
+4. You will get `hps_profiler` under bin folder.
 
 ## Create a synthetic embedding table
 The embedding generator is used to generate synthetic HugeCTR sparse model files that can be loaded into HugeCTR [HPS](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html) for inference. To generate a HugeCTR embedding file, please refer to the [Model generator ](../../../tools/inference_test_scripts/README.md#Inference-test-scripts)
@@ -197,5 +197,5 @@ perf_analyzer -m your_model_name --collect-metrics -f perf_output.csv --verbose-
 |Pofile the embedding cache component|YES|NO|
 |Profile the database backend component|YES|NO|
 |Support different key distributions|YES|YES|
-|Concurrency Suppport|NO|YES|
+|Concurrency Support|NO|YES|
 |GPU/Memory Utilization|NO|YES|

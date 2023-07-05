@@ -420,7 +420,7 @@ if __name__ == "__main__":
         "--slot_num",
         type=int,
         nargs="+",
-        help="the number of feature fileds",
+        help="the number of feature fields",
         required=False,
         default=1,
     )

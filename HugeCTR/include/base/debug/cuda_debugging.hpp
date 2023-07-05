@@ -18,7 +18,7 @@
 /*
  * This is the header file for a set of host functions to debug kernels.
  * For instance, by using them, you can investigate your kernel's resource usage
- * and execution time withtout going to a profiler everytime.
+ * and execution time withtout going to a profiler every time.
  * See below for some examples on how to use it.
  *
  * 1. Check your kernels' SM resource usage:
@@ -32,7 +32,7 @@
  *
  * 2. Check your kernels' average execution time
  *
-    // Caculate the execution time of 'your_kernel_name` by launching it 4 times.
+    // Calculate the execution time of 'your_kernel_name` by launching it 4 times.
     HCTR_CUDA_KERNEL_TIME(INFO, your_kernel_name, 4)    // or
     HCTR_CUDA_KERNEL_TIME(WARNING, your_kernel_name, 4) // or
     HCTR_CUDA_KERNEL_TIME(DEBUG, your_kernel_name, 4)

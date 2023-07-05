@@ -38,8 +38,8 @@ __global__ void check_numerics_kernel(const T* data, uint32_t size) {
   const uint32_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const uint32_t num_threads = blockDim.x * gridDim.x;
   for (uint32_t tid = tid_base; tid < size; tid += num_threads) {
-    assert(!isnan(data[tid]) && "error: check_numerics faild, got Nan.");
-    assert(!isinf(data[tid]) && "error: check_numerics faild, got Inf.");
+    assert(!isnan(data[tid]) && "error: check_numerics failed, got Nan.");
+    assert(!isinf(data[tid]) && "error: check_numerics failed, got Inf.");
   }
 #endif
 }

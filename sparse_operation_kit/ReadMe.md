@@ -69,7 +69,7 @@ GCC Version:>=9.3.0
 
 
 ### Building SOK from source ###
-You can also build the SOK module from souce code. Here are the steps to follow: <br>
+You can also build the SOK module from source code. Here are the steps to follow: <br>
 + **Download the source code**
     ```shell
     $ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr

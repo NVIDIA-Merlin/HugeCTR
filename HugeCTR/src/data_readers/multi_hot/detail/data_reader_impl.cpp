@@ -236,7 +236,7 @@ size_t DataReaderImpl::get_total_inflight_batches() const { return batch_buffers
 // QUEUE_IDS READER B (numa 1):   0 1 2 3 0 1 2 3
 //                                        ^
 //                                        This is bad! READER A batch(4), and READER B batch(0)
-//                                        can be inflight at the same time causing race condition
+//                                        can be in-flight at the same time causing race condition
 //                                        because they fall in the same queue id slot.
 
 DataReaderImpl::Batch& DataReaderImpl::get_parent(size_t batch_i) {

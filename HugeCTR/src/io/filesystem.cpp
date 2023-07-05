@@ -75,7 +75,7 @@ FileSystem* FileSystemBuilder::build_by_path(const std::string& file_path) {
           "functionalities.");
 #endif
     default:
-      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupproted filesystem.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupported filesystem.");
   }
 
   return nullptr;
@@ -112,7 +112,7 @@ FileSystem* FileSystemBuilder::build_by_data_source_params(
           "functionalities.");
 #endif
     default:
-      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupproted filesystem.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupported filesystem.");
   }
 
   return nullptr;
@@ -161,7 +161,7 @@ FileSystem* FileSystemBuilder::build_by_config(const std::string& config_path) {
           "functionalities.");
 #endif
     default:
-      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupproted filesystem.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Unsupported filesystem.");
   }
   return nullptr;
 }

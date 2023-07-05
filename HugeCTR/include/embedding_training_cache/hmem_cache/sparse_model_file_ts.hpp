@@ -66,7 +66,7 @@ class SparseModelFileTS {
   void update_local_model_();
 
  public:
-  // end_flag should be the same defination with SoftwareCacheBase
+  // end_flag should be the same definition with SoftwareCacheBase
   static size_t const end_flag{std::numeric_limits<size_t>::max()};
   SparseModelFileTS(std::string sparse_model_file, std::string local_path, bool use_slot_id,
                     Optimizer_t opt_type, size_t emb_vec_size,

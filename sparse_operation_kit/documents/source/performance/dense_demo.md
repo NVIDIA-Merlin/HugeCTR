@@ -21,7 +21,7 @@ NsightSystems-linux-cli-public-2021.2.1.58
 ```
 
 ## Performance Numbers ##
-### end2end elapsed time (miliseconds) ###
+### end2end elapsed time (milliseconds) ###
 |      | 1 GPU | 8 GPUs |
 | ---- | ----  | ------ |
 | Original TF | 179.85 | —— |

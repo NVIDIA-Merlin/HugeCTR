@@ -36,7 +36,7 @@ struct AlignedAllocator {
 
   static constexpr size_type alignment{ALIGNMENT};
   static_assert(alignment >=
-                alignof(value_type));  // Allocation alignment must exeed value alignment.
+                alignof(value_type));  // Allocation alignment must exceed value alignment.
   static_assert(!(alignment & (alignment - 1)));  // Ensure alignment is power of 2.
 
   using unique_ptr_type = std::unique_ptr<value_type, AlignedAllocator<value_type, alignment>>;

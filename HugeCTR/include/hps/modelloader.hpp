@@ -151,7 +151,7 @@ class IModelLoader {
 };
 
 /**
- * Implementations of read/parse embedding from legacy foramt model file, which is general format
+ * Implementations of read/parse embedding from legacy format model file, which is general format
  * for hugectr model file.
  *
  * @tparam TKey The data-type that is used for keys in this database.

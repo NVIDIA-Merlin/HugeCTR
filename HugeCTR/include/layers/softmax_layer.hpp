@@ -45,7 +45,7 @@ class SoftmaxLayer : public Layer {
 
   /**
    * A method of implementing the forward pass of SoftmaxLayer
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
@@ -59,7 +59,7 @@ class SoftmaxLayer : public Layer {
   core23::Tensor& get_softmax_out_tensor() { return softmax_out23_; }
 
   /*
-   * initialize for indentity tensor
+   * initialize for identity tensor
    */
   void initialize() final;
 

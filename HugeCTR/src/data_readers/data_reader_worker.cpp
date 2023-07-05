@@ -116,9 +116,9 @@ void DataReaderWorker<T>::read_a_batch() {
       read_new_file();
     }
   } catch (const core23::RuntimeError& rt_err) {
-    // TODO: when in repeate mode and the dataset sample num can not devided by batchsize,
-    // Norm/Raw have different behavior to last batch. Norm will fetch the data from the begining
-    // of the datset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
+    // TODO: when in repeate mode and the dataset sample num can not divided by batchsize,
+    // Norm/Raw have different behavior to last batch. Norm will fetch the data from the beginning
+    // of the dataset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
     // (2021.7.4)
     if (rt_err.error == Error_t::EndOfFile) {
       if (!wait_until_h2d_ready()) return;
@@ -131,7 +131,7 @@ void DataReaderWorker<T>::read_a_batch() {
         usleep(2);
         if (!loop_flag_->load()) return;  // in case main thread exit
       }
-      return;  // need this return to run from begining
+      return;  // need this return to run from beginning
     } else {
       throw;
     }

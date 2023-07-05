@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
       .default_value<size_t>(1024 * 1024)
       .scan<'u', size_t>();
 
-  // Other parmeters.
+  // Other parameters.
   args.add_argument("--emb_size")
       .help("Size of one embedding.")
       .default_value<size_t>(128)

@@ -393,7 +393,7 @@ LayerNormLayer<T>::LayerNormLayer(const std::shared_ptr<BufferBlock2<float>>& ma
   }
   if (hidden_dim > static_cast<size_t>(65535)) {
     HCTR_OWN_THROW(Error_t::WrongInput,
-                   "Unsupport hidden_dim, the last dim should not be longer than 65535");
+                   "Unsupported hidden_dim, the last dim should not be longer than 65535");
   }
 
   in_tensors_.push_back(in_tensor);
@@ -531,7 +531,7 @@ Core23TempLayerNormLayer<T>::Core23TempLayerNormLayer(
   }
   if (hidden_dim > static_cast<int64_t>(65535)) {
     HCTR_OWN_THROW(Error_t::WrongInput,
-                   "Unsupport hidden_dim, the last dim should not be longer than 65535");
+                   "Unsupported hidden_dim, the last dim should not be longer than 65535");
   }
 
   core23::Shape gamma_dim = {hidden_dim, 1};

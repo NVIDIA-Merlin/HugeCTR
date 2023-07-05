@@ -38,7 +38,7 @@ AIOContext::AIOContext(size_t io_depth) : io_depth_(io_depth), iocb_buffer_(io_d
 }
 
 AIOContext::~AIOContext() {
-  // app can't exit with AIO requests inflight
+  // app can't exit with AIO requests in-flight
   (void)collect(num_inflight_, 1e6);  // wait 1s
   assert(num_inflight_ == 0);
 }

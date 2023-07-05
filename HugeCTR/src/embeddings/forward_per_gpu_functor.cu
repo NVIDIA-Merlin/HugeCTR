@@ -24,7 +24,7 @@ namespace {
 // forward
 //*        sum: calling forward_sum_kernel()
 //*        mean: calling foward_sum_kernel() + forward_scale_kernel()
-// forward kernel funcion: for both combiner=sum and combiner=mean
+// forward kernel function: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
                                    const TypeKey *row_offset, const size_t *hash_value_index,
@@ -94,7 +94,7 @@ __global__ void forward_sum_align2_kernel(int batch_size, int slot_num, int embe
   }
 }
 
-// forward kernel funcion: for combiner=mean in LocalizedEmbedding
+// forward kernel function: for combiner=mean in LocalizedEmbedding
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
                                     const TypeKey *row_offset, const size_t *hash_value_index,

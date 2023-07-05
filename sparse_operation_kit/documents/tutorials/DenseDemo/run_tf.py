@@ -113,7 +113,7 @@ def main(args, task_id):
             zip(emb_grads, emb_vars), experimental_aggregate_gradients=False
         )
 
-        # Mannually all-reduce dense gradients and update variables of dense layers
+        # Manually all-reduce dense gradients and update variables of dense layers
         replica_context = tf.distribute.get_replica_context()
         dense_grads = replica_context.all_reduce("sum", dense_grads, options=comm_options)
         dense_optimizer.apply_gradients(
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with tensorflow")
 
     parser.add_argument(
-        "--data_filename", type=str, help="the filename of training datas", required=True
+        "--data_filename", type=str, help="the filename of training data", required=True
     )
     parser.add_argument("--global_batch_size", type=int, required=True)
     parser.add_argument("--vocabulary_size", type=int, required=True)
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         "--stop_at_iter",
         type=int,
         required=False,
-        help="early stop the process if iteration reachs this setting.",
+        help="early stop the process if iteration reaches this setting.",
         default=-1,
     )
     parser.add_argument(
@@ -201,8 +201,8 @@ if __name__ == "__main__":
         required=False,
         default=0,
         choices=[0, 1],
-        help="it is a flag used to denotes whether the data is already splited."
-        + "by default, it is set to 0, which means the data is not splited.",
+        help="it is a flag used to denotes whether the data is already split."
+        + "by default, it is set to 0, which means the data is not split.",
     )
     parser.add_argument(
         "--dgx_a100",

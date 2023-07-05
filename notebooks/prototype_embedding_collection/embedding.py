@@ -35,7 +35,7 @@ class EmbeddingPlanner:
                     )
                 )
         print('global embedding plan:', self.global_embedding_sharding_param_list)
-        # we should add some check to varify the effectiveness of plan file
+        # we should add some check to verify the effectiveness of plan file
 
     def generate_embedding_plan(self, strategy):
         id_space_list = list(set([p.id_space for p in self.embedding_collection_param.embedding_params]))

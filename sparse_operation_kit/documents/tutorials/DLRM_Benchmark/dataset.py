@@ -68,7 +68,7 @@ class BinaryDataset:
                     self._last_batch_offset.append(offset)
                     offset += samples_in_last_batch[i]
 
-                # correct the values when drop_last=Fasle
+                # correct the values when drop_last=False
                 self._num_entries += 1
                 self._num_samples = (
                     self._num_entries - 1
@@ -247,7 +247,7 @@ class SplitedBinaryDataset:
                     self._last_batch_offset.append(offset)
                     offset += samples_in_last_batch[i]
 
-                # correct the values when drop_last=Fasle
+                # correct the values when drop_last=False
                 self._num_entries += 1
                 self._num_samples = (
                     self._num_entries - 1

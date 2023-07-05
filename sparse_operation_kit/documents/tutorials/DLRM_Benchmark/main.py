@@ -20,7 +20,7 @@ parser.add_argument(
 parser.add_argument(
     "--use_splited_dataset",
     action="store_true",
-    help="categories features were splited into different binary files",
+    help="categories features were split into different binary files",
 )
 parser.add_argument("--early_stop", type=int, default=-1)
 parser.add_argument("--epochs", type=int, default=1)
@@ -112,7 +112,7 @@ if __name__ == "__main__":
             prefetch=20,
         )
     elif args.use_splited_dataset:
-        print("[Info] Using splited dataset in %s" % args.data_dir)
+        print("[Info] Using split dataset in %s" % args.data_dir)
         dataset = SplitedBinaryDataset(
             os.path.join(args.data_dir, "train/label.bin"),
             os.path.join(args.data_dir, "train/dense.bin"),

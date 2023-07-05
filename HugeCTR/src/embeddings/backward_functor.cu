@@ -119,7 +119,7 @@ void backward_sum<__half>(size_t batch_size, size_t slot_num, size_t embedding_v
   const size_t grid_size = batch_size;  // each block corresponds to a sample
   if (embedding_vec_size % 2 == 0) {
     const size_t block_size =
-        embedding_vec_size / 2;  // each thread corresponds to one element in an embedding vetor
+        embedding_vec_size / 2;  // each thread corresponds to one element in an embedding vector
     backward_sum_align2_kernel<<<grid_size, block_size, 0, stream>>>(
         batch_size, slot_num, embedding_vec_size / 2, top_grad, wgrad);
   } else {
@@ -164,7 +164,7 @@ void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_siz
  * @param slot_num the number of slots in hash table.
  * @param embedding_vec_size embedding vector size.
  * @param combiner combiner type: 0-sum, 1-mean
- * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+ * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
  * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad
  * from the top layer
  * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.

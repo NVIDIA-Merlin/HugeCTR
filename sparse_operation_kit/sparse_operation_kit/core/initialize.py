@@ -67,7 +67,7 @@ def Init(**kwargs):
 
         sok.Init(**kwargs)
 
-    In **TensorFlow 1.15**, SOK can only work with **Horovod**. The retured status
+    In **TensorFlow 1.15**, SOK can only work with **Horovod**. The returned status
     must be evaluated with `sess.run`, and it must be the first step before evaluate
     any other SOK APIs.
 

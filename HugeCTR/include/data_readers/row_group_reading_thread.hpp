@@ -64,7 +64,7 @@ class RowGroupReadingThread {
       std::vector<std::shared_ptr<std::atomic<int>>>& accomplished_workers);
 
   ~RowGroupReadingThread();
-  // wait untill num_workers_consume_ workers has copied from df_container_producer_[worker_id_]
+  // wait until num_workers_consume_ workers has copied from df_container_producer_[worker_id_]
   Error_t get_one_read_group(const std::vector<DataReaderSparseParam>& params,
                              std::vector<size_t>& dense_dim_array,
                              std::vector<int>& one_hot_slot_id, std::vector<int>& sparse_nnz_array);

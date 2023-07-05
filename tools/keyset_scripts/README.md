@@ -1,4 +1,4 @@
-# Keyset extracter script #
+# Keyset extractor script #
 The script `generate_keyset.py` is used to extract the [keyset](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_embedding_training_cache.html#preprocessing) used in [Embedding Training Cache](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_embedding_training_cache.html) from [Parquet](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#parquet) dataset processed by NVTabular. For the data processing related information, please check the README of one of our [samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples). For the usage of keyset files, please checkout the [Embedding Training Cache Example Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/embedding_training_cache_example.ipynb).
 
 ## Usage ##
@@ -10,7 +10,7 @@ python generate_keyset.py --src_dir_path ./path/to/read/data/ --keyset_path ./pa
 where
 * `src_dir_path`, string, is the directory path to read your parquet files. This is required.
 * `keyset_path`, string, is the file path to store the generated keyset file. This is required.
-* `cat_features_pos`, list of integers, is the positions of categorical features inthe dataset. This is optional. The default values are from 14 to 39, which are the positions in Criteo Dataset.
+* `cat_features_pos`, list of integers, is the positions of categorical features in the dataset. This is optional. The default values are from 14 to 39, which are the positions in Criteo Dataset.
 * `slot_size_array`, list of integers, is the offsets to add for each categorical feature. Please checkout [Parquet](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#parquet) for more detail. This is optional. The default values are all 0s.
 * `int32_keyset_array`, boolean, indicates whether you want your keys to be int32 or not. This is optional and the default value is False, which means int64.
 

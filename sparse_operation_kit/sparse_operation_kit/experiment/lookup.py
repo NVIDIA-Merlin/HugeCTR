@@ -506,12 +506,12 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
     """
     Abbreviated as ``sok.experiment.lookup_sparse``.
 
-    Peform fused sparse lookup on the given embedding ``params``. This function
+    Perform fused sparse lookup on the given embedding ``params``. This function
     is similar to the ``tf.nn.embedding_lookup_sparse``, but with two differences:
 
         - It can do distributed lookup.
         - It can accept multiple params and multiple sp_ids to do fused lookup at once,
-          which brings performance benifits.
+          which brings performance benefits.
 
     Parameters
     ----------

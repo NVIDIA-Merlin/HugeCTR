@@ -108,7 +108,7 @@ void EmbeddingParameterIO::get_parameter_info_from_model(
                      "embedding_collection do not have optimizer ,please check "
                      "embedding_collection is inited correctly");
 
-    // get gpu infomation in local
+    // get gpu information in local
     tmp_epi.gemb_distribution =
         std::make_shared<struct GlobalEmbeddingDistribution>(num_global_gpus, tmp_epi.table_nums);
     for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
@@ -189,7 +189,7 @@ void EmbeddingParameterIO::dump_metadata(const std::string& parameters_folder_pa
   file_system->make_dir(ebc_path);
 
   std::string ebc_meta_path = ebc_path + "/meta_data";
-  // first calculate meta data lenth;
+  // first calculate meta data length;
   int buffer_length = MetaDataHeadLength;  // nbytes
   std::vector<int> table_ids_update;
   if (table_ids.empty()) {

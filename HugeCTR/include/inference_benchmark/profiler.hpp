@@ -36,8 +36,8 @@ namespace HugeCTR {
 #ifdef BENCHMARK_HPS
 class profiler {
  public:
-  profiler(ProfilerTarget_t traget = ProfilerTarget_t::REST) {
-    profiler_target_ = traget;
+  profiler(ProfilerTarget_t target = ProfilerTarget_t::REST) {
+    profiler_target_ = target;
     Timeliness = std::make_unique<BaseIndicator>(ProfilerType_t::Timeliness);
     Occupancy_models_stat = std::make_unique<BaseIndicator>(ProfilerType_t::Occupancy);
   };
@@ -82,8 +82,8 @@ class profiler {
     }
   };
 
-  void set_config(int interation, int warmup, bool enable_bench) {
-    config_.interations = interation;
+  void set_config(int iteration, int warmup, bool enable_bench) {
+    config_.iterations = iteration;
     config_.warmup = warmup;
     config_.enable_bench_ = enable_bench;
     Timeliness->set_warminter(warmup);
@@ -109,8 +109,8 @@ class profiler {
 #else
 class profiler {
  public:
-  profiler(ProfilerTarget_t traget = ProfilerTarget_t::REST) {
-    profiler_target_ = traget;
+  profiler(ProfilerTarget_t target = ProfilerTarget_t::REST) {
+    profiler_target_ = target;
     Timeliness = std::make_unique<BaseIndicator>(ProfilerType_t::Timeliness);
     Occupancy_models_stat = std::make_unique<BaseIndicator>(ProfilerType_t::Occupancy);
   };
@@ -123,7 +123,7 @@ class profiler {
   void end(BaseUnit* start, std::string indicator_name,
            ProfilerType_t type = ProfilerType_t::Timeliness, cudaStream_t st = 0){};
 
-  void set_config(int interation, int warmup, bool enable_bench) {
+  void set_config(int iteration, int warmup, bool enable_bench) {
     config_.enable_bench_ = enable_bench;
     enable_bench_ = enable_bench;
   };

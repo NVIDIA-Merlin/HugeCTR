@@ -59,13 +59,13 @@ class GatherLayer : public Layer {
               std::vector<int>& indices, const std::shared_ptr<GPUResource>& gpu_resource);
   void initialize() override;
   /**
-   * Gather's foward pass to gather data to the output tensor
-   * @param stream CUDA stream where the foward propagation is executed
+   * Gather's forward pass to gather data to the output tensor
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * Gather's backward pass to scatter data to the input tensors
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

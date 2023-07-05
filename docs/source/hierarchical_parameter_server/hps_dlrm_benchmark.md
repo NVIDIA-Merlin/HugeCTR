@@ -19,7 +19,7 @@ We compare three deployment methods on the Triton Inference Server:
 
 * **DLRM with HPS Plugin for TensorFlow**: In this DLRM SavedModel, `tf.nn.embedding_lookup` is replaced by `hps.LookupLayer` to perform embedding lookup and the MLP layers are kept unchanged. The deployment is on the Triton backend for TensorFlow.
 
-* **DLRM with HPS Plugin for TensorRT**: The HPS plugin layer is integrated into the built TensorRT engines, and the MLP layers are accelerated by TensorRT. The TensorRT engines are built with mininum batch size 1, optimum 1024 and maximum 131072. Both fp32 and fp16 modes are investigated. The deployment is on the Triton backend for TensorRT.
+* **DLRM with HPS Plugin for TensorRT**: The HPS plugin layer is integrated into the built TensorRT engines, and the MLP layers are accelerated by TensorRT. The TensorRT engines are built with minimum batch size 1, optimum 1024 and maximum 131072. Both fp32 and fp16 modes are investigated. The deployment is on the Triton backend for TensorRT.
 
 The benchmark is conducted on the `A100-SXM4-80GB` GPU with one Triton model instance on it. The GPU embedding cache of HPS is turned on and the cache percentage is configured as `0.2`. For details about how to deploy TF models with HPS Plugin for TensorFlow and TRT engines with HPS Plugin for TensorRT on Triton, please refer to [hps_tensorflow_triton_deployment_demo.ipynb](../hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb) and [demo_for_tf_trained_model.ipynb](../hps_trt/notebooks/demo_for_tf_trained_model.ipynb).
 

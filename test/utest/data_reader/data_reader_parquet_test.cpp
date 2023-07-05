@@ -288,7 +288,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
 }
 
 // TODO when num_files is not a multiple of workers, reference can be wrong,
-// but the woker iteself can work
+// but the woker itself can work
 
 // say 3 files but 2 workers are specified, where a file contains 2 batches
 // batch 0 -> file 0 (worker 0)
@@ -558,7 +558,7 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
               (((sample + batch_starting + global_batch_offset) % total_samples) * label_dim + l);
           ASSERT_TRUE(labels[label_idx] == label_read[sample * label_dim + l])
               << " iter " << i << " sample " << sample << " label " << l << std::endl;
-          // std::cout << " expected " << labels[label_idx] << "vs readed "
+          // std::cout << " expected " << labels[label_idx] << "vs read "
           //           << label_read[sample * label_dim + l] << " iter " << i << " sample " <<
           //           sample
           //           << " label " << l << std::endl;
@@ -570,7 +570,7 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
               ((sample + batch_starting + global_batch_offset) % total_samples) * dense_dim + d;
           ASSERT_TRUE(denses[dense_idx] == dense_read[sample * dense_dim + d])
               << " iter " << i << " sample " << sample << " dense dim " << d << std::endl;
-          // std::cout << " expected " << denses[dense_idx] << "vs readed "
+          // std::cout << " expected " << denses[dense_idx] << "vs read "
           //           << dense_read[sample * dense_dim + d] << " iter " << i << " sample " <<
           //           sample
           //           << " dense dim " << d << std::endl;

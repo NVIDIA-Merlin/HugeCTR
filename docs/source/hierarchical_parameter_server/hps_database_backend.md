@@ -117,7 +117,7 @@ Set the `supportlonglong` field to `True` when you need to use a 64-bit integer 
 You must set this field to `true` if you specify `True` for the `i64_input_key` parameter.
 The default value is `True`.
 
-Set the `fuse_embedding_table` field to `True` when you want to fuse embedding tables. The tables with the same embedding vector size will be fused in storage during HPS initialization. At each iteration, orignal lookup queires are packed into one via CPU multi-thread synchronization and the packed query is forward to the fused embedding table. To use this feature, please ensure that key values in different tables have no overlap and the embedding lookup layers have no dependency to each other in the model graph. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend). The default value is `False`.
+Set the `fuse_embedding_table` field to `True` when you want to fuse embedding tables. The tables with the same embedding vector size will be fused in storage during HPS initialization. At each iteration, original lookup queries are packed into one via CPU multi-thread synchronization and the packed query is forward to the fused embedding table. To use this feature, please ensure that key values in different tables have no overlap and the embedding lookup layers have no dependency to each other in the model graph. This is only valid for [HPS Plugin for TensorFlow](hps_tf_user_guide.md) and [HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend). The default value is `False`.
 
 The following sections describe the configuration parameters.
 Generally speaking, each node in your HugeCTR cluster should deploy the same configuration.
@@ -441,7 +441,7 @@ The following parameters apply when you set `type="multi_process_hash_map"`:
 
 * `shared_memory_size`: Integer, denotes the amount of shared memory that should be reserved in the operating system. In other words, this value determines the size of the memory mapped file that will be created in `/dev/shm`. The upper bound size of `/dev/shm` is determined by your hardware and operating system  configuration. The latter of which may need to be adjusted to share large embedding tables between processes. This is particularly true when running HugeCTR in a Docker image. By default, Docker will only allocate 64 MiB for `/dev/shm`, which is insufficient for most recommendation models. You can try starting your docker deployment with `--shm-size=...` to reserve more shared memory of the native OS for the respective docker container (see also [docs.docker.com/engine/reference/run](https://docs.docker.com/engine/reference/run)).
 
-* `shared_memory_name`: String, the symbolic name of the shared memory. System-unique, and must be the same for all processes that attach to the smae shared memory.
+* `shared_memory_name`: String, the symbolic name of the shared memory. System-unique, and must be the same for all processes that attach to the same shared memory.
 
 * `shared_memory_auto_remove`: Boolean, disables removal of the shared memory when the last process disconnects. If this is flag is set to `False` (`True` by default), the state of the shared memory is retained across program restarts.
 
@@ -472,13 +472,13 @@ The default value is `8`.
 
   *Note: when using the Redis backend (`type = "redis_cluster"`) is used in conjunction with certain open source versions of Redis, setting a maximum batch size above `262143` (2^18 - 1) can lead to obscure errors and, therefore, should be avoided.*
 
-* `enable_tls`: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is `False` (=disable TLS/SSL). Enabling encryption may slighly increase latency and decrease the overall throughput when communicating with the Redis cluster.
+* `enable_tls`: Boolean, allows enabling TLS/SSL secured connections with Redis clusters. The default is `False` (=disable TLS/SSL). Enabling encryption may slightly increase latency and decrease the overall throughput when communicating with the Redis cluster.
 
-* `tls_ca_certificate`: String, allows you specify the filesystem path to the certificate(s) of the CA for TLS/SSL secured connnections. If the provided path denotes a directory, all valid certificates in the directory will be considered. Default value: `cacertbundle.crt`.
+* `tls_ca_certificate`: String, allows you specify the filesystem path to the certificate(s) of the CA for TLS/SSL secured connections. If the provided path denotes a directory, all valid certificates in the directory will be considered. Default value: `cacertbundle.crt`.
 
-* `tls_client_certificate`: String, filesystem path of the client certificate to use for TLS/SSL secured connnections. Default value: `client_cert.pem`.
+* `tls_client_certificate`: String, filesystem path of the client certificate to use for TLS/SSL secured connections. Default value: `client_cert.pem`.
 
-* `tls_client_key`: String, file system path of the private key to use for TLS/SSL secured connnections. Default value: `client_key.pem`.
+* `tls_client_key`: String, file system path of the private key to use for TLS/SSL secured connections. Default value: `client_key.pem`.
 
 * `tls_server_name_identification`: String, SNI used by the server. Can be different from the actual connection address. Default value: `redis.localhost`.
 
@@ -510,7 +510,7 @@ Specify a value between `0` and `1`, but not exactly `0` or `1`.
 The default value is `0.8` and indicates to evict embeddings from a partition until it is shrunk to 80% of its maximum size.
 In other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the specified `overflow_policy`.
 
-* `initialize_after_startup`: Boolean,when set to `True` *(default)*, the contents of the sparse model files are used to initialize this database. This is useful if multiple processes should connect to the same databse, or if restarting processes connect to a previously-initialized database that retains its state between inference process restarts. For example, if you reconnect to an existing RocksDB or Redis deployment, or an already materialized multi-process hashmap.
+* `initialize_after_startup`: Boolean,when set to `True` *(default)*, the contents of the sparse model files are used to initialize this database. This is useful if multiple processes should connect to the same database, or if restarting processes connect to a previously-initialized database that retains its state between inference process restarts. For example, if you reconnect to an existing RocksDB or Redis deployment, or an already materialized multi-process hashmap.
 
 * `initial_cache_rate`: Double, specifies the fraction of the embeddings to initially attempt to cache.
 Specify a value in the range `[0.0, 1.0]`.

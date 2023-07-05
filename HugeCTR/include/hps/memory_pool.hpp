@@ -39,7 +39,7 @@ class MemoryBlock {
   EmbeddingCacheRefreshspace refresh_buffer;
   bool bUsed;        // occupied
   bool bBelong;      // belong to current pool
-  MemoryPool* pMem;  // blong to which pool
+  MemoryPool* pMem;  // belong to which pool
   MemoryBlock() {
     this->bBelong = false;
     this->bUsed = false;

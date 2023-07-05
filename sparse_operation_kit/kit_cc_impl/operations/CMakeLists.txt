@@ -14,7 +14,7 @@
 #
 
 # Sometimes, the framework does not provide GPU implementations for specific 
-# ops, or its implementations are not effecient enough. This folder is to 
+# ops, or its implementations are not efficient enough. This folder is to 
 # accommodate those customized ops.
 
 cmake_minimum_required(VERSION 3.8)
