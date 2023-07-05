@@ -242,7 +242,7 @@ __global__ void eXport(key_type *keys, value_type *values, size_t num_keys, atom
 
       int block_offset = -1;
 
-      // Place any valid entry into the next avaiable slot in shared memory
+      // Place any valid entry into the next available slot in shared memory
       if (it.key() != submap_view.get_empty_key_sentinel() &&
           it.key() != submap_view.get_reclaimed_key_sentinel()) {
         block_offset = block_counter.fetch_add(1, cuda::std::memory_order_relaxed);

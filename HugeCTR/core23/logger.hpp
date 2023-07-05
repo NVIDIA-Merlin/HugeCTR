@@ -22,7 +22,7 @@
  * Instead of using std::cout or printf, we recommend you use our HCTR_LOG or HCTR_PRINT.
  * By using them, you can easily adjust which levels of messages are printed at.
  * We have 5 reserved levels or channels where logs are printed, but you can define your own
- * level N >= 4 as well. The message level is specfied as the first argument of log function.
+ * level N >= 4 as well. The message level is specified as the first argument of log function.
      ERROR (-1): error messages. (stderr)
      SILENCE (0): messages which are never printed.
      INFO (1): non-error & non-warning informative messages. (stdout)
@@ -65,12 +65,12 @@
  * For HugeCTR's own errors, HCTR_OWN_THROW is used.
  * For MPI, use HCTR_MPI_THROW. For the other libraries including CUDA, cuBLAS, NCCL,etc, use
  HCTR_LIB_THROW.
- * The throwed exception records where the error has occured (or caught) and what the error is
+ * The thrown exception records where the error has occurred (or caught) and what the error is
  about.
  * If you add a new library, to track its error, it is recommended that you specialize getErrorType
  and getErrorString below.
  * 2.1. Examples:
-     HCTR_OWN_THROW(Error_t::WrongInput, "device is not avaliable");
+     HCTR_OWN_THROW(Error_t::WrongInput, "device is not available");
      HCTR_LIB_THROW(cudaDeviceSynchronize());
      HCTR_LIB_THROW(cublasGemmEx(...));
      HCTR_MPI_THROW(MPI_Gather(...));
@@ -81,7 +81,7 @@
  *
  * 3. Error check:
  * You sometimes want to terminate the HugeCTR immediately rather than throwing an exception.
- * Like the HCTR_*_THROW, the error message shows where the error has occured and which expression
+ * Like the HCTR_*_THROW, the error message shows where the error has occurred and which expression
  is failed.
  * 3.1. Host error check:
  * To check if an expression is valid on the host side, use HCTR_CHECK (always executed) or

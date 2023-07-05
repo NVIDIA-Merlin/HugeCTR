@@ -66,7 +66,7 @@ class Loss : public ILoss {
    * for the final loss calculation.
    *
    * After the train is called, the input_tensors_old_ will be updated to the input
-   * gradiant values for the backward pass.
+   * gradient values for the backward pass.
    */
   Tensors2<T> input_tensors_old_;
   /**
@@ -85,7 +85,7 @@ class Loss : public ILoss {
    * for the final loss calculation.
    *
    * After the train is called, the input_tensors_ will be updated to the input
-   * gradiant values for the backward pass.
+   * gradient values for the backward pass.
    */
   std::vector<core23::Tensor> input_tensors_;
   /**

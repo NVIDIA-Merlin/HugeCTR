@@ -65,7 +65,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--filename",
         type=str,
-        help="the filename used to save the generated datas.",
+        help="the filename used to save the generated data.",
         required=False,
         default=r"./data.file",
     )

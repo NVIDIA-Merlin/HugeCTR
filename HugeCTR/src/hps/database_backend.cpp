@@ -73,7 +73,7 @@ size_t DatabaseBackendBase<Key>::evict(const std::vector<std::string>& table_nam
 template <typename Key>
 size_t DatabaseBackendBase<Key>::dump(const std::string& table_name, const std::string& path,
                                       DatabaseTableDumpFormat_t format) {
-  // Resolve format if none specificed.
+  // Resolve format if none specified.
   if (format == DatabaseTableDumpFormat_t::Automatic) {
     const std::string ext = std::filesystem::path(path).extension();
     if (ext == ".bin") {

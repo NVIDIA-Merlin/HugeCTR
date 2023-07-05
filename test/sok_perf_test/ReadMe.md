@@ -51,7 +51,7 @@ Use [Criteo Terabyte](https://labs.criteo.com/2013/12/download-terabyte-click-lo
     ```shell
     $ bash run_tf_ranking.sh
     ```
-2. [Option2] Run the codes writen in current folder.
+2. [Option2] Run the codes written in current folder.
     + Set common params
     ```shell
     $ export EMBEDDING_DIM=32

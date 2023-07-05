@@ -56,7 +56,7 @@ class HPS {
   parameter_server_config ps_config_;
 
   std::shared_ptr<HierParameterServerBase>
-      parameter_server_;  // Hierarchical paramter server that manages database backends and
+      parameter_server_;  // Hierarchical parameter server that manages database backends and
                           // embedding caches of all models on all deployed devices
   std::map<std::string, std::map<int64_t, std::shared_ptr<LookupSessionBase>>>
       lookup_session_map_;  // Lookup sessions of all models deployed on all devices, currently only

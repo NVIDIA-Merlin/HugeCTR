@@ -598,7 +598,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
         }
 
-        // check the activation functino of this layer
+        // check the activation function of this layer
         Activation_t act_type = Activation_t::Relu;
         if (has_key_(j, "activation")) {
           auto act_name = get_value_from_json<std::string>(j, "activation");

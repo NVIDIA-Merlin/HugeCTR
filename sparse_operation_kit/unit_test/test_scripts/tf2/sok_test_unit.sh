@@ -31,7 +31,7 @@ python3 prepare_dataset.py \
         --nnz_per_slot=5 \
         --iter_num=30 \
         --vocabulary_size=1024 \
-        --filename="datas.file" \
+        --filename="data.file" \
         --split_num=1 \
         --save_prefix="data_"
 

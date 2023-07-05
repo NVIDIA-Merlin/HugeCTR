@@ -26,7 +26,7 @@ namespace HugeCTR {
 /**
  * The LocalizedSlotSparseEmbeddingOneHot class inherits from Embedding class, which is the base
  * class for implementing all embedding layers. In this class, the slots in the embedding table
- * are assigned to a single GPU seperately, which are called localized slots. For example, slot-0 on
+ * are assigned to a single GPU separately, which are called localized slots. For example, slot-0 on
  * GPU-0, slot-1 on GPU-1, slot-2 on GPU-0, slot-3 on GPU-1, etc. This class is very simple to the
  * LocalizedSlotSparseEmbeddingHash, but optimized for performance according to the "one-hot"
  * feature. So, there are several assumptions in this class: 1) The mapping method from keys to
@@ -83,7 +83,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
    * Calculate the max vocabulary size per GPU.
    * @param total_gpu_count total GPU count.
    * @param local_gpu_count local GPU count.
-   * @param slot_sizes an array which stores the size of the slots to be intialized.
+   * @param slot_sizes an array which stores the size of the slots to be initialized.
    * @param device_resources GPU device resources.
    */
   static size_t cal_max_voc_size_per_gpu(const std::vector<size_t> slot_sizes,
@@ -113,7 +113,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
   /**
    * Initialize the hash table and embedding table on local GPUs. This function is only used
    * by LocalizedSparseEmbeddingHash.
-   * @param slot_sizes an array which stores the size of the slots to be intialized.
+   * @param slot_sizes an array which stores the size of the slots to be initialized.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.
    * @param hash_table_slot_id_tensors slot ids tensors.
@@ -306,7 +306,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
   void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
   /**
-   * Download the hash table from multi-GPUs global memroy to CPU memory
+   * Download the hash table from multi-GPUs global memory to CPU memory
    * and write it to the weight_stream on the host.
    * @param sparse_model the folder name of sparse model.
    */
@@ -370,7 +370,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
    * used for unit test.
-   * @param wgrad the host pointer for stroing the backward() results.
+   * @param wgrad the host pointer for storing the backward() results.
    * @param devIndex the GPU device id.
    */
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) {
@@ -433,8 +433,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
    * This function is only used for unit test.
-   * @param hash_table_key the host pointer for stroing the hash table keys.
-   * @param hash_table_value the host pointer for stroing the hash table values.
+   * @param hash_table_key the host pointer for storing the hash table keys.
+   * @param hash_table_value the host pointer for storing the hash table values.
    */
   void get_update_params_results(Tensor2<TypeHashKey> &hash_table_key,
                                  Tensor2<float> &hash_table_value) {}

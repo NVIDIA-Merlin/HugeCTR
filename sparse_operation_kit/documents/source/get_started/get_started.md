@@ -117,7 +117,7 @@ def create_DemoModel(max_vocabulary_size_per_gpu,
 ```
 
 ### Use SparseOperationKit with tf.distribute.Strategy ###
-SparseOperationKit is compatible with `tf.distribute.Strategy`. More specificly, `tf.distribute.MirroredStrategy` and `tf.distribute.MultiWorkerMirroredStrategy`.
+SparseOperationKit is compatible with `tf.distribute.Strategy`. More specifically, `tf.distribute.MirroredStrategy` and `tf.distribute.MultiWorkerMirroredStrategy`.
 
 #### with tf.distribute.MirroredStrategy ####
 The `tf.distribute.MirroredStrategy` class enables data-parallel synchronized training on a machine with multiple GPUs. For more information, see the TensorFlow documentation for the [MirroredStrategy](https://tensorflow.google.cn/api_docs/python/tf/distribute/MirroredStrategy) class.
@@ -158,7 +158,7 @@ with strategy.scope():
 
     dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-Prior to using a DNN model that is built with SOK, you must call `sok.Init` to initalize SOK. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
+Prior to using a DNN model that is built with SOK, you must call `sok.Init` to initialize SOK. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python
@@ -171,7 +171,7 @@ def _replica_loss(labels, logits):
 def _train_step(inputs, labels):
     with tf.GradientTape() as tape:
         logits = model(inputs, training=True)
-        loss = _replica_loss(lables, logits)
+        loss = _replica_loss(labels, logits)
     emb_var, other_var = sok.split_embedding_variable_from_others(model.trainable_variables)
     grads, emb_grads = tape.gradient(loss, [other_var, emb_var])
     if use_tf_opt:
@@ -271,7 +271,7 @@ else:
 
 dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initilization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
+Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initialization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python
@@ -354,7 +354,7 @@ else:
     emb_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initilization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
+Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initialization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python

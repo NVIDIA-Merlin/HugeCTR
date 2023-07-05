@@ -154,7 +154,7 @@ class EmbeddingIO {
           grouped_table->load_by_id(&keys, &embedding_weights, model_table_id);
         }
       } else {
-        HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "unsupport parallel mode");
+        HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "unsupported parallel mode");
       }
     }
   }
@@ -240,7 +240,7 @@ std::vector<EmbeddingTableParam> get_table_param_list_io(core23::DataType emb_ty
 
   HugeCTR::OptParams opt_param;
   // FIXME: We need to initialize all variable or we will trigger uninitialized error in
-  // EmbeddingTableParam ctor because the copy constructor of HugeCTR::OptParams trys to copy all
+  // EmbeddingTableParam ctor because the copy constructor of HugeCTR::OptParams tries to copy all
   // members
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;

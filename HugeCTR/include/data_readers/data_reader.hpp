@@ -66,8 +66,8 @@ class DataReader : public IDataReader {
   const std::vector<DataReaderSparseParam> params_;
   std::shared_ptr<ResourceManager> resource_manager_; /**< gpu resource used in this data reader*/
   const long long batchsize_;                         /**< batch size */
-  const size_t label_dim_; /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const size_t dense_dim_; /**< dimention of dense */
+  const size_t label_dim_; /**< dimension of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_; /**< dimension of dense */
   long long current_batchsize_;
 
   bool repeat_;

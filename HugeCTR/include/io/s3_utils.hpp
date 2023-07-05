@@ -62,7 +62,7 @@ inline std::vector<std::string> split_str(std::string& str, const std::string& s
 }
 
 /**
- * @brief A stuct used to represent a path in s3 file system
+ * @brief A struct used to represent a path in s3 file system
  *
  */
 struct S3Path {

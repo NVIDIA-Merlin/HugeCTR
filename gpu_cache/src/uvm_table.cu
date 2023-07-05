@@ -240,7 +240,7 @@ __global__ void read_vectors_kernel(const index_type* query_indices, const int n
 }
 
 template <typename index_type, typename vec_type>
-__global__ void distribute_vectors_kernel(const index_type* postions, const size_t num_keys,
+__global__ void distribute_vectors_kernel(const index_type* positions, const size_t num_keys,
                                           const vec_type* vectors, const int vec_size,
                                           vec_type* output_vectors) {
   constexpr int warp_size = 32;
@@ -259,7 +259,7 @@ __global__ void distribute_vectors_kernel(const index_type* postions, const size
     size_t key_num = step * num_threads_per_grid + grid.thread_rank();
     index_type idx = std::numeric_limits<index_type>::max();
     if (key_num < num_keys) {
-      idx = postions[key_num];
+      idx = positions[key_num];
     }
 #pragma unroll 4
     for (size_t j = 0; j < warp_size; j++) {

@@ -34,7 +34,7 @@ template <class T>
 class DataReaderWorker : public IDataReaderWorker {
  private:
   DataSetHeader
-      data_set_header_;  /**< the header of data set, which has main informations of a data file */
+      data_set_header_;  /**< the header of data set, which has main information of a data file */
   size_t buffer_length_; /**< buffer size for internal use */
   Check_t check_type_;   /**< check type for data set */
   std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */

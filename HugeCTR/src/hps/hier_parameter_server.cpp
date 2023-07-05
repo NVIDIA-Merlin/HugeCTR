@@ -90,7 +90,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
         inference_params_array[i].persistent_db != inference_params_array[0].persistent_db) {
       HCTR_OWN_THROW(
           Error_t::WrongInput,
-          "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
+          "Inconsistent database setup. HugeCTR parameter server does currently not support hybrid "
           "database deployment.");
     }
   }
@@ -207,7 +207,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
     update_database_per_model(inference_params_array[i]);
   }
 
-  // Initilize embedding cache for each embedding table of each model
+  // Initialize embedding cache for each embedding table of each model
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     create_embedding_cache_per_model(inference_params_array[i]);
     inference_params_map_.emplace(inference_params_array[i].model_name, inference_params_array[i]);
@@ -487,7 +487,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
 
       if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic ||
           (inference_params.embedding_cache_type == EmbeddingCacheType_t::Stochastic)) {
-        // initilize the embedding cache for each table
+        // initialize the embedding cache for each table
         const size_t stride_set =
             std::max(1.0f, floor(cache_config.num_set_in_cache_[j] *
                                  cache_config.cache_refresh_percentage_per_iteration));
@@ -524,7 +524,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
               reinterpret_cast<const float*>(vec_result.first),
               *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
               cudaMemcpyHostToDevice, stream));
-          HCTR_LOG_S(INFO, ROOT) << "Initilize the embedding table " << j << " for interation "
+          HCTR_LOG_S(INFO, ROOT) << "Initialize the embedding table " << j << " for iteration "
                                  << idx_set / stride_set << " with number of " << length << " keys."
                                  << std::endl;
           embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
@@ -587,7 +587,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
             }
             key_result = rawreader->getkeys(it);
             vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
-            HCTR_LOG_S(INFO, ROOT) << "Initilize the embedding table " << j << " for interation "
+            HCTR_LOG_S(INFO, ROOT) << "Initialize the embedding table " << j << " for iteration "
                                    << it << " with number of " << length << " keys." << std::endl;
             embedding_cache_map[device_id]->init(
                 j, key_result.first, reinterpret_cast<float*>(vec_result.first), length, stream);
@@ -766,7 +766,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     std::fill_n(&h_vectors[index * embedding_size], embedding_size, default_vec_value);
   }};
 
-  // If have volatile and persistant database.
+  // If have volatile and persistent database.
   if (volatile_db_ && persistent_db_) {
     // Do a sequential lookup in the volatile DB, and remember the missing keys.
     constexpr size_t invalid_index{std::numeric_limits<size_t>::max()};

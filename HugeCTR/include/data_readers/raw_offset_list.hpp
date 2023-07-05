@@ -39,7 +39,7 @@ class RawOffsetList {
   std::string file_name_;
 
  public:
-  // stride: samle size in byte
+  // stride: sample size in byte
   RawOffsetList(std::string file_name, long long num_samples, long long stride, long long batchsize,
                 bool use_shuffle, int num_workers, bool repeat)
       : num_samples_(num_samples),

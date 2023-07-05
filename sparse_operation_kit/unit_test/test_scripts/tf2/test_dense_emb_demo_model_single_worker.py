@@ -288,7 +288,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gpu_num",
         type=int,
-        help="the number of GPUs used to do paralell training.",
+        help="the number of GPUs used to do parallel training.",
         required=False,
         default=8,
     )
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--embedding_vec_size",
         type=int,
-        help="the dimention of embedding vector",
+        help="the dimension of embedding vector",
         required=False,
         default=1,
     )

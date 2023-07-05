@@ -674,7 +674,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
   size_t hash_table_slot_id_chunk_size_in_B = hash_table_slot_id_chunk_size * sizeof(size_t);
   size_t total_gpu_count = embedding_data_.get_resource_manager().get_global_gpu_count();
 
-  // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+  // CAUTION: can not decide how many values for each GPU, so need to allocate enough memory
   // for each GPU allocate GPU memory for hash_table_value_index
   std::unique_ptr<size_t[]> tile_counter_per_gpu(
       new size_t[local_gpu_count]);  // <= hash_table_value_index_per_gpu_size
@@ -688,7 +688,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
     context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
     HCTR_LIB_THROW(cudaMalloc(&d_hash_table_value_index_chunk_per_gpu[id],
                               hash_table_value_index_chunk_size_in_B));
-    // initalize to zeros
+    // initialize to zeros
     HCTR_LIB_THROW(cudaMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
                                    hash_table_value_index_chunk_size_in_B,
                                    embedding_data_.get_local_gpu(id).get_stream()));
@@ -697,7 +697,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
   // sync wait
   functors_.sync_all_gpus(embedding_data_.get_resource_manager());
 
-  // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+  // CAUTION: can not decide how many values for each GPU, so need to allocate enough memory
   // for each GPU allocate CPU/GPU memory for hash_table/key/value chunk
   std::unique_ptr<TypeHashKey *[]> h_hash_table_key_chunk_per_gpu(
       new TypeHashKey *[local_gpu_count]);

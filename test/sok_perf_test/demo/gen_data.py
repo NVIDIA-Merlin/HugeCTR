@@ -94,7 +94,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         default=r"./data.file",
-        help="the filename of saved datas.",
+        help="the filename of saved data.",
     )
     parser.add_argument(
         "--sparse_keys",

@@ -61,7 +61,7 @@ if __name__ == "__main__":
         "--filename", type=str, required=True, help="the filename of the whole dataset"
     )
     parser.add_argument(
-        "--split_num", type=int, required=True, help="the number of shards to be splited."
+        "--split_num", type=int, required=True, help="the number of shards to be split."
     )
     parser.add_argument(
         "--save_prefix", type=str, required=True, help="the prefix string used to save shards."

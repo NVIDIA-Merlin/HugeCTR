@@ -111,7 +111,7 @@ class DataReaderImpl {
    *                                             ["common.bin", {0,1,2,3}]}
    * @param batch_size Number of samples per batch
    * @param num_threads_per_file Number of threads per file reader
-   * @param num_batches_per_thread Number of inflight batches per thread reader
+   * @param num_batches_per_thread Number of in-flight batches per thread reader
    * @param gpus_slot_ownership_matrix Matrix indicating what GPUs own which slots. E.g:
    *                                Node 0: GPU | 0 1 2 3       Node 1: GPU | 0 1 2 3
    *                                        -------------               -------------

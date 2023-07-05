@@ -151,7 +151,7 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2, 
   size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(TypeHashValue);
   long long pair_num = file_size1 / pair_size_in_B;
 
-  // CAUSION: file_stream1 is ordered, while file_stream2 is unordered
+  // CAUTION: file_stream1 is ordered, while file_stream2 is unordered
   // So, firstly, we read <key,value> pairs from file_stream2, and insert it into a hash table.
   char *buf = (char *)malloc(pair_size_in_B);
   TypeHashKey *key;
@@ -239,7 +239,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
   HCTR_LOG_S(DEBUG, WORLD) << "pair_num=" << pair_num << std::endl;
 #endif
 
-  // CAUSION: file_stream1 is ordered, while file_stream2 is unordered
+  // CAUTION: file_stream1 is ordered, while file_stream2 is unordered
   // So, firstly, we read <key,value> pairs from file_stream2, and insert it into a hash table.
   char *buf = (char *)malloc(pair_size_in_B);
   TypeHashKey *key;

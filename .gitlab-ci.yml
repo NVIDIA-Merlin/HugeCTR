@@ -1,4 +1,5 @@
 include:
+#  - remote: 'https://gitlab.com/yesolutions/gitlab-ci-templates/raw/main/templates/pre-commit-autofix.yaml'
   - project: "dl/devops/gitlab-ci-slurm"
     ref: master
     file: "/.gitlab-ci.yml"
@@ -118,14 +119,14 @@ build_train_single_node_with_s3:
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
-build_train_single_node_with_gcs:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_GCS}
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
-    BUILD_HUGECTR: 1
-    BUILD_HUGECTR2ONNX: 1
+#build_train_single_node_with_gcs:
+#  extends: .build_hugectr
+#  variables:
+#    FROM_IMAGE: ${IMAGE_ALL}
+#    DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_GCS}
+#    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
+#    BUILD_HUGECTR: 1
+#    BUILD_HUGECTR2ONNX: 1
 
 build_train_multi_node:
   extends: .build_hugectr

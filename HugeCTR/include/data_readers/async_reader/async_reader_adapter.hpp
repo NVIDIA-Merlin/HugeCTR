@@ -136,7 +136,7 @@ class AsyncReader : public SchedulableDataReader {
   int64_t label_dim_, dense_dim_, sparse_dim_;
 
   size_t inflight_id_ = 0;
-  std::vector<BatchTensors> inflight_batch_tensors_;  // inflight batches
+  std::vector<BatchTensors> inflight_batch_tensors_;  // in-flight batches
 
   std::vector<core23::Tensor> label_tensors_;
   std::vector<core23::Tensor> dense_tensors_;

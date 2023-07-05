@@ -56,12 +56,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--filename",
         type=str,
-        help="the filename used to save the generated datas.",
+        help="the filename used to save the generated data.",
         required=False,
-        default=r"./datas.file",
+        default=r"./data.file",
     )
     parser.add_argument(
-        "--split_num", type=int, required=True, help="the number of shards to be splited."
+        "--split_num", type=int, required=True, help="the number of shards to be split."
     )
     parser.add_argument(
         "--save_prefix", type=str, required=True, help="the prefix used to save splits."

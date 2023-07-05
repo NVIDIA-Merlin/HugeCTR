@@ -661,7 +661,7 @@ size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& tab
 
       // Shuffle the keys.
       {
-        // TODO: This randomizer shoud fetch its seed from a central source.
+        // TODO: This randomizer should fetch its seed from a central source.
         std::random_device rd;
         std::default_random_engine gen(rd());
         std::shuffle(keys.begin(), keys.end(), gen);

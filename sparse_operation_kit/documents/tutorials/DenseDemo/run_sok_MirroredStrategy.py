@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with SparseOperationKit")
 
     parser.add_argument(
-        "--data_filename", type=str, help="the filename of training datas", required=True
+        "--data_filename", type=str, help="the filename of training data", required=True
     )
     parser.add_argument("--global_batch_size", type=int, required=True)
     parser.add_argument("--max_vocabulary_size_per_gpu", type=int, required=True)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         "--stop_at_iter",
         type=int,
         required=False,
-        help="early stop the process if iteration reachs this setting.",
+        help="early stop the process if iteration reaches this setting.",
         default=-1,
     )
 

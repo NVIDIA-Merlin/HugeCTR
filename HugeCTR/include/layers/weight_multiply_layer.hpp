@@ -22,12 +22,12 @@ namespace HugeCTR {
 
 /**
  * Layer which does element-wise product by input tensor X and weight W.
- * The input tensor X has dimention: [batch_size, slot_num], while
- * the input weight W has dimention: [slot_num, embedding_vec_size].
+ * The input tensor X has dimension: [batch_size, slot_num], while
+ * the input weight W has dimension: [slot_num, embedding_vec_size].
  * The WeightMultiplyLayer will broadcast the value of W to "batch_size" dim
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has
- * the dimention: [batch_size, slot_num*embedding_vec_size].
+ * the dimension: [batch_size, slot_num*embedding_vec_size].
  */
 template <typename T>
 class WeightMultiplyLayer : public TrainableLayer<T> {
@@ -59,13 +59,13 @@ class WeightMultiplyLayer : public TrainableLayer<T> {
   ~WeightMultiplyLayer() override{};
 
   /**
-   * WeightMultiplyLayer's foward propagation to do element-wise production
-   * @param stream CUDA stream where the foward propagation is executed
+   * WeightMultiplyLayer's forward propagation to do element-wise production
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * WeightMultiplyLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 
@@ -86,12 +86,12 @@ class WeightMultiplyLayer : public TrainableLayer<T> {
 
 /**
  * Layer which does element-wise product by input tensor X and weight W.
- * The input tensor X has dimention: [batch_size, slot_num], while
- * the input weight W has dimention: [slot_num, embedding_vec_size].
+ * The input tensor X has dimension: [batch_size, slot_num], while
+ * the input weight W has dimension: [slot_num, embedding_vec_size].
  * The Core23TempWeightMultiplyLayer will broadcast the value of W to "batch_size" dim
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has
- * the dimention: [batch_size, slot_num*embedding_vec_size].
+ * the dimension: [batch_size, slot_num*embedding_vec_size].
  */
 template <typename T>
 class Core23TempWeightMultiplyLayer : public Core23TempTrainableLayer<T> {
@@ -110,13 +110,13 @@ class Core23TempWeightMultiplyLayer : public Core23TempTrainableLayer<T> {
   ~Core23TempWeightMultiplyLayer() override{};
 
   /**
-   * Core23TempWeightMultiplyLayer's foward propagation to do element-wise production
-   * @param stream CUDA stream where the foward propagation is executed
+   * Core23TempWeightMultiplyLayer's forward propagation to do element-wise production
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * Core23TempWeightMultiplyLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

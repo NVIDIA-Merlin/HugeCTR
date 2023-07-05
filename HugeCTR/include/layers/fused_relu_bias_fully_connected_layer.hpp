@@ -192,10 +192,10 @@ class FusedReluBiasFullyConnectedLayer : public TrainableLayer<__half> {
    * (2) weight, input, output, wgrad are all in column-major.
    * @param weight_buff: stores the weight tensor
    * @param wgrad_buff: stores the gradient values of the weight calculated in backward pass
-   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propogation
-   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propogation
-   * @param top_tensor_fprop: stores the tensor to top layer when forward propogation
-   * @param top_tensor_bprop: stores the tensor to top layer when backward propogation
+   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propagation
+   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propagation
+   * @param top_tensor_fprop: stores the tensor to top layer when forward propagation
+   * @param top_tensor_bprop: stores the tensor to top layer when backward propagation
    * @param pos: stores the position of this layer: HEAD, BODY, TAIL, ISOLATED.
    */
   FusedReluBiasFullyConnectedLayer(
@@ -382,10 +382,10 @@ class Core23TempFusedReluBiasFullyConnectedLayer : public Core23TempTrainableLay
    * Only two kinds of tensor formats are supported:
    * (1) weight, input, output, wgrad are all in row-major.
    * (2) weight, input, output, wgrad are all in column-major.
-   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propogation
-   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propogation
-   * @param top_tensor_fprop: stores the tensor to top layer when forward propogation
-   * @param top_tensor_bprop: stores the tensor to top layer when backward propogation
+   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propagation
+   * @param train_bottom_tensor_fprop: stores the tensor from bottom layer for forward propagation
+   * @param top_tensor_fprop: stores the tensor to top layer when forward propagation
+   * @param top_tensor_bprop: stores the tensor to top layer when backward propagation
    * @param pos: stores the position of this layer: HEAD, BODY, TAIL, ISOLATED.
    */
   Core23TempFusedReluBiasFullyConnectedLayer(

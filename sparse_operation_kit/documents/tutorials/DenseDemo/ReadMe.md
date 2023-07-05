@@ -32,7 +32,7 @@ $ python3 split_data.py \
     --save_prefix="./data_"
 ```
 
-### Run this demo writen with TensorFlow ###
+### Run this demo written with TensorFlow ###
 This is a model parallelism demo implemented by tf methods.
 ```shell
 $ mpiexec -n 8 --allow-run-as-root \
@@ -48,7 +48,7 @@ $ mpiexec -n 8 --allow-run-as-root \
     --data_splited=1
 ```
 
-### Run this demo writen with SOK + MirroredStrategy ###
+### Run this demo written with SOK + MirroredStrategy ###
 ```shell
 $ python3 run_sok_MirroredStrategy.py \
     --data_filename="./data.file" \
@@ -61,7 +61,7 @@ $ python3 run_sok_MirroredStrategy.py \
     --optimizer="adam" 
 ```
 
-### Run this demo writen with SOK + MultiWorkerMirroredStrategy + MPI ###
+### Run this demo written with SOK + MultiWorkerMirroredStrategy + MPI ###
 Add `--oversubscribe` to `mpiexec` if there is not enough slots.
 ```shell
 $ mpiexec -n 8 --allow-run-as-root \
@@ -77,7 +77,7 @@ $ mpiexec -n 8 --allow-run-as-root \
     --optimizer="adam"
 ```
 
-### Run this demo writen with SOK + Horovod ###
+### Run this demo written with SOK + Horovod ###
 ```shell
 $ horovodrun -np 8 -H localhost:8 \
     python3 run_sok_horovod.py \

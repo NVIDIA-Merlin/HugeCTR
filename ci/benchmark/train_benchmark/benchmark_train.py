@@ -845,7 +845,7 @@ def multi_node_test():
     model.fit(
         max_iter=2000,
         display=200,
-        eval_interval=3000,  # benchmark we dont want evalute
+        eval_interval=3000,  # benchmark we dont want evaluate
         snapshot=3000,  # benchmark we dont want snapshot
     )
 

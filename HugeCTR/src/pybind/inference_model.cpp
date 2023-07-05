@@ -125,7 +125,7 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
   for (size_t batch = 0; batch < num_batches; batch++) {
     current_batch_size_ = data_reader_->read_a_batch_to_device();
     HCTR_CHECK_HINT(current_batch_size_ == global_max_batch_size_,
-                    "there should not be imcomplete batch under the repeat mode");
+                    "there should not be incomplete batch under the repeat mode");
     if (inference_params_.i64_input_key) {
       parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_,
                                               rowoffset_tensor_list_);
@@ -223,7 +223,7 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
   for (size_t batch = 0; batch < num_batches; batch++) {
     current_batch_size_ = data_reader_->read_a_batch_to_device();
     HCTR_CHECK_HINT(current_batch_size_ == global_max_batch_size_,
-                    "there should not be imcomplete batch under the repeat mode");
+                    "there should not be incomplete batch under the repeat mode");
     metric_->set_current_batch_size(current_batch_size_);
     if (inference_params_.i64_input_key) {
       parse_input_from_data_reader<long long>(sparse_input_map_64_, key_tensor_list_,

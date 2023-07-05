@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <thrust/sort.h>  // for implictly including cub headers
+#include <thrust/sort.h>  // for implicitly including cub headers
 
 #include <embeddings/hybrid_embedding/statistics.hpp>
 #include <embeddings/sparse_embedding_functors.hpp>

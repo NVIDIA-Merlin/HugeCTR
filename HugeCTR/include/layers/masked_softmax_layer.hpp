@@ -44,7 +44,7 @@ class MaskedSoftmaxLayer : public Layer {
 
   /**
    * A method of implementing the forward pass of SoftmaxLayer
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
@@ -83,7 +83,7 @@ class MaskedSoftmaxLayer : public Layer {
 
   /**
    * A method of implementing the forward pass of SoftmaxLayer
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**

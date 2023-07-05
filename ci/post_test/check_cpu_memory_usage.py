@@ -9,7 +9,7 @@ if len(sys.argv) == 3:
     print("Top command output file path is " + sys.argv[1])
     original_data = pd.read_csv(sys.argv[1], sep="\s+", header=None)
 else:
-    print("Wrong input arguments, at leat two arguments")
+    print("Wrong input arguments, at least two arguments")
     sys.exit(-1)
 
 

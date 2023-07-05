@@ -153,10 +153,10 @@ class KafkaMessageSource final : public MessageSource<Key> {
    * @param metadata_refresh_interval_ms Refresh metadata information from server very x ms.
    * @param receive_buffer_size Size of a receive buffer. This should be identical to the broker's
    * \p send_buffer_size .
-   * @param poll_timeout_ms Timeout for downloading messsages in milliseconds.
+   * @param poll_timeout_ms Timeout for downloading messages in milliseconds.
    * @param max_batch_size Maximum number of key/values that can accumulate before invoking
    * callback.
-   * @param failure_backoff_ms In case something bad happend, wait this number of milliseconds.
+   * @param failure_backoff_ms In case something bad happened, wait this number of milliseconds.
    * @param max_commit_interval Regardless of the amount of values that are available, after this
    * many messages have been decoded, invoke the callback and commit.
    */

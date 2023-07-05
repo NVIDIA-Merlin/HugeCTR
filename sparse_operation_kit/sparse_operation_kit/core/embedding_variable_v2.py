@@ -42,7 +42,7 @@ import functools
 
 class DistributedPolicy(values_lib.VariablePolicy):
     def value(self):
-        raise NotImplementedError("value not implementd")
+        raise NotImplementedError("value not implemented")
 
     def _is_mirrored(self):
         raise NotImplementedError("is_mirrored not implemented")

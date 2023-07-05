@@ -54,8 +54,8 @@ class LookupSession : public LookupSessionBase {
                                   const std::vector<size_t>& num_keys_per_table) override final;
 
   virtual const InferenceParams get_inference_params() const override { return inference_params_; }
-  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
-    ls_profiler_->set_config(interation, warmup, enable_bench);
+  virtual void set_profiler(int iteration, int warmup, bool enable_bench) {
+    ls_profiler_->set_config(iteration, warmup, enable_bench);
   };
   virtual void profiler_print() { ls_profiler_->print(); };
 

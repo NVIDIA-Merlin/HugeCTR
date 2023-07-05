@@ -105,7 +105,7 @@ struct SelectTest {
     cudaMemcpy(&ref_count_, d_num_selected_out_, sizeof(T), cudaMemcpyDeviceToHost);
     gather_if(keys_, ref_cpu_);
     if (ref_count_ != static_cast<T>(ref_cpu_.size())) {
-      std::cerr << "seleted num mismatches\n" << std::endl;
+      std::cerr << "selected num mismatches\n" << std::endl;
       std::cerr << "expected: " << ref_cpu_.size() << " got " << ref_count_ << std::endl;
       exit(-1);
     }
