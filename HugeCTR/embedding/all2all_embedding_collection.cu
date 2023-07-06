@@ -896,6 +896,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   for (int i = 0; i < d_table_id_list.num_elements(); ++i) {
     (*num_unique_key_per_table)[i] =
         gpu_num_key_per_table_offset[i + 1] - gpu_num_key_per_table_offset[i];
+        
   }
 }
 

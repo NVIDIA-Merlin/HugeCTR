@@ -733,7 +733,7 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
     std::vector<sok::Tensor23> unique_key, grad;
     std::vector<size_t> num_unique_keys;
     std::vector<size_t> num_grad_length;
-    for (int i = 0; i < this->num_lookups_; ++i) {
+    for (int i = 0; i < num_unique_key_per_table.size(); ++i) {
       int num_unique_key = 0;
       //auto target_id_space_iter =
       //    std::find(unique_id_space_list.begin(), unique_id_space_list.end(), i);

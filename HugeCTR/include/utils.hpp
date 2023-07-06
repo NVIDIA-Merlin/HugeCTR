@@ -273,8 +273,9 @@ class CudaCPUDeviceContext {
     };
 
     {
-      auto log = HCTR_LOG_S(INFO, ROOT);
-      log << "Device to NUMA mapping:" << std::endl;
+      //auto log = HCTR_LOG_S(INFO, ROOT);
+      //log << "Device to NUMA mapping:" << std::endl;
+      HCTR_LOG_S(INFO, ROOT) << "Device to NUMA mapping:" << std::endl;
 
       for (auto device_id : device_ids) {
         nvmlDevice_t handle;
@@ -284,8 +285,9 @@ class CudaCPUDeviceContext {
             handle, cpu_mask->size / (sizeof(unsigned long) * 8), cpu_mask->maskp));
         int node = select_node(cpu_mask);
         device_id_to_numa_node_[device_id] = node;
-        log << "  GPU " << device_id << " -> "
-            << " node " << node << std::endl;
+        //log << "  GPU " << device_id << " -> "
+        //    << " node " << node << std::endl;
+        HCTR_LOG_S(INFO, ROOT) << "  GPU " << device_id << " -> "  << " node " << node << std::endl;
 
         if (numa_node_to_device_ids_.count(node) == 0) {
           numa_node_to_device_ids_[node] = std::vector<int>{device_id};

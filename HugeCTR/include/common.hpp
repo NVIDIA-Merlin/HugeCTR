@@ -262,10 +262,10 @@ inline void hctr_print_func<double>(Logger::DeferredEntry& log, double const& t)
 template <typename... Args>
 inline void HCTR_LOG_ARGS(const Args&... args) {
   if (Logger::get().get_rank() == 0) {
-    auto log = HCTR_LOG_S(DEBUG, ROOT);
-    log << '[';
+    //auto log = HCTR_LOG_S(DEBUG, ROOT);
+    HCTR_LOG_S(DEBUG, ROOT) << '[';
     (hctr_print_func(log, args), ...);
-    log << ']' << std::endl;
+    HCTR_LOG_S(DEBUG, ROOT) << ']' << std::endl;
   }
 }
 
