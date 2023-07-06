@@ -243,33 +243,21 @@ def collect_benchmark_result(log_path):
         print(",".join(str(i) for i in benchmark))
 
 
-def check_perf_result(perf_result, expected_result, compare_flag=True):
-    if compare_flag:
-        if float(perf_result) > float(expected_result):
-            raise RuntimeError(
-                "performance get worse. perf latency: {} vs. upper bound latency :{}".format(
-                    perf_result, expected_result
-                )
+def check_perf_result(perf_result, expected_result):
+    if math.isinf(perf_result):
+        raise RuntimeError("perf_result: {}! Please check!".format(math.fabs(perf_result)))
+    if float(perf_result) > float(expected_result):
+        raise RuntimeError(
+            "performance get worse. perf latency: {} vs. upper bound latency :{}".format(
+                math.fabs(perf_result), math.fabs(expected_result)
             )
-        else:
-            print(
-                "performance check pass. perf latency: {} vs. upper bound latency :{}".format(
-                    perf_result, expected_result
-                )
-            )
+        )
     else:
-        if float(perf_result) < float(expected_result):
-            raise RuntimeError(
-                "performance get worse. perf_result:{} vs. expected result:{}".format(
-                    perf_result, expected_result
-                )
+        print(
+            "performance check pass. perf latency: {} vs. upper bound latency :{}".format(
+                math.fabs(perf_result), math.fabs(expected_result)
             )
-        else:
-            print(
-                "performance check pass. perf_result:{} vs. expected result:{}".format(
-                    perf_result, expected_result
-                )
-            )
+        )
 
 
 if __name__ == "__main__":
@@ -396,6 +384,6 @@ if __name__ == "__main__":
         else:
             perf_result = extract_result_from_log(args.job_name, args.log_path)
             if args.job_name in ["dlrm_dcnv2_1node", "dlrm_dcnv2_8node"]:
-                check_perf_result(perf_result, expected_result, False)
+                check_perf_result(-perf_result, -expected_result)
             else:
                 check_perf_result(perf_result, expected_result)

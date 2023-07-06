@@ -3,7 +3,6 @@
 python3 ${WORKDIR}/ci/common/generate_inference_config.py --config_template ${WORKDIR}/ci/common/config_pbtxt_template.txt --ps_template ${WORKDIR}/ci/common/ps_template.json --batchsize ${BZ} --mixed_precision ${MIXED_PRECISION} --config_output /model/dlrm/config.pbtxt --ps_output /model/ps.json
 
 tritonserver --model-repository=/model/ --load-model=dlrm --log-verbose=1 --model-control-mode=explicit --backend-directory=/usr/local/hugectr/backends --backend-config=hugectr,ps=/model/ps.json > /dev/null 2> /dev/null &
-(top -d 1 -n 300 -b | grep triton) > /logs/cpu_mem.log
 #tritonserver --model-repository=/model/ --load-model=dlrm --log-verbose=1 --model-control-mode=explicit --backend-directory=/usr/local/hugectr/backends --backend-config=hugectr,ps=/model/ps.json &
 
 while [[ $(curl -v localhost:8000/v2/health/ready 2>&1 | grep "OK" | wc -l) -eq 0 ]]; do
