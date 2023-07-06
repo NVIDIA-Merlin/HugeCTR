@@ -619,7 +619,7 @@ inference_cpu_memory_usage:
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,$LOGDIR/inference_cpu_memory:/logs
     WORKDIR: /workdir
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:20:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/hps_memory_check/run.sub
 
