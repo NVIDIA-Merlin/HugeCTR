@@ -19,7 +19,7 @@
  * This is the header file for a set of extended device printf functions.
  * It usage is almost identical to that of the standard printf function.
  * What it does is to add a prefix to a user provided message, which can be
- * helpful in debugging your kernel without using cuda-gdb everytime.
+ * helpful in debugging your kernel without using cuda-gdb every time.
  * See below for some examples on how to use it.
  *
  * 1. Basic example:

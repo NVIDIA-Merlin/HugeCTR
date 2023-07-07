@@ -51,13 +51,13 @@ class Concat3DLayer : public Layer {
   void initialize() override;
 
   /**
-   * Concat's foward pass to gather data to the output tensor
-   * @param stream CUDA stream where the foward propagation is executed
+   * Concat's forward pass to gather data to the output tensor
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * Concat's backward pass to scatter data to the input tensors
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

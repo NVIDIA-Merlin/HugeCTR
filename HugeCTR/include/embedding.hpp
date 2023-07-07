@@ -99,7 +99,7 @@ static size_t get_slot_num(const SparseTensorBag& bag) {
     return dimension[1];
   }
   HCTR_OWN_THROW(Error_t::IllegalCall,
-                 "slot_num is avaiable when sparse tensor shape is (batchsize, slot_num)");
+                 "slot_num is available when sparse tensor shape is (batchsize, slot_num)");
   return 0;
 }
 

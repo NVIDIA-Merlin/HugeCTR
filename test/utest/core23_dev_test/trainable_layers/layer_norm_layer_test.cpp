@@ -248,7 +248,7 @@ void layer_norm_test(core23::Shape dims) {
 
   test::GaussianDataSimulator simulator(0.0, 1.0);
 
-  // standard normall distribution is assumed
+  // standard normal distribution is assumed
   for (int64_t j = 0; j < num_feature; j++) {
     h_gamma[j] = 1.0f;
     h_beta[j] = 0.0f;

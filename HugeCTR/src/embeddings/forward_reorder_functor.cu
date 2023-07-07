@@ -125,7 +125,7 @@ void do_forward_reorder(size_t batch_size_per_gpu, size_t slot_num, size_t embed
 }  // namespace
 
 /**
- * reoder the sequence of data after all2all operation in forward propagation
+ * reorder the sequence of data after all2all operation in forward propagation
  * @param batch_size_per_gpu batch size per GPU
  * @param slot_num the number of localized slots
  * @param embedding_vec_size embedding vector size.

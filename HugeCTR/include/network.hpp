@@ -141,12 +141,12 @@ class Network final {
   size_t get_opt_states_size_in_byte() const { return opt_tensor_.get_size_in_bytes(); }
 
   /**
-   * Writting paramters to file.
+   * Writing parameters to file.
    */
   void download_params_to_host(std::string& write_path);
 
   /**
-   * Writting opt states to file.
+   * Writing opt states to file.
    */
   void download_opt_states_to_host(std::string& write_path);
 
@@ -172,7 +172,7 @@ class Network final {
   void upload_non_trainable_params_to_device_inference(const std::string& model_file);
 
   /**
-   * Writting paramters to cpu buffer.
+   * Writing parameters to cpu buffer.
    */
   void download_params_to_host(float* weight);
 

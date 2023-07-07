@@ -35,7 +35,7 @@ def main(args):
     tf.config.set_visible_devices(gpus[hvd.local_rank()], "GPU")
 
     # Generate local filename
-    # Assume the dataset has been splited in advance
+    # Assume the dataset has been split in advance
     local_file = args.data_filename_prefix + str(hvd.local_rank()) + ".file"
 
     # generate local batch size
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         "--stop_at_iter",
         type=int,
         required=False,
-        help="early stop the process if iteration reachs this setting.",
+        help="early stop the process if iteration reaches this setting.",
         default=-1,
     )
 

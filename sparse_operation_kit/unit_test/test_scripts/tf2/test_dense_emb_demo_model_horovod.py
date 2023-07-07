@@ -242,7 +242,7 @@ def get_args():
     parser.add_argument(
         "--embedding_vec_size",
         type=int,
-        help="the dimention of embedding vector",
+        help="the dimension of embedding vector",
         required=False,
         default=4,
     )

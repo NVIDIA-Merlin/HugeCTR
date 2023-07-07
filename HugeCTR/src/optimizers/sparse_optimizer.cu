@@ -615,7 +615,7 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 // value_count_kernel()
 //*          step5: use optimizer method to compute deltaw, and record corresponding, including
 // three
-//* types of optimizer: Adam: caling opt_adam_kernel() Momentum sgd: calling
+//* types of optimizer: Adam: calling opt_adam_kernel() Momentum sgd: calling
 //* opt_momentum_sgd_kernel() Nesterov: calling opt_nesterov_kernel() step6: update embedding
 // table
 //* by deltaw, calling update_kernel()
@@ -691,7 +691,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
 
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not
-      // a pinned memroy
+      // a pinned memory
       HCTR_LIB_THROW(cudaMemcpyAsync(&hash_hash_value_index_count_num,
                                      hash_value_index_count_counter.get_ptr(), sizeof(uint32_t),
                                      cudaMemcpyDeviceToHost, stream));

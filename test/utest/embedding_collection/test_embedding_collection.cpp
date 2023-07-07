@@ -59,7 +59,7 @@ std::vector<EmbeddingTableParam> get_table_param_list(core23::DataType emb_type)
 
   HugeCTR::OptParams opt_param;
   // FIXME: We need to initialize all variable or we will trigger uninitialized error in
-  // EmbeddingTableParam ctor because the copy constructor of HugeCTR::OptParams trys to copy all
+  // EmbeddingTableParam ctor because the copy constructor of HugeCTR::OptParams tries to copy all
   // members
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;

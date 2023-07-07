@@ -226,7 +226,7 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
 
   test::GaussianDataSimulator simulator(0.0, 1.0);
 
-  // standard normall distribution is assumed
+  // standard normal distribution is assumed
   for (size_t j = 0; j < num_feature; j++) {
     h_gamma[j] = 1.0f;
     h_beta[j] = 0.0f;

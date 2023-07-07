@@ -27,7 +27,7 @@ namespace HugeCTR {
 BatchFileReader::BatchFileReader(const std::string& fname, size_t slot, size_t max_batches_inflight,
                                  std::unique_ptr<IBatchLocations> batch_locations)
     : slot_id_(slot)
-      // having multiple IOs inflight to the same location will break data reader
+      // having multiple IOs in-flight to the same location will break data reader
       ,
       max_batches_inflight_(std::min(max_batches_inflight, batch_locations->count())),
       free_batches_(max_batches_inflight_),
@@ -57,7 +57,7 @@ BatchFileReader::BatchFileReader(const std::string& fname, size_t slot, size_t m
 }
 
 BatchFileReader::~BatchFileReader() {
-  // Call destructor on IO context to wait for inflight IOs to complete first before we
+  // Call destructor on IO context to wait for in-flight IOs to complete first before we
   // free our buffers
   io_ctx_.reset();
 
@@ -86,8 +86,8 @@ void BatchFileReader::submit_reads() {
         batch_locations_iterator_ = batch_locations_->begin();
       } else {
         // Wait for batches from previous epoch to complete. Edge case where batch_i=0 from previous
-        // epoch is inflight and return batch_i=0 from next epoch. Then we have two batches from
-        // batch_i=0 inflight
+        // epoch is in-flight and return batch_i=0 from next epoch. Then we have two batches from
+        // batch_i=0 in-flight
         break;
       }
     }

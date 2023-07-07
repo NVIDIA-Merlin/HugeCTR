@@ -88,7 +88,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --restore_params=1 \
         --generate_new_datas=1
 
-# ----------- multi worker test with ips set mannually, save testing ------ #
+# ----------- multi worker test with ips set manually, save testing ------ #
 # python3 test_sparse_emb_demo_model_multi_worker.py \
 #         --local_gpu_num=8 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
@@ -100,7 +100,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 #         --generate_new_datas=1 \
 #         --ips "10.33.12.11" "10.33.12.29"
 
-# # ----------- multi worker test with ips set mannually, restore testing ------ #
+# # ----------- multi worker test with ips set manually, restore testing ------ #
 # python3 test_sparse_emb_demo_model_multi_worker.py \
 #         --local_gpu_num=8 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
@@ -217,7 +217,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --restore_params=1 \
         --generate_new_datas=1
 
-# ----------- multi worker test with ips set mannually, save testing ------ #
+# ----------- multi worker test with ips set manually, save testing ------ #
 # python3 test_dense_emb_demo_model_multi_worker.py \
 #         --local_gpu_num=8 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
@@ -229,7 +229,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 #         --generate_new_datas=1 \
 #         --ips "10.33.12.22" "10.33.12.16"
 
-# ----------- multi worker test with ips set mannually, restore testing ------ #
+# ----------- multi worker test with ips set manually, restore testing ------ #
 # python3 test_dense_emb_demo_model_multi_worker.py \
 #         --local_gpu_num=8 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
@@ -308,7 +308,7 @@ python3 prepare_dataset.py \
         --nnz_per_slot=5 \
         --iter_num=30 \
         --vocabulary_size=1024 \
-        --filename="datas.file" \
+        --filename="data.file" \
         --split_num=8 \
         --save_prefix="data_"
 

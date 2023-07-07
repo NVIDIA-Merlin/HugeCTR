@@ -38,7 +38,7 @@ class TrainableLayer : public Layer {
   // it is convenient for a child trainable to access the weight type,
   // especially if it wants to use FP32 weights but inputs/outputs the lower precision data.
   // A typical example is when DType is __half but use_FP32_weight is true.
-  // Then, the child class should define the following alias to make thier code cleaner:
+  // Then, the child class should define the following alias to make their code cleaner:
   // (1) using Base = TrainableLayer<DType, true>;
   // (2) using WeightType = typename Base::WeightType;
   // If  useFP32_weight is false, the aliases are not necessary.
@@ -218,7 +218,7 @@ class Core23TempTrainableLayer : public Layer {
   // it is convenient for a child trainable to access the weight type,
   // especially if it wants to use FP32 weights but inputs/outputs the lower precision data.
   // A typical example is when DType is __half but use_FP32_weight is true.
-  // Then, the child class should define the following alias to make thier code cleaner:
+  // Then, the child class should define the following alias to make their code cleaner:
   // (1) using Base = TrainableLayer<DType, true>;
   // (2) using WeightType = typename Base::WeightType;
   // If  useFP32_weight is false, the aliases are not necessary.

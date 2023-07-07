@@ -117,9 +117,9 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
       }
       rmm::device_buffer dev_buffer(label_vector.data(), sizeof(LABEL_TYPE) * sample_per_file,
                                     rmm::cuda_stream_default);
-      auto pcol =
-          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()},
-                                         cudf::size_type(sample_per_file), std::move(dev_buffer));
+      auto pcol = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()},
+                                                 cudf::size_type(sample_per_file),
+                                                 std::move(dev_buffer), rmm::device_buffer{}, 0);
       cols.emplace_back(std::move(pcol));
     }
 
@@ -151,20 +151,20 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
         rmm::device_buffer dev_buffer_1(dense_row_off[i].data(),
                                         sizeof(int32_t) * dense_row_off[i].size(),
                                         rmm::cuda_stream_default);
-        auto child =
-            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
-                                           cudf::size_type(cur_dense_size), std::move(dev_buffer));
-        auto row_off = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
-                                                      cudf::size_type(dense_row_off[i].size()),
-                                                      std::move(dev_buffer_1));
+        auto child = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
+                                                    cudf::size_type(cur_dense_size),
+                                                    std::move(dev_buffer), rmm::device_buffer{}, 0);
+        auto row_off = std::make_unique<cudf::column>(
+            cudf::data_type{cudf::type_to_id<int32_t>()}, cudf::size_type(dense_row_off[i].size()),
+            std::move(dev_buffer_1), rmm::device_buffer{}, 0);
         cols.emplace_back(cudf::make_lists_column(
-            sample_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
+            sample_per_file, std::move(row_off), std::move(child), 0,
             cudf::create_null_mask(sample_per_file, cudf::mask_state::ALL_VALID),
             rmm::cuda_stream_default));
       } else {
-        auto pcol =
-            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
-                                           cudf::size_type(cur_dense_size), std::move(dev_buffer));
+        auto pcol = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
+                                                   cudf::size_type(cur_dense_size),
+                                                   std::move(dev_buffer), rmm::device_buffer{}, 0);
         cols.emplace_back(std::move(pcol));
       }
     }
@@ -198,22 +198,22 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
                                       rmm::cuda_stream_default);
         cols.emplace_back(std::make_unique<cudf::column>(
             cudf::data_type{cudf::type_to_id<CAT_TYPE>()}, cudf::size_type(slot_vector.size()),
-            std::move(dev_buffer)));
+            std::move(dev_buffer), rmm::device_buffer{}, 0));
       } else {
         rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(CAT_TYPE) * slot_vector.size(),
                                         rmm::cuda_stream_default);
-        auto child = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<CAT_TYPE>()},
-                                                    cudf::size_type(slot_vector.size()),
-                                                    std::move(dev_buffer_0));
+        auto child = std::make_unique<cudf::column>(
+            cudf::data_type{cudf::type_to_id<CAT_TYPE>()}, cudf::size_type(slot_vector.size()),
+            std::move(dev_buffer_0), rmm::device_buffer{}, 0);
         rmm::device_buffer dev_buffer_1(row_off_vector.data(),
                                         sizeof(int32_t) * row_off_vector.size(),
                                         rmm::cuda_stream_default);
-        auto row_off = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
-                                                      cudf::size_type(row_off_vector.size()),
-                                                      std::move(dev_buffer_1));
+        auto row_off = std::make_unique<cudf::column>(
+            cudf::data_type{cudf::type_to_id<int32_t>()}, cudf::size_type(row_off_vector.size()),
+            std::move(dev_buffer_1), rmm::device_buffer{}, 0);
 
         cols.emplace_back(cudf::make_lists_column(
-            sample_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
+            sample_per_file, std::move(row_off), std::move(child), 0,
             cudf::create_null_mask(sample_per_file, cudf::mask_state::ALL_VALID),
             rmm::cuda_stream_default));
       }
@@ -288,7 +288,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
 }
 
 // TODO when num_files is not a multiple of workers, reference can be wrong,
-// but the woker iteself can work
+// but the woker itself can work
 
 // say 3 files but 2 workers are specified, where a file contains 2 batches
 // batch 0 -> file 0 (worker 0)
@@ -558,7 +558,7 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
               (((sample + batch_starting + global_batch_offset) % total_samples) * label_dim + l);
           ASSERT_TRUE(labels[label_idx] == label_read[sample * label_dim + l])
               << " iter " << i << " sample " << sample << " label " << l << std::endl;
-          // std::cout << " expected " << labels[label_idx] << "vs readed "
+          // std::cout << " expected " << labels[label_idx] << "vs read "
           //           << label_read[sample * label_dim + l] << " iter " << i << " sample " <<
           //           sample
           //           << " label " << l << std::endl;
@@ -570,7 +570,7 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
               ((sample + batch_starting + global_batch_offset) % total_samples) * dense_dim + d;
           ASSERT_TRUE(denses[dense_idx] == dense_read[sample * dense_dim + d])
               << " iter " << i << " sample " << sample << " dense dim " << d << std::endl;
-          // std::cout << " expected " << denses[dense_idx] << "vs readed "
+          // std::cout << " expected " << denses[dense_idx] << "vs read "
           //           << dense_read[sample * dense_dim + d] << " iter " << i << " sample " <<
           //           sample
           //           << " dense dim " << d << std::endl;

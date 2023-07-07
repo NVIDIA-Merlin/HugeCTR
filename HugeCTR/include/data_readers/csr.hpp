@@ -121,7 +121,7 @@ class CSR {
 
   /**
    * To reset the CSR buffer.
-   * You need to call reset when you want to overwrite the origial data in this CSR.
+   * You need to call reset when you want to overwrite the original data in this CSR.
    */
   void reset() {
     size_of_value_ = 0;

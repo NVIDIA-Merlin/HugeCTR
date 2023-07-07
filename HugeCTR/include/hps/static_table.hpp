@@ -63,8 +63,8 @@ class StaticTable : public EmbeddingCacheBase,
   virtual int get_device_id() override { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() override { return cache_config_.use_gpu_embedding_cache_; }
   virtual void profiler_print() { ec_profiler_->print(); };
-  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
-    ec_profiler_->set_config(interation, warmup, enable_bench);
+  virtual void set_profiler(int iteration, int warmup, bool enable_bench) {
+    ec_profiler_->set_config(iteration, warmup, enable_bench);
   };
 
  private:

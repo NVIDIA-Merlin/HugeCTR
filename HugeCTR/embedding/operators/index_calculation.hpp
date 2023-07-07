@@ -133,7 +133,7 @@ struct IndicesSort {
 };
 
 struct SegmentdUnique {
-  // SegmentdUnique need sperate in 3 steps:
+  // SegmentdUnique need separate in 3 steps:
   // 1. record 2 buffer, first buffer is record key first appear
   //    second buffer is record table first appear
   // 2. scan step 1 first buffer

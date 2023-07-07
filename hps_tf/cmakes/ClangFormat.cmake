@@ -30,7 +30,7 @@ function(clangformat_setup clangformat_srcs)
                             -style=file
                             -i
                             ${clangformat_srcs}
-                    COMMENT "Formating with ${CLANGFORMAT_EXECUTABLE} ...")
+                    COMMENT "Formatting with ${CLANGFORMAT_EXECUTABLE} ...")
 
 #  if(TARGET clangformat)
 #    add_dependencies(clangformat ${PROJECT_NAME}_clangformat)

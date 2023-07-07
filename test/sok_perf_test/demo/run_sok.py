@@ -204,7 +204,7 @@ if __name__ == "__main__":
         type=int,
         choices=[0, 1],
         required=True,
-        help="whether the datas is splited.",
+        help="whether the data is split.",
     )
     parser.add_argument(
         "--sparse_keys",

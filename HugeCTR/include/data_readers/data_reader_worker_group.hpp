@@ -47,7 +47,7 @@ static void producer_thread_func_(const std::shared_ptr<IDataReaderWorker>& data
     while (!p_loop_flag->load()) {
       usleep(2);
     }
-    // parquet reader will hangs over here untill end_flag is set true
+    // parquet reader will hangs over here until end_flag is set true
     // others will return right away
     data_reader->do_h2d();
   } catch (const std::runtime_error& rt_err) {

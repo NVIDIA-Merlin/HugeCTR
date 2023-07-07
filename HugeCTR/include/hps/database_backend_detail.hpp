@@ -260,7 +260,7 @@ inline uint64_t rrxmrrxmsx_0(uint64_t x) {
   } while (0)
 
 /**
- * Uses default ThreadPool to parallelize execution accross parts of a DB backend.
+ * Uses default ThreadPool to parallelize execution across parts of a DB backend.
  */
 #ifdef HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_
 #error HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_ already defined. Potential naming conflict!

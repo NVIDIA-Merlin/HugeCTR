@@ -1,10 +1,10 @@
 variables:
-  IMAGE_ALL: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_all
-  MERLIN_NIGHTLY_DEVEL: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:merlin_nightly
-  IMAGE_SOK_TF2: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf2
-  IMAGE_SOK_TF1: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf1
+  IMAGE_ALL: ${BASE_DEVEL_REGISTRY}:devel_all
+  MERLIN_NIGHTLY_DEVEL: ${BASE_DEVEL_REGISTRY}:merlin_nightly
+  IMAGE_SOK_TF2: ${BASE_DEVEL_REGISTRY}:devel_embedding_tf2
+  IMAGE_SOK_TF1: ${BASE_DEVEL_REGISTRY}:devel_embedding_tf1
   IMAGE_OPTIMIZED: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_optimized
-  IMAGE_PYTORCH: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_pytorch
+  IMAGE_PYTORCH: ${BASE_DEVEL_REGISTRY}:devel_pytorch
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din

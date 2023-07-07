@@ -4,7 +4,7 @@ This module contains several scripts that helps user do inference related tests 
 ## Model generator
 The model generator is used to generate synthetic HugeCTR sparse model files that can be loaded into HugeCTR [HPS](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html) for inference. To generate a HugeCTR model file, please provide the number of uniques keys you need in this model file and the embedding vector size.
 
-Use the following command to create a HugeCTR model with 2,000,000 unqiue keys and embedding size 128:
+Use the following command to create a HugeCTR model with 2,000,000 unique keys and embedding size 128:
 
 ```shell
 model_generator 2000000 128 synthetic_sparse_model
@@ -31,10 +31,10 @@ perf_analyzer -m your_model_name --collect-metrics -f perf_output.csv --verbose-
 ```
 
 Argument list:
-* `--output_path`: required, the path of the outputed JSON requests.
+* `--output_path`: required, the path of the outputted JSON requests.
 * `--dense_dim`: required, the number of dense features.
-* `--sparse_dims`: required, the number of sparse dims for each table, seperated by `,`.
-* `--num_unique_keys`: required, the number of unique keys in each table, seperated by `,`.
+* `--sparse_dims`: required, the number of sparse dims for each table, separated by `,`.
+* `--num_unique_keys`: required, the number of unique keys in each table, separated by `,`.
 * `--int64_key`: whether to use int64 key type or int32 key type. Default value is true (int64).
 * `--dense_name`: the input name of dense part, should be consistent to your Triton config. Default is DES.
 * `--sparse_name`: the input name of sparse part, should be consistent to your Triton config. Default is CATCOLUMN.
@@ -44,4 +44,4 @@ Argument list:
 * `--powerlaw`: whether to use powerlaw distribution for the generated keys. Default is true.
 * `--alpha`: alpha parameter in the powerlaw distribution. Higher the alpha, skewer the distribution. Default is 1.2. Will be ignored if `--powerlaw` is set to be false.
 * `--hot_key_percentage`: to control the percentage of hot keys in emebedding tables when powerlaw distribution is NOT used. Default is 0.2. Will be ignored if `--powerlaw` is set to be true.
-* `--hot_key_coverage`: to control the probablity of hot keys appears in total occurance. Default is 0.8. Will be ignored if `--powerlaw` is set to be true.
+* `--hot_key_coverage`: to control the probability of hot keys appears in total occurrence. Default is 0.8. Will be ignored if `--powerlaw` is set to be true.

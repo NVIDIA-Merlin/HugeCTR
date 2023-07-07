@@ -14,7 +14,7 @@
  limitations under the License.
 """
 
-# We don't want the whole process to quit bacause of the import failure when
+# We don't want the whole process to quit because of the import failure when
 # we don't use horovod to do communication.
 try:
     import horovod.tensorflow as hvd

@@ -93,7 +93,7 @@ class HPS_Metrics {
   HPS_Metrics& operator=(HPS_Metrics const&) = delete;
 
   void lookup(void* h_keys, size_t num_keys);
-  void refresh_embeddingcache(int interations);
+  void refresh_embeddingcache(int iterations);
   void refresh_async(int iteration);
   void print();
   profiler* profile;
@@ -104,7 +104,7 @@ class HPS_Metrics {
   std::vector<void*> d_reader_row_ptrs_list_;
 
   std::shared_ptr<HierParameterServerBase>
-      parameter_server_;  // Hierarchical paramter server that manages database backends and
+      parameter_server_;  // Hierarchical parameter server that manages database backends and
                           // embedding caches of all models on all deployed devices
   std::map<std::string, std::map<int64_t, std::shared_ptr<LookupSessionBase>>>
       lookup_session_map_;  // Lookup sessions of all models deployed on all devices, currently only
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
 
   args.add_argument("--histogram")
       .help(
-          "The histogram with probabilities of each bin, please provide probablities numbers "
+          "The histogram with probabilities of each bin, please provide probabilities numbers "
           "separated by space")
       .nargs(1, 20)
       .default_value<std::vector<double>>({0.4, 0.3, 0.2, 0.1})

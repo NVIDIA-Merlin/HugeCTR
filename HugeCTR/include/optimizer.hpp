@@ -144,7 +144,7 @@ struct OptHyperParams {
   bool operator!=(const OptHyperParams& other) const { return !(*this == other); }
 };
 
-// Comment: Maybe it's better to seperate this class as std::variant<SGDParams, AdamParams, ...> and
+// Comment: Maybe it's better to separate this class as std::variant<SGDParams, AdamParams, ...> and
 // use function overload to deal with different params for different update algorithm
 struct OptParams {
   Optimizer_t optimizer;
@@ -335,7 +335,7 @@ class EmbeddingOptimizer {
   Tensor2<void> temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting
                                                       API in update_params(). */
 
-  Tensor2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
+  Tensor2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scanning API
                                                       in update_params(). */
 
   Tensor2<TypeHashKey> sample_id_tensors_; /**< The temp memory to store the sample ids of hash

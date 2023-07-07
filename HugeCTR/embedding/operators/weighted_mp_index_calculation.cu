@@ -354,7 +354,7 @@ void WeightedModelIndexCalculation::compute(
         const int* local_num_shards_ptr = d_local_num_shards_list.data<int>();
 
         // in cub implementation, the flag must be 0 or 1. See
-        // https://github.com/NVIDIA/cub/issues/235 we can fuse thie memset with next kernel
+        // https://github.com/NVIDIA/cub/issues/235 we can fuse this memset with next kernel
         int thread_cnt = 128;
         int block_cnt = (batch_size * num_local_embedding_ - 1) / thread_cnt + 1;
         index_calculation_kernel<<<block_cnt, thread_cnt, 0, stream>>>(

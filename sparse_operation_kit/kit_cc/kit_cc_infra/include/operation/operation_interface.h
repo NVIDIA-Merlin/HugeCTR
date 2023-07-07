@@ -92,7 +92,7 @@
  *   input / output dispathcer
  * ----------------------------------
  * 1. create a cpp source file. For example, MyInputDispathcer.cc
- * 2. "operation_interface.h" should be included in that souce file.
+ * 2. "operation_interface.h" should be included in that source file.
  * 3. inherit from Dispatcher class, and override methods:
  *   allocate_forward_spaces, allocate_backward_spaces, forward, backward
  *   for example:
@@ -128,7 +128,7 @@
  *           // if this dispatcher has something needed to be dump to file,
  *           // then override this virtual function, and return true!!
  *           //
- *           // if this virtual function is overrided, then write the logics of
+ *           // if this virtual function is overridden, then write the logics of
  *           // dumping internal states to a dump_call_back function.
  *           // DumpCallBack is a function object which only takes std::ofstream& as
  *           // its input.
@@ -138,7 +138,7 @@
  *               dump_call_back = [](std::ofstream &file_stream) {
  *                   std::cout << "the dump call back function is called." << std::endl;
  *               };
- *               // important: this overrided function must return true, otherwise its
+ *               // important: this overridden function must return true, otherwise its
  *               // dump_call_back will not be called.
  *               return true;
  *           }
@@ -168,7 +168,7 @@
  *        embedding_lookuper
  * ----------------------------------
  * 1. create a cpp source file. For example, MyLookuper.cc
- * 2. "operation_interface.h" should be included in that souce file.
+ * 2. "operation_interface.h" should be included in that source file.
  * 3. inherit from EmbeddingLookuper class, and override methods:
  *   allocate_forward_spaces, allocate_backward_spaces, forward, backward,
  *   load_tensors
@@ -222,7 +222,7 @@
  *           // if this dispatcher has something needed to be dump to file,
  *           // then override this virtual function, and return true!!
  *           //
- *           // if this virtual function is overrided, then write the logics of
+ *           // if this virtual function is overridden, then write the logics of
  *           // dumping internal states to a dump_call_back function.
  *           // DumpCallBack is a function object which only takes std::ofstream& as
  *           // its input.
@@ -232,7 +232,7 @@
  *               dump_call_back = [](std::ofstream &file_stream) {
  *                   std::cout << "the dump call back function is called." << std::endl;
  *               };
- *               // important: this overrided function must return true, otherwise its
+ *               // important: this overridden function must return true, otherwise its
  *               // dump_call_back will not be called.
  *               return true;
  *           }
@@ -262,7 +262,7 @@
  *           operation
  * ----------------------------------
  * 1. create a cpp source file. For example, MyOperation.cc
- * 2. "operation_interface.h" should be included in that souce file.
+ * 2. "operation_interface.h" should be included in that source file.
  * 3. inherit from Operation class, and override methods:
  *   allocate_forward_spaces, allocate_backward_spaces, forward, backward
  *   for example:
@@ -298,7 +298,7 @@
  *           // if this dispatcher has something needed to be dump to file,
  *           // then override this virtual function, and return true!!
  *           //
- *           // if this virtual function is overrided, then write the logics of
+ *           // if this virtual function is overridden, then write the logics of
  *           // dumping internal states to a dump_call_back function.
  *           // DumpCallBack is a function object which only takes std::ofstream& as
  *           // its input.
@@ -308,7 +308,7 @@
  *               dump_call_back = [](std::ofstream &file_stream) {
  *                   std::cout << "the dump call back function is called." << std::endl;
  *               };
- *               // important: this overrided function must return true, otherwise its
+ *               // important: this overridden function must return true, otherwise its
  *               // dump_call_back will not be called.
  *               return true;
  *           }

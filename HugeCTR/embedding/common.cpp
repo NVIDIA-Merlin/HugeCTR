@@ -46,13 +46,11 @@ void DataDistributionInput::copy_tensor_vec(const std::vector<core23::Tensor> &d
   HCTR_CHECK(num_lookup == num_lookup_);
 
   // concat both arrays so we only need to copy up one array of pointers
-  std::vector<core23::Tensor> all_tensors(num_lookup * 2);
-  for (int i = 0; i < num_lookup; ++i) {
-    all_tensors[i] = dp_keys[i];
-    all_tensors[num_lookup + i] = dp_bucket_range[i];
+  for (size_t i = 0; i < num_lookup; ++i) {
+    h_ptrs_.data<void *>()[i] = dp_keys[i].data();
+    h_ptrs_.data<void *>()[num_lookup + i] = dp_bucket_range[i].data();
   }
 
-  init_tensor_list(h_ptrs_, all_tensors);
   core23::copy_async(d_ptrs_, h_ptrs_, stream);
 }
 }  // namespace HugeCTR

@@ -109,7 +109,7 @@ void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embeddin
  * @param batch_size batch size for the current mini-batch computation.
  * @param slot_num the number of slots
  * @param embedding_vec_size embedding vector size.
- * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+ * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
  * @param output_tensors forward prop output tensors of multi GPUs
  * @param device_resources all gpus device resources.
  * @param context gpu device context, for switching device

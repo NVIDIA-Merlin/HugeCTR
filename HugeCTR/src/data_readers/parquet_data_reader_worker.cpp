@@ -430,7 +430,7 @@ ParquetDataReaderWorker<T>::ParquetDataReaderWorker(
       HCTR_OWN_THROW(Error_t::DataCheckError, "Slot offset value exceed the key type range");
   }
   if (!thread_resource_allocated_) {
-    // cant allocate and set resources in constructor
+    // can't allocate and set resources in constructor
     HCTR_LIB_THROW(cudaSetDevice(device_id_));  // for multiple devices
     HCTR_LIB_THROW(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
     HCTR_LIB_THROW(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));

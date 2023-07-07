@@ -69,8 +69,8 @@ class EmbeddingCache : public EmbeddingCacheBase,
   virtual const std::vector<cudaStream_t>& get_insert_streams() { return insert_streams_; }
   virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() { return cache_config_.use_gpu_embedding_cache_; }
-  virtual void set_profiler(int interation, int warmup, bool enable_bench) {
-    ec_profiler_->set_config(interation, warmup, enable_bench);
+  virtual void set_profiler(int iteration, int warmup, bool enable_bench) {
+    ec_profiler_->set_config(iteration, warmup, enable_bench);
   };
   virtual void profiler_print() { ec_profiler_->print(); };
 

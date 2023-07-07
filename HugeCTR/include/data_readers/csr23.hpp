@@ -28,7 +28,7 @@ namespace HugeCTR {
  * @brief A wrapper of simplified CSR23 buffer and related method.
  *
  * This class contains all the routines of data loading in CSR23 format, and
- * export the formated data (in CPU buffer) to users.
+ * export the formatted data (in CPU buffer) to users.
  * @verbatim
  * For example data:
  *   4,5,1,2
@@ -139,7 +139,7 @@ class CSR23 {
 
   /**
    * To reset the CSR23 buffer.
-   * You need to call reset when you want to overwrite the origial data in this CSR23.
+   * You need to call reset when you want to overwrite the original data in this CSR23.
    */
   void reset() {
     size_of_value_ = 0;

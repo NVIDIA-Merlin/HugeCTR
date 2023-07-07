@@ -348,7 +348,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
 
     std::vector<bool> data_exists(mmap_handler_.get_data_files().size(), true);
 
-    // check the existance of sparse model file to be used
+    // check the existence of sparse model file to be used
     if (std::filesystem::exists(mmap_handler_.get_folder_name()) && my_rank == 0) {
       HCTR_LOG_S(INFO, ROOT) << "Remove existing " << mmap_handler_.get_folder_name() << std::endl;
       std::filesystem::remove_all(mmap_handler_.get_folder_name());

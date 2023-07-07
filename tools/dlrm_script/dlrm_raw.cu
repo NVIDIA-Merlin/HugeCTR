@@ -26,7 +26,7 @@ auto dtype() {
 
 void process_kaggle_dataset(const std::string &input_dir_path, const std::string &output_dir_path,
                             const int num_numericals, const int num_categoricals) {
-  int max_chunk_per_file = 10000;  // loop count, in a signle binary data, store how many chunks
+  int max_chunk_per_file = 10000;  // loop count, in a single binary data, store how many chunks
 
   bool process_output = true;
   bool write_out = true;
@@ -210,7 +210,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
   // HCTR_LIB_THROW(cudaFree(culled_index_count));
   HCTR_LIB_THROW(cudaFree(accum_location));
 
-  // starting to do the convertion
+  // starting to do the conversion
   if (process_output) {
     uint32_t *dev_slot_size_array = nullptr;
     size_t slot_size_array_size = num_categoricals * sizeof(uint32_t);
@@ -375,7 +375,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
     HCTR_LIB_THROW(cudaFree(dev_slot_size_array));
     HCTR_LIB_THROW(cudaFree(dev_cat_col_nullmask_ptrs));
   }
-  // destory map objects
+  // destroy map objects
   for (auto c : categorical_col_hash_tables) c.second->destroy();
 
   delete p_mr;
@@ -386,7 +386,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
                               const int num_numericals, const int num_categoricals,
                               const std::vector<std::string> &train_days,
                               const std::vector<std::string> &test_days) {
-  int max_chunk_per_file = 10000;  // loop count, in a signle binary data, store how many chunks
+  int max_chunk_per_file = 10000;  // loop count, in a single binary data, store how many chunks
 
   bool process_output = true;
   bool write_out = true;
@@ -571,7 +571,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
   // HCTR_LIB_THROW(cudaFree(culled_index_count));
   HCTR_LIB_THROW(cudaFree(accum_location));
 
-  // starting to do the convertion
+  // starting to do the conversion
   if (process_output) {
     uint32_t *dev_slot_size_array = nullptr;
     size_t slot_size_array_size = num_categoricals * sizeof(uint32_t);
@@ -643,7 +643,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
             host_out_buffer, binary_writer, dev_slot_size_array, rows_begin_train, rows_end_train,
             1);
 
-        HCTR_LOG_S(INFO, ROOT) << "Porcessed file: " << input_file_path << " for /train_data.bin"
+        HCTR_LOG_S(INFO, ROOT) << "Processed file: " << input_file_path << " for /train_data.bin"
                                << std::endl;
 
         if (needed_samples_num < sample_nums[i]) {
@@ -685,7 +685,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
               host_out_buffer, binary_writer_test, dev_slot_size_array, rows_begin_test,
               rows_end_test, 1);
 
-          HCTR_LOG_S(INFO, ROOT) << "Porcessed file: " << input_file_path << " for /test_data.bin"
+          HCTR_LOG_S(INFO, ROOT) << "Processed file: " << input_file_path << " for /test_data.bin"
                                  << std::endl;
 
           if (needed_samples_num < sample_nums[train_days.size() + i]) {
@@ -745,7 +745,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
     HCTR_LIB_THROW(cudaFree(dev_slot_size_array));
     HCTR_LIB_THROW(cudaFree(dev_cat_col_nullmask_ptrs));
   }
-  // destory map objects
+  // destroy map objects
   for (auto c : categorical_col_hash_tables) c.second->destroy();
 
   delete p_mr;
@@ -759,7 +759,7 @@ int main(const int argc, const char *argv[]) {
     HCTR_LOG(
         INFO, ROOT,
         "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for training] "
-        "--test [days for testing], those days are seperated with comma, no whitespace.\n");
+        "--test [days for testing], those days are separated with comma, no whitespace.\n");
     return -1;
   }
 
@@ -785,7 +785,7 @@ int main(const int argc, const char *argv[]) {
         HCTR_LOG(INFO, ROOT,
                  "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for "
                  "training] "
-                 "--test [days for testing], those days are seperated with comma, no "
+                 "--test [days for testing], those days are separated with comma, no "
                  "whitespace.\n");
         HCTR_LOG(INFO, ROOT, "For example: ./dlrm_raw ./ ./ --train 0,1,2,3,4 --test 5,6,7\n");
         return -1;
@@ -809,7 +809,7 @@ int main(const int argc, const char *argv[]) {
       HCTR_LOG(INFO, ROOT, "Usage for Kaggle Datasets: ./dlrm_raw input_dir output_dir\n");
       HCTR_LOG(INFO, ROOT,
                "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for "
-               "training] --test [days for testing], those days are seperated with comma, no "
+               "training] --test [days for testing], those days are separated with comma, no "
                "whitespace.\n");
       return -1;
       break;

@@ -122,7 +122,7 @@ class CsrConversionDistributed : public Operation {
                       /*total_valid_num=*/host_total_num_elements,
                       /*binary_flag=*/binary_flags_[local_replica_id]);
 
-    // choose valuse based on binary vector
+    // choose values based on binary vector
     size_t total_valid_num = host_total_num_elements->GetPtrWithType<size_t>()[0];
     size_t size = cub_d_temp_storage_[local_replica_id].get_size_in_bytes();
     CK_CUDA(cub::DeviceSelect::Flagged(
@@ -151,7 +151,7 @@ class CsrConversionDistributed : public Operation {
         /*d_num_selected_out=*/cub_dev_num_selected_[local_replica_id].get_ptr(),
         /*num_iterms=*/total_valid_num, stream));
 
-    // convert COO row_indices to CSR row_offsets.
+    // convert COUP row_indices to CSR row_offsets.
     size_t rows_num = binary_flags_[local_replica_id].get_num_elements() / max_nnz_;
     CK_CUSPARSE(cusparseXcoo2csr(
         /*handle=*/local_gpu->get_cusparse(),

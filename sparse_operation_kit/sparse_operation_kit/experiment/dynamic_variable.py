@@ -52,7 +52,7 @@ class DynamicVariable(ResourceVariable):
 
     key_type: dtype
         specify the data type of indices. Unlike the static variable of
-        tensorflow, this variable is dyanmically allocated and contains
+        tensorflow, this variable is dynamically allocated and contains
         a hash table inside it. So the data type of indices must be
         specified to construct the hash table. Default value is tf.int64.
 

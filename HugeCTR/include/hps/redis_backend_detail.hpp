@@ -88,7 +88,7 @@ class RedisPairInsertIterator
 };
 
 /**
- * Optimized `std::vector` insert iterator to parse redis reponses for commands like `KEYS` or
+ * Optimized `std::vector` insert iterator to parse redis responses for commands like `KEYS` or
  * `HKEYS`.
  */
 template <typename Key>
@@ -115,7 +115,7 @@ class RedisKeyVectorInserter : public RedisInsertIterator<Key, sw::redis::String
 };
 
 /**
- * Optimized `std::vector` insert iterator to parse redis `HMGET` and `HGETALL` reponses for LFU
+ * Optimized `std::vector` insert iterator to parse redis `HMGET` and `HGETALL` responses for LFU
  * meta-data.
  */
 template <typename Key>
@@ -159,7 +159,7 @@ class RedisKeyAccumulatorVectorInserter : public RedisPairInsertIterator<Key, lo
 };
 
 /**
- * Optimized `std::vector` insert iterator to parse redis `HMGET` and `HGETALL` reponses for LRU
+ * Optimized `std::vector` insert iterator to parse redis `HMGET` and `HGETALL` responses for LRU
  * meta-data.
  */
 template <typename Key>
@@ -195,7 +195,7 @@ class RedisKeyTimeVectorInserter : public RedisPairInsertIterator<Key, time_t> {
 };
 
 /**
- * Optimized iterator to parse redis reponses for the `HMGET` command and directly insert
+ * Optimized iterator to parse redis responses for the `HMGET` command and directly insert
  * them into strided destination memory locations.
  */
 template <typename Key>
@@ -258,7 +258,7 @@ class RedisDirectValueInserter final
 };
 
 /**
- * Optimized iterator to parse redis reponses for the `HMGET` command and directly
+ * Optimized iterator to parse redis responses for the `HMGET` command and directly
  * write them to a dump file.
  */
 template <typename Key>

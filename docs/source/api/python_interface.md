@@ -73,7 +73,7 @@ hugectr.CreateSolver()
 
 * `train_intra_iteration_overlap`: Whether to enable overlap inside every training iteration. If true, hugectr detects the model toplogy and tries to overlap among DataReader, Embedding and Network in every training iteration. The default value is `False`.
 
-* `train_inter_iteration_overlap`: Whether to enable overlap between training iterations. If true, hugectr tries to fetch some data copy/computation in the next iteration during the current iteration, so that the next iteraction can start earlier. The default value is `False`.
+* `train_inter_iteration_overlap`: Whether to enable overlap between training iterations. If true, hugectr tries to fetch some data copy/computation in the next iteration during the current iteration, so that the next iteration can start earlier. The default value is `False`.
 
 * `eval_intra_iteration_overlap`: Whether to enable overlap inside every eval iteration. The knob provides similar functionality with `train_intra_iteration_overlap` while it applies to evaluation iterations. The default value is `False`.
 
@@ -335,7 +335,7 @@ To maximize the data loading performance and minimize the storage, the Norm data
 
 A data file is the minimum reading granularity for a reading thread, so it's better to have more files than the number of reading threads to achieve the best performance. A data file consists of a header and actual tabular data. A complete header always starts with a 4-byte constant **64** which is the size of header in bytes.
 
-Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all sigificant bytes of a sample (excluding the **nnz**). Users should be in charge of correctly specifying if Norm dataset supports checksum in [DataReaderParams](#DataReaderParams)
+Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all significant bytes of a sample (excluding the **nnz**). Users should be in charge of correctly specifying if Norm dataset supports checksum in [DataReaderParams](#DataReaderParams)
 
 Header Definition:
 
@@ -407,7 +407,7 @@ The Raw dataset format is different from the Norm dataset format in several aspe
 3. Raw dataset file only supports unsigned int datatype of categorical features.
 4. The datatype of dense features can be either float or unsigned int.
 
-Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of data reader that can load data from disk to model, with respect to embeding types.
+Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of data reader that can load data from disk to model, with respect to embedding types.
 
 |                         reader type                          |     hotness      |       specific embedding type        |      dense data type      |
 | :----------------------------------------------------------: | :--------------: | :----------------------------------: | :-----------------------: |

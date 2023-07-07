@@ -66,10 +66,10 @@ void validateRequiredAttributesExist(std::set<std::string> requiredFieldNames,
   if (!requiredFieldNames.empty()) {
     auto log = HCTR_LOG_S(ERROR, WORLD);
     log << "PluginFieldCollection missing required fields: {";
-    char const* seperator = "";
+    char const* separator = "";
     for (auto const& field : requiredFieldNames) {
-      log << seperator << field;
-      seperator = ", ";
+      log << separator << field;
+      separator = ", ";
     }
     log << "}" << std::endl;
   }

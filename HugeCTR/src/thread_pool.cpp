@@ -115,7 +115,7 @@ void ThreadPool::run_(const size_t thread_index) {
     {
       std::unique_lock barrier_lock(barrier_);
 
-      // If termination request occured.
+      // If termination request occurred.
       if (terminate_) {
         return;
       }

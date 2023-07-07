@@ -426,7 +426,7 @@ def test_build_engine_for_pytorch():
     serialized_engine = build_engine_from_onnx("dlrm_pytorch_with_hps.onnx")
     with open("dlrm_pytorch_with_hps.trt", "wb") as fout:
         fout.write(serialized_engine)
-    print("Succesfully build the TensorRT engine")
+    print("Successfully build the TensorRT engine")
     assert True
 
 

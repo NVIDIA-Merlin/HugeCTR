@@ -195,7 +195,7 @@ void compare_key(const KeyType* sequence_a, const KeyType* sequence_b, size_t le
   free(sequence_b_copy);
 }
 
-/* Timing funtion */
+/* Timing function */
 double W_time() {
   timeval marker;
   gettimeofday(&marker, NULL);

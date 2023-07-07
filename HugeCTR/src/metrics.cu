@@ -1405,7 +1405,7 @@ void AUC<T>::run_finalize_step(float* d_preds, float* d_labels, int local_id,
           num_partitions_, fst.d_partition_offsets(), (CountType*)st.d_workspace(stream_id),
           fst.d_partitioned_labels(), fst.d_partitioned_preds());
 
-      // 5. Exchange the data such that all predicitons on GPU i are smaller than
+      // 5. Exchange the data such that all predictions on GPU i are smaller than
       //    the ones on GPU i+1.
       // 5.1. Compute receiving side offsets. Also compute resulting number
       //      of elements on all the other GPUs, required to determine correct neighbors
@@ -1639,7 +1639,7 @@ void AUC<T>::run_finalize_step(float* d_preds, float* d_labels, int local_id,
           num_partitions_, fst.d_partition_offsets(), (CountType*)st.d_workspace(stream_id),
           fst.d_partitioned_labels(), fst.d_partitioned_preds());
 
-      // 5. Exchange the data such that all predicitons on GPU i are smaller than
+      // 5. Exchange the data such that all predictions on GPU i are smaller than
       //    the ones on GPU i+1.
       // 5.1. Compute receiving side offsets. Also compute resulting number
       //      of elements on all the other GPUs, required to determine correct neighbors
@@ -2225,7 +2225,7 @@ float NDCG<T>::finalize_metric_per_gpu(int local_id) {
         num_bins_, num_partitions_, st.d_partition_offsets(), (CountType*)st.d_workspace(),
         st.d_partitioned_labels(), st.d_partitioned_preds());
 
-    // 5. Exchange the data such that all predicitons on GPU i are smaller than
+    // 5. Exchange the data such that all predictions on GPU i are smaller than
     //    the ones on GPU i+1.
     // 5.1. Compute receiving side offsets. Also compute resulting number
     //      of elements on all the other GPUs, required to determine correct neighbors
@@ -2385,7 +2385,7 @@ float NDCG<T>::finalize_metric_per_gpu(int local_id) {
         num_bins_, num_partitions_, st.d_partition_offsets(), (CountType*)st.d_workspace(),
         st.d_partitioned_labels(), st.d_partitioned_preds());
 
-    // 5. Exchange the data such that all predicitons on GPU i are smaller than
+    // 5. Exchange the data such that all predictions on GPU i are smaller than
     //    the ones on GPU i+1.
     // 5.1. Compute receiving side offsets. Also compute resulting number
     //      of elements on all the other GPUs, required to determine correct neighbors
@@ -2973,7 +2973,7 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   size_t reserve_size = new_size - old_size;
   MMAP_DEBUG("Old %lu New %lu Reserve %lu bytes\n", old_size, new_size, reserve_size);
 
-  // First step: create the neccessary virtual memory range
+  // First step: create the necessary virtual memory range
   // Second step: create physical memory rchunk and perform VM -> PM mapping
   // Most of the complexity is in first step when old_size != 0
   // Second step is common across different scenarios in first step

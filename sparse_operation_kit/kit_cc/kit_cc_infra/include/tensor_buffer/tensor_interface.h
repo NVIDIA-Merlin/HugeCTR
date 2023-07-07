@@ -24,7 +24,7 @@
 namespace SparseOperationKit {
 
 /*
- * This is the base class used to represent datas.
+ * This is the base class used to represent data.
  */
 class Tensor {
  public:

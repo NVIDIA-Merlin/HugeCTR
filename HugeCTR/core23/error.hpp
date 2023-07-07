@@ -225,7 +225,7 @@ class RuntimeError : public std::runtime_error {
 [[nodiscard]] inline Error_t to_error(const RuntimeError& r) { return r.error; }
 
 /**
- * Map arbitary exception to HugeCTR error code.
+ * Map arbitrary exception to HugeCTR error code.
  */
 [[nodiscard]] inline Error_t to_error(const std::exception&) { return Error_t::UnspecificError; }
 
@@ -323,7 +323,7 @@ class RuntimeError : public std::runtime_error {
       return "The functionality requested requires some license and an error was detected when "
              "trying to check the current licensing.";
     default:
-      return "Unkown cuBLAS error.";
+      return "Unknown cuBLAS error.";
   }
 }
 
@@ -350,7 +350,7 @@ class RuntimeError : public std::runtime_error {
     case CURAND_STATUS_OUT_OF_RANGE:
       return "Argument out of range.";
     case CURAND_STATUS_LENGTH_NOT_MULTIPLE:
-      return "Length requested is not a multple of dimension.";
+      return "Length requested is not a multiple of dimension.";
     case CURAND_STATUS_DOUBLE_PRECISION_REQUIRED:
       return "GPU does not have double precision required by MRG32k3a.";
     case CURAND_STATUS_LAUNCH_FAILURE:
@@ -364,7 +364,7 @@ class RuntimeError : public std::runtime_error {
     case CURAND_STATUS_INTERNAL_ERROR:
       return "Internal library error.";
     default:
-      return "Unkown cuRAND error.";
+      return "Unknown cuRAND error.";
   }
 }
 

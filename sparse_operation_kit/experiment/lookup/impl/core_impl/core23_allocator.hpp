@@ -114,7 +114,7 @@ class TFAllocatorImpl  : public core23::Allocator{
   void deallocate(void* ptr, core23::CUDAStream) override{
 
     if(ptr==nullptr){
-      LOG(FATAL) << "SOK buffer be deallocated should't be nullptr";
+      LOG(FATAL) << "SOK buffer be deallocated shouldn't be nullptr";
     }
     allocator_->DeallocateRaw(ptr);
   }

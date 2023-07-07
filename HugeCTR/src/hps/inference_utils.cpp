@@ -379,7 +379,7 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
 
   bool i64_input_key = get_value_from_json<bool>(hps_config, "supportlonglong");
 
-  // Parsing HPS Databse backend
+  // Parsing HPS Database backend
   //****Update source parameters.
   UpdateSourceParams update_source_params;
   if (hps_config.find("update_source") != hps_config.end()) {

@@ -23,7 +23,7 @@
 #include <queue>
 
 // High level
-// - specify num batches inflight
+// - specify num batches in-flight
 // - cached in host memory (128)
 
 // s0 nnz0 nnz1 nnz2 0 1 2 3 4 5 6 7 8 9

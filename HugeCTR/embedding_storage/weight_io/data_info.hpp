@@ -57,7 +57,7 @@ struct GlobalEmbeddingDistribution {
 
      table_2  0     0     50
 
-     parellel_array_ is a one dimension array , store every table's parellel mode ,1=data parallel
+     parellel_array_ is a one dimension array , store every table's parallel mode ,1=data parallel
      ,2=model_parallel,3=hybrid_parallel
   */
   GlobalEmbeddingDistribution(size_t gpu_num, size_t table_num)

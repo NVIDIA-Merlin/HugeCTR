@@ -153,7 +153,7 @@ def generate_random_samples(
         vocabulary_size: integer,
         slot_num: integer,
         max_nnz: integer
-        use_sparse_mask: boolean, whether to use sparse mask to generate sparse datas
+        use_sparse_mask: boolean, whether to use sparse mask to generate sparse data
     #returns:
         all_keys: dense tensor, whose shape is [num_of_samples, slot_num, max_nnz]
         all_labels: dense tensor, whose shape is [num_of_samples, 1]
@@ -290,7 +290,7 @@ def sort_embedding_variables_by_key(
     keys, embedding_values, embedding_vec_size, use_hashtable=True, gpu_num=None
 ):
     """
-    This function is used to sort the embedding values by its relavent keys.
+    This function is used to sort the embedding values by its relevant keys.
     For example, keys: [5, 3, 6, 1], embedding values: [[0, 0, 0, 0],
                                                         [1, 1, 1, 1],
                                                         [2, 2, 2, 2],

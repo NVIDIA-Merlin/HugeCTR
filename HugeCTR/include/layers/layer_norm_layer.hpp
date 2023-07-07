@@ -67,13 +67,13 @@ class LayerNormLayer : public TrainableLayer<T> {
 
   /**
    * A method of implementing the forward pass of LayerNorm
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
 
   /**
    * A method of implementing the forward pass of LayerNorm
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 
@@ -127,13 +127,13 @@ class Core23TempLayerNormLayer : public Core23TempTrainableLayer<T> {
 
   /**
    * A method of implementing the forward pass of LayerNorm
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
 
   /**
    * A method of implementing the forward pass of LayerNorm
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

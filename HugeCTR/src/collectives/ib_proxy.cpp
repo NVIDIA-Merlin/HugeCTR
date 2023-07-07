@@ -542,7 +542,7 @@ void IbvProxy::HierA2ACollContext::process_send() {
     }
 
     PROXY_ASSERT_MSG((*(h_recv_cmd_ptr_)-last_recv_cmd_) <= 1,
-                     "Can't have multiple sends inflight");
+                     "Can't have multiple sends in-flight");
     last_recv_cmd_++;
   }
 }
@@ -796,7 +796,7 @@ void IbvProxy::HierA2AvCollContext::process_send() {
   // auto& cfg = proxy_ctx_->cfg_;
   // if (cfg.proxy_id_ == 0) { HCTR_LOG_S(INFO, WORLD) << "ibv send called " << cfg.my_proc_ << " "
   // << last_recv_cmd_ << std::endl; }
-  PROXY_ASSERT_MSG((*(h_recv_cmd_ptr_)-last_recv_cmd_) <= 2, "Can't have multiple sends inflight");
+  PROXY_ASSERT_MSG((*(h_recv_cmd_ptr_)-last_recv_cmd_) <= 2, "Can't have multiple sends in-flight");
   last_recv_cmd_++;
 }
 

@@ -156,7 +156,7 @@ EmbeddingCacheWrapper<key_type>::PerStreamModifyData EmbeddingCacheWrapper<key_t
     }
     ret = update_handle_map_[stream];
   }
-  // we should initilized ret.hIndices
+  // we should initialized ret.hIndices
   assert(ret.hIndices);
   return ret;
 }

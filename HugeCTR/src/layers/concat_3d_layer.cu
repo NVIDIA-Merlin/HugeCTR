@@ -114,7 +114,7 @@ Concat3DLayer<T>::Concat3DLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_t
         auto first_in_dims = in_tensors[0].get_dimensions();
         if (cur_in_dims[0] != first_in_dims[0]) {
           HCTR_OWN_THROW(Error_t::WrongInput,
-                         "All the input tensors must have the same shape in dimention 0");
+                         "All the input tensors must have the same shape in dimension 0");
         }
         if (axis == 1) {
           if (cur_in_dims[2] != first_in_dims[2]) {
@@ -186,7 +186,7 @@ Concat3DLayer<T>::Concat3DLayer(std::vector<core23::Tensor>& input_tensors,
         auto first_tensor_shape = input_tensors[0].shape();
         if (cur_tensor_shape[0] != first_tensor_shape[0]) {
           HCTR_OWN_THROW(Error_t::WrongInput,
-                         "All the input tensors must have the same shape in dimention 0");
+                         "All the input tensors must have the same shape in dimension 0");
         }
         if (axis == 1) {
           if (cur_tensor_shape[2] != first_tensor_shape[2]) {

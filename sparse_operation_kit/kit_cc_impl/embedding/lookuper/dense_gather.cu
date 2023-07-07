@@ -51,7 +51,7 @@ class DenseGather : public EmbeddingLookuper {
     if (sizeof(size_t) != sizeof(int64_t))
       throw std::runtime_error(
           "In this platform, sizeof(size_t) != sizeof(int64_t). "
-          "It will cause unexpected behavoir when copy datas from "
+          "It will cause unexpected behavior when copy data from "
           "size_t pointer to int64_t pointer.");
 
     if (param->get_hashtable(0)->identical_mapping()) {

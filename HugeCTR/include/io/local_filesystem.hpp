@@ -20,7 +20,7 @@
 namespace HugeCTR {
 
 /**
- * @brief A wrapper for std::filesystem to be used when FileSystemType_t is specifid as Local. Note
+ * @brief A wrapper for std::filesystem to be used when FileSystemType_t is specified as Local. Note
  * that this wrapper is NOT thread-safe.
  *
  */

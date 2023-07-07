@@ -61,7 +61,7 @@ In this release, we have fixed issues and enhanced the code.
 
 + **Documentation Updates**:
   + Data Reader: We have enhanced our Raw data reader to read multi-hot input data, connecting with an embedding collection seamlessly. The raw dataset format is strengthened as well. Refer to our [online documentation](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw) for more details. We have refined the description for Norm datasest as well.
-  + Embedding Collection: We have added the knob `is_exclusive_keys` to enable potencial acceleration if a user has already preprocessed the input of embedding collection to make the resulting tables exclusive with one another. We have also added the nob `comm_strategy` in embedding collection for user to configure optimized communication strategy in multi-node training
+  + Embedding Collection: We have added the knob `is_exclusive_keys` to enable potential acceleration if a user has already preprocessed the input of embedding collection to make the resulting tables exclusive with one another. We have also added the nob `comm_strategy` in embedding collection for user to configure optimized communication strategy in multi-node training
   + HPS Plugin: We have fixed the unit of measurement for DLRM inference benchmark results that leverage the HPS plugin. We have updated the user guide for the HPS plugin for TensorFlow and the HPS plugin for TensorRT
   + Embedding Cache: We have updated the usage of three types of embedding cache. We have updated the descriptions of the three types of embedding cache as well.
 
@@ -320,7 +320,7 @@ You can also load and dump models from and to S3 during training.
 The documentation for the [`DataSourceParams`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#datasourceparams-class) class is updated.
 To view sample code, refer to the [HugeCTR Training with Remote File System Example](https://nvidia-merlin.github.io/HugeCTR/v4.1/notebooks/training_with_remote_filesystem.html) class is updated.
 
-+ **Simplication for File System Usage**:
++ **Simplification for File System Usage**:
 You no longer ’t need to pass `DataSourceParams` for model loading and dumping.
 The `FileSystem` class automatically infers the correct file system type, local, HDFS, or S3, based on the path URI that you specified when you built the model.
 For example, the path `hdfs://localhost:9000/` is inferred as an HDFS file system and the path `https://mybucket.s3.us-east-1.amazonaws.com/` is inferred as an S3 file system.

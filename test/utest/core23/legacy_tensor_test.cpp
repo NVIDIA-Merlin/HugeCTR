@@ -112,7 +112,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_TRUE(tensor1.data() == tensor3.data());
   EXPECT_TRUE(tensor1.data() != tensor4.data());
 
-  // 8. Create an emtpy Tensor and then overwrite it with the tensor0
+  // 8. Create an empty Tensor and then overwrite it with the tensor0
   Tensor tensor5;
   EXPECT_TRUE(tensor5.empty());
   EXPECT_NO_THROW(tensor5.shape());
@@ -143,7 +143,7 @@ void test_impl(BufferParams buffer_params, AllocatorParams allocator_params) {
   EXPECT_FALSE(tensor6.data() == tensor6_data);
   EXPECT_TRUE(tensor6.data() == tensor0.data());
 
-  // 9. Create a Tensor and override it wih a new Tensor before it calls data().
+  // 9. Create a Tensor and override it with a new Tensor before it calls data().
   // Then call data() from another Tensor which belongs to the same channel.
   auto tensor_params0 = TensorParams({1024, 256}).data_type(ScalarType::Int64);
   auto tensor_params1 = TensorParams({1024, 256}).data_type(ScalarType::Int64);

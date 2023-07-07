@@ -58,7 +58,7 @@ class ParquetFileSource : public Source {
   const bool repeat_;
   const bool sequential_file_consumption_;
   /**
-   * Private Helper function to get metdata file address
+   * Private Helper function to get metadata file address
    */
   std::string get_metada_filename(std::string path) {
     auto first_colon = path.find_first_of(":");
@@ -108,7 +108,7 @@ class ParquetFileSource : public Source {
   bool is_open() noexcept;
   cudf_io::table_with_metadata read_group(size_t row_group_id, rmm::mr::device_memory_resource* mr);
   /*
-    jump to specific parquet file caclulated through global_record_id;
+    jump to specific parquet file calculated through global_record_id;
     if dst == cur, dont need to load again
   */
   const Metadata& get_file_metadata();
