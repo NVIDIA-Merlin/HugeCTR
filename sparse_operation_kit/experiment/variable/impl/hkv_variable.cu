@@ -210,7 +210,7 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   ValueType* d_values;
   CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
 
-  hkv_table_->export_batch(num_keys, 0, d_keys, d_values, nullptr, stream);  // Meta missing
+  hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr, stream);  // Meta missing
 
   // clang-format off
   CUDACHECK(cudaMemcpyAsync(keys, d_keys, sizeof(KeyType) * num_keys,
