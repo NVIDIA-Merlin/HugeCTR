@@ -329,28 +329,28 @@ void Core23TempNetwork::copy_non_trainable_params_from_train_layers_to_evaluate_
 void Core23TempNetwork::set_train_layers(std::vector<std::unique_ptr<Layer>>&& train_layers) {
   if (use_mixed_precision_) {
     train_weight_tensor_half_ = get_trainable_tensors<__half, __half>(
-        train_layers, [](auto& layer) -> auto { return layer->get_weights(); });
+        train_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
     train_weight_tensor_ = get_trainable_tensors<__half, float>(
-        train_layers, [](auto& layer) -> auto { return layer->get_master_weights(); });
+        train_layers, [](auto& layer) -> auto{ return layer->get_master_weights(); });
     wgrad_tensor_half_ = get_trainable_tensors<__half, __half>(
-        train_layers, [](auto& layer) -> auto { return layer->get_wgrads(); });
+        train_layers, [](auto& layer) -> auto{ return layer->get_wgrads(); });
   } else {
     train_weight_tensor_ = get_trainable_tensors<float, float>(
-        train_layers, [](auto& layer) -> auto { return layer->get_weights(); });
+        train_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
     wgrad_tensor_ = get_trainable_tensors<float, float>(
-        train_layers, [](auto& layer) -> auto { return layer->get_wgrads(); });
+        train_layers, [](auto& layer) -> auto{ return layer->get_wgrads(); });
   }
   train_layers_ = std::move(train_layers);
 }
 void Core23TempNetwork::set_evaluate_layers(std::vector<std::unique_ptr<Layer>>&& evaluate_layers) {
   if (use_mixed_precision_) {
     evaluate_weight_tensor_half_ = get_trainable_tensors<__half, __half>(
-        evaluate_layers, [](auto& layer) -> auto { return layer->get_weights(); });
+        evaluate_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
     evaluate_weight_tensor_ = get_trainable_tensors<__half, float>(
-        evaluate_layers, [](auto& layer) -> auto { return layer->get_master_weights(); });
+        evaluate_layers, [](auto& layer) -> auto{ return layer->get_master_weights(); });
   } else {
     evaluate_weight_tensor_ = get_trainable_tensors<float, float>(
-        evaluate_layers, [](auto& layer) -> auto { return layer->get_weights(); });
+        evaluate_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
   }
   evaluate_layers_ = std::move(evaluate_layers);
 }
