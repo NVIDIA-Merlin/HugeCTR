@@ -712,7 +712,7 @@ EmbeddingCacheRefreshspace EmbeddingCache<TypeHashKey>::create_refreshspace() {
     const size_t max_num_keys = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
     const size_t max_num_key_in_buffer =
         std::max(float(SLAB_SIZE * SET_ASSOCIATIVITY),
-                 cache_config_.cache_refresh_percentage_per_iteration* max_num_keys);
+                 cache_config_.cache_refresh_percentage_per_iteration * max_num_keys);
     cache_config_.num_set_in_refresh_workspace_ =
         (max_num_key_in_buffer + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
         (SLAB_SIZE * SET_ASSOCIATIVITY);

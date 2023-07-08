@@ -57,21 +57,21 @@ template <typename DType>
 std::vector<core23::Tensor> get_weight_tensor_vector(
     const std::vector<std::unique_ptr<Layer>>& layers) {
   return get_trainable_tensor_vector<DType>(
-      layers, [](auto& layer) -> auto { return layer->get_weights(); });
+      layers, [](auto& layer) -> auto{ return layer->get_weights(); });
 }
 
 template <typename DType>
 std::vector<core23::Tensor> get_master_weight_tensor_vector(
     const std::vector<std::unique_ptr<Layer>>& layers) {
   return get_trainable_tensor_vector<DType>(
-      layers, [](auto& layer) -> auto { return layer->get_master_weights(); });
+      layers, [](auto& layer) -> auto{ return layer->get_master_weights(); });
 }
 
 template <typename DType>
 std::vector<core23::Tensor> get_wgrad_tensor_vector(
     const std::vector<std::unique_ptr<Layer>>& layers) {
   return get_trainable_tensor_vector<DType>(
-      layers, [](auto& layer) -> auto { return layer->get_wgrads(); });
+      layers, [](auto& layer) -> auto{ return layer->get_wgrads(); });
 }
 
 template <typename DType, typename WType, typename Range>

@@ -259,7 +259,7 @@ EmbeddingCacheRefreshspace UvmTable<TypeHashKey>::create_refreshspace() {
                                               cache_config_.embedding_vec_size_.end());
   CudaDeviceContext dev_restorer;
   const size_t max_num_key_in_buffer =
-      std::max(float(1), cache_config_.cache_refresh_percentage_per_iteration* max_num_keys);
+      std::max(float(1), cache_config_.cache_refresh_percentage_per_iteration * max_num_keys);
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   // Create memory buffers.

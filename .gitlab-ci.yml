@@ -71,7 +71,7 @@ format_check_clang:
   variables:
     EXCLUDE: ./third_party
     STYLE: file
-    EXECUTABLE: clang-format10
+    EXECUTABLE: clang-format14
     EXTENSIONS: "h,hpp,cpp,cu,cuh"
 
 build_train_single_node:

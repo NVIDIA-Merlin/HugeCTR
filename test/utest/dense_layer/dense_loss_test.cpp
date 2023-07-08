@@ -44,11 +44,10 @@ void dense_loss_layer_test(int64_t width) {
   std::vector<std::string> bottom_names{bottom_tensor_entity.name, label_tensor_entity.name};
   std::vector<std::string> top_names = {"loss1"};
 
-  Layer_t layer_type = std::is_same_v<LossType<T>, BinaryCrossEntropyLoss<T>>
-                           ? Layer_t::BinaryCrossEntropyLoss
-                           : std::is_same_v<LossType<T>, CrossEntropyLoss<T>>
-                                 ? Layer_t::CrossEntropyLoss
-                                 : Layer_t::MultiCrossEntropyLoss;
+  Layer_t layer_type =
+      std::is_same_v<LossType<T>, BinaryCrossEntropyLoss<T>> ? Layer_t::BinaryCrossEntropyLoss
+      : std::is_same_v<LossType<T>, CrossEntropyLoss<T>>     ? Layer_t::CrossEntropyLoss
+                                                             : Layer_t::MultiCrossEntropyLoss;
 
   DenseLayer dense_layer(layer_type, bottom_names, top_names);
   if (layer_type == Layer_t::MultiCrossEntropyLoss) {
