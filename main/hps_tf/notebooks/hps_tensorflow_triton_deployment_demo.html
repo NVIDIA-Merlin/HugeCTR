@@ -956,7 +956,7 @@ TRTEngineOp_000_000              device:GPU:0  10      2             1          
 </div>
 </div>
 <p>We can then launch the Triton inference server using the TensorFlow backend using the same command in the background. Please remember to kill the previous <code class="docutils literal notranslate"><span class="pre">tritonserver</span></code> process completely before launching it again. Otherwise, there could be out of memory errors.</p>
-<p>When the triton server is succesfully launched, we can then send the requests to it using the HTTP client again.</p>
+<p>When the triton server is successfully launched, we can then send the requests to it using the HTTP client again.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>curl<span class="w"> </span>localhost:8000/v2/models/hps_tf_triton/config

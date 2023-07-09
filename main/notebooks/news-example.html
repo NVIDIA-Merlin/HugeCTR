@@ -392,7 +392,7 @@ The anonymous ID of a user who has generated that impression.<br>
 e.g. U89 , U395 , U60005, U3965770</p>
 <p><strong>Column 2</strong>: Time (timestamp)<br>
 The impression time with format <code class="docutils literal notranslate"><span class="pre">MM/DD/YYYY</span> <span class="pre">HH:MM:SS</span> <span class="pre">AM/PM</span></code> <br>
-This is the point of time upto which the user’s impression have been captured.</p>
+This is the point of time up to which the user’s impression have been captured.</p>
 <p><strong>Column 3</strong>: History (string)<br>
 The news click history of this user before this impression. The clicked news articles are ordered by time.<br>
 e.g. N106403 N71977 N97080 N102132 N97212 N121652</p>
@@ -466,8 +466,8 @@ URL to the MSN site where the news article was published.<br>
 e.g. <a class="reference external" href="https://www.msn.com/en-us/sports/golf/pga-tour-winners/ss-AAjnQjj?ocid=chopendata">https://www.msn.com/en-us/sports/golf/pga-tour-winners/ss-AAjnQjj?ocid=chopendata</a></p>
 <p><strong>Column 6</strong>: Title Entities (string)<br>
 Entities present in the title</p>
-<p><strong>Column 7</strong>: Abstract Entites (string)<br>
-Entites present in the abstract</p>
+<p><strong>Column 7</strong>: Abstract Entities (string)<br>
+Entities present in the abstract</p>
 <p>Let’s reload the data with their respective column names.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -535,7 +535,7 @@ Their are many ways to use the other columns (title, abstract, entities etc.) as
 </div>
 <div class="section" id="pre-process-2-label-encoding-for-categorical-variables">
 <h3>Pre-process 2:  Label encoding for categorical variables<a class="headerlink" href="#pre-process-2-label-encoding-for-categorical-variables" title="Permalink to this headline"></a></h3>
-<p>Strings require significant amount of memory as compared to integers. As an example, representing the string <code class="docutils literal notranslate"><span class="pre">cfcd208495d565ef66e7dff9f98764</span></code> as integer <code class="docutils literal notranslate"><span class="pre">0</span></code> can save upto 90% memory.</p>
+<p>Strings require significant amount of memory as compared to integers. As an example, representing the string <code class="docutils literal notranslate"><span class="pre">cfcd208495d565ef66e7dff9f98764</span></code> as integer <code class="docutils literal notranslate"><span class="pre">0</span></code> can save up to 90% memory.</p>
 <p>Thus, we would be label encoding the categorical variables in our dataset so that the downstream pre-preprocessing and feature engineering pipelines doesn’t consume a high amount of memory.<br>
 We will also label encode low cardinality columns in news.tsv like the news_categories and news_subcategories.</p>
 <div class="cell docutils container">
@@ -688,7 +688,7 @@ We have to unroll the same number of history items for each row and thus would d
 </div>
 <p>Lets expand the history column into individual columns of histories with the limit <code class="docutils literal notranslate"><span class="pre">max_hist</span></code>.
 During expansion, we will use the last <code class="docutils literal notranslate"><span class="pre">max_hist</span></code> items from history column as those items would be the most recent ones (since the news id in this column is ordered by time).</p>
-<p>In addition, we’re also saving the length of history in a seperate column which could be used as a feature too.</p>
+<p>In addition, we’re also saving the length of history in a separate column which could be used as a feature too.</p>
 <p>We will also replace the news id with their news indexes in the behaviours dataframe.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -858,7 +858,7 @@ During expansion, we will use the last <code class="docutils literal notranslate
 <p>Note that all the 5 generated rows have the same impression_id, uid, time and history data columns.</p>
 <p>We have observed that the maximum number of items in impression column is 105 and the mean is 40. <br>
 We will limit the items to unroll from impression column by defining the variable <code class="docutils literal notranslate"><span class="pre">max_impr</span></code> and set it to 100. Feel free to increase or decrease this value.</p>
-<p><strong>Note</strong> - Make sure you’re using a GPU with atleast 16GB memory to avoid OOM errors with the below set values.</p>
+<p><strong>Note</strong> - Make sure you’re using a GPU with at least 16GB memory to avoid OOM errors with the below set values.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">max_impr</span> <span class="o">=</span> <span class="mi">100</span>
@@ -928,7 +928,7 @@ This is a time consuming operation!</p>
 <span class="c1"># Appending news sub-category corresponding to above impression news in above created DataFrame</span>
 <span class="n">impressions_train</span><span class="p">[</span><span class="s1">&#39;impr_subcat&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">impressions_train</span><span class="p">[</span><span class="s1">&#39;impr&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">news</span><span class="p">],[</span><span class="nb">int</span><span class="p">(</span><span class="n">news</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;sub_cat&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">news</span><span class="p">])</span>
 
-<span class="c1"># Droping impr columns as news data is added for it.</span>
+<span class="c1"># Dropping impr columns as news data is added for it.</span>
 <span class="n">impressions_train</span> <span class="o">=</span> <span class="n">impressions_train</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">&#39;impr&#39;</span><span class="p">],</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="n">impressions_train</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
@@ -1082,7 +1082,7 @@ We will also re-initialize RMM to allow us to perform memory intensive merge ope
 </div>
 </div>
 </div>
-<p>To create embedding tables and segregate the pre-processing functions (normalization, fill missing values etc.) among categorical and continous features, we define and pipeline them using NVTabular’s operator overloading.</p>
+<p>To create embedding tables and segregate the pre-processing functions (normalization, fill missing values etc.) among categorical and continuous features, we define and pipeline them using NVTabular’s operator overloading.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_features</span> <span class="o">=</span> <span class="n">cat_features</span> <span class="o">+</span> <span class="n">hour</span> <span class="o">+</span> <span class="n">minute</span> <span class="o">+</span> <span class="n">seconds</span> <span class="o">+</span> <span class="n">weekday</span> <span class="o">+</span> <span class="n">day</span> <span class="o">+</span> <span class="n">week</span> <span class="o">+</span> <span class="n">datetime</span> <span class="o">&gt;&gt;</span> <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Categorify</span><span class="p">(</span><span class="n">out_path</span> <span class="o">=</span> <span class="n">data_output_path</span><span class="p">)</span>
@@ -1211,7 +1211,7 @@ We will also re-initialize RMM to allow us to perform memory intensive merge ope
 <li><p>This file is used by HugeCTR in parsing the processed parquet files.</p></li>
 <li><p>‘file_stats’ contains the name of the parquet files and their corresponding number of rows.</p></li>
 <li><p>‘cats’ is a list of categorical features/columns in the dataset and their index.</p></li>
-<li><p>‘conts’ is a list of continous/dense columns in the dataset and their index.</p></li>
+<li><p>‘conts’ is a list of continuous/dense columns in the dataset and their index.</p></li>
 <li><p>‘labels’ is a list of labels in the dataset and their index.</p></li>
 <li><p>This file shouldn’t be edited manually.</p></li>
 </ul>
@@ -1322,7 +1322,7 @@ We will also re-initialize RMM to allow us to perform memory intensive merge ope
      |— valid  <br>
   |— configs <br>
   |— weights <br></p>
-<p>Again, defining the categorical and continous features based on processed data generated in step-5.</p>
+<p>Again, defining the categorical and continuous features based on processed data generated in step-5.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_features</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;hist_cat_0&#39;</span><span class="p">,</span>
@@ -1358,7 +1358,7 @@ We will also re-initialize RMM to allow us to perform memory intensive merge ope
 </div>
 </div>
 <p><strong>Count Encoding</strong> calculates the frequency of one or more categorical features. For the purpose of this tutorial, we will count how often the user had clicked on news with the same category/sub-category in a given impression.</p>
-<p>To calculate the occurence of the same news category/sub-category in history, we will iterate over the group of rows with the same impression id. We will also consider the category/sub-category of the impression news.<br>
+<p>To calculate the occurrence of the same news category/sub-category in history, we will iterate over the group of rows with the same impression id. We will also consider the category/sub-category of the impression news.<br>
 Let’s start by defining supportive functions for counting the category and subcategory from history columns. This supportive function will be used by <code class="docutils literal notranslate"><span class="pre">apply_rows()</span></code> in LambdaOp <code class="docutils literal notranslate"><span class="pre">create_count_features</span></code></p>
 <p>We can also limit the number of history columns to be considered for count encoding. For now, let’s use all the history columns that we have in the dataset i.e. all 10.</p>
 <div class="cell docutils container">
@@ -1446,7 +1446,7 @@ Let’s start by defining supportive functions for counting the category and sub
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">temp</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">temp</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
                 <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>      
-        <span class="c1"># Update the count(occurence) in corresponding row of output column (impr_cat_count)        </span>
+        <span class="c1"># Update the count(occurrence) in corresponding row of output column (impr_cat_count)        </span>
         <span class="n">impr_subcat_count</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
 </pre></div>
 </div>
@@ -1696,7 +1696,7 @@ As a first step, we will develop this config file for our feature engineered dat
 - slot_size_array: Cardinality of the categorical features (in the same order as column names in ‘cats’ dictionary of _metadata.json)
 - embedding_vec_size: dimension of the embedding vectors for the categorical features
 - label_dim: Labels dimension
-- dense_dim: Number of dense/continous features
+- dense_dim: Number of dense/continuous features
 - sparse: Dimensions of categorical features
 - DLRM layer fc3: Output dimension of fc3 should be the same as embedding_vec_size</p></li>
 </ul>

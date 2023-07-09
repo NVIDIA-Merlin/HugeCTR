@@ -245,7 +245,7 @@ NVTabular has already implemented multiple calculations, called <code class="doc
 <div class="cell_output docutils container">
 <img alt="../../_images/066b2fd5e0bb125957a08439799519110a492bebe7436d750d0721277048b473.svg" src="../../_images/066b2fd5e0bb125957a08439799519110a492bebe7436d750d0721277048b473.svg" /></div>
 </div>
-<p>Embedding Layers of neural networks require that categorical features are contiguous, incremental Integers: 0, 1, 2, … , |C|-1. We need to ensure that our categorical features fullfil the requirement.<br></p>
+<p>Embedding Layers of neural networks require that categorical features are contiguous, incremental Integers: 0, 1, 2, … , |C|-1. We need to ensure that our categorical features fulfill the requirement.<br></p>
 <p>Currently, our genres are a list of Strings. In addition, we should transform the single-hot categorical features userId and movieId, as well.<br>
 NVTabular provides the operator <code class="docutils literal notranslate"><span class="pre">Categorify</span></code>, which provides this functionality with a high-level API out of the box. In NVTabular release v0.3, list support was added for multi-hot categorical features. Both works in the same way with no need for changes.</p>
 <p>Next, we will add <code class="docutils literal notranslate"><span class="pre">Categorify</span></code>  for our categorical features (single hot: userId, movieId and multi-hot: genres).</p>
@@ -392,7 +392,7 @@ Wall time: 6.68 µs
 </div>
 </div>
 <p>We can take a look in the output dir.</p>
-<p>In the next notebooks, we will train a deep learning model. Our training pipeline requires information about the data schema to define the neural network architecture. We will save the NVTabular workflow to disk tha we can restore it in the next notebooks.</p>
+<p>In the next notebooks, we will train a deep learning model. Our training pipeline requires information about the data schema to define the neural network architecture. We will save the NVTabular workflow to disk then we can restore it in the next notebooks.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">workflow</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">INPUT_DATA_DIR</span><span class="p">,</span> <span class="s2">&quot;workflow-hugectr&quot;</span><span class="p">))</span>

@@ -187,7 +187,7 @@ HPS supports different database backends and GPU embedding caches.</p>
 </div>
 <div class="section" id="train-from-scratch">
 <h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
-<p>We can train fom scratch by performing the following steps with Python APIs:</p>
+<p>We can train from scratch by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
@@ -712,7 +712,7 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 </div>
 <div class="section" id="multi-process-inference">
 <h2>Multi-process inference<a class="headerlink" href="#multi-process-inference" title="Permalink to this headline"></a></h2>
-<p>It is possible to share the a hashmap database between multiple processes. The followng example launches 3 processes which achieve this using the operating system’s shared memory, which is located at <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> in most unix systems. In this example, we separate processes into a primary and multiple secondary processes, and only the primary process initializes the shared memory database. The secondary processes wait until the shared memory has been fully initialized. However, note that inter-process database access is guaranteed to be thread-safe. Therefore, it is also possible to implement more complicated initialization/refresh mechanisms for your use-case.</p>
+<p>It is possible to share the a hashmap database between multiple processes. The following example launches 3 processes which achieve this using the operating system’s shared memory, which is located at <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> in most unix systems. In this example, we separate processes into a primary and multiple secondary processes, and only the primary process initializes the shared memory database. The secondary processes wait until the shared memory has been fully initialized. However, note that inter-process database access is guaranteed to be thread-safe. Therefore, it is also possible to implement more complicated initialization/refresh mechanisms for your use-case.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> multi_process_hps.py

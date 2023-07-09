@@ -510,7 +510,7 @@ ________________________________________________________________________________
 <h3>Step2: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step2-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this headline"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># covert TF SavedModel to ONNX</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># convert TF SavedModel to ONNX</span>
 <span class="o">!</span>python<span class="w"> </span>-m<span class="w"> </span>tf2onnx.convert<span class="w"> </span>--saved-model<span class="w"> </span>dlrm_tf_saved_model<span class="w"> </span>--output<span class="w"> </span>dlrm_tf.onnx
 </pre></div>
 </div>
@@ -599,7 +599,7 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
 <span class="n">serialized_engine</span> <span class="o">=</span> <span class="n">build_engine_from_onnx</span><span class="p">(</span><span class="s2">&quot;dlrm_tf_with_hps.onnx&quot;</span><span class="p">)</span>
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;dlrm_tf_with_hps.trt&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
     <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized_engine</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Succesfully build the TensorRT engine&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Successfully build the TensorRT engine&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -659,7 +659,7 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
 [01/03/2023-07:49:05] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +0, GPU +8, now: CPU 6533, GPU 1035 (MiB)
 [01/03/2023-07:49:05] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +0, GPU +8, now: CPU 6533, GPU 1043 (MiB)
 [01/03/2023-07:49:05] [TRT] [I] [MemUsageChange] TensorRT-managed allocation in building engine: CPU +0, GPU +32, now: CPU 0, GPU 32 (MiB)
-Succesfully build the TensorRT engine
+Successfully build the TensorRT engine
 </pre></div>
 </div>
 </div>

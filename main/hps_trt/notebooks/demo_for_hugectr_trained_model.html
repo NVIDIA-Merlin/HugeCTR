@@ -527,7 +527,7 @@ Skip sparse embedding layers in converted ONNX model
 <span class="n">serialized_engine</span> <span class="o">=</span> <span class="n">build_engine_from_onnx</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_with_hps.onnx&quot;</span><span class="p">)</span>
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;dlrm_hugectr_with_hps.trt&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
     <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized_engine</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Succesfully build the TensorRT engine&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Successfully build the TensorRT engine&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -588,7 +588,7 @@ Skip sparse embedding layers in converted ONNX model
 [12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +0, GPU +8, now: CPU 6321, GPU 1580 (MiB)
 [12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +1, GPU +10, now: CPU 6322, GPU 1590 (MiB)
 [12/14/2022-05:13:52] [TRT] [I] [MemUsageChange] TensorRT-managed allocation in building engine: CPU +8, GPU +16, now: CPU 8, GPU 16 (MiB)
-Succesfully build the TensorRT engine
+Successfully build the TensorRT engine
 </pre></div>
 </div>
 </div>
