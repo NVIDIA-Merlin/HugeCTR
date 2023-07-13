@@ -10,7 +10,7 @@ cp -r /model_repo/8_table.json ./
 
 cp -r /model_repo/embeddings ./
 
-LD_PRELOAD=/usr/local/lib/python3.8/dist-packages/merlin_hps-1.0.0-py3.8-linux-x86_64.egg/hierarchical_parameter_server/lib/libhierarchical_parameter_server.so tritonserver --model-repository=model_repo --load-model=8_static_table_unfused --load-model=8_static_table_autofused --load-model=8_dynamic_table_unfused --load-model=8_dynamic_table_autofused --model-control-mode=explicit &
+LD_PRELOAD=/usr/local/lib/python${PYTHON_VERSION}/dist-packages/merlin_hps-1.0.0-py${PYTHON_VERSION}-linux-x86_64.egg/hierarchical_parameter_server/lib/libhierarchical_parameter_server.so tritonserver --model-repository=model_repo --load-model=8_static_table_unfused --load-model=8_static_table_autofused --load-model=8_dynamic_table_unfused --load-model=8_dynamic_table_autofused --model-control-mode=explicit &
 
 while [[ $(curl -v localhost:8000/v2/health/ready 2>&1 | grep "OK" | wc -l) -eq 0 ]]; do
         sleep 10;
