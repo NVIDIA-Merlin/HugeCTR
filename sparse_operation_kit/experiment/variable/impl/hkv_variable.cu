@@ -206,19 +206,17 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
 
   // `keys` and `values` are pointers of host memory
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
   hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr, stream);  // Meta missing
+  CUDACHECK(cudaStreamSynchronize(stream));
 
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(keys, d_keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyDeviceToHost, stream));
-  CUDACHECK(cudaMemcpyAsync(values, d_values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyDeviceToHost, stream));
+  std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
+  std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
   // clang-format on
-  CUDACHECK(cudaStreamSynchronize(stream));
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
 }
