@@ -1290,7 +1290,6 @@ void MultiCrossLayer<T>::search_algorithm() {
       }
     }
   }
-  std::cout << "DCN search_algo done" << std::endl;
 }
 template <typename T>
 void MultiCrossLayer<T>::initialize() {

@@ -84,6 +84,7 @@ class AsyncDataReader : public SchedulableDataReader {
   std::vector<SparseTensor23> get_value_tensor23s() const;
 
   std::vector<std::vector<SparseTensor23>> get_current_sparse_tensor23s() const;
+  std::vector<std::vector<core23::Tensor>>& get_current_sparse_values();
   bool is_batch_cached() const { return current_batch_cached_; }
   size_t get_current_inflight_id() const { return inflight_id_; }  // TODO: remove?
 
@@ -111,10 +112,9 @@ class AsyncDataReader : public SchedulableDataReader {
     size_t tag;
     std::vector<core23::Tensor> label_tensors;
     std::vector<core23::Tensor> dense_tensors;
-    // std::vector<Tensor2<SparseType*>> sparse_tensor_ptrs;
     std::vector<core23::Tensor> sparse_tensor_ptrs;
-    // std::vector<std::vector<SparseTensor<SparseType>>> sparse_tensors;
     std::vector<std::vector<SparseTensor23>> sparse_tensors;
+    std::vector<std::vector<core23::Tensor>> sparse_values;  // check out from sparse_tensors
   };
 
   void assign_dense_and_label_tensors(core23::Tensor label_tensor, core23::Tensor dense_tensor,
@@ -136,7 +136,10 @@ class AsyncDataReader : public SchedulableDataReader {
 
   std::vector<core23::Tensor> label_tensors_;
   std::vector<core23::Tensor> dense_tensors_;
+
   std::vector<std::vector<SparseTensor23>> current_sparse_tensors_;  // [gpu][categorical_feature]
+  std::vector<std::vector<core23::Tensor>>
+      current_sparse_values_;  // the value tensor is checked out from current_sparse_tensors_
 
   bool current_batch_cached_ = false;
 

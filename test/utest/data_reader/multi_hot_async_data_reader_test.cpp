@@ -138,7 +138,7 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
     for (size_t batch = 0; batch < num_batches; batch++) {
       size_t current_batch_size = data_reader.read_a_batch_to_device();
 
-      auto sparse_tensors = data_reader.get_current_sparse_tensor23s();
+      auto sparse_tensors = data_reader.get_current_sparse_values();
       std::cout << batch << " batch good:" << current_batch_size << std::endl;
 
       std::vector<size_t> device_batch_offsets(local_gpu_count + 1);
@@ -171,7 +171,7 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
         core23::copy_sync(labels, label_tensors[id]);
         core23::copy_sync(denses, dense_tensors[id]);
         for (int feat_id = 0; feat_id < sparse_dim; ++feat_id) {
-          core23::copy_sync(sparses[feat_id], sparse_tensors[id][feat_id].get_value_tensor());
+          core23::copy_sync(sparses[feat_id], sparse_tensors[id][feat_id]);
         }
 
         auto cur_ref = ref_data.data() + total_read * sample_dim;
