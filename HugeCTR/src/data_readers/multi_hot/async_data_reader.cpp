@@ -170,6 +170,7 @@ void AsyncDataReader<SparseType>::set_tensor_buffering(size_t num_batches_to_buf
 template <typename SparseType>
 void AsyncDataReader<SparseType>::init_batch_tensors(size_t num_inflight) {
   inflight_batch_tensors_.resize(num_inflight);
+  current_sparse_values_.resize(resource_manager_->get_local_gpu_count());
 
   for (auto& batch_tensors : inflight_batch_tensors_) {
     batch_tensors.tag = SIZE_MAX;  // Invalid
@@ -209,7 +210,7 @@ void AsyncDataReader<SparseType>::init_batch_tensors(size_t num_inflight) {
       temp_sparse_tensor_ptrs.data();
 
       // Allocate sparse tensor for each feature
-      // std::vector<SparseTensor<SparseType>> device_sparse_tensors;
+      std::vector<core23::Tensor> device_values_tensors;
       std::vector<SparseTensor23> device_sparse_tensors;
       for (size_t fea_id = 0; fea_id < sparse_dim_; ++fea_id) {
         const int64_t hotness = nnz_per_slot_[fea_id];
@@ -218,6 +219,7 @@ void AsyncDataReader<SparseType>::init_batch_tensors(size_t num_inflight) {
             core23::ToScalarType<SparseType>::value, core23::ToScalarType<SparseType>::value,
             hotness, {core23::DeviceType::GPU, static_cast<int8_t>(gpu_id)});
         device_sparse_tensors.push_back(temp_sparse_tensor);
+        device_values_tensors.push_back(temp_sparse_tensor.get_value_tensor());
       }
 
       // Initialize sparse tensors
@@ -241,11 +243,12 @@ void AsyncDataReader<SparseType>::init_batch_tensors(size_t num_inflight) {
 
       batch_tensors.sparse_tensors.emplace_back(device_sparse_tensors);
       batch_tensors.sparse_tensor_ptrs.emplace_back(temp_sparse_tensor_ptrs);
+      batch_tensors.sparse_values.emplace_back(device_values_tensors);
     }
   }
-
   // Needed for get_value_tensors() on construction
-  current_sparse_tensors_ = inflight_batch_tensors_.at(0).sparse_tensors;
+  // current_sparse_tensors_ = inflight_batch_tensors_.at(0).sparse_tensors;
+  current_sparse_values_ = inflight_batch_tensors_.at(0).sparse_values;
 }
 
 template <typename SparseType>
@@ -265,7 +268,8 @@ long long AsyncDataReader<SparseType>::read_a_batch_to_device_delay_release() {
 
   size_t current_batch_id = static_cast<size_t>(batch.get_id());
   current_batch_size_ = batch.get_batch_size_bytes() / (sample_size_items_ * sizeof(InputType));
-  current_sparse_tensors_ = batch_tensors.sparse_tensors;
+  // current_sparse_tensors_ = batch_tensors.sparse_tensors;
+  current_sparse_values_ = batch_tensors.sparse_values;
   current_batch_cached_ = (current_batch_id == batch_tensors.tag) && cache_buffers_;
 
   int num_local_gpus = resource_manager_->get_local_gpu_count();
@@ -496,13 +500,17 @@ template <typename SparseType>
 std::vector<core23::Tensor> AsyncDataReader<SparseType>::get_label_tensor23s() const {
   return label_tensors_;
 }
-
+// TODO we may need this for dynamic hotness
 template <typename SparseType>
 std::vector<std::vector<SparseTensor23>> AsyncDataReader<SparseType>::get_current_sparse_tensor23s()
     const {
   return current_sparse_tensors_;
 }
-
+// for static hotness, we only need to value tensor
+template <typename SparseType>
+std::vector<std::vector<core23::Tensor>>& AsyncDataReader<SparseType>::get_current_sparse_values() {
+  return current_sparse_values_;
+}
 template <typename SparseType>
 std::vector<std::vector<SparseTensor<SparseType>>>
 AsyncDataReader<SparseType>::get_value_tensor_buffers() const {
