@@ -427,33 +427,26 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
   HCTR_LOG(DEBUG, WORLD, "Real-time subscribers created!\n");
 
-  auto insert_fn = [&](DatabaseBackendBase<TypeHashKey>* const db, const std::string& tag,
-                       const size_t num_pairs, const TypeHashKey* keys, const char* values,
-                       const size_t value_size) -> bool {
-    HCTR_LOG(DEBUG, WORLD,
-             "Database \"%s\" update for tag: \"%s\", num_pairs: %d, value_size: %d bytes\n",
-             db->get_name(), tag.c_str(), num_pairs, value_size);
-    return db->insert(tag, num_pairs, keys, values, value_size, value_size);
-  };
-
   // TODO: Update embedding cache!
 
   // Turn on background updates.
   if (volatile_db_source_) {
     volatile_db_source_->engage([&](const std::string& tag, const size_t num_pairs,
                                     const TypeHashKey* keys, const char* values,
-                                    const size_t value_size) -> bool {
-      // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(volatile_db_.get(), tag, num_pairs, keys, values, value_size);
+                                    const size_t value_size) {
+      HCTR_LOG_C(TRACE, WORLD, "Volatile DB update for tag: '", tag, "', num_pairs: ", num_pairs,
+                 ", value_size: ", value_size, " bytes\n");
+      volatile_db_->insert(tag, num_pairs, keys, values, value_size, value_size);
     });
   }
 
   if (persistent_db_source_) {
     persistent_db_source_->engage([&](const std::string& tag, const size_t num_pairs,
                                       const TypeHashKey* keys, const char* values,
-                                      const size_t value_size) -> bool {
-      // For persistent, we always insert.
-      return insert_fn(persistent_db_.get(), tag, num_pairs, keys, values, value_size);
+                                      const size_t value_size) {
+      HCTR_LOG_C(TRACE, WORLD, "Persistent DB update for tag: '", tag, "', num_pairs: ", num_pairs,
+                 ", value_size: ", value_size, " bytes\n");
+      persistent_db_->insert(tag, num_pairs, keys, values, value_size, value_size);
     });
   }
 }

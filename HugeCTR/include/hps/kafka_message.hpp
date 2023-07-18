@@ -141,6 +141,7 @@ template <typename Key>
 class KafkaMessageSource final : public MessageSource<Key> {
  public:
   using Base = MessageSource<Key>;
+  using Callback = typename Base::Callback;
 
   HCTR_DISALLOW_COPY_AND_MOVE(KafkaMessageSource);
 
@@ -174,7 +175,7 @@ class KafkaMessageSource final : public MessageSource<Key> {
   size_t num_keys_committed() const { return num_keys_committed_; }
   size_t num_messages_committed() const { return num_messages_committed_; }
 
-  virtual void engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) override;
+  virtual void engage(std::function<Callback> callback) override;
 
  protected:
   rd_kafka_t* rk_;
@@ -195,7 +196,7 @@ class KafkaMessageSource final : public MessageSource<Key> {
   size_t num_messages_committed_ = 0;
 
   void resubscribe();
-  void run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback);
+  void run(std::function<Callback> callback);
 
   /**
    * Invoked upon raising error.

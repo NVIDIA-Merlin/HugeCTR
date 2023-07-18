@@ -17,6 +17,7 @@
 #include <parallel_hashmap/phmap.h>
 
 #include <cstring>
+#include <hps/database_backend.hpp>
 #include <hps/database_backend_detail.hpp>
 #include <hps/kafka_message.hpp>
 #include <vector>
@@ -69,7 +70,6 @@ const uint32_t HCTR_KAFKA_VALUE_PREFIX =
 
 void kafka_conf_set_and_check(rd_kafka_conf_t* const conf, const char* const key,
                               const char* const value) {
-  // HCTR_LOG_S(DEBUG, WORLD) << key << " = " << value << std::endl;
   char error[HCTR_KAFKA_ERROR_STRING_LENGTH];
   const rd_kafka_conf_res_t res = rd_kafka_conf_set(conf, key, value, error, sizeof(error));
   HCTR_CHECK_HINT(res == RD_KAFKA_CONF_OK, "Kafka configuration '", key, "' = '", value,
@@ -117,8 +117,8 @@ KafkaMessageSink<Key>::KafkaMessageSink(const KafkaMessageSinkParams& params)
   HCTR_CHECK(params.send_buffer_size >= 1024 && params.num_send_buffers > 0);
 
   // Create send buffers.
-  HCTR_LOG_S(DEBUG, WORLD) << "Allocating Kafka send buffer (" << send_buffer_memory_.size()
-                           << " bytes)..." << std::endl;
+  HCTR_LOG_C(DEBUG, WORLD, "Allocating Kafka send buffer (", send_buffer_memory_.size(),
+             " bytes)...\n");
   send_buffers_.reserve(params.num_send_buffers);
   for (auto it = send_buffer_memory_.begin(); it != send_buffer_memory_.end();
        it += params.send_buffer_size) {
@@ -176,17 +176,17 @@ KafkaMessageSink<Key>::KafkaMessageSink(const KafkaMessageSinkParams& params)
   }
   // If we reach here, the ownership for "conf" is transferred to Kafka.
   KafkaLifetimeService::init();
-  HCTR_LOG_S(DEBUG, WORLD) << "Kafka sink initialization complete!" << std::endl;
+  HCTR_LOG(DEBUG, WORLD, "Kafka sink initialization complete!\n");
 
   // Startup background event processing thread.
   event_handler_ = std::thread(&KafkaMessageSink<Key>::run, this);
 
   // Send a beacon.
   if (params.await_connection) {
-    HCTR_LOG_S(DEBUG, WORLD) << "Sending a beacon to the Kafka broker..." << std::endl;
+    HCTR_LOG(DEBUG, WORLD, "Sending a beacon to the Kafka broker...\n");
     post("__hps_beacon", 0, nullptr, nullptr, sizeof(size_t));
     flush();
-    HCTR_LOG_S(DEBUG, WORLD) << "Beacon was received. Kafka broker connected." << std::endl;
+    HCTR_LOG(DEBUG, WORLD, "Beacon was received. Kafka broker connected.\n");
   }
 }
 
@@ -322,7 +322,7 @@ rd_kafka_topic_t* KafkaMessageSink<Key>::resolve_topic(const std::string& tag) {
   rd_kafka_topic_conf_set_opaque(conf, this);
 
   // Create topic.
-  HCTR_LOG_S(INFO, WORLD) << "Creating new Kafka topic '" << tag << "'." << std::endl;
+  HCTR_LOG_C(INFO, WORLD, "Creating new Kafka topic '", tag, "'.\n");
   rd_kafka_topic_t* const topic = rd_kafka_topic_new(rk_, tag.c_str(), conf);
   if (!topic) {
     rd_kafka_topic_conf_destroy(conf);
@@ -342,12 +342,12 @@ char* KafkaMessageSink<Key>::acquire_send_buffer(uint32_t value_size) {
   {
     std::unique_lock<std::mutex> lock(send_buffer_barrier_);
     if (send_buffers_.empty()) {
-      // HCTR_LOG_S(DEBUG, WORLD) << "Awaiting buffer availability..." << std::endl;
+      // HCTR_LOG(DEBUG, WORLD, "Awaiting buffer availability...\n");
       send_buffer_semaphore_.wait(lock);
     }
     send_buffer = send_buffers_.back();
     send_buffers_.pop_back();
-    // HCTR_LOG_S(DEBUG, WORLD) << "Borrowed buffer " << send_buffers_.size() << '.' << std::endl;
+    // HCTR_LOG_C(DEBUG, WORLD, "Borrowed buffer ", send_buffers_.size(), ".\n");
   }
 
   // Note the value size.
@@ -385,8 +385,7 @@ void KafkaMessageSink<Key>::run() {
 
 template <typename Key>
 void KafkaMessageSink<Key>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
-  HCTR_LOG_S(ERROR, WORLD) << "Kafka error " << rd_kafka_err2name(err) << ". Reason: " << reason
-                           << std::endl;
+  HCTR_LOG_C(ERROR, WORLD, "Kafka error ", rd_kafka_err2name(err), ". Reason: ", reason, '\n');
 
   // If it is not fatal, just move on.
   if (err != RD_KAFKA_RESP_ERR__FATAL) {
@@ -403,10 +402,9 @@ void KafkaMessageSink<Key>::on_error(rd_kafka_resp_err_t err, const char* const 
 template <typename Key>
 void KafkaMessageSink<Key>::on_delivered(const rd_kafka_message_t& msg) {
   if (msg.err) {
-    HCTR_LOG_S(ERROR, WORLD) << "Kafka message delivery failed; Topic: "
-                             << rd_kafka_topic_name(msg.rkt) << ", payload: " << msg.len
-                             << " bytes; Error " << rd_kafka_err2name(msg.err) << ": "
-                             << rd_kafka_err2str(msg.err) << std::endl;
+    HCTR_LOG_C(ERROR, WORLD, "Kafka message delivery failed; Topic: ", rd_kafka_topic_name(msg.rkt),
+               ", payload: ", msg.len, " bytes; Error ", rd_kafka_err2name(msg.err), ": ",
+               rd_kafka_err2str(msg.err), '\n');
     num_delivered_failure_++;
   } else {
     num_delivered_success_++;
@@ -414,7 +412,6 @@ void KafkaMessageSink<Key>::on_delivered(const rd_kafka_message_t& msg) {
     // Return send buffer back to the pool.
     {
       std::unique_lock<std::mutex> lock(send_buffer_barrier_);
-      // HCTR_LOG_S(DEBUG, WORLD) << "Sent " << send_buffers_.size() << std::endl;
       send_buffers_.push_back(reinterpret_cast<char*>(msg.payload));
     }
     send_buffer_semaphore_.notify_one();
@@ -513,7 +510,7 @@ KafkaMessageSource<Key>::~KafkaMessageSource() {
 }
 
 template <typename Key>
-void KafkaMessageSource<Key>::engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
+void KafkaMessageSource<Key>::engage(std::function<Callback> callback) {
   // Stop processing events (if already doing so).
   terminate_ = true;
   if (event_handler_.joinable()) {
@@ -545,7 +542,7 @@ void KafkaMessageSource<Key>::resubscribe() {
                                         RD_KAFKA_PARTITION_UA);
     }
 
-    log << " }" << std::endl;
+    log << " }\n";
   }
 
   // Enable subscription.
@@ -570,7 +567,7 @@ struct KafkaReceiveBuffer final {
 };
 
 template <typename Key>
-void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
+void KafkaMessageSource<Key>::run(std::function<Callback> callback) {
   hctr_set_thread_name("kafka source");
 
   // Attempt to subscribe to topics.
@@ -578,23 +575,27 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
 
   // Buffer for the messages and partition updates.
   phmap::flat_hash_map<std::string, KafkaReceiveBuffer<Key>> recv_buffers;
-  auto deliver = [&](const char* const topic, KafkaReceiveBuffer<Key>& buf) -> bool {
+  auto deliver = [&](const std::string& topic, KafkaReceiveBuffer<Key>& buf) -> bool {
     if (buf.keys.empty()) {
       return true;
     }
-    HCTR_LOG_S(TRACE, WORLD) << "Kafka topic: " << topic << ", delivering " << buf.keys.size()
-                             << " KV-pairs." << std::endl;
+    HCTR_LOG_C(TRACE, WORLD, "Kafka topic: '", topic, "', delivering ", buf.keys.size(),
+               " KV-pairs.\n");
 
-    // Retry until receiver signals that the delivery was successful.
-    while (!callback(topic, buf.keys.size(), buf.keys.data(), buf.values.data(), buf.value_size)) {
+    // Retry until receiver doesn't indicate unsuccessful delivery.
+    while (true) {
       if (terminate_) {
         return false;
       }
 
-      HCTR_LOG_S(WARNING, WORLD) << "Unable to deliver " << buf.keys.size()
-                                 << " key/value pairs from Kafka topic " << topic << '.'
-                                 << std::endl;
-      std::this_thread::sleep_for(failure_backoff_ms_);
+      try {
+        callback(topic, buf.keys.size(), buf.keys.data(), buf.values.data(), buf.value_size);
+        break;
+      } catch (DatabaseBackendError& e) {
+        HCTR_LOG_C(WARNING, WORLD, "Unable to deliver ", buf.keys.size(),
+                   " key/value pairs from Kafka topic '", topic, "'.\n");
+        std::this_thread::sleep_for(failure_backoff_ms_);
+      }
     }
 
     num_keys_delivered_ += buf.keys.size();
@@ -603,7 +604,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
     return true;
   };
 
-  auto commit = [&](const char* const topic, KafkaReceiveBuffer<Key>& buf) -> void {
+  auto commit = [&](const std::string& topic, KafkaReceiveBuffer<Key>& buf) -> void {
     if (!buf.next_offsets->cnt) {
       return;
     }
@@ -619,7 +620,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
         const rd_kafka_topic_partition_t& elem = buf.next_offsets->elems[i];
         log << " { part = " << elem.partition << ", " << elem.offset << " }";
       }
-      log << std::endl;
+      log << '\n';
     }
     HCTR_KAFKA_CHECK(rd_kafka_commit(rk_, buf.next_offsets.get(), false));
 
@@ -642,8 +643,8 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
     if (!msg || msg->err == RD_KAFKA_RESP_ERR__TIMED_OUT ||
         msg->err == RD_KAFKA_RESP_ERR__PARTITION_EOF) {
       for (auto& recv_buffer_entry : recv_buffers) {
-        const char* const topic = recv_buffer_entry.first.c_str();
-        KafkaReceiveBuffer<Key>& buf = recv_buffer_entry.second;
+        const std::string& topic{recv_buffer_entry.first};
+        KafkaReceiveBuffer<Key>& buf{recv_buffer_entry.second};
 
         // Hand over remaining data and commit.
         if (!deliver(topic, buf)) {
@@ -680,10 +681,9 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
     // Messages emitted by a sink shouldn't have a key and need to be at least 8 bytes long.
     if (msg->key_len != 0 || msg->len < sizeof(uint32_t) * 2) {
       auto log = HCTR_LOG_S(WARNING, WORLD);
-      log << "Unexpected message. Data corruption? Discarding!" << std::endl
-          << "Topic = " << rd_kafka_topic_name(msg->rkt) << std::endl
-          << "Offset = " << msg->offset << std::endl
-          << "Key (" << std::dec << msg->key_len << " bytes) =";
+      log << "Unexpected message. Data corruption? Discarding!"
+          << "\nTopic = " << rd_kafka_topic_name(msg->rkt) << "\nOffset = " << msg->offset
+          << "\nKey (" << std::dec << msg->key_len << " bytes) =";
       {
         const char* const key = static_cast<const char*>(msg->key);
         for (size_t j = 0; j < msg->key_len; j++) {
@@ -693,7 +693,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
           log << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(key[j]);
         }
       }
-      log << std::endl << "Payload (" << std::dec << msg->len << " bytes) =";
+      log << "\nPayload (" << std::dec << msg->len << " bytes) =";
       {
         const char* const payload = static_cast<const char*>(msg->payload);
         for (size_t j = 0; j < msg->len; j++) {
@@ -703,7 +703,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
           log << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(payload[j]);
         }
       }
-      log << std::endl;
+      log << '\n';
       continue;
     }
 
@@ -731,11 +731,10 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
 
     // Value size change detected. Hand over remaining data, commit and then change value_size.
     if (buf.value_size != value_size) {
-      HCTR_LOG_S(WARNING, WORLD)
-          << "The value_size for Kafka topic '" << topic << "' suddenly changed (" << buf.value_size
-          << "<>" << value_size
-          << "). Attempting to fix. But this might be an indicator of a more serious problem!"
-          << std::endl;
+      HCTR_LOG_C(
+          WARNING, WORLD, "The value_size for Kafka topic '", topic, "' suddenly changed (",
+          buf.value_size, "<>", value_size,
+          "). Attempting to fix. But this might be an indicator of a more serious problem!\n");
 
       if (!deliver(topic, buf)) {
         break;
@@ -755,8 +754,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
 
       // Deliver directly if receive buffer is full.
       if (buf.keys.size() >= max_batch_size_) {
-        HCTR_LOG_S(TRACE, WORLD) << "Kafka topic '" << topic << "': Receive buffer is full."
-                                 << std::endl;
+        HCTR_LOG_C(TRACE, WORLD, "Kafka topic '", topic, "': Receive buffer is full.\n");
         if (!deliver(topic, buf)) {
           break;
         }
@@ -767,9 +765,8 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
     }
 
     // Message processed. Record offset.
-    HCTR_LOG_S(TRACE, WORLD) << "Kafka topic '" << topic
-                             << "': Message processed (offset = " << msg->offset << ")."
-                             << std::endl;
+    HCTR_LOG_C(TRACE, WORLD, "Kafka topic '", topic, "': Message processed (offset = ", msg->offset,
+               ").\n");
     rd_kafka_topic_partition_t* part =
         rd_kafka_topic_partition_list_find(buf.next_offsets.get(), topic, msg->partition);
     if (!part) {
@@ -779,8 +776,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
 
     // If reached maximum commit interval, deliver and commit now.
     if (++buf.msg_count > max_commit_interval_) {
-      HCTR_LOG_S(TRACE, WORLD) << " Kafka topic '" << topic << "': Commit interval reached."
-                               << std::endl;
+      HCTR_LOG_C(TRACE, WORLD, " Kafka topic '", topic, "': Commit interval reached.\n");
       if (!deliver(topic, buf)) {
         break;
       }
@@ -791,8 +787,7 @@ void KafkaMessageSource<Key>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> ca
 
 template <typename Key>
 void KafkaMessageSource<Key>::on_error(rd_kafka_resp_err_t err, const char* const reason) {
-  HCTR_LOG_S(ERROR, WORLD) << "Kafka error " << rd_kafka_err2name(err) << ". Reason: " << reason
-                           << std::endl;
+  HCTR_LOG_C(ERROR, WORLD, "Kafka error ", rd_kafka_err2name(err), ". Reason: ", reason, '\n');
 
   // If it is not fatal, just move on.
   if (err != RD_KAFKA_RESP_ERR__FATAL) {
