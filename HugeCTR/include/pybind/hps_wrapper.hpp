@@ -70,23 +70,27 @@ class HPS {
 
 HPS::~HPS() {
   for (auto it = d_vectors_per_table_map_.begin(); it != d_vectors_per_table_map_.end(); ++it) {
-    for (auto f = it->second.begin(); f != it->second.end(); ++f) {
-      auto d_vectors_per_table = f->second;
-      for (size_t i{0}; i < d_vectors_per_table.size(); ++i) {
-        HCTR_LIB_CHECK_(cudaFree(d_vectors_per_table[i]));
+    if (ps_config_.inference_params_array[0].use_gpu_embedding_cache) {
+      for (auto f = it->second.begin(); f != it->second.end(); ++f) {
+        auto d_vectors_per_table = f->second;
+        for (size_t i{0}; i < d_vectors_per_table.size(); ++i) {
+          HCTR_LIB_CHECK_(cudaFree(d_vectors_per_table[i]));
+        }
       }
     }
   }
   for (auto it = h_keys_per_table_map_.begin(); it != h_keys_per_table_map_.end(); ++it) {
     auto h_keys_per_table = it->second;
     for (size_t i{0}; i < h_keys_per_table.size(); ++i) {
-      HCTR_LIB_CHECK_(cudaFreeHost(h_keys_per_table[i]));
+      free(h_keys_per_table[i]);
     }
   }
   for (auto it = d_keys_per_table_map_.begin(); it != d_keys_per_table_map_.end(); ++it) {
     auto d_keys_per_table = it->second;
     for (size_t i{0}; i < d_keys_per_table.size(); ++i) {
-      HCTR_LIB_CHECK_(cudaFree(d_keys_per_table[i]));
+      if (ps_config_.inference_params_array[0].use_gpu_embedding_cache) {
+        HCTR_LIB_CHECK_(cudaFree(d_keys_per_table[i]));
+      }
     }
   }
 }
@@ -116,31 +120,37 @@ void HPS::initialize() {
         ps_config_.embedding_vec_size_.at(inference_params.model_name);
     std::map<int64_t, std::vector<float*>> d_vectors_per_table_per_device;
     for (const auto& device_id : inference_params.deployed_devices) {
-      CudaDeviceContext context(device_id);
       std::vector<float*> d_vectors_per_table(inference_params.sparse_model_files.size());
       for (size_t id{0}; id < inference_params.sparse_model_files.size(); ++id) {
-        HCTR_LIB_THROW(
-            cudaMalloc((void**)&d_vectors_per_table[id],
-                       inference_params.max_batchsize * max_keys_per_sample_per_table[id] *
-                           embedding_size_per_table[id] * sizeof(float)));
+        if (inference_params.use_gpu_embedding_cache) {
+          CudaDeviceContext context(device_id);
+          HCTR_LIB_THROW(
+              cudaMalloc((void**)&d_vectors_per_table[id],
+                         inference_params.max_batchsize * max_keys_per_sample_per_table[id] *
+                             embedding_size_per_table[id] * sizeof(float)));
+        }
       }
       d_vectors_per_table_per_device.emplace(device_id, d_vectors_per_table);
     }
 
     std::vector<unsigned int*> h_keys_per_table(inference_params.sparse_model_files.size());
     for (size_t id{0}; id < inference_params.sparse_model_files.size(); ++id) {
-      HCTR_LIB_THROW(cudaHostAlloc(
-          (void**)&h_keys_per_table[id],
-          inference_params.max_batchsize * max_keys_per_sample_per_table[id] * sizeof(unsigned int),
-          cudaHostAllocPortable));
+      /*       HCTR_LIB_THROW(cudaHostAlloc(
+                (void**)&h_keys_per_table[id],
+                inference_params.max_batchsize * max_keys_per_sample_per_table[id] * sizeof(unsigned
+         int), cudaHostAllocPortable)); */
+      h_keys_per_table[id] =
+          (unsigned int*)malloc(inference_params.max_batchsize * max_keys_per_sample_per_table[id] *
+                                sizeof(unsigned int));
     }
 
     std::vector<unsigned int*> d_keys_per_table(inference_params.sparse_model_files.size());
     for (size_t id{0}; id < inference_params.sparse_model_files.size(); ++id) {
-      HCTR_LIB_THROW(
+      std::cout << "d_keys_per_table cache!" << std::endl;
+      /* HCTR_LIB_THROW(
           cudaMallocManaged((void**)&d_keys_per_table[id], inference_params.max_batchsize *
                                                                max_keys_per_sample_per_table[id] *
-                                                               sizeof(unsigned int)));
+                                                               sizeof(unsigned int))); */
     }
 
     d_vectors_per_table_map_.emplace(inference_params.model_name, d_vectors_per_table_per_device);
@@ -259,17 +269,22 @@ pybind11::array_t<float> HPS::lookup(pybind11::array_t<size_t>& h_keys,
 
   // TODO: batching or scheduling for lookup sessions on multiple GPUs
   const auto& lookup_session = lookup_session_map_.find(model_name)->second.find(device_id)->second;
-  auto& d_vectors_per_table =
-      d_vectors_per_table_map_.find(model_name)->second.find(device_id)->second;
-  lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
   std::vector<size_t> vector_shape{static_cast<size_t>(key_buf.shape[0]),
                                    embedding_size_per_table[table_id]};
   pybind11::array_t<float> h_vectors(vector_shape);
   pybind11::buffer_info vector_buf = h_vectors.request();
   float* vec_ptr = static_cast<float*>(vector_buf.ptr);
-  HCTR_LIB_THROW(cudaMemcpy(vec_ptr, d_vectors_per_table[table_id],
-                            num_keys * embedding_size_per_table[table_id] * sizeof(float),
-                            cudaMemcpyDeviceToHost));
+  if (inference_params.use_gpu_embedding_cache) {
+    auto& d_vectors_per_table =
+        d_vectors_per_table_map_.find(model_name)->second.find(device_id)->second;
+    lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
+    HCTR_LIB_THROW(cudaMemcpy(vec_ptr, d_vectors_per_table[table_id],
+                              num_keys * embedding_size_per_table[table_id] * sizeof(float),
+                              cudaMemcpyDeviceToHost));
+  } else {
+    lookup_session->lookup(key_ptr, vec_ptr, num_keys, table_id);
+  }
+
   return h_vectors;
 }
 

@@ -69,31 +69,32 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
       }
     }
     counter_for_each_fused_table_ = num_original_tables_in_each_fused_table_;
-
-    CudaDeviceContext dev_restorer;
-    dev_restorer.set_device(inference_params_.device_id);
-    for (size_t idx = 0; idx < num_tables; ++idx) {
-      cudaStream_t stream;
-      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-      lookup_streams_.push_back(stream);
-    }
-    if (inference_params_.fuse_embedding_table) {
-      size_t key_size_in_byte =
-          inference_params_.i64_input_key ? sizeof(long long) : sizeof(unsigned int);
-      for (size_t fused_id{0}; fused_id < num_tables; ++fused_id) {
-        void* current_key_buffer;
-        float* current_vec_buffer;
-        size_t max_num_key_per_sample =
-            inference_params_.maxnum_catfeature_query_per_table_per_sample[fused_id];
-        size_t emb_vec_size = inference_params_.embedding_vecsize_per_table[fused_id];
-        HCTR_LIB_THROW(cudaMalloc(
-            &current_key_buffer,
-            inference_params_.max_batchsize * max_num_key_per_sample * key_size_in_byte));
-        HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&current_vec_buffer),
-                                  inference_params_.max_batchsize * max_num_key_per_sample *
-                                      emb_vec_size * sizeof(float)));
-        key_buffer_for_each_fused_table_.push_back(current_key_buffer);
-        vec_buffer_for_each_fused_table_.push_back(current_vec_buffer);
+    if (inference_params_.use_gpu_embedding_cache) {
+      CudaDeviceContext dev_restorer;
+      dev_restorer.set_device(inference_params_.device_id);
+      for (size_t idx = 0; idx < num_tables; ++idx) {
+        cudaStream_t stream;
+        cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+        lookup_streams_.push_back(stream);
+      }
+      if (inference_params_.fuse_embedding_table) {
+        size_t key_size_in_byte =
+            inference_params_.i64_input_key ? sizeof(long long) : sizeof(unsigned int);
+        for (size_t fused_id{0}; fused_id < num_tables; ++fused_id) {
+          void* current_key_buffer;
+          float* current_vec_buffer;
+          size_t max_num_key_per_sample =
+              inference_params_.maxnum_catfeature_query_per_table_per_sample[fused_id];
+          size_t emb_vec_size = inference_params_.embedding_vecsize_per_table[fused_id];
+          HCTR_LIB_THROW(cudaMalloc(
+              &current_key_buffer,
+              inference_params_.max_batchsize * max_num_key_per_sample * key_size_in_byte));
+          HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&current_vec_buffer),
+                                    inference_params_.max_batchsize * max_num_key_per_sample *
+                                        emb_vec_size * sizeof(float)));
+          key_buffer_for_each_fused_table_.push_back(current_key_buffer);
+          vec_buffer_for_each_fused_table_.push_back(current_vec_buffer);
+        }
       }
     }
 
@@ -105,16 +106,18 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
 }
 
 LookupSession::~LookupSession() {
-  CudaDeviceContext dev_restorer;
-  dev_restorer.set_device(inference_params_.device_id);
-  for (auto stream : lookup_streams_) HCTR_LIB_CHECK_(cudaStreamDestroy(stream));
-  if (inference_params_.fuse_embedding_table) {
-    size_t num_tables = inference_params_.fused_sparse_model_files.size();
-    for (size_t fused_id{0}; fused_id < num_tables; ++fused_id) {
-      HCTR_LIB_CHECK_(cudaFree(key_buffer_for_each_fused_table_[fused_id]));
-      key_buffer_for_each_fused_table_[fused_id] = nullptr;
-      HCTR_LIB_CHECK_(cudaFree(vec_buffer_for_each_fused_table_[fused_id]));
-      vec_buffer_for_each_fused_table_[fused_id] = nullptr;
+  if (inference_params_.use_gpu_embedding_cache) {
+    CudaDeviceContext dev_restorer;
+    dev_restorer.set_device(inference_params_.device_id);
+    for (auto stream : lookup_streams_) HCTR_LIB_CHECK_(cudaStreamDestroy(stream));
+    if (inference_params_.fuse_embedding_table) {
+      size_t num_tables = inference_params_.fused_sparse_model_files.size();
+      for (size_t fused_id{0}; fused_id < num_tables; ++fused_id) {
+        HCTR_LIB_CHECK_(cudaFree(key_buffer_for_each_fused_table_[fused_id]));
+        key_buffer_for_each_fused_table_[fused_id] = nullptr;
+        HCTR_LIB_CHECK_(cudaFree(vec_buffer_for_each_fused_table_[fused_id]));
+        vec_buffer_for_each_fused_table_[fused_id] = nullptr;
+      }
     }
   }
 }
@@ -230,8 +233,10 @@ void LookupSession::lookup_from_device_impl(const void* d_keys, float* d_vectors
 
 void LookupSession::lookup_impl(const void* const h_keys, float* const d_vectors,
                                 const size_t num_keys, const size_t table_id, cudaStream_t stream) {
-  CudaDeviceContext dev_restorer;
-  dev_restorer.set_device(inference_params_.device_id);
+  if (inference_params_.use_gpu_embedding_cache) {
+    CudaDeviceContext dev_restorer;
+    dev_restorer.set_device(inference_params_.device_id);
+  }
   embedding_cache_->lookup(table_id, d_vectors, h_keys, num_keys,
                            inference_params_.hit_rate_threshold, stream);
 }
@@ -256,8 +261,12 @@ void LookupSession::lookup(const void* const h_keys, float* const d_vectors, con
                                         lookup_streams_[fused_table_id]);
     HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[fused_table_id]));
   } else {
-    this->lookup_impl(h_keys, d_vectors, num_keys, table_id, lookup_streams_[table_id]);
-    HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+    if (inference_params_.use_gpu_embedding_cache) {
+      this->lookup_impl(h_keys, d_vectors, num_keys, table_id, lookup_streams_[table_id]);
+      HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+    } else {
+      this->lookup_impl(h_keys, d_vectors, num_keys, table_id, 0);
+    }
   }
 
   ls_profiler_->end(start, "End-to-end lookup embedding keys for Lookup session");
@@ -294,15 +303,23 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
       };
       table_fusion_thread_pool_.submit(work_func);
     } else {
-      this->lookup_impl(h_keys_per_table[table_id], d_vectors_per_table[table_id],
-                        num_keys_per_table[table_id], table_id, lookup_streams_[table_id]);
+      if (inference_params_.use_gpu_embedding_cache) {
+        this->lookup_impl(h_keys_per_table[table_id], d_vectors_per_table[table_id],
+                          num_keys_per_table[table_id], table_id, lookup_streams_[table_id]);
+        HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+      } else {
+        this->lookup_impl(h_keys_per_table[table_id], d_vectors_per_table[table_id],
+                          num_keys_per_table[table_id], table_id, 0);
+      }
     }
   }
   if (inference_params_.fuse_embedding_table) {
     table_fusion_thread_pool_.await_idle();
   }
   for (auto stream : lookup_streams_) {
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    if (inference_params_.use_gpu_embedding_cache) {
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    }
   }
 
   ls_profiler_->end(start, "End-to-end lookup embedding keys from multi-table Lookup session");

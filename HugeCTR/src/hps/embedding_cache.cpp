@@ -254,13 +254,13 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
                                          float const hit_rate_threshold, cudaStream_t stream) {
   MemoryBlock* memory_block = nullptr;
   BaseUnit* start = profiler::start();
-  while (memory_block == nullptr) {
-    memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
-        cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
-  }
-  ec_profiler_->end(start, "Apply for workspace from the memory pool for Embedding Cache Lookup");
-  EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   if (cache_config_.use_gpu_embedding_cache_) {
+    while (memory_block == nullptr) {
+      memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
+          cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
+    }
+    ec_profiler_->end(start, "Apply for workspace from the memory pool for Embedding Cache Lookup");
+    EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
     CudaDeviceContext dev_restorer;
     dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
@@ -276,19 +276,16 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
   }
   // Not using GPU embedding cache
   else {
-    memcpy(workspace_handler.h_embeddingcolumns_[table_id], h_keys, num_keys * sizeof(TypeHashKey));
     start = profiler::start();
-    parameter_server_->lookup(workspace_handler.h_embeddingcolumns_[table_id], num_keys,
-                              workspace_handler.h_missing_emb_vec_[table_id],
-                              cache_config_.model_name_, table_id);
+    parameter_server_->lookup(h_keys, num_keys, d_vectors, cache_config_.model_name_, table_id);
     ec_profiler_->end(
         start, "Lookup the embedding keys from Database backend(disable the Embedding Cache)");
-    HCTR_LIB_THROW(
-        cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
-                        num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
-                        cudaMemcpyHostToDevice, stream));
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-    parameter_server_->free_buffer(memory_block);
+    /*     HCTR_LIB_THROW(
+            cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
+                            num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
+                            cudaMemcpyHostToDevice, stream));
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    parameter_server_->free_buffer(memory_block);*/
   }
 }
 

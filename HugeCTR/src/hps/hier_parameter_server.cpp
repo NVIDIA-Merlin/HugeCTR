@@ -206,14 +206,14 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     update_database_per_model(inference_params_array[i]);
   }
-
   // Initialize embedding cache for each embedding table of each model
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     create_embedding_cache_per_model(inference_params_array[i]);
     inference_params_map_.emplace(inference_params_array[i].model_name, inference_params_array[i]);
   }
-  buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
-
+  if (inference_params_array[0].use_gpu_embedding_cache) {
+    buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
+  }
   // Insert embeddings to embedding cache for each embedding table of each mode
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if ((inference_params_array[i].use_gpu_embedding_cache &&
@@ -232,14 +232,17 @@ template <typename TypeHashKey>
 HierParameterServer<TypeHashKey>::~HierParameterServer() {
   // Await all pending volatile database transactions.
   volatile_db_async_inserter_.await_idle();
-
   for (auto it = model_cache_map_.begin(); it != model_cache_map_.end(); it++) {
     for (auto& v : it->second) {
-      CudaDeviceContext dev_restorer{v.second->get_cache_config().cuda_dev_id_};
+      if (ps_config_.inference_params_array[0].use_gpu_embedding_cache) {
+        CudaDeviceContext dev_restorer{v.second->get_cache_config().cuda_dev_id_};
+      }
       v.second->finalize();
     }
   }
-  buffer_pool_->DestoryManagerPool();
+  if (ps_config_.inference_params_array[0].use_gpu_embedding_cache) {
+    buffer_pool_->DestoryManagerPool();
+  }
 }
 
 template <typename TypeHashKey>
@@ -671,7 +674,9 @@ void HierParameterServer<TypeHashKey>::destory_embedding_cache_per_model(
     }
     model_cache_map_.erase(model_name);
   }
-  buffer_pool_->DestoryManagerPool(model_name);
+  if (ps_config_.inference_params_array[0].use_gpu_embedding_cache) {
+    buffer_pool_->DestoryManagerPool(model_name);
+  }
 }
 
 template <typename TypeHashKey>
