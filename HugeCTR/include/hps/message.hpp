@@ -80,9 +80,6 @@ class MessageSink : public MessageSinkBase<Key> {
   const Params params_;
 };
 
-#define HCTR_MESSAGE_SOURCE_CALLBACK \
-  bool(const std::string&, const size_t, const Key*, const char*, const size_t)
-
 /**
  * Each instance represents an consumer link to a theoretically infinitely sized message queue..
  *
@@ -91,6 +88,8 @@ class MessageSink : public MessageSinkBase<Key> {
 template <typename Key>
 class MessageSource {
  public:
+  using Callback = void(const std::string&, const size_t, const Key*, const char*, const size_t);
+
   HCTR_DISALLOW_COPY_AND_MOVE(MessageSource);
 
   MessageSource() = default;
@@ -102,7 +101,7 @@ class MessageSource {
    *
    * @param callback Callback function be invoked for each received message.
    */
-  virtual void engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) = 0;
+  virtual void engage(std::function<Callback> callback) = 0;
 };
 
 }  // namespace HugeCTR
