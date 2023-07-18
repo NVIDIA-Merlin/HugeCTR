@@ -18,7 +18,7 @@ mv fp32_hps_plugin_dlrm.trt model_repo/fp32_trt_with_hps/1
 
 mv fp16_hps_plugin_dlrm.trt model_repo/fp16_trt_with_hps/1
 
-LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so:/usr/local/lib/python3.8/dist-packages/merlin_hps-1.0.0-py3.8-linux-x86_64.egg/hierarchical_parameter_server/lib/libhierarchical_parameter_server.so tritonserver --model-repository=model_repo --load-model=native_tf --load-model=tf_with_hps --load-model=fp32_trt_with_hps --load-model=fp16_trt_with_hps --model-control-mode=explicit &
+LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so:/usr/local/lib/python${PYTHON_VERSION}/dist-packages/merlin_hps-1.0.0-py${PYTHON_VERSION}-linux-x86_64.egg/hierarchical_parameter_server/lib/libhierarchical_parameter_server.so tritonserver --model-repository=model_repo --load-model=native_tf --load-model=tf_with_hps --load-model=fp32_trt_with_hps --load-model=fp16_trt_with_hps --model-control-mode=explicit &
 
 while [[ $(curl -v localhost:8000/v2/health/ready 2>&1 | grep "OK" | wc -l) -eq 0 ]]; do
         sleep 10;
