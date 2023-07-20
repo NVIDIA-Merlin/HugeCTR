@@ -174,9 +174,16 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 |[NVIDIA Merlin](https://developer.nvidia.com/nvidia-merlin)|
 |[NVIDIA HugeCTR](https://developer.nvidia.com/nvidia-merlin/hugectr)|
 
+### Publications  ###
+
+*Yingcan Wei, Matthias Langer, Fan Yu, Minseok Lee, Jie Liu, Ji Shi and Zehuan Wang*, "[A GPU-specialized Inference Parameter Server for Large-Scale Deep Recommendation Models](https://dl.acm.org/doi/10.1145/3523227.3546765)," Proceedings of the 16th ACM Conference on Recommender Systems, pp. 408-419, 2022.
+
+*Zehuan Wang, Yingcan Wei, Minseok Lee, Matthias Langer, Fan Yu, Jie Liu, Shijie Liu, Daniel G. Abel, Xu Guo, Jianbing Dong, Ji Shi and Kunlun Li*, "[Merlin HugeCTR: GPU-accelerated Recommender System Training and Inference](https://dl.acm.org/doi/10.1145/3523227.3547405)," Proceedings of the 16th ACM Conference on Recommender Systems, pp.  534-537, 2022.
+
 ### Talks ###
 |Conference / Website|Title|Date|Speaker|Language|
 |--------------------|-----|----|-------|--------|
+|ACM RecSys 2022|[A GPU-specialized Inference Parameter Server for Large-Scale Deep Recommendation Models](https://vimeo.com/752339625/6ecec7fa70)|September 2022|Matthias Langer|English|
 |Short Videos Episode 1|[Merlin HugeCTR：GPU 加速的推荐系统框架](https://www.bilibili.com/video/BV1jT411E7VJ/)|May 2022|Joey Wang|中文|
 |Short Videos Episode 2|[HugeCTR 分级参数服务器如何加速推理](https://www.bilibili.com/video/BV1PW4y127UA/)|May 2022|Joey Wang|中文|
 |Short Videos Episode 3|[使用 HugeCTR SOK 加速 TensorFlow 训练](https://www.bilibili.com/video/BV1mG411n7XH/)|May 2022|Gems Guo|中文|
