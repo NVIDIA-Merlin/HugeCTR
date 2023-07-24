@@ -91,6 +91,7 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
 
   int global_gpu_count = core->get_global_gpu_count();
   int batch_size = ebc_param.universal_batch_size;
+  int batch_size_per_gpu = ebc_param.universal_batch_size / global_gpu_count;
   auto key_type = ebc_param.key_type;
   auto offset_type = ebc_param.offset_type;
   int num_lookup = ebc_param.num_lookup;
@@ -110,9 +111,9 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
 
   this->h_num_network_reverse_idx = core23::Tensor(
       params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
-  this->partitioned_data_after_shard_matrix_partition =
-      PartitionedData(core, global_gpu_count, batch_size * sum_num_features_in_current_group,
-                      key_type, offset_type);
+  this->partitioned_data_after_shard_matrix_partition = PartitionedData(
+      core, global_gpu_count, batch_size_per_gpu * sum_num_features_in_current_group, key_type,
+      offset_type);
   this->d_num_key_gpu_major =
       core23::Tensor(params.shape({global_gpu_count}).data_type(offset_type));
 

@@ -1981,6 +1981,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     this->init_data_reader_.reset();
 
     for (int iter = 0; iter < max_iter; iter++) {
+      if (iter == 100) cudaProfilerStart();
+      if (iter == 200) cudaProfilerStop();
       float lr = 0;
       if (!this->use_gpu_learning_rate_scheduling()) {
         lr = lr_sch_->get_next();
