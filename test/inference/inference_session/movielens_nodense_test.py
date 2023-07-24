@@ -107,4 +107,4 @@ if __name__ == "__main__":
     print(embedding_file_list)
     data_file = sys.argv[5]
     movie_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True)
-    movie_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False)
+    #movie_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False)
