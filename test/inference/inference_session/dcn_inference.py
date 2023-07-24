@@ -70,4 +70,4 @@ if __name__ == "__main__":
     model_name = sys.argv[2]
     data_path = sys.argv[3]
     dcn_inference(config_file, model_name, data_path, True)
-    #dcn_inference(config_file, model_name, data_path, False)
+    # dcn_inference(config_file, model_name, data_path, False)
