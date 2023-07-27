@@ -107,6 +107,7 @@ class DynamicVariable(ResourceVariable):
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
             dynamic_variable_count += 1
         
+        var_type = "hbm" if var_type is None else var_type
         self._var_type = var_type
         self._base = super(DynamicVariable, self)
         self._base.__init__(
@@ -130,7 +131,6 @@ class DynamicVariable(ResourceVariable):
                 with ops.NullContextmanager():
                     shape = [None, dimension]
                     initializer = "" if initializer is None else initializer
-                    var_type = "hbm" if var_type is None else var_type
                     handle = dynamic_variable_ops.dummy_var_handle(
                         container="DummyVariableContainer",
                         shared_name=self._dummy_name,

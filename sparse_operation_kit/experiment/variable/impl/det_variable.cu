@@ -130,19 +130,18 @@ void DETVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
 
   // `keys` and `values` are pointers of host memory
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
   map_->eXport(d_keys, d_values, num_keys, stream);
+  CUDACHECK(cudaStreamSynchronize(stream));
 
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(keys, d_keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyDeviceToHost, stream));
-  CUDACHECK(cudaMemcpyAsync(values, d_values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyDeviceToHost, stream));
+  std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
+  std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
+
   // clang-format on
-  CUDACHECK(cudaStreamSynchronize(stream));
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
 }
@@ -154,18 +153,22 @@ void DETVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueTyp
 
   // `keys` and `values` are pointers of host memory
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
+  //                          cudaMemcpyHostToDevice, stream));
+  std::memcpy(d_keys,keys, sizeof(KeyType) * num_keys);
   // clang-format on
   map_->lookup(d_keys, d_values, num_keys, stream);
+  CUDACHECK(cudaStreamSynchronize(stream));
 
-  CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
+  //                          cudaMemcpyHostToDevice, stream));
+
+  std::memcpy(d_values,values, sizeof(ValueType) * num_keys * dim);
   map_->scatter_update(d_keys, d_values, num_keys, stream);
   CUDACHECK(cudaStreamSynchronize(stream));
   CUDACHECK(cudaFree(d_keys));
