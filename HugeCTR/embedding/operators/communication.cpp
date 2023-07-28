@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <core23/registry.hpp>
 #include <embedding/operators/communication.hpp>
 #include <utils.hpp>
 
@@ -65,6 +66,39 @@ void NcclAll2AllComm::communicate(const std::vector<core23::Tensor>& send_tensor
                             comm, core_->get_local_gpu()->get_stream()));
   }
   HCTR_LIB_THROW(ncclGroupEnd());
+}
+
+void NcclAll2AllComm::dense_communicate(const core23::Tensor& send_tensor,
+                                        const core23::Tensor& h_send_k_per_gpu,
+                                        const core23::Tensor& recv_tensor,
+                                        const core23::Tensor& h_recv_k_per_gpu,
+                                        int length_per_key) {
+  int device_id = core_->get_device_id();
+  auto& comm = core_->get_nccl();
+  int64_t data_size_type = send_tensor.data_type().size();
+  char* send_ptr = static_cast<char*>(send_tensor.data());
+  char* recv_ptr = static_cast<char*>(recv_tensor.data());
+  uint64_t send_offset = 0;
+  uint64_t recv_offset = 0;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(h_send_k_per_gpu.data_type().type(), key_t, [&] {
+    key_t* send_key_ptr = h_send_k_per_gpu.data<key_t>();
+    key_t* recv_key_ptr = h_recv_k_per_gpu.data<key_t>();
+    HugeCTR::CudaDeviceContext ctx(device_id);
+    HCTR_LIB_THROW(ncclGroupStart());
+    int num_total_gpu = core_->get_global_gpu_count();
+    for (int p = 0; p < num_total_gpu; ++p) {
+      ncclDataType_t nccl_dtype =
+          core23::get_nccl_dtype_from_tensor_scalar_type_core23(send_tensor.data_type().type());
+      HCTR_LIB_THROW(ncclSend(send_ptr + send_offset, send_key_ptr[p] * length_per_key, nccl_dtype,
+                              p, comm, core_->get_local_gpu()->get_stream()));
+      HCTR_LIB_THROW(ncclRecv(recv_ptr + recv_offset, recv_key_ptr[p] * length_per_key, nccl_dtype,
+                              p, comm, core_->get_local_gpu()->get_stream()));
+      send_offset += send_key_ptr[p] * length_per_key * data_size_type;
+      recv_offset += recv_key_ptr[p] * length_per_key * data_size_type;
+    }
+    HCTR_LIB_THROW(ncclGroupEnd());
+  });
 }
 
 void NcclAll2AllComm::hier_communicate(const std::vector<core23::Tensor>& send_tensors,

@@ -19,6 +19,11 @@
 #include <embedding/view.hpp>
 #include <utils.cuh>
 
+#define EV_NUM 32
+#define WGRAD_REDUCE_BLOCK_SIZE 64
+#define WARP_SIZE 32
+#define MAX_BLOKC_SIZE_PER_SM 2048
+
 namespace embedding {
 
 DEVICE_INLINE void float_half_atomicAdd_lower_cuda(__half *dst, float value) {
@@ -494,6 +499,42 @@ __global__ void multi_to_one_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_de
       accum[i].store(dst_ev + idx4, n);
     }
   }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void one_to_one_atomic_vec4(CopyDesc copy_desc, int ev_length) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+
+  const int lane_id = threadIdx.x & 31;
+  const int warp_id = threadIdx.x >> 5;
+  const int warp_num = blockDim.x >> 5;
+  int local_sample_num = EV_NUM;
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int global_index = EV_NUM * (blockIdx.x * warp_num + warp_id);
+  {
+    if (global_index >= copy_desc.num_vec()) return;
+    local_sample_num = local_sample_num < copy_desc.num_vec() - global_index
+                           ? local_sample_num
+                           : copy_desc.num_vec() - global_index;
+  }
+  for (int sp = 0; sp < local_sample_num; ++sp) {
+    const src_type *tmp_src = copy_desc.get_src_ptr(global_index);
+    dst_type *tmp_dst = copy_desc.get_dst_ptr(global_index);
+    int vec_length = copy_desc.get_vec_length(global_index);
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      Vec4T<float> src_elem;
+      // Vec4T<float> accum[kMaxElemPerThread];
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      src_elem.load(tmp_src + idx4, n);
+      src_elem.atomic_store_accum(tmp_dst + idx4, n);
+    }
+    global_index++;
+  }
+  return;
 }
 
 template <typename CopyDesc, int kMaxElemPerThread>
@@ -1391,6 +1432,26 @@ void copy_one_to_multi_weight(CopyDesc copy_desc, int max_ev_size, cudaStream_t 
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
                    "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename CopyDesc, int kWarpSize = 32>
+void one_to_one_atomic(CopyDesc desc, const HugeCTR::core23::KernelParams &kernel_params,
+                       int ev_size, int key_num, cudaStream_t stream) {
+  int grid_size = (key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
+  int block_size = WGRAD_REDUCE_BLOCK_SIZE;
+
+  if (ev_size <= 128) {
+    one_to_one_atomic_vec4<CopyDesc, 1><<<grid_size, block_size, 0, stream>>>(desc, ev_size);
+
+  } else if (ev_size <= 256) {
+    one_to_one_atomic_vec4<CopyDesc, 2><<<grid_size, block_size, 0, stream>>>(desc, ev_size);
+
+  } else if (ev_size <= 1024) {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "HugeCTR does not support emb vector size > 256");
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 1024");
   }
 }
 

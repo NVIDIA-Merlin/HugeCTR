@@ -25,6 +25,7 @@ namespace core23 = HugeCTR::core23;
 
 struct ReductionIndices;
 struct ModelCommBuffer;
+struct DenseModelCommBuffer;
 
 struct PartialReduceResult {
   core23::Tensor partial_wgrad;
@@ -54,5 +55,11 @@ class LocalReduce {
   void local_reduce(const ReductionIndices &reduction_indices, const EmbeddingOutput &src_buffer,
                     Wgrad &wgrad, const core23::Tensor &local_lookup_ids, int num_lookup,
                     int num_global_lookup, int batch_size);
+
+  void local_reduce(const ReductionIndices &reduction_indices, const EmbeddingOutput &src_buffer,
+                    Wgrad &wgrad, int batch_size);
+  // for dense mp
+  void local_reduce(const DenseReductionIndices &reduction_indices,
+                    const DenseModelCommBuffer &src_buffer, Wgrad &wgrad);
 };
 }  // namespace embedding

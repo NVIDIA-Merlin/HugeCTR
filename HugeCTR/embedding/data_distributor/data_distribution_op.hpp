@@ -19,6 +19,8 @@
 #include <embedding/common.hpp>
 #include <embedding/data_distributor/data_compression_operators.hpp>
 #include <embedding/data_distributor/key_filtering_operators.hpp>
+#include <embedding/operators/compress_offset.hpp>
+#include <embedding/operators/keys_to_indices.hpp>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -35,16 +37,13 @@ class IDataDistributionOp {
 
 class DenseMPDataDistributionOp final : public IDataDistributionOp {
  public:
-  DenseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
-                            const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
+  DenseMPDataDistributionOp(
+      std::shared_ptr<core::CoreResourceManager> core,
+      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override {
-    filter_before_all2all(input, output, stream);
-    all2all_keys_per_bucket(output, stream);
-    all2all_keys(output, stream);
-    filter_after_all2all(output, stream);
-  }
+                  cudaStream_t stream) override;
 
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                              cudaStream_t stream);
@@ -54,6 +53,8 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream);
 
   void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream);
+
+  void convert_indices(embedding::EmbeddingInput &output);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -85,15 +86,21 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
   CompactPartitionDataOperator compact_partitioned_data_operator_;
   SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
+
+  std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
 };
 
 class DenseDPDataDistributionOp final : public IDataDistributionOp {
  public:
-  DenseDPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
-                            const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
+  DenseDPDataDistributionOp(
+      std::shared_ptr<core::CoreResourceManager> core,
+      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                   cudaStream_t stream) override;
+
+  void convert_indices(embedding::EmbeddingInput &output);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -118,20 +125,19 @@ class DenseDPDataDistributionOp final : public IDataDistributionOp {
   CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
   CompactPartitionDataOperator compact_partitioned_data_operator_;
   SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
+
+  std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
 };
 
 class SparseMPDataDistributionOp : public IDataDistributionOp {
  public:
-  SparseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
-                             const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
+  SparseMPDataDistributionOp(
+      std::shared_ptr<core::CoreResourceManager> core,
+      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override {
-    filter_before_all2all(input, output, stream);
-    all2all_keys_per_bucket(output, stream);
-    all2all_keys(output, stream);
-    filter_after_all2all(output, stream);
-  }
+                  cudaStream_t stream) override;
 
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                              cudaStream_t stream);
@@ -141,6 +147,8 @@ class SparseMPDataDistributionOp : public IDataDistributionOp {
   void all2all_keys(embedding::EmbeddingInput &output, cudaStream_t stream);
 
   void filter_after_all2all(embedding::EmbeddingInput &output, cudaStream_t stream);
+
+  void convert_indices(embedding::EmbeddingInput &output);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
@@ -176,21 +184,34 @@ class SparseMPDataDistributionOp : public IDataDistributionOp {
   mp::CountKeysOperator count_keys_operator_;
   mp::TransposeBucketsOperator transpose_buckets_operator_;
   mp::SwizzleKeysOperator swizzle_keys_operator_;
+
+  core23::Tensor d_local_table_ids_;
+  std::unique_ptr<embedding::CompressOffset> compress_offset_;
+  std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
 };
 
 class SparseDPDataDistributionOp final : public IDataDistributionOp {
  public:
-  SparseDPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
-                             const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
+  SparseDPDataDistributionOp(
+      std::shared_ptr<core::CoreResourceManager> core,
+      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                   cudaStream_t stream) override;
+
+  void convert_indices(embedding::EmbeddingInput &output);
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
 
   embedding::EmbeddingCollectionParam ebc_param_;
+  size_t batch_size_per_gpu_;
 
   dp::ConcatKeysAndBucketRangeOperator concat_keys_and_bucket_range_operator_;
+
+  core23::Tensor d_local_table_ids_;
+  std::unique_ptr<embedding::CompressOffset> compress_offset_;
+  std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
 };
 }  // namespace HugeCTR

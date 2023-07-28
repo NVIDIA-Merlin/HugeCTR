@@ -15,6 +15,7 @@
  */
 
 #include <embedding/data_parallel_embedding.hpp>
+#include <embedding/dense_model_parallel_embedding.hpp>
 #include <embedding/embedding.hpp>
 #include <embedding/hier_model_parallel_embedding.hpp>
 #include <embedding/model_parallel_embedding.hpp>
@@ -25,26 +26,27 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
   std::vector<std::unique_ptr<IGroupedEmbeddingOp>> embeddings;
 
   for (size_t emb_id = 0; emb_id < ebc_param.grouped_lookup_params.size(); ++emb_id) {
-    switch (ebc_param.grouped_lookup_params[emb_id].table_placement_strategy) {
-      case TablePlacementStrategy::DataParallel:
-        embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
-        break;
-      case TablePlacementStrategy::ModelParallel:
-        switch (ebc_param.comm_strategy_) {
-          case CommunicationStrategy::Uniform:
-            embeddings.push_back(
-                std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
-            break;
-          case CommunicationStrategy::Hierarchical:
-            embeddings.push_back(
-                std::make_unique<HierModelParallelEmbedding>(core, ebc_param, emb_id));
-            break;
-          default:
-            HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "grouped embedding create fail.");
-        }
-        break;
-      default:
-        HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "grouped embedding create fail.");
+    auto embedding_type = ebc_param.grouped_lookup_params[emb_id].embedding_type;
+    auto tps = ebc_param.grouped_lookup_params[emb_id].table_placement_strategy;
+    auto comm_strategy = ebc_param.comm_strategy_;
+
+    if (embedding_type == EmbeddingType::Dense && tps == TablePlacementStrategy::ModelParallel) {
+      embeddings.push_back(
+          std::make_unique<DenseUniformModelParallelEmbedding>(core, ebc_param, emb_id));
+    } else if (embedding_type == EmbeddingType::Sparse &&
+               tps == TablePlacementStrategy::DataParallel) {
+      embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
+    } else if (embedding_type == EmbeddingType::Sparse &&
+               tps == TablePlacementStrategy::ModelParallel &&
+               comm_strategy == CommunicationStrategy::Uniform) {
+      embeddings.push_back(
+          std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
+    } else if (embedding_type == EmbeddingType::Sparse &&
+               tps == TablePlacementStrategy::ModelParallel &&
+               comm_strategy == CommunicationStrategy::Hierarchical) {
+      embeddings.push_back(std::make_unique<HierModelParallelEmbedding>(core, ebc_param, emb_id));
+    } else {
+      HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError, "grouped embedding create fail.");
     }
   }
   return embeddings;

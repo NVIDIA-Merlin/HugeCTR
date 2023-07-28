@@ -25,10 +25,38 @@ namespace HugeCTR {
 
 SparseDPDataDistributionOp::SparseDPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id)
+    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
     : core_(core),
       ebc_param_(ebc_param),
-      concat_keys_and_bucket_range_operator_(core, ebc_param, group_id) {}
+      batch_size_per_gpu_(ebc_param.universal_batch_size / core->get_global_gpu_count()),
+      concat_keys_and_bucket_range_operator_(core, ebc_param, group_id) {
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) {
+    indices_converter_ = std::make_unique<embedding::KeysToIndicesConverter>(
+        core, emb_table_param_list, ebc_param_, group_id);
+
+    std::vector<int> h_local_lookup_id_list;
+    std::vector<int> h_local_table_id_list;
+
+    for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+      if (!ebc_param_.has_table_shard(core->get_global_gpu_id(), group_id, lookup_id)) continue;
+      int table_id = ebc_param_.lookup_params[lookup_id].table_id;
+
+      h_local_lookup_id_list.push_back(lookup_id);
+      h_local_table_id_list.push_back(table_id);
+    }
+    compress_offset_ = std::make_unique<embedding::CompressOffset>(
+        core, h_local_lookup_id_list.size() + 1, ebc_param_.offset_type);
+
+    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
+
+    d_local_table_ids_ =
+        core23::Tensor(params.shape({static_cast<int64_t>(h_local_table_id_list.size())})
+                           .data_type(core23::ScalarType::Int32));
+    core23::copy_sync(d_local_table_ids_, h_local_table_id_list);
+  }
+}
 
 void SparseDPDataDistributionOp::distribute(const DataDistributionInput& input,
                                             embedding::EmbeddingInput& output,
@@ -45,6 +73,17 @@ void SparseDPDataDistributionOp::distribute(const DataDistributionInput& input,
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     output.h_num_keys = num_keys;
   });
+
+  convert_indices(output);
+}
+
+void SparseDPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::None) return;
+  core23::Tensor num_keys_per_lookup_offset;
+  compress_offset_->compute(output.bucket_range, batch_size_per_gpu_, &num_keys_per_lookup_offset);
+
+  indices_converter_->convert(output.keys, output.h_num_keys, num_keys_per_lookup_offset,
+                              d_local_table_ids_);
 }
 
 SparseMPDataDistributionOp::MPTempStorage::MPTempStorage(
@@ -110,7 +149,8 @@ SparseMPDataDistributionOp::MPTempStorage::MPTempStorage(
 
 SparseMPDataDistributionOp::SparseMPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id)
+    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
     : core_(core),
       ebc_param_(ebc_param),
       num_global_gpus_(core->get_global_gpu_count()),
@@ -143,6 +183,41 @@ SparseMPDataDistributionOp::SparseMPDataDistributionOp(
   sparse_temp_storage_ = MPTempStorage(core, ebc_param_.universal_batch_size, sample_max_nnz_,
                                        max_local_features, max_local_buckets, max_buckets_in_group,
                                        ebc_param_.key_type, ebc_param_.offset_type);
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) {
+    indices_converter_ = std::make_unique<embedding::KeysToIndicesConverter>(
+        core, emb_table_param_list, ebc_param_, group_id);
+
+    std::vector<int> h_local_lookup_id_list;
+    std::vector<int> h_local_table_id_list;
+
+    for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+      if (!ebc_param_.has_table_shard(core->get_global_gpu_id(), group_id, lookup_id)) continue;
+      int table_id = ebc_param_.lookup_params[lookup_id].table_id;
+
+      h_local_lookup_id_list.push_back(lookup_id);
+      h_local_table_id_list.push_back(table_id);
+    }
+    compress_offset_ = std::make_unique<embedding::CompressOffset>(
+        core, h_local_lookup_id_list.size() + 1, ebc_param_.offset_type);
+
+    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+    core23::TensorParams params = core23::TensorParams().device(device);
+
+    d_local_table_ids_ =
+        core23::Tensor(params.shape({static_cast<int64_t>(h_local_table_id_list.size())})
+                           .data_type(core23::ScalarType::Int32));
+    core23::copy_sync(d_local_table_ids_, h_local_table_id_list);
+  }
+}
+
+void SparseMPDataDistributionOp::distribute(const DataDistributionInput& input,
+                                            embedding::EmbeddingInput& output,
+                                            cudaStream_t stream) {
+  filter_before_all2all(input, output, stream);
+  all2all_keys_per_bucket(output, stream);
+  all2all_keys(output, stream);
+  filter_after_all2all(output, stream);
+  convert_indices(output);
 }
 
 void SparseMPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
@@ -304,5 +379,16 @@ void SparseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput&
 
     swizzle_keys_operator_(bucket_range_in, bucket_range_out, keys_in, output.keys, stream);
   }
+}
+
+void SparseMPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::None) return;
+  int batch_size = batch_size_per_gpu_ * num_global_gpus_;
+
+  core23::Tensor num_keys_per_lookup_offset;
+  compress_offset_->compute(output.bucket_range, batch_size, &num_keys_per_lookup_offset);
+
+  indices_converter_->convert(output.keys, output.h_num_keys, num_keys_per_lookup_offset,
+                              d_local_table_ids_);
 }
 }  // namespace HugeCTR

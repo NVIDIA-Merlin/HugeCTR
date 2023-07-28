@@ -608,26 +608,31 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>
     auto ebc_mp_model_forward = std::make_shared<StreamContextScheduleable>([=] {
       ebc_forward(embedding::Stage::MPModelForward);
       ebc_forward(embedding::Stage::HierMPModelForward);
+      ebc_forward(embedding::Stage::DenseMPModelForward);
     });
 
     auto ebc_mp_network_forward = std::make_shared<StreamContextScheduleable>([=] {
       ebc_forward(embedding::Stage::MPNetworkdForward);
       ebc_forward(embedding::Stage::HierMPNetworkForward);
+      ebc_forward(embedding::Stage::DenseMPNetworkForward);
     });
 
     auto ebc_mp_network_backward = std::make_shared<StreamContextScheduleable>([=]() {
       ebc_backward(embedding::Stage::MPNetworkBackward);
       ebc_backward(embedding::Stage::HierMPNetworkBackward);
+      ebc_backward(embedding::Stage::DenseMPNetworkBackward);
     });
 
     auto ebc_mp_backward_index_calculation = std::make_shared<StreamContextScheduleable>([=] {
       ebc_backward(embedding::Stage::MPBackwardIndexCalculation);
       ebc_backward(embedding::Stage::HierMPBackwardIndexCalculation);
+      ebc_backward(embedding::Stage::DenseMPBackwardIndexCalculation);
     });
 
     auto ebc_mp_local_reduce = std::make_shared<StreamContextScheduleable>([=]() {
       ebc_backward(embedding::Stage::HierMPLocalReduce);
       ebc_backward(embedding::Stage::MPLocalReduce);
+      ebc_backward(embedding::Stage::DenseMPLocalReduce);
     });
 
     auto ebc_mp_update = std::make_shared<StreamContextScheduleable>([=]() {
@@ -928,11 +933,13 @@ void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Networ
     auto ebc_mp_model_forward = std::make_shared<StreamContextScheduleable>([=] {
       ebc_forward(embedding::Stage::MPModelForward);
       ebc_forward(embedding::Stage::HierMPModelForward);
+      ebc_forward(embedding::Stage::DenseMPModelForward);
     });
 
     auto ebc_mp_network_forward = std::make_shared<StreamContextScheduleable>([=] {
       ebc_forward(embedding::Stage::MPNetworkdForward);
       ebc_forward(embedding::Stage::HierMPNetworkForward);
+      ebc_forward(embedding::Stage::DenseMPNetworkForward);
     });
 
     auto ebc_dp_forward = std::make_shared<StreamContextScheduleable>(

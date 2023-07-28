@@ -108,22 +108,22 @@ void DataDistributor::init_filtered_all_to_all() {
 
       if (table_placement_strategy == embedding::TablePlacementStrategy::ModelParallel &&
           embedding_type == embedding::EmbeddingType::Sparse) {
-        data_distribution_ops.push_back(
-            std::make_unique<SparseMPDataDistributionOp>(core, ebc_param_, group_id));
+        data_distribution_ops.push_back(std::make_unique<SparseMPDataDistributionOp>(
+            core, ebc_param_, group_id, emb_table_param_list_));
       } else if (table_placement_strategy == embedding::TablePlacementStrategy::DataParallel &&
                  embedding_type == embedding::EmbeddingType::Sparse) {
-        data_distribution_ops.push_back(
-            std::make_unique<SparseDPDataDistributionOp>(core, ebc_param_, group_id));
+        data_distribution_ops.push_back(std::make_unique<SparseDPDataDistributionOp>(
+            core, ebc_param_, group_id, emb_table_param_list_));
       } else if (table_placement_strategy == embedding::TablePlacementStrategy::ModelParallel &&
                  (embedding_type == embedding::EmbeddingType::Dense ||
                   embedding_type == embedding::EmbeddingType::InfrequentDense)) {
-        data_distribution_ops.push_back(
-            std::make_unique<DenseMPDataDistributionOp>(core, ebc_param_, group_id));
+        data_distribution_ops.push_back(std::make_unique<DenseMPDataDistributionOp>(
+            core, ebc_param_, group_id, emb_table_param_list_));
       } else if (table_placement_strategy == embedding::TablePlacementStrategy::DataParallel &&
                  (embedding_type == embedding::EmbeddingType::Dense ||
                   embedding_type == embedding::EmbeddingType::FrequentDense)) {
-        data_distribution_ops.push_back(
-            std::make_unique<DenseDPDataDistributionOp>(core, ebc_param_, group_id));
+        data_distribution_ops.push_back(std::make_unique<DenseDPDataDistributionOp>(
+            core, ebc_param_, group_id, emb_table_param_list_));
       } else {
         HCTR_OWN_THROW(Error_t::IllegalCall,
                        "table placement strategy and embedding type not compatible");
@@ -162,44 +162,6 @@ void DataDistributor::init_fixed_dp_bucket_range() {
   }
 }
 
-void DataDistributor::init_indices_converter() {
-  if (ebc_param_.keys_preprocess_strategy_ != embedding::KeysPreprocessStrategy::AddOffset) return;
-  int num_gpus = core_resource_managers_.size();
-  for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-    CudaDeviceContext context(core_resource_managers_[gpu_id]->get_device_id());
-    int ggpu_id = core_resource_managers_[gpu_id]->get_global_gpu_id();
-    for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size();
-         grouped_id++) {
-      indices_converters_.emplace_back(core_resource_managers_[gpu_id], emb_table_param_list_,
-                                       ebc_param_, grouped_id);
-
-      std::vector<int> h_local_lookup_id_list;
-      std::vector<int> h_local_table_id_list;
-
-      for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
-        if (!ebc_param_.has_table_shard(ggpu_id, grouped_id, lookup_id)) continue;
-        int table_id = ebc_param_.lookup_params[lookup_id].table_id;
-
-        h_local_lookup_id_list.push_back(lookup_id);
-        h_local_table_id_list.push_back(table_id);
-      }
-      compress_offsets_.push_back(embedding::CompressOffset(core_resource_managers_[gpu_id],
-                                                            h_local_lookup_id_list.size() + 1,
-                                                            ebc_param_.offset_type));
-
-      core23::Device device(core23::DeviceType::GPU,
-                            core_resource_managers_[gpu_id]->get_device_id());
-      core23::TensorParams params = core23::TensorParams().device(device);
-
-      core23::Tensor d_local_table_id_list =
-          core23::Tensor(params.shape({static_cast<int64_t>(h_local_table_id_list.size())})
-                             .data_type(core23::ScalarType::Int32));
-      core23::copy_sync(d_local_table_id_list, h_local_table_id_list);
-      d_local_table_id_lists_.push_back(d_local_table_id_list);
-    }
-  }
-}
-
 void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
                                  const std::vector<core23::Tensor>& dp_bucket_range,
                                  DataDistributor::Result& output, int batch_size) {
@@ -230,30 +192,6 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); grouped_id++) {
     data_distribution_ops_[grouped_id][gpu_id]->distribute(data_distribution_input_[gpu_id],
                                                            output[grouped_id], stream);
-  }
-
-  convert_indices(gpu_id, output);
-}
-
-void DataDistributor::convert_indices(int gpu_id, DataDistributor::Result& output) {
-  if (indices_converters_.empty()) return;
-  for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); ++grouped_id) {
-    if (ebc_param_.grouped_lookup_params[grouped_id].grouped_table_idx == -1) continue;
-
-    int batch_size_per_gpu = batch_size_;
-    if (ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy ==
-        embedding::TablePlacementStrategy::DataParallel) {
-      batch_size_per_gpu /= num_global_gpus_;
-    }
-
-    int num_groups = ebc_param_.grouped_lookup_params.size();
-    core23::Tensor num_keys_per_lookup_offset;
-    compress_offsets_[gpu_id * num_groups + grouped_id].compute(
-        output[grouped_id].bucket_range, batch_size_per_gpu, &num_keys_per_lookup_offset);
-
-    indices_converters_[gpu_id * num_groups + grouped_id].convert(
-        output[grouped_id].keys, output[grouped_id].h_num_keys, num_keys_per_lookup_offset,
-        d_local_table_id_lists_[gpu_id * num_groups + grouped_id]);
   }
 }
 
@@ -314,7 +252,6 @@ DataDistributor::Result allocate_output_for_data_distributor(
         auto& dense_compression_input = embedding_input.dense_compression_input;
         embedding::WgradAttr wgrad_attr;
         wgrad_attr.init(core_resource_manager, ebc_param, group_id);
-
         dense_compression_input.num_keys_per_table_offset =
             core23::Tensor(params.shape({static_cast<int64_t>(wgrad_attr.num_table + 1)})
                                .data_type(ebc_param.offset_type));

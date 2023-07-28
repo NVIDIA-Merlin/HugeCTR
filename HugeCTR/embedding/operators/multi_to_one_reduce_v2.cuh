@@ -19,11 +19,6 @@
 
 #include <embedding/operators/generic_lookup.cuh>
 
-#define EV_NUM 32
-#define WGRAD_REDUCE_BLOCK_SIZE 64
-#define WARP_SIZE 32
-#define MAX_BLOKC_SIZE_PER_SM 2048
-
 namespace embedding {
 
 template <typename CopyDesc, int kMaxElemPerThread, int kWarpSize>

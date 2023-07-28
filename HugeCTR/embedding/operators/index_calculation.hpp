@@ -59,6 +59,12 @@ struct ReductionIndices {
             core23::DataType key_type);
 };
 
+struct DenseReductionIndices {
+  const core23::Tensor *model_reverse_idx;
+  int ev_size;
+  size_t reverse_key_num;
+};
+
 struct PartitionedResult {
   core23::Tensor partitioned_keys;
   core23::Tensor partitioned_src_ids;

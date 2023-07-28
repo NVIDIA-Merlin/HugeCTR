@@ -246,7 +246,7 @@ struct EmbeddingCollectionParam {
       const auto &table_param = grouped_table_params[grouped_table_id];
 
       std::vector<int> sparse_lookup_ids;
-      std::vector<int> dense_lookup_ids;
+      std::vector<std::vector<int>> dense_lookup_ids;
 
       for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
         int table_id = lookup_params[lookup_id].table_id;
@@ -255,7 +255,16 @@ struct EmbeddingCollectionParam {
           continue;
         auto combiner = lookup_params[lookup_id].combiner;
         if (combiner == Combiner::Concat) {
-          dense_lookup_ids.push_back(lookup_id);
+          int idx = -1;
+          for (int i = 0; i < static_cast<int>(dense_lookup_ids.size()); ++i) {
+            int current_ev_size = this->lookup_params[dense_lookup_ids[i][0]].ev_size;
+            if (current_ev_size == this->lookup_params[lookup_id].ev_size) idx = i;
+          }
+          if (idx == -1) {
+            dense_lookup_ids.push_back({lookup_id});
+          } else {
+            dense_lookup_ids[idx].push_back(lookup_id);
+          }
         } else if (combiner == Combiner::Sum || combiner == Combiner::Average) {
           sparse_lookup_ids.push_back(lookup_id);
         } else {
@@ -269,13 +278,11 @@ struct EmbeddingCollectionParam {
       }
       if (!dense_lookup_ids.empty()) {
         if (dense_compression_strategy_ == DenseCompressionStrategy::Unique) {
-          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
-                                             dense_lookup_ids, EmbeddingType::Dense);
-        } else if (dense_compression_strategy_ == DenseCompressionStrategy::CacheFrequent) {
-          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
-                                             dense_lookup_ids, EmbeddingType::InfrequentDense);
-          grouped_lookup_params.emplace_back(-1, table_param.table_placement_strategy,
-                                             dense_lookup_ids, EmbeddingType::FrequentDense);
+          for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_ids) {
+            grouped_lookup_params.emplace_back(
+                grouped_table_id, table_param.table_placement_strategy,
+                dense_lookup_ids_with_same_ev_size, EmbeddingType::Dense);
+          }
         } else {
           HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
                          "dense_compression_strategy not supported in embedding collection.");

@@ -11,6 +11,6 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       ./regularizers_test && \
       ./embedding_training_cache_test && \
       ./auc_test && \
-      ./embedding_collection_test && \
+      ./embedding_collection_test --gtest_filter=-test_embedding_collection.benchmark*:test_embedding_collection.utest_2node && \
       ./averageloss_test && \
       ././communication_test"

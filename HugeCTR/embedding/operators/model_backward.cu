@@ -342,7 +342,7 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
-  cudaMemsetAsync(wgrad.data.data(), 0, wgrad.data.num_bytes(), stream);
+  HCTR_LIB_THROW(cudaMemsetAsync(wgrad.data.data(), 0, wgrad.data.num_bytes(), stream));
 
   if (src_buffer.attr.layout == EmbeddingLayout::FeatureMajor) {
     dp_local_reduce_from_feature_major_top_grad(
@@ -354,6 +354,54 @@ void LocalReduce::local_reduce(const ReductionIndices& reduction_indices,
                                               wgrad, partial_reduce_result_, batch_size_per_gpu,
                                               src_buffer.attr.max_ev_size, stream);
   }
+}
+
+template <typename src_emb_t, typename dst_emb_t, typename offset_t>
+struct DenseModelBackwardOneToOneAtomicDesc {
+  using SrcT = src_emb_t;
+  using DstT = dst_emb_t;
+  HOST_DEVICE_INLINE int num_vec() { return num_vec_; }
+
+  HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
+  // we need a transfrom to src id use num_model_revers_idx
+  HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) { return src_ptr + i * ev_size; }
+  HOST_DEVICE_INLINE DstT* get_dst_ptr(int i) {
+    return dst_ptr + ev_size * reverse_id_ptr[i];
+    ;
+  }
+
+  size_t num_vec_;
+  int ev_size;
+  const offset_t* __restrict__ reverse_id_ptr;
+  const src_emb_t* __restrict__ src_ptr;
+  dst_emb_t* __restrict__ dst_ptr;
+};
+
+// for dense mp
+void LocalReduce::local_reduce(const DenseReductionIndices& reduction_indices,
+                               const DenseModelCommBuffer& src_buffer, Wgrad& wgrad) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+  // int batch_size_per_gpu = batch_size / model_comm_buffer.attr.num_gpus;
+  auto stream = core_->get_local_gpu()->get_stream();
+
+  DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(src_buffer.attr.type.type(), src_emb_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(wgrad.attr.type.type(), dst_emb_t, [&] {
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(
+          reduction_indices.model_reverse_idx->data_type().type(), offset_t, [&] {
+            size_t num_keys = reduction_indices.reverse_key_num;
+            int ev_size = reduction_indices.ev_size;
+            offset_t* reverse_idx_ptr = reduction_indices.model_reverse_idx->data<offset_t>();
+            src_emb_t* src_ptr = (src_emb_t*)src_buffer.data.data();
+            dst_emb_t* dst_ptr = (dst_emb_t*)wgrad.data.data();
+            using CopyDesc = DenseModelBackwardOneToOneAtomicDesc<src_emb_t, dst_emb_t, offset_t>;
+            CopyDesc one_to_one_atomic_desc = {num_keys, ev_size, reverse_idx_ptr, src_ptr,
+                                               dst_ptr};
+            HCTR_LIB_THROW(cudaMemsetAsync(wgrad.data.data(), 0, wgrad.data.num_bytes(), stream));
+            one_to_one_atomic(one_to_one_atomic_desc, core_->get_kernel_param(), ev_size, num_keys,
+                              stream);
+          });
+    });
+  });
 }
 
 }  // namespace embedding

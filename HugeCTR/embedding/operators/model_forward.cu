@@ -206,6 +206,50 @@ void ModelForward::sparse_forward(const core23::Tensor &mp_ev, const core23::Ten
   }
 }
 
+template <typename src_emb_t, typename dst_emb_t, typename offset_t>
+struct DenseModelForwardOneToOneDesc {
+  using SrcT = src_emb_t;
+  using DstT = dst_emb_t;
+
+  HOST_DEVICE_INLINE bool need_copy(int i) { return true; }
+
+  HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
+  // we need a transfrom to src id use num_model_revers_idx
+  HOST_DEVICE_INLINE const SrcT *get_src_ptr(int i) { return mp_ev_ptr[reverse_id_ptr[i]]; }
+  HOST_DEVICE_INLINE DstT *get_dst_ptr(int i) { return dst_ptr + i * ev_size; }
+
+  size_t num_vec_;
+  int ev_size;
+  const offset_t *__restrict__ reverse_id_ptr;
+  const src_emb_t **__restrict__ mp_ev_ptr;
+  dst_emb_t *__restrict__ dst_ptr;
+};
+
+void ModelForward::dense_forward(const core23::Tensor &mp_ev, const core23::Tensor &reverse_idx,
+                                 DenseModelCommBuffer &model_comm_buffer, int batch_size,
+                                 size_t num_key) {
+  CudaDeviceContext ctx(core_->get_device_id());
+  // int batch_size_per_gpu = batch_size / model_comm_buffer.attr.num_gpus;
+  auto stream = core_->get_local_gpu()->get_stream();
+
+  int num_lookup = model_comm_buffer.attr.num_local_lookup;
+  if (num_lookup > 0) {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(model_comm_buffer.attr.type.type(), emb_t, [&] {
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(reverse_idx.data_type().type(), offset_t, [&] {
+        const float **mp_ev_ptr = (const float **)mp_ev.data();
+        emb_t *model_comm_buffer_ptr = (emb_t *)model_comm_buffer.data.data();
+        offset_t *reverse_idx_ptr = (offset_t *)reverse_idx.data();
+        int ev_size = model_comm_buffer.attr.ev_size;
+        using CopyDesc = DenseModelForwardOneToOneDesc<float, emb_t, offset_t>;
+
+        CopyDesc one_to_one_desc = {num_key, ev_size, reverse_idx_ptr, mp_ev_ptr,
+                                    model_comm_buffer_ptr};
+        copy_one_to_one(one_to_one_desc, core_->get_kernel_param(), ev_size, stream);
+      });
+    });
+  }
+}
+
 void ModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                                const EmbeddingCollectionParam &ebc_param, size_t grouped_id) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
@@ -245,8 +289,38 @@ void ModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
   this->max_ev_size = h_id_to_ev_size.empty()
                           ? 0
                           : *std::max_element(h_id_to_ev_size.begin(), h_id_to_ev_size.end());
-  this->is_ragged = true;
-  this->is_aligned = false;
+  this->type = ebc_param.emb_type;
+}
+
+void DenseModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
+                                    const EmbeddingCollectionParam &ebc_param, size_t grouped_id) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  int gpu_id = core->get_global_gpu_id();
+  this->ev_size = -1;
+  this->num_local_lookup = 0;
+  this->max_hotness = 0;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
+    this->num_local_lookup++;
+    const auto &lookup_params = ebc_param.lookup_params;
+    this->max_hotness += lookup_params[lookup_id].max_hotness;
+    if (this->ev_size == -1) {
+      this->ev_size = lookup_params[lookup_id].ev_size;
+    } else {
+      if (this->ev_size != lookup_params[lookup_id].ev_size) {
+        HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                       "dense lookup don't support different ev_size between different tables");
+      }
+    }
+  }
+
+  if (this->num_local_lookup > 0 && this->ev_size == -1) {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "number of local lookup > 0 and don't get ev_size,please check input");
+  }
+
+  this->num_gpus = static_cast<int>(core->get_global_gpu_count());
+  this->layout = EmbeddingLayout::FeatureMajor;
   this->type = ebc_param.emb_type;
 }
 
@@ -284,6 +358,19 @@ void ModelCommBuffer::init_from_device_buffer(std::shared_ptr<CoreResourceManage
     this->data = core23::init_tensor_list<emb_t>(this->data_list, core->get_device_id(),
                                                  core->get_local_gpu()->get_stream());
   });
+  this->attr = attr;
+}
+
+void DenseModelCommBuffer::init(std::shared_ptr<CoreResourceManager> core,
+                                const DenseModelCommBufferAttr &attr, int batch_size) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  // FIX:when tensor dimension is , num local lookup is 0??
+  // We can not create size 0 Tensor
+  this->data = core23::Tensor(
+      params.shape({batch_size * attr.max_hotness * attr.ev_size}).data_type(attr.type));
+
   this->attr = attr;
 }
 

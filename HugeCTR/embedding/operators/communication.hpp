@@ -42,6 +42,10 @@ class NcclAll2AllComm {
   void communicate(const std::vector<core23::Tensor>& send_tensors,
                    std::vector<core23::Tensor>& recv_tensors);
 
+  void dense_communicate(const core23::Tensor& send_tensor, const core23::Tensor& h_send_k_per_gpu,
+                         const core23::Tensor& recv_tensor, const core23::Tensor& h_recv_k_per_gpu,
+                         int length_per_key);
+
   void hier_communicate(const std::vector<core23::Tensor>& send_tensors,
                         std::vector<core23::Tensor>& recv_tensors);
 };

@@ -86,12 +86,7 @@ class DataDistributor {
   std::unordered_map<size_t, size_t> feature_id_to_group_id_map_;
   std::unordered_map<size_t, size_t> feature_id_to_table_id_map_;
 
-  std::vector<embedding::CompressOffset> compress_offsets_;
-  std::vector<core23::Tensor> d_local_table_id_lists_;
   std::vector<embedding::EmbeddingTableParam> emb_table_param_list_;
-  std::vector<embedding::KeysToIndicesConverter> indices_converters_;
-
-  void convert_indices(int gpu_id, DataDistributor::Result& output);
 
   size_t num_local_gpus_;
   size_t num_global_gpus_;
@@ -126,6 +121,12 @@ class DataDistributor {
   void init_key_filter();
 
   std::vector<std::unique_ptr<embedding::PreprocessInput>> preprocess_inputs_;
+
+  std::vector<embedding::CompressOffset> compress_offsets_;
+  std::vector<core23::Tensor> d_local_table_id_lists_;
+  std::vector<embedding::KeysToIndicesConverter> indices_converters_;
+
+  void convert_indices(int gpu_id, DataDistributor::Result& output);
 };
 
 DataDistributor::Result allocate_output_for_data_distributor(

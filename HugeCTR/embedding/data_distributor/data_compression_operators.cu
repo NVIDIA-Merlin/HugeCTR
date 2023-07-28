@@ -38,47 +38,27 @@ __global__ void cal_range_on_selected_lookup_ids_kernel(
   }
 }
 
-template <typename BucketRangeType>
-DEVICE_INLINE void collective_load_bucket_range(int i, const BucketRangeType **bucket_range,
-                                                const int *lookup_ids, int num_local_lookup,
-                                                int num_sample_per_lookup,
-                                                uint32_t *smem_bucket_range) {
-  int lookup_id = lookup_ids[i / num_sample_per_lookup];
-  int sample_id = i % num_sample_per_lookup;
-  smem_bucket_range[threadIdx.x] = bucket_range[lookup_id][sample_id];
-}
-
 template <typename KeyType, typename BucketRangeType, typename HashTable>
 __global__ void partition_and_unique_kernel(
     const KeyType **keys, const BucketRangeType **bucket_range, const int *lookup_ids,
     const BucketRangeType *range_on_lookup_ids, int num_local_lookup, int num_sample_per_lookup,
     HashTable hash_table, CompressedDataView<KeyType, BucketRangeType> compressed_data) {
-  extern __shared__ uint32_t smem_bucket_range[];
   CUDA_1D_KERNEL_LOOP(i, num_local_lookup * num_sample_per_lookup) {
-    collective_load_bucket_range(i, bucket_range, lookup_ids, num_local_lookup,
-                                 num_sample_per_lookup, smem_bucket_range);
-    __syncthreads();
+    int lookup_id = lookup_ids[i / num_sample_per_lookup];
+    int sample_id = i % num_sample_per_lookup;
 
-    const int max_threads_in_this_block = blockDim.x;
-    const int bucket_start_in_this_block = i - i % max_threads_in_this_block;
-    int num_bucket = min(max_threads_in_this_block,
-                         num_local_lookup * num_sample_per_lookup - bucket_start_in_this_block);
-
-    uint32_t start = smem_bucket_range[0];
-    uint32_t end = smem_bucket_range[num_bucket - 1];
-
-    for (uint32_t l = threadIdx.x; l < end - start; l += blockDim.x) {
-      uint32_t idx = bs_upper_bound_sub_one(smem_bucket_range, num_bucket, l);
-      const int lookup_id = (bucket_start_in_this_block + idx) / num_sample_per_lookup;
-      const uint32_t range_start = range_on_lookup_ids[i / num_sample_per_lookup];
-
-      const uint32_t local_bucket_id = l + start;
-      KeyType key = keys[lookup_id][local_bucket_id];
-
+    const KeyType *keys_in_lookup = keys[lookup_id];
+    const BucketRangeType *bucket_range_in_lookup = bucket_range[lookup_id];
+    auto start = bucket_range_in_lookup[sample_id];
+    auto end = bucket_range_in_lookup[sample_id + 1];
+    for (uint32_t l = 0; l < (end - start); ++l) {
+      const uint32_t id = start + l;
+      const auto key = keys_in_lookup[id];
       uint32_t r_idx_plus_one = hash_table.find({key, lookup_id}, compressed_data.partitioned_data);
-      compressed_data.reverse_idx[local_bucket_id + range_start] = r_idx_plus_one - 1;
+
+      const uint32_t range_start = range_on_lookup_ids[i / num_sample_per_lookup];
+      compressed_data.reverse_idx[id + range_start] = r_idx_plus_one - 1;
     }
-    __syncthreads();
   }
 }
 
@@ -114,8 +94,36 @@ __global__ void count_num_bucket_ids_kernel(const BucketRangeType **__restrict__
 }
 
 template <typename BucketRangeType>
-__global__ void generate_sequence_kernel(BucketRangeType *bucket_ids, uint64_t num_keys) {
-  CUDA_1D_KERNEL_LOOP(i, num_keys) { bucket_ids[i] = i; }
+__global__ void generate_sequence_kernel(const BucketRangeType **bucket_range,
+                                         const int *lookup_ids, int num_local_lookup,
+                                         int num_sample_per_lookup, BucketRangeType *bucket_ids,
+                                         uint64_t num_keys) {
+  extern __shared__ uint64_t smem_bucket_range_on_lookup_ids[];
+  // FIXME: do scan in collective way
+  if (threadIdx.x == 0) {
+    BucketRangeType offset = 0;
+    for (int i = 0; i < num_local_lookup; ++i) {
+      smem_bucket_range_on_lookup_ids[i] = offset;
+      offset += bucket_range[lookup_ids[i]][num_sample_per_lookup];
+    }
+  }
+  __syncthreads();
+
+  CUDA_1D_KERNEL_LOOP(i, num_local_lookup * num_sample_per_lookup) {
+    int local_lookup_id = i / num_sample_per_lookup;
+    int lookup_id = lookup_ids[local_lookup_id];
+    int sample_id = i % num_sample_per_lookup;
+    uint64_t lookup_start_offset =
+        smem_bucket_range_on_lookup_ids[local_lookup_id] / num_sample_per_lookup;
+    BucketRangeType start = bucket_range[lookup_id][sample_id];
+    BucketRangeType end = bucket_range[lookup_id][sample_id + 1];
+
+    for (auto hotness_id = 0; hotness_id < (end - start); ++hotness_id) {
+      auto bucket_id = sample_id + (lookup_start_offset + hotness_id) * num_sample_per_lookup;
+      auto dst_id = smem_bucket_range_on_lookup_ids[local_lookup_id] + start + hotness_id;
+      bucket_ids[dst_id] = bucket_id;
+    }
+  }
 }
 
 template <typename BucketRangeType>
@@ -144,17 +152,17 @@ __global__ void compress_reverse_idx_range_kernel(const BucketRangeType *num_key
 }
 
 template <typename KeyType, typename BucketRangeType>
-__global__ void compact_keys_kernel(const KeyType *keys, uint64_t max_num_keys, int num_range,
+__global__ void compact_keys_kernel(const KeyType *keys, uint64_t max_num_keys,
                                     size_t max_key_per_partition,
-                                    const BucketRangeType *compacted_range, KeyType *compacted_keys,
-                                    uint64_t *h_compacted_num_keys) {
+                                    const BucketRangeType *compacted_range, int num_range,
+                                    KeyType *compacted_keys, uint64_t *h_compacted_num_keys) {
   extern __shared__ uint32_t shmem_compacted_range[];
   for (int tid = threadIdx.x; tid < num_range; tid += blockDim.x) {
     shmem_compacted_range[tid] = static_cast<uint32_t>(compacted_range[tid]);
   }
   __syncthreads();
 
-  uint32_t num_keys = compacted_range[num_range];
+  uint32_t num_keys = compacted_range[num_range - 1];
   CUDA_1D_KERNEL_LOOP_T(uint32_t, i, num_keys) {
     int partition_id = bs_upper_bound_sub_one(shmem_compacted_range, num_range, i);
 
@@ -195,17 +203,20 @@ PartitionedData::PartitionedData(std::shared_ptr<core::CoreResourceManager> core
       params.shape({static_cast<int64_t>(num_partition)}).data_type(bucket_range_type));
 }
 
-ShardPartitioner::ShardPartitioner(std::shared_ptr<core::CoreResourceManager> core, int num_lookup,
+ShardPartitioner::ShardPartitioner(std::shared_ptr<core::CoreResourceManager> core,
+                                   const std::vector<embedding::LookupParam> &lookup_params,
                                    const std::vector<std::vector<int>> &shard_matrix,
                                    const std::vector<int> &lookup_ids) {
   int num_global_gpu_count = core->get_global_gpu_count();
+  int num_lookup = static_cast<int>(lookup_params.size());
 
   std::vector<int> h_gpu_ids;
   std::vector<int> h_num_shard_range(num_lookup + 1, 0);
   for (int lookup_id : lookup_ids) {
+    int table_id = lookup_params[lookup_id].table_id;
     int num_shard = 0;
     for (int gpu_id = 0; gpu_id < num_global_gpu_count; ++gpu_id) {
-      if (shard_matrix[gpu_id][lookup_id] == 0) continue;
+      if (shard_matrix[gpu_id][table_id] == 0) continue;
       h_gpu_ids.push_back(gpu_id);
       num_shard += 1;
     }
@@ -310,7 +321,8 @@ void PartitionAndUniqueOperator::init_hash_table_for_unique(
   this->table_capacity_ = std::max(batch_size_ * num_local_features_,
                                    batch_size_per_gpu_ * num_features_);  // worst case
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
-    size_t table_size = this->table_capacity_ * sizeof(TableEntry<KeyType>);
+    int load_factor = 2;
+    size_t table_size = load_factor * this->table_capacity_ * sizeof(TableEntry<KeyType>);
     this->hash_table_storage_ = core23::Tensor(
         params.shape({static_cast<int64_t>(table_size)}).data_type(core23::ScalarType::Char));
   });
@@ -393,7 +405,7 @@ void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributi
     auto bucket_range_ptrs = input.get_dp_bucket_range_pointer_ptr<BucketRangeType>();
     int block_size = std::min((int)d_lookup_ids_.num_elements(), kernel_param.max_thread_per_block);
     count_num_bucket_ids_kernel<<<1, block_size, 0, stream>>>(
-        bucket_range_ptrs, batch_size_ / global_gpu_count_, d_lookup_ids_.data<int>(),
+        bucket_range_ptrs, batch_size_per_gpu_, d_lookup_ids_.data<int>(),
         d_lookup_ids_.num_elements(), h_num_bucket_ids.data<uint64_t>());
   });
 
@@ -405,8 +417,13 @@ void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributi
   int grid_size = ceildiv(num_keys, (uint64_t)block_size);
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_ids.data_type().type(), BucketRangeType, [&] {
-    generate_sequence_kernel<<<grid_size, block_size, 0, stream>>>(
-        bucket_ids.data<BucketRangeType>(), num_keys);
+    size_t smem_bytes = d_lookup_ids_.num_elements() * sizeof(uint64_t);
+
+    auto bucket_range_ptrs = input.get_dp_bucket_range_pointer_ptr<BucketRangeType>();
+
+    generate_sequence_kernel<<<grid_size, block_size, smem_bytes, stream>>>(
+        bucket_range_ptrs, d_lookup_ids_.data<int>(), d_lookup_ids_.num_elements(),
+        batch_size_per_gpu_, bucket_ids.data<BucketRangeType>(), num_keys);
   });
 }
 
@@ -426,11 +443,6 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
           dp_bucket_range_ptrs, d_lookup_ids_.data<int>(), num_local_lookup_, batch_size_per_gpu_,
           range_on_lookup_ids.data<BucketRangeType>());
 
-      if (embedding_type == embedding::EmbeddingType::Dense) {
-        HCTR_LIB_THROW(cudaMemsetAsync(hash_table_storage_.data(), 0,
-                                       hash_table_storage_.num_bytes(), stream));
-      }
-
       HCTR_LIB_THROW(cudaMemsetAsync(
           compressed_data.partitioned_data.d_num_key_per_partition.data(), 0,
           compressed_data.partitioned_data.d_num_key_per_partition.num_bytes(), stream));
@@ -443,15 +455,15 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
           compressed_data.reverse_idx.data<BucketRangeType>()};
 
       auto &kernel_param = core_->get_kernel_param();
-      int grid_size = kernel_param.num_sms * (kernel_param.max_thread_per_sm / 256);
-      int block_size = 256;
-
-      size_t smem_bytes = block_size * sizeof(uint32_t);
+      int block_size = 512;
+      int grid_size = kernel_param.num_sms * (kernel_param.max_thread_per_sm / block_size);
 
       if (embedding_type == embedding::EmbeddingType::Dense) {
+        HCTR_LIB_THROW(cudaMemsetAsync(hash_table_storage_.data(), 0,
+                                       hash_table_storage_.num_bytes(), stream));
         UniqueTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
             (TableEntry<KeyType> *)hash_table_storage_.data(), table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, smem_bytes, stream>>>(
+        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
             dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
             range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
             hash_table, compressed_data_view);
@@ -460,7 +472,7 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
         FrequentTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
             (TableEntry<KeyType> *)frequent_key_hash_table_storage_.data(),
             frequent_key_hash_table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, smem_bytes, stream>>>(
+        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
             dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
             range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
             hash_table, compressed_data_view);
@@ -469,7 +481,7 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
         InfrequentTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
             (TableEntry<KeyType> *)frequent_key_hash_table_storage_.data(),
             frequent_key_hash_table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, smem_bytes, stream>>>(
+        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
             dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
             range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
             hash_table, compressed_data_view);
@@ -563,14 +575,14 @@ void CompactPartitionDataOperator::operator()(const PartitionedData &partitioned
       int block_size = kernel_param.max_thread_per_block;
 
       size_t smem_bytes =
-          partitioned_data.d_num_key_per_partition.num_elements() * sizeof(uint32_t);
+          compacted_partition_data.num_key_per_table.num_elements() * sizeof(uint32_t);
 
       compact_keys_kernel<<<grid_size, block_size, smem_bytes, stream>>>(
           partitioned_data.partitioned_keys.data<KeyType>(),
           partitioned_data.partitioned_keys.num_elements(),
-          partitioned_data.d_num_key_per_partition.num_elements(),
           partitioned_data.max_num_key_per_partition,
           compacted_partition_data.num_key_per_table.data<BucketRangeType>(),
+          compacted_partition_data.num_key_per_table.num_elements(),
           compacted_partition_data.keys.data<KeyType>(),
           compacted_partition_data.h_num_keys.data<uint64_t>());
     });

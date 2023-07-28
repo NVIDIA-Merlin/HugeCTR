@@ -23,14 +23,14 @@ nightly_build_sok_tf2:
     DST_IMAGE: ${IMAGE_SOK_TF2}
     DOCKER_FILE: dockerfile.tf
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
-  
+
 nightly_build_sok_tf1:
   extends: .build_nightly_tf1
   variables:
     DST_IMAGE: ${IMAGE_SOK_TF1}
     DOCKER_FILE: Dockerfile.sok1
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
-  
+
 nightly_build_unified_container.tf:
   extends: .build_nightly
   variables:
@@ -224,13 +224,13 @@ check_selene_status:
     - echo "$RC"
     - echo "NEW_CI_CONCURRENT_ID=${CI_CONCURRENT_ID}" >> other_param.env
     - if [[ $RC == 0 ]]; then
-        echo "Selene is idle!";
-        cp ./ci/selene/ci.yml ./test-ci.yml;
-        echo "NEW_SBATCH_OTHER_PARAMS=" >> other_param.env;
+      echo "Selene is idle!";
+      cp ./ci/selene/ci.yml ./test-ci.yml;
+      echo "NEW_SBATCH_OTHER_PARAMS=" >> other_param.env;
       else
-        echo "Selene is busy!";
-        cp ./ci/dracorno/ci.yml ./test-ci.yml;
-        echo "NEW_SBATCH_OTHER_PARAMS=--nv-meta ml-model.hugectr --gpus-per-node=8" >> other_param.env;
+      echo "Selene is busy!";
+      cp ./ci/dracorno/ci.yml ./test-ci.yml;
+      echo "NEW_SBATCH_OTHER_PARAMS=--nv-meta ml-model.hugectr --gpus-per-node=8" >> other_param.env;
       fi
     - cat other_param.env
   artifacts:
@@ -247,7 +247,7 @@ trigger_test_pipeline:
   extends: .trigger:rules:selene
   stage:
     test
-  needs: 
+  needs:
     - check_selene_status
   trigger:
     include:
@@ -345,7 +345,7 @@ wdl_multi_gpu:
     SLURM_ACCOUNT: devtech                                                       # account, do not need change
     WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
     DGXNNODES: 1                                                                 # node num
-    TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub 
+    TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub
 
 deepfm_multi_gpu:
   extends: .cluster_test_job_daily
@@ -408,7 +408,7 @@ etc_single_node:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/etc_single_node 
+    GPFSFOLDER: $LOGDIR/etc_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
@@ -436,10 +436,10 @@ ebc_single_node:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/ebc_single_node 
+    GPFSFOLDER: $LOGDIR/ebc_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT},/raid:/raid
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
@@ -510,7 +510,7 @@ inference_embedding_cache_update_test:
   script:
     - export CONT=${INFER_IMAGE_VERSIONED}
     - bash ./ci/integration_test/inference/embedding_cache_update_test.sh
-    
+
 #hdfs backend test
 hdfs_backend_test:
   extends: .computelab_test_job_daily
