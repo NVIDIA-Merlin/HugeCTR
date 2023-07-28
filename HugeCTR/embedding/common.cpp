@@ -167,13 +167,17 @@ void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
   for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     int ev_size = lookup_params[lookup_id].ev_size;
     h_id_to_ev_size.push_back(ev_size);
-
     char combiner = static_cast<char>(lookup_params[lookup_id].combiner);
     h_id_to_combiner.push_back(combiner);
+
+    h_id_to_ev_start_indices.push_back((combiner == static_cast<char>(Combiner::Concat))
+                                           ? ebc_param.lookup_params[lookup_id].max_hotness *
+                                                 ev_size
+                                           : ev_size);
   }
 
-  std::partial_sum(h_id_to_ev_size.begin(), h_id_to_ev_size.end(),
-                   std::back_inserter(h_id_to_ev_start_indices));
+  std::partial_sum(h_id_to_ev_start_indices.begin(), h_id_to_ev_start_indices.end(),
+                   h_id_to_ev_start_indices.begin());
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());

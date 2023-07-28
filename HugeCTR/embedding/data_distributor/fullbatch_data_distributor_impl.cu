@@ -152,6 +152,66 @@ void DataDistributor::init_batch_major_fullbatch_input_preprocessor() {
   }
 }
 
+void DataDistributor::init_indices_converter() {
+  if (ebc_param_.keys_preprocess_strategy_ != embedding::KeysPreprocessStrategy::AddOffset) return;
+  int num_gpus = core_resource_managers_.size();
+  for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    CudaDeviceContext context(core_resource_managers_[gpu_id]->get_device_id());
+    int ggpu_id = core_resource_managers_[gpu_id]->get_global_gpu_id();
+    for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size();
+         grouped_id++) {
+      indices_converters_.emplace_back(core_resource_managers_[gpu_id], emb_table_param_list_,
+                                       ebc_param_, grouped_id);
+
+      std::vector<int> h_local_lookup_id_list;
+      std::vector<int> h_local_table_id_list;
+
+      for (int lookup_id = 0; lookup_id < ebc_param_.num_lookup; ++lookup_id) {
+        if (!ebc_param_.has_table_shard(ggpu_id, grouped_id, lookup_id)) continue;
+        int table_id = ebc_param_.lookup_params[lookup_id].table_id;
+
+        h_local_lookup_id_list.push_back(lookup_id);
+        h_local_table_id_list.push_back(table_id);
+      }
+      compress_offsets_.push_back(embedding::CompressOffset(core_resource_managers_[gpu_id],
+                                                            h_local_lookup_id_list.size() + 1,
+                                                            ebc_param_.offset_type));
+
+      core23::Device device(core23::DeviceType::GPU,
+                            core_resource_managers_[gpu_id]->get_device_id());
+      core23::TensorParams params = core23::TensorParams().device(device);
+
+      core23::Tensor d_local_table_id_list =
+          core23::Tensor(params.shape({static_cast<int64_t>(h_local_table_id_list.size())})
+                             .data_type(core23::ScalarType::Int32));
+      core23::copy_sync(d_local_table_id_list, h_local_table_id_list);
+      d_local_table_id_lists_.push_back(d_local_table_id_list);
+    }
+  }
+}
+
+void DataDistributor::convert_indices(int gpu_id, DataDistributor::Result& output) {
+  if (indices_converters_.empty()) return;
+  for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); ++grouped_id) {
+    if (ebc_param_.grouped_lookup_params[grouped_id].grouped_table_idx == -1) continue;
+
+    int batch_size_per_gpu = batch_size_;
+    if (ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy ==
+        embedding::TablePlacementStrategy::DataParallel) {
+      batch_size_per_gpu /= num_global_gpus_;
+    }
+
+    int num_groups = ebc_param_.grouped_lookup_params.size();
+    core23::Tensor num_keys_per_lookup_offset;
+    compress_offsets_[gpu_id * num_groups + grouped_id].compute(
+        output[grouped_id].bucket_range, batch_size_per_gpu, &num_keys_per_lookup_offset);
+
+    indices_converters_[gpu_id * num_groups + grouped_id].convert(
+        output[grouped_id].keys, output[grouped_id].h_num_keys, num_keys_per_lookup_offset,
+        d_local_table_id_lists_[gpu_id * num_groups + grouped_id]);
+  }
+}
+
 namespace {
 template <typename BucketRangeType>
 __global__ void cal_num_key_per_bucket_from_fullbatch_bucket_range_kernel(

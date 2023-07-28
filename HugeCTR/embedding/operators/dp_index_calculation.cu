@@ -51,7 +51,7 @@ void DenseAllreduceIndexCalculation::cal_for_sparse_indices(
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, indices_sort_,
                                                        segmented_unique_, reduction_indices, wgrad,
                                                        batch_size_per_gpu);
-
+  if (embedding_input.h_num_keys == 0) return;
   auto key_type = wgrad.unique_keys.data_type();
   auto stream = core_->get_local_gpu()->get_stream();
 
@@ -449,7 +449,7 @@ void SparseAllreduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput&
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, segmented_sort_device_,
                                                        segmented_unique_, reduction_indices,
                                                        local_reduce_wgrad, batch_size_per_gpu);
-
+  if (embedding_input.h_num_keys == 0) return;
   broadcast_unique_keys(core_, local_reduce_wgrad, cal_ev_start_indices_storage_.broadcast_result_);
 
   cal_allreduce_wgrad(core_, cal_ev_start_indices_storage_.broadcast_result_,

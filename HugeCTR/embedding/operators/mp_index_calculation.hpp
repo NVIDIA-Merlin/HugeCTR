@@ -55,4 +55,15 @@ class MPLocalReduceIndexCalculation {
                             ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
 };
 
+class DenseMPLocalReduceIndexCalculation {
+ private:
+  std::shared_ptr<CoreResourceManager> core_;
+
+ public:
+  void init(std::shared_ptr<CoreResourceManager> core);
+
+  void cal_for_dense_input(const EmbeddingInput& embedding_input,
+                           DenseReductionIndices& reduction_indices, Wgrad& wgrad, int ev_size);
+};
+
 }  // namespace embedding

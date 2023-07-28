@@ -120,7 +120,8 @@ struct ShardPartitioner {
 
   ShardPartitioner() = default;
 
-  ShardPartitioner(std::shared_ptr<core::CoreResourceManager> core, int num_lookup,
+  ShardPartitioner(std::shared_ptr<core::CoreResourceManager> core,
+                   const std::vector<embedding::LookupParam> &lookup_params,
                    const std::vector<std::vector<int>> &shard_matrix,
                    const std::vector<int> &lookup_ids);
 

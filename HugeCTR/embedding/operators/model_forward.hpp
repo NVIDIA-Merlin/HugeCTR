@@ -46,8 +46,6 @@ struct ModelCommBufferAttr {
 
   EmbeddingLayout layout;
   int max_ev_size;
-  bool is_ragged;
-  bool is_aligned;
   core23::DataType type;
 
   void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
@@ -68,11 +66,35 @@ struct ModelCommBuffer {
                                const ModelCommBufferAttr &attr);
 };
 
+struct DenseModelCommBufferAttr {
+  int num_local_lookup;
+  int num_gpus;
+  int max_hotness;
+
+  EmbeddingLayout layout;
+  int ev_size;
+  core23::DataType type;
+
+  void init(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
+            size_t grouped_id);
+};
+
+struct DenseModelCommBuffer {
+  core23::Tensor data;
+
+  DenseModelCommBufferAttr attr;
+
+  void init(std::shared_ptr<CoreResourceManager> core, const DenseModelCommBufferAttr &attr,
+            int batch_size);
+};
+
 struct ModelForward {
   std::shared_ptr<CoreResourceManager> core_;
 
   void sparse_forward(const core23::Tensor &mp_ev, const core23::Tensor &bucket_range,
                       ModelCommBuffer &model_comm_buffer, int batch_size);
+  void dense_forward(const core23::Tensor &mp_ev, const core23::Tensor &reverse_idx,
+                     DenseModelCommBuffer &model_comm_buffer, int batch_size, size_t num_key);
 };
 
 }  // namespace embedding

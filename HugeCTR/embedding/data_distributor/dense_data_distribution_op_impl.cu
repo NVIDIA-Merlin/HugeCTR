@@ -98,8 +98,8 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 
-  this->shard_partitioner_ =
-      ShardPartitioner(core, num_lookup, ebc_param.shard_matrix, grouped_lookup_param.lookup_ids);
+  this->shard_partitioner_ = ShardPartitioner(core, ebc_param.lookup_params, ebc_param.shard_matrix,
+                                              grouped_lookup_param.lookup_ids);
 
   std::vector<int> local_lookup_id_to_global_lookup_ids =
       calc_local_lookup_id_to_global_lookup_ids(global_gpu_id, ebc_param, group_id);
@@ -164,7 +164,8 @@ DenseDPDataDistributionOp::DenseDPTempStorage::DenseDPTempStorage(
 
 DenseDPDataDistributionOp::DenseDPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id)
+    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
     : core_(core),
       ebc_param_(ebc_param),
       embedding_type_(ebc_param_.grouped_lookup_params[group_id].embedding_type),
@@ -183,6 +184,11 @@ DenseDPDataDistributionOp::DenseDPDataDistributionOp(
   }
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
+
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) {
+    indices_converter_ = std::make_unique<embedding::KeysToIndicesConverter>(
+        core, emb_table_param_list, ebc_param_, group_id);
+  }
 }
 
 void DenseDPDataDistributionOp::distribute(const DataDistributionInput& input,
@@ -217,11 +223,22 @@ void DenseDPDataDistributionOp::distribute(const DataDistributionInput& input,
   compress_reverse_idx_range_operator_(
       output.dense_compression_input.data_parallel_compression_input.num_reverse_idx,
       compressed_data, stream);
+
+  convert_indices(output);
+}
+
+void DenseDPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::None) return;
+
+  indices_converter_->convert(output.keys, output.h_num_keys,
+                              output.dense_compression_input.num_keys_per_table_offset,
+                              output.dense_compression_input.table_ids);
 }
 
 DenseMPDataDistributionOp::DenseMPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id)
+    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
     : core_(core),
       ebc_param_(ebc_param),
       embedding_type_(ebc_param_.grouped_lookup_params[group_id].embedding_type),
@@ -240,6 +257,20 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
   }
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
+
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) {
+    indices_converter_ = std::make_unique<embedding::KeysToIndicesConverter>(
+        core, emb_table_param_list, ebc_param_, group_id);
+  }
+}
+
+void DenseMPDataDistributionOp::distribute(const DataDistributionInput& input,
+                                           embedding::EmbeddingInput& output, cudaStream_t stream) {
+  filter_before_all2all(input, output, stream);
+  all2all_keys_per_bucket(output, stream);
+  all2all_keys(output, stream);
+  filter_after_all2all(output, stream);
+  convert_indices(output);
 }
 
 void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
@@ -389,6 +420,11 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
                                      continuous_partition_data, stream);
 
   // there is already a sync in compact_partition_data so we dont need sync here
+  output.h_num_keys = *(output.num_keys.data<uint64_t>());
+  compress_reverse_idx_range_operator_(
+      output.dense_compression_input.model_parallel_compression_input.num_model_reverse_idx,
+      compressed_data_after_table_id_partition, stream);
+
   CompressedData compressed_data_after_shard_matrix_partition{
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition,
       dense_compression_output.model_parallel_compression_input.network_reverse_idx};
@@ -397,9 +433,13 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
   compress_reverse_idx_range_operator_(
       dense_compression_output.model_parallel_compression_input.num_network_reverse_idx,
       compressed_data_after_shard_matrix_partition, stream);
-  output.h_num_keys = *(output.num_keys.data<uint64_t>());
-  compress_reverse_idx_range_operator_(
-      output.dense_compression_input.model_parallel_compression_input.num_model_reverse_idx,
-      compressed_data_after_table_id_partition, stream);
+}
+
+void DenseMPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {
+  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::None) return;
+
+  indices_converter_->convert(output.keys, output.h_num_keys,
+                              output.dense_compression_input.num_keys_per_table_offset,
+                              output.dense_compression_input.table_ids);
 }
 }  // namespace HugeCTR

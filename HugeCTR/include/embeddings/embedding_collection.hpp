@@ -356,7 +356,10 @@ class EmbeddingCollection {
     return grouped_embedding_tables;
   }
 
+  const std::vector<Wgrad> &get_wgrad(int gpu_id) const { return wgrad_list_[gpu_id]; }
+
   size_t get_grouped_wgrad_length() { return grouped_allreduce_length_; };
+
   void bind_grouped_wgrad_ptr();
 };
 

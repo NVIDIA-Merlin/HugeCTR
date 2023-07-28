@@ -177,6 +177,177 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& dp_num_key
   });
 }
 
+template <typename src_emb_t, typename dst_emb_t, typename offset_t>
+struct DenseNetworkBackwardBatchMajorOneToOneAtomicDesc {
+  using SrcT = src_emb_t;
+  using DstT = dst_emb_t;
+
+  HOST_DEVICE_INLINE size_t num_vec() { return num_vec_; }
+
+  HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
+  // we need a transfrom to src id use num_model_revers_idx
+  HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) {
+    int hotness_id = bucket_id_ptr[i] / batch_size_per_gpu;
+    int64_t lookup_id = bs_upper_bound_sub_one(hotness_range, range_num, hotness_id);
+    offset_t bucket_id = bucket_id_ptr[i];
+    hotness_id = hotness_id - hotness_range[lookup_id];
+    int bid = bucket_id % batch_size_per_gpu;
+
+    return src_ptr + bid * global_ev_offset + ev_start_indices[lookup_id] + hotness_id * ev_size;
+  }
+  HOST_DEVICE_INLINE DstT* get_dst_ptr(int i) { return dst_ptr + reverse_id_ptr[i] * ev_size; }
+
+  size_t num_vec_;
+  int ev_size;
+  int batch_size_per_gpu;
+  int range_num;
+  int global_ev_offset;
+
+  const int* hotness_range;
+  const int* ev_start_indices;
+
+  const offset_t* __restrict__ reverse_id_ptr;
+  const offset_t* __restrict__ bucket_id_ptr;
+  const src_emb_t* __restrict__ src_ptr;
+  dst_emb_t* __restrict__ dst_ptr;
+};
+
+template <typename src_emb_t, typename dst_emb_t, typename offset_t>
+struct DenseNetworkBackwardFeatureMajorOneToOneAtomicDesc {
+  using SrcT = src_emb_t;
+  using DstT = dst_emb_t;
+
+  HOST_DEVICE_INLINE size_t num_vec() { return num_vec_; }
+
+  HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
+  // we need a transfrom to src id use num_model_revers_idx
+  HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) {
+    int hotness_id = bucket_id_ptr[i] / batch_size_per_gpu;
+    int64_t lookup_id = bs_upper_bound_sub_one(hotness_range, range_num, hotness_id);
+    offset_t bucket_id = bucket_id_ptr[i];
+    hotness_id = hotness_id - hotness_range[lookup_id];
+    int bid = bucket_id % batch_size_per_gpu;
+    return src_ptr + batch_size_per_gpu * ev_start_indices[lookup_id] +
+           bid * hotness_list[lookup_id] * ev_size + hotness_id * ev_size;
+  }
+  HOST_DEVICE_INLINE DstT* get_dst_ptr(int i) { return dst_ptr + reverse_id_ptr[i] * ev_size; }
+
+  size_t num_vec_;
+  int ev_size;
+  int batch_size_per_gpu;
+
+  int range_num;
+  const int* hotness_range;
+  const int* ev_start_indices;
+  const int* hotness_list;
+
+  const offset_t* __restrict__ reverse_id_ptr;
+  const offset_t* __restrict__ bucket_id_ptr;
+  const src_emb_t* __restrict__ src_ptr;
+  dst_emb_t* __restrict__ dst_ptr;
+};
+
+void dense_network_backward_from_feature_major_top_grad(
+    const EmbeddingInput& embedding_input, const EmbeddingOutput& top_grad,
+    const DenseNetworkIndices& network_indices, const HugeCTR::core23::KernelParams kernel_params,
+    DenseNetworkBuffer& network_buffer, int batch_size, int gpu_id, int num_gpus,
+    cudaStream_t stream) {
+  int batch_size_per_gpu = batch_size / num_gpus;
+
+  int ev_size = network_buffer.attr.ev_size;
+  size_t num_key = embedding_input.dense_compression_input.model_parallel_compression_input
+                       .num_network_reverse_idx;
+  auto& reverse_idx =
+      embedding_input.dense_compression_input.model_parallel_compression_input.network_reverse_idx;
+  auto& bucket_ids = embedding_input.dense_compression_input.model_parallel_compression_input
+                         .network_dst_bucket_ids;
+  auto& num_network_reverse_idx = embedding_input.dense_compression_input
+                                      .model_parallel_compression_input.num_network_reverse_idx;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(reverse_idx.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(top_grad.data.data_type().type(), src_emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(
+          network_buffer.data.data_type().type(), dst_emb_t, [&] {
+            const src_emb_t* top_grad_ptr = top_grad.data.data<src_emb_t>();
+            dst_emb_t* network_comm_buffer_ptr = network_buffer.data.data<dst_emb_t>();
+            offset_t* reverse_idx_ptr = reverse_idx.data<offset_t>();
+            offset_t* bucket_ids_ptr = bucket_ids.data<offset_t>();
+
+            int range_num = network_indices.local_lookup_num + 1;
+
+            auto hotness_range_ptr = network_indices.d_local_hotness_range.data<int>();
+            auto ev_start_indices_ptr = network_indices.d_ev_start_indices.data<int>();
+            auto hotness_list = network_indices.d_local_hotness.data<int>();
+
+            using CopyDesc =
+                DenseNetworkBackwardFeatureMajorOneToOneAtomicDesc<src_emb_t, dst_emb_t, offset_t>;
+
+            CopyDesc one_to_one_atomic_desc = {num_network_reverse_idx,
+                                               ev_size,
+                                               batch_size_per_gpu,
+                                               range_num,
+                                               hotness_range_ptr,
+                                               ev_start_indices_ptr,
+                                               hotness_list,
+                                               reverse_idx_ptr,
+                                               bucket_ids_ptr,
+                                               top_grad_ptr,
+                                               network_comm_buffer_ptr};
+            HCTR_LIB_THROW(cudaMemsetAsync(network_buffer.data.data(), 0,
+                                           network_buffer.data.num_bytes(), stream));
+            one_to_one_atomic(one_to_one_atomic_desc, kernel_params, ev_size,
+                              num_network_reverse_idx, stream);
+          });
+    });
+  });
+}
+
+void dense_network_backward_from_batch_major_top_grad(
+    const EmbeddingInput& embedding_input, const EmbeddingOutput& top_grad,
+    const DenseNetworkIndices& network_indices, const HugeCTR::core23::KernelParams kernel_params,
+    DenseNetworkBuffer& network_buffer, int batch_size, int gpu_id, int num_gpus,
+    cudaStream_t stream) {
+  int batch_size_per_gpu = batch_size / num_gpus;
+
+  int ev_size = network_buffer.attr.ev_size;
+  size_t num_key = embedding_input.dense_compression_input.model_parallel_compression_input
+                       .num_network_reverse_idx;
+  auto& reverse_idx =
+      embedding_input.dense_compression_input.model_parallel_compression_input.network_reverse_idx;
+  auto& bucket_ids = embedding_input.dense_compression_input.model_parallel_compression_input
+                         .network_dst_bucket_ids;
+  auto& num_network_reverse_idx = embedding_input.dense_compression_input
+                                      .model_parallel_compression_input.num_network_reverse_idx;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(reverse_idx.data_type().type(), offset_t, [&] {
+    DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(top_grad.data.data_type().type(), src_emb_t, [&] {
+      DISPATCH_FLOAT_AND_HALF_FUNCTION_CORE23(
+          network_buffer.data.data_type().type(), dst_emb_t, [&] {
+            const src_emb_t* top_grad_ptr = top_grad.data.data<src_emb_t>();
+            dst_emb_t* network_comm_buffer_ptr = network_buffer.data.data<dst_emb_t>();
+            offset_t* reverse_idx_ptr = reverse_idx.data<offset_t>();
+            offset_t* bucket_ids_ptr = bucket_ids.data<offset_t>();
+            auto hotness_range_ptr = network_indices.d_local_hotness_range.data<int>();
+            auto ev_start_indices_ptr = network_indices.d_ev_start_indices.data<int>();
+            int range_num = network_indices.local_lookup_num + 1;
+            int global_ev_offset = network_indices.global_ev_offset;
+
+            using CopyDesc =
+                DenseNetworkBackwardBatchMajorOneToOneAtomicDesc<src_emb_t, dst_emb_t, offset_t>;
+
+            CopyDesc one_to_one_atomic_desc = {
+                num_network_reverse_idx, ev_size,           batch_size_per_gpu,     range_num,
+                global_ev_offset,        hotness_range_ptr, ev_start_indices_ptr,   reverse_idx_ptr,
+                bucket_ids_ptr,          top_grad_ptr,      network_comm_buffer_ptr};
+            HCTR_LIB_THROW(cudaMemsetAsync(network_buffer.data.data(), 0,
+                                           network_buffer.data.num_bytes(), stream));
+            one_to_one_atomic(one_to_one_atomic_desc, kernel_params, ev_size,
+                              num_network_reverse_idx, stream);
+          });
+    });
+  });
+}
+
 }  // namespace
 void NetworkBackward::sparse_backward(const core23::Tensor& dp_num_keys_per_bucket,
                                       const EmbeddingOutput& top_grad,
@@ -196,6 +367,27 @@ void NetworkBackward::sparse_backward(const core23::Tensor& dp_num_keys_per_buck
     network_backward_from_batch_major_top_grad(dp_num_keys_per_bucket, top_grad, network_indices,
                                                core_->get_kernel_param(), network_buffer,
                                                batch_size, gpu_id, num_gpus, stream);
+  }
+}
+
+void NetworkBackward::dense_backward(const EmbeddingInput& embedding_input,
+                                     const EmbeddingOutput& top_grad,
+                                     const DenseNetworkIndices& network_indices,
+                                     DenseNetworkBuffer& network_buffer, int batch_size) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+  auto stream = core_->get_local_gpu()->get_stream();
+  int gpu_id = core_->get_global_gpu_id();
+  int num_gpus = core_->get_global_gpu_count();
+
+  if (top_grad.attr.layout == EmbeddingLayout::FeatureMajor) {
+    dense_network_backward_from_feature_major_top_grad(embedding_input, top_grad, network_indices,
+                                                       core_->get_kernel_param(), network_buffer,
+                                                       batch_size, gpu_id, num_gpus, stream);
+  } else {
+    HCTR_ASSERT(top_grad.attr.layout == EmbeddingLayout::BatchMajor);
+    dense_network_backward_from_batch_major_top_grad(embedding_input, top_grad, network_indices,
+                                                     core_->get_kernel_param(), network_buffer,
+                                                     batch_size, gpu_id, num_gpus, stream);
   }
 }
 
