@@ -25,7 +25,7 @@ hps_database_backend:
   variables:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/hps_backend_benchmark/hps_database_backend.sub

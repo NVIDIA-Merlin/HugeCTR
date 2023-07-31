@@ -270,7 +270,6 @@ criteo_multi_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/criteo/criteo_multi_node.sub
@@ -284,7 +283,6 @@ dlrm_benchmark_14node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: /raid:/raid
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     SBATCH_OTHER_PARAMS: --network sharp
     DGXNNODES: 14
@@ -299,7 +297,6 @@ dlrm_ib_nvlink_1node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: /raid/datasets/criteo/mlperf/40m.limit_preshuffled:/data
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:10:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/dlrm/ib_nvlink_1node.sub
@@ -313,7 +310,6 @@ dlrm_ib_nvlink_8node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: /raid/datasets/criteo/mlperf/40m.limit_preshuffled:/data
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:10:00"
     SBATCH_OTHER_PARAMS: --comment=metrics
     DGXNNODES: 8
@@ -328,7 +324,6 @@ dlrm_dcnv2_benchmark_8node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data,/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data_val
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 8
     TEST_CMD: ./ci/integration_test/dlrm/train_dcnv2_8node.sub
@@ -342,7 +337,6 @@ wdl_multi_gpu:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
     CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
     MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
-    SLURM_ACCOUNT: devtech                                                       # account, do not need change
     WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
     DGXNNODES: 1                                                                 # node num
     TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub
@@ -356,7 +350,6 @@ deepfm_multi_gpu:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/deepfm/deepfm_daily.sub
@@ -370,7 +363,6 @@ dcn_multi_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 4                                                                              # using 4 node
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
@@ -384,7 +376,6 @@ group_fc:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/group_fc/group_fc.sub
@@ -398,7 +389,6 @@ py_low_level:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/raid:/raid
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub
@@ -412,7 +402,6 @@ etc_single_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/etc/etc_single_node.sub
@@ -426,7 +415,6 @@ etc_multi_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
@@ -440,7 +428,6 @@ ebc_single_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT},/raid:/raid
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
@@ -454,7 +441,6 @@ data_generator_single_node:
     GPFSFOLDER: $LOGDIR/data_generator_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
@@ -468,7 +454,6 @@ py_multi_node:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 4
     TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
@@ -486,7 +471,6 @@ inference_benchmark:
     CONT: $INFER_IMAGE_VERSIONED
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data
     WORKDIR: /workdir
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
@@ -530,7 +514,6 @@ e2e_nvt_regression_test:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED_LATEST
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1,/lustre/fsw/devtech/hpc-hugectr/inference/nvt_regression:/workdir/samples/din/raw_data,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/dir/to/criteo/day_0
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
@@ -544,7 +527,6 @@ notebook_hugectr:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/workdir/tools/day_0,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/notebooks/notebook_hugectr.sub
@@ -557,7 +539,6 @@ nb_movie_lens_example:
     GPFSFOLDER: $LOGDIR/nb_movie_lens_example
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    SLURM_ACCOUNT: devtech
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/notebooks/nb_movie-lens-example.sub
@@ -570,7 +551,6 @@ nb_hps_demo:
     GPFSFOLDER: $LOGDIR/nb_hps_demo
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/notebooks/hps_demo.sub
@@ -585,7 +565,6 @@ wdl_check:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: $LOGDIR/wdl_multi_gpu:/logs
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_wdl.sub
@@ -600,7 +579,6 @@ inference_benchmark_check:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: $LOGDIR/inference_benchmark:/logs
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
@@ -618,7 +596,6 @@ inference_cpu_memory_usage:
     CONT: $INFER_IMAGE_VERSIONED
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,$LOGDIR/inference_cpu_memory:/logs
     WORKDIR: /workdir
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/hps_memory_check/run.sub
@@ -633,7 +610,6 @@ inference_CPU_Memory_check:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: $LOGDIR/inference_cpu_memory:/logs
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_cpu_usage.sub
@@ -648,7 +624,6 @@ dlrm_14node_check:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: $LOGDIR/dlrm_benchmark_14node:/logs
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_dlrm_14node.sub
@@ -663,7 +638,6 @@ dlrm_dcnv2_8node_check:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: $LOGDIR/dlrm_dcnv2_benchmark_8node:/logs
-    SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_dcnv2_dlrm_8node.sub

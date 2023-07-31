@@ -207,7 +207,7 @@ stages:
     - .selene_luna_job
     - .hugectr:rules:sanity-test
   variables:
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     DGXNNODES: 1
   allow_failure: false
 
@@ -215,6 +215,8 @@ stages:
   extends:
     - .selene_luna_job
     - .default:rules:daily-test
+  variables:
+    SLURM_ACCOUNT: coreai_devtech_all
   allow_failure: false
 
 .selene_test_job:
@@ -222,7 +224,7 @@ stages:
     - .selene_luna_job
     - .hugectr:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     DGXNNODES: 1
     WALLTIME: "00:30:00"
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
@@ -279,7 +281,7 @@ stages:
     - .selene_luna_job
     - .sok:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     DGXNNODES: 1
     WALLTIME: "00:30:00"
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
@@ -317,7 +319,7 @@ stages:
     - .selene_test_job
     - .hugectr:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     DGXNNODES: 1
     WALLTIME: "00:30:00"
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
@@ -328,6 +330,8 @@ stages:
     - .cluster_test_job
     - .default:rules:daily-test
   stage: post_test
+  variables:
+    SLURM_ACCOUNT: coreai_devtech_all
 
 .inference_benchmark:
   extends:
@@ -344,7 +348,7 @@ stages:
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data,${CI_PROJECT_DIR}:/hugectr
     WORKDIR: /hugectr
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
@@ -363,7 +367,7 @@ stages:
     GPFSFOLDER: $LOGDIR/sok_benchmark
     CONT: ${UNIFIED_TF_LATEST}
     MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/terabyte_portion_csv/:/dataset,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/sok/sok_dlrm.sub
@@ -385,7 +389,7 @@ stages:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/raid:/raid,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/benchmark/train_benchmark/run.sub
 
@@ -402,7 +406,7 @@ stages:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_TF_LATEST}
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/emmaq/yingcan_benchmark:/hps_backend_benchmark,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/hps_backend_benchmark/run.sub
@@ -417,6 +421,6 @@ collect_benchmark_result:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: $LOGDIR:/logs,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: devtech
+    SLURM_ACCOUNT: coreai_devtech_all
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/post_test/collect_benchmark.sub

@@ -43,6 +43,13 @@ if [[ "${HDFS_BUILD_MODE}" == "MINIMAL" ]]; then
   cd hadoop-hdfs-project/hadoop-hdfs-native-client
 fi
 
+# WAR for https://issues.apache.org/jira/browse/YARN-11528
+# TODO: remove below lines when the fix released.
+sed -i '/scripts/i \
+    \"resolutions\": { \
+        \"triple-beam\": \"1.3.0\" \
+    },' hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-applications-catalog/hadoop-yarn-applications-catalog-webapp/package.json
+
 # Build Hadoop.
 mvn clean package \
   -Pdist,native \
