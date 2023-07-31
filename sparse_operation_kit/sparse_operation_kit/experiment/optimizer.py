@@ -121,9 +121,10 @@ class OptimizerWrapperV1(object):
                     )
                 else:
                      tmp_config = var.config_dict
+                     tmp_initializer = var.initializer_str
                      slot = DynamicVariable(
                         dimension=var.dimension,
-                        initializer=self._initial_vals[slot_name],
+                        initializer=tmp_initializer,
                         var_type=var.backend_type,
                         name="DynamicSlot",
                         trainable=False,
@@ -166,9 +167,10 @@ class OptimizerWrapperV1(object):
                             )
                         else:
                              tmp_config = v.config_dict
+                             tmp_initializer = v.initializer_str
                              slot = DynamicVariable(
                                 dimension=v.dimension,
-                                initializer=self._initial_vals[slot_name],
+                                initializer=tmp_initializer,
                                 var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
@@ -256,9 +258,10 @@ class OptimizerWrapperV2(object):
                    )
                 else:
                     tmp_config = var.config_dict
+                    tmp_initializer = var.initializer_str
                     slot = DynamicVariable(
                        dimension=var.dimension,
-                       initializer=self._initial_vals[slot_name],
+                       initializer=tmp_initializer,
                        var_type=var.backend_type,
                        name="DynamicSlot",
                        trainable=False,
@@ -309,9 +312,10 @@ class OptimizerWrapperV2(object):
                             )
                         else:
                              tmp_config = v.config_dict
+                             tmp_initializer = v.initializer_str
                              slot = DynamicVariable(
                                 dimension=v.dimension,
-                                initializer=self._initial_vals[slot_name],
+                                initializer=tmp_initializer,
                                 var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
