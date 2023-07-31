@@ -106,7 +106,6 @@ class DynamicVariable(ResourceVariable):
             global dynamic_variable_count
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
             dynamic_variable_count += 1
-        
         var_type = "hbm" if var_type is None else var_type
         self._var_type = var_type
         self._base = super(DynamicVariable, self)
@@ -131,6 +130,7 @@ class DynamicVariable(ResourceVariable):
                 with ops.NullContextmanager():
                     shape = [None, dimension]
                     initializer = "" if initializer is None else initializer
+                    self._initializer = initializer
                     handle = dynamic_variable_ops.dummy_var_handle(
                         container="DummyVariableContainer",
                         shared_name=self._dummy_name,
@@ -158,6 +158,7 @@ class DynamicVariable(ResourceVariable):
                             unique_name=self._dummy_name,
                             key_type=self._key_type,
                             dtype=self._handle_dtype,
+                            config=self._config
                         )
                     # TODO: Add is_initialized_op
                     # is_initialized_op = ops.convert_to_tensor(True)
@@ -263,6 +264,10 @@ class DynamicVariable(ResourceVariable):
     @property
     def num_gpus(self):
         return num_gpus()
+
+    @property
+    def initializer_str(self):
+        return self._initializer
 
     def key_map(self, indices):
         return indices
