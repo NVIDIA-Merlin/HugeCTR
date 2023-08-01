@@ -332,5 +332,4 @@ void HKVVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const 
 }
 
 template class HKVVariable<int64_t, float>;
-template class HKVVariable<int32_t, float>;
 }  // namespace sok
