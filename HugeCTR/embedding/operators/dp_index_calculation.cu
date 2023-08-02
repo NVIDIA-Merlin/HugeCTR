@@ -16,7 +16,7 @@
 
 #include <HugeCTR/embedding/operators/communication.hpp>
 #include <cub/cub.cuh>
-#include <embedding/data_distributor/data_compression_operators.hpp>
+#include <embedding/data_distributor/data_compression_operators.cuh>
 #include <embedding/operators/dp_index_calculation.hpp>
 #include <utils.cuh>
 
