@@ -58,7 +58,7 @@ void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, const T *fprop
 
   for (size_t i = 0; i < size; i++) {
     for (size_t j = 0; j < num; j++) {
-      if (0 == fprop_output[i]) {
+      if (0 == __half2float(fprop_output[i])) {
         dgrad[j][i] = zero;
       } else {
         T d_input = dgrad[j][i];

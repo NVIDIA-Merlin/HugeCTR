@@ -74,8 +74,8 @@ void matmul_cpu(size_t height, size_t in_width, size_t n_ins, T *h_concat, T *h_
       for (size_t n = 0; n < n_ins; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < in_width; k++) {
-          accum += h_concat[concat_stride + m * in_width + k] *
-                   h_concat[concat_stride + n * in_width + k];
+          accum += __half2float(h_concat[concat_stride + m * in_width + k] *
+                                h_concat[concat_stride + n * in_width + k]);
         }
         h_mat[mat_stride + m * n_ins + n] = accum;
       }

@@ -92,7 +92,7 @@ void layer_norm_fprop_cpu<__half>(const __half* gamma, const __half* beta, const
     for (int j = 0; j < num_feature; j++) {
       int idx = i * num_feature + j;
       float in_norm = (__half2float(in[idx]) - mean) / sqrt(var + eps);
-      out[idx] = __float2half(gamma[j] * in_norm + beta[j]);
+      out[idx] = gamma[j] * __float2half(in_norm) + beta[j];
     }
   }
 }
@@ -176,7 +176,8 @@ void layer_norm_bprop_cpu<__half>(const __half* gamma, const __half* out, __half
     float d_var = 0.0f;
     for (int j = 0; j < num_feature; j++) {
       int idx = i * num_feature + j;
-      float val = (__half2float(out[idx]) * gamma[j]) * (__half2float(in[idx]) - mean);
+      float val =
+          (__half2float(out[idx]) * __half2float(gamma[j])) * (__half2float(in[idx]) - mean);
       d_var += val;
     }
     d_var *= (-0.5f) * pow(inv_std, 3);
@@ -184,15 +185,16 @@ void layer_norm_bprop_cpu<__half>(const __half* gamma, const __half* out, __half
     float d_mu = 0.0f;
     for (int j = 0; j < num_feature; j++) {
       int idx = i * num_feature + j;
-      d_mu += __half2float(out[idx]) * gamma[j] * inv_std;
+      d_mu += __half2float(out[idx]) * __half2float(gamma[j]) * inv_std;
     }
     d_mu *= (-1.0f / num_feature);
 
     for (int j = 0; j < num_feature; j++) {
       int idx = i * num_feature + j;
-      gamma_grad[j] = gamma_grad[j] + out[idx] * (in[idx] - mean) * inv_std;
+      gamma_grad[j] =
+          gamma_grad[j] + out[idx] * (in[idx] - __float2half(mean)) * __float2half(inv_std);
       beta_grad[j] = beta_grad[j] + out[idx];
-      in[idx] = __float2half((__half2float(out[idx]) * gamma[j]) * inv_std +
+      in[idx] = __float2half(__half2float(out[idx] * gamma[j]) * inv_std +
                              d_var * (2.0 / num_feature) * (__half2float(in[idx]) - mean) + d_mu);
     }
   }
