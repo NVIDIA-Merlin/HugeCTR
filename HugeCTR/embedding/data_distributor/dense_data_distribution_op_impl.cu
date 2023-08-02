@@ -17,6 +17,7 @@
 #include <HugeCTR/embedding/common.hpp>
 #include <HugeCTR/include/utils.cuh>
 #include <HugeCTR/include/utils.hpp>
+#include <embedding/data_distributor/data_compression_operators.cuh>
 #include <embedding/data_distributor/data_distribution_op.hpp>
 #include <embedding/operators/communication.hpp>
 
@@ -98,14 +99,14 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 
-  this->shard_partitioner_ = ShardPartitioner(core, ebc_param.lookup_params, ebc_param.shard_matrix,
-                                              grouped_lookup_param.lookup_ids);
+  this->shard_partitioner_ = std::make_unique<ShardPartitioner>(
+      core, ebc_param.lookup_params, ebc_param.shard_matrix, grouped_lookup_param.lookup_ids);
 
   std::vector<int> local_lookup_id_to_global_lookup_ids =
       calc_local_lookup_id_to_global_lookup_ids(global_gpu_id, ebc_param, group_id);
 
-  this->table_partitioner_ =
-      TablePartitioner(core, num_lookup, local_lookup_id_to_global_lookup_ids, wgrad_attr);
+  this->table_partitioner_ = std::make_unique<TablePartitioner>(
+      core, num_lookup, local_lookup_id_to_global_lookup_ids, wgrad_attr);
 
   this->h_num_network_reverse_idx = core23::Tensor(
       params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
@@ -152,8 +153,8 @@ DenseDPDataDistributionOp::DenseDPTempStorage::DenseDPTempStorage(
   std::vector<int> local_lookup_id_to_global_lookup_ids =
       calc_local_lookup_id_to_global_lookup_ids(global_gpu_id, ebc_param, group_id);
 
-  this->table_partitioner_ =
-      TablePartitioner(core, num_lookup, local_lookup_id_to_global_lookup_ids, wgrad_attr);
+  this->table_partitioner_ = std::make_unique<TablePartitioner>(
+      core, num_lookup, local_lookup_id_to_global_lookup_ids, wgrad_attr);
 
   this->h_num_reverse_idx = core23::Tensor(
       params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
@@ -205,7 +206,7 @@ void DenseDPDataDistributionOp::distribute(const DataDistributionInput& input,
       dense_temp_storage_.partitioned_data,
       dense_compression_output.data_parallel_compression_input.reverse_idx};
   partition_and_unique_operator_.partition_and_unique_on_dp_input(
-      embedding_type_, input, dense_temp_storage_.table_partitioner_, compressed_data, stream);
+      embedding_type_, input, *dense_temp_storage_.table_partitioner_, compressed_data, stream);
 
   CompactedPartitionData continuous_partition_data{
       output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
@@ -288,7 +289,7 @@ void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition,
       dense_compression_output.model_parallel_compression_input.network_reverse_idx};
   partition_and_unique_operator_.partition_and_unique_on_dp_input(
-      embedding_type_, input, dense_temp_storage_.shard_partitioner_,
+      embedding_type_, input, *dense_temp_storage_.shard_partitioner_,
       compressed_data_after_shard_matrix_partition, stream);
 
   if (embedding_type_ == embedding::EmbeddingType::InfrequentDense) {
@@ -412,7 +413,7 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
   partition_and_unique_operator_.partition_and_unique_by_table_id(
       dense_temp_storage_.keys_gpu_major, dense_temp_storage_.feature_ids_gpu_major,
       output.dense_compression_input.model_parallel_compression_input.num_model_reverse_idx,
-      dense_temp_storage_.table_partitioner_, compressed_data_after_table_id_partition, stream);
+      *dense_temp_storage_.table_partitioner_, compressed_data_after_table_id_partition, stream);
 
   CompactedPartitionData continuous_partition_data{
       output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};

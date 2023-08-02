@@ -17,11 +17,10 @@
 #include <cuda_runtime.h>
 
 #include <cub/cub.cuh>
+#include <embedding/data_distributor/data_compression_operators.cuh>
 #include <embedding/view.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
-#include "data_compression_operators.hpp"
 
 namespace HugeCTR {
 
@@ -497,6 +496,7 @@ template void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
     embedding::EmbeddingType embedding_type, const DataDistributionInput &input,
     const TablePartitioner &partitioner, CompressedData &compressed_data, cudaStream_t stream);
 
+template <>
 void PartitionAndUniqueOperator::partition_and_unique_by_table_id(
     const core23::Tensor &keys_gpu_major, const core23::Tensor &feature_ids_gpu_major,
     size_t num_keys, const TablePartitioner &table_partitioner, CompressedData &compressed_data,

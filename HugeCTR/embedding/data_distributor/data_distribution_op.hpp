@@ -27,6 +27,9 @@
 
 namespace HugeCTR {
 
+struct ShardPartitioner;
+struct TablePartitioner;
+
 class IDataDistributionOp {
  public:
   virtual ~IDataDistributionOp() = default;
@@ -70,8 +73,8 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
                        const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
     int num_table;
 
-    ShardPartitioner shard_partitioner_;
-    TablePartitioner table_partitioner_;
+    std::unique_ptr<ShardPartitioner> shard_partitioner_;
+    std::unique_ptr<TablePartitioner> table_partitioner_;
 
     core23::Tensor h_num_network_reverse_idx;  // uint64_t
     PartitionedData partitioned_data_after_shard_matrix_partition;
@@ -115,7 +118,7 @@ class DenseDPDataDistributionOp final : public IDataDistributionOp {
     DenseDPTempStorage(std::shared_ptr<core::CoreResourceManager> core,
                        const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
     int num_table;
-    TablePartitioner table_partitioner_;
+    std::unique_ptr<TablePartitioner> table_partitioner_;
 
     core23::Tensor h_num_reverse_idx;  // uint64_t
     PartitionedData partitioned_data;

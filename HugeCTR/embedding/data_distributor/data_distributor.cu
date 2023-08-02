@@ -15,6 +15,7 @@
  */
 
 #include <HugeCTR/include/utils.cuh>
+#include <embedding/data_distributor/data_compression_operators.cuh>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding/operators/communication.hpp>
 #include <unordered_set>
