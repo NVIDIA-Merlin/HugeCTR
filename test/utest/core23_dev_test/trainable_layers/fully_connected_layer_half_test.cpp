@@ -33,7 +33,7 @@ static void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b
       for (int kk = 0; kk < k; ++kk) {
         int ai = transpose_a ? kk * m + i : i * k + kk;
         int bi = transpose_b ? j * k + kk : kk * n + j;
-        sum += a[ai] * b[bi];
+        sum += __half2float(a[ai] * b[bi]);
       }
       c[i * n + j] = sum;
     }
@@ -51,7 +51,7 @@ static void cpu_add_bias(__half *top, const __half *bias, int m, int n) {
 static void cpu_reverse_add_bias(__half *bias_grad, const __half *top, int m, int n) {
   for (int i = 0; i < n; ++i) {
     float sum = 0.0f;
-    for (int j = 0; j < m; ++j) sum += top[j * n + i];
+    for (int j = 0; j < m; ++j) sum += __half2float(top[j * n + i]);
     bias_grad[i] = sum;
   }
 }
@@ -59,7 +59,7 @@ static void cpu_reverse_add_bias(__half *bias_grad, const __half *top, int m, in
 static float compare_array(const __half *arr1, const __half *arr2, size_t n, float threshold) {
   size_t m = 0;
   for (size_t i = 0; i < n; i++) {
-    if (fabs(arr1[i] - arr2[i]) > threshold) {
+    if (fabs(__half2float(arr1[i] - arr2[i])) > threshold) {
       m++;
     }
   }

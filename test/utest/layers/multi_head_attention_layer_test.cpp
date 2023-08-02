@@ -196,6 +196,18 @@ void multi_head_attention_cpu(T *in1, T *in2, T *output, int64_t b, int64_t h, i
   }
 }
 
+template <>
+void multi_head_attention_cpu(__half *in1, __half *in2, __half *output, int64_t b, int64_t h,
+                              int64_t m, int64_t n, int64_t k) {
+  transpose(in2, b, h, n, k);
+  matmul_cpu(in1, in2, output, b, h, m, k, n);
+  // Just to revert in2 back
+  transpose(in2, b, h, k, n);
+  for (int64_t i = 0; i < b * h * m * n; i++) {
+    output[i] = __half2float(output[i]) / ((float)sqrt(k));
+  }
+}
+
 template <typename T>
 void multi_head_attention_cpu_noT(T *in1, T *in2, T *output, int64_t b, int64_t h, int64_t m,
                                   int64_t n, int64_t k) {
@@ -232,6 +244,28 @@ void multi_head_attention_dgrad_cpu(T *out, T **h_ins, T **h_b_ins, int64_t b, i
     h_b_ins[1][i] = h_b_ins[1][i] / ((float)sqrt(k));
   }
 }
+
+template <>
+void multi_head_attention_dgrad_cpu(__half *out, __half **h_ins, __half **h_b_ins, int64_t b,
+                                    int64_t h, int64_t m, int64_t n, int64_t k) {
+  // transpose(h_ins[1], h, b, n, k);
+  // transpose(h_ins[0], h, b, m, n);
+  // out [b,h,m,n]
+  // in1 [b,h,m,k]
+  // in2 [b,h,n,k]
+  matmul_cpu(out, h_ins[1], h_b_ins[0], b, h, m, n, k);
+  transpose(out, b, h, m, n);
+  matmul_cpu(out, h_ins[0], h_b_ins[1], b, h, n, m, k);
+  // Just revert out back
+  transpose(out, b, h, m, n);
+  for (int64_t i = 0; i < b * h * m * k; i++) {
+    h_b_ins[0][i] = __half2float(h_b_ins[0][i]) / ((float)sqrt(k));
+  }
+  for (int64_t i = 0; i < b * h * n * k; i++) {
+    h_b_ins[1][i] = __half2float(h_b_ins[1][i]) / ((float)sqrt(k));
+  }
+}
+
 template <typename T>
 void multi_head_attention_dgrad_3d_cpu(T *out, T *value_out, T **h_ins, T **h_b_ins,
                                        int64_t batch_size, int64_t head_num, int64_t seq_len,

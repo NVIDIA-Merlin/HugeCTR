@@ -65,7 +65,7 @@ static void cpu_mm(__half* c, const __half* a, bool transpose_a, const __half* b
       for (int kk = 0; kk < k; ++kk) {
         int ai = transpose_a ? kk * m + i : i * k + kk;
         int bi = transpose_b ? j * k + kk : kk * n + j;
-        sum += a[ai] * b[bi];
+        sum += __half2float(a[ai] * b[bi]);
       }
       c[i * n + j] = static_cast<half>(beta * static_cast<float>(c[i * n + j]) + sum);
     }
@@ -79,7 +79,7 @@ static void cpu_add_bias_and_re(__half* top, __half* middle, const __half* bias,
       __half t = top[i * n + j] + bias[j];
       middle[i * n + j] = t;
       if (is_relu)
-        top[i * n + j] = t < 0 ? __float2half(0.0f) : t;
+        top[i * n + j] = __half2float(t) < 0 ? __float2half(0.0f) : t;
       else
         top[i * n + j] = t;
     }
@@ -90,7 +90,8 @@ static void cpu_reverse_add_bias_and_re(__half* bias_grad, __half* dRelu, __half
                                         const __half* bprop_out, int m, int n, bool is_tail) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
-      if ((middle[i * n + j] <= 0 && is_tail) || (middle[i * n + j] < 0 && !is_tail)) {
+      if ((__half2float(middle[i * n + j]) <= 0 && is_tail) ||
+          (__half2float(middle[i * n + j]) < 0 && !is_tail)) {
         dRelu[i * n + j] = 0.0f;
       } else {
         dRelu[i * n + j] = bprop_out[i * n + j];
@@ -99,7 +100,7 @@ static void cpu_reverse_add_bias_and_re(__half* bias_grad, __half* dRelu, __half
   }
   for (int i = 0; i < n; ++i) {
     float sum = 0.0f;
-    for (int j = 0; j < m; ++j) sum += dRelu[j * n + i];
+    for (int j = 0; j < m; ++j) sum += __half2float(dRelu[j * n + i]);
     bias_grad[i] = sum;
   }
 }
@@ -130,11 +131,11 @@ static float compare_array(const __half* arr1, const __half* arr2, size_t n, flo
       HCTR_LOG(INFO, WORLD, "Nan or Inf Error\n");
       return INT_MAX;
     }
-    if (fabs(arr1[i] - arr2[i]) > threshold) {
-      if (arr2[i] == 0 && fabs(arr1[i]) > threshold) {
+    if (fabs(__half2float(arr1[i] - arr2[i])) > threshold) {
+      if (__half2float(arr2[i]) == 0 && fabs(__half2float(arr1[i])) > threshold) {
         HCTR_LOG(INFO, WORLD, "%ld, %f, %f\n", i, (float)arr1[i], (float)arr2[i]);
         m++;
-      } else if (fabs(arr1[i] - arr2[i]) / arr2[i] > threshold) {
+      } else if (fabs(__half2float(arr1[i] - arr2[i])) / __half2float(arr2[i]) > threshold) {
         HCTR_LOG(INFO, WORLD, "%ld, %f, %f\n", i, (float)arr1[i], (float)arr2[i]);
         m++;
       }
@@ -451,7 +452,7 @@ static void group_dense_layer_test(uint32_t* input_dims, uint32_t* output_dims, 
         for (uint32_t col = 0; col < output_dims[i]; col++) {
           float sum = 0.0;
           for (uint32_t row = 0; row < batch_size; row++) {
-            sum = sum + h_top_grad[i][row * output_dims[i] + col];
+            sum = sum + __half2float(h_top_grad[i][row * output_dims[i] + col]);
           }
           h_bias_grad[i][col] = sum;
         }

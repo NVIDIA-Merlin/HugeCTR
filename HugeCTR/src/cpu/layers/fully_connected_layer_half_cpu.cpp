@@ -29,7 +29,7 @@ void cpu_mm(__half* c, const __half* a, bool transpose_a, const __half* b, bool 
       for (int kk = 0; kk < k; ++kk) {
         int ai = transpose_a ? kk * m + i : i * k + kk;
         int bi = transpose_b ? j * k + kk : kk * n + j;
-        sum += a[ai] * b[bi];
+        sum += __half2float(a[ai] * b[bi]);
       }
       c[i * n + j] = sum;
     }
@@ -47,7 +47,7 @@ void cpu_add_bias(__half* top, const __half* bias, int m, int n) {
 void cpu_reverse_add_bias(__half* bias_grad, const __half* top, int m, int n) {
   for (int i = 0; i < n; ++i) {
     float sum = 0.0f;
-    for (int j = 0; j < m; ++j) sum += top[j * n + i];
+    for (int j = 0; j < m; ++j) sum += __half2float(top[j * n + i]);
     bias_grad[i] = sum;
   }
 }

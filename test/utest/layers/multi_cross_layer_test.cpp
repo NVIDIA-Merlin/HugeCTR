@@ -27,6 +27,16 @@
 using namespace HugeCTR;
 
 template <typename T>
+float cal_C(const T a, const float beta, const T b) {
+  return float(a * beta + b);
+}
+
+template <>
+float cal_C(const __half a, const float beta, const __half b) {
+  return __half2float(a) * beta + __half2float(b);
+}
+
+template <typename T>
 class MultiCrossLayerTest {
  private:
   const float eps = 1;
@@ -184,7 +194,7 @@ class MultiCrossLayerTest {
             // column of A is rowA
             acc = acc + (A[r * rowB + k] * B[c * rowB + k]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = cal_C(C[r * colB + c], beta, acc);
         }
       }
     } else if (transA) {
@@ -196,7 +206,7 @@ class MultiCrossLayerTest {
             // column of A is rowA
             acc = acc + (A[k * rowA + r] * B[k * colB + c]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = cal_C(C[r * colB + c], beta, acc);
         }
       }
     } else {
@@ -207,7 +217,7 @@ class MultiCrossLayerTest {
             // column of A is rowB
             acc = acc + (A[r * rowB + k] * B[k * colB + c]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = cal_C(C[r * colB + c], beta, acc);
         }
       }
     }

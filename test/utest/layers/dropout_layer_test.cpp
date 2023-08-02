@@ -72,7 +72,7 @@ void dropout_test(int64_t dim0, int64_t dim1, float rate) {
 
   int cnt_zero_fprop = 0;
   for (int i = 0; i < len; i++) {
-    if (std::abs(h_top[i] - 0.f) < eps) {
+    if (std::abs(__half2float(h_top[i]) - 0.f) < eps) {
       cnt_zero_fprop++;
     }
   }
@@ -91,7 +91,7 @@ void dropout_test(int64_t dim0, int64_t dim1, float rate) {
                     core23::DeviceType::CPU, bottom_tensor.device());
   int cnt_zero_bprop = 0;
   for (int i = 0; i < len; i++) {
-    if (std::abs(h_bottom[i] - 0.f) < eps) {
+    if (std::abs(__half2float(h_bottom[i]) - 0.f) < eps) {
       cnt_zero_bprop++;
     }
   }

@@ -46,6 +46,26 @@ __half get_eps(bool use_tf32) {
 }
 
 template <typename T>
+float get_accum(const T a, const T b) {
+  return float(a * b);
+}
+
+template <>
+float get_accum(const __half a, const __half b) {
+  return __half2float(a) * __half2float(b);
+}
+
+template <typename T>
+float get_sec_accum(const T a, const T b, const T c) {
+  return float((a + b) * c);
+}
+
+template <>
+float get_sec_accum(const __half a, const __half b, const __half c) {
+  return (__half2float(a) + __half2float(b)) * __half2float(c);
+}
+
+template <typename T>
 void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
                             bool enable_tf32_compute = false) {
   std::vector<core23::Tensor> bottom_tensors;
@@ -141,8 +161,8 @@ void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
       for (size_t n = 0; n < n_ins; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < in_width; k++) {
-          accum += h_concat[concat_stride + m * in_width + k] *
-                   h_concat[concat_stride + n * in_width + k];
+          accum += get_accum(h_concat[concat_stride + m * in_width + k],
+                             h_concat[concat_stride + n * in_width + k]);
         }
         h_matmul[mat_stride + m * n_ins + n] = accum;
       }
@@ -217,8 +237,9 @@ void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
       for (size_t n = 0; n < in_width; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < n_ins; k++) {
-          accum += (h_matmul[mat_stride + m * n_ins + k] + h_matmul[mat_stride + k * n_ins + m]) *
-                   h_concat_tmp[concat_stride + k * in_width + n];
+          accum += get_sec_accum(h_matmul[mat_stride + m * n_ins + k],
+                                 h_matmul[mat_stride + k * n_ins + m],
+                                 h_concat_tmp[concat_stride + k * in_width + n]);
         }
         h_concat[concat_stride + m * in_width + n] = 1.0f * accum;
       }

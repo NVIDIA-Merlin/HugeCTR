@@ -27,7 +27,8 @@ namespace {
 template <typename T>
 void elu_cpu(const T* in, T* out, int len, T alpha) {
   for (int i = 0; i < len; ++i) {
-    out[i] = (in[i] < 0) ? T(alpha * (exp(in[i]) - 1)) : in[i];
+    out[i] =
+        (__half2float(in[i]) < 0) ? T(__half2float(alpha) * (exp(__half2float(in[i])) - 1)) : in[i];
   }
 }
 

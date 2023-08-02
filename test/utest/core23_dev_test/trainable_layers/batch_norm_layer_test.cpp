@@ -158,7 +158,7 @@ void batch_norm_bprop_cpu<__half>(const float* gamma, const __half* out, __half*
     float var = 0.0f;
     for (int i = 0; i < batch_size; i++) {
       int idx = i * num_feature + j;
-      float diff = in[idx] - mean;
+      float diff = __half2float(in[idx]) - mean;
       var += (diff * diff);
     }
     var /= batch_size;
@@ -178,7 +178,7 @@ void batch_norm_bprop_cpu<__half>(const float* gamma, const __half* out, __half*
     for (int i = 0; i < batch_size; i++) {
       int idx = i * num_feature + j;
       val1 += (__half2float(out[idx]) * gamma[j]);
-      val2 += __half2float(in[idx] - mean);
+      val2 += __half2float(in[idx]) - mean;
     }
     val1 *= (-inv_std);
     val2 *= (d_var / batch_size) * -2;

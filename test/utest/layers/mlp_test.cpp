@@ -64,7 +64,7 @@ static void cpu_mm(T* c, const T* a, bool transpose_a, const T* b, bool transpos
       for (int kk = 0; kk < k; ++kk) {
         int ai = transpose_a ? kk * m + i : i * k + kk;
         int bi = transpose_b ? j * k + kk : kk * n + j;
-        sum += a[ai] * b[bi];
+        sum += __half2float(a[ai] * b[bi]);
       }
       c[i * n + j] = static_cast<half>(beta * static_cast<float>(c[i * n + j]) + sum);
     }
@@ -79,7 +79,7 @@ static void cpu_add_bias_and_re(T* top, T* middle, const T* bias, bool is_relu, 
       T t = top[i * n + j] + (use_bias ? bias[j] : T(0.0f));
       middle[i * n + j] = t;
       if (is_relu)
-        top[i * n + j] = t < 0 ? T(0.0f) : t;
+        top[i * n + j] = __half2float(t) < 0 ? T(0.0f) : t;
       else
         top[i * n + j] = t;
     }
@@ -91,7 +91,8 @@ static void cpu_reverse_add_bias_and_re(T* bias_grad, T* dRelu, T* middle, const
                                         int m, int n, bool is_tail, bool use_bias) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
-      if ((middle[i * n + j] <= 0 && is_tail) || (middle[i * n + j] < 0 && !is_tail)) {
+      if ((__half2float(middle[i * n + j]) <= 0 && is_tail) ||
+          (__half2float(middle[i * n + j]) < 0 && !is_tail)) {
         dRelu[i * n + j] = 0.0f;
       } else {
         dRelu[i * n + j] = bprop_out[i * n + j];
@@ -101,7 +102,7 @@ static void cpu_reverse_add_bias_and_re(T* bias_grad, T* dRelu, T* middle, const
   if (use_bias) {
     for (int i = 0; i < n; ++i) {
       float sum = 0.0f;
-      for (int j = 0; j < m; ++j) sum += dRelu[j * n + i];
+      for (int j = 0; j < m; ++j) sum += __half2float(dRelu[j * n + i]);
       bias_grad[i] = sum;
     }
   }
@@ -134,11 +135,11 @@ static float compare_array(const T* arr1, const T* arr2, size_t n, float thresho
       HCTR_LOG(INFO, WORLD, "Nan or Inf Error\n");
       return INT_MAX;
     }
-    if (fabs(arr1[i] - arr2[i]) > threshold) {
-      if (arr2[i] == 0 && fabs(arr1[i]) > threshold) {
+    if (fabs(__half2float(arr1[i] - arr2[i])) > threshold) {
+      if (__half2float(arr2[i]) == 0 && fabs(__half2float(arr1[i])) > threshold) {
         HCTR_LOG(INFO, WORLD, "%ld, %f, %f\n", i, (float)arr1[i], (float)arr2[i]);
         m++;
-      } else if (fabs(arr1[i] - arr2[i]) / arr2[i] > threshold) {
+      } else if (fabs(__half2float(arr1[i] - arr2[i])) / __half2float(arr2[i]) > threshold) {
         HCTR_LOG(INFO, WORLD, "%ld, %f, %f\n", i, (float)arr1[i], (float)arr2[i]);
         m++;
       }
@@ -465,7 +466,7 @@ static void mlp_test(std::vector<Layer_t> network, std::vector<std::vector<size_
           for (uint32_t col = 0; col < fc_out_dims[i]; col++) {
             float sum = 0.0;
             for (uint32_t row = 0; row < batch_size; row++) {
-              sum = sum + p.h_top_grad[i][row * fc_out_dims[i] + col];
+              sum = sum + __half2float(p.h_top_grad[i][row * fc_out_dims[i] + col]);
             }
             p.h_bias_grad[i][col] = sum;
           }

@@ -185,7 +185,7 @@ class MultiCrossLayerTest {
             // column of A is rowA
             acc = acc + (A[r * rowB + k] * B[c * rowB + k]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = __float2half(__half2float(C[r * colB + c]) * beta + __half2float(acc));
         }
       }
     } else if (transA) {
@@ -197,7 +197,7 @@ class MultiCrossLayerTest {
             // column of A is rowA
             acc = acc + (A[k * rowA + r] * B[k * colB + c]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = __float2half(__half2float(C[r * colB + c]) * beta + __half2float(acc));
         }
       }
     } else {
@@ -208,7 +208,7 @@ class MultiCrossLayerTest {
             // column of A is rowB
             acc = acc + (A[r * rowB + k] * B[k * colB + c]);
           }
-          C[r * colB + c] = C[r * colB + c] * beta + acc;
+          C[r * colB + c] = __float2half(__half2float(C[r * colB + c]) * beta + __half2float(acc));
         }
       }
     }

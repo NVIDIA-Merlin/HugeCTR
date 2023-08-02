@@ -53,7 +53,7 @@ void normal_sync_cpu(T* data, int64_t num_elements, const float mean, const floa
 
 template <typename T>
 T abs(const T& val) {
-  return val > T(0) ? val : -val;
+  return val > T(0.0) ? val : -val;
 }
 
 template <typename T>
@@ -67,6 +67,24 @@ template <typename T>
       // std::cout
       return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
                                            << " at idx " << i << std::endl;
+    }
+  }
+  return ::testing::AssertionSuccess();
+}
+
+template <typename T>
+::testing::AssertionResult compare_array_approx(const __half* h_out, const __half* h_exp, int len,
+                                                __half eps) {
+  for (int i = 0; i < len; ++i) {
+    auto output = h_out[i];
+    auto expected = h_exp[i];
+    T diff = abs(output - expected);
+    if (diff > eps) {
+      // if (diff > eps && i < 128 * 10) {
+      // std::cout
+      return ::testing::AssertionFailure()
+             << "output: " << __half2float(output) << " != expected: " << __half2float(expected)
+             << " at idx " << i << std::endl;
     }
   }
   return ::testing::AssertionSuccess();
@@ -118,6 +136,23 @@ template <typename T>
   return ::testing::AssertionSuccess();
 }
 
+template <typename T>
+::testing::AssertionResult compare_array_approx_rel(const __half* h_out, const __half* h_exp,
+                                                    int len, __half max_rel_err,
+                                                    __half max_abs_err) {
+  for (int i = 0; i < len; ++i) {
+    auto output = h_out[i];
+    auto expected = h_exp[i];
+    T abs_err = abs(output - expected);
+    T rel_err = abs_err / expected;
+    if (abs_err > max_abs_err && rel_err > max_rel_err) {
+      return ::testing::AssertionFailure()
+             << "output: " << (float)output << " != expected: " << (float)expected << " at idx "
+             << i;
+    }
+  }
+  return ::testing::AssertionSuccess();
+}
 __forceinline__ bool cpu_gpu_cmp(float* cpu_p, float* gpu_p, int len) {
   float* gpu_tmp = (float*)malloc(sizeof(float) * len);
   cudaMemcpy(gpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost);

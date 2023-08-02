@@ -56,6 +56,25 @@ void elu_bprop_cpu(const T* d_out, T* d_in, int len, T alpha) {
   }
 }
 
+template <>
+void elu_cpu(const __half* in, __half* out, int len, __half alpha) {
+  for (int i = 0; i < len; ++i) {
+    out[i] = (__half2float(in[i]) < 0)
+                 ? __half(__half2float(alpha) * (exp(__half2float(in[i])) - 1))
+                 : in[i];
+  }
+}
+
+template <>
+void elu_bprop_cpu(const __half* d_out, __half* d_in, int len, __half alpha) {
+  for (int i = 0; i < len; ++i) {
+    d_in[i] =
+        (__half2float(d_in[i]) < 0)
+            ? __half(__half2float(alpha) * exp(__half2float(d_in[i])) * __half2float(d_out[i]))
+            : d_out[i];
+  }
+}
+
 template <typename T>
 void elu_test(int64_t dim0, int64_t dim1, T alpha) {
   constexpr bool use_mixed_precision = std::is_same_v<T, __half>;

@@ -108,8 +108,8 @@ void fm_order2_bprop_cpu(const __half* in, const __half* top_grad, __half* dgrad
       }
       for (int k = 0; k < slot_num; k++) {
         int index = offset + k * emb_vec_size;
-        dgrad[index] =
-            __float2half(__half2float(top_grad[i * emb_vec_size + j]) * (sum - in[index]));
+        dgrad[index] = __float2half(__half2float(top_grad[i * emb_vec_size + j]) *
+                                    (sum - __half2float(in[index])));
       }
     }
   }

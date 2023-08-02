@@ -46,7 +46,7 @@ struct Eps<__half> {
 template <typename T>
 void f2i_input(T* input, size_t in_size, size_t max_sequence_len) {
   for (size_t i = 0; i < in_size; i++) {
-    input[i] = abs(floor(input[i] * max_sequence_len));
+    input[i] = abs(floor(__half2float(input[i]) * max_sequence_len));
   }
 }
 

@@ -49,7 +49,7 @@ void add_cpu(Vector input, T *output, size_t size, size_t num) {
   for (auto i = 0; i < size; i++) {
     float tmp = 0.f;
     for (size_t j = 0; j < num; j++) {
-      tmp += input[j][i];
+      tmp += (float)input[j][i];
     }
     output[i] = tmp;
   }
