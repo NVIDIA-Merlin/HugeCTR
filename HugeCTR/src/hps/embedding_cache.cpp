@@ -368,10 +368,18 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
         workspace_handler.h_unique_length_[table_id], workspace_handler.d_hit_emb_vec_[table_id],
         workspace_handler.d_missing_index_[table_id],
         static_cast<TypeHashKey*>(workspace_handler.d_missing_embeddingcolumns_[table_id]),
-        workspace_handler.d_missing_length_ + table_id, stream, task_per_warp_tile);
+        workspace_handler.d_missing_length_ + table_id, stream, task_per_warp_tile,
+        workspace_handler.d_hit_length_ + table_id, workspace_handler.d_hit_index_[table_id],
+        static_cast<TypeHashKey*>(workspace_handler.d_hit_embeddingcolumns_[table_id]));
+
+    HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_hit_length_ + table_id,
+                                   workspace_handler.d_hit_length_ + table_id, sizeof(size_t),
+                                   cudaMemcpyDeviceToHost, stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_missing_length_ + table_id,
                                    workspace_handler.d_missing_length_ + table_id, sizeof(size_t),
                                    cudaMemcpyDeviceToHost, stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     // Set async flag
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     ec_profiler_->end(start, "Native Embedding Cache Query API");
@@ -603,6 +611,12 @@ EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
                      cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey)));
       workspace_handler.d_missing_embeddingcolumns_.push_back(d_missing_embeddingcolumns);
 
+      void* d_hit_embeddingcolumns;
+      HCTR_LIB_THROW(
+          cudaMalloc(&d_hit_embeddingcolumns,
+                     cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey)));
+      workspace_handler.d_hit_embeddingcolumns_.push_back(d_hit_embeddingcolumns);
+
       void* h_missing_embeddingcolumns;
       HCTR_LIB_THROW(
           cudaHostAlloc(&h_missing_embeddingcolumns,
@@ -614,6 +628,11 @@ EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
       HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_missing_index),
                                 cache_config_.max_query_len_per_emb_table_[i] * sizeof(uint64_t)));
       workspace_handler.d_missing_index_.push_back(d_missing_index);
+
+      uint64_t* d_hit_index;
+      HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_hit_index),
+                                cache_config_.max_query_len_per_emb_table_[i] * sizeof(uint64_t)));
+      workspace_handler.d_hit_index_.push_back(d_hit_index);
 
       float* d_missing_emb_vec;
       HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_missing_emb_vec),
@@ -627,7 +646,12 @@ EmbeddingCacheWorkspace EmbeddingCache<TypeHashKey>::create_workspace() {
     }
     HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&workspace_handler.d_missing_length_),
                               cache_config_.num_emb_table_ * sizeof(size_t)));
+    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&workspace_handler.d_hit_length_),
+                              cache_config_.num_emb_table_ * sizeof(size_t)));
     HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&workspace_handler.h_missing_length_),
+                                 cache_config_.num_emb_table_ * sizeof(size_t),
+                                 cudaHostAllocPortable));
+    HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&workspace_handler.h_hit_length_),
                                  cache_config_.num_emb_table_ * sizeof(size_t),
                                  cudaHostAllocPortable));
     HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&workspace_handler.d_unique_length_),
@@ -675,10 +699,14 @@ void EmbeddingCache<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& wor
       workspace_handler.d_hit_emb_vec_[i] = nullptr;
       HCTR_LIB_THROW(cudaFree(workspace_handler.d_missing_embeddingcolumns_[i]));
       workspace_handler.d_missing_embeddingcolumns_[i] = nullptr;
+      HCTR_LIB_THROW(cudaFree(workspace_handler.d_hit_embeddingcolumns_[i]));
+      workspace_handler.d_hit_embeddingcolumns_[i] = nullptr;
       HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_missing_embeddingcolumns_[i]));
       workspace_handler.h_missing_embeddingcolumns_[i] = nullptr;
       HCTR_LIB_THROW(cudaFree(workspace_handler.d_missing_index_[i]));
       workspace_handler.d_missing_index_[i] = nullptr;
+      HCTR_LIB_THROW(cudaFree(workspace_handler.d_hit_index_[i]));
+      workspace_handler.d_hit_index_[i] = nullptr;
       HCTR_LIB_THROW(cudaFree(workspace_handler.d_missing_emb_vec_[i]));
       workspace_handler.d_missing_emb_vec_[i] = nullptr;
       delete static_cast<UniqueOp*>(workspace_handler.unique_op_obj_[i]);
@@ -690,8 +718,12 @@ void EmbeddingCache<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& wor
     workspace_handler.h_unique_length_ = nullptr;
     HCTR_LIB_THROW(cudaFree(workspace_handler.d_missing_length_));
     workspace_handler.d_missing_length_ = nullptr;
+    HCTR_LIB_THROW(cudaFree(workspace_handler.d_hit_length_));
+    workspace_handler.d_hit_length_ = nullptr;
     HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_missing_length_));
     workspace_handler.h_missing_length_ = nullptr;
+    HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_hit_length_));
+    workspace_handler.h_hit_length_ = nullptr;
     HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_hit_rate_));
     workspace_handler.h_hit_rate_ = nullptr;
   }

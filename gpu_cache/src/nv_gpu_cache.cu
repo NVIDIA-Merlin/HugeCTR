@@ -246,7 +246,8 @@ template <typename key_type, typename ref_counter_type, typename atomic_ref_coun
           key_type empty_key, int set_associativity, int warp_size>
 __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_values,
                            const size_t embedding_vec_size, uint64_t* d_missing_index,
-                           key_type* d_missing_keys, size_t* d_missing_len,
+                           key_type* d_missing_keys, uint64_t* d_hit_index, key_type* d_hit_keys,
+                           size_t* d_missing_len, size_t* d_hit_len,
                            const atomic_ref_counter_type* global_counter,
                            ref_counter_type* slot_counter, const size_t capacity_in_set,
                            const slabset* keys, const float* vals, mutex* set_mutex,
@@ -267,10 +268,16 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   size_t src_slab;
   // The variable that contains the missing key
   key_type missing_key;
-  // The variable that contains the index for the missing key
-  uint64_t missing_index;
+  // The variable that contains the hit key
+  key_type hit_key;
+  // The variable that contains the index for the hit key
+  size_t hit_index
+      // The variable that contains the index for the missing key
+      uint64_t missing_index;
   // The counter for counting the missing key in this warp
   uint8_t warp_missing_counter = 0;
+  // The counter for counting the hit key in this warp
+  uint8_t warp_hit_counter = 0;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
   if (lane_idx < task_per_warp_tile) {
@@ -336,7 +343,11 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
           slot_counter[found_offset] = global_counter->load(cuda::std::memory_order_relaxed);
           active = false;
         }
-
+        if (lane_idx == warp_hit_counter) {
+          hit_key = next_key;
+          hit_index = next_idx;
+        }
+        warp_hit_counter++;
         warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
                                   d_values + next_idx * embedding_vec_size,
                                   vals + found_offset * embedding_vec_size);
@@ -374,14 +385,21 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // After warp_tile complete the working queue, save the result for output
   // First thread of the warp_tile accumulate the missing length to global variable
   size_t warp_position;
+  size_t warp_hit_position;
   if (lane_idx == 0) {
     warp_position = atomicAdd(d_missing_len, (size_t)warp_missing_counter);
+    warp_hit_position = atomicAdd(d_hit_len, (size_t)warp_hit_counter);
   }
   warp_position = warp_tile.shfl(warp_position, 0);
-
   if (lane_idx < warp_missing_counter) {
     d_missing_keys[warp_position + lane_idx] = missing_key;
     d_missing_index[warp_position + lane_idx] = missing_index;
+  }
+
+  warp_hit_position = warp_tile.shfl(warp_hit_position, 0);
+  if (lane_idx < warp_hit_counter) {
+    d_hit_keys[warp_hit_position + lane_idx] = hit_key;
+    d_hit_index[warp_hit_position + lane_idx] = hit_index;
   }
 }
 #else
@@ -391,7 +409,8 @@ template <typename key_type, typename ref_counter_type, typename slabset, typena
           typename slab_hasher, key_type empty_key, int set_associativity, int warp_size>
 __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_values,
                            const size_t embedding_vec_size, uint64_t* d_missing_index,
-                           key_type* d_missing_keys, size_t* d_missing_len,
+                           key_type* d_missing_keys, uint64_t* d_hit_index, key_type* d_hit_keys,
+                           size_t* d_missing_len, size_t* d_hit_len,
                            ref_counter_type* global_counter,
                            volatile ref_counter_type* slot_counter, const size_t capacity_in_set,
                            volatile slabset* keys, volatile float* vals, volatile int* set_mutex,
@@ -412,10 +431,17 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   size_t src_slab;
   // The variable that contains the missing key
   key_type missing_key;
+  // The variable that contains the hit key
+  key_type hit_key;
+  // The variable that contains the index for the hit key
+  size_t hit_index;
   // The variable that contains the index for the missing key
   uint64_t missing_index;
-  // The counter for counting the missing key in this warp
+  // The counter for counting the missing key in this warp and each thread records the same value in
+  // a warp
   uint8_t warp_missing_counter = 0;
+  // The counter for counting the hit key in this warp
+  uint8_t warp_hit_counter = 0;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
   if (lane_idx < task_per_warp_tile) {
@@ -454,6 +480,7 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
       // When all the slabs inside a slabset have been searched, mark missing task, task is
       // completed
       if (counter >= set_associativity) {
+        // Missing keys and index are guaranteed to match lane_idx
         if (lane_idx == warp_missing_counter) {
           missing_key = next_key;
           missing_index = next_idx;
@@ -481,7 +508,11 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
           slot_counter[found_offset] = atomicAdd(global_counter, 0);
           active = false;
         }
-
+        if (lane_idx == warp_hit_counter) {
+          hit_key = next_key;
+          hit_index = next_idx;
+        }
+        warp_hit_counter++;
         warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
                                   (volatile float*)(d_values + next_idx * embedding_vec_size),
                                   (volatile float*)(vals + found_offset * embedding_vec_size));
@@ -491,7 +522,8 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
       }
 
       // Compare the slab data with empty key, if found empty key, mark missing task, task is
-      // completed
+      // completed *Because the empty positions are found in slabset, it means that the set has been
+      // retrieved for this missing key
       if (warp_tile.ballot(read_key == empty_key) != 0) {
         if (lane_idx == warp_missing_counter) {
           missing_key = next_key;
@@ -519,14 +551,22 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // After warp_tile complete the working queue, save the result for output
   // First thread of the warp_tile accumulate the missing length to global variable
   size_t warp_position;
+  size_t warp_hit_position;
   if (lane_idx == 0) {
     warp_position = atomicAdd(d_missing_len, (size_t)warp_missing_counter);
   }
   warp_position = warp_tile.shfl(warp_position, 0);
-
   if (lane_idx < warp_missing_counter) {
     d_missing_keys[warp_position + lane_idx] = missing_key;
     d_missing_index[warp_position + lane_idx] = missing_index;
+  }
+  if (lane_idx == 0) {
+    warp_hit_position = atomicAdd(d_hit_len, (size_t)warp_hit_counter);
+  }
+  warp_hit_position = warp_tile.shfl(warp_hit_position, 0);
+  if (lane_idx < warp_hit_counter) {
+    d_hit_keys[warp_hit_position + lane_idx] = hit_key;
+    d_hit_index[warp_hit_position + lane_idx] = hit_index;
   }
 }
 #endif
@@ -1378,7 +1418,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
                slab_hasher>::Query(const key_type* d_keys, const size_t len, float* d_values,
                                    uint64_t* d_missing_index, key_type* d_missing_keys,
                                    size_t* d_missing_len, cudaStream_t stream,
-                                   const size_t task_per_warp_tile) {
+                                   const size_t task_per_warp_tile, size_t* d_hit_len,
+                                   uint64_t* d_hit_index, key_type* d_hit_keys) {
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
   // Check device
@@ -1388,6 +1429,7 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
   if (len == 0) {
     // Set the d_missing_len to 0 before return
     CUDA_CHECK(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_hit_len, 0, sizeof(size_t), stream));
     return;
   }
 
@@ -1402,9 +1444,9 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
   const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   get_kernel<key_type, ref_counter_type, atomic_ref_counter_type, slabset, set_hasher, slab_hasher,
              mutex, empty_key, set_associativity, warp_size><<<grid_size, BLOCK_SIZE_, 0, stream>>>(
-      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_missing_keys, d_missing_len,
-      global_counter_, slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_,
-      task_per_warp_tile);
+      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_hit_index, d_hit_keys,
+      d_missing_keys, d_missing_len, d_hit_len, global_counter_, slot_counter_, capacity_in_set_,
+      keys_, vals_, set_mutex_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
@@ -1416,7 +1458,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
                slab_hasher>::Query(const key_type* d_keys, const size_t len, float* d_values,
                                    uint64_t* d_missing_index, key_type* d_missing_keys,
                                    size_t* d_missing_len, cudaStream_t stream,
-                                   const size_t task_per_warp_tile) {
+                                   const size_t task_per_warp_tile, size_t* d_hit_len,
+                                   uint64_t* d_hit_index, key_type* d_hit_keys) {
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
   // Check device
@@ -1426,6 +1469,7 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
   if (len == 0) {
     // Set the d_missing_len to 0 before return
     CUDA_CHECK(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_hit_len, 0, sizeof(size_t), stream));
     return;
   }
 
@@ -1440,9 +1484,9 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
   const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   get_kernel<key_type, ref_counter_type, slabset, set_hasher, slab_hasher, empty_key,
              set_associativity, warp_size><<<grid_size, BLOCK_SIZE_, 0, stream>>>(
-      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_missing_keys, d_missing_len,
-      global_counter_, slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_,
-      task_per_warp_tile);
+      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_missing_keys, d_hit_index,
+      d_hit_keys, d_missing_len, d_hit_len, global_counter_, slot_counter_, capacity_in_set_, keys_,
+      vals_, set_mutex_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());

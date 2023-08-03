@@ -32,7 +32,9 @@ class gpu_cache_api {
   virtual void Query(const key_type* d_keys, const size_t len, float* d_values,
                      uint64_t* d_missing_index, key_type* d_missing_keys, size_t* d_missing_len,
                      cudaStream_t stream,
-                     const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO) = 0;
+                     const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO,
+                     size_t* d_hit_len = nullptr, uint64_t* d_hit_index = nullptr,
+                     key_type* d_hit_keys = nullptr) = 0;
 
   // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
   virtual void Replace(const key_type* d_keys, const size_t len, const float* d_values,

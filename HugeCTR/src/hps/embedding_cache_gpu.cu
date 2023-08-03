@@ -69,7 +69,9 @@ template <typename key_type>
 void EmbeddingCacheWrapper<key_type>::Query(const key_type* d_keys, const size_t len,
                                             float* d_values, uint64_t* d_missing_index,
                                             key_type* d_missing_keys, size_t* d_missing_len,
-                                            cudaStream_t stream, const size_t task_per_warp_tile) {
+                                            cudaStream_t stream, const size_t task_per_warp_tile,
+                                            size_t* d_hit_len, uint64_t* d_hit_index,
+                                            key_type* d_hit_keys) {
   ReadLock l(read_write_lock_);
   auto hLookup = GetLookupData(stream);
   // call cache Query

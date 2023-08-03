@@ -39,7 +39,8 @@ class EmbeddingCacheWrapper : public gpu_cache::gpu_cache_api<key_type> {
   // Query API, i.e. A single read from the cache
   void Query(const key_type* d_keys, const size_t len, float* d_values, uint64_t* d_missing_index,
              key_type* d_missing_keys, size_t* d_missing_len, cudaStream_t stream,
-             const size_t task_per_warp_tile = 1) override;
+             const size_t task_per_warp_tile = 1, size_t* d_hit_len = nullptr,
+             uint64_t* d_hit_index = nullptr, key_type* d_hit_keys = nullptr) override;
 
   // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
   void Replace(const key_type* d_keys, const size_t len, const float* d_values, cudaStream_t stream,

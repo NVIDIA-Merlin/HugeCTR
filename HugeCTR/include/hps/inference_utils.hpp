@@ -417,10 +417,14 @@ struct EmbeddingCacheWorkspace {
   std::vector<void*>
       d_missing_embeddingcolumns_;  // The buffer to hold missing emb_id for each emb_table on
                                     // device, same size as h_embeddingcolumns
+  std::vector<void*> d_hit_embeddingcolumns_;  // The buffer to hold hit emb_id for each emb_table
+                                               // on device, same size as h_embeddingcolumns
   std::vector<void*>
       h_missing_embeddingcolumns_;  // The buffer to hold missing emb_id for each emb_table on
                                     // host, same size as h_embeddingcolumns
   std::vector<uint64_t*> d_missing_index_;  // The buffer to hold missing index for each emb_table
+                                            // on device, same size as h_embeddingcolumns
+  std::vector<uint64_t*> d_hit_index_;      // The buffer to hold missing index for each emb_table
                                             // on device, same size as h_embeddingcolumns
   std::vector<float*> d_missing_emb_vec_;   // The buffer to hold retrieved missing emb_vec on
                                             // device, same size as d_shuffled_embeddingoutputvector
@@ -428,7 +432,11 @@ struct EmbeddingCacheWorkspace {
                                       // each emb_table, size = # of emb_table
   size_t* d_missing_length_;  // The buffer to hold missing length for each emb_table on device,
                               // size = # of emb_table
+  size_t* d_hit_length_;      // The buffer to hold hit length for each emb_table on device,
+                              // size = # of emb_table
   size_t* h_missing_length_;  // The buffer to hold missing length for each emb_table on host, size
+                              // = # of emb_table
+  size_t* h_hit_length_;      // The buffer to hold missing length for each emb_table on host, size
                               // = # of emb_table
   size_t* d_unique_length_;   // The # of emb_id after the unique operation for each emb_table on
                               // device, size = # of emb_table
