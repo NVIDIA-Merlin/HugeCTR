@@ -124,7 +124,7 @@ class OptimizerWrapperV1(object):
                      tmp_initializer = var.initializer_str
                      slot = DynamicVariable(
                         dimension=var.dimension,
-                        initializer=tmp_initializer,
+                        initializer=self._initial_vals[slot_name],
                         var_type=var.backend_type,
                         name="DynamicSlot",
                         trainable=False,
@@ -168,9 +168,10 @@ class OptimizerWrapperV1(object):
                         else:
                              tmp_config = v.config_dict
                              tmp_initializer = v.initializer_str
+                             print("kanghui before optimizer apply sate")
                              slot = DynamicVariable(
                                 dimension=v.dimension,
-                                initializer=tmp_initializer,
+                                initializer=self._initial_vals[slot_name],
                                 var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
@@ -261,7 +262,7 @@ class OptimizerWrapperV2(object):
                     tmp_initializer = var.initializer_str
                     slot = DynamicVariable(
                        dimension=var.dimension,
-                       initializer=tmp_initializer,
+                       initializer=self._initial_vals[slot_name],
                        var_type=var.backend_type,
                        name="DynamicSlot",
                        trainable=False,
@@ -315,7 +316,7 @@ class OptimizerWrapperV2(object):
                              tmp_initializer = v.initializer_str
                              slot = DynamicVariable(
                                 dimension=v.dimension,
-                                initializer=tmp_initializer,
+                                initializer=self._initial_vals[slot_name],
                                 var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
