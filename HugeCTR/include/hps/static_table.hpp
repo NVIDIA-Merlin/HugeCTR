@@ -44,6 +44,10 @@ class StaticTable : public EmbeddingCacheBase,
   virtual void lookup_from_device(size_t table_id, float* d_vectors, const void* d_keys,
                                   size_t num_keys, float hit_rate_threshold,
                                   cudaStream_t stream) override;
+  virtual void lookup_from_native_cache(size_t table_id, const void* h_keys, size_t num_keys,
+                                        void* h_hit_keys, void* h_missing_keys,
+                                        float* h_hit_vectors, size_t hit_key_num,
+                                        size_t miss_key_num, cudaStream_t stream) override;
   virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refreshspace_handler,
                     cudaStream_t stream) override;
   virtual void init(const size_t table_id, void* h_refresh_embeddingcolumns_,

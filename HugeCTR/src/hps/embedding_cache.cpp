@@ -330,6 +330,69 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
 }
 
 template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::lookup_from_native_cache(
+    size_t table_id, const void* h_keys, size_t num_keys, void* h_hit_keys, void* h_missing_keys,
+    float* h_hit_vectors, size_t hit_key_num, size_t miss_key_num, cudaStream_t stream) {
+  MemoryBlock* memory_block = nullptr;
+  BaseUnit* start = profiler::start();
+  while (memory_block == nullptr) {
+    memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
+        cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
+  }
+  ec_profiler_->end(
+      start, "Apply for workspace from the memory pool for Embedding Cache Lookup_from_device");
+  EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
+  CudaDeviceContext dev_restorer;
+  dev_restorer.check_device(cache_config_.cuda_dev_id_);
+  HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], h_keys,
+                                 num_keys * sizeof(TypeHashKey), cudaMemcpyHostToDevice, stream));
+  // Unique
+  static_cast<UniqueOp*>(workspace_handler.unique_op_obj_[table_id])
+      ->unique(
+          static_cast<TypeHashKey*>(workspace_handler.d_embeddingcolumns_[table_id]), num_keys,
+          workspace_handler.d_unique_output_index_[table_id],
+          static_cast<TypeHashKey*>(workspace_handler.d_unique_output_embeddingcolumns_[table_id]),
+          workspace_handler.d_unique_length_ + table_id, stream);
+  HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_unique_length_ + table_id,
+                                 workspace_handler.d_unique_length_ + table_id, sizeof(size_t),
+                                 cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  ec_profiler_->end(start, "Deduplicate the input embedding key for Embedding Cache");
+
+  // Query
+  const size_t query_length = workspace_handler.h_unique_length_[table_id];
+  const size_t task_per_warp_tile = (query_length < 1000000) ? 1 : 32;
+  start = profiler::start();
+  gpu_emb_caches_[table_id]->Query(
+      static_cast<TypeHashKey*>(workspace_handler.d_unique_output_embeddingcolumns_[table_id]),
+      workspace_handler.h_unique_length_[table_id], workspace_handler.d_hit_emb_vec_[table_id],
+      workspace_handler.d_missing_index_[table_id],
+      static_cast<TypeHashKey*>(workspace_handler.d_missing_embeddingcolumns_[table_id]),
+      workspace_handler.d_missing_length_ + table_id, stream, task_per_warp_tile,
+      workspace_handler.d_hit_length_ + table_id, workspace_handler.d_hit_index_[table_id],
+      static_cast<TypeHashKey*>(workspace_handler.d_hit_embeddingcolumns_[table_id]));
+
+  HCTR_LIB_THROW(cudaMemcpyAsync(&hit_key_num, workspace_handler.d_hit_length_ + table_id,
+                                 sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(&miss_key_num, workspace_handler.d_missing_length_ + table_id,
+                                 sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_hit_vectors, workspace_handler.d_hit_emb_vec_[table_id],
+                                 sizeof(float) * *(workspace_handler.h_hit_length_ + table_id) *
+                                     cache_config_.embedding_vec_size_[table_id],
+                                 cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(
+      cudaMemcpyAsync(h_hit_keys, workspace_handler.d_hit_embeddingcolumns_[table_id],
+                      *(workspace_handler.h_hit_length_ + table_id) * sizeof(TypeHashKey),
+                      cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(
+      cudaMemcpyAsync(h_missing_keys, workspace_handler.d_missing_embeddingcolumns_[table_id],
+                      *(workspace_handler.h_hit_length_ + table_id) * sizeof(TypeHashKey),
+                      cudaMemcpyDeviceToHost, stream));
+  // Set async flag
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+}
+
+template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, float* const d_vectors,
                                                      MemoryBlock* memory_block,
                                                      size_t const num_keys,

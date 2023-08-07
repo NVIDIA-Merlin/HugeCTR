@@ -328,6 +328,46 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
                            << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
 }
 
+void LookupSession::lookup_from_native_cache(const std::vector<const void*>& h_keys_per_table,
+                                             const std::vector<size_t>& num_keys_per_table,
+                                             const std::vector<void*>& h_hit_keys_per_table,
+                                             const std::vector<void*>& h_missing_keys_per_table,
+                                             const std::vector<float*>& h_hit_vectors_per_table,
+                                             const std::vector<size_t>& hit_key_num_per_table,
+                                             const std::vector<size_t>& miss_key_num_per_table) {
+  size_t original_num_tables = inference_params_.sparse_model_files.size();
+  HCTR_CHECK_HINT(h_keys_per_table.size() == original_num_tables,
+                  "The h_keys_per_table.size() should be equal to the number of embedding tables");
+  HCTR_CHECK_HINT(
+      h_hit_keys_per_table.size() == original_num_tables,
+      "The d_vectors_per_table.size() should be equal to the number of embedding tables");
+
+  const auto begin = std::chrono::high_resolution_clock::now();
+  BaseUnit* start = profiler::start();
+
+  for (size_t table_id{0}; table_id < original_num_tables; ++table_id) {
+    if (inference_params_.use_gpu_embedding_cache) {
+      CudaDeviceContext dev_restorer;
+      dev_restorer.set_device(inference_params_.device_id);
+      embedding_cache_->lookup_from_native_cache(
+          table_id, h_keys_per_table[table_id], num_keys_per_table[table_id],
+          h_hit_keys_per_table[table_id], h_missing_keys_per_table[table_id],
+          h_hit_vectors_per_table[table_id], hit_key_num_per_table[table_id],
+          miss_key_num_per_table[table_id], lookup_streams_[table_id]);
+      HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+    }
+    for (auto stream : lookup_streams_) {
+      if (inference_params_.use_gpu_embedding_cache) {
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      }
+    }
+    ls_profiler_->end(start, "End-to-end lookup embedding keys from multi-table Lookup session");
+    const auto latency = std::chrono::high_resolution_clock::now() - begin;
+    HCTR_LOG_S(TRACE, WORLD) << "Lookup multiple tables;"
+                             << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
+  }
+}
+
 void LookupSession::lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
                                        size_t table_id, cudaStream_t stream) {
   if (inference_params_.fuse_embedding_table) {

@@ -52,6 +52,14 @@ class LookupSession : public LookupSessionBase {
   virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                   const std::vector<float*>& d_vectors_per_table,
                                   const std::vector<size_t>& num_keys_per_table) override final;
+  virtual void lookup_from_native_cache(
+      const std::vector<const void*>& h_keys_per_table,
+      const std::vector<size_t>& num_keys_per_table, const std::vector<void*>& h_hit_keys_per_table,
+      const std::vector<void*>& h_missing_keys_per_table,
+      const std::vector<float*>& h_hit_vectors_per_table,
+      const std::vector<size_t>& hit_key_num_per_table,
+      const std::vector<size_t>& miss_key_num_per_table) override final;
+  ;
 
   virtual const InferenceParams get_inference_params() const override { return inference_params_; }
   virtual void set_profiler(int iteration, int warmup, bool enable_bench) {

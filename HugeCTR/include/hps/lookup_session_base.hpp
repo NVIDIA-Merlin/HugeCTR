@@ -50,6 +50,13 @@ class LookupSessionBase {
   virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
                                   const std::vector<float*>& d_vectors_per_table,
                                   const std::vector<size_t>& num_keys_per_table) = 0;
+  virtual void lookup_from_native_cache(const std::vector<const void*>& h_keys_per_table,
+                                        const std::vector<size_t>& num_keys_per_table,
+                                        const std::vector<void*>& h_hit_keys_per_table,
+                                        const std::vector<void*>& h_missing_keys_per_table,
+                                        const std::vector<float*>& h_hit_vectors_per_table,
+                                        const std::vector<size_t>& hit_key_num_per_table,
+                                        const std::vector<size_t>& miss_key_num_per_table) = 0;
   virtual const InferenceParams get_inference_params() const = 0;
 
   static std::shared_ptr<LookupSessionBase> create(
