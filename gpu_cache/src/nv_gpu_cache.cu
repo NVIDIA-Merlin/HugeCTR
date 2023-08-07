@@ -271,9 +271,10 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // The variable that contains the hit key
   key_type hit_key;
   // The variable that contains the index for the hit key
-  size_t hit_index
-      // The variable that contains the index for the missing key
-      uint64_t missing_index;
+  size_t hit_index;
+  int hit_slab_index;
+  // The variable that contains the index for the missing key
+  uint64_t missing_index;
   // The counter for counting the missing key in this warp
   uint8_t warp_missing_counter = 0;
   // The counter for counting the hit key in this warp
@@ -346,11 +347,12 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
         if (lane_idx == warp_hit_counter) {
           hit_key = next_key;
           hit_index = next_idx;
+          hit_slab_index = found_lane;
         }
         warp_hit_counter++;
-        warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
+        /* warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
                                   d_values + next_idx * embedding_vec_size,
-                                  vals + found_offset * embedding_vec_size);
+                                  vals + found_offset * embedding_vec_size); */
 
         active_mask = warp_tile.ballot(active);
         break;
@@ -386,6 +388,7 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // First thread of the warp_tile accumulate the missing length to global variable
   size_t warp_position;
   size_t warp_hit_position;
+  int slab_position = -1;
   if (lane_idx == 0) {
     warp_position = atomicAdd(d_missing_len, (size_t)warp_missing_counter);
     warp_hit_position = atomicAdd(d_hit_len, (size_t)warp_hit_counter);
@@ -395,11 +398,17 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
     d_missing_keys[warp_position + lane_idx] = missing_key;
     d_missing_index[warp_position + lane_idx] = missing_index;
   }
-
   warp_hit_position = warp_tile.shfl(warp_hit_position, 0);
+  slab_position = warp_tile.shfl(hit_slab_index, lane_idx);
   if (lane_idx < warp_hit_counter) {
     d_hit_keys[warp_hit_position + lane_idx] = hit_key;
     d_hit_index[warp_hit_position + lane_idx] = hit_index;
+    float* dst = (float*)(d_values + (warp_hit_position + lane_idx) * embedding_vec_size);
+    float* src = (float*)(vals + slab_position * embedding_vec_size);
+#pragma unroll
+    for (size_t i = lane_idx; i < embedding_vec_size; i += warp_hit_counter) {
+      dst[i] = src[i];
+    }
   }
 }
 #else
@@ -436,12 +445,13 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // The variable that contains the index for the hit key
   size_t hit_index;
   // The variable that contains the index for the missing key
+  int hit_slab_index;
   uint64_t missing_index;
   // The counter for counting the missing key in this warp and each thread records the same value in
   // a warp
   uint8_t warp_missing_counter = 0;
   // The counter for counting the hit key in this warp
-  uint8_t warp_hit_counter = 0;
+  int warp_hit_counter = 0;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
   if (lane_idx < task_per_warp_tile) {
@@ -511,11 +521,12 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
         if (lane_idx == warp_hit_counter) {
           hit_key = next_key;
           hit_index = next_idx;
+          hit_slab_index = found_offset;
         }
         warp_hit_counter++;
-        warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
+        /* warp_tile_copy<warp_size>(lane_idx, embedding_vec_size,
                                   (volatile float*)(d_values + next_idx * embedding_vec_size),
-                                  (volatile float*)(vals + found_offset * embedding_vec_size));
+                                  (volatile float*)(vals + found_offset * embedding_vec_size)); */
 
         active_mask = warp_tile.ballot(active);
         break;
@@ -552,21 +563,27 @@ __global__ void get_kernel(const key_type* d_keys, const size_t len, float* d_va
   // First thread of the warp_tile accumulate the missing length to global variable
   size_t warp_position;
   size_t warp_hit_position;
+  int slab_position = -1;
   if (lane_idx == 0) {
     warp_position = atomicAdd(d_missing_len, (size_t)warp_missing_counter);
+    warp_hit_position = atomicAdd(d_hit_len, (size_t)warp_hit_counter);
   }
   warp_position = warp_tile.shfl(warp_position, 0);
   if (lane_idx < warp_missing_counter) {
     d_missing_keys[warp_position + lane_idx] = missing_key;
     d_missing_index[warp_position + lane_idx] = missing_index;
   }
-  if (lane_idx == 0) {
-    warp_hit_position = atomicAdd(d_hit_len, (size_t)warp_hit_counter);
-  }
   warp_hit_position = warp_tile.shfl(warp_hit_position, 0);
+  slab_position = warp_tile.shfl(hit_slab_index, lane_idx);
   if (lane_idx < warp_hit_counter) {
     d_hit_keys[warp_hit_position + lane_idx] = hit_key;
     d_hit_index[warp_hit_position + lane_idx] = hit_index;
+    float* dst = (float*)(d_values + (warp_hit_position + lane_idx) * embedding_vec_size);
+    float* src = (float*)(vals + slab_position * embedding_vec_size);
+#pragma unroll
+    for (size_t i = lane_idx; i < embedding_vec_size; i += warp_hit_counter) {
+      dst[i] = src[i];
+    }
   }
 }
 #endif
@@ -1444,9 +1461,9 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
   const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   get_kernel<key_type, ref_counter_type, atomic_ref_counter_type, slabset, set_hasher, slab_hasher,
              mutex, empty_key, set_associativity, warp_size><<<grid_size, BLOCK_SIZE_, 0, stream>>>(
-      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_hit_index, d_hit_keys,
-      d_missing_keys, d_missing_len, d_hit_len, global_counter_, slot_counter_, capacity_in_set_,
-      keys_, vals_, set_mutex_, task_per_warp_tile);
+      d_keys, len, d_values, embedding_vec_size_, d_missing_index, d_missing_keys, d_hit_index,
+      d_hit_keys, d_missing_len, d_hit_len, global_counter_, slot_counter_, capacity_in_set_, keys_,
+      vals_, set_mutex_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());

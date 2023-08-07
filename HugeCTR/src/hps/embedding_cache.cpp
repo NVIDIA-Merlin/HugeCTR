@@ -280,12 +280,6 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
     parameter_server_->lookup(h_keys, num_keys, d_vectors, cache_config_.model_name_, table_id);
     ec_profiler_->end(
         start, "Lookup the embedding keys from Database backend(disable the Embedding Cache)");
-    /*     HCTR_LIB_THROW(
-            cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
-                            num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
-                            cudaMemcpyHostToDevice, stream));
-        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-    parameter_server_->free_buffer(memory_block);*/
   }
 }
 
@@ -375,11 +369,19 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
     HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_hit_length_ + table_id,
                                    workspace_handler.d_hit_length_ + table_id, sizeof(size_t),
                                    cudaMemcpyDeviceToHost, stream));
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_missing_length_ + table_id,
                                    workspace_handler.d_missing_length_ + table_id, sizeof(size_t),
                                    cudaMemcpyDeviceToHost, stream));
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.h_missing_emb_vec_[table_id],
+                                   workspace_handler.d_hit_emb_vec_[table_id],
+                                   sizeof(float) * *(workspace_handler.h_hit_length_ + table_id) *
+                                       cache_config_.embedding_vec_size_[table_id],
+                                   cudaMemcpyDeviceToHost, stream));
+    HCTR_LIB_THROW(
+        cudaMemcpyAsync(workspace_handler.h_missing_embeddingcolumns_[table_id],
+                        workspace_handler.d_hit_embeddingcolumns_[table_id],
+                        *(workspace_handler.h_hit_length_ + table_id) * sizeof(TypeHashKey),
+                        cudaMemcpyDeviceToHost, stream));
     // Set async flag
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     ec_profiler_->end(start, "Native Embedding Cache Query API");
