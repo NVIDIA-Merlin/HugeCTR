@@ -47,7 +47,7 @@ opt_name_max_length = 32
 opt_var_name_max_length = 32
 table_name_max_length = 256
 file_head_length = 296
-save_buffer_size_bytes = 1024 * 1024 * 1024  # 1Gb
+save_buffer_size_bytes = 1024 * 1024 * 64  # 1Gb
 optimizer_names = ["SGD", "Adamax", "Adadelta", "Adagrad", "Ftrl", "Adam"]
 
 
@@ -460,6 +460,7 @@ def save_optimizer_to_filesysyem_static(optimizer, var, path, sok_var_info):
                     tmp_state_tensor_np = tmp_state_tensor.numpy()
                     with open(slot_path, mode="ba+") as fstate:
                         tmp_state_tensor_np.tofile(fstate)
+                del tmp_state_tensor
 
         else:
             if gpu_id == target_gpu:
@@ -526,6 +527,7 @@ def save_optimizer_to_filesysyem_dynamic(optimizer, var, path, sok_var_info):
                     tmp_state_np = tmp_state_tensor.numpy()
                     with open(slot_path, mode="ba+") as fstate:
                         tmp_state_np.tofile(fstate)
+                del tmp_state_tensor
 
         else:
             if gpu_id == target_gpu:
@@ -614,6 +616,8 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
 
                 with open(weight_path, mode="ba+") as femb:
                     weight_np.tofile(femb)
+                del tmp_indice 
+                del tmp_weight 
 
     else:
         if gpu_id == target_gpu:
@@ -728,6 +732,8 @@ def save_table_to_filesystem_dynamic(var, optimizer, path, have_states):
                     indice_np.tofile(fkey)
                 with open(weight_path, mode="ba+") as femb:
                     weight_np.tofile(femb)
+                del tmp_indice 
+                del tmp_weight 
 
     else:
         if gpu_id == target_gpu:
