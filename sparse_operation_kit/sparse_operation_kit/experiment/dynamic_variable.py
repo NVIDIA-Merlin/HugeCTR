@@ -49,6 +49,7 @@ class DynamicVariable(ResourceVariable):
     var_type: string
         a string to specify to use DET or HKV as the backend.
         If use HKV as the backend, only support tf.int64 as key_type
+        If use HKV as the backend, please set init_capacity and max_capacity value equal to 2 powers.
 
     key_type: dtype
         specify the data type of indices. Unlike the static variable of

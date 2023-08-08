@@ -169,6 +169,7 @@ HKVVariable<KeyType, ValueType>::HKVVariable(int64_t dimension, int64_t initial_
   hkv_table_option_.max_hbm_for_vectors = nv::merlin::GB(max_hbm_for_vectors);
   hkv_table_option_.max_bucket_size = max_bucket_size;
   hkv_table_option_.max_load_factor = max_load_factor;
+  printf("kanghui debug hkv_table_option_.max_load_factor = %f\n",(float)hkv_table_option_.max_load_factor);
   hkv_table_option_.block_size = block_size;
   hkv_table_option_.device_id = device_id;
   hkv_table_option_.io_by_cpu = io_by_cpu;
@@ -210,12 +211,19 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   ValueType* d_values;
   CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
+  //KeyType* d_keys;
+  //CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  //ValueType* d_values;
+  //CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  //printf("kanghui debug hkv_table_option_.max_capacity = %lld\n",(long long)hkv_table_option_.max_capacity);
   hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr, stream);  // Meta missing
   CUDACHECK(cudaStreamSynchronize(stream));
 
   // clang-format off
   std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
   std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
+  //CUDACHECK(cudaMemcpy(keys, d_keys, sizeof(KeyType) * num_keys,cudaMemcpyDeviceToHost));
+  //CUDACHECK(cudaMemcpy(values, d_values, sizeof(ValueType) * num_keys * dim,cudaMemcpyDeviceToHost));
   // clang-format on
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
@@ -225,23 +233,32 @@ template <typename KeyType, typename ValueType>
 void HKVVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueType* values,
                                              size_t num_keys, cudaStream_t stream) {
   int64_t dim = cols();
-
+  printf("kanghui debug  num_keys = %lld sizeof(num_keys) = %lld\n",(long long)num_keys,(long long)sizeof(num_keys));
   // `keys` and `values` are pointers of host memory
+  //KeyType* d_keys;
+  //CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  //ValueType* d_values;
+  //CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
-
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
+  //                          cudaMemcpyHostToDevice, stream));
 
-  CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
+  //                          cudaMemcpyHostToDevice, stream));
 
+  //CUDACHECK(cudaStreamSynchronize(stream));
+  std::memcpy(d_keys, keys, sizeof(KeyType) * num_keys);
+  std::memcpy(d_values, values, sizeof(ValueType) * num_keys * dim);
   hkv_table_->insert_or_assign(num_keys, d_keys, d_values, nullptr, stream);
 
   CUDACHECK(cudaStreamSynchronize(stream));
+  CUDACHECK(cudaFree(d_keys));
+  CUDACHECK(cudaFree(d_values));
 }
 
 template <typename KeyType, typename ValueType>
