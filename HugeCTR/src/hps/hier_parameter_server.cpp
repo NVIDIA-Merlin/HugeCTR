@@ -696,12 +696,14 @@ std::shared_ptr<EmbeddingCacheBase> HierParameterServer<TypeHashKey>::get_embedd
     const std::string& model_name, const int device_id) {
   const auto it = model_cache_map_.find(model_name);
   if (it == model_cache_map_.end()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "No embedding cache for model " + model_name);
+    HCTR_LOG_C(WARNING, WORLD, "No embedding cache for model " + model_name + "\n");
+    return nullptr;
   }
   if (it->second.find(device_id) == it->second.end()) {
     std::ostringstream os;
     os << "No embedding cache on device " << device_id << " for model " << model_name;
-    HCTR_OWN_THROW(Error_t::WrongInput, os.str());
+    HCTR_LOG_C(WARNING, WORLD, os.str());
+    return nullptr;
   }
   return model_cache_map_[model_name][device_id];
 }
