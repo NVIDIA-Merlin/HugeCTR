@@ -343,9 +343,9 @@ __global__ void replicate_bucket_range_kernel(const offset_t *bucket_range,
   int32_t max_bucket_num = num_lookup * batch_size;
   for (int32_t i = blockIdx.x * blockDim.x, step = blockDim.x * gridDim.x; i < max_bucket_num;
        i += step) {
-    int max_local_id = blockDim.x < max_bucket_num - blockIdx.x * blockDim.x
+    int max_local_id = blockDim.x < max_bucket_num - i
                            ? blockDim.x
-                           : max_bucket_num - blockIdx.x * blockDim.x;
+                           : max_bucket_num - i;
     {
       int32_t global_id = i + threadIdx.x;
       if (threadIdx.x < max_local_id) {

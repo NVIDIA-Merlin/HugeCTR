@@ -318,7 +318,7 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
     
 
     size_t num = id_space_offset_[i + 1] - id_space_offset_[i];
-
+    if (num != 0){
     core23::Tensor unique_keys = core23::Tensor(params.shape({static_cast<int64_t>(num)}).data_type(core23::ToScalarType<KeyType>::value));
     core23::Tensor num_unique_keys = core23::Tensor(params_cpu.shape({static_cast<int64_t>(1)}).data_type(core23::ScalarType::UInt64));
     core23::Tensor unique_reverse_idxs = core23::Tensor(params.shape({static_cast<int64_t>(num)}).data_type(core23::ScalarType::UInt64));
@@ -339,6 +339,7 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
     DType** unique_output_ptr = static_cast<DType**>(unique_output.data());
     var->lookup(unique_keys.data<KeyType>(), unique_output_ptr, static_cast<size_t>(*(num_unique_keys.data<uint64_t>())), stream_);
     UniqueReverseKernel<<<((num - 1)/1024)+1, 1024, 0, stream_>>>(unique_output_ptr, unique_reverse_idxs.data<uint64_t>(), num,output);
+    }
     CUDACHECK(cudaStreamSynchronize(stream_));
     input += num;
     output += num;
