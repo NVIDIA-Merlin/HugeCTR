@@ -94,7 +94,9 @@ class MultiProcessHashMapBackend final
   using SegmentAllocator = boost::interprocess::allocator<T, Segment::segment_manager>;
 
   using SharedString =
-      boost::interprocess::basic_string<char, std::char_traits<char>, SegmentAllocator<char>>;
+      boost::interprocess::basic_string<char, std::char_traits<char>, std::allocator<char>>;
+  static SharedString::allocator_type char_allocator_;
+
   template <typename T>
   using SharedVector = boost::interprocess::vector<T, SegmentAllocator<T>>;
 
@@ -106,11 +108,11 @@ class MultiProcessHashMapBackend final
   using SharedFlatMap =
       boost::interprocess::flat_map<K, V, std::less<K>, SegmentAllocator<std::pair<const K, V>>>;
 
- protected:
-  static constexpr size_t value_page_alignment{1};
-
   using ValuePage = SharedVector<char>;
+  static constexpr size_t value_page_alignment{sizeof(char)};
+
   using ValuePtr = boost::interprocess::offset_ptr<char>;
+  static_assert(sizeof(ValuePtr) == sizeof(uintptr_t));
 
   // Data-structure that will be associated with every key.
   struct Payload final {
@@ -118,8 +120,23 @@ class MultiProcessHashMapBackend final
       time_t last_access;
       uint64_t access_count;
     };
-    ValuePtr value;
+    uintptr_t value_ptr;
+
+    inline ValuePtr get_far_value_ptr() { return *reinterpret_cast<ValuePtr*>(&value_ptr); }
+    inline char* set_far_value_ptr(ValuePtr& value) {
+      value_ptr = *reinterpret_cast<uintptr_t*>(&value);
+      return value.get();
+    }
+
+    inline char* near_value() { return reinterpret_cast<char*>(&value_ptr); }
+    inline char* far_value() { return reinterpret_cast<ValuePtr*>(&value_ptr)->get(); }
+
+    inline const char* near_value() const { return reinterpret_cast<const char*>(&value_ptr); }
+    inline const char* far_value() const {
+      return reinterpret_cast<const ValuePtr*>(&value_ptr)->get();
+    }
   };
+  static_assert(sizeof(Payload) == sizeof(uint64_t) * 2);
   using Entry = std::pair<const Key, Payload>;
 
   struct Partition final {
@@ -174,7 +191,7 @@ class MultiProcessHashMapBackend final
   };
 
   Segment sm_segment_;
-  SegmentAllocator<char> char_allocator_;
+  SegmentAllocator<char> vp_allocator_;
   SegmentAllocator<ValuePage> value_page_allocator_;
   SegmentAllocator<Partition> partition_allocator_;
   SharedMemory* sm_;
