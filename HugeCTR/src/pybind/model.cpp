@@ -2514,8 +2514,8 @@ bool Model::eval() {
     assert(current_batchsize > 0 && "Received batch of  size 0");
 
 #ifndef DATA_READING_TEST
-    assert((networks_.size() >= 1 ||
-           core23_networks_.size() >= 1) && "(core23)networks_.size() should not less than 1.");
+    assert((networks_.size() >= 1 || core23_networks_.size() >= 1) &&
+           "(core23)networks_.size() should not less than 1.");
 
     if (solver_.use_embedding_collection) {
       evaluate_pipeline_with_ebc();
