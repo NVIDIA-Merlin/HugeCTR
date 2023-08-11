@@ -46,7 +46,6 @@
 static size_t process_read_bytes = 0;
 static size_t process_write_bytes = 0;
 using HugeCTR::Logger;
-using HugeCTR::SrcLoc;
 
 namespace DLRM_RAW {
 

@@ -112,11 +112,8 @@ void IbComm::set_ar_coll_buf(ARCollHandle coll, void* ar_ptr, const size_t ar_si
                              size_t device_id) {
   PROXY_ASSERT(ar_size != 0);
   auto& coll_ctx = *ar_coll_ctx_[coll];
-  if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API "
-                             << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  HCTR_CHECK_(proxy_cmd_->cmd_[device_id].which() == 0,
+              "Proxy command is already populated. Don't mix up set API.");
   proxy_cmd_->cmd_[device_id] = ARBufInitCmd();
   ARBufInitCmd& cmd = boost::get<ARBufInitCmd>(proxy_cmd_->cmd_[device_id]);
   M2PARBufInit& buf_init = std::get<0>(cmd);

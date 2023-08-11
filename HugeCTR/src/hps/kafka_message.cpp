@@ -375,7 +375,7 @@ void KafkaMessageSink<Key>::blocking_produce(rd_kafka_topic_t* const topic, char
 
 template <typename Key>
 void KafkaMessageSink<Key>::run() {
-  hctr_set_thread_name("kafka sink");
+  Logger::set_thread_name("kafka sink");
 
   // Keep polling until exit.
   while (!terminate_) {
@@ -568,7 +568,7 @@ struct KafkaReceiveBuffer final {
 
 template <typename Key>
 void KafkaMessageSource<Key>::run(std::function<Callback> callback) {
-  hctr_set_thread_name("kafka source");
+  Logger::set_thread_name("kafka source");
 
   // Attempt to subscribe to topics.
   resubscribe();

@@ -102,6 +102,7 @@
  * which can be useful in debugging asynchronous kernel launches or cudaMemcpys.
  */
 
+#include <cerrno>
 #include <core/macro.hpp>
 #include <core23/error.hpp>
 #include <functional>
@@ -115,10 +116,21 @@
 #include <mpi.h>
 #endif
 
-#ifdef HCTR_OWN_CHECK_
-#error HCTR_OWN_CHECK_ already defined. Potential naming conflict!
+#ifdef HCTR_ASSERT_
+#error HCTR_ASSERT_ already defined. Potential naming conflict!
 #endif
-#define HCTR_OWN_CHECK_(EXPR, ...)                                                               \
+#ifdef NDEBUG
+#define HCTR_ASSERT_(EXPR) \
+  do {                     \
+  } while (0)
+#else
+#define HCTR_ASSERT_(EXPR) HCTR_CHECK_(EXPR, "Assertion.")
+#endif
+
+#ifdef HCTR_CHECK_
+#error HCTR_CHECK_ already defined. Potential naming conflict!
+#endif
+#define HCTR_CHECK_(EXPR, ...)                                                                   \
   do {                                                                                           \
     if (!(EXPR)) {                                                                               \
       HugeCTR::Logger::get().print_error("Expression check failed!", HCTR_CODE_REFERENCE_(EXPR), \
@@ -141,23 +153,42 @@
     }                                                                                        \
   } while (0)
 
+#ifdef HCTR_SHARP_CHECK_
+#error HCTR_SHARP_CHECK_
+#endif
+#define HCTR_SHARP_CHECK_(EXPR)                                                            \
+  do {                                                                                     \
+    const auto _expr_eval = (EXPR);                                                        \
+    static_assert(std::is_same<decltype(_expr_eval), const int>::value);                   \
+    if (_expr_eval != SHARP_COLL_SUCCESS) {                                                \
+      HugeCTR::Logger::get().print_error("SHARP call failed!", HCTR_CODE_REFERENCE_(EXPR), \
+                                         sharp_coll_strerror(_expr_eval));                 \
+      std::abort();                                                                        \
+    }                                                                                      \
+  } while (0)
+
 /**
  * Legacy macros.
  */
 #ifdef HCTR_CHECK
 #error HCTR_CHECK already defined. Potential naming conflict!
 #endif
-#define HCTR_CHECK(EXPR) HCTR_OWN_CHECK_(EXPR)
+#define HCTR_CHECK(EXPR) HCTR_CHECK_(EXPR)
+
+#ifdef HCTR_ASSERT
+#error HCTR_ASSERT already defined. Potential naming conflict!
+#endif
+#define HCTR_ASSERT(EXPR) HCTR_ASSERT_(EXPR)
 
 #ifdef HCTR_CHECK_HINT
 #error HCTR_CHECK_HINT already defined. Potential naming conflict!
 #endif
-#define HCTR_CHECK_HINT(EXPR, ...) HCTR_OWN_CHECK_(EXPR, __VA_ARGS__)
+#define HCTR_CHECK_HINT(EXPR, ...) HCTR_CHECK_(EXPR, __VA_ARGS__)
 
 #ifdef HCTR_DIE
 #error HCTR_DIE already defined. Potential naming conflict!
 #endif
-#define HCTR_DIE(...) HCTR_OWN_CHECK_(false, __VA_ARGS__)
+#define HCTR_DIE(...) HCTR_CHECK_(false, __VA_ARGS__)
 
 namespace HugeCTR {
 
@@ -202,26 +233,6 @@ namespace HugeCTR {
 #define HCTR_PRINT_AT(LEVEL, ...) \
   HugeCTR::Logger::get().log(LEVEL, LOG_RANK(ROOT), false, __VA_ARGS__)
 
-struct SrcLoc {
-  const char* file;
-  unsigned line;
-  const char* func;
-  const char* expr;
-};
-
-#define CUR_SRC_LOC(EXPR) \
-  HugeCTR::SrcLoc { __FILE__, __LINE__, __func__, #EXPR }
-
-#define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
-
-#define HCTR_OWN_THROW(EXPR, MSG)                                                    \
-  do {                                                                               \
-    HugeCTR::Error_t err_thr = (EXPR);                                               \
-    if (err_thr != HugeCTR::Error_t::Success) {                                      \
-      HugeCTR::Logger::get().do_throw(err_thr, CUR_SRC_LOC(EXPR), std::string(MSG)); \
-    }                                                                                \
-  } while (0);
-
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
 #define CHECK_BLOCKING_CALL true
@@ -238,15 +249,6 @@ struct SrcLoc {
       HugeCTR::Logger::get().check(ret_err == cudaSuccess, CUR_SRC_LOC(EXPR)); \
     }                                                                          \
   } while (0)
-
-#ifndef NDEBUG
-#define HCTR_ASSERT(EXPR)                                                       \
-  do {                                                                          \
-    HugeCTR::Logger::get().check_lazy([&] { return EXPR; }, CUR_SRC_LOC(EXPR)); \
-  } while (0)
-#else
-#define HCTR_ASSERT(EXPR)
-#endif
 
 /**
  * The logger class shouldn't be used directly. Instead use the below HCTR_LOG_* and HCTR_*_CHECK_*
@@ -297,8 +299,6 @@ class Logger final {
 
   static void print_exception(const std::exception& e, int depth);
 
-  static Logger& get();
-
   HCTR_DISALLOW_COPY_AND_MOVE(Logger);
 
   ~Logger();
@@ -310,17 +310,6 @@ class Logger final {
   void log(int level, bool per_rank, bool with_prefix, const char* format, ...) const;
 
   DeferredEntry log(int level, bool per_rank, bool with_prefix) const;
-
-  void abort(const SrcLoc& loc, const char* format = nullptr, ...) const;
-
-  template <typename Condition>
-  void check_lazy(const Condition& condition, const SrcLoc& loc) {
-    if (condition() == false) {
-      abort(loc);
-    }
-  }
-
-  void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
 
   inline int get_rank() const { return rank_; }
 
@@ -353,13 +342,14 @@ class Logger final {
   std::map<int, FILE*> log_std_;
   std::map<int, FILE*> log_file_;
   std::map<int, std::string> level_name_;
-};
 
-bool hctr_has_thread_name();
-const char* hctr_get_thread_name();
-void hctr_set_thread_name(const char* name);
-inline void hctr_set_thread_name(const std::string& name) {
-  return hctr_set_thread_name(name.c_str());
-}
+ public:
+  static Logger& get();
+
+  static bool has_thread_name();
+  static const char* get_thread_name();
+  static void set_thread_name(const char* name);
+  static void set_thread_name(const std::string& name);
+};
 
 }  // namespace HugeCTR

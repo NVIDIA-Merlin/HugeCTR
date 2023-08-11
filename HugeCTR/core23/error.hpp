@@ -25,6 +25,12 @@
 #include <ostream>
 #include <sstream>
 
+#ifdef HCTR_CODE_LOCATION_
+#error HCTR_CODE_LOCATION_ already defined. Potential naming conflict!
+#endif
+#define HCTR_CODE_LOCATION_() \
+  HugeCTR::core23::CodeReference { __FILE__, __LINE__, __func__, nullptr }
+
 #ifdef HCTR_CODE_REFERENCE_
 #error HCTR_CODE_REFERENCE_ already defined. Potential naming conflict!
 #endif
@@ -100,54 +106,30 @@
 /**
  * Legacy macros.
  */
-// #ifdef HCTR_OWN_THROW
-// #error HCTR_OWN_THROW already defined. Potential naming conflict!
-// #endif
-// #define HCTR_OWN_THROW(EXPR, ...) HCTR_OWN_THROW_(EXPR, __VA_ARGS__)
+#ifdef HCTR_LOCATION
+#error HCTR_LOCATION already defined. Potential naming conflict!
+#endif
+#define HCTR_LOCATION() HCTR_CODE_LOCATION_()
 
-// #ifdef HCTR_LIB_THROW
-// #error HCTR_LIB_THROW already defined. Potential naming conflict!
-// #endif
-// #define HCTR_LIB_THROW(EXPR) HCTR_LIB_THROW_(EXPR)
-#define HCTR_LIB_THROW(EXPR)                                                             \
-  do {                                                                                   \
-    const auto _expr_eval = (EXPR);                                                      \
-    const auto err = HugeCTR::core23::to_error(_expr_eval);                              \
-    if (err != HugeCTR::Error_t::Success) {                                              \
-      throw HugeCTR::core23::RuntimeError(err, HCTR_CODE_REFERENCE_(EXPR),               \
-                                          HugeCTR::core23::to_error_string(_expr_eval)); \
-    }                                                                                    \
-  } while (0)
+#ifdef HCTR_OWN_THROW
+#error HCTR_OWN_THROW already defined. Potential naming conflict!
+#endif
+#define HCTR_OWN_THROW(EXPR, ...) HCTR_OWN_THROW_(EXPR, __VA_ARGS__)
 
-// #ifdef HCTR_MPI_THROW
-// #error HCTR_MPI_THROW already defined. Potential naming conflict!
-// #endif
-// #define HCTR_MPI_THROW(EXPR) HCTR_MPI_THROW_(EXPR)
-#define HCTR_MPI_THROW(EXPR)                                                                      \
-  do {                                                                                            \
-    const auto& _expr_eval{(EXPR)};                                                               \
-    int err{_expr_eval};                                                                          \
-    if (err != MPI_SUCCESS) {                                                                     \
-      char msg_buffer[MPI_MAX_ERROR_STRING];                                                      \
-      int msg_len{MPI_MAX_ERROR_STRING};                                                          \
-      err = MPI_Error_string(err, msg_buffer, &msg_len);                                          \
-      const char* const msg{err == MPI_SUCCESS ? msg_buffer : "Unknown MPI error!"};              \
-      throw HugeCTR::core23::RuntimeError(HugeCTR::Error_t::MpiError, HCTR_CODE_REFERENCE_(EXPR), \
-                                          msg);                                                   \
-    }                                                                                             \
-  } while (0)
+#ifdef HCTR_LIB_THROW
+#error HCTR_LIB_THROW already defined. Potential naming conflict!
+#endif
+#define HCTR_LIB_THROW(EXPR) HCTR_LIB_THROW_(EXPR)
 
-// #ifdef HCTR_THROW_IF
-// #error HCTR_THROW_IF already defined. Potential naming conflict!
-// #endif
-// #define HCTR_THROW_IF(EXPR, ERROR, ...) HCTR_THROW_IF_(EXPR, ERROR, __VA_ARGS__)
-#define HCTR_THROW_IF(EXPR, ERROR, ...)                                                      \
-  do {                                                                                       \
-    if ((EXPR)) {                                                                            \
-      throw HugeCTR::core23::RuntimeError((ERROR), HCTR_CODE_REFERENCE_(EXPR),               \
-                                          HugeCTR::core23::hctr_render_string(__VA_ARGS__)); \
-    }                                                                                        \
-  } while (0)
+#ifdef HCTR_MPI_THROW
+#error HCTR_MPI_THROW already defined. Potential naming conflict!
+#endif
+#define HCTR_MPI_THROW(EXPR) HCTR_MPI_THROW_(EXPR)
+
+#ifdef HCTR_THROW_IF
+#error HCTR_THROW_IF already defined. Potential naming conflict!
+#endif
+#define HCTR_THROW_IF(EXPR, ERROR, ...) HCTR_THROW_IF_(EXPR, ERROR, __VA_ARGS__)
 
 namespace HugeCTR {
 
@@ -188,7 +170,10 @@ struct CodeReference {
 };
 
 inline std::ostream& operator<<(std::ostream& os, const CodeReference& ref) {
-  os << ref.expression << " at " << ref.function << " (" << ref.file << ':' << ref.line << ')';
+  if (ref.expression) {
+    os << ref.expression << ' ';
+  }
+  os << '(' << ref.function << " @ " << ref.file << ':' << ref.line << ')';
   return os;
 }
 

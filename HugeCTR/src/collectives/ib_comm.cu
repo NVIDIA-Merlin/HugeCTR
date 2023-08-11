@@ -53,10 +53,7 @@ void IbComm::detect_ib_devs() {
   int num_devices;
   dev_list = ibv_get_device_list(&num_devices);
 
-  if ((!dev_list) || (num_devices == 0)) {
-    HCTR_LOG_S(ERROR, WORLD) << "Ibv get device list failed: " << num_devices << std::endl;
-    exit(-1);
-  }
+  HCTR_CHECK_(dev_list && num_devices > 0, "IB Verbs get device list failed!");
 
   std::vector<bool> is_ib;
   // Get hwloc devices and final ib devs
@@ -66,10 +63,7 @@ void IbComm::detect_ib_devs() {
     }
 
     const char* dev_name = ibv_get_device_name(dev_list[d]);
-    if (!dev_name) {
-      HCTR_LOG_S(ERROR, WORLD) << "Unable to get device name" << std::endl;
-      exit(-1);
-    }
+    HCTR_CHECK_(dev_name, "Unable to get device name!");
 
     ibv_context* context;
     context = ibv_open_device(dev_list[d]);
@@ -79,10 +73,8 @@ void IbComm::detect_ib_devs() {
 
     struct ibv_device_attr dev_attr;
     memset(&dev_attr, 0, sizeof(dev_attr));
-    if (ibv_query_device(context, &dev_attr) != 0) {
-      HCTR_LOG_S(ERROR, WORLD) << "Unable to query device " << dev_name << std::endl;
-      exit(-1);
-    }
+    HCTR_CHECK_(ibv_query_device(context, &dev_attr) == 0, "Unable to query device ", dev_name);
+
     for (int port = 1; port <= dev_attr.phys_port_cnt; port++) {
       struct ibv_port_attr port_attr;
       if (ibv_query_port(context, port, &port_attr) != 0) {
@@ -108,11 +100,8 @@ void IbComm::detect_ib_devs() {
       ib_dev_list_.back().dev_name = dev_name;
       ib_dev_list_.back().dev_port_id = port;
       ib_dev_list_.back().hwloc_obj = hwloc_ibv_get_device_osdev(topo_, dev_list[d]);
-      if (!ib_dev_list_.back().hwloc_obj) {
-        HCTR_LOG_S(ERROR, WORLD) << "unable to get hwloc obj for ib device " << dev_name
-                                 << std::endl;
-        exit(1);
-      }
+      HCTR_CHECK_(ib_dev_list_.back().hwloc_obj, "unable to get hwloc obj for ib device ",
+                  dev_name);
     }
 
     ibv_close_device(context);
@@ -502,11 +491,9 @@ void IbComm::set_a2a_coll_stream(HierA2AvCollHandle coll, cudaStream_t stream, s
 void IbComm::set_a2a_coll_buf(HierA2ACollHandle coll, void** send_ptrs, const size_t* send_max_size,
                               void** recv_ptrs, const size_t* recv_max_size, size_t device_id) {
   auto& coll_ctx = *hier_a2a_coll_ctx_[coll];
-  if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API. "
-                             << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  HCTR_CHECK_(proxy_cmd_->cmd_[device_id].which() == 0,
+              "Proxy command is already populated. Don't mix up set API.");
+
   proxy_cmd_->cmd_[device_id] = HierA2ABufInitCmd();
   HierA2ABufInitCmd& cmd = boost::get<HierA2ABufInitCmd>(proxy_cmd_->cmd_[device_id]);
   M2PHierA2ABufInit& buf_init = std::get<0>(cmd);
@@ -531,11 +518,9 @@ void IbComm::set_a2a_coll_buf(HierA2ACollHandle coll, void** send_ptrs, const si
 void IbComm::set_a2a_coll_buf(HierA2AvCollHandle coll, void* send_ptrs, const size_t send_max_size,
                               void* recv_ptrs, const size_t recv_max_size, size_t device_id) {
   auto& coll_ctx = *hier_a2a_v_coll_ctx_[coll];
-  if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API. "
-                             << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  HCTR_CHECK_(proxy_cmd_->cmd_[device_id].which() == 0,
+              "Proxy command is already populated. Don't mix up set API.");
+
   proxy_cmd_->cmd_[device_id] = HierA2AvBufInitCmd();
   HierA2AvBufInitCmd& cmd = boost::get<HierA2AvBufInitCmd>(proxy_cmd_->cmd_[device_id]);
   M2PHierA2AvBufInit& buf_init = std::get<0>(cmd);
@@ -658,7 +643,7 @@ void IbComm::pre_intra_update_a2a_coll_sizes(HierA2AvCollHandle coll,
 }
 
 void IbComm::set_ready_to_transfer() {
-  PROXY_ASSERT_MSG(!is_ready_to_transfer_, "Ready to transfer is already set")
+  PROXY_ASSERT_MSG(!is_ready_to_transfer_, "Ready to transfer is already set");
   for (size_t g = 0; g < num_gpus_; g++) {
     proxy_cmd_->cmd_[g] = ProxyStateTransitionCmd();
     ProxyStateTransitionCmd& cmd_t = boost::get<ProxyStateTransitionCmd>(proxy_cmd_->cmd_[g]);
