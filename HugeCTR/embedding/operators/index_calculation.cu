@@ -343,9 +343,7 @@ __global__ void replicate_bucket_range_kernel(const offset_t *bucket_range,
   int32_t max_bucket_num = num_lookup * batch_size;
   for (int32_t i = blockIdx.x * blockDim.x, step = blockDim.x * gridDim.x; i < max_bucket_num;
        i += step) {
-    int max_local_id = blockDim.x < max_bucket_num - i
-                           ? blockDim.x
-                           : max_bucket_num - i;
+    int max_local_id = blockDim.x < max_bucket_num - i ? blockDim.x : max_bucket_num - i;
     {
       int32_t global_id = i + threadIdx.x;
       if (threadIdx.x < max_local_id) {
@@ -476,9 +474,9 @@ SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManag
       batch_size_(batch_size) {
   max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
-    cub::DeviceSegmentedSort::SortPairs(nullptr, cub_sort_temp_bytes_, (key_t *)nullptr,
-                                        (key_t *)nullptr, (uint32_t *)nullptr, (uint32_t *)nullptr,
-                                        max_key_num_, num_table, (int *)nullptr, (int *)nullptr);
+    cub::DeviceSegmentedRadixSort::SortPairs(
+        nullptr, cub_sort_temp_bytes_, (key_t *)nullptr, (key_t *)nullptr, (uint32_t *)nullptr,
+        (uint32_t *)nullptr, max_key_num_, num_table, (int *)nullptr, (int *)nullptr);
     core23::Device device(core23::DeviceType::GPU, core->get_device_id());
     core23::TensorParams params = core23::TensorParams().device(device);
     cub_sort_temp_buffer_ =
@@ -529,11 +527,12 @@ void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::Sor
 
   // sort
   DISPATCH_INTEGRAL_FUNCTION_CORE23(input.keys.data_type().type(), key_t, [&] {
-    cub::DeviceSegmentedSort::SortPairs(
+    cub::DeviceSegmentedRadixSort::SortPairs(
         cub_sort_temp_buffer_.data(), cub_sort_temp_bytes_, input.keys.data<key_t>(),
         output.sorted_keys.data<key_t>(), input.src_ids.data<uint32_t>(),
         output.sorted_src_ids.data<uint32_t>(), input.h_num_key, num_table_,
-        partitioned_table_range.data<int>(), partitioned_table_range.data<int>() + 1, stream);
+        partitioned_table_range.data<int>(), partitioned_table_range.data<int>() + 1, 0,
+        sizeof(key_t) * 8, stream);
   });
 }
 

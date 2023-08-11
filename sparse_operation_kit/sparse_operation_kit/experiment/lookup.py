@@ -148,6 +148,7 @@ def isResourceVariable(variable):
         importlib.find_loader("tensorflow.python.ops.resource_variable_ops")
         and isinstance(variable, resource_variable_ops.ResourceVariable)
         and not isEmbeddingVariable(variable)
+        and not isDynamicVariable(variable)
     )
 
 
@@ -156,6 +157,7 @@ def isVariable(variable):
         isinstance(variable, tf.Variable)
         and not isResourceVariable(variable)
         and not isEmbeddingVariable(variable)
+        and not isDynamicVariable(variable)
     )
 
 
@@ -387,6 +389,7 @@ def to_list(any_obj):
 def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     shard, dimensions = [], []
     for param in params:
+
         shard.append(param.target_gpu)
         if importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
             param, kv_variable_ops.EmbeddingVariable
@@ -431,7 +434,6 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     hotness_kwargs = {
         "num_lookups": len(params),
     }
-
     kwargs = {
         "combiners": combiners,
         "shard": shard,
@@ -626,12 +628,12 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
                 [] if len(sp_weights) == 0 else [sp_weights[i] for i in selected_idx]
             )
             selected_combiners = [combiners[i] for i in selected_idx]
+
             selected_emb_vec = lookup_sparse_impl(
                 selected_params, selected_sp_ids, selected_sp_weights, selected_combiners
             )
             for ii, i in enumerate(selected_idx):
                 emb_vec[i] = selected_emb_vec[ii]
-
     assert None not in emb_vec
     if not is_list:
         emb_vec = emb_vec[0]
