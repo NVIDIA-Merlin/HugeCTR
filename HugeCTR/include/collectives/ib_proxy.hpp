@@ -25,16 +25,8 @@
 #include <common.hpp>
 #include <condition_variable>
 
-#define PROXY_ASSERT(expr)                                                    \
-  if (!(expr)) {                                                              \
-    HCTR_LOG_S(ERROR, WORLD) << #expr << ' ' << HCTR_LOCATION() << std::endl; \
-    exit(1);                                                                  \
-  }
-#define PROXY_ASSERT_MSG(expr, msg)                                         \
-  if (!(expr)) {                                                            \
-    HCTR_LOG_S(ERROR, WORLD) << msg << ' ' << HCTR_LOCATION() << std::endl; \
-    exit(1);                                                                \
-  }
+#define PROXY_ASSERT HCTR_CHECK_
+#define PROXY_ASSERT_MSG HCTR_CHECK_
 
 #define MAX_IBV_DEST 1024
 #define MAX_SHARP_BLOCKS 16
@@ -476,10 +468,7 @@ struct ProxyCommandVisitor : public boost::static_visitor<void> {
   void operator()(ProxyStateTransitionCmd& cmd) const {
     proxy_->exec_proxy_cmd(std::get<0>(cmd), std::get<1>(cmd));
   }
-  void operator()(boost::blank __unused) const {
-    HCTR_LOG_S(ERROR, WORLD) << "Invalid proxy command " << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  void operator()(boost::blank __unused) const { HCTR_CHECK_(false, "Invalid proxy command."); }
   ProxyCommandVisitor(IbvProxy* proxy) { proxy_ = proxy; };
   IbvProxy* proxy_;
 };

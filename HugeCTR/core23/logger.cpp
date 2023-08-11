@@ -34,17 +34,6 @@
 
 namespace HugeCTR {
 
-thread_local char THREAD_NAME[32];
-
-bool hctr_has_thread_name() { return THREAD_NAME[0] != '\0'; }
-
-const char* hctr_get_thread_name() { return THREAD_NAME; }
-
-void hctr_set_thread_name(const char* const name) {
-  std::strncpy(THREAD_NAME, name, sizeof(THREAD_NAME) - 1);
-  THREAD_NAME[sizeof(THREAD_NAME) - 1] = '\0';
-}
-
 void Logger::print_exception(const std::exception& e, int depth) {
   Logger::get().log(LOG_ERROR_LEVEL, true, false, "%d. %s\n", depth, e.what());
   try {
@@ -53,18 +42,6 @@ void Logger::print_exception(const std::exception& e, int depth) {
     print_exception(e, depth + 1);
   } catch (...) {
   }
-}
-
-Logger& Logger::get() {
-  // That is sufficient in C++-11 and later. See also
-  // https://en.cppreference.com/w/cpp/language/storage_duration#Static_local_variables
-  // or
-  // https://stackoverflow.com/questions/8102125/is-local-static-variable-initialization-thread-safe-in-c11
-  // or
-  // https://stackoverflow.com/questions/1270927/are-function-static-variables-thread-safe-in-gcc/1270948
-  // .
-  static Logger instance;
-  return instance;
 }
 
 Logger::~Logger() {
@@ -147,47 +124,6 @@ Logger::DeferredEntry Logger::log(const int level, bool per_rank, bool with_pref
   }
 }
 
-void Logger::abort(const SrcLoc& loc, const char* const format, ...) const {
-  if (format) {
-    std::string hint;
-    {
-      va_list args;
-      va_start(args, format);
-      hint.resize(std::vsnprintf(nullptr, 0, format, args) + 1);
-      va_end(args);
-    }
-    {
-      va_list args;
-      va_start(args, format);
-      std::vsprintf(hint.data(), format, args);
-      va_end(args);
-    }
-    log(-1, true, true,
-        "Check Failed!\n"
-        "\tFile: %s:%u\n"
-        "\tFunction: %s\n"
-        "\tExpression: %s\n"
-        "\tHint: %s\n",
-        loc.file, loc.line, loc.func, loc.expr, hint.c_str());
-  } else {
-    log(-1, true, true,
-        "Check Failed!\n"
-        "\tFile: %s:%u\n"
-        "\tFunction: %s\n"
-        "\tExpression: %s\n",
-        loc.file, loc.line, loc.func, loc.expr);
-  }
-  std::abort();
-}
-
-void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
-                      const std::string& message) const {
-  std::ostringstream os;
-  os << "Runtime error: " << message << std::endl;
-  os << '\t' << loc.expr << " at " << loc.func << '(' << loc.file << ':' << loc.line << ')';
-  std::throw_with_nested(core23::RuntimeError(error_type, os.str()));
-}
-
 #ifdef HCTR_LEVEL_MAP_
 #error HCTR_LEVEL_MAP_ already defined!
 #else
@@ -198,7 +134,7 @@ Logger::Logger() : rank_{0} {
 #ifdef ENABLE_MPI
   rank_ = core23::MpiInitService::get().world_rank();
 #endif
-  hctr_set_thread_name("main");
+  set_thread_name("main");
 
   const char* const max_level_str = std::getenv("HUGECTR_LOG_LEVEL");
   if (max_level_str != nullptr && max_level_str[0] != '\0') {
@@ -288,16 +224,35 @@ size_t Logger::write_log_prefix(const bool with_prefix, char (&buffer)[Logger::M
   }
 
   // Assign thread name if not already set.
-  if (!hctr_has_thread_name()) {
+  if (!has_thread_name()) {
     std::ostringstream os;
     os << "tid #" << std::this_thread::get_id();
-    hctr_set_thread_name(os.str());
+    set_thread_name(os.str());
   }
 
   // Thread + Rank + Prompt
-  p += std::sprintf(p, "][RK%d][%s]: ", rank_, hctr_get_thread_name());
+  p += std::sprintf(p, "][RK%d][%s]: ", rank_, get_thread_name());
 
   return p - buffer;
 }
+
+Logger& Logger::get() {
+  // That is sufficient in C++-11 and later. See also
+  // https://en.cppreference.com/w/cpp/language/storage_duration#Static_local_variables
+  // or
+  // https://stackoverflow.com/questions/8102125/is-local-static-variable-initialization-thread-safe-in-c11
+  // or
+  // https://stackoverflow.com/questions/1270927/are-function-static-variables-thread-safe-in-gcc/1270948
+  // .
+  static Logger instance;
+  return instance;
+}
+
+static thread_local std::string thread_name_;
+
+bool Logger::has_thread_name() { return !thread_name_.empty(); }
+const char* Logger::get_thread_name() { return thread_name_.c_str(); }
+void Logger::set_thread_name(const char* const name) { thread_name_ = name; }
+void Logger::set_thread_name(const std::string& name) { thread_name_ = name; }
 
 }  // namespace HugeCTR

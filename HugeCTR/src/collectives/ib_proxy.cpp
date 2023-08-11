@@ -307,25 +307,23 @@ void IbvProxy::HierA2AIbvContext::init_sharp(const IbvProxy::InitConfig& cfg) {
     init_spec.config = sharp_coll_default_config;
     std::string sharp_dev = cfg.ib_dev_ + std::string(":") + std::to_string(cfg.ib_port_);
     init_spec.config.ib_dev_list = sharp_dev.c_str();
-    int ret = sharp_coll_init(&init_spec, &(sharp_coll_context_));
-    PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+    HCTR_SHARP_CHECK_(sharp_coll_init(&init_spec, &(sharp_coll_context_)));
 
     comm_spec.rank = my_proc;
     comm_spec.size = num_procs;
     comm_spec.oob_ctx = (void*)this;
     comm_spec.group_world_ranks = NULL;
-    ret = sharp_coll_comm_init(sharp_coll_context_, &comm_spec, &sharp_coll_comm_);
-    PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+    HCTR_SHARP_CHECK_(sharp_coll_comm_init(sharp_coll_context_, &comm_spec, &sharp_coll_comm_));
   }
 }
 
 void IbvProxy::HierA2AIbvContext::finalize_sharp() {
   if (proxy_id_ == 0) {
     if (sharp_coll_comm_) {
-      sharp_coll_comm_destroy(sharp_coll_comm_);
+      HCTR_SHARP_CHECK_(sharp_coll_comm_destroy(sharp_coll_comm_));
     }
     if (sharp_coll_context_) {
-      sharp_coll_finalize(sharp_coll_context_);
+      HCTR_SHARP_CHECK_(sharp_coll_finalize(sharp_coll_context_));
     }
   }
 }
@@ -394,22 +392,14 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
       input_mr_[n] =
           ibv_reg_mr(ctx->pd_, in.d_send_ptrs_[n], in.h_max_send_size_[n],
                      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
-
-      if (!input_mr_[n]) {
-        HCTR_LOG_S(ERROR, WORLD) << "Input reg mr failed. " << HCTR_LOCATION() << std::endl;
-        exit(1);
-      }
+      HCTR_CHECK_(input_mr_[n], "Input reg mr failed.");
     }
 
     if (in.d_recv_ptrs_[n]) {
       output_mr_[n] =
           ibv_reg_mr(ctx->pd_, in.d_recv_ptrs_[n], in.h_max_recv_size_[n],
                      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
-
-      if (!output_mr_[n]) {
-        HCTR_LOG_S(ERROR, WORLD) << "Output reg mr failed. " << HCTR_LOCATION() << std::endl;
-        exit(1);
-      }
+      HCTR_CHECK_(output_mr_[n], "Output reg mr failed.");
       memcpy(&in_rem_output_mr_[n], output_mr_[n], sizeof(struct ibv_mr));
     }
   }
@@ -462,8 +452,7 @@ void IbvProxy::HierA2ACollContext::process_recv() {
   if (cfg.proxy_id_ == 0) {
     if (!skip_barrier_) {
 #ifdef SHARP_A2A
-      int ret = sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_);
-      PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+      HCTR_SHARP_CHECK_(sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_));
 #else
       HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
@@ -560,10 +549,8 @@ bool IbvProxy::HierA2ACollContext::wait_send_completion() {
       } else if (wc->opcode == IBV_WC_FETCH_ADD) {
         num_atomic_completions_++;
       } else {
-        HCTR_LOG_S(ERROR, WORLD) << proxy_ctx_->cfg_.device_id_ << " " << my_proc_
-                                 << " Unknown completion received " << wc->opcode
-                                 << " status: " << wc->status << std::endl;
-        exit(1);
+        HCTR_CHECK_(false, proxy_ctx_->cfg_.device_id_, ' ', my_proc_,
+                    " Unknown completion received ", wc->opcode, " status: ", wc->status);
       }
     }
   }
@@ -580,9 +567,7 @@ bool IbvProxy::HierA2ACollContext::wait_send_completion() {
 void IbvProxy::HierA2ACollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
-                               << HCTR_LOCATION() << std::endl;
-      exit(1);
+      HCTR_CHECK_(false, "No buffers are registered for the collective.");
       break;
     }
     case WAIT_RECV_CMD: {
@@ -767,8 +752,7 @@ void IbvProxy::HierA2AvCollContext::process_recv() {
   if (cfg.proxy_id_ == 0) {
     if (!skip_barrier_) {
 #ifdef SHARP_A2A
-      int ret = sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_);
-      PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+      HCTR_SHARP_CHECK_(sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_));
 #else
       HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
@@ -833,9 +817,7 @@ bool IbvProxy::HierA2AvCollContext::wait_send_completion() {
 void IbvProxy::HierA2AvCollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
-                               << HCTR_LOCATION() << std::endl;
-      exit(1);
+      HCTR_CHECK_(false, "No buffers are registered for the collective.");
       break;
     }
     case WAIT_RECV_CMD: {
@@ -912,11 +894,8 @@ void IbvProxy::exec_proxy_cmd(const M2PHierA2ACollInit& in, const P2MNull& __unu
   }
   hier_a2a_coll_ctx_.emplace_back(std::make_unique<HierA2ACollContext>(
       this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.skip_barrier_));
-  if ((hier_a2a_coll_ctx_.size() - 1) != in.coll_handle_) {
-    HCTR_LOG_S(ERROR, WORLD) << "CollHandle mismatch between main and proxy threads. "
-                             << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  HCTR_CHECK_((hier_a2a_coll_ctx_.size() - 1) == in.coll_handle_,
+              "CollHandle mismatch between main and proxy threads.");
 }
 
 void IbvProxy::exec_proxy_cmd(const M2PHierA2ABufInit& in, P2MHierA2ABufInit& out) {
@@ -940,11 +919,8 @@ void IbvProxy::exec_proxy_cmd(const M2PHierA2AvCollInit& in, const P2MNull& __un
   }
   hier_a2a_v_coll_ctx_.emplace_back(std::make_unique<HierA2AvCollContext>(
       this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.num_buffers_, in.skip_barrier_));
-  if ((hier_a2a_v_coll_ctx_.size() - 1) != in.coll_handle_) {
-    HCTR_LOG_S(ERROR, WORLD) << "CollHandle mismatch between main and proxy threads. "
-                             << HCTR_LOCATION() << std::endl;
-    exit(1);
-  }
+  HCTR_CHECK_((hier_a2a_v_coll_ctx_.size() - 1) == in.coll_handle_,
+              "CollHandle mismatch between main and proxy threads.");
 }
 
 void IbvProxy::exec_proxy_cmd(const M2PHierA2AvBufInit& in, P2MHierA2AvBufInit& out) {
@@ -1023,23 +999,21 @@ IbvProxy::SharpContext::SharpContext(const IbvProxy::InitConfig& cfg) {
   init_spec.config = sharp_coll_default_config;
   std::string sharp_dev = cfg.ib_dev_ + std::string(":") + std::to_string(cfg.ib_port_);
   init_spec.config.ib_dev_list = sharp_dev.c_str();
-  int ret = sharp_coll_init(&init_spec, &(sharp_coll_context_));
-  PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+  HCTR_SHARP_CHECK_(sharp_coll_init(&init_spec, &(sharp_coll_context_)));
 
   comm_spec.rank = my_proc;
   comm_spec.size = num_procs;
   comm_spec.oob_ctx = (void*)this;
   comm_spec.group_world_ranks = NULL;
-  ret = sharp_coll_comm_init(sharp_coll_context_, &comm_spec, &sharp_coll_comm_);
-  PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+  HCTR_SHARP_CHECK_(sharp_coll_comm_init(sharp_coll_context_, &comm_spec, &sharp_coll_comm_));
 }
 
 IbvProxy::SharpContext::~SharpContext() {
   if (sharp_coll_comm_) {
-    sharp_coll_comm_destroy(sharp_coll_comm_);
+    HCTR_SHARP_CHECK_(sharp_coll_comm_destroy(sharp_coll_comm_));
   }
   if (sharp_coll_context_) {
-    sharp_coll_finalize(sharp_coll_context_);
+    HCTR_SHARP_CHECK_(sharp_coll_finalize(sharp_coll_context_));
   }
 }
 
@@ -1225,8 +1199,8 @@ void IbvProxy::ARCollContext::init_buf(const M2PARBufInit& in, P2MARBufInit& out
   elem_size_ = in.element_size_;
 
   // register mr
-  auto ret = sharp_coll_reg_mr(sharp_ctx_->sharp_coll_context_, in.d_ar_ptr_, in.ar_size_, &mem_mr);
-  PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
+  HCTR_SHARP_CHECK_(
+      sharp_coll_reg_mr(sharp_ctx_->sharp_coll_context_, in.d_ar_ptr_, in.ar_size_, &mem_mr));
 
   // Allocate host flags
   HCTR_LIB_THROW(cudaMallocHost(&h_rs_cmd_, sizeof(size_t)));
@@ -1303,7 +1277,7 @@ void IbvProxy::ARCollContext::process_sharp_completions() {
       do_pcie_flush();
 #endif
       // HCTR_LOG_S(INFO, WORLD) << "Sharp completion received" << std::endl;
-      sharp_coll_req_free(handle[sharp_cmpl_counter_ % MAX_SHARP_BLOCKS]);
+      HCTR_SHARP_CHECK_(sharp_coll_req_free(handle[sharp_cmpl_counter_ % MAX_SHARP_BLOCKS]));
       sharp_cmpl_counter_++;
     }
   }
@@ -1318,10 +1292,9 @@ void IbvProxy::ARCollContext::process_new_command() {
     reduce_spec_.rbuf_desc.buffer.length = next_length_;
     reduce_spec_.length = next_length_ / elem_size_;
 
-    int ret = sharp_coll_do_allreduce_nb(sharp_ctx_->sharp_coll_comm_, &reduce_spec_,
-                                         &handle[sharp_req_counter_ % MAX_SHARP_BLOCKS]);
+    HCTR_SHARP_CHECK_(sharp_coll_do_allreduce_nb(sharp_ctx_->sharp_coll_comm_, &reduce_spec_,
+                                                 &handle[sharp_req_counter_ % MAX_SHARP_BLOCKS]));
     // HCTR_LOG_S(INFO, WORLD) << "Sharp coll do allreduce called" << std::endl;
-    PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
 
     sharp_req_counter_++;
     nblock_ = (nblock_ + 1) % num_blocks_;
@@ -1337,9 +1310,7 @@ void IbvProxy::ARCollContext::process_new_command() {
 void IbvProxy::ARCollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
-                               << HCTR_LOCATION() << std::endl;
-      exit(1);
+      HCTR_CHECK_(false, "No buffers are registered for the collective.");
       break;
     }
     case PROCESS_SHARP: {
@@ -1370,7 +1341,7 @@ IbvProxy::ARCollContext::~ARCollContext() {
     HCTR_LIB_CHECK_(cudaFreeHost(h_rs_cmd_));
   }
   if (mem_mr) {
-    sharp_coll_dereg_mr(sharp_ctx_->sharp_coll_context_, mem_mr);
+    HCTR_SHARP_CHECK_(sharp_coll_dereg_mr(sharp_ctx_->sharp_coll_context_, mem_mr));
   }
 }
 
