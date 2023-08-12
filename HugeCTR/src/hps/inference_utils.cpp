@@ -192,7 +192,8 @@ InferenceParams::InferenceParams(
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
     const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file,
     bool use_static_table, EmbeddingCacheType_t embedding_cache_type, bool use_context_stream,
-    bool fuse_embedding_table, bool use_hctr_cache_implementation, bool init_ec)
+    bool fuse_embedding_table, bool use_hctr_cache_implementation, bool init_ec,
+    bool enable_pagelock, bool fp8_quant)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -232,7 +233,9 @@ InferenceParams::InferenceParams(
       use_context_stream(use_context_stream),
       fuse_embedding_table(fuse_embedding_table),
       use_hctr_cache_implementation(use_hctr_cache_implementation),
-      init_ec(init_ec) {
+      init_ec(init_ec),
+      enable_pagelock(enable_pagelock),
+      fp8_quant(fp8_quant) {
   // this code path is only used by hps python interface!
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
@@ -665,6 +668,10 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     params.thread_pool_size = get_value_from_json_soft<int>(model, "thread_pool_size", 16);
     // [25] init_ec -> bool
     params.init_ec = get_value_from_json_soft<bool>(model, "init_ec", true);
+    // [26] enable_pagelock -> bool
+    params.enable_pagelock = get_value_from_json_soft<bool>(model, "enable_pagelock", false);
+    // [27] fp8_quant -> bool
+    params.fp8_quant = get_value_from_json_soft<bool>(model, "fp8_quant", false);
 
     params.volatile_db = volatile_db_params;
     params.persistent_db = persistent_db_params;

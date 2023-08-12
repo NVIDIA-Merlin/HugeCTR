@@ -62,11 +62,19 @@ std::shared_ptr<EmbeddingCacheBase> EmbeddingCacheBase::create(
     HierParameterServerBase* const parameter_server) {
   if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Static) {
     if (inference_params.i64_input_key) {
-      return std::make_shared<StaticTable<long long>>(inference_params, ps_config,
-                                                      parameter_server);
+      if (inference_params.fp8_quant) {
+        return std::make_shared<StaticTable<long long, __nv_fp8_e4m3>>(inference_params, ps_config,
+                                                                       parameter_server);
+      }
+      return std::make_shared<StaticTable<long long, float>>(inference_params, ps_config,
+                                                             parameter_server);
     } else {
-      return std::make_shared<StaticTable<unsigned int>>(inference_params, ps_config,
-                                                         parameter_server);
+      if (inference_params.fp8_quant) {
+        return std::make_shared<StaticTable<unsigned int, __nv_fp8_e4m3>>(
+            inference_params, ps_config, parameter_server);
+      }
+      return std::make_shared<StaticTable<unsigned int, float>>(inference_params, ps_config,
+                                                                parameter_server);
     }
   } else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Dynamic) {
     if (inference_params.i64_input_key) {
@@ -478,8 +486,8 @@ void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
 
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
-                                       float* h_refresh_emb_vec_, size_t h_length_,
-                                       cudaStream_t stream) {}
+                                       void* h_refresh_emb_vec_, float* h_quant_scales,
+                                       size_t h_length_, cudaStream_t stream) {}
 
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::dump(const size_t table_id, void* const d_keys,
@@ -507,7 +515,7 @@ void EmbeddingCache<TypeHashKey>::dump(const size_t table_id, void* const d_keys
 
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::refresh(const size_t table_id, const void* const d_keys,
-                                          const float* const d_vectors, const size_t length,
+                                          const void* const d_vectors, const size_t length,
                                           cudaStream_t stream) {
   // If GPU embedding cache is enabled
   if (cache_config_.use_gpu_embedding_cache_) {
@@ -519,8 +527,8 @@ void EmbeddingCache<TypeHashKey>::refresh(const size_t table_id, const void* con
     dev_restorer.check_device(cache_config_.cuda_dev_id_);
     BaseUnit* start = profiler::start();
     // Call GPU cache API
-    gpu_emb_caches_[table_id]->Update(static_cast<const TypeHashKey*>(d_keys), length, d_vectors,
-                                      stream, SLAB_SIZE);
+    gpu_emb_caches_[table_id]->Update(static_cast<const TypeHashKey*>(d_keys), length,
+                                      static_cast<const float*>(d_vectors), stream, SLAB_SIZE);
     ec_profiler_->end(start, "Refresh/Update exist embedding vector in Embedding cache",
                       ProfilerType_t::Timeliness, stream);
   }

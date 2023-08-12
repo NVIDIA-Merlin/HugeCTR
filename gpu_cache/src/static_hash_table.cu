@@ -196,15 +196,15 @@ __device__ size_type lookup(key_type *table, int64_t capacity, key_type key, con
   return invalid_slot;
 }
 
-template <int warp_size>
+template <int warp_size, typename value_type, typename out_value_type>
 __forceinline__ __device__ void warp_tile_copy(const size_t lane_idx,
                                                const size_t emb_vec_size_in_float,
-                                               volatile float *d_dst, const float *d_src) {
+                                               out_value_type *d_dst, const value_type *d_src) {
   // 16 bytes align
   if (emb_vec_size_in_float % 4 != 0 || (size_t)d_dst % 16 != 0 || (size_t)d_src % 16 != 0) {
 #pragma unroll
     for (size_t i = lane_idx; i < emb_vec_size_in_float; i += warp_size) {
-      d_dst[i] = d_src[i];
+      d_dst[i] = out_value_type(d_src[i]);
     }
   } else {
 #pragma unroll
@@ -214,22 +214,48 @@ __forceinline__ __device__ void warp_tile_copy(const size_t lane_idx,
   }
 }
 
-template <int warp_size>
+template <int warp_size, typename value_type, typename out_value_type>
+__forceinline__ __device__ void warp_tile_quant_copy(const size_t lane_idx,
+                                                     const size_t emb_vec_size_in_float,
+                                                     out_value_type *d_dst, const value_type *d_src,
+                                                     const float scale) {
+  // Todo:Vectorized read of char4
+  if (emb_vec_size_in_float % 4 != 0 || (size_t)d_dst % 16 != 0 || (size_t)d_src % 16 != 0) {
+#pragma unroll
+    for (size_t i = lane_idx; i < emb_vec_size_in_float; i += warp_size) {
+      d_dst[i] = out_value_type(float(__nv_fp8_e4m3(d_src[i])) * scale);
+    }
+  } else {
+#pragma unroll
+    for (size_t i = lane_idx; i < emb_vec_size_in_float / 4; i += warp_size) {
+      char4 tmp = __ldg((const char4 *)(d_src + i * 4));
+      float4 float4Tmp;
+      float4Tmp.x = ((float)reinterpret_cast<const __nv_fp8_e4m3 *>(&tmp.x)[0]) * scale;
+      float4Tmp.y = ((float)reinterpret_cast<const __nv_fp8_e4m3 *>(&tmp.y)[0]) * scale;
+      float4Tmp.z = ((float)reinterpret_cast<const __nv_fp8_e4m3 *>(&tmp.z)[0]) * scale;
+      float4Tmp.w = ((float)reinterpret_cast<const __nv_fp8_e4m3 *>(&tmp.w)[0]) * scale;
+      *(float4 *)(d_dst + i * 4) = float4Tmp;
+    }
+  }
+}
+
+template <int warp_size, typename value_type, typename out_value_type>
 __forceinline__ __device__ void warp_tile_copy(const size_t lane_idx,
                                                const size_t emb_vec_size_in_float,
-                                               volatile float *d_dst, const float default_value) {
+                                               out_value_type *d_dst,
+                                               out_value_type default_value) {
 #pragma unroll
   for (size_t i = lane_idx; i < emb_vec_size_in_float; i += warp_size) {
-    d_dst[i] = default_value;
+    d_dst[i] = out_value_type(default_value);
   }
 }
 
 template <unsigned int tile_size, unsigned int group_size, typename key_type, typename value_type,
-          typename size_type, typename hasher>
-__global__ void LookupKernel(key_type *table_keys, size_type *table_indices, int64_t capacity,
-                             const key_type *keys, int num_keys, const value_type *values,
-                             int value_dim, value_type *output, hasher hash,
-                             const key_type empty_key, const value_type default_value,
+          typename out_value_type, typename size_type, typename hasher>
+__global__ void LookupKernel(key_type *table_keys, size_type *table_indices, float *quant_scales_,
+                             int64_t capacity, const key_type *keys, int num_keys,
+                             const value_type *values, int value_dim, out_value_type *output,
+                             hasher hash, const key_type empty_key, out_value_type default_value,
                              const size_type invalid_slot) {
   static_assert(tile_size <= group_size, "tile_size cannot be larger than group_size");
   constexpr int WARP_SIZE = 32;
@@ -261,22 +287,33 @@ __global__ void LookupKernel(key_type *table_keys, size_type *table_indices, int
       int idx_to_write = warp_tile.shfl(key_num, 0) + i;
       if (idx_to_write >= num_keys) break;
       if (slot_to_read == invalid_slot) {
-        warp_tile_copy<WARP_SIZE>(warp_tile.thread_rank(), value_dim,
-                                  output + (size_t)value_dim * idx_to_write, default_value);
+        warp_tile_copy<WARP_SIZE, value_type>(warp_tile.thread_rank(), value_dim,
+                                              output + (size_t)value_dim * idx_to_write,
+                                              default_value);
         continue;
       }
       auto index = table_indices[slot_to_read];
-      warp_tile_copy<WARP_SIZE>(warp_tile.thread_rank(), value_dim,
-                                output + (size_t)value_dim * idx_to_write,
-                                values + (size_t)value_dim * index);
+
+      if constexpr (nv::is_fp8<value_type>::value) {
+        float scale;
+        scale = quant_scales_[index];
+        warp_tile_quant_copy<WARP_SIZE, value_type>(warp_tile.thread_rank(), value_dim,
+                                                    output + (size_t)value_dim * idx_to_write,
+                                                    values + (size_t)value_dim * index, scale);
+      } else {
+        warp_tile_copy<WARP_SIZE, value_type>(warp_tile.thread_rank(), value_dim,
+                                              output + (size_t)value_dim * idx_to_write,
+                                              values + (size_t)value_dim * index);
+      }
     }
   }
 }
 
-template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,
-          typename hasher>
-StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHashTable(
-    size_type capacity, int value_dim, hasher hash)
+template <typename key_type, typename value_type, typename out_value_type, unsigned int tile_size,
+          unsigned int group_size, typename hasher>
+StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size,
+                hasher>::StaticHashTable(size_type capacity, int value_dim, bool enable_pagelock,
+                                         hasher hash)
     : table_keys_(nullptr),
       table_indices_(nullptr),
       key_capacity_(capacity * 2),
@@ -284,6 +321,7 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
       value_capacity_(capacity),
       value_dim_(value_dim),
       size_(0),
+      enable_pagelock(enable_pagelock),
       hash_(hash) {
   // Check parameters
   if (capacity <= 0) {
@@ -305,6 +343,7 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
   // Allocate device memory
   size_t align_m = 16;
   size_t num_keys = key_capacity_ + 1;
+  size_t num_scales = key_capacity_ + 1;
   size_t num_values = (value_capacity_ * value_dim_ + align_m - 1) / align_m * align_m;
   CUDA_CHECK(cudaMalloc(&table_keys_, sizeof(key_type) * num_keys));
   CUDA_CHECK(cudaMalloc(&table_indices_, sizeof(size_type) * num_keys));
@@ -338,7 +377,15 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
   }
   table_values_ = static_cast<value_type *>(p);
 #else
-  CUDA_CHECK(cudaMalloc(&table_values_, sizeof(value_type) * num_values));
+  if (enable_pagelock) {
+    CUDA_CHECK(
+        cudaHostAlloc(&table_values_, sizeof(value_type) * num_values, cudaHostAllocPortable));
+  } else {
+    CUDA_CHECK(cudaMalloc(&table_values_, sizeof(value_type) * num_values));
+  }
+  if constexpr (nv::is_fp8<value_type>::value) {
+    CUDA_CHECK(cudaMalloc(&quant_scales_, sizeof(float) * num_keys));
+  }
 #endif
 
   // Initialize table_keys_
@@ -346,10 +393,11 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::StaticHash
   CUDA_CHECK(cudaMemset(table_keys_ + key_capacity_, 0, sizeof(key_type)));
 }
 
-template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,
-          typename hasher>
-void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::insert(
-    const key_type *keys, const value_type *values, size_type num_keys, cudaStream_t stream) {
+template <typename key_type, typename value_type, typename out_value_type, unsigned int tile_size,
+          unsigned int group_size, typename hasher>
+void StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size, hasher>::insert(
+    const key_type *keys, const value_type *values, size_type num_keys, cudaStream_t stream,
+    const float *quant_scales) {
   if (num_keys == 0) {
     return;
   }
@@ -369,21 +417,27 @@ void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::inser
   CUDA_CHECK(cudaMemcpyAsync(table_values_ + size_ * value_dim_, values,
                              sizeof(value_type) * num_keys * value_dim_, cudaMemcpyDefault,
                              stream));
+
+  if constexpr (nv::is_fp8<value_type>::value) {
+    CUDA_CHECK(cudaMemcpyAsync(quant_scales_ + size_, quant_scales, sizeof(float) * num_keys,
+                               cudaMemcpyDefault, stream));
+  }
   size_ += num_keys;
 }
 
-template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,
-          typename hasher>
-void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::clear(
+template <typename key_type, typename value_type, typename out_value_type, unsigned int tile_size,
+          unsigned int group_size, typename hasher>
+void StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size, hasher>::clear(
     cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(table_keys_, 0xff, sizeof(key_type) * key_capacity_, stream));
   CUDA_CHECK(cudaMemsetAsync(table_keys_ + key_capacity_, 0, sizeof(key_type), stream));
   size_ = 0;
 }
 
-template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,
-          typename hasher>
-StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::~StaticHashTable() {
+template <typename key_type, typename value_type, typename out_value_type, unsigned int tile_size,
+          unsigned int group_size, typename hasher>
+StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size,
+                hasher>::~StaticHashTable() {
   CUDA_CHECK(cudaFree(table_keys_));
   CUDA_CHECK(cudaFree(table_indices_));
 
@@ -401,14 +455,21 @@ StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::~StaticHas
   }
   CUDA_CHECK(cudaFreeHost(table_values_));
 #else
-  CUDA_CHECK(cudaFree(table_values_));
+  if constexpr (nv::is_fp8<value_type>::value) {
+    CUDA_CHECK(cudaFree(quant_scales_));
+  } else {
+    if (enable_pagelock)
+      CUDA_CHECK(cudaFreeHost(table_values_))
+    else
+      CUDA_CHECK(cudaFree(table_values_));
+  }
 #endif
 }
 
-template <typename key_type, typename value_type, unsigned int tile_size, unsigned int group_size,
-          typename hasher>
-void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::lookup(
-    const key_type *keys, value_type *values, int num_keys, value_type default_value,
+template <typename key_type, typename value_type, typename out_value_type, unsigned int tile_size,
+          unsigned int group_size, typename hasher>
+void StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size, hasher>::lookup(
+    const key_type *keys, out_value_type *values, int num_keys, out_value_type default_value,
     cudaStream_t stream) {
   if (num_keys == 0) {
     return;
@@ -418,10 +479,15 @@ void StaticHashTable<key_type, value_type, tile_size, group_size, hasher>::looku
   const int grid = (num_keys - 1) / block + 1;
   // Lookup keys
   LookupKernel<tile_size, group_size><<<grid, block, 0, stream>>>(
-      table_keys_, table_indices_, key_capacity_, keys, num_keys, table_values_, value_dim_, values,
-      hash_, empty_key, default_value, invalid_slot);
+      table_keys_, table_indices_, quant_scales_, key_capacity_, keys, num_keys, table_values_,
+      value_dim_, values, hash_, empty_key, default_value, invalid_slot);
+  cudaStreamSynchronize(stream);
 }
 
-template class StaticHashTable<long long, float>;
-template class StaticHashTable<uint32_t, float>;
+template class StaticHashTable<uint32_t, float, float>;
+template class StaticHashTable<uint32_t, __nv_fp8_e4m3, float>;
+template class StaticHashTable<uint32_t, __nv_fp8_e4m3, __nv_fp8_e4m3>;
+template class StaticHashTable<long long, float, float>;
+template class StaticHashTable<long long, __nv_fp8_e4m3, float>;
+template class StaticHashTable<long long, __nv_fp8_e4m3, __nv_fp8_e4m3>;
 }  // namespace gpu_cache

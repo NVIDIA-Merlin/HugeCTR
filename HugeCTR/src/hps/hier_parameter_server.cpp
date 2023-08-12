@@ -525,7 +525,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
           num_iteration++;
         }
       }
-      // For UVM solution
+      // For UVM/Static solution
       else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::UVM ||
                inference_params.embedding_cache_type == EmbeddingCacheType_t::Static) {
         HCTR_LOG(INFO, WORLD,
@@ -569,21 +569,25 @@ void HierParameterServer<TypeHashKey>::init_ec(
             num_iterations = (numkeys_in_EC_pertable - 1) / length + 1;
           } else {
             rawreader->load(inference_params.embedding_table_names[j],
-                            inference_params.sparse_model_files[j], length);
+                            inference_params.sparse_model_files[j], length, 1,
+                            inference_params.fp8_quant);
             num_iterations = (cache_config.num_set_in_cache_[j] - 1) / length + 1;
-            numkeys_in_EC_pertable = cache_config.num_set_in_cache_[j];
+            if (inference_params.fp8_quant) {
+              num_iterations = rawreader->get_num_iterations();
+            }
           }
           // initializing ec by iteratively inserting keys
           for (size_t it = 0; it < num_iterations; it++) {
-            if (it == num_iterations - 1) {
-              length = numkeys_in_EC_pertable - length * it;
-            }
             key_result = rawreader->getkeys(it);
-            vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j]);
-            HCTR_LOG_S(INFO, ROOT) << "Initialize the embedding table " << j << " for iteration "
-                                   << it << " with number of " << length << " keys." << std::endl;
+            vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j],
+                                               inference_params.fp8_quant);
+            HCTR_LOG_S(INFO, ROOT)
+                << "Initilize the embedding table " << j << " for interation " << it
+                << " with number of " << key_result.second << " keys." << std::endl;
             embedding_cache_map[device_id]->init(
-                j, key_result.first, reinterpret_cast<float*>(vec_result.first), length, stream);
+                j, key_result.first, reinterpret_cast<float*>(vec_result.first),
+                reinterpret_cast<float*>(rawreader->getmetas(inference_params.fp8_quant)),
+                key_result.second, stream);
             HCTR_LIB_THROW(cudaStreamSynchronize(stream));
           }
         }
@@ -684,12 +688,14 @@ std::shared_ptr<EmbeddingCacheBase> HierParameterServer<TypeHashKey>::get_embedd
     const std::string& model_name, const int device_id) {
   const auto it = model_cache_map_.find(model_name);
   if (it == model_cache_map_.end()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "No embedding cache for model " + model_name);
+    HCTR_LOG_C(WARNING, WORLD, "No embedding cache for model " + model_name + "\n");
+    return nullptr;
   }
   if (it->second.find(device_id) == it->second.end()) {
     std::ostringstream os;
     os << "No embedding cache on device " << device_id << " for model " << model_name;
-    HCTR_OWN_THROW(Error_t::WrongInput, os.str());
+    HCTR_LOG_C(WARNING, WORLD, os.str());
+    return nullptr;
   }
   return model_cache_map_[model_name][device_id];
 }

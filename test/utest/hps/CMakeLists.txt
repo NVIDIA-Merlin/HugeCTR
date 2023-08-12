@@ -39,6 +39,10 @@ file(GLOB static_uvm_table_test_src
   static_uvm_table_test.cu
 )
 
+file(GLOB quant_src
+  quantize_test.cpp
+)
+
 add_executable(embedding_cache_test ${embedding_cache_test_src})
 target_compile_features(embedding_cache_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_cache_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
@@ -63,3 +67,7 @@ target_link_libraries(db_backend_test PUBLIC hugectr_core23 huge_ctr_hps cudart 
 add_executable(static_uvm_table_test ${static_uvm_table_test_src})
 target_compile_features(static_uvm_table_test PUBLIC cxx_std_17)
 target_link_libraries(static_uvm_table_test PUBLIC hugectr_core23 huge_ctr_hps cudart gtest gtest_main stdc++fs)
+
+add_executable(quantize_test ${quant_src})
+target_compile_features(quantize_test PUBLIC cxx_std_17)
+target_link_libraries(quantize_test PUBLIC  huge_ctr_hps cudart gtest gtest_main stdc++fs)

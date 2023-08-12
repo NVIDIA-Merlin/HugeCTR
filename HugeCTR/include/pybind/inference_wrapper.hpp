@@ -543,7 +543,7 @@ void InferencePybind(pybind11::module& m) {
                           const float, const float, const std::vector<size_t>&,
                           const std::vector<size_t>&, const std::vector<std::string>&,
                           const std::string&, const size_t, const size_t, const std::string&, bool,
-                          const EmbeddingCacheType_t&, bool, bool, bool, bool>(),
+                          const EmbeddingCacheType_t&, bool, bool, bool, bool, bool, bool>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
@@ -574,7 +574,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("embedding_cache_type") = EmbeddingCacheType_t::Dynamic,
            pybind11::arg("use_context_stream") = true,
            pybind11::arg("fuse_embedding_table") = false,
-           pybind11::arg("use_hctr_cache_implementation") = true, pybind11::arg("init_ec") = true);
+           pybind11::arg("use_hctr_cache_implementation") = true, pybind11::arg("init_ec") = true,
+           pybind11::arg("enable_pagelock") = false, pybind11::arg("fp8_quant") = false);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));
