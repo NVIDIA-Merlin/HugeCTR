@@ -26,9 +26,9 @@
 namespace HugeCTR {
 
 template <typename TypeHashKey>
-UvmTable<TypeHashKey>::UvmTable(const InferenceParams& inference_params,
-                                const parameter_server_config& ps_config,
-                                HierParameterServerBase* const parameter_server)
+UvmTable<TypeHashKey>::UvmTable(const InferenceParams &inference_params,
+                                const parameter_server_config &ps_config,
+                                HierParameterServerBase *const parameter_server)
     : EmbeddingCacheBase(), parameter_server_(parameter_server) {
   // Store the configuration
   cache_config_.num_emb_table_ = inference_params.fuse_embedding_table
@@ -99,16 +99,17 @@ UvmTable<TypeHashKey>::UvmTable(const InferenceParams& inference_params,
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const void* h_keys,
+void UvmTable<TypeHashKey>::lookup(size_t table_id, float *d_vectors, const void *h_keys,
                                    size_t num_keys, float hit_rate_threshold, cudaStream_t stream) {
-  MemoryBlock* memory_block = nullptr;
-  BaseUnit* start = profiler::start();
+  MemoryBlock *memory_block = nullptr;
+  BaseUnit *start = profiler::start();
   while (memory_block == nullptr) {
-    memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
+    memory_block = reinterpret_cast<struct MemoryBlock *>(parameter_server_->apply_buffer(
         cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
   }
   ec_profiler_->end(start,
-                    "Apply for workspace from the memory pool for UVM Embedding Cache Lookup");
+                    "Apply for workspace from the memory pool for UVM "
+                    "Embedding Cache Lookup");
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
@@ -126,18 +127,19 @@ void UvmTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const void
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors,
-                                               const void* d_keys, size_t num_keys,
+void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float *d_vectors,
+                                               const void *d_keys, size_t num_keys,
                                                float hit_rate_threshold, cudaStream_t stream) {
-  MemoryBlock* memory_block = nullptr;
-  BaseUnit* start = profiler::start();
+  MemoryBlock *memory_block = nullptr;
+  BaseUnit *start = profiler::start();
   while (memory_block == nullptr) {
-    memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
+    memory_block = reinterpret_cast<struct MemoryBlock *>(parameter_server_->apply_buffer(
         cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
   }
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   ec_profiler_->end(start,
-                    "Apply for workspace from the memory pool for UVM Embedding Cache Lookup");
+                    "Apply for workspace from the memory pool for UVM "
+                    "Embedding Cache Lookup");
 
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
@@ -153,8 +155,8 @@ void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors,
-                                               MemoryBlock* memory_block, size_t num_keys,
+void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float *d_vectors,
+                                               MemoryBlock *memory_block, size_t num_keys,
                                                cudaStream_t stream) {
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
 
@@ -162,7 +164,7 @@ void UvmTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   uvm_tables_[table_id]->query(
-      static_cast<TypeHashKey*>(workspace_handler.d_embeddingcolumns_[table_id]), num_keys,
+      static_cast<TypeHashKey *>(workspace_handler.d_embeddingcolumns_[table_id]), num_keys,
       d_vectors, stream);
 }
 
@@ -171,14 +173,14 @@ EmbeddingCacheWorkspace UvmTable<TypeHashKey>::create_workspace() {
   EmbeddingCacheWorkspace workspace_handler;
   // Allocate common buffer.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
-    void* h_embeddingcolumns;
+    void *h_embeddingcolumns;
     HCTR_LIB_THROW(cudaHostAlloc(
         &h_embeddingcolumns, cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey),
         cudaHostAllocPortable));
     workspace_handler.h_embeddingcolumns_.push_back(h_embeddingcolumns);
 
-    float* h_missing_emb_vec;
-    HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&h_missing_emb_vec),
+    float *h_missing_emb_vec;
+    HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&h_missing_emb_vec),
                                  cache_config_.max_query_len_per_emb_table_[i] *
                                      cache_config_.embedding_vec_size_[i] * sizeof(float),
                                  cudaHostAllocPortable));
@@ -190,61 +192,61 @@ EmbeddingCacheWorkspace UvmTable<TypeHashKey>::create_workspace() {
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
-    void* d_embeddingcolumns;
+    void *d_embeddingcolumns;
     HCTR_LIB_THROW(cudaMalloc(&d_embeddingcolumns,
                               cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey)));
     workspace_handler.d_embeddingcolumns_.push_back(d_embeddingcolumns);
 
-    uint64_t* d_unique_output_index;
-    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_unique_output_index),
+    uint64_t *d_unique_output_index;
+    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&d_unique_output_index),
                               cache_config_.max_query_len_per_emb_table_[i] * sizeof(uint64_t)));
     workspace_handler.d_unique_output_index_.push_back(d_unique_output_index);
 
-    void* d_unique_output_embeddingcolumns;
+    void *d_unique_output_embeddingcolumns;
     HCTR_LIB_THROW(cudaMalloc(&d_unique_output_embeddingcolumns,
                               cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey)));
     workspace_handler.d_unique_output_embeddingcolumns_.push_back(d_unique_output_embeddingcolumns);
 
-    float* d_hit_emb_vec;
-    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_hit_emb_vec),
+    float *d_hit_emb_vec;
+    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&d_hit_emb_vec),
                               cache_config_.max_query_len_per_emb_table_[i] *
                                   cache_config_.embedding_vec_size_[i] * sizeof(float)));
     workspace_handler.d_hit_emb_vec_.push_back(d_hit_emb_vec);
 
-    void* d_missing_embeddingcolumns;
+    void *d_missing_embeddingcolumns;
     HCTR_LIB_THROW(cudaMalloc(&d_missing_embeddingcolumns,
                               cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey)));
     workspace_handler.d_missing_embeddingcolumns_.push_back(d_missing_embeddingcolumns);
 
-    void* h_missing_embeddingcolumns;
+    void *h_missing_embeddingcolumns;
     HCTR_LIB_THROW(
         cudaHostAlloc(&h_missing_embeddingcolumns,
                       cache_config_.max_query_len_per_emb_table_[i] * sizeof(TypeHashKey),
                       cudaHostAllocPortable));
     workspace_handler.h_missing_embeddingcolumns_.push_back(h_missing_embeddingcolumns);
 
-    uint64_t* d_missing_index;
-    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_missing_index),
+    uint64_t *d_missing_index;
+    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&d_missing_index),
                               cache_config_.max_query_len_per_emb_table_[i] * sizeof(uint64_t)));
     workspace_handler.d_missing_index_.push_back(d_missing_index);
 
-    float* d_missing_emb_vec;
-    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&d_missing_emb_vec),
+    float *d_missing_emb_vec;
+    HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&d_missing_emb_vec),
                               cache_config_.max_query_len_per_emb_table_[i] *
                                   cache_config_.embedding_vec_size_[i] * sizeof(float)));
     workspace_handler.d_missing_emb_vec_.push_back(d_missing_emb_vec);
   }
-  HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&workspace_handler.d_missing_length_),
+  HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&workspace_handler.d_missing_length_),
                             cache_config_.num_emb_table_ * sizeof(size_t)));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&workspace_handler.h_missing_length_),
+  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&workspace_handler.h_missing_length_),
                                cache_config_.num_emb_table_ * sizeof(size_t),
                                cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void**>(&workspace_handler.d_unique_length_),
+  HCTR_LIB_THROW(cudaMalloc(reinterpret_cast<void **>(&workspace_handler.d_unique_length_),
                             cache_config_.num_emb_table_ * sizeof(size_t)));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&workspace_handler.h_unique_length_),
+  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&workspace_handler.h_unique_length_),
                                cache_config_.num_emb_table_ * sizeof(size_t),
                                cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&workspace_handler.h_hit_rate_),
+  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&workspace_handler.h_hit_rate_),
                                cache_config_.num_emb_table_ * sizeof(double),
                                cudaHostAllocPortable));
   return workspace_handler;
@@ -265,48 +267,50 @@ EmbeddingCacheRefreshspace UvmTable<TypeHashKey>::create_refreshspace() {
   // Create memory buffers.
   HCTR_LIB_THROW(cudaHostAlloc(&refreshspace_handler.h_refresh_embeddingcolumns_,
                                max_num_key_in_buffer * sizeof(TypeHashKey), cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_refresh_emb_vec_),
+  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&refreshspace_handler.h_refresh_emb_vec_),
                                max_num_key_in_buffer * max_embedding_size * sizeof(float),
                                cudaHostAllocPortable));
-  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void**>(&refreshspace_handler.h_length_),
+  HCTR_LIB_THROW(cudaHostAlloc(reinterpret_cast<void **>(&refreshspace_handler.h_length_),
                                sizeof(size_t), cudaHostAllocPortable));
   return refreshspace_handler;
 }
 
 template <typename TypeHashKey>
 void UvmTable<TypeHashKey>::init(const size_t table_id,
-                                 EmbeddingCacheRefreshspace& refreshspace_handler,
+                                 EmbeddingCacheRefreshspace &refreshspace_handler,
                                  cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
   uvm_tables_[table_id]->add(
-      static_cast<TypeHashKey*>(refreshspace_handler.h_refresh_embeddingcolumns_),
+      static_cast<TypeHashKey *>(refreshspace_handler.h_refresh_embeddingcolumns_),
       refreshspace_handler.h_refresh_emb_vec_, *refreshspace_handler.h_length_);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
-                                 float* h_refresh_emb_vec_, size_t h_length_, cudaStream_t stream) {
+void UvmTable<TypeHashKey>::init(const size_t table_id, void *h_refresh_embeddingcolumns_,
+                                 void *h_refresh_emb_vec_, float *h_quant_scales, size_t h_length_,
+                                 cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
-  uvm_tables_[table_id]->add(static_cast<TypeHashKey*>(h_refresh_embeddingcolumns_),
-                             h_refresh_emb_vec_, h_length_);
+  uvm_tables_[table_id]->add(static_cast<TypeHashKey *>(h_refresh_embeddingcolumns_),
+                             reinterpret_cast<float *>(h_refresh_emb_vec_), h_length_);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::refresh(const size_t table_id, const void* const d_keys,
-                                    const float* const d_vectors, const size_t length,
+void UvmTable<TypeHashKey>::refresh(const size_t table_id, const void *const d_keys,
+                                    const void *const d_vectors, const size_t length,
                                     cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
   uvm_tables_[table_id]->clear(stream);
-  uvm_tables_[table_id]->add(static_cast<const TypeHashKey*>(d_keys), d_vectors, length);
+  uvm_tables_[table_id]->add(static_cast<const TypeHashKey *>(d_keys),
+                             static_cast<const float *>(d_vectors), length);
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& workspace_handler) {
+void UvmTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace &workspace_handler) {
   // Free common buffer.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_embeddingcolumns_[i]));
@@ -349,7 +353,7 @@ void UvmTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& workspace
 }
 
 template <typename TypeHashKey>
-void UvmTable<TypeHashKey>::destroy_refreshspace(EmbeddingCacheRefreshspace& refreshspace_handler) {
+void UvmTable<TypeHashKey>::destroy_refreshspace(EmbeddingCacheRefreshspace &refreshspace_handler) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
 
@@ -367,7 +371,7 @@ UvmTable<TypeHashKey>::~UvmTable() {
   CudaDeviceContext dev_restorer;
   dev_restorer.set_device(cache_config_.cuda_dev_id_);
   // Destroy resources.
-  for (auto& stream : refresh_streams_) {
+  for (auto &stream : refresh_streams_) {
     cudaStreamDestroy(stream);
   }
   refresh_streams_.clear();

@@ -23,43 +23,56 @@
 
 namespace gpu_cache {
 
-template <typename key_type>
-static_table<key_type>::static_table(const size_t table_size, const size_t embedding_vec_size,
-                                     const float default_value)
+template <typename key_type, typename value_type, typename out_value_type>
+static_table<key_type, value_type, out_value_type>::static_table(const size_t table_size,
+                                                                 const size_t embedding_vec_size,
+                                                                 const out_value_type default_value,
+                                                                 bool enable_pagelock)
     : table_size_(table_size),
       embedding_vec_size_(embedding_vec_size),
       default_value_(default_value),
-      static_hash_table_(table_size, embedding_vec_size) {
+      static_hash_table_(table_size, embedding_vec_size, enable_pagelock) {
   if (embedding_vec_size_ == 0) {
     printf("Error: Invalid value for embedding_vec_size.\n");
     return;
   }
 }
 
-template <typename key_type>
-void static_table<key_type>::Query(const key_type* d_keys, const size_t len, float* d_values,
-                                   cudaStream_t stream) {
+template <typename key_type, typename value_type, typename out_value_type>
+void static_table<key_type, value_type, out_value_type>::Query(const key_type* d_keys,
+                                                               const size_t len,
+                                                               out_value_type* d_values,
+                                                               cudaStream_t stream) {
   static_hash_table_.lookup(d_keys, d_values, len, default_value_, stream);
 }
 
-template <typename key_type>
-void static_table<key_type>::Init(const key_type* d_keys, const size_t len, const float* d_values,
-                                  cudaStream_t stream) {
+template <typename key_type, typename value_type, typename out_value_type>
+void static_table<key_type, value_type, out_value_type>::Init(const key_type* d_keys,
+                                                              const size_t len,
+                                                              const value_type* d_values,
+                                                              cudaStream_t stream) {
   static_hash_table_.insert(d_keys, d_values, len, stream);
 }
 
-template <typename key_type>
-void static_table<key_type>::Add(const key_type* d_keys, const size_t len, const float* d_values,
-                                 cudaStream_t stream) {
-  static_hash_table_.insert(d_keys, d_values, len, stream);
+template <typename key_type, typename value_type, typename out_value_type>
+void static_table<key_type, value_type, out_value_type>::Add(const key_type* d_keys,
+                                                             const size_t len,
+                                                             const value_type* d_values,
+                                                             const float* d_quant_scales,
+                                                             cudaStream_t stream) {
+  static_hash_table_.insert(d_keys, d_values, len, stream, d_quant_scales);
 }
 
-template <typename key_type>
-void static_table<key_type>::Clear(cudaStream_t stream) {
+template <typename key_type, typename value_type, typename out_value_type>
+void static_table<key_type, value_type, out_value_type>::Clear(cudaStream_t stream) {
   static_hash_table_.clear(stream);
 }
 
-template class static_table<unsigned int>;
-template class static_table<long long>;
+template class static_table<unsigned int, float, float>;
+template class static_table<unsigned int, __nv_fp8_e4m3, float>;
+template class static_table<unsigned int, __nv_fp8_e4m3, __nv_fp8_e4m3>;
+template class static_table<long long, float, float>;
+template class static_table<long long, __nv_fp8_e4m3, float>;
+template class static_table<long long, __nv_fp8_e4m3, __nv_fp8_e4m3>;
 
 }  // namespace gpu_cache

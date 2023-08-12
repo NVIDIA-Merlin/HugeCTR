@@ -20,8 +20,9 @@
 #include <hash_functions.cuh>
 
 namespace gpu_cache {
-template <typename key_type, typename value_type, unsigned int tile_size = 4,
-          unsigned int group_size = 16, typename hasher = MurmurHash3_32<key_type>>
+template <typename key_type, typename value_type, typename out_value_type,
+          unsigned int tile_size = 4, unsigned int group_size = 16,
+          typename hasher = MurmurHash3_32<key_type>>
 class StaticHashTable {
  public:
   using size_type = uint32_t;
@@ -36,7 +37,8 @@ class StaticHashTable {
   constexpr static size_type invalid_slot = ~(size_type)0;
 
  public:
-  StaticHashTable(size_type capacity, int value_dim = 1, hasher hash = hasher{});
+  StaticHashTable(size_type capacity, int value_dim = 1, bool enable_pagelock = false,
+                  hasher hash = hasher{});
   ~StaticHashTable();
 
   inline size_type size() const { return size_; }
@@ -57,10 +59,10 @@ class StaticHashTable {
   // 2. Please make sure the key to be inserted does not exist in the table.
   // 3. Please make sure (size() + num_keys) <= capacity().
   void insert(const key_type *keys, const value_type *values, size_type num_keys,
-              cudaStream_t stream = 0);
+              cudaStream_t stream = 0, const float *quant_scales = nullptr);
 
-  void lookup(const key_type *keys, value_type *values, int num_keys, value_type default_value = 0,
-              cudaStream_t stream = 0);
+  void lookup(const key_type *keys, out_value_type *values, int num_keys,
+              out_value_type default_value = 0, cudaStream_t stream = 0);
 
  private:
   key_type *table_keys_;
@@ -68,10 +70,12 @@ class StaticHashTable {
   int64_t key_capacity_;
 
   value_type *table_values_;
+  float *quant_scales_;
   int64_t value_capacity_;
   int value_dim_;
 
   int64_t size_;
+  bool enable_pagelock;
   hasher hash_;
 };
 }  // namespace gpu_cache

@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <hps/database_backend.hpp>
+#include <hps/quantize.hpp>
 #include <io/filesystem.hpp>
 #include <iostream>
 #include <map>
@@ -40,6 +41,9 @@ struct UnifiedEmbeddingTable {
   std::vector<TypeHashKey> meta;
   std::vector<TypeHashKey> uvm_keys;
   std::vector<TypeHashValue> uvm_vectors;
+  float* quant_scales_ = nullptr;
+  __nv_fp8_e4m3* d_vec_quant = nullptr;
+  float* d_vec_ = nullptr;
   size_t key_count = 0;
   size_t vec_elem_count = 0;
   size_t total_key_count = 0;
@@ -83,7 +87,8 @@ class IModelLoader {
    * iteration.
    */
   virtual void load(const std::string& table_name, const std::string& path,
-                    size_t key_num_per_iteration = 0, size_t threshold = -1) = 0;
+                    size_t key_num_per_iteration = 0, size_t threshold = -1,
+                    bool fp8_quant = false) = 0;
   /**
    * Load the contents of the model file with difference format into a into a
    * UnifiedEmbeddingTable(data member) of an inherited class.
@@ -115,7 +120,7 @@ class IModelLoader {
    * dequantization, timesample for each key
    *
    */
-  virtual void* getmetas() = 0;
+  virtual void* getmetas(bool fp8_quant = false) = 0;
   /**
    * Return the number of embedding keys of current table
    *
@@ -138,7 +143,8 @@ class IModelLoader {
    *@param iteration
    *@param embedding_vector_size
    */
-  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size) = 0;
+  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size,
+                                              bool fp8_quant = false) = 0;
 
   virtual void* get_cache_keys() = 0;
   virtual void* get_caceh_vecs() = 0;
@@ -166,24 +172,27 @@ class RawModelLoader : public IModelLoader {
   size_t key_iteration;
   std::string embedding_folder_path;
   size_t key_num_iteration = 0;
+  std::shared_ptr<HugeCTR::Quantize<float, __nv_fp8_e4m3>> quantizer_;
+  cudaStream_t stream;
   virtual void load_emb(const std::string& table_name, const std::string& path);
 
  public:
   RawModelLoader();
   virtual void load(const std::string& table_name, const std::string& path,
-                    size_t key_num_per_iteration, size_t threshold);
+                    size_t key_num_per_iteration, size_t threshold, bool fp8_quant);
 
   virtual void load_fused_emb(const std::string& table_name,
                               const std::vector<std::string>& path_list);
   virtual void delete_table();
   virtual void* getkeys();
   virtual void* getvectors();
-  virtual void* getmetas();
+  virtual void* getmetas(bool fp8_quant = false);
   virtual void get_cache_uvm(size_t iteration, size_t emb_size, size_t cache_capacity);
   virtual size_t getkeycount();
   virtual size_t get_num_iterations();
   virtual std::pair<void*, size_t> getkeys(size_t iteration);
-  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size);
+  virtual std::pair<void*, size_t> getvectors(size_t iteration, size_t emb_size,
+                                              bool fp8_quant = false);
   virtual void* get_cache_keys();
   virtual void* get_caceh_vecs();
   virtual size_t get_cache_key_count();

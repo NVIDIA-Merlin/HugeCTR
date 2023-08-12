@@ -513,8 +513,8 @@ void EmbeddingCacheStoch<TypeHashKey>::insert(const size_t table_id,
 template <typename TypeHashKey>
 void EmbeddingCacheStoch<TypeHashKey>::init(const size_t table_id,
                                             void* h_refresh_embeddingcolumns_,
-                                            float* h_refresh_emb_vec_, size_t h_length_,
-                                            cudaStream_t stream) {}
+                                            void* h_refresh_emb_vec_, float* h_quant_scales,
+                                            size_t h_length_, cudaStream_t stream) {}
 
 // at world start put something in cache
 template <typename TypeHashKey>
@@ -544,7 +544,7 @@ void EmbeddingCacheStoch<TypeHashKey>::dump(const size_t table_id, void* const d
 // update function
 template <typename TypeHashKey>
 void EmbeddingCacheStoch<TypeHashKey>::refresh(const size_t table_id, const void* const d_keys,
-                                               const float* const d_vectors, const size_t length,
+                                               const void* const d_vectors, const size_t length,
                                                cudaStream_t stream) {
   // If GPU embedding cache is enabled
 

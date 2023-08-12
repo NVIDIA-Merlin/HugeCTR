@@ -25,10 +25,10 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey>
-StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
-                                      const parameter_server_config& ps_config,
-                                      HierParameterServerBase* const parameter_server)
+template <typename TypeHashKey, typename TypeEmbVec>
+StaticTable<TypeHashKey, TypeEmbVec>::StaticTable(const InferenceParams& inference_params,
+                                                  const parameter_server_config& ps_config,
+                                                  HierParameterServerBase* const parameter_server)
     : EmbeddingCacheBase(), parameter_server_(parameter_server) {
   // Store the configuration
   cache_config_.num_emb_table_ = inference_params.fuse_embedding_table
@@ -88,9 +88,9 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
   // Allocate resources.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     const size_t num_row = ps_config.embedding_key_count_.at(inference_params.model_name)[i];
-    static_tables_.emplace_back(
-        std::make_unique<Cache>(num_row, cache_config_.embedding_vec_size_[i],
-                                cache_config_.default_value_for_each_table[i]));
+    static_tables_.emplace_back(std::make_unique<Cache>(
+        num_row, cache_config_.embedding_vec_size_[i],
+        cache_config_.default_value_for_each_table[i], inference_params.enable_pagelock));
     cache_config_.num_set_in_cache_.push_back(num_row);
   }
 
@@ -105,10 +105,10 @@ StaticTable<TypeHashKey>::StaticTable(const InferenceParams& inference_params,
   }
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const void* h_keys,
-                                      size_t num_keys, float hit_rate_threshold,
-                                      cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::lookup(size_t table_id, float* d_vectors,
+                                                  const void* h_keys, size_t num_keys,
+                                                  float hit_rate_threshold, cudaStream_t stream) {
   MemoryBlock* memory_block = nullptr;
   BaseUnit* start = profiler::start();
   while (memory_block == nullptr) {
@@ -133,10 +133,11 @@ void StaticTable<TypeHashKey>::lookup(size_t table_id, float* d_vectors, const v
                     ProfilerType_t::Timeliness, stream);
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors,
-                                                  const void* d_keys, size_t num_keys,
-                                                  float hit_rate_threshold, cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::lookup_from_device(size_t table_id, float* d_vectors,
+                                                              const void* d_keys, size_t num_keys,
+                                                              float hit_rate_threshold,
+                                                              cudaStream_t stream) {
   MemoryBlock* memory_block = nullptr;
   BaseUnit* start = profiler::start();
   while (memory_block == nullptr) {
@@ -160,10 +161,11 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
   parameter_server_->free_buffer(memory_block);
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vectors,
-                                                  MemoryBlock* memory_block, size_t num_keys,
-                                                  cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::lookup_from_device(size_t table_id, float* d_vectors,
+                                                              MemoryBlock* memory_block,
+                                                              size_t num_keys,
+                                                              cudaStream_t stream) {
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
 
   CudaDeviceContext dev_restorer;
@@ -174,8 +176,8 @@ void StaticTable<TypeHashKey>::lookup_from_device(size_t table_id, float* d_vect
       d_vectors, stream);
 }
 
-template <typename TypeHashKey>
-EmbeddingCacheWorkspace StaticTable<TypeHashKey>::create_workspace() {
+template <typename TypeHashKey, typename TypeEmbVec>
+EmbeddingCacheWorkspace StaticTable<TypeHashKey, TypeEmbVec>::create_workspace() {
   EmbeddingCacheWorkspace workspace_handler;
   // Allocate common buffer.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
@@ -258,8 +260,8 @@ EmbeddingCacheWorkspace StaticTable<TypeHashKey>::create_workspace() {
   return workspace_handler;
 }
 
-template <typename TypeHashKey>
-EmbeddingCacheRefreshspace StaticTable<TypeHashKey>::create_refreshspace() {
+template <typename TypeHashKey, typename TypeEmbVec>
+EmbeddingCacheRefreshspace StaticTable<TypeHashKey, TypeEmbVec>::create_refreshspace() {
   EmbeddingCacheRefreshspace refreshspace_handler;
   refreshspace_handler.h_refresh_embeddingcolumns_ = nullptr;
   refreshspace_handler.h_refresh_emb_vec_ = nullptr;
@@ -293,10 +295,10 @@ EmbeddingCacheRefreshspace StaticTable<TypeHashKey>::create_refreshspace() {
   return refreshspace_handler;
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::init(const size_t table_id,
-                                    EmbeddingCacheRefreshspace& refreshspace_handler,
-                                    cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::init(const size_t table_id,
+                                                EmbeddingCacheRefreshspace& refreshspace_handler,
+                                                cudaStream_t stream) {
   // CudaDeviceContext dev_restorer;
   // dev_restorer.check_device(cache_config_.cuda_dev_id_);
   // static_tables_[table_id]->Init(
@@ -305,32 +307,36 @@ void StaticTable<TypeHashKey>::init(const size_t table_id,
   // HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::init(const size_t table_id, void* h_refresh_embeddingcolumns_,
-                                    float* h_refresh_emb_vec_, size_t h_length_,
-                                    cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::init(const size_t table_id,
+                                                void* h_refresh_embeddingcolumns_,
+                                                void* h_refresh_emb_vec_, float* h_quant_scales,
+                                                size_t h_length_, cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
   HCTR_LIB_THROW(cudaMemcpyAsync(d_insert_keys_buffer_, h_refresh_embeddingcolumns_,
                                  sizeof(TypeHashKey) * h_length_, cudaMemcpyHostToDevice, stream));
   static_tables_[table_id]->Add(static_cast<TypeHashKey*>(d_insert_keys_buffer_), h_length_,
-                                h_refresh_emb_vec_, stream);
+                                reinterpret_cast<TypeEmbVec*>(h_refresh_emb_vec_), h_quant_scales,
+                                stream);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::refresh(const size_t table_id, const void* const d_keys,
-                                       const float* const d_vectors, const size_t length,
-                                       cudaStream_t stream) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::refresh(const size_t table_id, const void* const d_keys,
+                                                   const void* const d_vectors, const size_t length,
+                                                   cudaStream_t stream) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
   static_tables_[table_id]->Clear(stream);
-  static_tables_[table_id]->Init(static_cast<const TypeHashKey*>(d_keys), length, d_vectors,
-                                 stream);
+  static_tables_[table_id]->Init(static_cast<const TypeHashKey*>(d_keys), length,
+                                 static_cast<const TypeEmbVec*>(d_vectors), stream);
+  /*  */
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& workspace_handler) {
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::destroy_workspace(
+    EmbeddingCacheWorkspace& workspace_handler) {
   // Free common buffer.
   for (size_t i = 0; i < cache_config_.num_emb_table_; i++) {
     HCTR_LIB_THROW(cudaFreeHost(workspace_handler.h_embeddingcolumns_[i]));
@@ -372,8 +378,8 @@ void StaticTable<TypeHashKey>::destroy_workspace(EmbeddingCacheWorkspace& worksp
   workspace_handler.h_hit_rate_ = nullptr;
 }
 
-template <typename TypeHashKey>
-void StaticTable<TypeHashKey>::destroy_refreshspace(
+template <typename TypeHashKey, typename TypeEmbVec>
+void StaticTable<TypeHashKey, TypeEmbVec>::destroy_refreshspace(
     EmbeddingCacheRefreshspace& refreshspace_handler) {
   CudaDeviceContext dev_restorer;
   dev_restorer.check_device(cache_config_.cuda_dev_id_);
@@ -394,8 +400,8 @@ void StaticTable<TypeHashKey>::destroy_refreshspace(
   refreshspace_handler.d_length_ = nullptr;
 }
 
-template <typename TypeHashKey>
-StaticTable<TypeHashKey>::~StaticTable() {
+template <typename TypeHashKey, typename TypeEmbVec>
+StaticTable<TypeHashKey, TypeEmbVec>::~StaticTable() {
   // This is the only two places to set the cuda context in static table
   CudaDeviceContext dev_restorer;
   dev_restorer.set_device(cache_config_.cuda_dev_id_);
@@ -407,7 +413,9 @@ StaticTable<TypeHashKey>::~StaticTable() {
   refresh_streams_.clear();
 }
 
-template class StaticTable<long long>;
-template class StaticTable<unsigned int>;
+template class StaticTable<long long, float>;
+template class StaticTable<long long, __nv_fp8_e4m3>;
+template class StaticTable<unsigned int, float>;
+template class StaticTable<unsigned int, __nv_fp8_e4m3>;
 
 }  // namespace HugeCTR

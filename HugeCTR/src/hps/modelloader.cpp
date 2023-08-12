@@ -125,7 +125,8 @@ void RawModelLoader<TKey, TValue>::load_emb(const std::string& table_name,
 
 template <typename TKey, typename TValue>
 void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std::string& path,
-                                        size_t key_num_per_iteration, size_t threshold) {
+                                        size_t key_num_per_iteration, size_t threshold,
+                                        bool fp8_quant) {
   embedding_folder_path = path;
   const std::string emb_file_prefix = path + "/";
   const std::string key_file = emb_file_prefix + "key";
@@ -175,19 +176,21 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
       std::vector<TKey>().swap(embedding_table_->meta);
     }
   }
+  // The default value for the number of interation
+  num_iterations = 10;
   if (key_num_per_iteration == 0) {
     // todo: The number of iterations can be calculated based on the maximum memory size configured
     // by the user
-    if (num_key % 10 == 0) {
-      num_iterations = 10;
-    } else {
-      num_iterations = 11;
-    }
-    key_iteration = num_key / 10;
+    key_iteration =
+        num_key % num_iterations == 0 ? num_key / num_iterations : 1 + num_key / num_iterations;
   } else {
-    key_iteration = key_num_per_iteration;
-    num_iterations = num_key % key_num_per_iteration == 0 ? num_key / key_num_per_iteration
-                                                          : (num_key / key_num_per_iteration) + 1;
+    key_iteration =
+        fp8_quant ? std::min(size_t(2048), key_num_per_iteration) : key_num_per_iteration;
+  }
+  num_iterations =
+      num_key % key_iteration == 0 ? num_key / key_iteration : (num_key / key_iteration) + 1;
+  if (fp8_quant) {
+    quantizer_ = std::make_shared<HugeCTR::Quantize<float, __nv_fp8_e4m3>>(false, false);
   }
 }
 
@@ -198,6 +201,9 @@ void RawModelLoader<TKey, TValue>::delete_table() {
   std::vector<TKey>().swap(embedding_table_->meta);
   std::vector<TKey>().swap(embedding_table_->uvm_keys);
   std::vector<TValue>().swap(embedding_table_->uvm_vectors);
+  cudaFreeHost(embedding_table_->quant_scales_);
+  cudaFreeHost(embedding_table_->d_vec_);
+  cudaFreeHost(embedding_table_->d_vec_quant);
   delete embedding_table_;
 }
 
@@ -300,8 +306,17 @@ std::pair<void*, size_t> RawModelLoader<TKey, TValue>::getkeys(size_t iteration)
 }
 
 template <typename TKey, typename TValue>
-std::pair<void*, size_t> RawModelLoader<TKey, TValue>::getvectors(size_t iteration,
-                                                                  size_t emb_size) {
+std::pair<void*, size_t> RawModelLoader<TKey, TValue>::getvectors(size_t iteration, size_t emb_size,
+                                                                  bool fp8_quant) {
+  if (fp8_quant && iteration == 0) {
+    cudaHostAlloc((void**)&(embedding_table_->quant_scales_), key_iteration * sizeof(float),
+                  cudaHostAllocPortable);
+    cudaHostAlloc((void**)&(embedding_table_->d_vec_), key_iteration * emb_size * sizeof(float),
+                  cudaHostAllocPortable);
+    cudaHostAlloc((void**)&(embedding_table_->d_vec_quant),
+                  key_iteration * emb_size * sizeof(__nv_fp8_e4m3), cudaHostAllocPortable);
+    cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+  }
   const std::string vec_file = embedding_folder_path + "/" + "emb_vector";
   embedding_table_->vectors.resize(key_iteration * emb_size);
   size_t iteration_reading_amount = key_iteration * emb_size;
@@ -311,6 +326,13 @@ std::pair<void*, size_t> RawModelLoader<TKey, TValue>::getvectors(size_t iterati
   }
   fs_->read(vec_file, embedding_table_->vectors.data(), iteration_reading_amount * sizeof(TValue),
             key_iteration * emb_size * iteration * sizeof(TValue));
+  if (fp8_quant) {
+    cudaMemcpy(embedding_table_->d_vec_, embedding_table_->vectors.data(),
+               iteration_reading_amount * sizeof(float), cudaMemcpyHostToDevice);
+    quantizer_->quantize(embedding_table_->d_vec_, embedding_table_->d_vec_quant,
+                         embedding_table_->quant_scales_, key_iteration, emb_size, stream);
+    return std::make_pair(embedding_table_->d_vec_quant, iteration_reading_amount);
+  }
   return std::make_pair(embedding_table_->vectors.data(), iteration_reading_amount);
 }
 
@@ -320,7 +342,10 @@ void* RawModelLoader<TKey, TValue>::getvectors() {
 }
 
 template <typename TKey, typename TValue>
-void* RawModelLoader<TKey, TValue>::getmetas() {
+void* RawModelLoader<TKey, TValue>::getmetas(bool fp8_quant) {
+  if (fp8_quant) {
+    return embedding_table_->quant_scales_;
+  }
   return embedding_table_->meta.data();
 }
 

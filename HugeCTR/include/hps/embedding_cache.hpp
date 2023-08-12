@@ -52,10 +52,11 @@ class EmbeddingCache : public EmbeddingCacheBase,
   virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refreshspace_handler,
                     cudaStream_t stream);
   virtual void init(const size_t table_id, void* h_refresh_embeddingcolumns_,
-                    float* h_refresh_emb_vec_, size_t h_length_, cudaStream_t stream);
+                    void* h_refresh_emb_vec_, float* h_quant_scales, size_t h_length_,
+                    cudaStream_t stream);
   virtual void dump(size_t table_id, void* d_keys, size_t* d_length, size_t start_index,
                     size_t end_index, cudaStream_t stream);
-  virtual void refresh(size_t table_id, const void* d_keys, const float* d_vectors, size_t length,
+  virtual void refresh(size_t table_id, const void* d_keys, const void* d_vectors, size_t length,
                        cudaStream_t stream);
   virtual void finalize();
 

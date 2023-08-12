@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <cuda_fp16.h>
+#include <cuda_fp8.h>
 #include <cuda_runtime_api.h>
 
 #include <cstdint>
@@ -29,6 +31,15 @@
 #include <vector>
 
 namespace HugeCTR {
+
+template <typename T>
+struct is_fp8 : std::false_type {};
+
+template <>
+struct is_fp8<__nv_fp8_e4m3> : std::true_type {};
+
+template <>
+struct is_fp8<__nv_fp8_e5m2> : std::true_type {};
 
 enum INFER_TYPE { TRITON, OTHER };
 enum CACHE_SPACE_TYPE { WORKER, REFRESHER };
@@ -298,6 +309,8 @@ struct InferenceParams {
   std::map<size_t, std::vector<size_t>> fused_table_id_to_original_table_id_map;
   bool use_hctr_cache_implementation;
   bool init_ec;
+  bool enable_pagelock;
+  bool fp8_quant;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -324,7 +337,8 @@ struct InferenceParams {
                   const std::string& non_trainable_params_file = "", bool use_static_table = false,
                   const EmbeddingCacheType_t embedding_cache_type = EmbeddingCacheType_t::Dynamic,
                   bool use_context_stream = true, bool fuse_embedding_table = false,
-                  bool use_hctr_cache_implementation = true, bool init_ec = true);
+                  bool use_hctr_cache_implementation = true, bool init_ec = true,
+                  bool enable_pagelock = false, bool fp8_quant = false);
 };
 
 struct parameter_server_config {
