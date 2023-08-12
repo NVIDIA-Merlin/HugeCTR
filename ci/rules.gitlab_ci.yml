@@ -54,6 +54,9 @@
 .if-monthly-schedule-benchmark: &if-monthly-schedule-benchmark
   if: '$CI_PIPELINE_SOURCE == "schedule" && $MONTHLY == "1" && $BENCHMARK == "1"'
 
+.if-weekly-ha-schedule: &if-weekly-ha-schedule
+  if: '$WEEKLY == "1" && $HA =="1"'
+
 ############
 # Changes  #
 ############
@@ -230,4 +233,9 @@
 .benchmark:rules:
   rules:
     - <<: *if-schedule-benchmark
+    - when: never
+
+.default:rules:weekly-test:
+  rules:
+    - <<: *if-weekly-ha-schedule
     - when: never

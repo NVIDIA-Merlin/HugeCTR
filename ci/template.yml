@@ -187,6 +187,28 @@ stages:
     - when: never
   timeout: 5 hours
 
+.test_local:
+  stage: test
+  extends:
+    - .default:rules:weekly-test
+  tags:
+    - local_test
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - echo "Container_Name=${CI_JOB_NAME}_${CI_PIPELINE_ID}"
+    - echo "Image=${CONT}"
+    - echo "Mounts=${MOUNTS}"
+    - echo "Command=${CMD}"
+    - docker pull ${CONT}
+    - if [[ "${MOUNTS}" == "" ]]; then
+        docker run --rm --name ${CI_JOB_NAME}_${CI_PIPELINE_ID} --net=host --gpus=all --privileged --runtime=nvidia --ulimit memlock=-1 --ulimit stack=67108864 --shm-size 16g -u root ${CONT} bash -cx "${CMD}";
+      else
+        docker run --rm --name ${CI_JOB_NAME}_${CI_PIPELINE_ID} --net=host --gpus=all --privileged --runtime=nvidia --ulimit memlock=-1 --ulimit stack=67108864 --shm-size 16g ${MOUNTS} -u root ${CONT} bash -cx "${CMD}";
+      fi
+#    - docker logs -f ${CI_JOB_NAME}_${CI_PIPELINE_ID}
+  after_script:
+    - docker stop ${CI_JOB_NAME}_${CI_PIPELINE_ID}
+
 .build_hugectr:
   extends:
     - .build
