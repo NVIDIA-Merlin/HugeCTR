@@ -74,6 +74,11 @@ format_check_clang:
     EXECUTABLE: clang-format14
     EXTENSIONS: "h,hpp,cpp,cu,cuh"
 
+codespell_check:
+  extends: .codespell_check
+  variables:
+    PRE_COM_IMAGE: registry.gitlab.com/yesolutions/docker-pre-commit
+
 build_train_single_node:
   extends: .build_hugectr
   variables:

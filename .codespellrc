@@ -1,4 +1,3 @@
 [codespell]
-write-changes=
 ignore-words=sbin/ignore-words.txt
 skip=./third_party

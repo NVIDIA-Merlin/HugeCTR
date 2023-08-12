@@ -52,6 +52,25 @@ stages:
   allow_failure: false
   timeout: 15 minutes
 
+.codespell_check:
+  stage: format_check
+  tags:
+    - nvidia.com/cuda.driver.major=470
+    - $BUILD_TAG
+  extends:
+    - .format:rules:check
+  script:
+    - pwd
+    - ls -all
+    - docker pull ${PRE_COM_IMAGE}
+    - docker run -d --rm --name codespell_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} -w /src ${PRE_COM_IMAGE} sleep infinity
+    - docker cp $(pwd) codespell_${CI_PIPELINE_ID}:/src
+    - docker exec codespell_${CI_PIPELINE_ID} sh -c "cd ./hugectr && pre-commit run --all-files"
+  after_script:
+    - docker stop codespell_${CI_PIPELINE_ID}
+  allow_failure: false
+  timeout: 15 minutes
+
 .build_nightly:
   stage: build_from_scratch
   tags:
