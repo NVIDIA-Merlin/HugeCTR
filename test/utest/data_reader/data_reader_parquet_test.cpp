@@ -738,7 +738,7 @@ void data_reader_group_epoch_strided_batch_test_impl(int num_files, long long sa
       auto& sparse_tensorbag = data_reader.get_sparse_tensor23s("distributed");
       auto& label_tensorbag = data_reader.get_label_tensor23s();
       auto& dense_tensorbag = data_reader.get_dense_tensor23s();
-      HCTR_LOG(INFO, WORLD, " batchsize %d\n", current_batchsize);
+      HCTR_LOG(INFO, WORLD, " batchsize %lld\n", current_batchsize);
       if (current_batchsize == 0) {
         HCTR_LOG(INFO, WORLD, "iter %d has reached eOF\n", i);
         break;
@@ -895,7 +895,7 @@ void data_reader_group_epoch_squential_batch_test_impl(int num_files, long long 
       auto& sparse_tensorbag = data_reader.get_sparse_tensor23s("distributed");
       auto& label_tensorbag = data_reader.get_label_tensor23s();
       auto& dense_tensorbag = data_reader.get_dense_tensor23s();
-      HCTR_LOG(INFO, WORLD, " iter %d batchsize %d\n", i, current_batchsize);
+      HCTR_LOG(INFO, WORLD, " iter %d batchsize %lld\n", i, current_batchsize);
       if (current_batchsize == 0) {
         HCTR_LOG(INFO, WORLD, "iter %d has reached eOF\n", i);
         break;

@@ -191,7 +191,7 @@ long long DFContainer<T>::get_available_rows() const {
   auto res = (long long)num_rows_ - (long long)current_row_;
   if (res < 0) {
     // TODO should throw
-    HCTR_LOG(INFO, WORLD, "Out of Bound, current_row_ is %d num_rows_ is %d\n", current_row_,
+    HCTR_LOG(INFO, WORLD, "Out of Bound, current_row_ is %lu num_rows_ is %zu\n", current_row_,
              num_rows_);
   }
   return res;
@@ -223,7 +223,7 @@ DFContainer<T>& DFContainer<T>::operator+=(const DFContainer& rhs) {
     return *this;
   }
   if (rows_after_concat > this->max_rows_) {
-    HCTR_LOG(INFO, WORLD, "rows_after_concat %d but max_rows_ is %d\n", rows_after_concat,
+    HCTR_LOG(INFO, WORLD, "rows_after_concat %zu but max_rows_ is %zu\n", rows_after_concat,
              max_rows_);
     HCTR_OWN_THROW(Error_t::OutOfMemory, "DFPointer concate fails: no enough space");
   }
@@ -531,13 +531,13 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
   size_t num_rows = table_view.num_rows();
   if (df_ptrs_dst->dense_dim_array_init_ && df_ptrs_dst->num_dense_ != num_label_dense_) {
     HCTR_LOG(INFO, WORLD, "Dumping from cudf to ptrs fails: number of columns mismatches\n");
-    HCTR_LOG(INFO, WORLD, "df_ptrs_dst->num_dense_ %d,num_label_dense_ %d\n",
+    HCTR_LOG(INFO, WORLD, "df_ptrs_dst->num_dense_ %zu,num_label_dense_ %zu\n",
              df_ptrs_dst->num_dense_, num_label_dense_);
     return;
   }
   if (df_ptrs_dst->num_sparse_ != total_num_slots_) {
     HCTR_LOG(INFO, WORLD, "Dumping from cudf to ptrs fails: number of columns mismatches\n");
-    HCTR_LOG(INFO, WORLD, "df_ptrs_dst->num_sparse_ %d,total_num_slots_ %d \n",
+    HCTR_LOG(INFO, WORLD, "df_ptrs_dst->num_sparse_ %zu,total_num_slots_ %zu \n",
              df_ptrs_dst->num_sparse_, total_num_slots_);
     return;
   }
@@ -616,7 +616,7 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }
       if (cudf::size_of(value_view.type()) != sizeof(T)) {
-        HCTR_LOG(ERROR, WORLD, "Parquet col %d type is not consistent with solver.i64_input_key\n",
+        HCTR_LOG(ERROR, WORLD, "Parquet col %zu type is not consistent with solver.i64_input_key\n",
                  col);
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }
@@ -638,7 +638,7 @@ void dump_table_data_to(cudf::table_view& table_view, std::map<int, int>& dense_
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }
       if (cudf::size_of(col_view.type()) != sizeof(T)) {
-        HCTR_LOG(ERROR, WORLD, "Parquet col %d type is not consistent with solver.i64_input_key\n",
+        HCTR_LOG(ERROR, WORLD, "Parquet col %zu type is not consistent with solver.i64_input_key\n",
                  col);
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet key type error");
       }

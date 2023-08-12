@@ -633,7 +633,7 @@ void MultiCrossForwardFunctorv2<T>::operator()(
   float alpha = 1.0f;
   float beta = 0.0f;
   if (vec_length != U_row || vec_length != V_col) {
-    HCTR_LOG(INFO, WORLD, "vec_length %d U_row %d V_col %d\n", vec_length, U_row, V_col);
+    HCTR_LOG(INFO, WORLD, "vec_length %zu U_row %zu V_col %zu\n", vec_length, U_row, V_col);
     HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor dimensions not matches");
   }
   for (int i = 0; i < num_layers; i++) {
@@ -1774,7 +1774,7 @@ void Core23TempMultiCrossForwardFunctorv2<T>::operator()(
   float alpha = 1.0f;
   float beta = 0.0f;
   if (vec_length != U_row || vec_length != V_col) {
-    HCTR_LOG(INFO, WORLD, "vec_length %d U_row %d V_col %d\n", vec_length, U_row, V_col);
+    HCTR_LOG(INFO, WORLD, "vec_length %ld U_row %ld V_col %ld\n", vec_length, U_row, V_col);
     HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor dimensions not matches");
   }
   for (int i = 0; i < num_layers; i++) {
