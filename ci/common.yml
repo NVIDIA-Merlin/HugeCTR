@@ -38,9 +38,9 @@ variables:
   HUGECTR_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:hugectr_trt_plugin.${CI_PIPELINE_ID}
   TF_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:tf_trt_plugin.${CI_PIPELINE_ID}
   PYTORCH_TRT_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:pytorch_trt_plugin.${CI_PIPELINE_ID}
-  UNIFIED_CTR_LATEST: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
-  UNIFIED_TF_LATEST: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
-  UNIFIED_TORCH_LATEST: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.torch.latest
+  UNIFIED_CTR_LATEST: ${BASE_DEVEL_REGISTRY}:unified.ctr.latest
+  UNIFIED_TF_LATEST: ${BASE_DEVEL_REGISTRY}:unified.tf.latest
+  UNIFIED_TORCH_LATEST: ${BASE_DEVEL_REGISTRY}:unified.torch.latest
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}
   RD_CI_JOB_TOKEN: gitlab-ci-token:${CI_JOB_TOKEN}@
   EXTRA_DOCKER_RUN_ARGS: "--label RUNNER_ID=${RUNNER_ID}"

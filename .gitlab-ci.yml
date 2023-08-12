@@ -504,6 +504,13 @@ hdfs_backend_test:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
     - bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
 
+continuous_training_inference:
+  extends: .test_local
+  variables:
+    CONT: ${UNIFIED_CTR_LATEST}
+    MOUNTS: -v /opt/ci/demo:/scripts -v /opt/ci/wdl_infer:/wdl_infer
+    CMD: "apt update -y --fix-missing && apt install bc && cd /scripts && bash run_continuouse_test.sh"
+
 # NVT regression
 e2e_nvt_regression_test:
   extends: .cluster_test_job_daily
