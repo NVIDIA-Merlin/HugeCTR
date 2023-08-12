@@ -103,7 +103,7 @@ void create_datareader<TypeKey>::operator()(
       auto parquet_label_cols = parquet_meta->get_label_names().size();
       auto parquet_dense_cols = parquet_meta->get_cont_names().size();
       read_stream.close();
-      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %d\n",
+      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %lld\n",
                parquet_eval_max_row_group_size);
       data_reader->create_drwg_parquet(source, false, slot_offset, true,
                                        parquet_eval_max_row_group_size,
@@ -213,7 +213,7 @@ void create_datareader<TypeKey>::operator()(
       auto parquet_label_cols = parquet_meta->get_label_names().size();
       auto parquet_dense_cols = parquet_meta->get_cont_names().size();
       read_stream.close();
-      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %ld\n",
+      HCTR_LOG(INFO, WORLD, "parquet_eval_max_row_group_size %lld\n",
                parquet_eval_max_row_group_size);
       data_reader->create_drwg_parquet(source, read_file_seq, slot_offset, true,
                                        parquet_eval_max_row_group_size,

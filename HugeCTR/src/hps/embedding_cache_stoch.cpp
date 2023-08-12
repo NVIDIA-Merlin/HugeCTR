@@ -138,7 +138,7 @@ EmbeddingCacheStoch<TypeHashKey>::EmbeddingCacheStoch(
         num_feature_in_cache = SLAB_SIZE * SET_ASSOCIATIVITY;
         HCTR_LOG(INFO, ROOT,
                  "The initial size of the embedding cache is smaller than the minimum setting: "
-                 "\"%d\" and %d will be used as the default embedding cache size.\n",
+                 "\"%zu\" and %d will be used as the default embedding cache size.\n",
                  num_feature_in_cache, SLAB_SIZE * SET_ASSOCIATIVITY);
       }
       cache_config_.num_set_in_cache_.emplace_back(
@@ -161,7 +161,7 @@ EmbeddingCacheStoch<TypeHashKey>::EmbeddingCacheStoch(
       typename EmbedCache<TypeHashKey, TypeHashKey>::CacheConfig config;
       config.cacheSzInBytes = SLAB_SIZE * SET_ASSOCIATIVITY * cache_config_.num_set_in_cache_[i] *
                               cache_config_.embedding_vec_size_[i] * sizeof(float);
-      HCTR_LOG(INFO, ROOT, "cache size in bytes: %llu\n", config.cacheSzInBytes);
+      HCTR_LOG(INFO, ROOT, "cache size in bytes: %zu\n", config.cacheSzInBytes);
       config.embedWidth = cache_config_.embedding_vec_size_[i] * sizeof(float);
       config.maxUpdateSampleSz =
           cache_config_.num_set_in_cache_[i] * EmbedCache<TypeHashKey, TypeHashKey>::NUM_WAYS;

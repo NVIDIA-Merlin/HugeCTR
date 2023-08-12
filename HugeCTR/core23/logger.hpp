@@ -76,7 +76,7 @@
      HCTR_MPI_THROW(MPI_Gather(...));
 
  * If you want to print the nested exception message at a catch statement, call
- 'Logger::print_exception(e, 0)'.
+ 'Logger::get().print(e)'.
  * Then, they will be printed at the ERROR level.
  *
  * 3. Error check:
@@ -110,6 +110,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #ifdef ENABLE_MPI
@@ -207,31 +208,36 @@ namespace HugeCTR {
 
 #define LOG_RANK(TYPE) LOG_RANK_##TYPE
 
-#ifndef NDEBUG
-#define DEFAULT_LOG_LEVEL LOG_LEVEL(WARNING)
-#else
-#define DEFAULT_LOG_LEVEL LOG_LEVEL(DEBUG)
-#endif
+#define HCTR_LOG(NAME, TYPE, ...) HCTR_LOG_AT(LOG_LEVEL(NAME), TYPE, __VA_ARGS__)
 
-#define HCTR_LOG(NAME, TYPE, ...) \
-  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true, __VA_ARGS__)
-#define HCTR_LOG_AT(LEVEL, TYPE, ...) \
-  HugeCTR::Logger::get().log(LEVEL, LOG_RANK(TYPE), true, __VA_ARGS__)
-
-#define HCTR_LOG_S(NAME, TYPE) HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
-
-#define HCTR_LOG_C(NAME, TYPE, ...)                                          \
-  do {                                                                       \
-    const HugeCTR::Logger& logger = HugeCTR::Logger::get();                  \
-    if (logger.can_log_at(LOG_LEVEL(NAME), LOG_RANK(TYPE))) {                \
-      logger.log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true).append(__VA_ARGS__); \
-    }                                                                        \
+#define HCTR_LOG_AT(LEVEL, TYPE, ...)                \
+  do {                                               \
+    HugeCTR::Logger& logger{HugeCTR::Logger::get()}; \
+    if (logger.enabled_at(LEVEL, LOG_RANK(TYPE))) {  \
+      logger.printf(LEVEL, true, __VA_ARGS__);       \
+    }                                                \
   } while (0)
 
-#define HCTR_PRINT(NAME, ...) \
-  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(ROOT), false, __VA_ARGS__)
-#define HCTR_PRINT_AT(LEVEL, ...) \
-  HugeCTR::Logger::get().log(LEVEL, LOG_RANK(ROOT), false, __VA_ARGS__)
+#define HCTR_LOG_S(NAME, TYPE) \
+  HugeCTR::LogEntry(HugeCTR::Logger::get(), LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
+
+#define HCTR_LOG_C(NAME, TYPE, ...)                                                          \
+  do {                                                                                       \
+    HugeCTR::Logger& logger{HugeCTR::Logger::get()};                                         \
+    if (logger.enabled_at(LOG_LEVEL(NAME), LOG_RANK(TYPE))) {                                \
+      logger.print(LOG_LEVEL(NAME), true, HugeCTR::core23::hctr_render_string(__VA_ARGS__)); \
+    }                                                                                        \
+  } while (0)
+
+#define HCTR_PRINT(NAME, ...) HCTR_PRINT_AT(LOG_LEVEL(NAME), __VA_ARGS__)
+
+#define HCTR_PRINT_AT(LEVEL, ...)                                                   \
+  do {                                                                              \
+    HugeCTR::Logger& logger{HugeCTR::Logger::get()};                                \
+    if (logger.enabled_at(LEVEL, LOG_RANK_ROOT)) {                                  \
+      logger.print(LEVEL, false, HugeCTR::core23::hctr_render_string(__VA_ARGS__)); \
+    }                                                                               \
+  } while (0)
 
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
@@ -251,73 +257,48 @@ namespace HugeCTR {
   } while (0)
 
 /**
- * The logger class shouldn't be used directly. Instead use the below HCTR_LOG_* and HCTR_*_CHECK_*
- * macros.
+ * The logger class shouldn't be used directly. Instead use the below HCTR_LOG_* and
+ * HCTR_*_CHECK_* macros.
  */
 class Logger final {
  public:
-  class DeferredEntry final {
-   public:
-    HCTR_DISALLOW_COPY_AND_MOVE(DeferredEntry);
-
-    inline DeferredEntry(const Logger* logger, const int level, const bool with_prefix)
-        : logger_{logger}, level_{level}, with_prefix_{with_prefix} {}
-
-    ~DeferredEntry();
-
-    template <typename... Args>
-    inline DeferredEntry& append(Args&&... args) {
-      if (logger_) {
-        (os_ << ... << args);
-      }
-      return *this;
-    }
-
-    template <typename T>
-    inline DeferredEntry& operator<<(const T& value) {
-      if (logger_) {
-        os_ << value;
-      }
-      return *this;
-    }
-
-    inline DeferredEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
-      if (logger_) {
-        fn(os_);
-      }
-      return *this;
-    }
-
-   private:
-    const Logger* logger_;
-    const int level_;
-    const bool with_prefix_;
-    std::ostringstream os_;
-  };
-
-  static constexpr size_t MAX_PREFIX_LENGTH = 96;
-
-  static void print_exception(const std::exception& e, int depth);
-
   HCTR_DISALLOW_COPY_AND_MOVE(Logger);
 
-  ~Logger();
-
-  inline bool can_log_at(const int level, const bool per_rank) const {
-    return level != LOG_LEVEL(SILENCE) && level <= max_level_ && (rank_ == 0 || per_rank);
-  }
-
-  void log(int level, bool per_rank, bool with_prefix, const char* format, ...) const;
-
-  DeferredEntry log(int level, bool per_rank, bool with_prefix) const;
+  static constexpr int default_level{
+#ifndef NDEBUG
+      LOG_LEVEL(WARNING)
+#else
+      LOG_LEVEL(DEBUG)
+#endif
+  };
+  static constexpr size_t MAX_PREFIX_LENGTH = 96;
 
   inline int get_rank() const { return rank_; }
 
+  ~Logger();
+
+  inline bool enabled_at(const int level, const bool per_rank) const {
+    return level != LOG_LEVEL(SILENCE) && level <= max_level_ && (rank_ == 0 || per_rank);
+  }
+
+  void print(const std::exception& e, size_t depth = 0);
+
+  inline void print(const int level, const bool with_prefix, const char* const message) {
+    printf(level, with_prefix, "%s", message);
+  }
+
+  inline void print(const int level, const bool with_prefix, const std::string& message) {
+    printf(level, with_prefix, "%s", message.c_str());
+  }
+
+  void printf(int level, bool with_prefix, const char* format, ...)
+      __attribute__((format(printf, 4, 5)));
+
   inline void print_error(const char* const reason, const core23::CodeReference& ref,
                           const char* const hint) {
-    log(LOG_LEVEL(ERROR), true, true,
-        "%s\n\tFile: %s:%zu\n\tFunction: %s\n\tExpression: %s\n\tHint: %s\n", reason, ref.file,
-        ref.line, ref.function, ref.expression, hint);
+    printf(LOG_LEVEL(ERROR), true,
+           "%s\n\tFile: %s:%zu\n\tFunction: %s\n\tExpression: %s\n\tHint: %s\n", reason, ref.file,
+           ref.line, ref.function, ref.expression, hint);
   }
 
   inline void print_error(const char* const reason, const core23::CodeReference& ref,
@@ -328,14 +309,12 @@ class Logger final {
  private:
   Logger();
 
-  FILE* get_file_stream(int level);
-
   size_t write_log_prefix(bool with_prefix, char (&buffer)[Logger::MAX_PREFIX_LENGTH],
                           int level) const;
 
  private:
   int rank_;
-  int max_level_{DEFAULT_LOG_LEVEL};
+  int max_level_{default_level};
   bool log_to_std_{true};
   bool log_to_file_{false};
 
@@ -350,6 +329,51 @@ class Logger final {
   static const char* get_thread_name();
   static void set_thread_name(const char* name);
   static void set_thread_name(const std::string& name);
+};
+
+class LogEntry final {
+ public:
+  HCTR_DISALLOW_COPY_AND_MOVE(LogEntry);
+
+  inline LogEntry(Logger& logger, const int level, const bool per_rank, const bool with_prefix)
+      : logger_{logger.enabled_at(level, per_rank) ? &logger : nullptr},
+        level_{level},
+        with_prefix_{with_prefix} {}
+
+  inline ~LogEntry() {
+    if (logger_) {
+      logger_->print(level_, with_prefix_, message_.str());
+    }
+  }
+
+  template <typename... Args>
+  inline LogEntry& append(Args&&... args) {
+    if (logger_) {
+      (message_ << ... << args);
+    }
+    return *this;
+  }
+
+  template <typename T>
+  inline LogEntry& operator<<(const T& value) {
+    if (logger_) {
+      message_ << value;
+    }
+    return *this;
+  }
+
+  inline LogEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
+    if (logger_) {
+      fn(message_);
+    }
+    return *this;
+  }
+
+ private:
+  Logger* const logger_;
+  const int level_;
+  const bool with_prefix_;
+  std::ostringstream message_;
 };
 
 }  // namespace HugeCTR

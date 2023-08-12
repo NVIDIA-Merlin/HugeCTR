@@ -91,8 +91,8 @@ static int get_logical_sector_size(std::string file) {
   int fd = open(file.c_str(), O_RDONLY);
   int logical_sector_size = 0;
   if (ioctl(fd, BLKSSZGET, &logical_sector_size) < 0) {
-    std::string msg = "Can't get logical sector size of " + file + ". Returning default 4096\n";
-    HCTR_LOG(WARNING, WORLD, msg.c_str());
+    HCTR_LOG_C(WARNING, WORLD, "Can't get logical sector size of ", file,
+               ". Returning default 4096\n");
     logical_sector_size = 4096;
   }
   close(fd);
@@ -219,9 +219,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
           std::max(get_logical_sector_size(source_data), get_logical_sector_size(eval_source));
 
       if (max_logical_sector_size > io_alignment) {
-        std::string msg = "Invalid io_alignment of " + std::to_string(io_alignment) + ", using " +
-                          std::to_string(max_logical_sector_size) + "\n";
-        HCTR_LOG(WARNING, WORLD, msg.c_str());
+        HCTR_LOG_C(WARNING, WORLD, "Invalid io_alignment of ", io_alignment, ", using ",
+                   max_logical_sector_size, '\n');
         io_alignment = max_logical_sector_size;
       }
 
@@ -388,7 +387,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
         metadata_path = get_meta_path(first_file_name);
         parquet_meta->reset_metadata(metadata_path);
         parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
-        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %ld\n", eval_source.c_str(),
+        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %lld\n", eval_source.c_str(),
                  parquet_eval_max_row_group_size);
       }
       parquet_label_cols = parquet_meta->get_label_names().size();
@@ -411,7 +410,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
           parquet_meta->reset_metadata(metadata_path);
           parquet_source_max_row_group_size =
               std::max(parquet_meta->get_max_row_group(), parquet_source_max_row_group_size);
-          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %ld\n", file_list_name.c_str(),
+          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %lld\n", file_list_name.c_str(),
                    parquet_source_max_row_group_size);
         }
       }
@@ -656,9 +655,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
           std::max(get_logical_sector_size(source_data), get_logical_sector_size(eval_source));
 
       if (max_logical_sector_size > io_alignment) {
-        std::string msg = "Invalid io_alignment of " + std::to_string(io_alignment) + ", using " +
-                          std::to_string(max_logical_sector_size) + "\n";
-        HCTR_LOG(WARNING, WORLD, msg.c_str());
+        HCTR_LOG_C(WARNING, WORLD, "Invalid io_alignment of ", io_alignment, ", using ",
+                   max_logical_sector_size, '\n');
         io_alignment = max_logical_sector_size;
       }
 
@@ -807,7 +805,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
         metadata_path = get_meta_path(first_file_name);
         parquet_meta->reset_metadata(metadata_path);
         parquet_eval_max_row_group_size = parquet_meta->get_max_row_group();
-        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %ld\n", eval_source.c_str(),
+        HCTR_LOG(INFO, ROOT, "eval source %s max_row_group_size %lld\n", eval_source.c_str(),
                  parquet_eval_max_row_group_size);
       }
       parquet_label_cols = parquet_meta->get_label_names().size();
@@ -830,7 +828,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
           parquet_meta->reset_metadata(metadata_path);
           parquet_source_max_row_group_size =
               std::max(parquet_meta->get_max_row_group(), parquet_source_max_row_group_size);
-          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %ld\n", file_list_name.c_str(),
+          HCTR_LOG(INFO, ROOT, "train source %s max_row_group_size %lld\n", file_list_name.c_str(),
                    parquet_source_max_row_group_size);
         }
       }

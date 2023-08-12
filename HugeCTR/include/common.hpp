@@ -247,18 +247,13 @@ typedef struct DataSetHeader_ {
 #endif
 
 template <typename T>
-inline void hctr_print_func(Logger::DeferredEntry& log, T const& t) {
-  log << t << ", ";
-}
-
-template <typename T>
-inline void hctr_print_func(Logger::DeferredEntry&& log, T const& t) {
+inline void hctr_print_func(LogEntry& log, T const& t) {
   log << t << ", ";
 }
 
 // Set precision for double type
 template <>
-inline void hctr_print_func<double>(Logger::DeferredEntry& log, double const& t) {
+inline void hctr_print_func<double>(LogEntry& log, double const& t) {
   std::ostringstream os;
   os << std::fixed << std::setprecision(2) << t << ", ";
   log << os.str();
@@ -267,9 +262,10 @@ inline void hctr_print_func<double>(Logger::DeferredEntry& log, double const& t)
 template <typename... Args>
 inline void HCTR_LOG_ARGS(const Args&... args) {
   if (Logger::get().get_rank() == 0) {
-    HCTR_LOG_S(DEBUG, ROOT) << '[';
-    (hctr_print_func(HCTR_LOG_S(DEBUG, ROOT), args), ...);
-    HCTR_LOG_S(DEBUG, ROOT) << ']' << std::endl;
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << '[';
+    (hctr_print_func(log, args), ...);
+    log << ']' << std::endl;
   }
 }
 

@@ -34,16 +34,6 @@
 
 namespace HugeCTR {
 
-void Logger::print_exception(const std::exception& e, int depth) {
-  Logger::get().log(LOG_ERROR_LEVEL, true, false, "%d. %s\n", depth, e.what());
-  try {
-    std::rethrow_if_nested(e);
-  } catch (const std::exception& e) {
-    print_exception(e, depth + 1);
-  } catch (...) {
-  }
-}
-
 Logger::~Logger() {
   // if stdout and stderr are in use, we don't do fclose to prevent the situations where
   //   (1) the fds are taken in opening other files or
@@ -58,11 +48,17 @@ Logger::~Logger() {
   }
 }
 
-void Logger::log(const int level, bool per_rank, bool with_prefix, const char* format, ...) const {
-  if (!can_log_at(level, per_rank)) {
-    return;
+void Logger::print(const std::exception& e, const size_t depth) {
+  printf(LOG_ERROR_LEVEL, false, "%zu. %s\n", depth, e.what());
+  try {
+    std::rethrow_if_nested(e);
+  } catch (const std::exception& e) {
+    print(e, depth + 1);
+  } catch (...) {
   }
+}
 
+void Logger::printf(const int level, bool with_prefix, const char* format, ...) {
   char prefix[MAX_PREFIX_LENGTH];
   write_log_prefix(with_prefix, prefix, level);
 
@@ -88,39 +84,6 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
     std::fflush(file);
 
     va_end(args);
-  }
-}
-
-Logger::DeferredEntry::~DeferredEntry() {
-  if (!logger_) {
-    return;
-  }
-
-  char prefix[Logger::MAX_PREFIX_LENGTH];
-  logger_->write_log_prefix(with_prefix_, prefix, level_);
-
-  const std::string& content = os_.str();
-
-  if (logger_->log_to_std_) {
-    FILE* const file = logger_->log_std_.at(level_);
-    std::fputs(prefix, file);
-    std::fputs(content.c_str(), file);
-    std::fflush(file);
-  }
-
-  if (logger_->log_to_file_) {
-    FILE* const file = logger_->log_file_.at(level_);
-    std::fputs(prefix, file);
-    std::fputs(content.c_str(), file);
-    std::fflush(file);
-  }
-}
-
-Logger::DeferredEntry Logger::log(const int level, bool per_rank, bool with_prefix) const {
-  if (can_log_at(level, per_rank)) {
-    return {this, level, with_prefix};
-  } else {
-    return {nullptr, level, false};
   }
 }
 

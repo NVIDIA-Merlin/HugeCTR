@@ -2642,10 +2642,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
                  current_eval_batchsize * label_dim);
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2686,10 +2686,10 @@ Error_t Model::get_current_loss(float* loss) {
     }
     *loss = loss_reduced / resource_manager_->get_global_gpu_count();
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2762,10 +2762,10 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
       }
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2792,10 +2792,10 @@ Error_t Model::download_sparse_params_to_files_(
     }
     HCTR_LOG(INFO, ROOT, "Dumping sparse optimzer states to files, successful\n");
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2812,7 +2812,7 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
         ps_types, embeddings_, sparse_embedding_files, resource_manager_,
         solver_.use_mixed_precision, solver_.i64_input_key, local_paths, hmem_cache_configs));
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     throw;
   }
 }
@@ -2837,10 +2837,10 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
       op(core23_networks_);
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2858,10 +2858,10 @@ Error_t Model::load_opt_states_for_sparse_(
       }
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2883,10 +2883,10 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
       op(core23_networks_);
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -2901,10 +2901,10 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
       }
     }
   } catch (const core23::RuntimeError& rt_err) {
-    Logger::print_exception(rt_err, 0);
+    Logger::get().print(rt_err);
     return rt_err.error;
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    Logger::get().print(err);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;

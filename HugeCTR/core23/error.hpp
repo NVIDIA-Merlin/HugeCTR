@@ -17,6 +17,7 @@
 
 #include <cublas_v2.h>
 #include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
@@ -24,6 +25,8 @@
 
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
 #ifdef HCTR_CODE_LOCATION_
 #error HCTR_CODE_LOCATION_ already defined. Potential naming conflict!
@@ -371,7 +374,6 @@ class RuntimeError : public std::runtime_error {
 
 [[nodiscard]] inline const char* hctr_render_string(const char* const arg0) { return arg0; }
 
-// [[nodiscard]] inline std::string hctr_render_string(const std::string& arg0) { return arg0; }
 [[nodiscard]] inline const std::string& hctr_render_string(const std::string& arg0) { return arg0; }
 
 template <typename Arg0>

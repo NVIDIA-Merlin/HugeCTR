@@ -184,7 +184,7 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
         num_feature_in_cache = SLAB_SIZE * SET_ASSOCIATIVITY;
         HCTR_LOG(INFO, ROOT,
                  "The initial size of the embedding cache is smaller than the minimum setting: "
-                 "\"%d\" and %d will be used as the default embedding cache size.\n",
+                 "\"%zu\" and %d will be used as the default embedding cache size.\n",
                  num_feature_in_cache, SLAB_SIZE * SET_ASSOCIATIVITY);
       }
       cache_config_.num_set_in_cache_.emplace_back(
