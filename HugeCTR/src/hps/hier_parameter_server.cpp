@@ -582,7 +582,7 @@ void HierParameterServer<TypeHashKey>::init_ec(
             vec_result = rawreader->getvectors(it, cache_config.embedding_vec_size_[j],
                                                inference_params.fp8_quant);
             HCTR_LOG_S(INFO, ROOT)
-                << "Initilize the embedding table " << j << " for interation " << it
+                << "Initialize the embedding table " << j << " for iteration " << it
                 << " with number of " << key_result.second << " keys." << std::endl;
             embedding_cache_map[device_id]->init(
                 j, key_result.first, reinterpret_cast<float*>(vec_result.first),

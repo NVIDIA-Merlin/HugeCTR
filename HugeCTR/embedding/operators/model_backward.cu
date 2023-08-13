@@ -363,7 +363,7 @@ struct DenseModelBackwardOneToOneAtomicDesc {
   HOST_DEVICE_INLINE int num_vec() { return num_vec_; }
 
   HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
-  // we need a transfrom to src id use num_model_revers_idx
+  // we need a transform to src id use num_model_revers_idx
   HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) { return src_ptr + i * ev_size; }
   HOST_DEVICE_INLINE DstT* get_dst_ptr(int i) {
     return dst_ptr + ev_size * reverse_id_ptr[i];

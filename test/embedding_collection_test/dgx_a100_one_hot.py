@@ -169,7 +169,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_gpus_per_node",
-    help="The numer of GPUs per node",
+    help="The number of GPUs per node",
     type=int,
     default=8,
 )
