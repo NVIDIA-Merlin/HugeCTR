@@ -214,7 +214,7 @@ struct DenseModelForwardOneToOneDesc {
   HOST_DEVICE_INLINE bool need_copy(int i) { return true; }
 
   HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
-  // we need a transfrom to src id use num_model_revers_idx
+  // we need a transform to src id use num_model_revers_idx
   HOST_DEVICE_INLINE const SrcT *get_src_ptr(int i) { return mp_ev_ptr[reverse_id_ptr[i]]; }
   HOST_DEVICE_INLINE DstT *get_dst_ptr(int i) { return dst_ptr + i * ev_size; }
 

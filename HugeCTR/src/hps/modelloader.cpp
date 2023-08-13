@@ -176,7 +176,7 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
       std::vector<TKey>().swap(embedding_table_->meta);
     }
   }
-  // The default value for the number of interation
+  // The default value for the number of iterations
   num_iterations = 10;
   if (key_num_per_iteration == 0) {
     // todo: The number of iterations can be calculated based on the maximum memory size configured

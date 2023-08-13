@@ -309,7 +309,7 @@ void embedding_collection_e2e(const Configuration &config) {
 
     auto input_layout = option.input_layout;
     HCTR_CHECK_HINT(input_layout == embedding::EmbeddingLayout::FeatureMajor,
-                    "only supportt feature major input layout");
+                    "only support feature major input layout");
     auto output_layout = option.output_layout;
     auto keys_preprocess_strategy = option.keys_preprocess_strategy;
     auto sort_strategy = option.sort_strategy;

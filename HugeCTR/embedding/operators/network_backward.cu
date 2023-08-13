@@ -185,7 +185,7 @@ struct DenseNetworkBackwardBatchMajorOneToOneAtomicDesc {
   HOST_DEVICE_INLINE size_t num_vec() { return num_vec_; }
 
   HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
-  // we need a transfrom to src id use num_model_revers_idx
+  // we need a transform to src id use num_model_revers_idx
   HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) {
     int hotness_id = bucket_id_ptr[i] / batch_size_per_gpu;
     int64_t lookup_id = bs_upper_bound_sub_one(hotness_range, range_num, hotness_id);
@@ -220,7 +220,7 @@ struct DenseNetworkBackwardFeatureMajorOneToOneAtomicDesc {
   HOST_DEVICE_INLINE size_t num_vec() { return num_vec_; }
 
   HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
-  // we need a transfrom to src id use num_model_revers_idx
+  // we need a transform to src id use num_model_revers_idx
   HOST_DEVICE_INLINE const SrcT* get_src_ptr(int i) {
     int hotness_id = bucket_id_ptr[i] / batch_size_per_gpu;
     int64_t lookup_id = bs_upper_bound_sub_one(hotness_range, range_num, hotness_id);
