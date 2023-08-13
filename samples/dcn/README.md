@@ -69,6 +69,7 @@ Execute the following preprocessing command:
 **IMPORTANT NOTES**: 
 - The first and second arguments are the same as Pandas's as shown above.
 - If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
+- The fifth argument must be set to `0`. It means that criteo mode is OFF, in another words, DO NOT ignore the dense features.
 - The last argument determines whether the feature crossing should be applied. It must remain set to `0` (OFF).
 
 ## Train with HugeCTR ##
