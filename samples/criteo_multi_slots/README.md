@@ -42,7 +42,7 @@ During preprocessing, the amount of data, which is used to speed up the preproce
 ## Preprocess the Dataset ##
 When running this sample, the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used. The dataset contains 24 files in which each file corresponds to one day of data. To reduce preprocessing time, only one file is used. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly.
 
-### Preprocess the Dataset Through Perl ###
+### Preprocess the Dataset Through Perl (Deprecated) ###
 To preprocess the dataset through Perl, run the following command:
 ```shell
 $ bash preprocess.sh 1 criteo_data perl 10

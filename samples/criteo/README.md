@@ -43,10 +43,10 @@ During preprocessing, the amount of data, which is used to speed up the preproce
 When running this sample, the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used. The dataset contains 24 files in which each file corresponds to one day of data. To reduce preprocessing time, only one file is used. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly.
 
 After you've downloaded the dataset, you can use one of the following methods to prepare the dataset for HugeCTR training:
-- [Perl](#preprocess-the-dataset-through-perl)
+- [Perl](#preprocess-the-dataset-through-perl) (Deprecated)
 - [NVTabular](#preprocess-the-dataset-through-nvtabular)
 
-### Preprocess the Dataset Through Perl ###
+### Preprocess the Dataset Through Perl (Deprecated) ###
 To preprocess the dataset through Perl, run the following command:
 ```shell
 $ bash preprocess.sh 1 criteo_data perl 1
@@ -67,7 +67,7 @@ Execute the following preprocessing command:
 **IMPORTANT NOTES**: 
 - The first and second arguments are the same as Perl's, as shown above.
 - If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
-- The fifth argument (the one after `nvt`)  must be set to `1`.
+- The fifth argument must be set to `1`. It means that criteo mode is ON, in another words, ignoring the dense features.
 - The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF). It must remain set to `0`.
 
 ## Train with HugeCTR ##
