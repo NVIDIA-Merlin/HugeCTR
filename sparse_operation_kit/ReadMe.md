@@ -53,7 +53,7 @@ import sparse_operation_kit as sok
 ### Installing SOK via pip ###
 You can install SOK using the following command:
 ```bash
-pip install sparse_operation_kit
+pip install sparse_operation_kit --no-build-isolation
 ```
 
 ### Pre-requisites ###
@@ -67,6 +67,8 @@ Cmake Version:>= 3.18
 
 GCC Version:>=9.3.0
 
+Build requires: scikit-build>=0.13.1, ninja
+
 
 ### Building SOK from source ###
 You can also build the SOK module from source code. Here are the steps to follow: <br>
@@ -76,7 +78,9 @@ You can also build the SOK module from source code. Here are the steps to follow
     ```
 + **Install to system**
     ```shell
-    $ cd hugectr/sparse_operation_kit/
+    $ cd hugectr/
+    $ git submodule update --init --recursive
+    $ cd sparse_operation_kit/
     $ python setup.py install
     ```
 

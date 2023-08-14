@@ -18,6 +18,10 @@ project(SparseOperationKit LANGUAGES CXX CUDA)
 
 message(STATUS "Building Sparse Operation Kit from source.")
 
+option(ENV_PYTHONPATH "keep PYTHONPATH same with os env when SKBUILD" ON)
+if (ENV_PYTHONPATH)
+set(ENV{PYTHONPATH} ${ENV_PYTHONPATH})
+endif()
 set(TF_VERSION,"")
 #check TF version
 execute_process(COMMAND python -c "import tensorflow as tf;print(tf.__version__)" OUTPUT_VARIABLE TF_VERSION)
@@ -168,6 +172,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
     ${PROJECT_SOURCE_DIR}/kit_cc/
+    ${PROJECT_SOURCE_DIR}/kit_cc/common/
     ${PROJECT_SOURCE_DIR}/
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/HugeCTR/
@@ -188,6 +193,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
     ${PROJECT_SOURCE_DIR}/kit_cc/
+    ${PROJECT_SOURCE_DIR}/kit_cc/common/
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include

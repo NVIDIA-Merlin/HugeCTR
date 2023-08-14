@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_UTIL_GPU_KERNEL_HELPER_H_
 #define TENSORFLOW_CORE_UTIL_GPU_KERNEL_HELPER_H_
 
+#include "common/utils.h"
 #include "gpu_device_functions.h"
-#include "sparse_operation_kit/kit_cc/utils.h"
 #include "tensorflow/core/util/gpu_launch_config.h"
 
 #define GPU_1D_KERNEL_LOOP(i, n) for (int i : ::tensorflow::GpuGridRangeX<int>(n))
