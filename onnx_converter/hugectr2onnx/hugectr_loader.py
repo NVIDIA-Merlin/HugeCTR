@@ -53,7 +53,7 @@ ONNX_LAYER_TYPES = {
     "SequenceMask",
 }
 
-EXEMPTION_LAYER_TYPES = {"Cast", "FusedReshapeConcatGeneral", "GRU", "Gather", "ReLUHalf"}
+EXEMPTION_LAYER_TYPES = {"Cast", "FusedReshapeConcatGeneral", "GRU", "Gather", "ReLUHalf", "Select"}
 
 
 def get_tensor_names(clause):
