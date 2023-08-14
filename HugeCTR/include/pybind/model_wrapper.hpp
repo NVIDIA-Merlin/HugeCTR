@@ -92,7 +92,8 @@ void ModelPybind(pybind11::module &m) {
                           std::vector<int> &, std::vector<size_t> &, size_t, size_t, int, int, int,
                           bool, std::vector<float> &, bool, Regularizer_t, float, FcPosition_t,
                           Activation_t, std::vector<size_t>, bool, std::vector<Activation_t>,
-                          std::vector<bool>, DenseLayerComputeConfig>(),
+                          std::vector<bool>, DenseLayerComputeConfig, const std::vector<int64_t> &,
+                          int, const std::vector<int64_t> &>(),
            pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
            pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
            pybind11::arg("gamma_init_type") = Initializer_t::Default,
@@ -101,7 +102,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("num_output") = 1,
            pybind11::arg("weight_init_type") = Initializer_t::Default,
            pybind11::arg("bias_init_type") = Initializer_t::Default,
-           pybind11::arg("num_layers") = 0, pybind11::arg("leading_dim") = 1,
+           pybind11::arg("num_layers") = 0, pybind11::arg("leading_dim") = 0,
            pybind11::arg("time_step") = 0, pybind11::arg("batchsize") = 1,
            pybind11::arg("SeqLength") = 1, pybind11::arg("vector_size") = 1,
            pybind11::arg("selected") = false, pybind11::arg("selected_slots") = std::vector<int>(),
@@ -119,7 +120,9 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("num_outputs") = std::vector<size_t>(), pybind11::arg("use_bias") = true,
            pybind11::arg("activations") = std::vector<Activation_t>(),
            pybind11::arg("biases") = std::vector<bool>(),
-           pybind11::arg("compute_config") = DenseLayerComputeConfig());
+           pybind11::arg("compute_config") = DenseLayerComputeConfig(),
+           pybind11::arg("shape") = std::vector<int64_t>(), pybind11::arg("dim") = 0,
+           pybind11::arg("index") = std::vector<int64_t>());
 
   pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
       m, "GroupDenseLayer")

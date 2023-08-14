@@ -44,6 +44,7 @@
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
+#include <layers/reshape_layer_v2.hpp>
 #include <layers/scale_layer.hpp>
 #include <layers/sequence_mask_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
@@ -2311,17 +2312,43 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       break;
     }
     case Layer_t::Reshape: {
-      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
-      int reshape_time_step = dense_layer.time_step;
       int leading_dim = dense_layer.leading_dim;
-      if (reshape_time_step == 0) {
-        tensor_shape_info_raw.insert(
-            std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, leading_dim}));
+      if (leading_dim > 0) {
+        int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+        int reshape_time_step = dense_layer.time_step;
+        if (reshape_time_step == 0) {
+          tensor_shape_info_raw.insert(
+              std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, leading_dim}));
+        } else {
+          tensor_shape_info_raw.insert(
+              std::make_pair(dense_layer.top_names[0],
+                             std::vector<int>{batch_size, reshape_time_step, leading_dim}));
+        }
       } else {
-        tensor_shape_info_raw.insert(
-            std::make_pair(dense_layer.top_names[0],
-                           std::vector<int>{batch_size, reshape_time_step, leading_dim}));
+        auto& shape = dense_layer.reshape_out_dimension;
+
+        auto& input_shape = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+        std::vector<int64_t> int64_input_shape(input_shape.size());
+        std::transform(input_shape.begin(), input_shape.end(), int64_input_shape.begin(),
+                       [](const int& i) { return static_cast<int64_t>(i); });
+        auto int64_out_shape = reshape_layer_utils::calc_output_shape(int64_input_shape, shape);
+        std::vector<int> out_shape(int64_out_shape.size());
+        std::transform(int64_out_shape.begin(), int64_out_shape.end(), out_shape.begin(),
+                       [](const int64_t& i) { return static_cast<int>(i); });
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_shape));
       }
+      break;
+    }
+    case Layer_t::Select: {
+      auto& dim = dense_layer.dim;
+      auto& index = dense_layer.index;
+
+      auto& in_shape = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      HCTR_CHECK(dim < in_shape.size());
+      HCTR_CHECK(index.size() <= in_shape[dim]);
+      auto out_shape = in_shape;
+      out_shape[dim] = index.size();
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_shape));
       break;
     }
     case Layer_t::Sigmoid: {

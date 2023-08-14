@@ -289,21 +289,20 @@ void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
                                 ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
-DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
-                       std::vector<std::string>& top_names, float factor, float eps,
-                       Initializer_t gamma_init_type, Initializer_t beta_init_type,
-                       float dropout_rate, float elu_alpha, size_t num_output,
-                       Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
-                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
-                       size_t vector_size, bool selected, std::vector<int> selected_slots,
-                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
-                       std::vector<size_t> weight_dims, size_t projection_dim, size_t out_dim,
-                       int axis, int max_sequence_len, int num_attention_heads, bool transpose_b,
-                       std::vector<float> target_weight_vec, bool use_regularizer,
-                       Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-                       Activation_t act_type, std::vector<size_t> num_outputs, bool use_bias,
-                       std::vector<Activation_t> acts, std::vector<bool> biases,
-                       DenseLayerComputeConfig compute_config)
+DenseLayer::DenseLayer(
+    Layer_t layer_type, std::vector<std::string>& bottom_names, std::vector<std::string>& top_names,
+    float factor, float eps, Initializer_t gamma_init_type, Initializer_t beta_init_type,
+    float dropout_rate, float elu_alpha, size_t num_output, Initializer_t weight_init_type,
+    Initializer_t bias_init_type, int num_layers, size_t leading_dim, size_t time_step,
+    size_t batchsize, size_t SeqLength, size_t vector_size, bool selected,
+    std::vector<int> selected_slots, std::vector<std::pair<int, int>> ranges,
+    std::vector<int> indices, std::vector<size_t> weight_dims, size_t projection_dim,
+    size_t out_dim, int axis, int max_sequence_len, int num_attention_heads, bool transpose_b,
+    std::vector<float> target_weight_vec, bool use_regularizer, Regularizer_t regularizer_type,
+    float lambda, FcPosition_t pos_type, Activation_t act_type, std::vector<size_t> num_outputs,
+    bool use_bias, std::vector<Activation_t> acts, std::vector<bool> biases,
+    DenseLayerComputeConfig compute_config, const std::vector<int64_t>& reshape_out_dimension,
+    int dim, const std::vector<int64_t>& index)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -343,7 +342,10 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       use_bias(use_bias),
       acts(acts),
       biases(biases),
-      compute_config(compute_config) {}
+      compute_config(compute_config),
+      reshape_out_dimension(reshape_out_dimension),
+      dim(dim),
+      index(index) {}
 
 GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
                                  std::vector<std::string>& bottom_name_list,

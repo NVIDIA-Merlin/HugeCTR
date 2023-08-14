@@ -177,6 +177,19 @@ void network_backward_from_batch_major_top_grad(const core23::Tensor& dp_num_key
   });
 }
 
+size_t calc_num_valid_network_tensor(const EmbeddingInput& embedding_input) {
+  auto& h_recv_k_per_gpu =
+      embedding_input.dense_compression_input.model_parallel_compression_input.h_recv_k_per_gpu;
+
+  size_t num_network_tensor = 0;
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(h_recv_k_per_gpu.data_type().type(), offset_t, [&] {
+    for (int64_t i = 0; i < h_recv_k_per_gpu.num_elements(); ++i) {
+      num_network_tensor += static_cast<size_t>(h_recv_k_per_gpu.data<offset_t>()[i]);
+    }
+  });
+  return num_network_tensor;
+}
+
 template <typename src_emb_t, typename dst_emb_t, typename offset_t>
 struct DenseNetworkBackwardBatchMajorOneToOneAtomicDesc {
   using SrcT = src_emb_t;
@@ -255,8 +268,6 @@ void dense_network_backward_from_feature_major_top_grad(
   int batch_size_per_gpu = batch_size / num_gpus;
 
   int ev_size = network_buffer.attr.ev_size;
-  size_t num_key = embedding_input.dense_compression_input.model_parallel_compression_input
-                       .num_network_reverse_idx;
   auto& reverse_idx =
       embedding_input.dense_compression_input.model_parallel_compression_input.network_reverse_idx;
   auto& bucket_ids = embedding_input.dense_compression_input.model_parallel_compression_input
@@ -293,8 +304,12 @@ void dense_network_backward_from_feature_major_top_grad(
                                                bucket_ids_ptr,
                                                top_grad_ptr,
                                                network_comm_buffer_ptr};
-            HCTR_LIB_THROW(cudaMemsetAsync(network_buffer.data.data(), 0,
-                                           network_buffer.data.num_bytes(), stream));
+
+            size_t num_valid_network_tensor = calc_num_valid_network_tensor(embedding_input);
+            HCTR_LIB_THROW(cudaMemsetAsync(
+                network_buffer.data.data(), 0,
+                num_valid_network_tensor * ev_size * network_buffer.data.data_type().size(),
+                stream));
             one_to_one_atomic(one_to_one_atomic_desc, kernel_params, ev_size,
                               num_network_reverse_idx, stream);
           });
@@ -339,8 +354,11 @@ void dense_network_backward_from_batch_major_top_grad(
                 num_network_reverse_idx, ev_size,           batch_size_per_gpu,     range_num,
                 global_ev_offset,        hotness_range_ptr, ev_start_indices_ptr,   reverse_idx_ptr,
                 bucket_ids_ptr,          top_grad_ptr,      network_comm_buffer_ptr};
-            HCTR_LIB_THROW(cudaMemsetAsync(network_buffer.data.data(), 0,
-                                           network_buffer.data.num_bytes(), stream));
+            size_t num_valid_network_tensor = calc_num_valid_network_tensor(embedding_input);
+            HCTR_LIB_THROW(cudaMemsetAsync(
+                network_buffer.data.data(), 0,
+                num_valid_network_tensor * ev_size * network_buffer.data.data_type().size(),
+                stream));
             one_to_one_atomic(one_to_one_atomic_desc, kernel_params, ev_size,
                               num_network_reverse_idx, stream);
           });

@@ -59,6 +59,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::Interaction, "Interaction"},
     {Layer_t::ReLU, "ReLU"},
     {Layer_t::Reshape, "Reshape"},
+    {Layer_t::Select, "Select"},
     {Layer_t::Sigmoid, "Sigmoid"},
     {Layer_t::Slice, "Slice"},
     {Layer_t::WeightMultiply, "WeightMultiply"},
@@ -95,6 +96,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::Interaction, "Interaction"},
     {Layer_t::ReLU, "ReLU"},
     {Layer_t::Reshape, "Reshape"},
+    {Layer_t::Select, "Select"},
     {Layer_t::Sigmoid, "Sigmoid"},
     {Layer_t::Slice, "Slice"},
     {Layer_t::WeightMultiply, "WeightMultiply"},
@@ -282,6 +284,13 @@ struct DenseLayer {
   std::vector<bool> biases;
   DenseLayerComputeConfig compute_config;
 
+  // reshape layer param
+  std::vector<int64_t> reshape_out_dimension;
+
+  // select layer param
+  int dim;
+  std::vector<int64_t> index;
+
   DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
              std::vector<std::string>& top_names, float factor = 1.0, float eps = 0.00001,
              Initializer_t gamma_init_type = Initializer_t::Default,
@@ -289,7 +298,7 @@ struct DenseLayer {
              float elu_alpha = 1.0, size_t num_output = 1,
              Initializer_t weight_init_type = Initializer_t::Default,
              Initializer_t bias_init_type = Initializer_t::Default, int num_layers = 0,
-             size_t leading_dim = 1, size_t time_step = 0, size_t batchsize = 1,
+             size_t leading_dim = 0, size_t time_step = 0, size_t batchsize = 1,
              size_t SeqLength = 1, size_t vector_size = 1, bool selected = false,
              std::vector<int> selected_slots = std::vector<int>(),
              std::vector<std::pair<int, int>> ranges = std::vector<std::pair<int, int>>(),
@@ -304,7 +313,9 @@ struct DenseLayer {
              std::vector<size_t> num_outputs = std::vector<size_t>(), bool use_bias = true,
              std::vector<Activation_t> acts = std::vector<Activation_t>(),
              std::vector<bool> biases = std::vector<bool>(),
-             DenseLayerComputeConfig compute_config = DenseLayerComputeConfig());
+             DenseLayerComputeConfig compute_config = DenseLayerComputeConfig(),
+             const std::vector<int64_t>& reshape_out_dimension = {}, int dim = 0,
+             const std::vector<int64_t>& index = {});
 };
 
 struct GroupDenseLayer {

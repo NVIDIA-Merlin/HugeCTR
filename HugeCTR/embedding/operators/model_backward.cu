@@ -396,7 +396,10 @@ void LocalReduce::local_reduce(const DenseReductionIndices& reduction_indices,
             using CopyDesc = DenseModelBackwardOneToOneAtomicDesc<src_emb_t, dst_emb_t, offset_t>;
             CopyDesc one_to_one_atomic_desc = {num_keys, ev_size, reverse_idx_ptr, src_ptr,
                                                dst_ptr};
-            HCTR_LIB_THROW(cudaMemsetAsync(wgrad.data.data(), 0, wgrad.data.num_bytes(), stream));
+            HCTR_LIB_THROW(cudaMemsetAsync(
+                wgrad.data.data(), 0,
+                reduction_indices.num_valid_dst_tensor * ev_size * wgrad.data.data_type().size(),
+                stream));
             one_to_one_atomic(one_to_one_atomic_desc, core_->get_kernel_param(), ev_size, num_keys,
                               stream);
           });

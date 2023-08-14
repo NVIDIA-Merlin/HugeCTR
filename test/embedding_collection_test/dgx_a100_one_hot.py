@@ -19,8 +19,8 @@ from mpi4py import MPI
 
 import hugectr
 
-TRAIN_NUM_SAMPLES = 19660500
-EVAL_NUM_SAMPLES = 19660500
+TRAIN_NUM_SAMPLES = 4195197692
+EVAL_NUM_SAMPLES = 89137319
 TABLE_SIZE_ARRAY = [
     39884406,
     39043,
@@ -58,13 +58,6 @@ NUM_DENSE = 13
 
 parser = argparse.ArgumentParser(description="HugeCTR DLRM V2 model training script.")
 parser.add_argument(
-    "--optimizer",
-    help="Optimizer to use",
-    type=str,
-    choices=["adagrad", "sgd"],
-    default="adagrad",
-)
-parser.add_argument(
     "--batchsize",
     help="Batch size for training",
     type=int,
@@ -86,37 +79,25 @@ parser.add_argument(
     "--lr",
     help="Learning rate",
     type=float,
-    default=0.005,
-)
-parser.add_argument(
-    "--eps",
-    help="Epsilon value for Adagrad",
-    type=float,
-    default=1e-8,
-)
-parser.add_argument(
-    "--init_accu",
-    help="Initial accumulator value for Adagrad",
-    type=float,
-    default=0.0,
+    default=24.0,
 )
 parser.add_argument(
     "--warmup_steps",
     help="Warmup steps",
     type=int,
-    default=0,
+    default=2750,
 )
 parser.add_argument(
     "--decay_start",
     help="Decay start",
     type=int,
-    default=0,
+    default=49315,
 )
 parser.add_argument(
     "--decay_steps",
     help="Decay steps",
     type=int,
-    default=0,
+    default=27772,
 )
 parser.add_argument(
     "--use_mixed_precision",
@@ -126,7 +107,7 @@ parser.add_argument(
     "--scaler",
     help="Loss scaling constant",
     type=float,
-    default=1.0,
+    default=1024,
 )
 parser.add_argument(
     "--enable_tf32_compute",
@@ -153,7 +134,7 @@ parser.add_argument(
     "--display_interval",
     help="Display throughput stats every number of iterations",
     type=int,
-    default=100,
+    default=1000,
 )
 parser.add_argument(
     "--eval_interval",
@@ -165,7 +146,7 @@ parser.add_argument(
     "--auc_threshold",
     help="AUC threshold to reach to stop training",
     type=float,
-    default=0.80275,
+    default=0.8025,
 )
 parser.add_argument(
     "--num_gpus_per_node",
@@ -203,8 +184,8 @@ def rowwise_sharding_plan():
     shard_strategy = [("mp", [str(i) for i in mp_table])]
 
     for i, table_id in enumerate(mp_table):
-        target_gpu = i % num_gpus
-        shard_matrix[target_gpu].append(str(table_id))
+        for gpu_id in range(num_gpus):
+            shard_matrix[gpu_id].append(str(table_id))
     return shard_matrix, shard_strategy
 
 
@@ -229,8 +210,8 @@ solver = hugectr.CreateSolver(
     scaler=args.scaler,
     use_cuda_graph=True,
     gen_loss_summary=args.gen_loss_summary,
-    train_intra_iteration_overlap=False,
-    train_inter_iteration_overlap=False,
+    train_intra_iteration_overlap=True,
+    train_inter_iteration_overlap=True,
     eval_intra_iteration_overlap=False,
     eval_inter_iteration_overlap=False,
     all_reduce_algo=hugectr.AllReduceAlgo.NCCL,
@@ -243,25 +224,16 @@ solver = hugectr.CreateSolver(
     use_algorithm_search=args.use_algorithm_search,
 )
 
-optimizer = None
-if args.optimizer == "adagrad":
-    optimizer = hugectr.CreateOptimizer(
-        optimizer_type=hugectr.Optimizer_t.AdaGrad,
-        update_type=hugectr.Update_t.Global,
-        initial_accu_value=args.init_accu,
-        epsilon=args.eps,
-    )
-elif args.optimizer == "sgd":
-    optimizer = hugectr.CreateOptimizer(
-        optimizer_type=hugectr.Optimizer_t.SGD,
-        update_type=hugectr.Update_t.Local,
-        atomic_update=True,
-    )
+optimizer = hugectr.CreateOptimizer(
+    optimizer_type=hugectr.Optimizer_t.SGD,
+    update_type=hugectr.Update_t.Local,
+    atomic_update=True,
+)
 
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.RawAsync,
-    source=["/criteo_multihot_raw_subset/train_data.bin"],
-    eval_source="/criteo_multihot_raw_subset/val_data.bin",
+    source=["/data/train_data.bin"],
+    eval_source="/data/test_data.bin",
     check_type=hugectr.Check_t.Non,
     num_samples=TRAIN_NUM_SAMPLES,
     eval_num_samples=EVAL_NUM_SAMPLES,
@@ -336,19 +308,17 @@ model.add(
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Concat,
-        bottom_names=["sparse_embedding", "mlp1"],
-        top_names=["concat1"],
+        layer_type=hugectr.Layer_t.Reshape,
+        bottom_names=["sparse_embedding"],
+        top_names=["sparse_embedding1"],
+        shape=[-1, NUM_TABLE, args.ev_size],
     )
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.MultiCross,
-        bottom_names=["concat1"],
+        layer_type=hugectr.Layer_t.Interaction,
+        bottom_names=["mlp1", "sparse_embedding1"],
         top_names=["interaction1"],
-        projection_dim=512,
-        num_layers=3,
-        compute_config=compute_config,
     )
 )
 model.add(

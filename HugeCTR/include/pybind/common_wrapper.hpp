@@ -109,6 +109,7 @@ void CommonPybind(pybind11::module& m) {
       .value("LayerNorm", HugeCTR::Layer_t::LayerNorm)
       .value("BinaryCrossEntropyLoss", HugeCTR::Layer_t::BinaryCrossEntropyLoss)
       .value("Reshape", HugeCTR::Layer_t::Reshape)
+      .value("Select", HugeCTR::Layer_t::Select)
       .value("Concat", HugeCTR::Layer_t::Concat)
       .value("CrossEntropyLoss", HugeCTR::Layer_t::CrossEntropyLoss)
       .value("Dropout", HugeCTR::Layer_t::Dropout)

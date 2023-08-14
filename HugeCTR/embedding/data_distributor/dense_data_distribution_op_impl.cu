@@ -415,13 +415,6 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
       output.dense_compression_input.model_parallel_compression_input.num_model_reverse_idx,
       *dense_temp_storage_.table_partitioner_, compressed_data_after_table_id_partition, stream);
 
-  CompactedPartitionData continuous_partition_data{
-      output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
-  compact_partitioned_data_operator_(dense_temp_storage_.partitioned_data_after_table_id_partition,
-                                     continuous_partition_data, stream);
-
-  // there is already a sync in compact_partition_data so we dont need sync here
-  output.h_num_keys = *(output.num_keys.data<uint64_t>());
   compress_reverse_idx_range_operator_(
       output.dense_compression_input.model_parallel_compression_input.num_model_reverse_idx,
       compressed_data_after_table_id_partition, stream);
@@ -434,6 +427,13 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
   compress_reverse_idx_range_operator_(
       dense_compression_output.model_parallel_compression_input.num_network_reverse_idx,
       compressed_data_after_shard_matrix_partition, stream);
+  CompactedPartitionData continuous_partition_data{
+      output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
+  compact_partitioned_data_operator_(dense_temp_storage_.partitioned_data_after_table_id_partition,
+                                     continuous_partition_data, stream);
+
+  // there is already a sync in compact_partition_data so we dont need sync here
+  output.h_num_keys = *(output.num_keys.data<uint64_t>());
 }
 
 void DenseMPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {

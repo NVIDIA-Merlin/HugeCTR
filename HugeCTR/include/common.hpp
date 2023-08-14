@@ -118,6 +118,7 @@ enum class Layer_t {
   LayerNorm,
   BinaryCrossEntropyLoss,
   Reshape,
+  Select,
   Concat,
   CrossEntropyLoss,
   Dropout,

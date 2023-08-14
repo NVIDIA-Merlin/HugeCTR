@@ -60,6 +60,7 @@ file(GLOB layers_test_src
   sub_layer_test.cpp
   sub_layer_test_old.cpp
   gather_layer_test.cpp
+  select_layer_test.cpp
   # gather_layer_test_old.cpp
   reduce_mean_layer_test.cpp
   reduce_mean_layer_test_old.cpp

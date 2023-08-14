@@ -565,7 +565,6 @@ void CompactPartitionDataOperator::operator()(const PartitionedData &partitioned
         partitioned_data.d_num_key_per_partition.data<BucketRangeType>(),
         compacted_partition_data.num_key_per_table.data<BucketRangeType>() + 1, num_table, stream);
   });
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
     DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range_type.type(), BucketRangeType, [&] {

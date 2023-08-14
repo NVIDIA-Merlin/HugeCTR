@@ -83,6 +83,7 @@ void DenseMPLocalReduceIndexCalculation::cal_for_dense_input(
   reduction_indices.model_reverse_idx =
       &embedding_input.dense_compression_input.model_parallel_compression_input.model_reverse_idx;
   reduction_indices.ev_size = ev_size;
+  reduction_indices.num_valid_dst_tensor = embedding_input.h_num_keys;
   const int block_size = 256;
   const int grid_size = core_->get_kernel_param().num_sms *
                         core_->get_kernel_param().max_thread_per_block / block_size;

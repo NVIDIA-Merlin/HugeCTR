@@ -240,10 +240,10 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
             dst_result.dense_compression_input.model_parallel_compression_input;
         auto &src_compression_input =
             src_result.dense_compression_input.model_parallel_compression_input;
-        core23::copy_async(dst_compression_input.h_send_k_per_gpu,
-                           src_compression_input.h_send_k_per_gpu, stream);
-        core23::copy_async(dst_compression_input.h_recv_k_per_gpu,
-                           src_compression_input.h_recv_k_per_gpu, stream);
+        core23::copy_sync(dst_compression_input.h_send_k_per_gpu,
+                          src_compression_input.h_send_k_per_gpu);
+        core23::copy_sync(dst_compression_input.h_recv_k_per_gpu,
+                          src_compression_input.h_recv_k_per_gpu);
         core23::copy_async(dst_compression_input.model_reverse_idx,
                            src_compression_input.model_reverse_idx, stream);
         dst_compression_input.num_model_reverse_idx = src_compression_input.num_model_reverse_idx;

@@ -63,6 +63,7 @@ struct DenseReductionIndices {
   const core23::Tensor *model_reverse_idx;
   int ev_size;
   size_t reverse_key_num;
+  size_t num_valid_dst_tensor;
 };
 
 struct PartitionedResult {
