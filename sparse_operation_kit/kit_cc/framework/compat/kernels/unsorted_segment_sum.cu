@@ -18,7 +18,7 @@ limitations under the License.
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #pragma GCC diagnostic pop
-#include "sparse_operation_kit/kit_cc/utils.h"
+#include "common/utils.h"
 
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;

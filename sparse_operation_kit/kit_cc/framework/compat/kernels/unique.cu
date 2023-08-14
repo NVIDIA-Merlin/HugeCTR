@@ -23,7 +23,7 @@ limitations under the License.
 #else
 #include "tensorflow/compiler/xla/stream_executor/cuda/cuda_activation.h"
 #endif
-#include "sparse_operation_kit/kit_cc/utils.h"
+#include "common/utils.h"
 
 namespace tensorflow {
 

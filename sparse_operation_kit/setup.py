@@ -16,6 +16,9 @@
 import os
 import sys
 
+# import tensorflow as tf
+
+
 from setuptools import find_packages
 from skbuild import setup
 
@@ -66,6 +69,10 @@ def get_cmake_args():
             else "Release"
         )
 
+    env_python_path = ""
+    if os.getenv("PYTHONPATH"):
+        env_python_path = os.getenv("PYTHONPATH")
+
     enable_deeprec = "OFF"
     if os.getenv("ENABLE_DEEPREC"):
         enable_deeprec = (
@@ -77,6 +84,7 @@ def get_cmake_args():
         "-DSOK_ASYNC={}".format(dedicated_cuda_stream),
         "-DSOK_UNIT_TEST={}".format(unit_test),
         "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type),
+        "-DENV_PYTHONPATH={}".format(env_python_path),
         "-DENABLE_DEEPREC={}".format(enable_deeprec),
     ]
     return cmake_args
@@ -87,6 +95,7 @@ def get_cmake_args():
 # so we use a workaround here: copy the content of parent folder into
 # sparse_operation_kit/ before making pip package.
 os.system("cp -r ../HugeCTR ./")
+os.system("cp -r ../gpu_cache ./")
 os.system("mkdir third_party")
 os.system("cp -r ../third_party/json ./third_party/")
 os.system("cp -r ../third_party/HierarchicalKV ./third_party/")

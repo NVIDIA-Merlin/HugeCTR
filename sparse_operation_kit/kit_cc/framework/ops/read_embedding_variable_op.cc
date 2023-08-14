@@ -17,7 +17,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "sparse_operation_kit/kit_cc/utils.h"
+#include "common/utils.h"
 
 using namespace tensorflow;
 using ::tensorflow::shape_inference::InferenceContext;

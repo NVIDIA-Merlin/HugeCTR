@@ -567,6 +567,18 @@ nb_hps_demo:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/notebooks/hps_demo.sub
 
+test_sok_pypi:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_sok_tf2
+  variables:
+    GPFSFOLDER: $LOGDIR/test_sok_pypi
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $SOK_IMAGE_VERSIONED_TF2
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/sok/test_sok_pypi.sub
+
 wdl_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job_daily
