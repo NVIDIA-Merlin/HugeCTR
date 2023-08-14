@@ -103,9 +103,6 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
 #endif
   static_assert(value_page_alignment > 0);
 
-  using ValuePtr = char*;
-  static_assert(sizeof(ValuePtr) == sizeof(uintptr_t));
-
   // Data-structure that will be associated with every key.
   struct Payload final {
     union {
@@ -135,7 +132,7 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
 
     // Pooled payload storage.
     std::vector<ValuePage> value_pages;
-    std::vector<ValuePtr> value_slots;
+    std::vector<char*> value_slots;
 
     // Key -> Payload map.
     phmap::flat_hash_map<Key, Payload> entries;
@@ -147,7 +144,7 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
   };
 
   // Actual data.
-  ValuePage::allocator_type vp_allocator_;
+  ValuePage::allocator_type char_allocator_;
   std::unordered_map<std::string, std::vector<Partition>> tables_;
 
   // Access control.

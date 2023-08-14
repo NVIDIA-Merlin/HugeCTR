@@ -438,8 +438,8 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
 
     // Step through input batch-by-batch.
     for (const Key* k{keys}; k != keys_end;) {
-      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
       const size_t prev_num_deletions{num_deletions};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
       HCTR_HPS_HASH_MAP_EVICT_(SEQUENTIAL_DIRECT);
 
       HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,

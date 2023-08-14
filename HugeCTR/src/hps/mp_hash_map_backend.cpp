@@ -34,7 +34,7 @@ MultiProcessHashMapBackend<Key>::MultiProcessHashMapBackend(
     : Base(params),
       sm_segment_(boost::interprocess::open_or_create, params.shared_memory_name.c_str(),
                   params.shared_memory_size),
-      vp_allocator_{sm_segment_.get_allocator<char>()},
+      char_allocator_{sm_segment_.get_allocator<char>()},
       value_page_allocator_{sm_segment_.get_allocator<ValuePage>()},
       partition_allocator_{sm_segment_.get_allocator<Partition>()},
       sm_{sm_segment_.find_or_construct<SharedMemory>("sm")(params.heart_beat_frequency,
@@ -324,7 +324,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
   } else if (num_keys == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
     const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
     // Step through input batch-by-batch.
@@ -347,7 +348,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
       const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
       size_t miss_count{0};
@@ -411,7 +413,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
   } else if (num_indices == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
     const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
     // Step through input batch-by-batch.
@@ -434,7 +437,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
       const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
       size_t miss_count{0};

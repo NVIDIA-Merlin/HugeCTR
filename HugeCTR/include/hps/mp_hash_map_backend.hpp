@@ -94,9 +94,7 @@ class MultiProcessHashMapBackend final
   using SegmentAllocator = boost::interprocess::allocator<T, Segment::segment_manager>;
 
   using SharedString =
-      boost::interprocess::basic_string<char, std::char_traits<char>, std::allocator<char>>;
-  static SharedString::allocator_type char_allocator_;
-
+      boost::interprocess::basic_string<char, std::char_traits<char>, SegmentAllocator<char>>;
   template <typename T>
   using SharedVector = boost::interprocess::vector<T, SegmentAllocator<T>>;
 
@@ -191,7 +189,7 @@ class MultiProcessHashMapBackend final
   };
 
   Segment sm_segment_;
-  SegmentAllocator<char> vp_allocator_;
+  SegmentAllocator<char> char_allocator_;
   SegmentAllocator<ValuePage> value_page_allocator_;
   SegmentAllocator<Partition> partition_allocator_;
   SharedMemory* sm_;

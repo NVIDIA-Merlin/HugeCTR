@@ -108,8 +108,8 @@ namespace HugeCTR {
 #define HCTR_HPS_HASH_MAP_FETCH_(MODE)                                                             \
   [&]() {                                                                                          \
     static_assert(std::is_same_v<decltype(overflow_policy), const DatabaseOverflowPolicy_t>);      \
+    static_assert(std::is_same_v<decltype(value_size), const uint32_t>);                           \
                                                                                                    \
-    const size_t value_size{part.value_size};                                                      \
     switch (overflow_policy) {                                                                     \
       case DatabaseOverflowPolicy_t::EvictRandom: {                                                \
         if (value_size <= sizeof(uintptr_t)) {                                                     \
@@ -172,7 +172,7 @@ namespace HugeCTR {
           HCTR_CHECK(num_values > 0);                                                          \
                                                                                                \
           /* Get more memory. */                                                               \
-          part.value_pages.emplace_back(num_values* stride, vp_allocator_);                    \
+          part.value_pages.emplace_back(num_values* stride, char_allocator_);                  \
           ValuePage& value_page{part.value_pages.back()};                                      \
                                                                                                \
           /* Stock up slot references. */                                                      \
@@ -205,6 +205,7 @@ namespace HugeCTR {
 #define HCTR_HPS_HASH_MAP_INSERT_(MODE)                                                         \
   [&]() {                                                                                       \
     static_assert(std::is_same_v<decltype(overflow_policy), const DatabaseOverflowPolicy_t>);   \
+    static_assert(std::is_same_v<decltype(value_size), const uint32_t>);                        \
                                                                                                 \
     switch (overflow_policy) {                                                                  \
       case DatabaseOverflowPolicy_t::EvictRandom: {                                             \
