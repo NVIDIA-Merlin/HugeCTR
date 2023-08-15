@@ -557,7 +557,7 @@ Parameter:
 * `time_step`: Integer, the second dimension of the 3D output tensor. It must be the multiple of the total number of input elements and must be defined with leading_dim.
 * `selected`: Boolean, whether to use the selected mode for the `Reshape` layer. The default value is False.
 * `selected_slots`: List[int], the selected slots for the `Reshape` layer. It will be ignored if `selected` is False. The default value is [].
-* `shape`: List of Integer, the destination shape of output. You can use -1 as a placeholder for dimensions that are variable, such as batch size. This parameter cannot be used together with other parameters and does restrict dimensions.
+* `shape`: List of Integer, the destination shape of output. You can use -1 as a placeholder for dimensions that are variable, such as batch size. This parameter cannot be used together with other parameters and other parameters will be deprecated in the future. This parameter does not restrict dimensions.
 
 Input and Output Shapes:
 

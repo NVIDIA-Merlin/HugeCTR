@@ -662,6 +662,9 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       auto& input_tensor = input_output_info.input_tensors[0];
       core23::Tensor output_tensor;
       if (selected) {
+        HCTR_LOG_C(WARNING, ROOT,
+                   "You are using reshape layer with parameter select. This will be deprecated in "
+                   "the future. Please switch to parameter shape.");
         if (use_mixed_precision) {
           layers.emplace_back(new ReshapeLayer<__half>(input_tensor, output_tensor,
                                                        dense_layer.selected_slots, gpu_resource));
@@ -672,6 +675,10 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       } else {
         int64_t leading_dim = dense_layer.leading_dim;
         if (leading_dim > 0) {
+          HCTR_LOG_C(
+              WARNING, ROOT,
+              "You are using reshape layer with parameter leading_dim. This will be deprecated in "
+              "the future. Please switch to parameter shape.");
           int64_t time_step = dense_layer.time_step;
           if (time_step == 0) {  // 2D output
             output_tensor = core23::Tensor(
