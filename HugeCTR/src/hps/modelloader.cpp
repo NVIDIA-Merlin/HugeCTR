@@ -175,20 +175,17 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
       std::vector<TKey>().swap(embedding_table_->meta);
     }
   }
+  num_iterations = 10;
   if (key_num_per_iteration == 0) {
     // todo: The number of iterations can be calculated based on the maximum memory size configured
     // by the user
-    if (num_key % 10 == 0) {
-      num_iterations = 10;
-    } else {
-      num_iterations = 11;
-    }
-    key_iteration = num_key / 10;
+    key_iteration =
+        num_key % num_iterations == 0 ? num_key / num_iterations : 1 + num_key / num_iterations;
   } else {
     key_iteration = key_num_per_iteration;
-    num_iterations = num_key % key_num_per_iteration == 0 ? num_key / key_num_per_iteration
-                                                          : (num_key / key_num_per_iteration) + 1;
   }
+  num_iterations =
+      num_key % key_iteration == 0 ? num_key / key_iteration : (num_key / key_iteration) + 1;
 }
 
 template <typename TKey, typename TValue>
