@@ -533,6 +533,16 @@ void EmbeddingCache<TypeHashKey>::insert(const size_t table_id,
 }
 
 template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::insert(size_t table_id, void* d_keys, const size_t len,
+                                         const float* d_values, cudaStream_t stream) {
+  if (cache_config_.use_gpu_embedding_cache_) {
+    CudaDeviceContext dev_restorer;
+    dev_restorer.check_device(cache_config_.cuda_dev_id_);
+    gpu_emb_caches_[table_id]->Replace(static_cast<TypeHashKey*>(d_keys), len, d_values, stream);
+  }
+}
+
+template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
                                        EmbeddingCacheRefreshspace& refreshspace_handler,
                                        cudaStream_t stream) {

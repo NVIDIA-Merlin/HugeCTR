@@ -290,6 +290,10 @@ EmbeddingCacheStoch<TypeHashKey>::~EmbeddingCacheStoch() {
 }
 
 template <typename TypeHashKey>
+void EmbeddingCacheStoch<TypeHashKey>::insert(size_t table_id, void* d_keys, const size_t len,
+                                              const float* d_values, cudaStream_t stream) {}
+
+template <typename TypeHashKey>
 void EmbeddingCacheStoch<TypeHashKey>::lookup_from_native_cache(
     size_t table_id, const void* h_keys, size_t num_keys, void* h_hit_keys, void* h_missing_keys,
     float* h_hit_vectors, size_t hit_key_num, size_t miss_key_num, cudaStream_t stream) {}

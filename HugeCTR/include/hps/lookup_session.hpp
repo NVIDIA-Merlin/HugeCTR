@@ -59,7 +59,9 @@ class LookupSession : public LookupSessionBase {
       const std::vector<float*>& h_hit_vectors_per_table,
       const std::vector<size_t>& hit_key_num_per_table,
       const std::vector<size_t>& miss_key_num_per_table) override final;
-  ;
+
+  virtual void insert(void* d_missing_keys, size_t num_keys, const float* d_values,
+                      size_t table_id) override final;
 
   virtual const InferenceParams get_inference_params() const override { return inference_params_; }
   virtual void set_profiler(int iteration, int warmup, bool enable_bench) {

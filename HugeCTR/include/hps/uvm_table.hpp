@@ -78,6 +78,8 @@ class UvmTable : public EmbeddingCacheBase,
   virtual const std::vector<cudaStream_t>& get_insert_streams() { return refresh_streams_; }
   virtual void insert(size_t table_id, EmbeddingCacheWorkspace& workspace_handler,
                       cudaStream_t stream) override{};
+  virtual void insert(size_t table_id, void* d_keys, const size_t len, const float* d_values,
+                      cudaStream_t stream) override{};
   virtual void finalize() override{};
   virtual void lookup_from_device(size_t table_id, float* d_vectors, MemoryBlock* memory_block,
                                   size_t num_keys, cudaStream_t stream);
