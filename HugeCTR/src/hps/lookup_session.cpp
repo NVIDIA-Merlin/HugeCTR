@@ -254,7 +254,7 @@ void LookupSession::lookup(const void* const h_keys, float* const d_vectors, con
                            const size_t table_id) {
   const auto begin = std::chrono::high_resolution_clock::now();
   BaseUnit* start = profiler::start();
-
+  std::cout << "lookup test&*&*&*&*&*" << std::endl;
   if (inference_params_.fuse_embedding_table) {
     size_t fused_table_id = inference_params_.original_table_id_to_fused_table_id_map[table_id];
     this->lookup_with_table_fusion_impl(h_keys, d_vectors, num_keys, table_id, false,
@@ -326,6 +326,15 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
   const auto latency = std::chrono::high_resolution_clock::now() - begin;
   HCTR_LOG_S(TRACE, WORLD) << "Lookup multiple tables;"
                            << "lookup latency: " << latency.count() / 1000 << " us." << std::endl;
+}
+
+void LookupSession::insert(void* d_missing_keys, size_t num_keys, const float* d_values,
+                           size_t table_id) {
+  if (inference_params_.use_gpu_embedding_cache) {
+    CudaDeviceContext dev_restorer;
+    dev_restorer.set_device(inference_params_.device_id);
+  }
+  embedding_cache_->insert(table_id, d_missing_keys, num_keys, d_values, lookup_streams_[table_id]);
 }
 
 void LookupSession::lookup_from_native_cache(const std::vector<const void*>& h_keys_per_table,
