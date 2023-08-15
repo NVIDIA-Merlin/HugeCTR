@@ -242,7 +242,7 @@ pybind11::array_t<float> HPS::lookup(pybind11::array_t<size_t>& h_keys,
   const auto& max_keys_per_sample_per_table =
       ps_config_.max_feature_num_per_sample_per_emb_table_.at(model_name);
   const auto& embedding_size_per_table = ps_config_.embedding_vec_size_.at(model_name);
-  const auto& inference_params =
+  const InferenceParams inference_params =
       parameter_server_->get_hps_model_configuration_map().at(model_name);
   pybind11::buffer_info key_buf = h_keys.request();
   size_t num_keys = key_buf.size;
