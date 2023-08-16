@@ -324,7 +324,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
   } else if (num_keys == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
     const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
     // Step through input batch-by-batch.
@@ -347,7 +348,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name, con
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
       const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
       size_t miss_count{0};
@@ -411,7 +413,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
   } else if (num_indices == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
     const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
     // Step through input batch-by-batch.
@@ -434,7 +437,8 @@ size_t MultiProcessHashMapBackend<Key>::fetch(const std::string& table_name,
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
       const DatabaseOverflowPolicy_t overflow_policy{part.overflow_policy};
 
       size_t miss_count{0};
@@ -514,6 +518,7 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
   } else if (num_keys == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
+    const uint32_t value_size{part.value_size};
 
     // Step through input batch-by-batch.
     for (const Key* k{keys}; k != keys_end;) {
@@ -530,6 +535,7 @@ size_t MultiProcessHashMapBackend<Key>::evict(const std::string& table_name, con
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
+      const uint32_t value_size{part.value_size};
 
       size_t num_deletions{0};
 
@@ -583,9 +589,9 @@ size_t MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name,
     return 0;
   }
   const SharedVector<Partition>& parts{tables_it->second};
+  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
 
   // Store value size.
-  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
   file.write(reinterpret_cast<const char*>(&value_size), sizeof(uint32_t));
 
   // Store values.
@@ -594,7 +600,10 @@ size_t MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name,
   for (const Partition& part : parts) {
     for (const Entry& entry : part.entries) {
       file.write(reinterpret_cast<const char*>(&entry.first), sizeof(Key));
-      file.write(entry.second.value.get(), value_size);
+
+      const Payload& payload{entry.second};
+      file.write(value_size <= sizeof(uintptr_t) ? payload.near_value() : payload.far_value(),
+                 value_size);
     }
     num_entries += part.entries.size();
   }
@@ -613,6 +622,7 @@ size_t MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
     return 0;
   }
   const SharedVector<Partition>& parts{tables_it->second};
+  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
 
   // Sort keys by value.
   std::vector<const Entry*> entries;
@@ -631,11 +641,14 @@ size_t MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
 
   // Iterate over pairs and insert.
   rocksdb::Slice k_view{nullptr, sizeof(Key)};
-  rocksdb::Slice v_view{nullptr, parts.empty() ? 0 : parts.front().value_size};
+  rocksdb::Slice v_view{nullptr, value_size};
 
   for (const Entry* const entry : entries) {
     k_view.data_ = reinterpret_cast<const char*>(&entry->first);
-    v_view.data_ = entry->second.value.get();
+
+    const Payload& payload{entry->second};
+    v_view.data_ = value_size <= sizeof(uintptr_t) ? payload.near_value() : payload.far_value();
+
     HCTR_ROCKSDB_CHECK(file.Put(k_view, v_view));
   }
 

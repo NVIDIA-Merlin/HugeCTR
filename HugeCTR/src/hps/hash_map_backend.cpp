@@ -244,7 +244,8 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
   } else if (num_keys == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
 
     // Step through input batch-by-batch.
     std::chrono::nanoseconds elapsed;
@@ -266,7 +267,8 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
 
       size_t miss_count{0};
 
@@ -329,7 +331,8 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
   } else if (num_indices == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
-    HCTR_CHECK(part.value_size <= value_stride);
+    const uint32_t value_size{part.value_size};
+    HCTR_CHECK(value_size <= value_stride);
 
     // Step through input batch-by-batch.
     std::chrono::nanoseconds elapsed;
@@ -351,7 +354,8 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
-      HCTR_CHECK(part.value_size <= value_stride);
+      const uint32_t value_size{part.value_size};
+      HCTR_CHECK(value_size <= value_stride);
 
       size_t miss_count{0};
 
@@ -430,11 +434,12 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
   } else if (num_keys == 1 || num_partitions == 1) {
     const size_t part_index{num_partitions == 1 ? 0 : HCTR_HPS_KEY_TO_PART_INDEX_(*keys)};
     Partition& part{parts[part_index]};
+    const uint32_t value_size{part.value_size};
 
     // Step through input batch-by-batch.
     for (const Key* k{keys}; k != keys_end;) {
-      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
       const size_t prev_num_deletions{num_deletions};
+      const size_t batch_size{std::min<size_t>(keys_end - k, max_batch_size)};
       HCTR_HPS_HASH_MAP_EVICT_(SEQUENTIAL_DIRECT);
 
       HCTR_LOG_C(TRACE, WORLD, get_name(), " backend; Partition ", table_name, '/', part_index,
@@ -446,6 +451,7 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t nu
 
     HCTR_HPS_DB_PARALLEL_FOR_EACH_PART_({
       Partition& part{parts[part_index]};
+      const uint32_t value_size{part.value_size};
 
       size_t num_deletions{0};
 
@@ -497,9 +503,9 @@ size_t HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstrea
     return 0;
   }
   const std::vector<Partition>& parts{tables_it->second};
+  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
 
   // Store value size.
-  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
   file.write(reinterpret_cast<const char*>(&value_size), sizeof(uint32_t));
 
   // Store values.
@@ -508,7 +514,10 @@ size_t HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstrea
   for (const Partition& part : parts) {
     for (const Entry& entry : part.entries) {
       file.write(reinterpret_cast<const char*>(&entry.first), sizeof(Key));
-      file.write(entry.second.value, value_size);
+
+      const Payload& payload{entry.second};
+      file.write(value_size <= sizeof(uintptr_t) ? payload.near_value() : payload.far_value(),
+                 value_size);
     }
     num_entries += part.entries.size();
   }
@@ -526,6 +535,7 @@ size_t HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::Sst
     return 0;
   }
   const std::vector<Partition>& parts{tables_it->second};
+  const uint32_t value_size{parts.empty() ? 0 : parts.front().value_size};
 
   // Sort keys by value.
   std::vector<const Entry*> entries;
@@ -544,11 +554,14 @@ size_t HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::Sst
 
   // Iterate over pairs and insert.
   rocksdb::Slice k_view{nullptr, sizeof(Key)};
-  rocksdb::Slice v_view{nullptr, parts.empty() ? 0 : parts.front().value_size};
+  rocksdb::Slice v_view{nullptr, value_size};
 
   for (const Entry* const entry : entries) {
     k_view.data_ = reinterpret_cast<const char*>(&entry->first);
-    v_view.data_ = entry->second.value;
+
+    const Payload& payload{entry->second};
+    v_view.data_ = value_size <= sizeof(uintptr_t) ? payload.near_value() : payload.far_value();
+
     HCTR_ROCKSDB_CHECK(file.Put(k_view, v_view));
   }
 

@@ -93,18 +93,15 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
  protected:
 #if 1
   // Better performance on most systems.
-  using CharAllocator = AlignedAllocator<char>;
-  static constexpr size_t value_page_alignment{CharAllocator::alignment};
+  using ValuePage = std::vector<char, AlignedAllocator<char>>;
+  static constexpr size_t value_page_alignment{ValuePage::allocator_type::alignment};
 #else
-  using CharAllocator = std::allocator<char>;
   // __STDCPP_DEFAULT_NEW_ALIGNMENT__ is actually 16 with current GCC. But we use sizeof(char) here
   // which equates to have no padding.
+  using ValuePage = std::vector<char, std::allocator<char>>;
   static constexpr size_t value_page_alignment{sizeof(char)};
 #endif
   static_assert(value_page_alignment > 0);
-
-  using ValuePage = std::vector<char, CharAllocator>;
-  using ValuePtr = char*;
 
   // Data-structure that will be associated with every key.
   struct Payload final {
@@ -112,8 +109,21 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
       time_t last_access;
       uint64_t access_count;
     };
-    ValuePtr value;
+    uintptr_t value_ptr;
+
+    inline char* get_far_value_ptr() { return reinterpret_cast<char*>(value_ptr); }
+    inline char* set_far_value_ptr(char* value) {
+      value_ptr = reinterpret_cast<uintptr_t>(value);
+      return value;
+    }
+
+    inline char* near_value() { return reinterpret_cast<char*>(&value_ptr); }
+    inline char* far_value() { return reinterpret_cast<char*>(value_ptr); }
+
+    inline const char* near_value() const { return reinterpret_cast<const char*>(&value_ptr); }
+    inline const char* far_value() const { return reinterpret_cast<const char*>(value_ptr); }
   };
+  static_assert(sizeof(Payload) == sizeof(uint64_t) * 2);
   using Entry = std::pair<const Key, Payload>;
 
   struct Partition final {
@@ -122,7 +132,7 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
 
     // Pooled payload storage.
     std::vector<ValuePage> value_pages;
-    std::vector<ValuePtr> value_slots;
+    std::vector<char*> value_slots;
 
     // Key -> Payload map.
     phmap::flat_hash_map<Key, Payload> entries;
@@ -134,7 +144,7 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
   };
 
   // Actual data.
-  CharAllocator char_allocator_;
+  ValuePage::allocator_type char_allocator_;
   std::unordered_map<std::string, std::vector<Partition>> tables_;
 
   // Access control.
