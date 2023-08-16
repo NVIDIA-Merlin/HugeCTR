@@ -55,8 +55,8 @@ class LookupSessionBase {
                                         const std::vector<void*>& h_hit_keys_per_table,
                                         const std::vector<void*>& h_missing_keys_per_table,
                                         const std::vector<float*>& h_hit_vectors_per_table,
-                                        const std::vector<size_t>& hit_key_num_per_table,
-                                        const std::vector<size_t>& miss_key_num_per_table) = 0;
+                                        const std::vector<size_t*>& hit_key_num_per_table,
+                                        const std::vector<size_t*>& miss_key_num_per_table) = 0;
   virtual void insert(void* d_missing_keys, size_t num_keys, const float* d_values,
                       size_t table_id) = 0;
   virtual const InferenceParams get_inference_params() const = 0;

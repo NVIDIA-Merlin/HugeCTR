@@ -238,7 +238,7 @@ void LookupSession::lookup_impl(const void* const h_keys, float* const d_vectors
     dev_restorer.set_device(inference_params_.device_id);
   }
   embedding_cache_->lookup(table_id, d_vectors, h_keys, num_keys,
-                           inference_params_.hit_rate_threshold, stream);
+                          inference_params_.hit_rate_threshold, stream);
 }
 
 void LookupSession::lookup(const void* const h_keys, float* const d_vectors, const size_t num_keys,
@@ -254,7 +254,6 @@ void LookupSession::lookup(const void* const h_keys, float* const d_vectors, con
                            const size_t table_id) {
   const auto begin = std::chrono::high_resolution_clock::now();
   BaseUnit* start = profiler::start();
-  std::cout << "lookup test&*&*&*&*&*" << std::endl;
   if (inference_params_.fuse_embedding_table) {
     size_t fused_table_id = inference_params_.original_table_id_to_fused_table_id_map[table_id];
     this->lookup_with_table_fusion_impl(h_keys, d_vectors, num_keys, table_id, false,
@@ -342,8 +341,8 @@ void LookupSession::lookup_from_native_cache(const std::vector<const void*>& h_k
                                              const std::vector<void*>& h_hit_keys_per_table,
                                              const std::vector<void*>& h_missing_keys_per_table,
                                              const std::vector<float*>& h_hit_vectors_per_table,
-                                             const std::vector<size_t>& hit_key_num_per_table,
-                                             const std::vector<size_t>& miss_key_num_per_table) {
+                                             const std::vector<size_t*>& hit_key_num_per_table,
+                                             const std::vector<size_t*>& miss_key_num_per_table) {
   size_t original_num_tables = inference_params_.sparse_model_files.size();
   HCTR_CHECK_HINT(h_keys_per_table.size() == original_num_tables,
                   "The h_keys_per_table.size() should be equal to the number of embedding tables");
