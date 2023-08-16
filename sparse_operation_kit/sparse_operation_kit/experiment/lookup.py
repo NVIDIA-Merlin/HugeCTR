@@ -216,7 +216,7 @@ def _LookupBackward(op, *top_grads):
     top_grads = top_grads[:num_gpus]
     other_data = op.outputs[num_gpus : num_gpus + 3]
     hotness = op.inputs[num_lookups + 2]
-    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -252,7 +252,7 @@ def _LookupBackward(op, *top_grads):
     top_grads = top_grads[:num_gpus]
     other_data = op.outputs[num_gpus : num_gpus + 3]
     hotness = op.inputs[num_lookups + 2]
-    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -288,7 +288,7 @@ def _LookupDynamicBackward(op, *top_grads):
     top_grads = top_grads[:num_gpus]
     other_data = op.outputs[num_gpus : num_gpus + 3]
     hotness = op.inputs[num_lookups + 2]
-    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
@@ -326,7 +326,7 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
     top_grads = top_grads[:num_gpus]
     other_data = op.outputs[num_gpus : num_gpus + 3]
     hotness = op.inputs[num_lookups + 2]
-    indices, values, _ = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
+    indices, values = raw_ops.lookup_backward(top_grads, *other_data, hotness, **kwargs)
     grads = []
     for i in range(len(indices)):
         handle = op.inputs[i]
