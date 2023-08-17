@@ -28,7 +28,8 @@ template <typename T>
 void dense_sequence_mask_layer_test() {
   constexpr bool use_mixed_precision = std::is_same_v<T, __half>;
   int64_t batch_size = 1024;
-  int64_t max_sequence_len = 200;
+  int64_t max_sequence_len_from = 200;
+  int64_t max_sequence_len_to = 300;
 
   core23::TensorParams tensor_params =
       core23::TensorParams()
@@ -44,7 +45,8 @@ void dense_sequence_mask_layer_test() {
   std::vector<std::string> top_names = {"sequence_mask1"};
 
   DenseLayer dense_layer(layer_type, bottom_names, top_names);
-  dense_layer.max_sequence_len = max_sequence_len;
+  dense_layer.max_sequence_len_from = max_sequence_len_from;
+  dense_layer.max_sequence_len_to = max_sequence_len_to;
   test::dense_layer_test_common<SequenceMaskLayer<T>>(
       {bottom_tensor_entity}, dense_layer, use_mixed_precision, false, false, 1024.f, false, false);
 }

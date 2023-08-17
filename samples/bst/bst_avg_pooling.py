@@ -139,9 +139,10 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.SequenceMask,
-        bottom_names=["dense"],
+        bottom_names=["dense", "dense"],
         top_names=["sequence_mask"],
-        max_sequence_len=10,
+        max_sequence_len_from=10,
+        max_sequence_len_to=10,
     )
 )
 model.add(

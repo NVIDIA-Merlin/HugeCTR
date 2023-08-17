@@ -36,14 +36,15 @@ void f2i_input(T* input, size_t in_size, size_t max_sequence_len) {
 }
 
 template <typename T>
-void max_per_line_cpu(T* bottom, const T* mask, int batch_size, int head_num, int seq_len,
-                      float scalar, T* workspace) {
+void max_per_line_cpu(T* bottom, const T* mask, int batch_size, int head_num, int seq_len_from,
+                      int seq_len_to, float scalar, T* workspace) {
   float local_max = -1e20f;
-  for (int i = 0; i < batch_size * head_num * seq_len; i++) {
+  for (int i = 0; i < batch_size * head_num * seq_len_from; i++) {
     local_max = -1e20f;
-    int input_offset = i * seq_len;
-    int mask_offset = (i / (head_num * seq_len)) * seq_len;
-    for (int j = 0; j < seq_len; j++) {
+    int input_offset = i * seq_len_to;
+    int mask_offset = (i / (head_num * seq_len_from)) * seq_len_from * seq_len_to +
+                      (i % seq_len_from) * seq_len_to;
+    for (int j = 0; j < seq_len_to; j++) {
       float in_val = static_cast<float>(bottom[input_offset + j]);
       float mask_val = (float)mask[mask_offset + j];
       mask_val = (1.0f - mask_val) * 10000.0f;
@@ -92,22 +93,22 @@ void sum_grad_softmax(const T* d_top, const T* softmax_out, int embedding_vector
 
 template <typename T>
 void masked_softmax_fprop_cpu(T* top, T* bottom, const T* mask, int batch_size, int head_num,
-                              int seq_len, float scalar) {
-  int dim0 = batch_size * head_num * seq_len;
-  T* workspace = new T[batch_size * head_num * seq_len];
+                              int seq_len_from, int seq_len_to, float scalar) {
+  int dim0 = batch_size * head_num * seq_len_from;
+  T* workspace = new T[batch_size * head_num * seq_len_from];
 
   // max per line
-  max_per_line_cpu(bottom, mask, batch_size, head_num, seq_len, scalar, workspace);
+  max_per_line_cpu(bottom, mask, batch_size, head_num, seq_len_from, seq_len_to, scalar, workspace);
 
   // e^xi
-  ex_cpu(top, bottom, workspace, dim0, seq_len);
+  ex_cpu(top, bottom, workspace, dim0, seq_len_to);
   // sum(e^xi) i = [0, embedding_vector_size -1];
-  sum_ex_cpu(top, seq_len, dim0, workspace);
+  sum_ex_cpu(top, seq_len_to, dim0, workspace);
 
   // softmax : e^xi / sum(e^xi); i = [0, len - 1];
   for (int i = 0; i < dim0; i++) {
-    for (int j = 0; j < seq_len; j++) {
-      int index = i * seq_len + j;
+    for (int j = 0; j < seq_len_to; j++) {
+      int index = i * seq_len_to + j;
       top[index] = top[index] / workspace[i];
     }
   }
@@ -125,25 +126,27 @@ void masked_softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out,
       int index = i * embedding_vector_size + j;
       d_bottom[index] = softmax_out[index] * (d_top[index] - workspace[i]);
       d_bottom[index] = d_bottom[index] * scalar;
-      /*if (i == 193) {
-        std::cout << "CPUIdx: " << index << "dY: " << d_top[index] << " Y: " << softmax_out[index]
-                  << " GradSum: " << workspace[i] << std::endl;
-      }*/
     }
   }
   delete[] workspace;
 }
 
 template <typename T>
-void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, float scalar) {
+void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len_from, size_t seq_len_to,
+                         float scalar) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  std::vector<size_t> dims_output = {batch_size, head_num, seq_len, seq_len};
-  std::vector<size_t> dims_input = {batch_size, head_num, seq_len, seq_len};
-  std::vector<size_t> dims_mask = {batch_size, 1, 1, seq_len};
+  std::vector<size_t> dims_output = {batch_size, head_num, seq_len_from, seq_len_to};
+  std::vector<size_t> dims_input = {batch_size, head_num, seq_len_from, seq_len_to};
+  std::vector<size_t> dims_mask = {batch_size, 1, seq_len_from, seq_len_to};
   std::vector<size_t> dims_input_len = {batch_size};
 
-  Tensor2<T> input_len_tensor;
-  buf->reserve(dims_input_len, &input_len_tensor);
+  Tensors2<T> seq_mask_in_tensors;
+  Tensor2<T> input_from_len_tensor;
+  buf->reserve(dims_input_len, &input_from_len_tensor);
+  seq_mask_in_tensors.push_back(input_from_len_tensor);
+  Tensor2<T> input_to_len_tensor;
+  buf->reserve(dims_input_len, &input_to_len_tensor);
+  seq_mask_in_tensors.push_back(input_to_len_tensor);
 
   Tensors2<T> bottom_tensors;
   Tensor2<T> mask_tensor;
@@ -159,14 +162,15 @@ void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, flo
 
   MaskedSoftmaxLayer<T> masked_softmax_layer(bottom_tensors, top_tensor, scalar, buf,
                                              test::get_default_gpu());
-  SequenceMaskLayer<T> sequence_mask_layer(input_len_tensor, mask_tensor, seq_len, buf,
-                                           test::get_default_gpu());
+  SequenceMaskLayer<T> sequence_mask_layer(seq_mask_in_tensors, mask_tensor, seq_len_from,
+                                           seq_len_to, buf, test::get_default_gpu());
   buf->allocate();
 
-  const size_t tensor_size = batch_size * head_num * seq_len * seq_len;
+  const size_t tensor_size = batch_size * head_num * seq_len_from * seq_len_to;
 
-  std::unique_ptr<T[]> h_in_len(new T[batch_size]);
-  std::unique_ptr<T[]> h_mask(new T[batch_size * seq_len]);
+  std::unique_ptr<T[]> h_in_from_len(new T[batch_size]);
+  std::unique_ptr<T[]> h_in_to_len(new T[batch_size]);
+  std::unique_ptr<T[]> h_mask(new T[batch_size * seq_len_from * seq_len_to]);
   std::unique_ptr<T[]> h_bottom(new T[tensor_size]);
   std::unique_ptr<T[]> h_top(new T[tensor_size]);
   std::unique_ptr<T[]> h_softmax_out(new T[tensor_size]);
@@ -175,46 +179,26 @@ void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, flo
   std::unique_ptr<T[]> d2h_bottom_grad(new T[tensor_size]);
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_in_len.get(), batch_size);
-  f2i_input(h_in_len.get(), batch_size, seq_len);
-
-  /*std::cout << "input length " << std::endl;
-  for (size_t i = 0; i < batch_size; i++) {
-    cout << i << ":" << h_in_len[i] << " ";
-  }
-  std::cout << "End of input length" << std::endl;*/
+  simulator.fill(h_in_from_len.get(), batch_size);
+  f2i_input(h_in_from_len.get(), batch_size, seq_len_from);
+  simulator.fill(h_in_to_len.get(), batch_size);
+  f2i_input(h_in_to_len.get(), batch_size, seq_len_from);
 
   simulator.fill(h_bottom.get(), tensor_size);
 
   // generate sequence mask
-  HCTR_LIB_THROW(cudaMemcpy(input_len_tensor.get_ptr(), h_in_len.get(), batch_size * sizeof(T),
-                            cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(input_from_len_tensor.get_ptr(), h_in_from_len.get(),
+                            batch_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(input_to_len_tensor.get_ptr(), h_in_to_len.get(),
+                            batch_size * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(input_tensor.get_ptr(), h_bottom.get(), tensor_size * sizeof(T),
                             cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sequence_mask_layer.fprop(true);
-  HCTR_LIB_THROW(cudaMemcpy(h_mask.get(), mask_tensor.get_ptr(), batch_size * seq_len * sizeof(T),
+  HCTR_LIB_THROW(cudaMemcpy(h_mask.get(), mask_tensor.get_ptr(),
+                            batch_size * seq_len_from * seq_len_to * sizeof(T),
                             cudaMemcpyDeviceToHost));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
-
-  /*std::cout << "input mask " << std::endl;
-  for (size_t i = 0; i < batch_size; i++) {
-    for (size_t j = 0; j < seq_len; j++) {
-      cout << h_mask[i * seq_len + j] << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << "End of input mask" << std::endl;
-
-  std::cout << "Input data: " << std::endl;
-  for (size_t i = 0; i < 1; i++) {
-    std::cout << "Line: " << i << std::endl;
-    for (size_t j = 0; j < seq_len; j++) {
-      cout << h_bottom[i * seq_len + j] << ", ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << "End of Input data" << std::endl;*/
 
   masked_softmax_layer.fprop(true);
 
@@ -222,32 +206,14 @@ void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, flo
                             cudaMemcpyDeviceToHost));
 
   masked_softmax_fprop_cpu<T>(h_top.get(), h_bottom.get(), h_mask.get(), batch_size, head_num,
-                              seq_len, scalar);
+                              seq_len_from, seq_len_to, scalar);
 
-  /*std::cout << "CPU output data: " << std::endl;
-  // for (size_t i = 0; i < batch_size * head_num * seq_len; i++) {
-  for (size_t i = 2571; i < 2572; i++) {
-    std::cout << "Line: " << i << std::endl;
-    for (size_t j = 0; j < seq_len; j++) {
-      cout << h_top[i * seq_len + j] << ", ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << "GPU output data: " << std::endl;
-  // for (size_t i = 0; i < batch_size * head_num * seq_len; i++) {
-  for (size_t i = 2571; i < 2572; i++) {
-    std::cout << "Line: " << i << std::endl;
-    for (size_t j = 0; j < seq_len; j++) {
-      cout << d2h_top[i * seq_len + j] << ", ";
-    }
-    std::cout << std::endl;
-  }*/
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), tensor_size, eps));
 
   // bprop
   simulator.fill(h_top.get(), tensor_size);
   masked_softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), h_mask.get(), batch_size,
-                              head_num, seq_len, scalar);
+                              head_num, seq_len_from, seq_len_to, scalar);
 
   HCTR_LIB_THROW(cudaMemcpy(top_tensor.get_ptr(), h_top.get(), tensor_size * sizeof(T),
                             cudaMemcpyHostToDevice));
@@ -259,24 +225,33 @@ void masked_softmax_test(size_t batch_size, size_t head_num, size_t seq_len, flo
   HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), input_tensor.get_ptr(), tensor_size * sizeof(T),
                             cudaMemcpyDeviceToHost));
   masked_softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(),
-                              batch_size * head_num * seq_len, seq_len, scalar);
+                              batch_size * head_num * seq_len_from, seq_len_to, scalar);
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), tensor_size, eps));
 }
 
 template <typename T>
-void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t seq_len,
-                                float scalar) {
-  core23::Shape dims_output = {batch_size, head_num, seq_len, seq_len};
-  core23::Shape dims_input = {batch_size, head_num, seq_len, seq_len};
-  core23::Shape dims_mask = {batch_size, 1, 1, seq_len};
+void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t seq_len_from,
+                                int64_t seq_len_to, float scalar) {
+  core23::Shape dims_output = {batch_size, head_num, seq_len_from, seq_len_to};
+  core23::Shape dims_input = {batch_size, head_num, seq_len_from, seq_len_to};
+  core23::Shape dims_mask = {batch_size, 1, seq_len_from, seq_len_to};
   core23::Shape dims_input_len = {batch_size};
 
-  core23::Tensor input_len_tensor(core23::TensorParams()
-                                      .shape(dims_input_len)
-                                      .data_type(core23::ToScalarType<T>::value)
-                                      .device({core23::DeviceType::GPU, 0}));
+  core23::Tensor input_len_from_tensor(core23::TensorParams()
+                                           .shape(dims_input_len)
+                                           .data_type(core23::ToScalarType<T>::value)
+                                           .device({core23::DeviceType::GPU, 0}));
+
+  core23::Tensor input_len_to_tensor(core23::TensorParams()
+                                         .shape(dims_input_len)
+                                         .data_type(core23::ToScalarType<T>::value)
+                                         .device({core23::DeviceType::GPU, 0}));
+
+  std::vector<core23::Tensor> mask_input_tensors;
+  mask_input_tensors.push_back(input_len_from_tensor);
+  mask_input_tensors.push_back(input_len_to_tensor);
 
   std::vector<core23::Tensor> bottom_tensors;
   core23::Tensor mask_tensor(core23::TensorParams()
@@ -298,13 +273,14 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
 
   core23::MaskedSoftmaxLayer<T> masked_softmax_layer(bottom_tensors, top_tensor, scalar,
                                                      test::get_default_gpu());
-  SequenceMaskLayer<T> sequence_mask_layer(input_len_tensor, mask_tensor, seq_len,
-                                           test::get_default_gpu());
+  SequenceMaskLayer<T> sequence_mask_layer(mask_input_tensors, mask_tensor, seq_len_from,
+                                           seq_len_to, test::get_default_gpu());
 
-  const int64_t tensor_size = batch_size * head_num * seq_len * seq_len;
+  const int64_t tensor_size = batch_size * head_num * seq_len_from * seq_len_to;
 
-  std::unique_ptr<T[]> h_in_len(new T[batch_size]);
-  std::unique_ptr<T[]> h_mask(new T[batch_size * seq_len]);
+  std::unique_ptr<T[]> h_in_from_len(new T[batch_size]);
+  std::unique_ptr<T[]> h_in_to_len(new T[batch_size]);
+  std::unique_ptr<T[]> h_mask(new T[batch_size * seq_len_from * seq_len_to]);
   std::unique_ptr<T[]> h_bottom(new T[tensor_size]);
   std::unique_ptr<T[]> h_top(new T[tensor_size]);
   std::unique_ptr<T[]> h_softmax_out(new T[tensor_size]);
@@ -313,19 +289,24 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
   std::unique_ptr<T[]> d2h_bottom_grad(new T[tensor_size]);
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_in_len.get(), batch_size);
-  f2i_input(h_in_len.get(), batch_size, seq_len);
+  simulator.fill(h_in_from_len.get(), batch_size);
+  f2i_input(h_in_from_len.get(), batch_size, seq_len_from);
+  simulator.fill(h_in_to_len.get(), batch_size);
+  f2i_input(h_in_to_len.get(), batch_size, seq_len_to);
 
   simulator.fill(h_bottom.get(), tensor_size);
 
   // generate sequence mask
-  HCTR_LIB_THROW(cudaMemcpy(input_len_tensor.data(), h_in_len.get(), batch_size * sizeof(T),
+  HCTR_LIB_THROW(cudaMemcpy(input_len_from_tensor.data(), h_in_from_len.get(),
+                            batch_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(input_len_to_tensor.data(), h_in_to_len.get(), batch_size * sizeof(T),
                             cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(input_tensor.data(), h_bottom.get(), tensor_size * sizeof(T),
                             cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sequence_mask_layer.fprop(true);
-  HCTR_LIB_THROW(cudaMemcpy(h_mask.get(), mask_tensor.data(), batch_size * seq_len * sizeof(T),
+  HCTR_LIB_THROW(cudaMemcpy(h_mask.get(), mask_tensor.data(),
+                            batch_size * seq_len_from * seq_len_to * sizeof(T),
                             cudaMemcpyDeviceToHost));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
@@ -335,14 +316,14 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
                             cudaMemcpyDeviceToHost));
 
   masked_softmax_fprop_cpu<T>(h_top.get(), h_bottom.get(), h_mask.get(), batch_size, head_num,
-                              seq_len, scalar);
+                              seq_len_from, seq_len_to, scalar);
 
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), tensor_size, eps));
 
   // bprop
   simulator.fill(h_top.get(), tensor_size);
   masked_softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), h_mask.get(), batch_size,
-                              head_num, seq_len, scalar);
+                              head_num, seq_len_from, seq_len_to, scalar);
 
   HCTR_LIB_THROW(
       cudaMemcpy(top_tensor.data(), h_top.get(), tensor_size * sizeof(T), cudaMemcpyHostToDevice));
@@ -354,7 +335,7 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
   HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), input_tensor.data(), tensor_size * sizeof(T),
                             cudaMemcpyDeviceToHost));
   masked_softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(),
-                              batch_size * head_num * seq_len, seq_len, scalar);
+                              batch_size * head_num * seq_len_from, seq_len_to, scalar);
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), tensor_size, eps));
@@ -362,15 +343,17 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
 
 }  // namespace
 
-TEST(masked_softmax_layer, fp32_16x2x16) { masked_softmax_test<float>(16, 2, 16, 0.25); }
-TEST(masked_softmax_layer, fp32_512x4x128) { masked_softmax_test<float>(512, 4, 128, 0.884); }
-TEST(masked_softmax_layer, fp32_1024x4x16) { masked_softmax_test<float>(2048, 4, 8, 0.353); }
-TEST(core23_masked_softmax_layer, fp32_16x2x16) {
-  core23_masked_softmax_test<float>(16, 2, 16, 0.25);
+TEST(masked_softmax_layer, fp32_16x2x16x32) { masked_softmax_test<float>(16, 2, 16, 32, 0.25); }
+TEST(masked_softmax_layer, fp32_512x4x50x128) {
+  masked_softmax_test<float>(512, 4, 50, 128, 0.884);
 }
-TEST(core23_masked_softmax_layer, fp32_512x4x128) {
-  core23_masked_softmax_test<float>(512, 4, 128, 0.884);
+TEST(masked_softmax_layer, fp32_256x4x8x8) { masked_softmax_test<float>(256, 4, 8, 8, 0.353); }
+TEST(core23_masked_softmax_layer, fp32_16x2x16x16) {
+  core23_masked_softmax_test<float>(16, 2, 16, 16, 0.25);
 }
-TEST(core23_masked_softmax_layer, fp32_1024x4x16) {
-  core23_masked_softmax_test<float>(2048, 4, 8, 0.353);
+TEST(core23_masked_softmax_layer, fp32_512x4x64x128) {
+  core23_masked_softmax_test<float>(512, 4, 64, 128, 0.884);
+}
+TEST(core23_masked_softmax_layer, fp32_1024x4x8x16) {
+  core23_masked_softmax_test<float>(256, 4, 8, 16, 0.353);
 }
