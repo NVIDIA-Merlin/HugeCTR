@@ -238,7 +238,7 @@ void LookupSession::lookup_impl(const void* const h_keys, float* const d_vectors
     dev_restorer.set_device(inference_params_.device_id);
   }
   embedding_cache_->lookup(table_id, d_vectors, h_keys, num_keys,
-                          inference_params_.hit_rate_threshold, stream);
+                           inference_params_.hit_rate_threshold, stream);
 }
 
 void LookupSession::lookup(const void* const h_keys, float* const d_vectors, const size_t num_keys,
