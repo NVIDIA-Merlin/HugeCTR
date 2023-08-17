@@ -67,6 +67,14 @@ git clone https://github.com/NVIDIA-Merlin/HugeCTR
 
 Here's a list of notebooks that you can run:
 
+- [benchmark_tf_trained_large_model.ipynb](benchmark_tf_trained_large_model.ipynb): Provides the steps to benchmark the inference performance of the large model. The model is comprised of one 147GB embedding table and three fully connected layers, for which a TensorRT engine is built with the HPS plugin. Here are the performance metrics at batch size 4096 on different platforms:
+
+| Platform | Interconnect between GPU and CPU | Average per-batch latency in usec @BZ=4096 |
+| -------- | -------------------------------- | ---------------------------------- |
+| A100-SXM4-80GB + 2 x AMD EPYC 7742 64-Core Processor (2TB CPU Memory) | PCIe Gen4 | 1396 |
+| H100-SXM5-80GB + 2 x Intel Xeon Platinum 8480C 56-Core Processor (2TB CPU Memory) | PCIe Gen5 | 773 |
+| H100-NVL-94GB + NVIDIA Grace 72-Core Processor (480GB CPU Memory) |  NVLink-C2C  | 210 |
+
 - [demo_for_tf_trained_model.ipynb](demo_for_tf_trained_model.ipynb): Demonstrates how to train with TensorFlow and then build the HPS-integrated TensorRT engine for deployment.
 
 - [demo_for_pytorch_trained_model.ipynb](demo_for_pytorch_trained_model.ipynb): Demonstrates how to train with PyTorch and then build the HPS-integrated TensorRT engine for deployment.

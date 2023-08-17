@@ -65,6 +65,10 @@ log_pattern = {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
     },
+    "3fc_147gb_model_benchmark": {
+        "cmd_log": r"compute infer",
+        "result_log": r"compute infer (\d+\.?\d*) usec",
+    },
     "hps_backend_avg_latency": {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
@@ -94,7 +98,11 @@ def extract_result_from_log(job_name, log_path):
                     else:
                         result = float(match.group(1))
                     results.append(result)
-    if job_name == "hps_plugin_benchmark" or job_name == "hps_tf_fuse_table_benchmark":
+    if (
+        job_name == "hps_plugin_benchmark"
+        or job_name == "hps_tf_fuse_table_benchmark"
+        or job_name == "3fc_147gb_model_benchmark"
+    ):
         return results
     return sum(results) / len(results) if len(results) > 0 else float("inf")
 
@@ -335,6 +343,30 @@ if __name__ == "__main__":
                     "8_static_table_autofused",
                     "8_dynamic_table_unfused",
                     "8_dynamic_table_autofused",
+                ]:
+                    perf = perf_result[idx]
+                    expected = expected_result[model_name][batch_size]
+                    check_perf_result(perf, expected)
+                    idx += 1
+        elif args.job_name == "3fc_147gb_model_benchmark":
+            perf_result = extract_result_from_log(args.job_name, args.log_path)
+            idx = 0
+            batch_sizes = ["256", "1024", "4096", "16384"]
+            print("3FC 147GB Model Inference Latency (usec)")
+            print("-" * 137)
+            print("batch_size\tdynamic_3fc_lite_hps_trt")
+            print("-" * 137)
+            for i in range(len(perf_result)):
+                print(
+                    "{}\t\t{}".format(
+                        batch_sizes[i],
+                        perf_result[i],
+                    )
+                )
+            print("-" * 137)
+            for batch_size in batch_sizes:
+                for model_name in [
+                    "dynamic_3fc_lite_hps_trt",
                 ]:
                     perf = perf_result[idx]
                     expected = expected_result[model_name][batch_size]

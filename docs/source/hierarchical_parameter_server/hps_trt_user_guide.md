@@ -16,11 +16,17 @@ The HPS plugin for TensorRT can be integrated into the TensorRT network as a cus
 
 ## Workflow
 
-The workflow to leverage the HPS plugin for TensorRT can be summarized as:
+<img src="hps_trt_user_guide_src/workflow.png" width="1080px" align="center"/>
+
+<div align=center>Fig. 1: Workflow of using HPS plugin for TensorRT </div>
+
+<br></br>
+
+The workflow to leverage the HPS plugin for TensorRT is shown in Fig. 1:
 
 * **Convert trained models to ONNX**: The models trained with different frameworks are converted to ONNX using the popular tools [tf2onnx](https://github.com/onnx/tensorflow-onnx), [torch.onnx](https://github.com/pytorch/pytorch/tree/master/torch/onnx), [hugectr2onnx](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/onnx_converter), and so on.
 
-* **Perform ONNX graph surgery**: The node for embedding lookup in the ONNX graph is replaced by the placeholder of HPS plugin for TensorRT using the tool [ONNX GraphSurgeon](https://github.com/NVIDIA/TensorRT/tree/main/tools/onnx-graphsurgeon), as shown in Fig. 1.
+* **Perform ONNX graph surgery**: The node for embedding lookup in the ONNX graph is replaced by the placeholder of HPS plugin for TensorRT using the tool [ONNX GraphSurgeon](https://github.com/NVIDIA/TensorRT/tree/main/tools/onnx-graphsurgeon), as shown in Fig. 2.
 
 * **Build the TensorRT engine with HPS Plugin for TensorRT**: We can build the TensorRT engine based on the modified ONNX graph where the HPS can leveraged as a custom plugin layer.
 
@@ -28,7 +34,7 @@ The workflow to leverage the HPS plugin for TensorRT can be summarized as:
 
 <img src="hps_trt_user_guide_src/graph_surgeon.png" alt="Logical diagram of using ONNX GraphSurgeon to set the embedding lookup to the HPS plugin for TensorRT" width="720px" style="display:block;margin-left:auto;margin-right:auto;"/>
 
-<div style="text-align:center;">Fig. 1: ONNX Graph Surgery</div>
+<div align=center>Fig. 2: ONNX Graph Surgery </div>
 
 <br></br>
 
