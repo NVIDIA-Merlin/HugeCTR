@@ -28,21 +28,22 @@
 namespace HugeCTR {
 #define MAX_NUM_STRIDE 64
 namespace {
-// grid = (seq_len, head_num, batch_size)
-// block.x = max(32, (seq_len + 31)/32*32)
+// grid = (seq_len_from, head_num, batch_size)
+// block.x = max(32, (seq_len_to + 31)/32*32)
 template <typename T>
 void __global__ mask_softmax_fprop_kernel(T* out, T* in, const T* mask, const int batch_size,
-                                          const int head_num, const int seq_len,
-                                          const float scalar) {
+                                          const int head_num, const int seq_len_from,
+                                          const int seq_len_to, const float scalar) {
   float data[MAX_NUM_STRIDE];
   float local_max = -1e20f;
   float local_sum = 0.0f;
   int input_offset;
   __shared__ float s_rsum, s_max;
-  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len; idx++) {
-    input_offset = ((blockIdx.z * head_num + blockIdx.y) * seq_len + blockIdx.x) * seq_len +
+  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len_to; idx++) {
+    input_offset = ((blockIdx.z * head_num + blockIdx.y) * seq_len_from + blockIdx.x) * seq_len_to +
                    blockDim.x * idx + threadIdx.x;
-    int mask_offset = blockIdx.z * seq_len + blockDim.x * idx + threadIdx.x;
+    int mask_offset = blockIdx.z * seq_len_from * seq_len_to + blockIdx.x * seq_len_to +
+                      blockDim.x * idx + threadIdx.x;
 
     float in_val = static_cast<float>(in[input_offset]);
     float mask_val = (float)mask[mask_offset];
@@ -55,7 +56,7 @@ void __global__ mask_softmax_fprop_kernel(T* out, T* in, const T* mask, const in
     s_max = max_val;
   }
   __syncthreads();
-  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len; idx++) {
+  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len_to; idx++) {
     data[idx] = __expf(data[idx] - s_max);
     local_sum += data[idx];
   }
@@ -66,8 +67,8 @@ void __global__ mask_softmax_fprop_kernel(T* out, T* in, const T* mask, const in
   }
   __syncthreads();
 
-  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len; idx++) {
-    input_offset = ((blockIdx.z * head_num + blockIdx.y) * seq_len + blockIdx.x) * seq_len +
+  for (int idx = 0; blockDim.x * idx + threadIdx.x < seq_len_to; idx++) {
+    input_offset = ((blockIdx.z * head_num + blockIdx.y) * seq_len_from + blockIdx.x) * seq_len_to +
                    blockDim.x * idx + threadIdx.x;
 
     out[input_offset] = static_cast<T>(data[idx] * s_rsum);
@@ -75,13 +76,13 @@ void __global__ mask_softmax_fprop_kernel(T* out, T* in, const T* mask, const in
 }
 
 template <typename T>
-void mask_softmax_fprop(T* out, T* in, T* mask, int batch_size, int head_num, int seq_len,
-                        float scalar, cudaStream_t stream) {
-  dim3 grid(seq_len, head_num, batch_size);
-  int block_len = max(32, (seq_len + 31) / 32 * 32);
+void mask_softmax_fprop(T* out, T* in, T* mask, int batch_size, int head_num, int seq_len_from,
+                        int seq_len_to, float scalar, cudaStream_t stream) {
+  dim3 grid(seq_len_from, head_num, batch_size);
+  int block_len = max(32, (seq_len_to + 31) / 32 * 32);
   dim3 block(min(block_len, 1024));
   mask_softmax_fprop_kernel<<<grid, block, 0, stream>>>(out, in, mask, batch_size, head_num,
-                                                        seq_len, scalar);
+                                                        seq_len_from, seq_len_to, scalar);
 }
 
 template <typename T>
@@ -182,8 +183,8 @@ void MaskedSoftmaxLayer<T>::fprop(bool is_train) {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
 
   mask_softmax_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), mask_tensor.get_ptr(),
-                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], scalar_,
-                     get_gpu().get_stream());
+                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], in_tensor_dim[3],
+                     scalar_, get_gpu().get_stream());
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
                                  out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
@@ -197,8 +198,8 @@ void MaskedSoftmaxLayer<__half>::fprop(bool is_train) {
   Tensor2<__half>& out_tensor = out_tensors_[0];
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   mask_softmax_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), mask_tensor.get_ptr(),
-                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], scalar_,
-                     get_gpu().get_stream());
+                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], in_tensor_dim[3],
+                     scalar_, get_gpu().get_stream());
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
                                  out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
@@ -275,7 +276,7 @@ void MaskedSoftmaxLayer<T>::fprop(bool is_train) {
   const auto& shape_in = in_tensor.shape();
 
   mask_softmax_fprop(out_tensor.data<T>(), in_tensor.data<T>(), mask_tensor.data<T>(), shape_in[0],
-                     shape_in[1], shape_in[2], scalar_, get_gpu().get_stream());
+                     shape_in[1], shape_in[2], shape_in[3], scalar_, get_gpu().get_stream());
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.data(), (void*)out_tensor.data(),
                                  out_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
@@ -289,8 +290,8 @@ void MaskedSoftmaxLayer<__half>::fprop(bool is_train) {
   core23::Tensor& out_tensor = out_tensors_[0];
   const auto& shape_in = in_tensor.shape();
   mask_softmax_fprop(out_tensor.data<__half>(), in_tensor.data<__half>(),
-                     mask_tensor.data<__half>(), shape_in[0], shape_in[1], shape_in[2], scalar_,
-                     get_gpu().get_stream());
+                     mask_tensor.data<__half>(), shape_in[0], shape_in[1], shape_in[2], shape_in[3],
+                     scalar_, get_gpu().get_stream());
   HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.data(), (void*)out_tensor.data(),
                                  out_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));

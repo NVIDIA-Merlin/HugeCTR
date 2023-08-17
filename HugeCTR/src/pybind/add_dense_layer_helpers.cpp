@@ -312,17 +312,20 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       break;
     }
     case Layer_t::SequenceMask: {
-      auto& input_tensor = input_output_info.input_tensors[0];
-      auto max_sequence_len = dense_layer.max_sequence_len;
-      core23::Tensor output_tensor(
-          tensor_params.shape({input_tensor.size(0), 1, 1, max_sequence_len}));
+      auto& input_tensors = input_output_info.input_tensors;
+      auto max_sequence_len_from = dense_layer.max_sequence_len_from;
+      auto max_sequence_len_to = dense_layer.max_sequence_len_to;
+      core23::Tensor output_tensor(tensor_params.shape(
+          {input_tensors[0].size(0), 1, max_sequence_len_from, max_sequence_len_to}));
       std::unique_ptr<Layer> layer;
       // TODO: remove if-else once the refactoring is done
       if (use_mixed_precision) {
-        layer.reset(new SequenceMaskLayer<__half>(input_tensor, output_tensor, max_sequence_len,
+        layer.reset(new SequenceMaskLayer<__half>(input_tensors, output_tensor,
+                                                  max_sequence_len_from, max_sequence_len_to,
                                                   gpu_resource));
       } else {
-        layer.reset(new SequenceMaskLayer<float>(input_tensor, output_tensor, max_sequence_len,
+        layer.reset(new SequenceMaskLayer<float>(input_tensors, output_tensor,
+                                                 max_sequence_len_from, max_sequence_len_to,
                                                  gpu_resource));
       }
       layers.emplace_back(std::move(layer));

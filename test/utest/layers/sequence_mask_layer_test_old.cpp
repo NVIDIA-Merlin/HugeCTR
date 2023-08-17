@@ -48,44 +48,58 @@ void f2i_input(T* input, size_t in_size, size_t max_sequence_len) {
 }
 
 template <typename T>
-void sequence_mask_cpu(T* input, T* output, size_t batch_size, size_t max_sequence_len,
-                       size_t out_size) {
+void sequence_mask_cpu(T* seq_len_from, T* seq_len_to, T* output, size_t batch_size,
+                       size_t max_sequence_len_from, size_t max_sequence_len_to, size_t out_size) {
   for (size_t i = 0; i < batch_size; i++) {
-    float length = input[i];
-    for (size_t j = 0; j < max_sequence_len; j++) {
-      if (j < length) {
-        output[i * max_sequence_len + j] = (T)(1.0f);
-      } else {
-        output[i * max_sequence_len + j] = (T)(0.0f);
+    float length_from = seq_len_from[i];
+    float length_to = seq_len_to[i];
+    for (size_t j = 0; j < max_sequence_len_from; j++) {
+      for (size_t k = 0; k < max_sequence_len_to; k++) {
+        if (j < length_from && k < length_to) {
+          output[i * max_sequence_len_from * max_sequence_len_to + j * max_sequence_len_to + k] =
+              (T)(1.0f);
+        } else {
+          output[i * max_sequence_len_from * max_sequence_len_to + j * max_sequence_len_to + k] =
+              (T)(0.0f);
+        }
       }
     }
   }
 }
 
 template <typename T>
-void sequence_mask_test(size_t batch_size, size_t max_sequence_len) {
+void sequence_mask_test(size_t batch_size, size_t max_sequence_len_from,
+                        size_t max_sequence_len_to) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   std::vector<size_t> dim_in = {batch_size};
-  std::vector<size_t> dim_out = {batch_size, 1, 1, max_sequence_len};
+  std::vector<size_t> dim_out = {batch_size, 1, max_sequence_len_from, max_sequence_len_to};
   size_t in_size = batch_size;
-  size_t out_size = batch_size * max_sequence_len;
+  size_t out_size = batch_size * max_sequence_len_from * max_sequence_len_to;
 
-  Tensor2<T> in_tensor;
-  buff->reserve(dim_in, &in_tensor);
+  Tensors2<T> in_tensors;
+  Tensor2<T> seq_from_tensor;
+  buff->reserve(dim_in, &seq_from_tensor);
+  in_tensors.push_back(seq_from_tensor);
+  Tensor2<T> seq_to_tensor;
+  buff->reserve(dim_in, &seq_to_tensor);
+  in_tensors.push_back(seq_to_tensor);
+
   Tensor2<T> out_tensor;
   buff->reserve(dim_out, &out_tensor);
 
-  SequenceMaskLayer<T> sequence_mask_layer(in_tensor, out_tensor, max_sequence_len, buff,
-                                           test::get_default_gpu());
+  SequenceMaskLayer<T> sequence_mask_layer(in_tensors, out_tensor, max_sequence_len_from,
+                                           max_sequence_len_to, buff, test::get_default_gpu());
 
   buff->allocate();
 
-  T* h_d_in = in_tensor.get_ptr();
+  T* h_d_from_in = in_tensors[0].get_ptr();
+  T* h_d_to_in = in_tensors[1].get_ptr();
 
   T* d_out = out_tensor.get_ptr();
 
-  std::unique_ptr<T[]> h_in(new T[in_size]);
+  std::unique_ptr<T[]> h_from_in(new T[in_size]);
+  std::unique_ptr<T[]> h_to_in(new T[in_size]);
   std::unique_ptr<T[]> h_d_out(new T[out_size]);
   std::unique_ptr<T[]> h_cpu_out(new T[out_size]);
 
@@ -93,25 +107,30 @@ void sequence_mask_test(size_t batch_size, size_t max_sequence_len) {
 
   // fprop
 
-  simulator.fill(h_in.get(), in_size);
-  f2i_input(h_in.get(), in_size, max_sequence_len);
-  HCTR_LIB_THROW(cudaMemcpy(h_d_in, h_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
+  simulator.fill(h_from_in.get(), in_size);
+  simulator.fill(h_to_in.get(), in_size);
+  f2i_input(h_from_in.get(), in_size, max_sequence_len_from);
+  f2i_input(h_to_in.get(), in_size, max_sequence_len_to);
+  HCTR_LIB_THROW(
+      cudaMemcpy(h_d_from_in, h_from_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(h_d_to_in, h_to_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   sequence_mask_layer.fprop(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   HCTR_LIB_THROW(cudaMemcpy(h_d_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
 
-  sequence_mask_cpu(h_in.get(), h_cpu_out.get(), batch_size, max_sequence_len, out_size);
+  sequence_mask_cpu(h_from_in.get(), h_to_in.get(), h_cpu_out.get(), batch_size,
+                    max_sequence_len_from, max_sequence_len_to, out_size);
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_d_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
 }
 
 }  // namespace
 
-TEST(sequence_mask_layer_old, fp32_8192x200) { sequence_mask_test<float>(8192, 200); }
-TEST(sequence_mask_layer_old, fp16_8192x1000) { sequence_mask_test<__half>(8192, 1000); }
-TEST(sequence_mask_layer_old, fp32_8192x800) { sequence_mask_test<float>(4, 800); }
-TEST(sequence_mask_layer_old, fp16_8192x40) { sequence_mask_test<__half>(8192, 40); }
-TEST(sequence_mask_layer_old, fp32_4096x40) { sequence_mask_test<float>(4096, 40); }
-TEST(sequence_mask_layer_old, fp16_4096x400) { sequence_mask_test<__half>(4096, 400); }
+TEST(sequence_mask_layer_old, fp32_8192x200) { sequence_mask_test<float>(2, 20, 20); }
+TEST(sequence_mask_layer_old, fp16_8192x1000) { sequence_mask_test<__half>(8192, 1000, 800); }
+TEST(sequence_mask_layer_old, fp32_8192x800) { sequence_mask_test<float>(4, 800, 800); }
+TEST(sequence_mask_layer_old, fp16_8192x40) { sequence_mask_test<__half>(8192, 40, 100); }
+TEST(sequence_mask_layer_old, fp32_4096x40) { sequence_mask_test<float>(4096, 40, 20); }
+TEST(sequence_mask_layer_old, fp16_4096x400) { sequence_mask_test<__half>(4096, 400, 400); }

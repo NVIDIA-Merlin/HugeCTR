@@ -1026,19 +1026,21 @@ The SequenceMask Layer can generate a binary padding mask which marks the zero p
 
 Parameter:
 
-* `max_sequence_len`: The number of attention heads. Default value is 1.
+* `max_sequence_len_from`: The maximum length of query sequences. Default value is 1.
+* `max_sequence_len_to`: The maximum length of key sequences. Default value is 1.
 
 Input and Output Shapes:
 
-* input: 4D: (batch_size, 1)
-* output: 4D: (batch_size, 1, 1, max_sequence_len)
+* input: 2D: (batch_size, 1), (batch_size, 1)
+* output: 4D: (batch_size, 1, max_sequence_len_from, max_sequence_len_to)
 
 Example:
 ```python
 model.add(hugectr.DenseLayer(layer_type=hugectr.Layer_t.SequenceMask,
-                             bottom_names=["dense"],
+                             bottom_names=["dense","dense"],
                              top_names=["sequence_mask"],
-                             max_sequence_len=10,))
+                             max_sequence_len_from=10,
+                             max_sequence_len_to=10,))
 ```
 #### Gather Layer
 

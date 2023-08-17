@@ -25,17 +25,25 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void build_sequence_mask_kernel(T* attention_mask, const T* sequence_lengths,
-                                           int max_seq_len) {
+__global__ void build_sequence_mask_kernel(T* attention_mask, const T* sequence_lengths_from,
+                                           const T* sequence_lengths_to, int max_seq_len_from,
+                                           int max_seq_len_to) {
   // sequence_lengths: [batch_size]
-  // attention_mask: [batch_size, 1, 1, max_seq_len]
-  attention_mask += blockIdx.x * max_seq_len;
-  const int length = sequence_lengths[blockIdx.x];
-  for (int i = threadIdx.x; i < max_seq_len; i += blockDim.x) {
-    if (i < length) {
-      attention_mask[i] = (T)(1.0f);
-    } else {
-      attention_mask[i] = (T)(0.0f);
+  // attention_mask: [batch_size, 1, max_seq_len_from, max_seq_len_to]
+  attention_mask += blockIdx.x * max_seq_len_from * max_seq_len_to;
+  int lane = threadIdx.x & 0x1f;  // in-warp idx
+  int warp = threadIdx.x >> 5;    // warp idx
+  const int length_from = sequence_lengths_from[blockIdx.x];
+  const int length_to = sequence_lengths_to[blockIdx.x];
+  for (int warp_id = warp; warp_id < max_seq_len_from; warp_id += ((blockDim.x) >> 5)) {
+    for (int lane_id = lane; lane_id < max_seq_len_to; lane_id += 32) {
+      // printf("BlockdIdx %d, ThreadIdx %d, laneId %d, warpId %d, length_from %d, length_to %d\n",
+      //       blockIdx.x, threadIdx.x, lane_id, warp_id, length_from, length_to);
+      if (warp_id < length_from && lane_id < length_to) {
+        attention_mask[warp_id * max_seq_len_to + lane_id] = (T)(1.0f);
+      } else {
+        attention_mask[warp_id * max_seq_len_to + lane_id] = (T)(0.0f);
+      }
     }
   }
 }
@@ -43,48 +51,58 @@ __global__ void build_sequence_mask_kernel(T* attention_mask, const T* sequence_
 }  // namespace
 
 template <typename T>
-SequenceMaskLayer<T>::SequenceMaskLayer(const core23::Tensor& input_tensor,
-                                        const core23::Tensor& output_tensor, int max_sequence_len,
+SequenceMaskLayer<T>::SequenceMaskLayer(const std::vector<core23::Tensor>& input_tensors,
+                                        const core23::Tensor& output_tensor,
+                                        int max_sequence_len_from, int max_sequence_len_to,
                                         const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer({input_tensor}, {output_tensor}, gpu_resource), max_sequence_len_(max_sequence_len) {
+    : Layer(input_tensors, {output_tensor}, gpu_resource),
+      max_sequence_len_from_(max_sequence_len_from),
+      max_sequence_len_to_(max_sequence_len_to) {
   assert(input_tensors_[0].shape().dims() == 2);
+  assert(input_tensors_.size() == 2);
 }
 
 template <typename T>
 SequenceMaskLayer<T>::SequenceMaskLayer(
-    const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, int max_sequence_len,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+    const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor, int max_sequence_len_from,
+    int max_sequence_len_to, const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
     const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource), max_sequence_len_(max_sequence_len) {
+    : Layer(gpu_resource),
+      max_sequence_len_from_(max_sequence_len_from),
+      max_sequence_len_to_(max_sequence_len_to) {
   assert(in_tensor.get_dimensions().size() == 2);
 
-  in_tensor_ = in_tensor;
+  for (const Tensor2<T>& in_tensor : in_tensors) {
+    in_tensors_.push_back(in_tensor);
+  }
+
   out_tensor_ = out_tensor;
 }
 
 template <typename T>
 void SequenceMaskLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  // TODO: this block will be removed later
-  int max_sequence_len = max_sequence_len_;
+  // int max_sequence_len = max_sequence_len_;
   if (input_tensors_.empty()) {
-    T* input = in_tensor_.get_ptr();
+    T* seq_from_len = in_tensors_[0].get_ptr();
+    T* seq_to_len = in_tensors_[1].get_ptr();
     T* output = out_tensor_.get_ptr();
 
-    const size_t batch_size = in_tensor_.get_dimensions()[0];
-    const size_t block_dim = 512;
+    const size_t batch_size = in_tensors_[0].get_dimensions()[0];
+    const size_t block_dim = 1024;
 
     build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
-        output, input, max_sequence_len);
+        output, seq_from_len, seq_to_len, max_sequence_len_from_, max_sequence_len_to_);
   } else {
-    auto* input = input_tensors_[0].data<T>();
+    auto* seq_from_len = input_tensors_[0].data<T>();
+    auto* seq_to_len = input_tensors_[1].data<T>();
     auto* output = output_tensors_[0].data<T>();
 
     const auto batch_size = input_tensors_[0].shape().size(0);
-    const size_t block_dim = 512;
+    const size_t block_dim = 1024;
 
     build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
-        output, input, max_sequence_len);
+        output, seq_from_len, seq_to_len, max_sequence_len_from_, max_sequence_len_to_);
   }
 }
 
