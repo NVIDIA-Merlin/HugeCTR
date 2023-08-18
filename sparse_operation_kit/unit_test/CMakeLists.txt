@@ -35,5 +35,7 @@ add_definitions(-DUNIT_TEST)
 add_library(sok_unit_test SHARED ${unit_test_src} ${recompile_for_unit_test})
 target_link_libraries(sok_unit_test PUBLIC sparse_operation_kit)
 
-set_target_properties(sok_unit_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(sok_unit_test PROPERTIES CUDA_ARCHITECTURES OFF)
+
+get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
+get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
+target_compile_features(sok_unit_test PRIVATE ${SOK_CXX_STANDARD_FLAG} ${SOK_CXX_STANDARD_FLAG})

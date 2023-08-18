@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB dense_layer_test_src
   dense_add_layer_test.cpp
   dense_fm_order2_layer_test.cpp
@@ -36,5 +36,3 @@ target_compile_features(dense_layer_test PUBLIC cxx_std_17)
 # TODO: remove rocksdb redis++ rdkafka once the pybind dependency is resolved
 target_link_libraries(dense_layer_test PUBLIC huge_ctr_shared gtest gtest_main)
 target_link_libraries(dense_layer_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(dense_layer_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(dense_layer_test PROPERTIES CUDA_ARCHITECTURES OFF)

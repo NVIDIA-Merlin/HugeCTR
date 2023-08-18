@@ -13,12 +13,10 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 
 file(GLOB_RECURSE core23_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
 add_executable(core23_test ${core23_test_src})
 target_compile_features(core23_test PUBLIC cxx_std_17)
 target_link_libraries(core23_test PUBLIC hugectr_core23 huge_ctr_shared gtest gtest_main)
-set_target_properties(core23_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(core23_test PROPERTIES CUDA_ARCHITECTURES OFF)

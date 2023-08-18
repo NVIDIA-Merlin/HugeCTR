@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB model_generator_src
   model_generator/generate_embedding.cpp
 )

@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 
 file(GLOB_RECURSE comms_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
@@ -21,5 +21,3 @@ add_executable(communication_test ${comms_test_src})
 target_compile_features(communication_test PUBLIC cxx_std_17)
 target_link_libraries(communication_test PUBLIC huge_ctr_shared gtest gtest_main)
 target_link_libraries(communication_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(communication_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(communication_test PROPERTIES CUDA_ARCHITECTURES OFF)

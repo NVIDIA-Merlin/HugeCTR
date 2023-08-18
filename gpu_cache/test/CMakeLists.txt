@@ -22,6 +22,3 @@ file(GLOB gpu_cache_test_src
 add_executable(cache_op_sol_test ${gpu_cache_test_src})
 target_compile_features(cache_op_sol_test PUBLIC cxx_std_17)
 target_link_libraries(cache_op_sol_test PUBLIC gpu_cache)
-set_target_properties(cache_op_sol_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(cache_op_sol_test PROPERTIES CUDA_ARCHITECTURES OFF)
-

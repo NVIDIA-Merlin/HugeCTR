@@ -13,15 +13,13 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB ec_perf_test_src
     ec_perf_test.cu
     key_generator.cuh
 )
 
 add_executable(ec_perf_test ${ec_perf_test_src})
-set_target_properties(ec_perf_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 target_compile_features(ec_perf_test PUBLIC cxx_std_17)
 target_link_libraries(ec_perf_test PUBLIC huge_ctr_shared gtest gtest_main)
 target_link_libraries(ec_perf_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(ec_perf_test PROPERTIES CUDA_ARCHITECTURES OFF)

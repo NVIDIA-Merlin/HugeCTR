@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB network_test_src
   network_build_test.cpp
 )
@@ -22,5 +22,3 @@ add_executable(network_test ${network_test_src})
 target_compile_features(network_test PUBLIC cxx_std_17)
 target_link_libraries(network_test PUBLIC hugectr_core23 huge_ctr_shared gtest gtest_main)
 target_link_libraries(network_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(network_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(network_test PROPERTIES CUDA_ARCHITECTURES OFF)

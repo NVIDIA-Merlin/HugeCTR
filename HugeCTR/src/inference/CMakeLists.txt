@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB huge_ctr_inference_src
@@ -94,7 +94,6 @@ file(GLOB huge_ctr_inference_src
   ../network_buffer_channels.cpp
 )
 
-set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_inference SHARED ${huge_ctr_inference_src})
 
 if(ENABLE_HDFS)
@@ -117,9 +116,13 @@ if(ENABLE_GCS)
   target_link_libraries(huge_ctr_inference PUBLIC google_cloud_cpp_storage)
 endif()
 
-target_link_libraries(huge_ctr_inference PUBLIC hugectr_core23 cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(huge_ctr_inference PUBLIC hugectr_core23)
 
-target_link_libraries(huge_ctr_inference PUBLIC  numa )
+target_link_libraries(huge_ctr_inference PUBLIC CUDA::cuda_driver ${CUDART_LIB} CUDA::cublas CUDA::curand cudnn nccl)
+
+target_link_libraries(huge_ctr_inference PUBLIC cudf)
+
+target_link_libraries(huge_ctr_inference PUBLIC ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs tbb)
 
 if(Parquet_FOUND)
 target_link_libraries(huge_ctr_inference PUBLIC parquet)
@@ -127,9 +130,6 @@ endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC huge_ctr_hps)
 
-target_link_libraries(huge_ctr_inference PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-
 target_compile_features(huge_ctr_inference PUBLIC cxx_std_17)
 
-set_target_properties(huge_ctr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 

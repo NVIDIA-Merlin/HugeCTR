@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 if(NOT DISABLE_CUDF)
     add_subdirectory(criteo_script)
     add_subdirectory(raw_script)

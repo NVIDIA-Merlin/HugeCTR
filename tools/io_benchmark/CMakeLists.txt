@@ -13,8 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
-set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.20)
 find_package(CUDAToolkit)
 
 file(GLOB data_reader_bench_src
@@ -23,3 +22,4 @@ file(GLOB data_reader_bench_src
 
 add_executable(io_bench ${data_reader_bench_src})
 target_link_libraries(io_bench PUBLIC CUDA::nvml huge_ctr_shared)
+target_compile_features(io_bench PUBLIC cxx_std_17 cuda_std_17)

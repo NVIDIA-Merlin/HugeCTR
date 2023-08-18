@@ -103,9 +103,10 @@ SparseMPDataDistributionOp::MPTempStorage::MPTempStorage(
     size_t temp_bytes = 0;
     DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
       // ATTENTION: cub radix sort requires NumItemT to be consistent
+      auto num_items = batch_size_per_dev * sample_max_nnz;
       cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
                                       (KeyType*)nullptr, (KeyType*)nullptr,
-                                      static_cast<int64_t>(batch_size_per_dev * sample_max_nnz));
+                                      static_cast<int64_t>(num_items));
     });
     this->temp_sort_storage = core23::Tensor(
         params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
