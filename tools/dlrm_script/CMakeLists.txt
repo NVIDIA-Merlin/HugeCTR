@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB dlrm_raw_src
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/base/debug/logger.cpp
   dlrm_raw.cu
@@ -35,12 +35,10 @@ add_executable(dlrm_raw ${dlrm_raw_src})
 
 target_link_libraries(dlrm_raw PUBLIC hugectr_core23)
 if(MPI_FOUND)
-  target_link_libraries(dlrm_raw PUBLIC cudart cudf ${MPI_CXX_LIBRARIES})
+  target_link_libraries(dlrm_raw PUBLIC ${CUDART_LIB} cudf ${MPI_CXX_LIBRARIES})
 else()
-  target_link_libraries(dlrm_raw PUBLIC cudart cudf)
+  target_link_libraries(dlrm_raw PUBLIC ${CUDART_LIB} cudf)
 endif()
-set_target_properties(dlrm_raw PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(dlrm_raw PROPERTIES CUDA_ARCHITECTURES OFF)
 target_compile_features(dlrm_raw PUBLIC cxx_std_17)
 
 

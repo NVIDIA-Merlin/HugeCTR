@@ -13,13 +13,11 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 project(HierarchicalParameterServer LANGUAGES CXX CUDA)
 
 message(STATUS "Building Hierarchical Parameter Server from source.")
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
 
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
@@ -59,12 +57,13 @@ set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTE
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(TensorFlow REQUIRED)
 find_package(Threads)
 find_package(OpenMP REQUIRED)
 
-set(CUDA_SEPARABLE_COMPILATION ON)
+set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 # setting compiler flags
 if (NOT CMAKE_BUILD_TYPE)
@@ -90,31 +89,34 @@ foreach(arch_name ${SM})
     if (arch_name STREQUAL 90 OR
         arch_name STREQUAL 80 OR
         arch_name STREQUAL 75 OR
-        arch_name STREQUAL 70 OR
-        arch_name STREQUAL 61 OR
-        arch_name STREQUAL 60)
-        list(APPEND cuda_arch_list ${arch_name})
-        message(STATUS "Assign GPU architecture (sm=${arch_name})")
+        arch_name STREQUAL 70)
+        message(STATUS "${arch_name} is added to generate device code")
+        list(APPEND cuda_arch_list ${arch_name}-real)
+    elseif (arch_name STREQUAL 61 OR
+            arch_name STREQUAL 60)
+        message(WARNING "The specified architecture ${arch_name} is excluded because it is not supported")
     else()
-        message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=70)")
+        message(FATAL_ERROR "${arch_name} is an invalid or unsupported architecture")
     endif()
 endforeach()
 
+list(REMOVE_DUPLICATES cuda_arch_list)
 list(LENGTH cuda_arch_list cuda_arch_list_length)
 if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "70")
-    message(STATUS "Assign default GPU architecture sm=70")
+  if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    list(APPEND cuda_arch_list 80-real)
+    set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
+  endif()
+else()
+  set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
 endif()
-list(REMOVE_DUPLICATES cuda_arch_list)
 
-foreach(arch_name ${cuda_arch_list})
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
-endforeach()
+message(STATUS "Target GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Release")
     set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
 else()
     set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
@@ -156,7 +158,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/../third_party/rocksdb/include
     ${PROJECT_SOURCE_DIR}/../third_party/librdkafka/src
     ${PROJECT_SOURCE_DIR}/../third_party/embedding_cache/include
-    ${CUDA_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
 )
 
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
@@ -198,8 +200,6 @@ file(GLOB framework
 # build dynamic lib
 add_library(hierarchical_parameter_server SHARED ${framework})
 
-target_link_libraries(hierarchical_parameter_server PUBLIC huge_ctr_hps ${CUDA_LIBRARIES} ${TF_LINK_FLAGS})
-target_compile_features(hierarchical_parameter_server PUBLIC cxx_std_17)
+target_link_libraries(hierarchical_parameter_server PUBLIC huge_ctr_hps CUDA::cudart_static ${TF_LINK_FLAGS})
+target_compile_features(hierarchical_parameter_server PUBLIC cxx_std_17 cuda_std_17)
 set_target_properties(hierarchical_parameter_server PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(hierarchical_parameter_server PROPERTIES CUDA_ARCHITECTURES OFF)
-

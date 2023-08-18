@@ -12,9 +12,8 @@
 #
 
 
-cmake_minimum_required(VERSION 3.17)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+cmake_minimum_required(VERSION 3.20)
+find_package(CUDAToolkit)
 
 file(GLOB core23_src 
 allocator_factory.cpp
@@ -52,9 +51,8 @@ logger.cpp
 )
 
 add_library(hugectr_core23 SHARED ${core23_src})
-
-set_target_properties(hugectr_core23 PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-target_link_libraries(hugectr_core23 PUBLIC cuda cudart curand)
+target_link_libraries(hugectr_core23 PUBLIC CUDA::cuda_driver ${CUDART_LIB} CUDA::curand)
+target_compile_features(hugectr_core23 PRIVATE cxx_std_17 cuda_std_17)
 if (ENABLE_MULTINODES)
     target_link_libraries(hugectr_core23 PUBLIC ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm)
 endif()

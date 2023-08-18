@@ -72,3 +72,7 @@ endif()
 
 add_library(sok_experiment SHARED ${files})
 target_link_libraries(sok_experiment PUBLIC ${TF_LINK_FLAGS} embedding hugectr_core23)
+
+get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
+get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
+target_compile_features(sok_experiment PRIVATE ${SOK_CXX_STANDARD_FLAG} ${SOK_CXX_STANDARD_FLAG})

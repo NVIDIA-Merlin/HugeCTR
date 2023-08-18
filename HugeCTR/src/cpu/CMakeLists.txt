@@ -40,11 +40,11 @@ file(GLOB cpu_inference_src
   inference_session_cpu.cpp
 )
 
-set(CMAKE_CXX_STANDARD 17)
-
 add_library(cpu_inference_shared SHARED ${cpu_inference_src})
 
-target_link_libraries(cpu_inference_shared PUBLIC cudart cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(cpu_inference_shared PUBLIC ${CUDART_LIB} CUDA::cublas CUDA::curand cudnn nccl)
+
+target_link_libraries(cpu_inference_shared PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(cpu_inference_shared PRIVATE nlohmann_json::nlohmann_json)
 
@@ -52,6 +52,4 @@ target_link_libraries(cpu_inference_shared PUBLIC huge_ctr_inference)
 
 target_compile_features(cpu_inference_shared PUBLIC cxx_std_17)
 
-set_target_properties(cpu_inference_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set_target_properties(cpu_inference_shared PROPERTIES CUDA_ARCHITECTURES OFF)

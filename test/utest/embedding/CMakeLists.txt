@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 find_package(CUDAToolkit)
 
 file(GLOB_RECURSE embedding_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
@@ -22,5 +22,3 @@ add_executable(embedding_test ${embedding_test_src})
 target_compile_features(embedding_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_test PUBLIC CUDA::nvml huge_ctr_shared embedding gtest gtest_main stdc++fs)
 target_link_libraries(embedding_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(embedding_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(embedding_test PROPERTIES CUDA_ARCHITECTURES OFF)

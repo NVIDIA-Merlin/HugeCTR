@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 find_package(CUDAToolkit)
 
 file(GLOB async_reader_src 
@@ -49,7 +49,6 @@ target_link_libraries(v2_async_reader_test PUBLIC /usr/local/cuda/lib64/stubs/li
 target_link_libraries(multi_hot_async_data_reader_test PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main /usr/local/cuda/lib64/stubs/libcuda.so)
 target_link_libraries(benchmark_async_reader PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main)
 target_link_libraries(benchmark_async_reader PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(benchmark_async_reader PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 target_link_libraries(batch_locations_test PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main /usr/local/cuda/lib64/stubs/libcuda.so)
 
 add_executable(split_test split_batch_test.cpp)

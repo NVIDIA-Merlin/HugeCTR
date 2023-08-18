@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB gpu_cache_src
   nv_gpu_cache.cu
   static_table.cu
@@ -24,7 +24,3 @@ file(GLOB gpu_cache_src
 add_library(gpu_cache SHARED ${gpu_cache_src})
 target_compile_features(gpu_cache PUBLIC cxx_std_11)
 target_link_libraries(gpu_cache PUBLIC OpenMP::OpenMP_CXX)
-set_target_properties(gpu_cache PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(gpu_cache PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(gpu_cache PROPERTIES CUDA_ARCHITECTURES OFF)
-

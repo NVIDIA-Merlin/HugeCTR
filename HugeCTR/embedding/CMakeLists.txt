@@ -13,11 +13,9 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 find_package(CUDAToolkit)
 include_directories(/opt/conda/include)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB embedding_src
         *.cpp
@@ -30,7 +28,16 @@ file(GLOB embedding_src
         gpu_barrier/*.cu
         )
 
-add_library(embedding SHARED ${embedding_src})
 
-set_target_properties(embedding PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-target_link_libraries(embedding PUBLIC nccl hugectr_core23)
+if(USE_CUDART_STATIC)
+  set(EMB_LIB_TYPE STATIC)
+else()
+  set(EMB_LIB_TYPE SHARED)
+endif()
+add_library(embedding ${EMB_LIB_TYPE} ${embedding_src})
+
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fPIC")
+
+target_link_libraries(embedding PUBLIC ${CUDART_LIB} nccl hugectr_core23)
+target_compile_features(embedding PRIVATE cxx_std_17 cuda_std_17)

@@ -39,5 +39,6 @@ file(GLOB framework_interface
 add_library(sparse_operation_kit_compat_ops SHARED ${operations_src} ${framework_interface})
 target_link_libraries(sparse_operation_kit_compat_ops PUBLIC ${TF_LINK_FLAGS})
 
-set_target_properties(sparse_operation_kit_compat_ops PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(sparse_operation_kit_compat_ops PROPERTIES CUDA_ARCHITECTURES OFF)
+get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
+get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
+target_compile_features(sparse_operation_kit_compat_ops PRIVATE ${SOK_CXX_STANDARD_FLAG} ${SOK_CXX_STANDARD_FLAG})

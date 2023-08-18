@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 file(GLOB hps_benchmark_src
   metrics.cpp
@@ -35,10 +35,8 @@ if(ENABLE_S3)
   )
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
 add_executable(hps_profiler ${hps_benchmark_src})
 target_compile_features(hps_profiler PUBLIC cxx_std_17)
 target_link_libraries(hps_profiler PUBLIC hugectr_core23 huge_ctr_hps)
-target_link_libraries(hps_profiler PUBLIC cudart gtest gtest_main stdc++fs)
-target_link_libraries(hps_profiler PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(hps_profiler PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+target_link_libraries(hps_profiler PUBLIC ${CUDART_LIB} gtest gtest_main stdc++fs)
+target_link_libraries(hps_profiler PUBLIC CUDA::cuda_driver)

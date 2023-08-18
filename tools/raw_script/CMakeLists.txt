@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB criteo2raw_src
   criteo2raw.cpp
 )

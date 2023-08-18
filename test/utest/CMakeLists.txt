@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 add_subdirectory(layers)
 add_subdirectory(data_distributor)
 add_subdirectory(data_reader)

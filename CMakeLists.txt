@@ -16,11 +16,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(HugeCTR LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
-# Step 1) Clangformat, before we do anything else.
 option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
@@ -65,11 +62,9 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
-# Step 2) Build dependencies before we adjust the compiler configuration.
 option(ENABLE_GCS "Enable GCS" OFF)
 add_subdirectory(third_party)
 
-# Step 3) Configure and build HugeCTR.
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
@@ -83,6 +78,15 @@ if (DISABLE_A2A_WARMUP)
 endif()
 
 option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
+
+option(USE_CUDART_STATIC "Setup clangformat target" OFF)
+if(USE_CUDART_STATIC)
+  set(DISABLE_CUDF ON)
+  set(CUDART_LIB CUDA::cudart_static)
+else()
+  set(CUDART_LIB CUDA::cudart)
+endif()
+
 if (DISABLE_CUDF)
   message(STATUS "-- DISABLE_CUDF is ON")
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_CUDF")
@@ -106,7 +110,7 @@ if (SHARP_A2A)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSHARP_A2A")
 endif()
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(NCCL REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -137,34 +141,38 @@ if (KEY_HIT_RATIO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DKEY_HIT_RATIO")
 endif()
 
+option(ENABLE_INFERENCE "Enable Inference" OFF)
+if(ENABLE_INFERENCE)
+  add_definitions(-DLIBCUDACXX_VERSION)
+endif()
 
-# setting compiler flags
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 90 OR
         arch_name STREQUAL 80 OR
         arch_name STREQUAL 75 OR
-        arch_name STREQUAL 70 OR
-        arch_name STREQUAL 61 OR
-        arch_name STREQUAL 60)
-        list(APPEND cuda_arch_list ${arch_name})
-        message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
+        arch_name STREQUAL 70)
+        message(STATUS "${arch_name} is added to generate device code")
+        list(APPEND cuda_arch_list ${arch_name}-real)
+    elseif (arch_name STREQUAL 61 OR
+            arch_name STREQUAL 60)
+        message(WARNING "The specified architecture ${arch_name} is excluded because it is not supported")
     else()
-        message(FATAL_ERROR "-- Unknown or unsupported GPU architecture (set sm=70)")
+        message(FATAL_ERROR "${arch_name} is an invalid or unsupported architecture")
     endif()
 endforeach()
 
+list(REMOVE_DUPLICATES cuda_arch_list)
 list(LENGTH cuda_arch_list cuda_arch_list_length)
 if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "70")
+  if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    list(APPEND cuda_arch_list 80-real)
+    set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
+  endif()
+else()
+  set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
 endif()
-list(REMOVE_DUPLICATES cuda_arch_list)
 
-option(ENABLE_INFERENCE "Enable Inference" OFF)
-if(ENABLE_INFERENCE)
-add_definitions(-DLIBCUDACXX_VERSION)
-list(REMOVE_ITEM cuda_arch_list "60")
-list(REMOVE_ITEM cuda_arch_list "61")
-endif()
+message(STATUS "Target GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
 option(ENABLE_PROFILER "Enable HPS profiler" OFF)
 if(ENABLE_PROFILER)
@@ -180,21 +188,15 @@ else()
   message(STATUS "Hugepages: Disabled")
 endif()
 
-
-foreach(arch_name ${cuda_arch_list})
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
-endforeach()
-
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare -Wno-stringop-overflow -Wno-maybe-uninitialized")
 #TODO: the warning should not be suppressed in the  long term
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=false -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
-
-set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
-set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare -Wno-stringop-overflow -Wno-maybe-uninitialized")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses,-Wno-sign-compare")
-
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+
+set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g ${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G ${CMAKE_CUDA_FLAGS}")
 
 # setting output folder
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -220,7 +222,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   $ENV{CONDA_PREFIX}/include
   $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx
-  ${CUDA_INCLUDE_DIRS}
+  ${CUDAToolkit_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
@@ -253,7 +255,7 @@ include_directories(
   ${UCX_INC_PATHS}
   ${SHARP_INC_PATHS})
 
-if (CUDA_VERSION_MAJOR LESS 11)
+if (CUDAToolkit_VERSION_MAJOR LESS 11)
   include_directories(${PROJECT_SOURCE_DIR}/third_party/cub)
 endif()
 
@@ -317,26 +319,25 @@ endif()
 
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_INFERENCE")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_INFERENCE")
-add_subdirectory(HugeCTR/core23)
-add_subdirectory(third_party/googletest)
-add_subdirectory(HugeCTR/src/hps)
-add_subdirectory(HugeCTR/src/inference)
-add_subdirectory(HugeCTR/src/inference_benchmark)
-add_subdirectory(HugeCTR/src/cpu)
-add_subdirectory(test/utest/hps)
-add_subdirectory(test/utest/inference)
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_INFERENCE")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_INFERENCE")
+  add_subdirectory(HugeCTR/core23)
+  add_subdirectory(third_party/googletest)
+  add_subdirectory(HugeCTR/src/hps)
+  add_subdirectory(HugeCTR/src/inference)
+  add_subdirectory(HugeCTR/src/inference_benchmark)
+  add_subdirectory(HugeCTR/src/cpu)
+  add_subdirectory(test/utest/hps)
+  add_subdirectory(test/utest/inference)
 else()
-#setting binary files install path
-add_subdirectory(HugeCTR/src)
-option(ENABLE_HCTR "Build core HCTR backend" ON)
-add_subdirectory(HugeCTR/core23)
-add_subdirectory(HugeCTR/embedding)
-add_subdirectory(third_party/googletest)
-add_subdirectory(test/utest)
-add_subdirectory(tools)
-add_subdirectory(benchmarks)
-add_subdirectory(test/embedding_cache_perf_test)
+  #setting binary files install path
+  add_subdirectory(HugeCTR/src)
+  add_subdirectory(HugeCTR/core23)
+  add_subdirectory(HugeCTR/embedding)
+  add_subdirectory(third_party/googletest)
+  add_subdirectory(test/utest)
+  add_subdirectory(tools)
+  add_subdirectory(benchmarks)
+  add_subdirectory(test/embedding_cache_perf_test)
 endif()

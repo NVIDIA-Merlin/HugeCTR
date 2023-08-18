@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
 #include <linux/fs.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/data_reader.hpp>
@@ -358,6 +361,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
   } else {
     int num_workers_train = reader_params.num_workers;
     int num_workers_eval = reader_params.num_workers;
+#ifndef DISABLE_CUDF
     long long parquet_source_max_row_group_size = 0;
     long long parquet_eval_max_row_group_size = 0;
     size_t parquet_label_cols = 0;
@@ -439,6 +443,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
       num_workers_train = std::min(local_gpu_count, num_workers_train);
       num_workers_eval = std::min(local_gpu_count, num_workers_eval);
     }
+#endif
 
     HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train
                            << std::endl;
@@ -776,6 +781,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
   } else {
     int num_workers_train = reader_params.num_workers;
     int num_workers_eval = reader_params.num_workers;
+#ifndef DISABLE_CUDF
     long long parquet_source_max_row_group_size = 0;
     long long parquet_eval_max_row_group_size = 0;
     size_t parquet_label_cols = 0;
@@ -857,6 +863,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
       num_workers_train = std::min(local_gpu_count, num_workers_train);
       num_workers_eval = std::min(local_gpu_count, num_workers_eval);
     }
+#endif
 
     HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train
                            << std::endl;

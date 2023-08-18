@@ -34,10 +34,12 @@ if (NOT TF_RESULT)
     list(GET TF_VERSION_LIST 2 TF_VERSION_PATCH)
     if(${TF_VERSION_MAJOR} GREATER 1 AND ${TF_VERSION_MINOR} GREATER 9)
         add_definitions(-DTF_GE_210)
-        set(CMAKE_CXX_STANDARD 17)
+        set_property(GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY cxx_std_17)
+        set_property(GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY cuda_std_17)
     else()
         add_definitions(-DTF_LESS_210)
-        set(CMAKE_CXX_STANDARD 14)
+        set_property(GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY cxx_std_14)
+        set_property(GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY cuda_std_14)
     endif()
  
     
@@ -55,7 +57,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(NCCL REQUIRED)
 find_package(TensorFlow REQUIRED)
 find_package(MPI REQUIRED)
@@ -97,26 +99,29 @@ foreach(arch_name ${SM})
     if (arch_name STREQUAL 90 OR
         arch_name STREQUAL 80 OR
         arch_name STREQUAL 75 OR
-        arch_name STREQUAL 70 OR
-        arch_name STREQUAL 61 OR
-        arch_name STREQUAL 60)
-        list(APPEND cuda_arch_list ${arch_name})
-        message(STATUS "Assign GPU architecture (sm=${arch_name})")
+        arch_name STREQUAL 70)
+        message(STATUS "${arch_name} is added to generate device code")
+        list(APPEND cuda_arch_list ${arch_name}-real)
+    elseif (arch_name STREQUAL 61 OR
+            arch_name STREQUAL 60)
+        message(WARNING "The specified architecture ${arch_name} is excluded because it is not supported")
     else()
-        message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=70)")
+        message(FATAL_ERROR "${arch_name} is an invalid or unsupported architecture")
     endif()
 endforeach()
 
+list(REMOVE_DUPLICATES cuda_arch_list)
 list(LENGTH cuda_arch_list cuda_arch_list_length)
 if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "70")
-    message(STATUS "Assign default GPU architecture sm=70")
+  if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    list(APPEND cuda_arch_list 80-real)
+    set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
+  endif()
+else()
+  set(CMAKE_CUDA_ARCHITECTURES ${cuda_arch_list})
 endif()
-list(REMOVE_DUPLICATES cuda_arch_list)
 
-foreach(arch_name ${cuda_arch_list})
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
-endforeach()
+message(STATUS "Target GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
     set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")
@@ -182,7 +187,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/third_party/json/include
     ${PROJECT_SOURCE_DIR}/third_party/HierarchicalKV/include
-    ${CUDA_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
 )
@@ -202,7 +207,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/../HugeCTR/core23
     ${PROJECT_SOURCE_DIR}/../third_party/json/include
     ${PROJECT_SOURCE_DIR}/../third_party/HierarchicalKV/include
-    ${CUDA_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
 )
@@ -268,7 +273,13 @@ file(GLOB test_op
 
 # build dynamic lib
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
-target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES})
+target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl CUDA::cusparse ${MPI_CXX_LIBRARIES})
+
+
+get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
+get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
+target_compile_features(sparse_operation_kit PRIVATE ${SOK_CXX_STANDARD_PROPERTY} ${SOK_CXX_STANDARD_PROPERTY})
+#target_compile_features(sparse_operation_kit PUBLIC cxx_std_14 cuda_std_14)
 
 if(SKBUILD)
 # We haven't found a proper way to maintain the directory structure of
@@ -283,18 +294,11 @@ configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_
 add_subdirectory(../HugeCTR/embedding embedding.out)
 add_subdirectory(../HugeCTR/core23 hugectr_core23.out)
 endif()
-# file(GLOB core_impl
-#     ${PROJECT_SOURCE_DIR}/experiment/lookup/impl/core_impl/*.cpp
-# )
-# add_library(tf_impl_ops_test SHARED ${core_impl})
-# target_link_libraries(tf_impl_ops_test PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES} embedding)
 
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
 endif()
 
-set_target_properties(sparse_operation_kit PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(sparse_operation_kit PROPERTIES CUDA_ARCHITECTURES OFF)
 
 # compile compat ops
 add_subdirectory(kit_cc_impl/operations)

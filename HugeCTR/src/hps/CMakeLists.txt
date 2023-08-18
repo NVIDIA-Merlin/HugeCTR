@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB_RECURSE huge_ctr_hps_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
@@ -30,7 +30,6 @@ list(APPEND huge_ctr_hps_src
   "../io/gcs_filesystem.cpp"
 )
 
-set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_hps SHARED ${huge_ctr_hps_src})
 
 if(ENABLE_HDFS)
@@ -58,6 +57,4 @@ target_link_libraries(huge_ctr_hps PUBLIC gpu_cache tbb hiredis redis++ rocksdb-
 target_compile_features(huge_ctr_hps PUBLIC cxx_std_17)
 target_link_libraries(huge_ctr_hps PUBLIC numa )
 
-set_target_properties(huge_ctr_hps PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set_target_properties(huge_ctr_hps PROPERTIES CUDA_ARCHITECTURES OFF)

@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB regularizers_test_src
   regularizer_test_common.cpp
   loss_with_regularizer_test.cpp

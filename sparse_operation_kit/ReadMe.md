@@ -59,11 +59,11 @@ pip install sparse_operation_kit --no-build-isolation
 ### Pre-requisites ###
 CUDA Version:>= 11.2
 
-TF2 Version:2.6.0~2.10.0
+TF2 Version:2.6.0~2.12.0
 
 TF1 Version:1.15
 
-Cmake Version:>= 3.18
+Cmake Version:>= 3.20
 
 GCC Version:>=9.3.0
 

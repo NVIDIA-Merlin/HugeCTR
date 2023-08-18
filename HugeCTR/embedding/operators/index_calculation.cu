@@ -544,9 +544,10 @@ IndicesSort::IndicesSort(const std::shared_ptr<CoreResourceManager> &core, int m
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     size_t temp_bytes = 0;
     // ATTENTION: cub radix sort requires NumItemT to be consistent
+    auto num_items = batch_size * max_num_keys;
     cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (key_t *)nullptr, (key_t *)nullptr,
                                     (uint32_t *)nullptr, (uint32_t *)nullptr,
-                                    static_cast<int64_t>(batch_size * max_num_keys));
+                                    static_cast<int64_t>(num_items));
     d_temp_sort_storage = core23::Tensor(
         params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
   });
@@ -562,7 +563,8 @@ void IndicesSort::operator()(embedding::SortInput &input, embedding::SortOutput 
     cub::DeviceRadixSort::SortPairs(
         d_temp_sort_storage.data(), temp_bytes, input.keys.data<key_t>(),
         output.sorted_keys.data<key_t>(), input.src_ids.data<uint32_t>(),
-        output.sorted_src_ids.data<uint32_t>(), input.h_num_key, 0, sizeof(key_t) * 8, stream);
+        output.sorted_src_ids.data<uint32_t>(), static_cast<int64_t>(input.h_num_key), 0,
+        sizeof(key_t) * 8, stream);
   });
 }
 

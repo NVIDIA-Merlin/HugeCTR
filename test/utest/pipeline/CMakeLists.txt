@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 
 file(GLOB_RECURSE pipeline_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
@@ -21,5 +21,3 @@ add_executable(pipeline_test ${pipeline_test_src})
 target_compile_features(pipeline_test PUBLIC cxx_std_17)
 target_link_libraries(pipeline_test PUBLIC huge_ctr_shared gtest gtest_main stdc++fs)
 target_link_libraries(pipeline_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
-set_target_properties(pipeline_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(pipeline_test PROPERTIES CUDA_ARCHITECTURES OFF)

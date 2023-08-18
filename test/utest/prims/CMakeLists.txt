@@ -13,15 +13,13 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 file(GLOB prims_test_src
   matrix_vector_op.cu
   #reduce.cu
 )
 
 add_executable(prims_test ${prims_test_src})
-set_target_properties(prims_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(prims_test PROPERTIES CUDA_ARCHITECTURES OFF)
 target_compile_features(prims_test PUBLIC cxx_std_17)
 target_link_libraries(prims_test PUBLIC huge_ctr_shared gtest gtest_main)
 target_link_libraries(prims_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
