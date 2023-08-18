@@ -175,5 +175,4 @@ void convert_keys_to_table_first(TypeHashKey *d_out, const TypeHashKey *d_in,
       d_out, d_in, d_embedding_offset_table_first, d_embedding_offset_sample_first, num_tables,
       batch_size);
 }
-
 }  // namespace HugeCTR

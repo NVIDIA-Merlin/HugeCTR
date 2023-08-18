@@ -23,9 +23,70 @@
 namespace HugeCTR {
 namespace unique_op {
 
+template <typename KeyType>
+struct KeyEntry {
+  KeyType key;
+  HOST_DEVICE_INLINE KeyType store_idx() const { return (key); }
+  HOST_DEVICE_INLINE KeyType flatten_idx() const { return (key); }
+  template <typename TableValue>
+  HOST_DEVICE_INLINE bool match(const TableValue insert_value) const {
+    return ((uint32_t)key == insert_value.detail.key);
+  }
+};
+
+union TableValue {
+  uint64_t value;
+  struct Detail {
+    uint32_t r_idx;
+    uint32_t key;
+  } detail;
+  template <typename KeyEntry>
+  HOST_DEVICE_INLINE void write(uint32_t reverse_idx, KeyEntry key) {
+    detail.r_idx = reverse_idx;
+    detail.key = (uint32_t)key.flatten_idx();
+  }
+  HOST_DEVICE_INLINE uint32_t reverse_idx() const { return detail.r_idx; }
+};
+
+template <typename KeyType>
+struct TableEntry {
+  using key_type = KeyType;
+  using value_type = TableValue;
+  key_type key;
+  value_type value;
+};
+
+struct Hash {
+  HOST_DEVICE_INLINE size_t operator()(const KeyEntry<uint32_t>& key_entry) {
+    using hash_func = MurmurHash3_32<uint32_t>;
+    uint32_t key_hash = hash_func::hash(key_entry.key);
+    return key_hash;
+  }
+  HOST_DEVICE_INLINE size_t operator()(const KeyEntry<int32_t>& key_entry) {
+    using hash_func = MurmurHash3_32<int32_t>;
+    uint32_t key_hash = hash_func::hash(key_entry.key);
+    return key_hash;
+  }
+  HOST_DEVICE_INLINE size_t operator()(const KeyEntry<uint64_t>& key_entry) {
+    using hash_func = MurmurHash3_32<uint64_t>;
+    uint32_t key_hash = hash_func::hash(key_entry.key);
+    return key_hash;
+  }
+  HOST_DEVICE_INLINE size_t operator()(const KeyEntry<int64_t>& key_entry) {
+    using hash_func = MurmurHash3_32<int64_t>;
+    uint32_t key_hash = hash_func::hash(key_entry.key);
+    return key_hash;
+  }
+  HOST_DEVICE_INLINE size_t operator()(const KeyEntry<long long>& key_entry) {
+    using hash_func = MurmurHash3_32<long long>;
+    uint32_t key_hash = hash_func::hash(key_entry.key);
+    return key_hash;
+  }
+};
+
 // The unique op
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
-          typename hasher = MurmurHash3_32<KeyType>>
+          typename hasher = Hash>
 class unique_op {
  public:
   // Ctor
@@ -57,6 +118,7 @@ class unique_op {
   // Keys and vals buffer
   KeyType* keys_;
   CounterType* vals_;
+  TableEntry<KeyType>* table_;
 
   // Counter for value index
   CounterType* counter_;
