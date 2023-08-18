@@ -24,6 +24,7 @@ file(GLOB embedding_src
         operators/*.cu
         data_distributor/*.cpp
         data_distributor/*.cu
+        data_distributor/*.cuh
         gpu_barrier/*.cpp
         gpu_barrier/*.cu
         )

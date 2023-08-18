@@ -21,16 +21,19 @@
 #define HCTR_HOST_DEVICE __host__ __device__
 #define HCTR_DEVICE __device__
 #define HCTR_HOST __host__
+#define HCTR_DEVICE_INLINE __device__ __forceinline__
 #elif defined(__CUDACC_RTC__)
 #define HCTR_INLINE __forceinline__
 #define HCTR_HOST_DEVICE __device__
 #define HCTR_DEVICE __device__
 #define HCTR_HOST
+#define HCTR_DEVICE_INLINE __device__ __forceinline__
 #else
 #define HCTR_INLINE inline
 #define HCTR_HOST_DEVICE
 #define HCTR_DEVICE
 #define HCTR_HOST
+#define HCTR_DEVICE_INLINE inline
 #endif
 
 // TODO: Add the macros for common CUDA for loops

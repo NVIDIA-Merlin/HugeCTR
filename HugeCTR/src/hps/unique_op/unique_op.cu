@@ -14,131 +14,48 @@
  * limitations under the License.
  */
 
+#include <core23/cuda_primitives.cuh>
 #include <hps/unique_op/unique_op.hpp>
-
-// Overload CUDA atomic for other 64bit unsigned/signed integer type
-__forceinline__ __device__ long atomicAdd(long* address, long val) {
-  return (long)atomicAdd((unsigned long long*)address, (unsigned long long)val);
-}
-
-__forceinline__ __device__ long long atomicAdd(long long* address, long long val) {
-  return (long long)atomicAdd((unsigned long long*)address, (unsigned long long)val);
-}
-
-__forceinline__ __device__ unsigned long atomicAdd(unsigned long* address, unsigned long val) {
-  return (unsigned long)atomicAdd((unsigned long long*)address, (unsigned long long)val);
-}
-
-__forceinline__ __device__ long atomicCAS(long* address, long compare, long val) {
-  return (long)atomicCAS((unsigned long long*)address, (unsigned long long)compare,
-                         (unsigned long long)val);
-}
-
-__forceinline__ __device__ long long atomicCAS(long long* address, long long compare,
-                                               long long val) {
-  return (long long)atomicCAS((unsigned long long*)address, (unsigned long long)compare,
-                              (unsigned long long)val);
-}
-
-__forceinline__ __device__ unsigned long atomicCAS(unsigned long* address, unsigned long compare,
-                                                   unsigned long val) {
-  return (unsigned long)atomicCAS((unsigned long long*)address, (unsigned long long)compare,
-                                  (unsigned long long)val);
-}
 
 namespace HugeCTR {
 namespace unique_op {
 
-template <typename KeyType, typename CounterType>
-__global__ void init_kernel(KeyType* keys, CounterType* vals, CounterType* counter,
-                            const size_t capacity, const KeyType empty_key,
+template <typename KeyType, typename CounterType, typename TableEntry>
+__global__ void init_kernel(KeyType* keys, TableEntry* table, CounterType* vals,
+                            CounterType* counter, const size_t capacity, const KeyType empty_key,
                             const CounterType empty_val, const CounterType init_counter_val) {
   const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < capacity) {
     // Simply store every element a unused <K, V> pair
     keys[idx] = empty_key;
     vals[idx] = empty_val;
+    table[idx].key = empty_key;
+    KeyEntry<KeyType> emptyKey{empty_key};
+    table[idx].value.write(0, emptyKey);
   }
   if (idx == 0) {
     counter[idx] = init_counter_val;
   }
 }
 
-template <typename KeyType, typename CounterType>
-__global__ void dump_kernel(KeyType* d_key, const KeyType* keys, const CounterType* vals,
-                            const size_t offset, const size_t search_length, size_t* d_dump_counter,
-                            const KeyType empty_key) {
-  /* Per block accumulator */
-  __shared__ size_t block_acc;
-
-  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-  /* Initialize */
-  if (threadIdx.x == 0) {
-    block_acc = 0;
-  }
-  __syncthreads();
-
-  KeyType read_key;
-  CounterType read_val;
-  bool valid_slot = false;
-  // Each thread gather the key and value from slot assigned to them.
-  if (idx < search_length) {
-    read_key = keys[offset + idx];
-    if (read_key != empty_key) {
-      valid_slot = true;
-      atomicAdd(&block_acc, 1);
-      read_val = vals[offset + idx];
-    }
-  }
-  __syncthreads();
-
-  // Each block accumulate the dump count to global counter
-  if (threadIdx.x == 0) {
-    atomicAdd(d_dump_counter, block_acc);
-  }
-
-  // Each thread store one slot's data back to global memory, d_dump_counter is how many slots in
-  // total dumped.
-  if (valid_slot) {
-    d_key[read_val] = read_key;
-  }
-}
-
-template <typename KeyType, typename CounterType, typename hasher>
-__global__ void get_insert_kernel(const KeyType* d_key, CounterType* d_val, const size_t len,
-                                  KeyType* keys, CounterType* vals, const size_t capacity,
-                                  CounterType* d_global_counter, const KeyType empty_key,
-                                  const CounterType empty_val) {
+template <typename KeyType, typename TableEntry, typename CounterType, typename hasher>
+__global__ void unique_get_insert_dump_kernel(const KeyType* d_key, CounterType* d_val,
+                                              TableEntry* d_table, const size_t len, KeyType* keys,
+                                              CounterType* vals, const size_t capacity,
+                                              CounterType* d_global_counter, KeyType* d_unique_key,
+                                              const KeyType empty_key,
+                                              const CounterType empty_val) {
   const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < len) {
     KeyType target_key = d_key[idx];
-    size_t hash_index = hasher::hash(target_key) % capacity;
-    size_t counter = 0;
-    while (true) {
-      // Have searched all the slot in the hashtable, but all slots in the hashtable are occupied by
-      // other keys
-      if (counter >= capacity) {
-        assert(false && "error: unique op fails: hashtable is full");
-      }
-      // Try to set the key for the current slot to target key
-      const KeyType old_key = atomicCAS(keys + hash_index, empty_key, target_key);
-      volatile CounterType& target_val_pos = vals[hash_index];
-      if (empty_key == old_key) {
-        CounterType result_val;
-        result_val = atomicAdd(d_global_counter, 1);
-        d_val[idx] = result_val;
-        target_val_pos = result_val;
-        break;
-      } else if (target_key == old_key) {
-        while (target_val_pos == empty_val)
-          ;
-        d_val[idx] = target_val_pos;
-        break;
-      }
-      counter++;
-      hash_index = (hash_index + 1) % capacity;
+    KeyEntry<KeyType> unique_out = {empty_key};
+    bool is_unique = true;
+    auto r_idx = core23 ::get_insert_dump<KeyEntry<KeyType>, TableEntry, CounterType, hasher>(
+        {target_key}, d_table, d_global_counter, unique_out, capacity, {empty_key}, is_unique);
+    if (is_unique) {
+      d_unique_key[r_idx - 1] = unique_out.key;
     }
+    d_val[idx] = r_idx - 1;
   }
 }
 
@@ -161,13 +78,15 @@ unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique_op(
   // Allocate keys and vals buffer
   HCTR_LIB_THROW(cudaMalloc((void**)&keys_, sizeof(KeyType) * capacity_));
   HCTR_LIB_THROW(cudaMalloc((void**)&vals_, sizeof(CounterType) * capacity_));
+  HCTR_LIB_THROW(cudaMalloc((void**)&table_, sizeof(TableEntry<KeyType>) * capacity_));
 
   // Allocate device-side counter
   HCTR_LIB_THROW(cudaMalloc((void**)&counter_, sizeof(CounterType)));
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
-  init_kernel<KeyType, CounterType><<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_>>>(
-      keys_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
+  init_kernel<KeyType, CounterType, TableEntry<KeyType>>
+      <<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_>>>(
+          keys_, table_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
 
   // Wait for initialization to finish
   HCTR_LIB_THROW(cudaStreamSynchronize(0));
@@ -214,13 +133,13 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
   }
 
   // Launch get_insert kernel to do unique
-  get_insert_kernel<KeyType, CounterType, hasher>
-      <<<(len - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-          d_key, d_output_index, len, keys_, vals_, capacity_, counter_, empty_key, empty_val);
+  unique_get_insert_dump_kernel<KeyType, TableEntry<KeyType>, CounterType, hasher>
+      <<<(len - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(d_key, d_output_index, table_, len,
+                                                                keys_, vals_, capacity_, counter_,
+                                                                d_unique_key, empty_key, empty_val);
 
-  // Launch dump kernel
-  dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-      d_unique_key, keys_, vals_, 0, capacity_, d_output_counter, empty_key);
+  HCTR_LIB_THROW(
+      cudaMemcpyAsync(d_output_counter, counter_, sizeof(size_t), cudaMemcpyHostToHost, stream));
 
   HCTR_LIB_THROW(cudaGetLastError());
 }
@@ -234,14 +153,20 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::clear(cudaSt
   dev_restorer.check_device(dev_);
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
-  init_kernel<KeyType, CounterType>
+  init_kernel<KeyType, CounterType, TableEntry<KeyType>>
       <<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_, 0, stream>>>(
-          keys_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
+          keys_, table_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
 
   HCTR_LIB_THROW(cudaGetLastError());
 }
 
-template class unique_op<unsigned int, uint64_t, std::numeric_limits<unsigned int>::max(),
+template class unique_op<int32_t, uint64_t, std::numeric_limits<int32_t>::max(),
+                         std::numeric_limits<uint64_t>::max()>;
+template class unique_op<uint32_t, uint64_t, std::numeric_limits<uint32_t>::max(),
+                         std::numeric_limits<uint64_t>::max()>;
+template class unique_op<int64_t, uint64_t, std::numeric_limits<int64_t>::max(),
+                         std::numeric_limits<uint64_t>::max()>;
+template class unique_op<uint64_t, uint64_t, std::numeric_limits<uint64_t>::max(),
                          std::numeric_limits<uint64_t>::max()>;
 template class unique_op<long long, uint64_t, std::numeric_limits<long long>::max(),
                          std::numeric_limits<uint64_t>::max()>;

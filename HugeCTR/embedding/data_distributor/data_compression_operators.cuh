@@ -18,6 +18,7 @@
 #include <nccl.h>
 
 #include <core/core.hpp>
+#include <core23/cuda_primitives.cuh>
 #include <embedding/common.hpp>
 #include <embedding/data_distributor/data_compression_operators.hpp>
 #include <gpu_cache/include/hash_functions.cuh>
@@ -31,6 +32,13 @@ template <typename KeyType>
 struct KeyPair {
   KeyType key;
   int feature_id;
+  HOST_DEVICE_INLINE KeyType store_idx() const { return (key | 0x1); }
+  HOST_DEVICE_INLINE KeyType flatten_idx() const { return (feature_id << 1U | (key & 0x1)); }
+  template <typename TableValue>
+  HOST_DEVICE_INLINE bool match(const TableValue insert_value) const {
+    return ((key & 0x1) == (insert_value.detail.feature_id_and_key_lo & 0x1)) &&
+           (feature_id == insert_value.detail.feature_id_and_key_lo >> 1U);
+  }
 };
 
 struct Hash {
@@ -120,10 +128,18 @@ union TableValue {
     uint32_t r_idx_plus_one;
     uint32_t feature_id_and_key_lo;
   } detail;
+  template <typename KeyEntry>
+  HOST_DEVICE_INLINE void write(uint32_t reverse_idx, KeyEntry key) {
+    detail.r_idx_plus_one = reverse_idx;
+    detail.feature_id_and_key_lo = (uint32_t)key.flatten_idx();
+  }
+  HOST_DEVICE_INLINE uint32_t reverse_idx() const { return detail.r_idx_plus_one; }
 };
 
 template <typename KeyType>
 struct TableEntry {
+  using key_type = KeyType;
+  using value_type = TableValue;
   KeyType key;
   TableValue value;
 };
@@ -145,55 +161,14 @@ struct UniqueTableView {
     int *current_feature_ids = result.feature_ids + partition_id * result.max_num_key_per_partition;
     BucketRangeType *current_d_num_key = result.d_num_key_per_partition + partition_id;
 
-    const KeyType &key = key_pair.key;
-    const KeyType key_hi = (key | 0x1);
-    const uint32_t key_lo = static_cast<uint32_t>(key & 0x1);
-    const int &feature_id = key_pair.feature_id;
-    size_t pos = Hash()(key_pair) % capacity;
-
-    uint32_t r_idx_plus_one = 0;
-    while (r_idx_plus_one == 0) {
-      bool prob_next = false;
-
-      KeyType *key_ptr = &table[pos].key;
-      volatile uint64_t *table_value_ptr = &table[pos].value.value;
-
-      const KeyType old_key = atomicCAS(key_ptr, 0, key_hi);
-      if (old_key == 0) {
-        BucketRangeType insert_pos = atomic_add(current_d_num_key, 1);
-        r_idx_plus_one = static_cast<uint32_t>(insert_pos) + 1;
-        TableValue insert_value;
-        insert_value.detail.r_idx_plus_one = r_idx_plus_one;
-        insert_value.detail.feature_id_and_key_lo = (feature_id << 1U | key_lo);
-        *table_value_ptr = insert_value.value;
-        current_partitioned_keys[r_idx_plus_one - 1] = key;
-
-        assert(r_idx_plus_one <= result.max_num_key_per_partition);
-        current_feature_ids[r_idx_plus_one - 1] = feature_id;
-      } else if (old_key == key_hi) {
-        TableValue insert_value;
-        insert_value.value = *table_value_ptr;
-        uint32_t table_r_idx_plus_one = insert_value.detail.r_idx_plus_one;
-        uint32_t table_feature_id_and_key_lo = insert_value.detail.feature_id_and_key_lo;
-
-        if (table_r_idx_plus_one == 0 && table_feature_id_and_key_lo == 0) {
-          // do nothing
-        } else if ((table_feature_id_and_key_lo & 0x1) == key_lo &&
-                   table_feature_id_and_key_lo >> 1U == feature_id) {
-          r_idx_plus_one = table_r_idx_plus_one;
-        } else {
-          prob_next = true;
-        }
-      } else {
-        prob_next = true;
-      }
-
-      if (prob_next) {
-        pos += 1;
-        if (pos >= capacity) {
-          pos -= capacity;
-        }
-      }
+    KeyPair<KeyType> unique_out = {0, 0};
+    bool is_unique = true;
+    auto r_idx_plus_one =
+        core23::get_insert_dump<KeyPair<KeyType>, TableEntry<KeyType>, BucketRangeType, Hash>(
+            key_pair, table, current_d_num_key, unique_out, capacity, {0, 0}, is_unique);
+    if (is_unique) {
+      current_partitioned_keys[r_idx_plus_one - 1] = unique_out.key;
+      current_feature_ids[r_idx_plus_one - 1] = unique_out.feature_id;
     }
     return partition_id * result.max_num_key_per_partition + r_idx_plus_one;
   }
