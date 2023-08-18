@@ -231,12 +231,12 @@ namespace HugeCTR {
 
 #define HCTR_PRINT(NAME, ...) HCTR_PRINT_AT(LOG_LEVEL(NAME), __VA_ARGS__)
 
-#define HCTR_PRINT_AT(LEVEL, ...)                                                   \
-  do {                                                                              \
-    HugeCTR::Logger& logger{HugeCTR::Logger::get()};                                \
-    if (logger.enabled_at(LEVEL, LOG_RANK_ROOT)) {                                  \
-      logger.print(LEVEL, false, HugeCTR::core23::hctr_render_string(__VA_ARGS__)); \
-    }                                                                               \
+#define HCTR_PRINT_AT(LEVEL, ...)                    \
+  do {                                               \
+    HugeCTR::Logger& logger{HugeCTR::Logger::get()}; \
+    if (logger.enabled_at(LEVEL, LOG_RANK_ROOT)) {   \
+      logger.printf(LEVEL, false, __VA_ARGS__);      \
+    }                                                \
   } while (0)
 
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL

@@ -137,7 +137,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       }
     }
     for (auto c : unique_cat) {
-      HCTR_PRINT(INFO, " %d", (int)c.first);
+      HCTR_PRINT(INFO, " %d", static_cast<int>(c.first));
     }
     HCTR_PRINT(INFO, "\n");
   }
@@ -181,11 +181,11 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     for (size_t i = 0; i < num_frequent; ++i) {
       dtype cat = h_frequent_categories[i];
-      cudaMemcpy(embedding->frequent_embeddings_single_node_[device]
-                         .frequent_data_.frequent_embedding_vectors_.get_ptr() +
-                     i * embedding_vec_size,
-                 full_emb_table.data() + cat * embedding_vec_size,
-                 sizeof(float) * embedding_vec_size, cudaMemcpyHostToDevice);
+      HCTR_LIB_THROW(cudaMemcpy(embedding->frequent_embeddings_single_node_[device]
+                                        .frequent_data_.frequent_embedding_vectors_.get_ptr() +
+                                    i * embedding_vec_size,
+                                full_emb_table.data() + cat * embedding_vec_size,
+                                sizeof(float) * embedding_vec_size, cudaMemcpyHostToDevice));
     }
 
     if (debug_print && device == 0) {
@@ -225,8 +225,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     }
 
     for (size_t i = 0; i < total_categories; ++i) {
-      if ((int)h_category_location[2 * i] == global_id &&
-          (size_t)h_category_location[2 * i + 1] < total_categories) {
+      if (static_cast<int>(h_category_location[2 * i]) == global_id &&
+          static_cast<size_t>(h_category_location[2 * i + 1]) < total_categories) {
         auto loc = h_category_location[2 * i + 1];
         memcpy(h_infrequent_embedding_vectors + loc * embedding_vec_size,
                full_emb_table.data() + i * embedding_vec_size, sizeof(float) * embedding_vec_size);
@@ -273,7 +273,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   if (debug_print) {
     HCTR_LOG(INFO, ROOT, "Generated full embedding table\n");
     for (size_t i = 0; i < full_emb_table.size(); i++) {
-      HCTR_PRINT(INFO, "%8.5f ", (float)full_emb_table[i]);
+      HCTR_PRINT(INFO, "%8.5f ", full_emb_table[i]);
       if (i % embedding_vec_size == embedding_vec_size - 1) {
         HCTR_PRINT(INFO, "\n");
       }
@@ -338,7 +338,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       HCTR_LOG(INFO, ROOT, "Instance %d model indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
-        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", static_cast<int>(tmp[j]));
       }
       HCTR_PRINT(INFO, "\n");
 
@@ -346,18 +346,18 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       for (int j = 0; j < num_procs + 1; j++) {
         if (embedding->embedding_params_.communication_type ==
             CommunicationType::NVLink_SingleNode) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_single_node_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_single_node_[device]
                          .indices_->model_indices_offsets_.get_ptr()[j]);
         }
         if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_ib_nvlink_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_ib_nvlink_[device]
                          .indices_->model_indices_offsets_.get_ptr()[j]);
         }
         if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_ib_nvlink_hier_[device]
                          .indices_->model_indices_offsets_.get_ptr()[j]);
         }
       }
@@ -375,7 +375,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
           embedding->frequent_embeddings_single_node_[device].indices_->frequent_sample_indices_,
           0);
       for (int j = 0; j < num_batch_frequent; j++) {
-        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", static_cast<int>(tmp[j]));
       }
       HCTR_PRINT(INFO, "\n");
     }
@@ -399,7 +399,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       HCTR_LOG(INFO, ROOT, "Instance %d network indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
-        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", static_cast<int>(tmp[j]));
       }
       HCTR_PRINT(INFO, "\n");
 
@@ -411,18 +411,18 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
         if (embedding->embedding_params_.communication_type ==
             CommunicationType::NVLink_SingleNode) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_single_node_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_single_node_[device]
                          .indices_->network_indices_offsets_.get_ptr()[j]);
         }
         if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_ib_nvlink_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_ib_nvlink_[device]
                          .indices_->network_indices_offsets_.get_ptr()[j]);
         }
         if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-          HCTR_PRINT(INFO, " %d",
-                     (int)embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+          HCTR_PRINT(INFO, " %u",
+                     embedding->infrequent_embeddings_ib_nvlink_hier_[device]
                          .indices_->network_indices_offsets_.get_ptr()[j]);
         }
       }
@@ -454,7 +454,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
         HCTR_LOG(INFO, ROOT, " Instance %d sample %ld slot %ld comparing category %ld: ", global_id,
                  i, table, cat_id);
         for (size_t j = 0; j < embedding_vec_size; j++) {
-          HCTR_PRINT(INFO, " (%8.5f : %8.5f) ", (float)actual_ptr[j], (float)expected_ptr[j]);
+          HCTR_PRINT(INFO, " (%8.5f : %8.5f) ", static_cast<float>(actual_ptr[j]),
+                     static_cast<float>(expected_ptr[j]));
         }
         HCTR_PRINT(INFO, "\n");
       }
@@ -509,7 +510,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       if (i % embedding_vec_size == 0) {
         HCTR_PRINT(INFO, "\nRank %d cat %ld :: ", rank, i / embedding_vec_size);
       }
-      HCTR_PRINT(INFO, "%8.5f ", (float)gradients[i]);
+      HCTR_PRINT(INFO, "%8.5f ", static_cast<float>(gradients[i]));
     }
     HCTR_PRINT(INFO, "\n");
   }
@@ -545,9 +546,9 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
                                     i * embedding_vec_size,
                                 sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost));
       for (size_t j = 0; j < embedding_vec_size; j++) {
-        ASSERT_NEAR((double)h_frequent_embedding_vectors[j],
-                    (double)full_emb_table.data()[cat_id * embedding_vec_size + j] -
-                        (double)gradients.data()[cat_id * embedding_vec_size + j] * lr,
+        ASSERT_NEAR(static_cast<double>(h_frequent_embedding_vectors[j]),
+                    static_cast<double>(full_emb_table.data()[cat_id * embedding_vec_size + j]) -
+                        static_cast<double>(gradients.data()[cat_id * embedding_vec_size + j]) * lr,
                     epsilon)
             << "Gradient (frequent) mismatch on instance " << global_id << " in category " << cat_id
             << " dimension " << j << "/" << embedding_vec_size << std::endl;
@@ -599,14 +600,16 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     }
 
     for (size_t cat_id = 0; cat_id < total_categories; ++cat_id) {
-      if ((int)h_category_location[2 * cat_id] == global_id) {
+      if (static_cast<int>(h_category_location[2 * cat_id]) == global_id) {
         auto local_cat_id = h_category_location[2 * cat_id + 1];
 
         for (size_t j = 0; j < embedding_vec_size; j++) {
-          ASSERT_NEAR((double)h_infrequent_embedding_vectors[local_cat_id * embedding_vec_size + j],
-                      (double)full_emb_table.data()[cat_id * embedding_vec_size + j] -
-                          (double)gradients.data()[cat_id * embedding_vec_size + j] * lr,
-                      epsilon)
+          ASSERT_NEAR(
+              static_cast<double>(
+                  h_infrequent_embedding_vectors[local_cat_id * embedding_vec_size + j]),
+              static_cast<double>(full_emb_table.data()[cat_id * embedding_vec_size + j]) -
+                  static_cast<double>(gradients.data()[cat_id * embedding_vec_size + j]) * lr,
+              epsilon)
               << "Gradient (infrequent) mismatch on instance " << global_id << " in category "
               << cat_id << " dimension " << j << "/" << embedding_vec_size << std::endl;
         }
@@ -626,13 +629,13 @@ void end_to_end(std::vector<int> device_list, size_t num_tables, size_t total_ca
   size_t num_total_gpus = num_procs * device_list.size();
 
   HybridEmbeddingConfig<dtype> test_config = {
-      (size_t)num_procs,
+      static_cast<size_t>(num_procs),
       num_total_gpus,
       num_tables,
       embedding_vec_size,
-      (dtype)total_categories,
-      (dtype)0,  // irrelevant here
-      1.0f,      // irrelevant here
+      static_cast<dtype>(total_categories),
+      {},    // irrelevant here
+      1.0f,  // irrelevant here
       num_procs == 1 ? hybrid_embedding::CommunicationType::NVLink_SingleNode
                      : hybrid_embedding::CommunicationType::IB_NVLink,
   };
@@ -650,13 +653,13 @@ void end_to_end(std::vector<int> device_list, std::vector<size_t> table_sizes, s
   size_t num_total_gpus = num_procs * device_list.size();
 
   HybridEmbeddingConfig<dtype> test_config = {
-      (size_t)num_procs,
+      static_cast<size_t>(num_procs),
       num_total_gpus,
       0,  // irrelevant here
       embedding_vec_size,
-      0,         // irrelevant here
-      (dtype)0,  // irrelevant here
-      1.0f,      // irrelevant here
+      {},    // irrelevant here
+      {},    // irrelevant here
+      1.0f,  // irrelevant here
       num_procs == 1 ? hybrid_embedding::CommunicationType::NVLink_SingleNode
                      : hybrid_embedding::CommunicationType::IB_NVLink,
   };
