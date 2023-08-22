@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS TensorRT Plugin Benchmark for TensorFlow Large Model &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_trt/notebooks/benchmark_tf_trained_large_model.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      Beginning in January 2023, versions for all NVIDIA Merlin projects
+      will change from semantic versioning like <code>4.0</code>
+      to calendar versioning like <code>23.01</code>.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">HPS TensorRT Plugin Benchmark for TensorFlow Large Model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hps-tensorrt-plugin-benchmark-for-tensorflow-large-model">
+<h1>HPS TensorRT Plugin Benchmark for TensorFlow Large Model<a class="headerlink" href="#hps-tensorrt-plugin-benchmark-for-tensorflow-large-model" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>This notebook demonstrates how to benchmark the HPS-integrated TensorRT engine for the TensorFlow large model.</p>
+<p>For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+<ol class="arabic simple">
+<li><p><span class="xref myst">Create TF Create the TF model</span>.</p></li>
+<li><p><span class="xref myst">Build the HPS-integrated TensorRT engine</span></p></li>
+<li><p><span class="xref myst">Benchmark HPS-integrated TensorRT engine on Triton</span></p></li>
+<li><p><span class="xref myst">Benchmark HPS-integrated TensorRT engine on <strong>Grace and Hooper</strong></span></p></li>
+</ol>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="use-ngc">
+<h3>Use NGC<a class="headerlink" href="#use-ngc" title="Permalink to this headline"></a></h3>
+<p>The HPS TensorRT plugin is preinstalled in the 23.05 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.05</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+<span class="n">plugin_handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p><a id="section-1"></a></p>
+</div>
+</div>
+<div class="section" id="create-the-tf-model">
+<h2>1. Create the TF model<a class="headerlink" href="#create-the-tf-model" title="Permalink to this headline"></a></h2>
+<p>We define the model graph with native TF layers, i.e., <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code>, <code class="docutils literal notranslate"><span class="pre">tf.keras.layers.Dense</span></code> and so on. The embedding lookup layer is a placeholder here, which will be replaced by HPS plugin later to support looking up 147GB embedding table efficiently.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-06-08 02:22:18.552734: I tensorflow/core/platform/cpu_feature_guard.cc:194] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">LiteModel</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">init_tensors</span><span class="p">,</span>
+                 <span class="n">embed_vec_size</span><span class="p">,</span>
+                 <span class="n">slot_num</span><span class="p">,</span>
+                 <span class="n">dense_dim</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LiteModel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_tensors</span> <span class="o">=</span> <span class="n">init_tensors</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">initial_value</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_tensors</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size</span> <span class="o">=</span> <span class="n">embed_vec_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="n">slot_num</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span> <span class="o">=</span> <span class="n">dense_dim</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Concatenate</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;concat1&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc1&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc2&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fc3&quot;</span><span class="p">)</span>            
+    
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">categorical_features</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">]</span>
+        <span class="n">numerical_features</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">]</span>
+        
+        <span class="n">embedding_vector</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="n">categorical_features</span><span class="p">)</span>
+        <span class="n">reduced_embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">reduce_mean</span><span class="p">(</span><span class="n">embedding_vector</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">concat_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span><span class="p">([</span><span class="n">reduced_embedding</span><span class="p">,</span> <span class="n">numerical_features</span><span class="p">])</span>
+        
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">concat_features</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">logit</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="p">,</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">),</span> 
+                  <span class="s2">&quot;numerical_features&quot;</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span><span class="p">,</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;numrical_features&quot;</span><span class="p">)}</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># This is the placeholder embedding table. The real embedding table is of 147GB</span>
+<span class="n">init_tensors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">LiteModel</span><span class="p">(</span><span class="n">init_tensors</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dlrm&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">categorical_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">100</span><span class="p">,</span> <span class="p">(</span><span class="mi">4096</span><span class="p">,</span><span class="mi">26</span><span class="p">))</span>
+<span class="n">numerical_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="mi">4096</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">:</span> <span class="n">categorical_features</span><span class="p">,</span> <span class="s2">&quot;numerical_features&quot;</span><span class="p">:</span> <span class="n">numerical_features</span><span class="p">}</span>
+<span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;3fc_light.savedmodel&quot;</span><span class="p">)</span>
+
+<span class="c1"># Release the occupied GPU memory by TensorFlow and Keras</span>
+<span class="kn">from</span> <span class="nn">numba</span> <span class="kn">import</span> <span class="n">cuda</span>
+<span class="n">cuda</span><span class="o">.</span><span class="n">select_device</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cuda</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:The following Variables were used in a Lambda layer&#39;s call (tf.compat.v1.nn.embedding_lookup_1), but are not present in its tracked objects:   &lt;tf.Variable &#39;Variable:0&#39; shape=(10000, 128) dtype=float32&gt;. This is a strong indication that the Lambda layer should be rewritten as a subclassed Layer.
+Model: &quot;model_1&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ categorical_features (InputLay  [(None, 26)]        0           []                               
+ er)                                                                                              
+                                                                                                  
+ tf.compat.v1.nn.embedding_look  (None, 26, 128)     0           [&#39;categorical_features[0][0]&#39;]   
+ up_1 (TFOpLambda)                                                                                
+                                                                                                  
+ tf.math.reduce_mean_1 (TFOpLam  (None, 128)         0           [&#39;tf.compat.v1.nn.embedding_looku
+ bda)                                                            p_1[0][0]&#39;]                      
+                                                                                                  
+ numrical_features (InputLayer)  [(None, 13)]        0           []                               
+                                                                                                  
+ concat1 (Concatenate)          (None, 141)          0           [&#39;tf.math.reduce_mean_1[0][0]&#39;,  
+                                                                  &#39;numrical_features[0][0]&#39;]      
+                                                                                                  
+ fc1 (Dense)                    (None, 1024)         145408      [&#39;concat1[0][0]&#39;]                
+                                                                                                  
+ fc2 (Dense)                    (None, 256)          262400      [&#39;fc1[0][0]&#39;]                    
+                                                                                                  
+ fc3 (Dense)                    (None, 1)            257         [&#39;fc2[0][0]&#39;]                    
+                                                                                                  
+==================================================================================================
+Total params: 408,065
+Trainable params: 408,065
+Non-trainable params: 0
+__________________________________________________________________________________________________
+INFO:tensorflow:Assets written to: 3fc_light.savedmodel/assets
+</pre></div>
+</div>
+</div>
+</div>
+<p><a id="section-2"></a></p>
+</div>
+<div class="section" id="build-the-hps-integrated-tensorrt-engine">
+<h2>2. Build the HPS-integrated TensorRT engine<a class="headerlink" href="#build-the-hps-integrated-tensorrt-engine" title="Permalink to this headline"></a></h2>
+<p>In order to use HPS in the inference stage, we create JSON configuration file and leverage the 147GB embedding table files in the HPS format.</p>
+<p>Then we convert the TF saved model to ONNX, and employ the ONNX GraphSurgoen tool to replace the native TF embedding lookup layer with the placeholder of HPS TensorRT plugin layer.</p>
+<p>After that, we can build the TensorRT engine, which is comprised of the HPS TensorRT plugin layer and the dense network.</p>
+<p><a id="section-2_1"></a></p>
+<div class="section" id="step1-prepare-the-147gb-embedding-table">
+<h3>Step1: Prepare the 147GB embedding table<a class="headerlink" href="#step1-prepare-the-147gb-embedding-table" title="Permalink to this headline"></a></h3>
+<p>The current instructions below assume  you need to train a 147GB DLRM model from scratch based <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM_and_DCNv2">DeepLearningExamples</a> using the 1TB criteo dataset.</p>
+<div class="section" id="train-a-147gb-model-from-scratch">
+<h4>1.1 Train a 147GB model from scratch<a class="headerlink" href="#train-a-147gb-model-from-scratch" title="Permalink to this headline"></a></h4>
+<p>Please refer to the <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/blob/master/TensorFlow2/Recommendation/DLRM_and_DCNv2/doc/DLRM.md#quick-start-guide">Quick Start Guide for DLRM</a>, which contains the following important steps:</p>
+<ol class="arabic">
+<li><p>Built the training docker container.</p></li>
+<li><p>Preprocessing the training datasets.<br />
+Here you have two options, you can use the 1TB Criteo dataset to train a 147GB model (need to use Spark for data preprocessing), or you can use a synthetic dataset (avoid the preprocessing process) for fast verification.<br />
+2.1. <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/blob/master/TensorFlow2/Recommendation/DLRM_and_DCNv2/doc/criteo_dataset.md#quick-start-guide">Preprocess the Criteo 1TB dataset</a><br />
+<em>A</em>. <code class="docutils literal notranslate"><span class="pre">Please</span> <span class="pre">change</span> <span class="pre">the</span> <span class="pre">frequency</span> <span class="pre">limit</span> <span class="pre">to</span></code> <em><code class="docutils literal notranslate"><span class="pre">2</span></code></em> in the step <code class="docutils literal notranslate"><span class="pre">6</span> <span class="pre">.Preprocess</span> <span class="pre">the</span> <span class="pre">data</span></code> to generate a training dataset for the 147GB embedding model file.<br />
+<em>B</em>. Please ensure that the <em><code class="docutils literal notranslate"><span class="pre">final_output_dir</span></code></em> path is consistent with the input data path in the Part 3 for <code class="docutils literal notranslate"><span class="pre">step</span> <span class="pre">3</span> <span class="pre">Prepare</span> <span class="pre">the</span> <span class="pre">benchmark</span> <span class="pre">input</span> <span class="pre">data</span></code>.<br />
+Note: The frequency limit is used to filter out the categorical values which appear less than <code class="docutils literal notranslate"><span class="pre">n</span></code> times in the whole dataset, and make them be 0. Change this variable to 1 to enable it. The default frequency limit is 15 in the script. You also can change the number as you want by changing the line of OPTS=”–frequency_limit 8”.</p>
+<p>2.2  <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/blob/master/TensorFlow2/Recommendation/DLRM_and_DCNv2/doc/DLRM.md#quick-start-guide">Generate synthetic data in the same format as Criteo</a><br />
+Downloading and preprocessing the Criteo 1TB dataset requires a lot of time and disk space. Because of this we provide a synthetic dataset generator that roughly matches Criteo 1TB characteristics. This will enable you to benchmark quickly.</p>
+</li>
+<li><p>Run the training and saved a model checkpoint. If you haven’t completed those steps.<br />
+Note:If the model is successfully saved, you will find that each category feature of the Criteo data will export a <code class="docutils literal notranslate"><span class="pre">feauture_*.npy</span></code> file, which is the embedding table for each feature, and you will merge these npy files into a complete binary embedding table for HPS in the next step.</p></li>
+</ol>
+</div>
+<div class="section" id="get-the-embedding-model-file-in-hps-format">
+<h4>1.2 Get the embedding model file in hps format<a class="headerlink" href="#get-the-embedding-model-file-in-hps-format" title="Permalink to this headline"></a></h4>
+<p>After completing the model training and getting the 147GB embedding model file, you need to convert the embedding table  file to the HPS-format embedding file.
+In addition: you only need to complete the first three steps in the <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/blob/master/TensorFlow2/Recommendation/DLRM_and_DCNv2/doc/merlin_hps_inference.md#quick-start-guide">Quick Start Guide</a> to obtain the HPS-format embedding file.</p>
+<ol class="arabic simple">
+<li><p>Build the Merlin HPS docker container.</p></li>
+<li><p>Run the training docker container built during the training stage.</p></li>
+<li><p>Convert the model checkpoint into a Triton model repository.</p></li>
+</ol>
+<p>Then you will find a folder named <code class="docutils literal notranslate"><span class="pre">sparse</span></code> under your deploy_path(The paths provided in steps 2 and 3) for format conversion, from which you can find the two embedding table files(<code class="docutils literal notranslate"><span class="pre">emb_vector</span></code> and <code class="docutils literal notranslate"><span class="pre">key</span></code>) in HPS format.</p>
+<ol class="arabic simple" start="4">
+<li><p>Copy the above two files(<code class="docutils literal notranslate"><span class="pre">emb_vector</span></code> and <code class="docutils literal notranslate"><span class="pre">key</span></code>) to the deployment path (model_repo/hps_model/1/dlrm_sparse.model)</p></li>
+</ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>-n<span class="w"> </span>model_repo/hps_model/1/dlrm_sparse.model
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>model_repo/hps_model/1/dlrm_sparse.model
+├── memb_vector
+└── mkey
+
+0 directories, 2 files
+</pre></div>
+</div>
+</div>
+</div>
+<p><a id="section-2.2"></a></p>
+</div>
+</div>
+<div class="section" id="step2-prepare-json-configuration-file-for-hps">
+<h3>Step2: Prepare JSON configuration file for HPS<a class="headerlink" href="#step2-prepare-json-configuration-file-for-hps" title="Permalink to this headline"></a></h3>
+<p>Please note that the storage format in the <code class="docutils literal notranslate"><span class="pre">dlrm_sparse.model/key</span></code> file is int64, while the HPS TensorRT plugin currently only support int32 when loading the keys into memory.<br />
+Note:In order to facilitate the benchmark test from the minimum batch to the maximum batch, we set the test range to a maximum of 65536. If you want to get better performance, please set each batch independently. For instance, if you set batch=32, it is only used to the case with 32 samples for one batch.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> light.json
+<span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;light&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/hugectr/hps_trt/notebooks/model_repo/hps_model/1/dlrm_sparse.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;num_of_refresher_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">26</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">65536</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">0.00</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+        <span class="s2">&quot;init_ec&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_cache_type&quot;</span><span class="p">:</span> <span class="s2">&quot;static&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;enable_pagelock&quot;</span> <span class="o">=</span> <span class="n">true</span>
+        <span class="s2">&quot;use_context_stream&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing light.json
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step3-convert-to-onnx-and-do-onnx-graph-surgery">
+<h3>Step3: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step3-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># convert TF SavedModel to ONNX</span>
+<span class="o">!</span>python<span class="w"> </span>-m<span class="w"> </span>tf2onnx.convert<span class="w"> </span>--saved-model<span class="w"> </span>3fc_light.savedmodel<span class="w"> </span>--output<span class="w"> </span>3fc_light.onnx
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2023-06-08 02:28:29.577492: I tensorflow/core/platform/cpu_feature_guard.cc:194] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/usr/lib/python3.8/runpy.py:127: RuntimeWarning: &#39;tf2onnx.convert&#39; found in sys.modules after import of package &#39;tf2onnx&#39;, but prior to execution of &#39;tf2onnx.convert&#39;; this may result in unpredictable behaviour
+  warn(RuntimeWarning(msg))
+2023-06-08 02:28:32,462 - WARNING - ***IMPORTANT*** Installed protobuf is not cpp accelerated. Conversion will be extremely slow. See https://github.com/onnx/tensorflow-onnx/issues/1557
+2023-06-08 02:28:36,132 - WARNING - &#39;--tag&#39; not specified for saved_model. Using --tag serve
+2023-06-08 02:28:36,928 - INFO - Signatures found in model: [serving_default].
+2023-06-08 02:28:36,928 - WARNING - &#39;--signature_def&#39; not specified, using first signature: serving_default
+2023-06-08 02:28:36,928 - INFO - Output names: [&#39;output_1&#39;]
+2023-06-08 02:28:37,440 - INFO - Using tensorflow=2.11.0, onnx=1.14.0, tf2onnx=1.14.0/8f8d49
+2023-06-08 02:28:37,440 - INFO - Using opset &lt;onnx, 15&gt;
+2023-06-08 02:28:37,459 - INFO - Computed 0 values for constant folding
+2023-06-08 02:28:37,482 - INFO - Optimizing ONNX model
+2023-06-08 02:28:37,541 - INFO - After optimization: Const -3 (7-&gt;4), Identity -2 (2-&gt;0)
+2023-06-08 02:28:37,781 - INFO - 
+2023-06-08 02:28:37,781 - INFO - Successfully converted TensorFlow model 3fc_light.savedmodel to ONNX
+2023-06-08 02:28:37,781 - INFO - Model inputs: [&#39;categorical_features&#39;, &#39;numerical_features&#39;]
+2023-06-08 02:28:37,781 - INFO - Model outputs: [&#39;output_1&#39;]
+2023-06-08 02:28:37,781 - INFO - ONNX model is saved at 3fc_light.onnx
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span> <span class="c1"># ONNX graph surgery to insert HPS the TensorRT plugin placeholder</span>
+<span class="kn">import</span> <span class="nn">onnx_graphsurgeon</span> <span class="k">as</span> <span class="nn">gs</span>
+<span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span>  <span class="n">shape_inference</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">onnx</span>
+
+<span class="n">graph</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">import_onnx</span><span class="p">(</span><span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;3fc_light.onnx&quot;</span><span class="p">))</span>
+<span class="n">saved</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;StatefulPartitionedCall/dlrm/embedding_lookup&quot;</span><span class="p">:</span>
+        <span class="n">categorical_features</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>
+        <span class="n">hps_node</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="n">op</span><span class="o">=</span><span class="s2">&quot;HPS_TRT&quot;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">:</span> <span class="s2">&quot;light.json</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;light</span><span class="se">\0</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;table_id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;emb_vec_size&quot;</span><span class="p">:</span> <span class="mi">128</span><span class="p">},</span> 
+                           <span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">categorical_features</span><span class="p">],</span> <span class="n">outputs</span><span class="o">=</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hps_node</span><span class="p">)</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">categorical_features</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;numerical_features&quot;</span><span class="p">:</span>
+        <span class="n">saved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="n">graph</span><span class="o">.</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">saved</span>
+
+<span class="n">graph</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span><span class="o">.</span><span class="n">toposort</span><span class="p">()</span>
+<span class="n">onnx</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">export_onnx</span><span class="p">(</span><span class="n">graph</span><span class="p">),</span> <span class="s2">&quot;3fc_light_with_hps.onnx&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[W] colored module is not installed, will not use colors when logging. To enable colors, please install the colored module: python3 -m pip install colored
+[W] Found distinct tensors that share the same name:
+[id: 139822124016208] Variable (categorical_features): (shape=(&#39;unknown&#39;, 26), dtype=&lt;class &#39;numpy.int32&#39;&gt;)
+[id: 139821990953120] Variable (categorical_features): (shape=[&#39;unk__6&#39;, 26], dtype=int64)
+Note: Producer node(s) of first tensor:
+[]
+Producer node(s) of second tensor:
+[]
+[W] colored module is not installed, will not use colors when logging. To enable colors, please install the colored module: python3 -m pip install colored
+[W] Found distinct tensors that share the same name:
+[id: 139821990953120] Variable (categorical_features): (shape=[&#39;unk__6&#39;, 26], dtype=int64)
+[id: 139822124016208] Variable (categorical_features): (shape=(&#39;unknown&#39;, 26), dtype=&lt;class &#39;numpy.int32&#39;&gt;)
+Note: Producer node(s) of first tensor:
+[]
+Producer node(s) of second tensor:
+[]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step4-build-the-tensorrt-engine">
+<h3>Step4: Build the TensorRT engine<a class="headerlink" href="#step4-build-the-tensorrt-engine" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorrt</span> <span class="k">as</span> <span class="nn">trt</span>
+<span class="kn">import</span> <span class="nn">ctypes</span>
+
+<span class="n">TRT_LOGGER</span> <span class="o">=</span> <span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">trt</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">EXPLICIT_BATCH</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="nb">int</span><span class="p">)(</span><span class="n">trt</span><span class="o">.</span><span class="n">NetworkDefinitionCreationFlag</span><span class="o">.</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">create_hps_plugin_creator</span><span class="p">():</span>
+    <span class="n">trt_version</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">trt</span><span class="o">.</span><span class="n">__version__</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
+
+    <span class="n">plugin_lib_name</span> <span class="o">=</span> <span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span>
+    <span class="n">handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">plugin_lib_name</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
+
+    <span class="n">trt</span><span class="o">.</span><span class="n">init_libnvinfer_plugins</span><span class="p">(</span><span class="n">TRT_LOGGER</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">plg_registry</span> <span class="o">=</span> <span class="n">trt</span><span class="o">.</span><span class="n">get_plugin_registry</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">plugin_creator</span> <span class="ow">in</span> <span class="n">plg_registry</span><span class="o">.</span><span class="n">plugin_creator_list</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">plugin_creator</span><span class="o">.</span><span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;H&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">plugin_creator</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="n">hps_plugin_creator</span> <span class="o">=</span> <span class="n">plg_registry</span><span class="o">.</span><span class="n">get_plugin_creator</span><span class="p">(</span><span class="s2">&quot;HPS_TRT&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">hps_plugin_creator</span>
+
+<span class="k">def</span> <span class="nf">build_engine_from_onnx</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">trt</span><span class="o">.</span><span class="n">Builder</span><span class="p">(</span><span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">builder</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_network</span><span class="p">(</span><span class="n">EXPLICIT_BATCH</span><span class="p">)</span> <span class="k">as</span> <span class="n">network</span><span class="p">,</span> <span class="n">trt</span><span class="o">.</span><span class="n">OnnxParser</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">TRT_LOGGER</span><span class="p">)</span> <span class="k">as</span> <span class="n">parser</span><span class="p">,</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_builder_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">builder_config</span><span class="p">:</span>        
+        <span class="n">model</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">network</span><span class="o">.</span><span class="n">num_layers</span><span class="p">)</span>
+        
+        <span class="n">builder_config</span><span class="o">.</span><span class="n">set_flag</span><span class="p">(</span><span class="n">trt</span><span class="o">.</span><span class="n">BuilderFlag</span><span class="o">.</span><span class="n">FP16</span><span class="p">)</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">create_optimization_profile</span><span class="p">()</span>        
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;categorical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="p">(</span><span class="mi">65536</span><span class="p">,</span> <span class="mi">26</span><span class="p">))</span>    
+        <span class="n">profile</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="s2">&quot;numerical_features&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">65536</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+        <span class="n">builder_config</span><span class="o">.</span><span class="n">add_optimization_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">build_serialized_network</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">builder_config</span><span class="p">)</span>
+ 
+        <span class="k">return</span> <span class="n">engine</span>
+
+<span class="n">create_hps_plugin_creator</span><span class="p">()</span>
+<span class="n">serialized_engine</span> <span class="o">=</span> <span class="n">build_engine_from_onnx</span><span class="p">(</span><span class="s2">&quot;3fc_light_with_hps.onnx&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;dynamic_3fc_light.trt&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+    <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized_engine</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HPS_TRT
+[06/08/2023-02:37:03] [TRT] [I] [MemUsageChange] Init CUDA: CPU +974, GPU +0, now: CPU 2531, GPU 661 (MiB)
+[06/08/2023-02:37:09] [TRT] [I] [MemUsageChange] Init builder kernel library: CPU +336, GPU +74, now: CPU 2943, GPU 735 (MiB)
+[06/08/2023-02:37:09] [TRT] [W] CUDA lazy loading is not enabled. Enabling it can significantly reduce device memory usage and speed up TensorRT initialization. See &quot;Lazy Loading&quot; section of CUDA documentation https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#lazy-loading
+[06/08/2023-02:37:09] [TRT] [I] No importer registered for op: HPS_TRT. Attempting to import as plugin.
+[06/08/2023-02:37:09] [TRT] [I] Searching for plugin: HPS_TRT, plugin_version: 1, plugin_namespace: 
+=====================================================HPS Parse====================================================
+[HCTR][02:37:09.116][INFO][RK0][main]: fuse_embedding_table is not specified using default: 0
+[HCTR][02:37:09.116][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][02:37:09.117][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][02:37:09.117][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][02:37:09.117][INFO][RK0][main]: refresh_interval is not specified using default: 0
+[HCTR][02:37:09.117][INFO][RK0][main]: use_static_table is not specified using default: 0
+[HCTR][02:37:09.117][INFO][RK0][main]: use_hctr_cache_implementation is not specified using default: 1
+[HCTR][02:37:09.117][INFO][RK0][main]: HPS plugin uses context stream for model light: True
+====================================================HPS Create====================================================
+[HCTR][02:37:09.117][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][02:37:09.117][DEBUG][RK0][main]: Created blank database backend in local memory!
+[HCTR][02:37:09.117][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][02:37:09.117][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][02:37:09.117][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][02:37:09.177][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][02:37:09.177][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][02:37:09.177][INFO][RK0][main]: Model name: light
+[HCTR][02:37:09.177][INFO][RK0][main]: Max batch size: 65536
+[HCTR][02:37:09.177][INFO][RK0][main]: Fuse embedding tables: False
+[HCTR][02:37:09.177][INFO][RK0][main]: Number of embedding tables: 1
+[HCTR][02:37:09.177][INFO][RK0][main]: Use static table: False
+[HCTR][02:37:09.177][INFO][RK0][main]: Use I64 input key: False
+[HCTR][02:37:09.177][INFO][RK0][main]: The size of worker memory pool: 1
+[HCTR][02:37:09.177][INFO][RK0][main]: The size of refresh memory pool: 0
+[HCTR][02:37:09.177][INFO][RK0][main]: The refresh percentage : 0.000000
+[HCTR][02:38:09.140][INFO][RK0][main]: Initialize the embedding cache by by inserting the same size model file with embedding cache from beginning
+[HCTR][02:38:09.140][DEBUG][RK0][main]: Created raw model loader in local memory!
+[HCTR][02:38:09.141][INFO][RK0][main]: EC initialization on device 0 for hps_et.light.sparse_embedding1
+[HCTR][03:41:57.227][INFO][RK0][main]: LookupSession i64_input_key: False
+[HCTR][03:41:57.227][INFO][RK0][main]: Creating lookup session for light on device: 0
+[06/08/2023-03:41:57] [TRT] [I] Successfully created plugin: HPS_TRT
+9
+[06/08/2023-03:41:57] [TRT] [I] BuilderFlag::kTF32 is set but hardware does not support TF32. Disabling TF32.
+[06/08/2023-03:41:57] [TRT] [I] Graph optimization time: 0.0088975 seconds.
+[06/08/2023-03:41:57] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +1, GPU +8, now: CPU 2952, GPU 12129 (MiB)
+[06/08/2023-03:41:57] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +349, GPU +190, now: CPU 3301, GPU 12319 (MiB)
+[06/08/2023-03:41:57] [TRT] [W] TensorRT was linked against cuDNN 8.9.0 but loaded cuDNN 8.7.0
+[06/08/2023-03:41:57] [TRT] [I] BuilderFlag::kTF32 is set but hardware does not support TF32. Disabling TF32.
+[06/08/2023-03:41:57] [TRT] [I] Local timing cache in use. Profiling results in this builder pass will not be stored.
+[06/08/2023-03:42:03] [TRT] [I] Detected 2 inputs and 1 output network tensors.
+[06/08/2023-03:42:03] [TRT] [I] Total Host Persistent Memory: 16672
+[06/08/2023-03:42:03] [TRT] [I] Total Device Persistent Memory: 0
+[06/08/2023-03:42:03] [TRT] [I] Total Scratch Memory: 0
+[06/08/2023-03:42:03] [TRT] [I] [MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU 3 MiB, GPU 1248 MiB
+[06/08/2023-03:42:03] [TRT] [I] [BlockAssignment] Started assigning block shifts. This will take 10 steps to complete.
+[06/08/2023-03:42:03] [TRT] [I] [BlockAssignment] Algorithm ShiftNTopDown took 0.040758ms to assign 3 blocks to 10 nodes requiring 905970176 bytes.
+[06/08/2023-03:42:03] [TRT] [I] Total Activation Memory: 905969664
+[06/08/2023-03:42:03] [TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +0, GPU +8, now: CPU 3302, GPU 12397 (MiB)
+[06/08/2023-03:42:03] [TRT] [I] [MemUsageChange] Init cuDNN: CPU +0, GPU +10, now: CPU 3302, GPU 12407 (MiB)
+[06/08/2023-03:42:03] [TRT] [W] TensorRT was linked against cuDNN 8.9.0 but loaded cuDNN 8.7.0
+[06/08/2023-03:42:03] [TRT] [W] TensorRT encountered issues when converting weights between types and that could affect accuracy.
+[06/08/2023-03:42:03] [TRT] [W] If this is not the desired behavior, please modify the weights or retrain with regularization to adjust the magnitude of the weights.
+[06/08/2023-03:42:03] [TRT] [W] Check verbose logs for the list of affected weights.
+[06/08/2023-03:42:03] [TRT] [W] - 2 weights are affected by this issue: Detected subnormal FP16 values.
+[06/08/2023-03:42:03] [TRT] [I] [MemUsageChange] TensorRT-managed allocation in building engine: CPU +0, GPU +4, now: CPU 0, GPU 4 (MiB)
+</pre></div>
+</div>
+</div>
+</div>
+<p><a id="section-3"></a></p>
+</div>
+</div>
+<div class="section" id="benchmark-hps-integrated-tensorrt-engine-on-triton">
+<h2>3. Benchmark HPS-integrated TensorRT engine on Triton<a class="headerlink" href="#benchmark-hps-integrated-tensorrt-engine-on-triton" title="Permalink to this headline"></a></h2>
+<div class="section" id="step1-create-the-model-repository">
+<h3>Step1: Create the model repository<a class="headerlink" href="#step1-create-the-model-repository" title="Permalink to this headline"></a></h3>
+<p>In order to benchmark the TensorRT engine with the Triton TensorRT backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>model_repo/dynamic_3fc_lite_hps_trt/1
+<span class="o">!</span>mv<span class="w"> </span>dynamic_3fc_light.trt<span class="w"> </span>model_repo/dynamic_3fc_lite_hps_trt/1
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> model_repo/dynamic_3fc_lite_hps_trt/config.pbtxt
+
+<span class="n">platform</span><span class="p">:</span> <span class="s2">&quot;tensorrt_plan&quot;</span>
+<span class="n">default_model_filename</span><span class="p">:</span> <span class="s2">&quot;dynamic_3fc_light.trt&quot;</span>
+<span class="n">backend</span><span class="p">:</span> <span class="s2">&quot;tensorrt&quot;</span>
+<span class="n">max_batch_size</span><span class="p">:</span> <span class="mi">0</span>
+<span class="nb">input</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;categorical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_INT32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">26</span><span class="p">]</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;numerical_features&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">13</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">output</span> <span class="p">[</span>
+  <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;output_1&quot;</span>
+      <span class="n">data_type</span><span class="p">:</span> <span class="n">TYPE_FP32</span>
+      <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">]</span>
+<span class="n">instance_group</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="n">count</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">KIND_GPU</span>
+    <span class="n">gpus</span><span class="p">:[</span><span class="mi">0</span><span class="p">]</span>
+
+  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting model_repo/dynamic_3fc_lite_hps_trt/config.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>-n<span class="w"> </span>model_repo/dynamic_3fc_lite_hps_trt
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>mmodel_repo/dynamic_3fc_lite_hps_trt
+├── 1
+│   └── dynamic_3fc_light.trt
+└── config.pbtxt
+
+1 directory, 2 files
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step2-prepare-the-benchmark-input-data">
+<h3>Step2: Prepare the benchmark input data<a class="headerlink" href="#step2-prepare-the-benchmark-input-data" title="Permalink to this headline"></a></h3>
+<p>To benchmark with <a class="reference external" href="https://github.com/triton-inference-server/client/tree/main/src/c%2B%2B/perf_analyzer">Triton Performance Analyzer</a>, we need to prepare the input data of the required format based on Criteo dataset.</p>
+<p>In <span class="xref myst">part 2 section 1.1</span>, we have created the binary dataset in <code class="docutils literal notranslate"><span class="pre">final_output_dir</span></code>. We provide you with a <a class="reference download internal" download="" href="../../_downloads/11997758ab318be2f9b25bc08768d77f/spark2json.py"><span class="xref download myst">script</span></a> to convert this binary data into JSON format that can be fed into the Triton Performance Analyzer. To use the script, you will need the <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM_and_DCNv2">DeepLearningExamples</a> again. Make sure you have add it to your $PYTHONPATH.</p>
+<p>If not, please run <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PYTHONPATH=/DeepLearningExamples/TensorFlow2/Recommendation/DLRM_and_DCNv2</span></code>. <strong>Remember to replace the path with the correct path in your workspace.</strong></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">#Create a dir to store the JSON format data</span>
+<span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>./perf_data
+</pre></div>
+</div>
+</div>
+</div>
+<p><strong>Please note that the following script will takes several minutes to finish.</strong></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">#Run the Python script to convert binary data to JSON format</span>
+<span class="o">!</span>python<span class="w"> </span>spark2json.py<span class="w"> </span>--result-path<span class="w"> </span>./perf_data<span class="w"> </span>--dataset_path<span class="w"> </span>/path/to/your/binary_split_converted_data<span class="w"> </span>--num-benchmark-samples<span class="w"> </span><span class="m">2000000</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p><strong>Remember to replace the <code class="docutils literal notranslate"><span class="pre">--dataset_path</span></code> with the correct path in your workspace, and specify the <code class="docutils literal notranslate"><span class="pre">--num-benchmark-samples</span></code> you want to use.</strong></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tree<span class="w"> </span>-n<span class="w"> </span>perf_data
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>perf_data
+├── 1024.json
+├── 16384.json
+├── 2048.json
+├── 256.json
+├── 32768.json
+├── 4096.json
+├── 512.json
+├── 65536.json
+└── 8192.json
+
+0 directories, 9 files
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="step3-launch-the-triton-inference-server">
+<h3>Step3: Launch the Triton inference server<a class="headerlink" href="#step3-launch-the-triton-inference-server" title="Permalink to this headline"></a></h3>
+<p>We can then launch the Triton inference server using the TensorRT backend. Please note that <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> is utilized to load the custom TensorRT plugin (i.e., HPS TensorRT plugin) into Triton.</p>
+<p>Note: <code class="docutils literal notranslate"><span class="pre">Since</span> <span class="pre">Background</span> <span class="pre">processes</span> <span class="pre">not</span> <span class="pre">supported</span> <span class="pre">by</span> <span class="pre">Jupyter,</span> <span class="pre">please</span> <span class="pre">launch</span> <span class="pre">the</span> <span class="pre">Triton</span> <span class="pre">Server</span> <span class="pre">according</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">command</span> <span class="pre">independently</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">background</span></code>.</p>
+<blockquote>
+<div><p><strong>LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so tritonserver –model-repository=/hugectr/hps_trt/notebooks/model_repo/ –load-model=dynamic_3fc_lite_hps_trt –model-control-mode=explicit</strong></p>
+</div></blockquote>
+<p>If you successfully started tritonserver, you should see a log similar to following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+--------------------------+---------+--------+
+<span class="p">|</span><span class="w"> </span>Model<span class="w">                    </span><span class="p">|</span><span class="w"> </span>Version<span class="w"> </span><span class="p">|</span><span class="w"> </span>Status<span class="w"> </span><span class="p">|</span>
++--------------------------+---------+--------+
+<span class="p">|</span><span class="w"> </span>dynamic_3fc_lite_hps_trt<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="m">1</span><span class="w">       </span><span class="p">|</span><span class="w"> </span>READY<span class="w">  </span><span class="p">|</span>
++--------------------------+---------+--------+
+
+Started<span class="w"> </span>GRPCInferenceService<span class="w"> </span>at<span class="w"> </span><span class="m">0</span>.0.0.0:8001
+Started<span class="w"> </span>HTTPService<span class="w"> </span>at<span class="w"> </span><span class="m">0</span>.0.0.0:8000
+Started<span class="w"> </span>Metrics<span class="w"> </span>Service<span class="w"> </span>at<span class="w"> </span><span class="m">0</span>.0.0.0:8002
+</pre></div>
+</div>
+<p>We can then benchmark the online inference performance of this HPS-integrated engine with 147GB embedding table.</p>
+</div>
+<div class="section" id="step4-run-the-benchmark">
+<h3>Step4: Run the benchmark<a class="headerlink" href="#step4-run-the-benchmark" title="Permalink to this headline"></a></h3>
+<p>The reported <code class="docutils literal notranslate"><span class="pre">compute</span> <span class="pre">infer</span></code> number at the server side is the end-to-end inference latency of the engine, which covers HPS embedding lookup and TensorRT forward of dense layers.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile benchmark.sh
+
+batch_size=(256 512 1024 2048 4096 8192 16384 32768 65536)
+
+model_name=(&quot;dynamic_3fc_lite_hps_trt&quot;)
+
+for b in ${batch_size[*]};
+do
+  for m in ${model_name[*]};
+  do
+    echo $b $m
+    perf_analyzer -m ${m} -u localhost:8000 --input-data perf_data/${b}.json --shape categorical_features:${b},26 --shape numerical_features:${b},13
+  done
+done
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting benchmark.sh
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>bash<span class="w"> </span>benchmark.sh<span class="w"> </span>&gt;<span class="w"> </span>result.log
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>256 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 25600 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 20941
+    Throughput: 1163.14 infer/sec
+    Avg latency: 851 usec (standard deviation 1184 usec)
+    p50 latency: 799 usec
+    p90 latency: 922 usec
+    p95 latency: 977 usec
+    p99 latency: 1190 usec
+    Avg HTTP time: 846 usec (send/recv 85 usec + response wait 761 usec)
+  Server: 
+    Inference count: 20941
+    Execution count: 20941
+    Successful request count: 20941
+    Avg request latency: 551 usec (overhead 21 usec + queue 40 usec + compute input 38 usec + compute infer 343 usec + compute output 108 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 1163.14 infer/sec, latency 851 usec
+512 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 12800 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 14135
+    Throughput: 785.143 infer/sec
+    Avg latency: 1264 usec (standard deviation 286 usec)
+    p50 latency: 1236 usec
+    p90 latency: 1340 usec
+    p95 latency: 1374 usec
+    p99 latency: 1476 usec
+    Avg HTTP time: 1258 usec (send/recv 92 usec + response wait 1166 usec)
+  Server: 
+    Inference count: 14135
+    Execution count: 14135
+    Successful request count: 14135
+    Avg request latency: 889 usec (overhead 27 usec + queue 44 usec + compute input 42 usec + compute infer 619 usec + compute output 156 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 785.143 infer/sec, latency 1264 usec
+1024 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 6400 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 8116
+    Throughput: 450.826 infer/sec
+    Avg latency: 2206 usec (standard deviation 391 usec)
+    p50 latency: 2183 usec
+    p90 latency: 2321 usec
+    p95 latency: 2368 usec
+    p99 latency: 2486 usec
+    Avg HTTP time: 2199 usec (send/recv 118 usec + response wait 2081 usec)
+  Server: 
+    Inference count: 8116
+    Execution count: 8116
+    Successful request count: 8116
+    Avg request latency: 1632 usec (overhead 45 usec + queue 73 usec + compute input 106 usec + compute infer 1173 usec + compute output 234 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 450.826 infer/sec, latency 2206 usec
+2048 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 3200 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 5311
+    Throughput: 295.01 infer/sec
+    Avg latency: 3377 usec (standard deviation 459 usec)
+    p50 latency: 3349 usec
+    p90 latency: 3486 usec
+    p95 latency: 3530 usec
+    p99 latency: 3820 usec
+    Avg HTTP time: 3370 usec (send/recv 155 usec + response wait 3215 usec)
+  Server: 
+    Inference count: 5311
+    Execution count: 5311
+    Successful request count: 5311
+    Avg request latency: 2591 usec (overhead 50 usec + queue 76 usec + compute input 162 usec + compute infer 2068 usec + compute output 234 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 295.01 infer/sec, latency 3377 usec
+4096 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 1600 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 3518
+    Throughput: 195.42 infer/sec
+    Avg latency: 5109 usec (standard deviation 380 usec)
+    p50 latency: 5068 usec
+    p90 latency: 5242 usec
+    p95 latency: 5316 usec
+    p99 latency: 5741 usec
+    Avg HTTP time: 5104 usec (send/recv 171 usec + response wait 4933 usec)
+  Server: 
+    Inference count: 3518
+    Execution count: 3518
+    Successful request count: 3518
+    Avg request latency: 4134 usec (overhead 38 usec + queue 48 usec + compute input 138 usec + compute infer 3742 usec + compute output 167 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 195.42 infer/sec, latency 5109 usec
+8192 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 800 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 1910
+    Throughput: 106.097 infer/sec
+    Avg latency: 9412 usec (standard deviation 553 usec)
+    p50 latency: 9384 usec
+    p90 latency: 9529 usec
+    p95 latency: 9581 usec
+    p99 latency: 10106 usec
+    Avg HTTP time: 9406 usec (send/recv 294 usec + response wait 9112 usec)
+  Server: 
+    Inference count: 1910
+    Execution count: 1910
+    Successful request count: 1910
+    Avg request latency: 7674 usec (overhead 42 usec + queue 54 usec + compute input 267 usec + compute infer 7179 usec + compute output 130 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 106.097 infer/sec, latency 9412 usec
+16384 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 400 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 992
+    Throughput: 55.1033 infer/sec
+    Avg latency: 18132 usec (standard deviation 726 usec)
+    p50 latency: 18051 usec
+    p90 latency: 18257 usec
+    p95 latency: 18330 usec
+    p99 latency: 23069 usec
+    Avg HTTP time: 18125 usec (send/recv 1278 usec + response wait 16847 usec)
+  Server: 
+    Inference count: 992
+    Execution count: 992
+    Successful request count: 992
+    Avg request latency: 14999 usec (overhead 29 usec + queue 56 usec + compute input 476 usec + compute infer 14234 usec + compute output 203 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 55.1033 infer/sec, latency 18132 usec
+32768 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 200 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+  Client: 
+    Request count: 515
+    Throughput: 28.6081 infer/sec
+    Avg latency: 34878 usec (standard deviation 927 usec)
+    p50 latency: 34734 usec
+    p90 latency: 35143 usec
+    p95 latency: 35288 usec
+    p99 latency: 40804 usec
+    Avg HTTP time: 34872 usec (send/recv 2584 usec + response wait 32288 usec)
+  Server: 
+    Inference count: 516
+    Execution count: 516
+    Successful request count: 516
+    Avg request latency: 29340 usec (overhead 33 usec + queue 55 usec + compute input 870 usec + compute infer 28111 usec + compute output 270 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 28.6081 infer/sec, latency 34878 usec
+65536 dynamic_3fc_lite_hps_trt
+ Successfully read data for 1 stream/streams with 100 step/steps.
+*** Measurement Settings ***
+  Batch size: 1
+  Service Kind: Triton
+  Using &quot;time_windows&quot; mode for stabilization
+  Measurement window: 5000 msec
+  Using synchronous calls for inference
+  Stabilizing using average latency
+
+Request concurrency: 1
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  Client: 
+    Request count: 253
+    Throughput: 14.053 infer/sec
+    Avg latency: 71063 usec (standard deviation 1570 usec)
+    p50 latency: 70749 usec
+    p90 latency: 71666 usec
+    p95 latency: 73226 usec
+    p99 latency: 77979 usec
+    Avg HTTP time: 71058 usec (send/recv 5092 usec + response wait 65966 usec)
+  Server: 
+    Inference count: 253
+    Execution count: 253
+    Successful request count: 253
+    Avg request latency: 60716 usec (overhead 38 usec + queue 58 usec + compute input 1804 usec + compute infer 58482 usec + compute output 333 usec)
+
+Inferences/Second vs. Client Average Batch Latency
+Concurrency: 1, throughput: 14.053 infer/sec, latency 71063 usec
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> ./summary.py
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">argparse</span> <span class="kn">import</span> <span class="n">ArgumentParser</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span> <span class="nn">math</span>
+
+<span class="n">log_pattern</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;inference_benchmark&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;cmd_log&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;compute infer&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;result_log&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;compute infer (\d+\.?\d*) usec&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+
+<span class="p">}</span>
+
+
+
+<span class="k">def</span> <span class="nf">extract_result_from_log</span><span class="p">(</span><span class="n">log_path</span><span class="p">):</span>
+    <span class="n">job_log_pattern</span> <span class="o">=</span> <span class="n">log_pattern</span><span class="p">[</span><span class="s2">&quot;inference_benchmark&quot;</span><span class="p">]</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span>
+        <span class="n">job_logs</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;+ &quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">each_job_log</span> <span class="ow">in</span> <span class="n">job_logs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">job_log_pattern</span><span class="p">[</span><span class="s2">&quot;cmd_log&quot;</span><span class="p">],</span> <span class="n">each_job_log</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">each_job_log</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">):</span>
+                    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">job_log_pattern</span><span class="p">[</span><span class="s2">&quot;result_log&quot;</span><span class="p">],</span> <span class="n">line</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">results</span>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--log_path&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">batch_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;256&quot;</span><span class="p">,</span> <span class="s2">&quot;512&quot;</span><span class="p">,</span> <span class="s2">&quot;1024&quot;</span><span class="p">,</span> <span class="s2">&quot;2048&quot;</span><span class="p">,</span> <span class="s2">&quot;4096&quot;</span><span class="p">,</span> <span class="s2">&quot;8192&quot;</span><span class="p">,</span> <span class="s2">&quot;16384&quot;</span><span class="p">,</span> <span class="s2">&quot;32768&quot;</span><span class="p">,</span> <span class="s2">&quot;65536&quot;</span><span class="p">]</span>
+
+
+    <span class="n">perf_result</span> <span class="o">=</span> <span class="n">extract_result_from_log</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">log_path</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">batch_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;256&quot;</span><span class="p">,</span> <span class="s2">&quot;512&quot;</span><span class="p">,</span> <span class="s2">&quot;1024&quot;</span><span class="p">,</span> <span class="s2">&quot;2048&quot;</span><span class="p">,</span> <span class="s2">&quot;4096&quot;</span><span class="p">,</span> <span class="s2">&quot;8192&quot;</span><span class="p">,</span> <span class="s2">&quot;16384&quot;</span><span class="p">,</span> <span class="s2">&quot;32768&quot;</span><span class="p">,</span> <span class="s2">&quot;65536&quot;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Inference Latency (usec)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------------------------------------------------------------------------------&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;batch_size</span><span class="se">\t</span><span class="s2">result </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------------------------------------------------------------------------------&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">perf_result</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="se">\t\t</span><span class="si">{}</span><span class="se">\t\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">batch_sizes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                        <span class="n">perf_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;-----------------------------------------------------------------------------------------&quot;</span>
+            <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting ./summary.py
+</pre></div>
+</div>
+</div>
+</div>
+<p><em>Summarize the result</em></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>./summary.py<span class="w"> </span>--log_path<span class="w"> </span>result.log
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Inference Latency (usec)
+-----------------------------------------------------------------------------------------
+batch_size	result 	
+-----------------------------------------------------------------------------------------
+256		343.0		
+-----------------------------------------------------------------------------------------
+512		619.0		
+-----------------------------------------------------------------------------------------
+1024		1173.0		
+-----------------------------------------------------------------------------------------
+2048		2068.0		
+-----------------------------------------------------------------------------------------
+4096		3742.0		
+-----------------------------------------------------------------------------------------
+8192		7179.0		
+-----------------------------------------------------------------------------------------
+16384		14234.0		
+-----------------------------------------------------------------------------------------
+32768		28111.0		
+-----------------------------------------------------------------------------------------
+65536		58482.0		
+-----------------------------------------------------------------------------------------
+</pre></div>
+</div>
+</div>
+</div>
+<p><a id="section-4"></a></p>
+</div>
+</div>
+<div class="section" id="benchmark-for-arm64-or-grace-hooper-systems">
+<h2>4. Benchmark for ARM64 or Grace + Hooper systems<a class="headerlink" href="#benchmark-for-arm64-or-grace-hooper-systems" title="Permalink to this headline"></a></h2>
+<p>Our prebuilt Grace-optimized ARM64 images are currently undergoing testing, and are therefore not yet available via NGC. This will change soon. If you want to benchmark on ARM and in particular a system equipped with a NVIDIA Grace CPU, you can build a compatible <code class="docutils literal notranslate"><span class="pre">docker</span></code> image yourself by following these steps.</p>
+<p>In some steps we provide 2 mutually exclusive alternatives.</p>
+<ul class="simple">
+<li><p><strong>Option A (portable ARM64 HugeCTR)</strong>: If you follow <em>option A</em> instructions, you will build the standard version of HugeCTR for ARM64 platforms. This approach produces binaries that are more portable, but may not allow you get the most out your Grace+Hopper hardware setup.</p></li>
+<li><p><strong>Option B (G+H optimized HugeCTR)</strong>: In contrast, if you follow <em>option B</em> instructions, you will build and run a HugeCTR variant that maximizes DLRM throughput on Grace+Hopper systems. However, please be advised that slight alterations to the system setup are necessary to achieve this. To apply these alterations you <em>must</em> have <code class="docutils literal notranslate"><span class="pre">root</span></code> access.es configuration</p></li>
+</ul>
+<div class="section" id="step-1-build-the-nvidia-merlin-docker-images">
+<h3>Step 1: Build the NVIDIA Merlin docker images<a class="headerlink" href="#step-1-build-the-nvidia-merlin-docker-images" title="Permalink to this headline"></a></h3>
+<p>Use the following instructions on your ARM system to download and build <code class="docutils literal notranslate"><span class="pre">merlin-base</span></code> and <code class="docutils literal notranslate"><span class="pre">merlin-tensorflow</span></code> docker images required for the benchmark.</p>
+<ul>
+<li><p><strong>Option A (portable ARM64 HugeCTR)</strong>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA-Merlin/Merlin.git
+<span class="nb">cd</span><span class="w"> </span>Merlin/docker
+docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvstaging/merlin/merlin-base:23.06<span class="w"> </span>-f<span class="w"> </span>dockerfile.merlin<span class="w"> </span>.
+docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvstaging/merlin/merlin-tensorflow:23.06<span class="w"> </span>-f<span class="w"> </span>dockerfile.tf<span class="w"> </span>.
+<span class="nb">cd</span><span class="w"> </span>../..
+</pre></div>
+</div>
+</li>
+<li><p><strong>Option B (G+H optimized HugeCTR)</strong>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA-Merlin/Merlin.git
+<span class="nb">cd</span><span class="w"> </span>Merlin/docker
+sed<span class="w"> </span>-i<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;s/&quot; -DENABLE_INFERENCE=ON/&quot; -DUSE_HUGE_PAGES=ON -DENABLE_INFERENCE=ON/g&#39;</span><span class="w"> </span>dockerfile.merlin
+docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvstaging/merlin/merlin-base:23.06<span class="w"> </span>-f<span class="w"> </span>dockerfile.merlin<span class="w"> </span>.
+docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvstaging/merlin/merlin-tensorflow:23.06<span class="w"> </span>-f<span class="w"> </span>dockerfile.tf<span class="w"> </span>.
+<span class="nb">cd</span><span class="w"> </span>../..
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="step-2-prepare-host-system-for-running-the-docker-container">
+<h3>Step 2: Prepare host system for running the docker container<a class="headerlink" href="#step-2-prepare-host-system-for-running-the-docker-container" title="Permalink to this headline"></a></h3>
+<ul>
+<li><p><strong>Option A (portable ARM64 HugeCTR)</strong>:
+No action required.</p></li>
+<li><p><strong>Option B (G+H optimized HugeCTR)</strong>:
+Adjust your Grace+Hopper system configuration to increase the number of large memory pages for the benchmark.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;180000&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
+</pre></div>
+</div>
+<p>This make take a while.</p>
+<p>In addition, you can reuse the <span class="xref myst">light.json</span> configuration file in <span class="xref myst"><em>Prepare JSON configuration file for HPS</em></span>.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="step-3-create-the-model">
+<h3>Step 3: Create the model<a class="headerlink" href="#step-3-create-the-model" title="Permalink to this headline"></a></h3>
+<p>Follow to <span class="xref myst">Create TF Create the TF model</span> to create the model. There are many ways to accomplish this. We suggest simply running this Jupyter notebook using the docker image that you just created in your ARM64 / Grace+Hopper node, and forward the web-server port to the host system.</p>
+<p>Your filesystem or system environment might impose constraints. The following command just serves as an example. It assumes HugeCTR was downloaded from GitHub into the current working directory (<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">https://github.com/NVIDIA-Merlin/HugeCTR.git</span></code>). To allow writing files, we first give root user (inside the docker image you are root) to access to the notebook folder (this folder), and then startup a suitable Jupyter server.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">HCTR_SRC</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/HugeCTR&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>chmod<span class="w"> </span>-R<span class="w"> </span><span class="m">777</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">HCTR_SRC</span><span class="si">}</span><span class="s2">/hps_trt/notebooks&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>--network<span class="o">=</span>host<span class="w"> </span>-v<span class="w"> </span><span class="si">${</span><span class="nv">HCTR_SRC</span><span class="si">}</span>:/hugectr<span class="w"> </span>nvcr.io/nvstaging/merlin/merlin-tensorflow:23.06<span class="w"> </span>jupyter-lab<span class="w"> </span>--allow-root<span class="w"> </span>--ip<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8888</span><span class="w"> </span>--no-browser<span class="w"> </span>--notebook-dir<span class="o">=</span>/hugectr/hps_trt/notebooks
+</pre></div>
+</div>
+</div>
+<div class="section" id="step-4-prepare-data">
+<h3>Step 4: Prepare data<a class="headerlink" href="#step-4-prepare-data" title="Permalink to this headline"></a></h3>
+<p>Next, follow the instructions in <span class="xref myst">Build the HPS-integrated TensorRT engine</span> to create the dataset and the predconditions for benchmarking.</p>
+</div>
+<div class="section" id="step-5-run-benchmark">
+<h3>Step 5: Run benchmark<a class="headerlink" href="#step-5-run-benchmark" title="Permalink to this headline"></a></h3>
+<p>Follow the steps outlined in <span class="xref myst">Benchmark HPS-integrated TensorRT engine on Triton</span> to execute the benchmark itself.</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
+      <dd><a href="../../../v23.05.00/index.html">v23.05.00</a></dd>
+      <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
+      <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
+      <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
+      <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="benchmark_tf_trained_large_model.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

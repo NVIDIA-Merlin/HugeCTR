@@ -128,15 +128,18 @@ The HPS plugin for TensorRT can be integrated into the TensorRT network as a cus
 </div>
 <div class="section" id="workflow">
 <h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline"></a></h2>
-<p>The workflow to leverage the HPS plugin for TensorRT can be summarized as:</p>
+<a class="reference internal image-reference" href="../_images/workflow1.png"><img alt="../_images/workflow1.png" class="align-center" src="../_images/workflow1.png" style="width: 1080px;" /></a>
+<div align=center>Fig. 1: Workflow of using HPS plugin for TensorRT </div>
+<p><br></br></p>
+<p>The workflow to leverage the HPS plugin for TensorRT is shown in Fig. 1:</p>
 <ul class="simple">
 <li><p><strong>Convert trained models to ONNX</strong>: The models trained with different frameworks are converted to ONNX using the popular tools <a class="reference external" href="https://github.com/onnx/tensorflow-onnx">tf2onnx</a>, <a class="reference external" href="https://github.com/pytorch/pytorch/tree/master/torch/onnx">torch.onnx</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/onnx_converter">hugectr2onnx</a>, and so on.</p></li>
-<li><p><strong>Perform ONNX graph surgery</strong>: The node for embedding lookup in the ONNX graph is replaced by the placeholder of HPS plugin for TensorRT using the tool <a class="reference external" href="https://github.com/NVIDIA/TensorRT/tree/main/tools/onnx-graphsurgeon">ONNX GraphSurgeon</a>, as shown in Fig. 1.</p></li>
+<li><p><strong>Perform ONNX graph surgery</strong>: The node for embedding lookup in the ONNX graph is replaced by the placeholder of HPS plugin for TensorRT using the tool <a class="reference external" href="https://github.com/NVIDIA/TensorRT/tree/main/tools/onnx-graphsurgeon">ONNX GraphSurgeon</a>, as shown in Fig. 2.</p></li>
 <li><p><strong>Build the TensorRT engine with HPS Plugin for TensorRT</strong>: We can build the TensorRT engine based on the modified ONNX graph where the HPS can leveraged as a custom plugin layer.</p></li>
 <li><p><strong>Deploy the engine on the Triton backend for TensorRT</strong>: The TensorRT engine with HPS Plugin for TensorRT is deployed on the Triton backend for TensorRT. Set the <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD=/usr/local/hps_trt/lib/libhps_plugin.so</span></code> environment variable to load the plugin shared library when you start Triton Inference Server.</p></li>
 </ul>
 <a class="reference internal image-reference" href="../_images/graph_surgeon.png"><img alt="Logical diagram of using ONNX GraphSurgeon to set the embedding lookup to the HPS plugin for TensorRT" src="../_images/graph_surgeon.png" style="width: 720px;" /></a>
-<div style="text-align:center;">Fig. 1: ONNX Graph Surgery</div>
+<div align=center>Fig. 2: ONNX Graph Surgery </div>
 <p><br></br></p>
 </div>
 <div class="section" id="installation">
@@ -242,12 +245,12 @@ $<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </spa
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.02.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.02.00</a></dd>
       <dd><a href="../../v23.04.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/hierarchical_parameter_server/hps_trt_user_guide.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/hps_trt_user_guide.html">v23.06.01</a></dd>
+      <dd><a href="../../v23.08.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.08.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

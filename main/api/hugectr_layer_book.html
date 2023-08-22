@@ -127,29 +127,30 @@
 <li><p><a class="reference internal" href="#layernorm-layer" id="id17">LayerNorm Layer</a></p></li>
 <li><p><a class="reference internal" href="#concat-layer" id="id18">Concat Layer</a></p></li>
 <li><p><a class="reference internal" href="#reshape-layer" id="id19">Reshape Layer</a></p></li>
-<li><p><a class="reference internal" href="#slice-layer" id="id20">Slice Layer</a></p></li>
-<li><p><a class="reference internal" href="#dropout-layer" id="id21">Dropout Layer</a></p></li>
-<li><p><a class="reference internal" href="#elu-layer" id="id22">ELU Layer</a></p></li>
-<li><p><a class="reference internal" href="#relu-layer" id="id23">ReLU Layer</a></p></li>
-<li><p><a class="reference internal" href="#sigmoid-layer" id="id24">Sigmoid Layer</a></p></li>
-<li><p><a class="reference internal" href="#interaction-layer" id="id25">Interaction Layer</a></p></li>
-<li><p><a class="reference internal" href="#add-layer" id="id26">Add Layer</a></p></li>
-<li><p><a class="reference internal" href="#reducesum-layer" id="id27">ReduceSum Layer</a></p></li>
-<li><p><a class="reference internal" href="#binarycrossentropyloss" id="id28">BinaryCrossEntropyLoss</a></p></li>
-<li><p><a class="reference internal" href="#crossentropyloss" id="id29">CrossEntropyLoss</a></p></li>
-<li><p><a class="reference internal" href="#multicrossentropyloss" id="id30">MultiCrossEntropyLoss</a></p></li>
+<li><p><a class="reference internal" href="#select-layer" id="id20">Select Layer</a></p></li>
+<li><p><a class="reference internal" href="#slice-layer" id="id21">Slice Layer</a></p></li>
+<li><p><a class="reference internal" href="#dropout-layer" id="id22">Dropout Layer</a></p></li>
+<li><p><a class="reference internal" href="#elu-layer" id="id23">ELU Layer</a></p></li>
+<li><p><a class="reference internal" href="#relu-layer" id="id24">ReLU Layer</a></p></li>
+<li><p><a class="reference internal" href="#sigmoid-layer" id="id25">Sigmoid Layer</a></p></li>
+<li><p><a class="reference internal" href="#interaction-layer" id="id26">Interaction Layer</a></p></li>
+<li><p><a class="reference internal" href="#add-layer" id="id27">Add Layer</a></p></li>
+<li><p><a class="reference internal" href="#reducesum-layer" id="id28">ReduceSum Layer</a></p></li>
+<li><p><a class="reference internal" href="#binarycrossentropyloss" id="id29">BinaryCrossEntropyLoss</a></p></li>
+<li><p><a class="reference internal" href="#crossentropyloss" id="id30">CrossEntropyLoss</a></p></li>
+<li><p><a class="reference internal" href="#multicrossentropyloss" id="id31">MultiCrossEntropyLoss</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#embedding-collection" id="id31">Embedding Collection</a></p>
+<li><p><a class="reference internal" href="#embedding-collection" id="id32">Embedding Collection</a></p>
 <ul>
-<li><p><a class="reference internal" href="#about-the-hugectr-embedding-collection" id="id32">About the HugeCTR embedding collection</a></p></li>
-<li><p><a class="reference internal" href="#overview-of-using-the-hugectr-embedding-collection" id="id33">Overview of using the HugeCTR embedding collection</a></p></li>
-<li><p><a class="reference internal" href="#known-limitations" id="id34">Known Limitations</a></p></li>
-<li><p><a class="reference internal" href="#embeddingtableconfig" id="id35">EmbeddingTableConfig</a></p></li>
-<li><p><a class="reference internal" href="#embeddingcollectionconfig" id="id36">EmbeddingCollectionConfig</a></p></li>
+<li><p><a class="reference internal" href="#about-the-hugectr-embedding-collection" id="id33">About the HugeCTR embedding collection</a></p></li>
+<li><p><a class="reference internal" href="#overview-of-using-the-hugectr-embedding-collection" id="id34">Overview of using the HugeCTR embedding collection</a></p></li>
+<li><p><a class="reference internal" href="#known-limitations" id="id35">Known Limitations</a></p></li>
+<li><p><a class="reference internal" href="#embeddingtableconfig" id="id36">EmbeddingTableConfig</a></p></li>
+<li><p><a class="reference internal" href="#embeddingcollectionconfig" id="id37">EmbeddingCollectionConfig</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#groupdenselayer" id="id37">GroupDenseLayer</a></p></li>
+<li><p><a class="reference internal" href="#groupdenselayer" id="id38">GroupDenseLayer</a></p></li>
 </ul>
 </div>
 <p>This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.</p>
@@ -319,7 +320,7 @@ The input indices’ data type, <code class="docutils literal notranslate"><span
 <p><code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions. Please <strong>NOTE</strong> that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">layer_type</span></code>: The layer type to be used. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Add</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.BatchNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Cast</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Concat</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Dropout</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ELU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FmOrder2</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedInnerProduct</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.InnerProduct</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MLP</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Interaction</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MultiCross</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReLU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReduceSum</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Reshape</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Sigmoid</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Slice</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.WeightMultiply</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ElementwiseMultiply</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.GRU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Scale</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedReshapeConcat</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedReshapeConcatGeneral</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Softmax</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.PReLU_Dice</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReduceMean</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Sub</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Gather</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.BinaryCrossEntropyLoss</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.CrossEntropyLoss</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MultiCrossEntropyLoss</span></code>. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layer_type</span></code>: The layer type to be used. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Add</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.BatchNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Cast</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Concat</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Dropout</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ELU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FmOrder2</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedInnerProduct</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.InnerProduct</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MLP</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Interaction</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MultiCross</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReLU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReduceSum</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Reshape</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Select</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Sigmoid</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Slice</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.WeightMultiply</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ElementwiseMultiply</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.GRU</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Scale</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedReshapeConcat</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.FusedReshapeConcatGeneral</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Softmax</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.PReLU_Dice</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.ReduceMean</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Sub</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.Gather</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.BinaryCrossEntropyLoss</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.CrossEntropyLoss</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Layer_t.MultiCrossEntropyLoss</span></code>. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bottom_names</span></code>: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">top_names</span></code>: List[str], the list of top tensor names, which specify the output tensors of this dense layer. There is NO default value and it should be specified by users.</p></li>
 <li><p>For details about the usage of each layer type and its parameters, please refer to <a class="reference internal" href="#dense-layers-usage"><span class="std std-doc">Dense Layers Usage</span></a>.</p></li>
@@ -666,6 +667,7 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">time_step</span></code>: Integer, the second dimension of the 3D output tensor. It must be the multiple of the total number of input elements and must be defined with leading_dim.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">selected</span></code>: Boolean, whether to use the selected mode for the <code class="docutils literal notranslate"><span class="pre">Reshape</span></code> layer. The default value is False.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">selected_slots</span></code>: List[int], the selected slots for the <code class="docutils literal notranslate"><span class="pre">Reshape</span></code> layer. It will be ignored if <code class="docutils literal notranslate"><span class="pre">selected</span></code> is False. The default value is [].</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shape</span></code>: List of Integer, the destination shape of output. You can use -1 as a placeholder for dimensions that are variable, such as batch size. This parameter cannot be used together with other parameters and other parameters will be deprecated in the future. This parameter does not restrict dimensions.</p></li>
 </ul>
 <p>Input and Output Shapes:</p>
 <ul class="simple">
@@ -677,6 +679,33 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
                             <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                             <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                             <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">128</span><span class="p">]))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="select-layer">
+<h3>Select Layer<a class="headerlink" href="#select-layer" title="Permalink to this headline"></a></h3>
+<p>The Select layer can be used to select some index from a dimension.</p>
+<p>Parameter:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dim</span></code>: Integer, the dimension user want to do select.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">index</span></code>: List of Integer, the index user want to select from the specified dimension.</p></li>
+</ul>
+<p>Input and Output Shapes:</p>
+<ul class="simple">
+<li><p>input: any shape</p></li>
+<li><p>output: depending on the parameter <code class="docutils literal notranslate"><span class="pre">dim</span></code> and <code class="docutils literal notranslate"><span class="pre">index</span></code></p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># if the shape of &quot;sparse_embedding1&quot; is (batch_size, 10, 128) the shape of &quot;select1&quot; will be (batch_size, 2, 128).</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Selcte</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;select1&quot;</span><span class="p">],</span>
+                            <span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">index</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]))</span>
 </pre></div>
 </div>
 </div>
@@ -1074,18 +1103,20 @@ Produce x - y in element wise manner.</p>
 <p>The SequenceMask Layer can generate a binary padding mask which marks the zero padding values in the input by 0.  The importance of having a padding mask is to make sure that these zero values are not processed along with the actual input values</p>
 <p>Parameter:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">max_sequence_len</span></code>: The number of attention heads. Default value is 1.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_sequence_len_from</span></code>: The maximum length of query sequences. Default value is 1.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_sequence_len_to</span></code>: The maximum length of key sequences. Default value is 1.</p></li>
 </ul>
 <p>Input and Output Shapes:</p>
 <ul class="simple">
-<li><p>input: 4D: (batch_size, 1)</p></li>
-<li><p>output: 4D: (batch_size, 1, 1, max_sequence_len)</p></li>
+<li><p>input: 2D: (batch_size, 1), (batch_size, 1)</p></li>
+<li><p>output: 4D: (batch_size, 1, max_sequence_len_from, max_sequence_len_to)</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">SequenceMask</span><span class="p">,</span>
-                             <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                             <span class="n">bottom_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">,</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
                              <span class="n">top_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sequence_mask&quot;</span><span class="p">],</span>
-                             <span class="n">max_sequence_len</span><span class="o">=</span><span class="mi">10</span><span class="p">,))</span>
+                             <span class="n">max_sequence_len_from</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                             <span class="n">max_sequence_len_to</span><span class="o">=</span><span class="mi">10</span><span class="p">,))</span>
 </pre></div>
 </div>
 </div>
@@ -1404,12 +1435,12 @@ The optimal strategy is highly dependent on your dataset and your lookup operati
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.02.00/api/hugectr_layer_book.html">v23.02.00</a></dd>
       <dd><a href="../../v23.04.00/api/hugectr_layer_book.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/api/hugectr_layer_book.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/api/hugectr_layer_book.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/api/hugectr_layer_book.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/api/hugectr_layer_book.html">v23.06.01</a></dd>
+      <dd><a href="../../v23.08.00/api/hugectr_layer_book.html">v23.08.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

@@ -168,6 +168,31 @@ jupyter-notebook<span class="w"> </span>--allow-root<span class="w"> </span>--ip
 <h2>Notebook List<a class="headerlink" href="#notebook-list" title="Permalink to this headline"></a></h2>
 <p>Here’s a list of notebooks that you can run:</p>
 <ul class="simple">
+<li><p><a class="reference internal" href="benchmark_tf_trained_large_model.html"><span class="doc std std-doc">benchmark_tf_trained_large_model.ipynb</span></a>: Provides the steps to benchmark the inference performance of the large model. The model is comprised of one 147GB embedding table and three fully connected layers, for which a TensorRT engine is built with the HPS plugin. Here are the performance metrics at batch size 4096 on different platforms:</p></li>
+</ul>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Platform</p></th>
+<th class="head"><p>Interconnect between GPU and CPU</p></th>
+<th class="head"><p>Average per-batch latency in usec &#64;BZ=4096</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>A100-SXM4-80GB + 2 x AMD EPYC 7742 64-Core Processor (2TB CPU Memory)</p></td>
+<td><p>PCIe Gen4</p></td>
+<td><p>1396</p></td>
+</tr>
+<tr class="row-odd"><td><p>H100-SXM5-80GB + 2 x Intel Xeon Platinum 8480C 56-Core Processor (2TB CPU Memory)</p></td>
+<td><p>PCIe Gen5</p></td>
+<td><p>773</p></td>
+</tr>
+<tr class="row-even"><td><p>H100-NVL-94GB + NVIDIA Grace 72-Core Processor (480GB CPU Memory)</p></td>
+<td><p>NVLink-C2C</p></td>
+<td><p>210</p></td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
 <li><p><a class="reference internal" href="demo_for_tf_trained_model.html"><span class="doc std std-doc">demo_for_tf_trained_model.ipynb</span></a>: Demonstrates how to train with TensorFlow and then build the HPS-integrated TensorRT engine for deployment.</p></li>
 <li><p><a class="reference internal" href="demo_for_pytorch_trained_model.html"><span class="doc std std-doc">demo_for_pytorch_trained_model.ipynb</span></a>: Demonstrates how to train with PyTorch and then build the HPS-integrated TensorRT engine for deployment.</p></li>
 <li><p><a class="reference internal" href="demo_for_hugectr_trained_model.html"><span class="doc std std-doc">demo_for_hugectr_trained_model.ipynb</span></a>: Demonstrates how to train with HugeCTR and then build the HPS-integrated TensorRT engine for deployment.</p></li>
@@ -245,12 +270,12 @@ jupyter-notebook<span class="w"> </span>--allow-root<span class="w"> </span>--ip
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.02.00/index.html">v23.02.00</a></dd>
       <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
+      <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
