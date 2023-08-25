@@ -17,6 +17,7 @@
 
 #include <common.hpp>
 #include <core23_helper.hpp>
+#include <core23_network.hpp>
 #include <embedding.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding_storage/weight_io/parameter_IO.hpp>
@@ -31,7 +32,6 @@
 #include <io/filesystem.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
 #include <pipeline.hpp>
@@ -332,57 +332,35 @@ struct GroupDenseLayer {
 
 class CopyOp {
  public:
-  virtual TensorBag2 get_tensorbag() = 0;
+  virtual core23::Tensor get_tensorbag() = 0;
 
   virtual void run() = 0;
 };
-
-template <typename T>
 class CopyOpImpl final : public CopyOp {
  private:
   std::shared_ptr<GPUResource> gpu_resource_;
 
-  Tensor2<T> in_tensor_;
-  Tensor2<T> out_tensor_;
+  core23::Tensor in_tensor_;
+  core23::Tensor out_tensor_;
 
  public:
-  CopyOpImpl(const std::shared_ptr<GPUResource>& gpu_resource, const Tensor2<T>& in_tensor)
+  CopyOpImpl(const std::shared_ptr<GPUResource>& gpu_resource, const core23::Tensor& in_tensor)
       : gpu_resource_(gpu_resource), in_tensor_(in_tensor) {
     CudaDeviceContext context(gpu_resource->get_device_id());
-
-    auto buffer = GeneralBuffer2<CudaAllocator>::create();
-    buffer->reserve(in_tensor.get_dimensions(), &out_tensor_);
-    buffer->allocate();
+    out_tensor_ = core23::Tensor(in_tensor.my_params());
+    out_tensor_.data();
   }
 
-  TensorBag2 get_tensorbag() override { return out_tensor_.shrink(); }
+  core23::Tensor get_tensorbag() override { return out_tensor_; }
 
   void run() override {
     CudaDeviceContext context(gpu_resource_->get_device_id());
     auto stream = gpu_resource_->get_stream();
-    HCTR_CHECK(in_tensor_.get_size_in_bytes() == out_tensor_.get_size_in_bytes());
-    HCTR_LIB_THROW(cudaMemcpyAsync(out_tensor_.get_ptr(), in_tensor_.get_ptr(),
-                                   in_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                   stream));
+    HCTR_CHECK(in_tensor_.num_bytes() == out_tensor_.num_bytes());
+    HCTR_LIB_THROW(cudaMemcpyAsync(out_tensor_.data(), in_tensor_.data(), in_tensor_.num_bytes(),
+                                   cudaMemcpyDeviceToDevice, stream));
   }
 };
-
-namespace core_helper {
-std::vector<core23::Tensor> current_sparse_tensors_to_core23_tensors(HugeCTR::IDataReader* reader,
-                                                                     int gpu_id);
-}
-
-template <typename TypeKey>
-void add_input(Input& input, DataReaderParams& reader_params,
-               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-               std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-               std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-               std::shared_ptr<IDataReader>& train_data_reader,
-               std::shared_ptr<IDataReader>& evaluate_data_reader,
-               std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
-               size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
-               bool train_intra_iteration_overlap, size_t num_iterations_statistics,
-               const std::shared_ptr<ResourceManager> resource_manager);
 
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
@@ -395,19 +373,6 @@ void add_input(Input& input, DataReaderParams& reader_params,
                size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager>);
-
-// TODO remove it
-template <typename TypeKey, typename TypeFP>
-void add_sparse_embedding(
-    SparseEmbedding& sparse_embedding,
-    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-    std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-    size_t batch_size_eval, OptParams& embedding_opt_params,
-    std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph, bool grouped_all_reduce,
-    size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches);
 
 template <typename TypeKey, typename TypeFP>
 void add_sparse_embedding(
@@ -530,7 +495,7 @@ class Model final {
       lr_embedding = embedding->is_trainable() ? lr : 0.f;
       embedding->set_learning_rate(lr_embedding);
     }
-    for (auto& network : networks_) {
+    for (auto& network : core23_networks_) {
       network->set_learning_rate(lr_dense);
     }
     for (auto& ebc : ebc_list_) {
@@ -544,7 +509,7 @@ class Model final {
     for (auto& embedding : embeddings_) {
       size += embedding->get_params_num();
     }
-    return static_cast<long long>(networks_[0]->get_params_num()) + size;
+    return static_cast<long long>(core23_networks_[0]->get_params_num()) + size;
   }
 
   const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
@@ -633,9 +598,6 @@ class Model final {
 
   std::map<std::string, core23_reader::SparseInput<long long>> sparse_input_map_64_;
   std::map<std::string, core23_reader::SparseInput<unsigned int>> sparse_input_map_32_;
-  // TODO remove them
-  std::vector<std::vector<TensorEntry>> train_tensor_entries_list_;
-  std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
 
   std::vector<std::vector<TensorEntity>> train_tensor_entities_list_;
   std::vector<std::vector<TensorEntity>> evaluate_tensor_entities_list_;
@@ -650,18 +612,6 @@ class Model final {
   bool buff_allocated_;
   bool etc_created_;
   bool is_dense_trainable_;
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> blobs_buff_list_;
-  std::vector<std::shared_ptr<BufferBlock2<float>>> train_weight_buff_list_;
-  std::vector<std::shared_ptr<BufferBlock2<__half>>> train_weight_buff_half_list_;
-  std::vector<std::shared_ptr<BufferBlock2<float>>> wgrad_buff_list_;
-  std::vector<std::shared_ptr<BufferBlock2<__half>>> wgrad_buff_half_list_;
-  std::vector<std::shared_ptr<BufferBlock2<float>>> evaluate_weight_buff_list_;
-  std::vector<std::shared_ptr<BufferBlock2<__half>>> evaluate_weight_buff_half_list_;
-  std::vector<std::shared_ptr<BufferBlock2<float>>> wgrad_buff_placeholder_list_;
-  std::vector<std::shared_ptr<BufferBlock2<__half>>> wgrad_buff_half_placeholder_list_;
-
-  std::vector<std::shared_ptr<BufferBlock2<float>>> opt_buff_list_;
-  std::vector<std::shared_ptr<BufferBlock2<__half>>> opt_buff_half_list_;
 
   bool set_source_flag_{true};
   bool graph_finalized_{false};
@@ -675,9 +625,8 @@ class Model final {
   std::vector<std::string> data_input_info_; /**< data input name */
   std::map<std::string, core23::Shape> tensor_shape_info_;
   std::vector<std::pair<std::string, std::string>>
-      input_output_info_;                          /**< input output name of each layer. */
-  std::vector<std::string> layer_info_;            /**< type of each layer. */
-  std::vector<std::shared_ptr<Network>> networks_; /**< networks (dense) used in training. */
+      input_output_info_;               /**< input output name of each layer. */
+  std::vector<std::string> layer_info_; /**< type of each layer. */
   std::vector<std::shared_ptr<Core23TempNetwork>> core23_networks_;
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
 
@@ -748,25 +697,8 @@ class Model final {
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
   void exchange_wgrad(size_t device_id);
-  void add_internal(DenseLayer& dense_layer);
   void pre_add_dense_layer(DenseLayer& dense_layer);
-  void add_dense_layer(DenseLayer& dense_layer);
   void add_dense_layers(std::vector<DenseLayer>& dense_layers);
-  void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
-                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                                const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-                                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                                std::map<std::string, Tensor2<float>>& loss_tensor,
-                                std::vector<std::unique_ptr<Layer>>& layers,
-                                std::map<std::string, std::unique_ptr<ILoss>>& loss,
-                                std::map<std::string, metrics::RawMetricMap>* raw_metrics,
-                                int num_networks_in_global,
-                                const std::shared_ptr<GPUResource>& gpu_resource,
-                                bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                bool use_algorithm_search, std::vector<Layer*>* top_layers,
-                                std::vector<Layer*>* bottom_layers, bool embedding_dependent);
 
   void create_networks();
   void build_networks();

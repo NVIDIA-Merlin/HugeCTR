@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 
-#include <core23/mpi_init_service.hpp>
 #include <cstdio>
 #include <fstream>
 #include <functional>
@@ -36,9 +35,11 @@ const float eps = 2.0e-6;
 template <typename T>
 float sklearn_ref(size_t num_total_samples, size_t num_classes, const std::vector<float>& labels,
                   const std::vector<T>& scores, bool auc) {
-  const int num_procs{core23::MpiInitService::get().world_size()};
-  const int rank{core23::MpiInitService::get().world_rank()};
-
+  int num_procs = 1, rank = 0;
+#ifdef ENABLE_MPI
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+#endif
   std::string temp_name = "tmpdata.bin";
 
   char *labels_ptr, *scores_ptr;
@@ -188,8 +189,11 @@ static int execution_number = 0;
 template <typename T, typename Generator>
 void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
                  Generator gen, bool auc, size_t num_evals = 1, size_t num_classes = 1) {
-  const int num_procs{core23::MpiInitService::get().world_size()};
-  const int rank{core23::MpiInitService::get().world_rank()};
+  int num_procs = 1, rank = 0;
+#ifdef ENABLE_MPI
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+#endif
 
   std::vector<std::vector<int>> vvgpu;
   int num_local_gpus = device_list.size();
@@ -216,32 +220,40 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   // Setup the containers
-  std::vector<size_t> dims = {batch_size / num_classes, num_classes};
+  core23::Shape dims = {static_cast<int64_t>(batch_size / num_classes),
+                        static_cast<int64_t>(num_classes)};
 
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs(num_local_gpus);
-  std::vector<Tensor2<float>> labels_tensors(num_local_gpus);
-  std::vector<Tensor2<T>> scores_tensors(num_local_gpus);
-  std::vector<metrics::RawMetricMap> metric_maps(num_local_gpus);
+  std::vector<core23::Tensor> labels_tensors(num_local_gpus);
+  std::vector<core23::Tensor> scores_tensors(num_local_gpus);
+  std::vector<metrics::Core23RawMetricMap> metric_maps(num_local_gpus);
 
   for (int i = 0; i < num_local_gpus; i++) {
-    CudaDeviceContext context(resource_manager->get_local_gpu(i)->get_device_id());
+    int device_id = resource_manager->get_local_gpu(i)->get_device_id();
+    CudaDeviceContext context(device_id);
 
-    bufs[i] = GeneralBuffer2<CudaAllocator>::create();
-    bufs[i]->reserve(dims, &labels_tensors[i]);
-    bufs[i]->reserve(dims, &scores_tensors[i]);
-    bufs[i]->allocate();
+    labels_tensors[i] =
+        core23::Tensor(core23::TensorParams()
+                           .data_type(core23::ToScalarType<float>::value)
+                           .device(core23::Device(core23::DeviceType::GPU, device_id))
+                           .shape(dims));
 
-    metric_maps[i] = {{metrics::RawType::Pred, scores_tensors[i].shrink()},
-                      {metrics::RawType::Label, labels_tensors[i].shrink()}};
+    scores_tensors[i] =
+        core23::Tensor(core23::TensorParams()
+                           .data_type(core23::ToScalarType<T>::value)
+                           .device(core23::Device(core23::DeviceType::GPU, device_id))
+                           .shape(dims));
+
+    metric_maps[i] = {{metrics::RawType::Pred, scores_tensors[i]},
+                      {metrics::RawType::Label, labels_tensors[i]}};
   }
 
   // Create metric
   metrics::Metric* metric;
   if (auc) {
-    metric =
-        new metrics::AUC<T>(batch_size / num_classes, num_batches, num_classes, resource_manager);
+    metric = new metrics::AUC<T>(batch_size / num_classes, num_batches, num_classes,
+                                 resource_manager, false);
   } else {
-    metric = new metrics::NDCG<T>(batch_size, num_batches, resource_manager);
+    metric = new metrics::NDCG<T>(batch_size, num_batches, resource_manager, false);
   }
 
   std::vector<float> h_labels(num_node_samples);
@@ -267,9 +279,9 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
             start;
         auto stream = resource_manager->get_local_gpu(i)->get_stream();
 
-        HCTR_LIB_THROW(cudaMemcpyAsync(labels_tensors[i].get_ptr(), h_labels.data() + start,
+        HCTR_LIB_THROW(cudaMemcpyAsync(labels_tensors[i].data(), h_labels.data() + start,
                                        count * sizeof(float), cudaMemcpyHostToDevice, stream));
-        HCTR_LIB_THROW(cudaMemcpyAsync(scores_tensors[i].get_ptr(), h_scores.data() + start,
+        HCTR_LIB_THROW(cudaMemcpyAsync(scores_tensors[i].data(), h_scores.data() + start,
                                        count * sizeof(T), cudaMemcpyHostToDevice, stream));
 
         metric->local_reduce(i, metric_maps[i]);
@@ -285,6 +297,7 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
 
   float error_margin = auc ? eps : 10 * eps;  // Use a larger margin of error for NDCG
   ASSERT_NEAR(gpu_result, ref_result, error_margin);
+  delete metric;
 }
 
 class MPIEnvironment : public ::testing::Environment {

@@ -23,7 +23,6 @@ file(GLOB huge_ctr_inference_src
   ../resource_manager.cpp
   ../resource_managers/resource_manager_core.cpp
   ../data_simulator.cu
-  ../data_reader.cpp
   ../graph_wrapper.cpp
   ../layer.cpp
   ../layers/batch_norm_layer.cu
@@ -68,7 +67,6 @@ file(GLOB huge_ctr_inference_src
   ../loss.cu
   ../network.cu
   ../network.cpp
-  ../data_readers/metadata.cpp
   ../gpu_learning_rate_scheduler.cu
   ../metrics.cu
   ../optimizers/*.cu

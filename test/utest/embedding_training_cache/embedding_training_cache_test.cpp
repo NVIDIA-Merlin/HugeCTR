@@ -52,6 +52,7 @@ const Update_t update_type = Update_t::Local;
 
 // const int batch_num_train = 10;
 const int batch_num_eval = 1;
+using SparseTensor23s = std::vector<SparseTensor23>;
 
 template <typename TypeKey>
 void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
@@ -110,20 +111,13 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
                                                      {},        emb_vec_size, max_feature_num,
                                                      slot_num,  combiner,     opt_params};
 
-  auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
-                 SparseTensors<TypeKey>& sparse_tensors) {
-    sparse_tensors.resize(tensorbags.size());
-    for (size_t j = 0; j < tensorbags.size(); ++j) {
-      sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
-    }
-  };
-  SparseTensors<TypeKey> train_inputs;
-  copy(data_reader_train->get_sparse_tensors("distributed"), train_inputs);
-  SparseTensors<TypeKey> eval_inputs;
-  copy(data_reader_eval->get_sparse_tensors("distributed"), eval_inputs);
+  SparseTensor23s train_inputs = data_reader_train->get_sparse_tensor23s("distributed");
+  SparseTensor23s eval_inputs = data_reader_eval->get_sparse_tensor23s("distributed");
 
   std::shared_ptr<IEmbedding> embedding = init_embedding<TypeKey, float>(
-      train_inputs, eval_inputs, embedding_param, resource_manager, embedding_type);
+      core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(train_inputs),
+      core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(eval_inputs),
+      embedding_param, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding
