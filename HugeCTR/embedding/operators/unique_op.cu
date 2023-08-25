@@ -110,7 +110,7 @@ __global__ void dump_kernel(KeyType* d_key, const KeyType* keys, const CounterTy
 }
 
 template <typename KeyType, typename CounterType, typename hasher>
-__global__ void get_insert_kernel(const KeyType* d_key, CounterType* d_val, const size_t len,
+__global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key,  CounterType* d_val, const size_t len,
                                   KeyType* keys, CounterType* vals, const size_t capacity,
                                   CounterType* d_global_counter, const KeyType empty_key,
                                   const CounterType empty_val) {
@@ -131,6 +131,7 @@ __global__ void get_insert_kernel(const KeyType* d_key, CounterType* d_val, cons
       if (empty_key == old_key) {
         CounterType result_val;
         result_val = atomicAdd(d_global_counter, 1);
+	d_unique_key[result_val] = target_key;
         d_val[idx] = result_val;
         target_val_pos = result_val;
         break;
@@ -205,11 +206,11 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
   // Launch get_insert kernel to do unique
   get_insert_kernel<KeyType, CounterType, hasher>
       <<<(len - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-          d_key, d_output_index, len, keys_.data<KeyType>(), vals_.data<CounterType>(), capacity_, counter_.data<CounterType>(), empty_key, empty_val);
-
+          d_key, d_unique_key, d_output_index, len, keys_.data<KeyType>(), vals_.data<CounterType>(), capacity_, counter_.data<CounterType>(), empty_key, empty_val);
+  cudaMemcpyAsync(d_output_counter, counter_.data<CounterType>(), sizeof(CounterType), cudaMemcpyDeviceToDevice, stream);
   // Launch dump kernel
-  dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-      d_unique_key, keys_.data<KeyType>(), vals_.data<CounterType>(), 0, capacity_, d_output_counter, empty_key);
+  //dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
+  //    d_unique_key, keys_.data<KeyType>(), vals_.data<CounterType>(), 0, capacity_, d_output_counter, empty_key);
 
   HCTR_LIB_THROW(cudaGetLastError());
 }
