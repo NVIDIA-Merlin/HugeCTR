@@ -543,18 +543,6 @@ notebook_hugectr:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/notebooks/notebook_hugectr.sub
 
-nb_movie_lens_example:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/nb_movie_lens_example
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    WALLTIME: "01:00:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/notebooks/nb_movie-lens-example.sub
-
 nb_hps_demo:
   extends: .cluster_test_job_daily
   needs:

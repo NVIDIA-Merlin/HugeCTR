@@ -6,15 +6,6 @@ srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash 
     ln -s /workdir/tools/day_0 /workdir/test/notebook_test/day_0 && \
     bash preprocess.sh 0 wdl_data pandas 1 1 100 && \
     ln -s /workdir/tools/wdl_data /workdir/test/notebook_test/wdl_data && \
-    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/hugectr2onnx_demo.ipynb && \
-    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/hugectr_wdl_prediction.ipynb && \
     sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/multi_gpu_offline_inference.ipynb && \
-    cd /workdir/test/notebook_test && pytest notebook_hugectr.py -k 'not test_movie_lens_example' && \
-    rm -rf /workdir/test/notebook_test/wdl_data /workdir/tools/wdl_data && cd /workdir/tools/ && \
-    bash preprocess.sh 0 dcn_data pandas 1 0 && \
-    ln -s /workdir/tools/dcn_data /workdir/test/notebook_test/dcn_data && \
-    ln -s /workdir/tools/wdl_data /workdir/test/notebook_test/wdl_data && \
-    sed -i 's/50000000/5000000/g' preprocess.sh && \
-    bash preprocess.sh 1 wdl_data pandas 1 1 100 && \
-    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/hugectr_criteo.ipynb && \
-    cd /workdir/test/notebook_test && pytest hugectr_criteo.py"
+    cd /workdir/test/notebook_test && pytest notebook_hugectr.py && \
+    rm -rf /workdir/test/notebook_test/wdl_data /workdir/tools/wdl_data && cd /workdir/tools"

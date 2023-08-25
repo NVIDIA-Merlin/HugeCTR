@@ -1,6 +1,0 @@
-#!/bin/bash
-
-srun --ntasks=1 --container-image="${CONT}" bash -cx " \
-    chmod +x /usr/local/hugectr/bin/* && \
-    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/movie-lens-example.ipynb && \
-    cd /workdir/test/notebook_test && pytest notebook_hugectr.py -k 'test_movie_lens_example'"

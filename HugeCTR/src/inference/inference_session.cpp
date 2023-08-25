@@ -41,6 +41,14 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
       inference_parser_(config_),
       inference_params_(inference_params) {
   try {
+    HCTR_LOG(WARNING, ROOT,
+             "InferenceModel and InferenceSession will be deprecated in a future release."
+             "Please see the alternatives based on TensorRT and TensorFlow:\n"
+             "\thttps://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/"
+             "hps_tf_user_guide.html\n"
+             "\thttps://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/"
+             "hps_trt_user_guide.html\n");
+
     if (inference_params_.use_gpu_embedding_cache &&
         embedding_cache->get_device_id() != inference_params_.device_id) {
       HCTR_OWN_THROW(

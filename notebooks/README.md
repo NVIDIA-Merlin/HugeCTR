@@ -97,21 +97,19 @@ Refer to the
 The notebooks are located within the container and can be found in the `/HugeCTR/notebooks` directory.
 
 Here's a list of notebooks that you can run:
-- [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
-- [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
-- [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.
-- [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb): Explains how to convert the trained HugeCTR model to ONNX.
+- [hugectr_e2e_demo.ipynb](hugectr_e2e_demo.ipynb): Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.
 - [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
-- [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
-- [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
 - [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb): Explain how to do multi-GPU offline inference with HugeCTR Python APIs.
 - [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
 - [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb): Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.
-       
+
 The [multi-modal-data](./multi-modal-data/) series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.
 
+More notebooks on the Hierarchical Parameter Server (HPS) are available with its [TensorRT](hps_trt/notebooks) and [Tensorflow](hps_tf/notebooks) plugins.
+
 For Sparse Operation Kit notebooks, refer to the [sparse_operation_kit/notebooks/](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks) directory of the repository or the [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
+
 ## System Specifications
 
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
@@ -120,13 +118,6 @@ The specifications of the system on which each notebook can run successfully are
 | ---------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
 | [multi-modal-data](multi-modal-data)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
 | [continuous_training.ipynb](continuous_training.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
-| [ecommerce-example.ipynb](ecommerce-example.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 8     | Vinh Nguyen    |
-| [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 1     | Kingsley Liu   |
-| [hugectr-criteo.ipynb](hugectr_criteo.ipynb)                           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
 | [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu   |
 | [hps_demo.ipynb](hps_demo.ipynb)                                       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
-| [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb)           | AMD Ryzen 9 3900X 12-Core <br />32 GB Memory                 | GeForce RTX 2080Ti<br />11 GB Memory   | 1       | Yingcan Wei    |
-| [movie-lens-example.ipynb](movie-lens-example.ipynb)                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
-| [news-example.ipynb](news-example.ipynb)                               | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Ashish Sardana |
 | [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
-| [embedding_training_cache_example.ipynb](embedding_training_cache_example.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
