@@ -106,10 +106,6 @@ class DataReader : public IDataReader {
   bool is_started() const override;
 
   void start() override;
-  // TODO Remove them (Legacy embedding needs those)
-  const std::vector<SparseTensorBag> get_sparse_tensors(const std::string &name);
-  const std::vector<TensorBag2> get_label_tensors() const;
-  const std::vector<TensorBag2> get_dense_tensors() const;
 
   const std::vector<SparseTensor23> &get_sparse_tensor23s(const std::string &name);
   const std::vector<core23::Tensor> &get_label_tensor23s() const;

@@ -134,13 +134,6 @@ auto load_key_files(std::vector<std::string> const& key_files) {
   return keys_vec;
 }
 
-bool use_core23_network() {
-  if (const char* env_p = std::getenv("HUGECTR_CORE23_NETWORK"); env_p && std::atoi(env_p) == 0) {
-    return false;
-  }
-  return true;
-}
-
 }  // end namespace
 
 EmbeddingTrainingCacheParams::EmbeddingTrainingCacheParams(
@@ -568,75 +561,27 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 void Model::create_copy_ops_for_network_input(const std::string& dense_name,
                                               const std::string& label_name, bool is_train) {
   auto& copy_ops = is_train ? graph_.train_copy_ops_ : graph_.evaluate_copy_ops_;
-  if (use_core23_network()) {
-    auto& tensor_entries_list =
-        is_train ? train_tensor_entities_list_ : evaluate_tensor_entities_list_;
+  auto& tensor_entries_list =
+      is_train ? train_tensor_entities_list_ : evaluate_tensor_entities_list_;
 
-    int num_local_gpus = resource_manager_->get_local_gpu_count();
-    // copy ops for dense & label
-    copy_ops.resize(2 * num_local_gpus);
+  int num_local_gpus = resource_manager_->get_local_gpu_count();
+  // copy ops for dense & label
+  copy_ops.resize(2 * num_local_gpus);
 
-    for (int id = 0; id < num_local_gpus; ++id) {
-      core23::Device device(core23::DeviceType::GPU,
-                            resource_manager_->get_local_gpu(id)->get_device_id());
-      for (auto& tensor_entry : tensor_entries_list[id]) {
-        if (tensor_entry.name == dense_name) {
-          if (solver_.use_mixed_precision) {
-            copy_ops[id].reset(new CopyOpImpl<__half>(
-                resource_manager_->get_local_gpu(id),
-                core_helper::convert_core23_tensor_to_tensor2<__half>(tensor_entry.tensor)));
-          } else {
-            copy_ops[id].reset(new CopyOpImpl<float>(
-                resource_manager_->get_local_gpu(id),
-                core_helper::convert_core23_tensor_to_tensor2<float>(tensor_entry.tensor)));
-          }
-          if (solver_.use_mixed_precision) {
-            tensor_entry.tensor = core_helper::convert_tensorbag_to_core23_tensor<__half>(
-                copy_ops[id]->get_tensorbag(), device);
-          } else {
-            tensor_entry.tensor = core_helper::convert_tensorbag_to_core23_tensor<float>(
-                copy_ops[id]->get_tensorbag(), device);
-          }
-        } else if (tensor_entry.name == label_name) {
-          copy_ops[id + num_local_gpus].reset(new CopyOpImpl<float>(
-              resource_manager_->get_local_gpu(id),
-              core_helper::convert_core23_tensor_to_tensor2<float>(tensor_entry.tensor)));
-
-          tensor_entry.tensor = core_helper::convert_tensorbag_to_core23_tensor<float>(
-              copy_ops[id + num_local_gpus]->get_tensorbag(), device);
-        } else {
-          HCTR_OWN_THROW(Error_t::WrongInput, "wrong tensor entry name when creating copy_op.");
-        }
-      }
-    }
-  } else {
-    auto& tensor_entries_list =
-        is_train ? train_tensor_entries_list_ : evaluate_tensor_entries_list_;
-
-    int num_local_gpus = resource_manager_->get_local_gpu_count();
-    copy_ops.resize(2 * num_local_gpus);
-
-    for (int id = 0; id < num_local_gpus; ++id) {
-      for (auto& tensor_entry : tensor_entries_list[id]) {
-        if (tensor_entry.name == dense_name) {
-          if (solver_.use_mixed_precision) {
-            copy_ops[id].reset(
-                new CopyOpImpl<__half>(resource_manager_->get_local_gpu(id),
-                                       Tensor2<__half>::stretch_from(tensor_entry.bag)));
-          } else {
-            copy_ops[id].reset(
-                new CopyOpImpl<float>(resource_manager_->get_local_gpu(id),
-                                      Tensor2<float>::stretch_from(tensor_entry.bag)));
-          }
-          tensor_entry.bag = copy_ops[id]->get_tensorbag();
-        } else if (tensor_entry.name == label_name) {
-          copy_ops[id + num_local_gpus].reset(
-              new CopyOpImpl<float>(resource_manager_->get_local_gpu(id),
-                                    Tensor2<float>::stretch_from(tensor_entry.bag)));
-          tensor_entry.bag = copy_ops[id + num_local_gpus]->get_tensorbag();
-        } else {
-          HCTR_OWN_THROW(Error_t::WrongInput, "wrong tensor entry name when creating copy_op.");
-        }
+  for (int id = 0; id < num_local_gpus; ++id) {
+    core23::Device device(core23::DeviceType::GPU,
+                          resource_manager_->get_local_gpu(id)->get_device_id());
+    for (auto& tensor_entry : tensor_entries_list[id]) {
+      if (tensor_entry.name == dense_name) {
+        copy_ops[id].reset(
+            new CopyOpImpl(resource_manager_->get_local_gpu(id), tensor_entry.tensor));
+        tensor_entry.tensor = copy_ops[id]->get_tensorbag();
+      } else if (tensor_entry.name == label_name) {
+        copy_ops[id + num_local_gpus].reset(
+            new CopyOpImpl(resource_manager_->get_local_gpu(id), tensor_entry.tensor));
+        tensor_entry.tensor = copy_ops[id + num_local_gpus]->get_tensorbag();
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "wrong tensor entry name when creating copy_op.");
       }
     }
   }
@@ -700,39 +645,20 @@ void Model::add(Input& input) {
   for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
     activate_tensor(tensor_active_, input.data_reader_sparse_param_array[i].top_name);
   }
-  if (use_core23_network()) {
-    if (solver_.i64_input_key) {
-      add_input<long long>(input, reader_params_, sparse_input_map_64_, train_tensor_entities_list_,
-                           evaluate_tensor_entities_list_, train_data_reader_,
-                           evaluate_data_reader_, init_data_reader_, solver_.batchsize,
-                           solver_.batchsize_eval, solver_.use_mixed_precision,
-                           solver_.repeat_dataset, solver_.train_intra_iteration_overlap,
-                           solver_.num_iterations_statistics, resource_manager_);
-    } else {
-      add_input<unsigned int>(
-          input, reader_params_, sparse_input_map_32_, train_tensor_entities_list_,
-          evaluate_tensor_entities_list_, train_data_reader_, evaluate_data_reader_,
-          init_data_reader_, solver_.batchsize, solver_.batchsize_eval, solver_.use_mixed_precision,
-          solver_.repeat_dataset, solver_.train_intra_iteration_overlap,
-          solver_.num_iterations_statistics, resource_manager_);
-    }
-    // TODO REMOVE IT
+  if (solver_.i64_input_key) {
+    add_input<long long>(input, reader_params_, sparse_input_map_64_, train_tensor_entities_list_,
+                         evaluate_tensor_entities_list_, train_data_reader_, evaluate_data_reader_,
+                         init_data_reader_, solver_.batchsize, solver_.batchsize_eval,
+                         solver_.use_mixed_precision, solver_.repeat_dataset,
+                         solver_.train_intra_iteration_overlap, solver_.num_iterations_statistics,
+                         resource_manager_);
   } else {
-    if (solver_.i64_input_key) {
-      add_input<long long>(input, reader_params_, sparse_input_map_64_, train_tensor_entries_list_,
-                           evaluate_tensor_entries_list_, train_data_reader_, evaluate_data_reader_,
-                           init_data_reader_, solver_.batchsize, solver_.batchsize_eval,
-                           solver_.use_mixed_precision, solver_.repeat_dataset,
-                           solver_.train_intra_iteration_overlap, solver_.num_iterations_statistics,
-                           resource_manager_);
-    } else {
-      add_input<unsigned int>(
-          input, reader_params_, sparse_input_map_32_, train_tensor_entries_list_,
-          evaluate_tensor_entries_list_, train_data_reader_, evaluate_data_reader_,
-          init_data_reader_, solver_.batchsize, solver_.batchsize_eval, solver_.use_mixed_precision,
-          solver_.repeat_dataset, solver_.train_intra_iteration_overlap,
-          solver_.num_iterations_statistics, resource_manager_);
-    }
+    add_input<unsigned int>(input, reader_params_, sparse_input_map_32_,
+                            train_tensor_entities_list_, evaluate_tensor_entities_list_,
+                            train_data_reader_, evaluate_data_reader_, init_data_reader_,
+                            solver_.batchsize, solver_.batchsize_eval, solver_.use_mixed_precision,
+                            solver_.repeat_dataset, solver_.train_intra_iteration_overlap,
+                            solver_.num_iterations_statistics, resource_manager_);
   }
 
   if (solver_.use_embedding_collection and solver_.train_inter_iteration_overlap) {
@@ -803,58 +729,30 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   init_optimizer_params(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
-  if (use_core23_network()) {
-    if (solver_.i64_input_key && !solver_.use_mixed_precision) {
-      add_sparse_embedding<long long, float>(
-          sparse_embedding, sparse_input_map_64_, train_tensor_entities_list_,
-          evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
-      add_sparse_embedding<long long, __half>(
-          sparse_embedding, sparse_input_map_64_, train_tensor_entities_list_,
-          evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
-      add_sparse_embedding<unsigned int, float>(
-          sparse_embedding, sparse_input_map_32_, train_tensor_entities_list_,
-          evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else {
-      add_sparse_embedding<unsigned int, __half>(
-          sparse_embedding, sparse_input_map_32_, train_tensor_entities_list_,
-          evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    }
+  if (solver_.i64_input_key && !solver_.use_mixed_precision) {
+    add_sparse_embedding<long long, float>(
+        sparse_embedding, sparse_input_map_64_, train_tensor_entities_list_,
+        evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
+        solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
+        solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
+  } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
+    add_sparse_embedding<long long, __half>(
+        sparse_embedding, sparse_input_map_64_, train_tensor_entities_list_,
+        evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
+        solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
+        solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
+  } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
+    add_sparse_embedding<unsigned int, float>(
+        sparse_embedding, sparse_input_map_32_, train_tensor_entities_list_,
+        evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
+        solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
+        solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
   } else {
-    if (solver_.i64_input_key && !solver_.use_mixed_precision) {
-      add_sparse_embedding<long long, float>(
-          sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
-          evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
-      add_sparse_embedding<long long, __half>(
-          sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
-          evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
-      add_sparse_embedding<unsigned int, float>(
-          sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
-          evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    } else {
-      add_sparse_embedding<unsigned int, __half>(
-          sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
-          evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-          solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
-          solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
-    }
+    add_sparse_embedding<unsigned int, __half>(
+        sparse_embedding, sparse_input_map_32_, train_tensor_entities_list_,
+        evaluate_tensor_entities_list_, embeddings_, resource_manager_, solver_.batchsize,
+        solver_.batchsize_eval, embedding_opt_params, exchange_wgrad_, solver_.use_cuda_graph,
+        solver_.grouped_all_reduce, solver_.num_iterations_statistics, gpu_lr_sches_);
   }
   embeddings_map_.insert(
       std::make_pair(sparse_embedding.sparse_embedding_name, embeddings_.back()));
@@ -874,78 +772,6 @@ void Model::add(DenseLayer& dense_layer) {
   }
   calculate_tensor_dimensions(tensor_shape_info_raw_, dense_layer);
   dense_layer_params_raw_.push_back(dense_layer);
-}
-
-template <typename emb_t>
-void allocate_ebc_output_helper_for_feature_major(
-    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
-    const EmbeddingCollectionConfig& ebc_config,
-    const embedding::EmbeddingCollectionParam& ebc_param,
-    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core23::Tensor>& ebc_output) {
-  HCTR_CHECK(ebc_config.output_layout_ == embedding::EmbeddingLayout::FeatureMajor);
-  int num_local_gpus = resource_manager_->get_local_gpu_count();
-  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-    CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
-
-    auto buff = GeneralBuffer2<CudaAllocator>::create();
-    auto block_buffer = buff->create_block<emb_t>();
-    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-      const embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-      std::string top_name = ebc_config.top_names_[lookup_id];
-
-      size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
-                                ? lookup_param.max_hotness * lookup_param.ev_size
-                                : lookup_param.ev_size;
-
-      Tensor2<emb_t> emb_output;
-      block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &emb_output);
-      tensor_entries_list_[local_gpu_id].push_back({top_name, emb_output.shrink()});
-    }
-    buff->allocate();
-    auto continous_emb_output = block_buffer->as_tensor();
-    continous_emb_output.reset_shape(
-        {batch_size_per_gpu, continous_emb_output.get_num_elements() / batch_size_per_gpu});
-    core23::Device device(core23::DeviceType::GPU,
-                          resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
-    ebc_output.push_back(
-        core_helper::convert_tensor2_to_core23_tensor(continous_emb_output, device));
-  }
-}
-
-template <typename emb_t>
-void allocate_ebc_output_helper_for_batch_major(
-    std::shared_ptr<ResourceManager> resource_manager_, size_t batch_size_per_gpu,
-    const EmbeddingCollectionConfig& ebc_config,
-    const embedding::EmbeddingCollectionParam& ebc_param,
-    std::vector<std::vector<TensorEntry>>& tensor_entries_list_,
-    std::vector<core23::Tensor>& ebc_output) {
-  int num_local_gpus = resource_manager_->get_local_gpu_count();
-  for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-    CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
-
-    int64_t emb_out_dims = 0;
-    for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-      const embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
-
-      emb_out_dims += (lookup_param.combiner == embedding::Combiner::Concat)
-                          ? lookup_param.max_hotness * lookup_param.ev_size
-                          : lookup_param.ev_size;
-    }
-
-    auto buff = GeneralBuffer2<CudaAllocator>::create();
-    Tensor2<emb_t> continous_emb_output;
-    buff->reserve({batch_size_per_gpu, static_cast<size_t>(emb_out_dims)}, &continous_emb_output);
-    buff->allocate();
-
-    core23::Device device(core23::DeviceType::GPU,
-                          resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
-    ebc_output.push_back(
-        core_helper::convert_tensor2_to_core23_tensor(continous_emb_output, device));
-
-    tensor_entries_list_[local_gpu_id].push_back(
-        {ebc_config.batch_major_output_name_, continous_emb_output.shrink()});
-  }
 }
 
 template <typename emb_t>
@@ -1175,10 +1001,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     auto train_sparse_tensors = sparse_input_map[bottom_name].train_sparse_tensors;
     auto evaluate_sparse_tensors = sparse_input_map[bottom_name].evaluate_sparse_tensors;
 
-    // HCTR_LOG_S(INFO,WORLD)<<"inside prepare_ebc_input, DataType is "<<SparseType<<std::endl <<
-    // "train_sparse_tensors size "<< train_sparse_tensors.size() <<" evaluate_sparse_tensors size
-    // "<< evaluate_sparse_tensors.size();
-
     for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
       CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
       core23::Device device{core23::DeviceType::GPU,
@@ -1234,40 +1056,21 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
       embedding_dependent_tensors_.insert(top_name);
     }
     input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
-    if (use_core23_network()) {
-      if (solver_.use_mixed_precision) {
-        allocate_ebc_output_helper_for_feature_major<__half>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entities_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_feature_major<__half>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
-      } else {
-        allocate_ebc_output_helper_for_feature_major<float>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entities_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_feature_major<float>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
-      }
+    if (solver_.use_mixed_precision) {
+      allocate_ebc_output_helper_for_feature_major<__half>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entities_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_feature_major<__half>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
     } else {
-      if (solver_.use_mixed_precision) {
-        allocate_ebc_output_helper_for_feature_major<__half>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entries_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_feature_major<__half>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
-      } else {
-        allocate_ebc_output_helper_for_feature_major<float>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entries_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_feature_major<float>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
-      }
+      allocate_ebc_output_helper_for_feature_major<float>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entities_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_feature_major<float>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
     }
-
   } else {
     int concate_out_dims = 0;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
@@ -1286,38 +1089,20 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     embedding_dependent_tensors_.insert(ebc_config.batch_major_output_name_);
 
     // allocate output buffer
-    if (use_core23_network()) {
-      if (solver_.use_mixed_precision) {
-        allocate_ebc_output_helper_for_batch_major<__half>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entities_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_batch_major<__half>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
-      } else {
-        allocate_ebc_output_helper_for_batch_major<float>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entities_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_batch_major<float>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
-      }
+    if (solver_.use_mixed_precision) {
+      allocate_ebc_output_helper_for_batch_major<__half>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entities_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_batch_major<__half>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
     } else {
-      if (solver_.use_mixed_precision) {
-        allocate_ebc_output_helper_for_batch_major<__half>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entries_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_batch_major<__half>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
-      } else {
-        allocate_ebc_output_helper_for_batch_major<float>(
-            resource_manager_, batch_size_per_gpu, ebc_config, ebc_param,
-            train_tensor_entries_list_, train_ebc_outptut_);
-        allocate_ebc_output_helper_for_batch_major<float>(
-            resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
-            evaluate_tensor_entries_list_, evaluate_ebc_outptut_);
-      }
+      allocate_ebc_output_helper_for_batch_major<float>(
+          resource_manager_, batch_size_per_gpu, ebc_config, ebc_param, train_tensor_entities_list_,
+          train_ebc_outptut_);
+      allocate_ebc_output_helper_for_batch_major<float>(
+          resource_manager_, eval_batch_size_per_gpu, ebc_config, ebc_param,
+          evaluate_tensor_entities_list_, evaluate_ebc_outptut_);
     }
   }
 
@@ -1344,11 +1129,6 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   train_data_distributor_ = std::make_shared<DataDistributor>(core_list, ebc_param, emb_table_list);
   eval_data_distributor_ =
       std::make_shared<DataDistributor>(core_list, eval_ebc_param, emb_table_list);
-}
-
-void Model::add_internal(DenseLayer& dense_layer) {
-  pre_add_dense_layer(dense_layer);
-  add_dense_layer(dense_layer);
 }
 
 void Model::pre_add_dense_layer(DenseLayer& dense_layer) {
@@ -1488,14 +1268,7 @@ void Model::graph_analysis() {
       dense_layer_params_.push_back(new_dense_layer);
     }
   }
-
-  if (core23_networks_.empty()) {
-    for (auto& dense_layer : dense_layer_params_) {
-      add_internal(dense_layer);
-    }
-  } else {
-    add_dense_layers(dense_layer_params_);
-  }
+  add_dense_layers(dense_layer_params_);
 }
 
 void Model::compile() {
@@ -1809,19 +1582,9 @@ void Model::summary() {
                    "The model should include input and at "
                    "least two layers");
   }
-  if (use_core23_network()) {
-    for (auto tensor_entry : train_tensor_entities_list_[0]) {
-      tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.tensor.shape()));
-    }
-  } else {
-    for (auto tensor_entry : train_tensor_entries_list_[0]) {
-      auto origin_dims = tensor_entry.bag.get_dimensions();
-      std::vector<int64_t> original_dims_i64(origin_dims.begin(), origin_dims.end());
-      core23::Shape new_shape(original_dims_i64);
-      tensor_shape_info_.insert(std::make_pair(tensor_entry.name, new_shape));
-    }
+  for (auto tensor_entry : train_tensor_entities_list_[0]) {
+    tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.tensor.shape()));
   }
-
   HCTR_PRINT(INFO,
              "============================================"
              "=======Model "
@@ -2444,13 +2207,7 @@ bool Model::train() {
       return true;
     }
 
-    auto network_update = [&](int id) {
-      if (core23_networks_.empty()) {
-        networks_[id]->update_params();
-      } else {
-        core23_networks_[id]->update_params();
-      }
-    };
+    auto network_update = [&](int id) { core23_networks_[id]->update_params(); };
 
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(true);
@@ -2600,11 +2357,7 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     };
 
     for (unsigned int i = 0; i < number_of_networks(); ++i) {
-      if (core23_networks_.empty()) {
-        get_raw_metrics(networks_, i);
-      } else {
-        get_raw_metrics(core23_networks_, i);
-      }
+      get_raw_metrics(core23_networks_, i);
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -2674,11 +2427,7 @@ Error_t Model::get_current_loss(float* loss) {
         loss_sum += network->get_loss();
       }
     };
-    if (core23_networks_.empty()) {
-      accum_loss(networks_);
-    } else {
-      accum_loss(core23_networks_);
-    }
+    accum_loss(core23_networks_);
 
     if (resource_manager_->get_num_process() > 1) {
 #ifdef ENABLE_MPI
@@ -2735,11 +2484,7 @@ void Model::copy_weights_for_evaluation() {
       network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
     }
   };
-  if (core23_networks_.empty()) {
-    op(networks_);
-  } else {
-    op(core23_networks_);
-  }
+  op(core23_networks_);
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
@@ -2759,11 +2504,8 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
           HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
         }
       };
-      if (core23_networks_.empty()) {
-        op(networks_[0]);
-      } else {
-        op(core23_networks_[0]);
-      }
+
+      op(core23_networks_[0]);
     }
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
@@ -2835,11 +2577,8 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
         network->upload_opt_states_to_device(opt_states.get());
       }
     };
-    if (core23_networks_.empty()) {
-      op(networks_);
-    } else {
-      op(core23_networks_);
-    }
+
+    op(core23_networks_);
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
     return rt_err.error;
@@ -2881,11 +2620,7 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
         network->upload_params_to_device(weight.get());
       }
     };
-    if (core23_networks_.empty()) {
-      op(networks_);
-    } else {
-      op(core23_networks_);
-    }
+    op(core23_networks_);
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
     return rt_err.error;
@@ -2920,11 +2655,8 @@ void Model::init_params_for_dense_() {
       networks[i]->init_params(i);
     }
   };
-  if (core23_networks_.empty()) {
-    op(networks_);
-  } else {
-    op(core23_networks_);
-  }
+
+  op(core23_networks_);
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
   }
@@ -3024,279 +2756,105 @@ void Model::dump_incremental_model_2kafka() {
 
 std::tuple<size_t, size_t, std::vector<size_t>, int> Model::get_tensor_info_by_name(
     const std::string& tensor_name, Tensor_t tensor_type) {
-  if (use_core23_network()) {
-    const auto& tensor_entries_list = tensor_type == Tensor_t::Train
-                                          ? train_tensor_entities_list_
-                                          : evaluate_tensor_entities_list_;
-    const int global_gpu_count = resource_manager_->get_global_gpu_count();
+  const auto& tensor_entries_list =
+      tensor_type == Tensor_t::Train ? train_tensor_entities_list_ : evaluate_tensor_entities_list_;
+  const int global_gpu_count = resource_manager_->get_global_gpu_count();
 
-    auto fn = [](const std::string& tensor_name, const std::vector<TensorEntity>& tensor_entries) {
-      for (int i{0}; i < static_cast<int>(tensor_entries.size()); i++) {
-        if (tensor_entries[i].name == tensor_name) {
-          return i;
-        }
+  auto fn = [](const std::string& tensor_name, const std::vector<TensorEntity>& tensor_entries) {
+    for (int i{0}; i < static_cast<int>(tensor_entries.size()); i++) {
+      if (tensor_entries[i].name == tensor_name) {
+        return i;
       }
-      return -1;
-    };
-    const int index = fn(tensor_name, tensor_entries_list[0]);
-    HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name", tensor_name);
+    }
+    return -1;
+  };
+  const int index = fn(tensor_name, tensor_entries_list[0]);
+  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name", tensor_name);
 
-    size_t tensor_size_in_bytes = tensor_entries_list[0][index].tensor.num_bytes();
-    size_t tensor_num_of_elements = tensor_entries_list[0][index].tensor.num_elements();
-    auto shape = tensor_entries_list[0][index].tensor.shape();
-    std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
-    dimensions[0] *= global_gpu_count;
-    return std::make_tuple(global_gpu_count * tensor_size_in_bytes,
-                           global_gpu_count * tensor_num_of_elements, dimensions, index);
-  }
-
-  else {
-    const auto& tensor_entries_list =
-        tensor_type == Tensor_t::Train ? train_tensor_entries_list_ : evaluate_tensor_entries_list_;
-    const int global_gpu_count = resource_manager_->get_global_gpu_count();
-
-    auto fn = [](const std::string& tensor_name, const std::vector<TensorEntry>& tensor_entries) {
-      for (int i{0}; i < static_cast<int>(tensor_entries.size()); i++) {
-        if (tensor_entries[i].name == tensor_name) {
-          return i;
-        }
-      }
-      return -1;
-    };
-    const int index = fn(tensor_name, tensor_entries_list[0]);
-    HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name ", tensor_name);
-
-    size_t tensor_size_in_bytes = tensor_entries_list[0][index].bag.get_size_in_bytes();
-    size_t tensor_num_of_elements =
-        get_num_elements_from_dimensions(tensor_entries_list[0][index].bag.get_dimensions());
-    auto dimensions = tensor_entries_list[0][index].bag.get_dimensions();
-    dimensions[0] *= global_gpu_count;
-    return std::make_tuple(global_gpu_count * tensor_size_in_bytes,
-                           global_gpu_count * tensor_num_of_elements, dimensions, index);
-  }
+  size_t tensor_size_in_bytes = tensor_entries_list[0][index].tensor.num_bytes();
+  size_t tensor_num_of_elements = tensor_entries_list[0][index].tensor.num_elements();
+  auto shape = tensor_entries_list[0][index].tensor.shape();
+  std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
+  dimensions[0] *= global_gpu_count;
+  return std::make_tuple(global_gpu_count * tensor_size_in_bytes,
+                         global_gpu_count * tensor_num_of_elements, dimensions, index);
 }
 
 void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_result) {
-  if (use_core23_network()) {
-    const auto& tensor_entries_list = tensor_type == Tensor_t::Train
-                                          ? train_tensor_entities_list_
-                                          : evaluate_tensor_entities_list_;
-    const int local_gpu_count = resource_manager_->get_local_gpu_count();
-    size_t tensor_size_in_bytes = tensor_entries_list[0][index].tensor.num_bytes();
-    size_t tensor_num_of_elements = tensor_entries_list[0][index].tensor.num_elements();
-    size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
+  const auto& tensor_entries_list =
+      tensor_type == Tensor_t::Train ? train_tensor_entities_list_ : evaluate_tensor_entities_list_;
+  const int local_gpu_count = resource_manager_->get_local_gpu_count();
+  size_t tensor_size_in_bytes = tensor_entries_list[0][index].tensor.num_bytes();
+  size_t tensor_num_of_elements = tensor_entries_list[0][index].tensor.num_elements();
+  size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
 
-    std::unique_ptr<float[]> local_result(new float[local_gpu_count * tensor_num_of_elements]);
-    if (bytes_per_element == 4) {
-      for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
-        HCTR_LIB_THROW(cudaMemcpy(local_result.get() + local_gpu_id * tensor_num_of_elements,
-                                  tensor_entries_list[local_gpu_id][index].tensor.data(),
-                                  tensor_size_in_bytes, cudaMemcpyDeviceToHost));
-      }
-    } else {
-      std::unique_ptr<__half[]> local_result_half(
-          new __half[local_gpu_count * tensor_num_of_elements]);
-      for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
-        HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
-                                  tensor_entries_list[local_gpu_id][index].tensor.data(),
-                                  tensor_size_in_bytes, cudaMemcpyDeviceToHost));
-      }
-      auto transform = [](float* dst_ptr, const __half* src_ptr, size_t num_of_elements) {
-        for (size_t i{0}; i < num_of_elements; ++i) {
-          dst_ptr[i] = static_cast<float>(src_ptr[i]);
-        }
-      };
-      transform(local_result.get(), local_result_half.get(),
-                local_gpu_count * tensor_num_of_elements);
-    }
-
-    const int numprocs{core23::MpiInitService::get().world_size()};
-    if (numprocs > 1) {
-#ifdef ENABLE_MPI
-      HCTR_MPI_THROW(MPI_Gather(local_result.get(), local_gpu_count * tensor_num_of_elements,
-                                MPI_FLOAT, global_result, local_gpu_count * tensor_num_of_elements,
-                                MPI_FLOAT, 0, MPI_COMM_WORLD));
-#endif
-    } else {
-      memcpy(global_result, local_result.get(),
-             local_gpu_count * tensor_num_of_elements * sizeof(float));
+  std::unique_ptr<float[]> local_result(new float[local_gpu_count * tensor_num_of_elements]);
+  if (bytes_per_element == 4) {
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result.get() + local_gpu_id * tensor_num_of_elements,
+                                tensor_entries_list[local_gpu_id][index].tensor.data(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
     }
   } else {
-    const auto& tensor_entries_list =
-        tensor_type == Tensor_t::Train ? train_tensor_entries_list_ : evaluate_tensor_entries_list_;
-    const int local_gpu_count = resource_manager_->get_local_gpu_count();
-
-    size_t tensor_size_in_bytes = tensor_entries_list[0][index].bag.get_size_in_bytes();
-    size_t tensor_num_of_elements =
-        get_num_elements_from_dimensions(tensor_entries_list[0][index].bag.get_dimensions());
-    size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
-
-    std::unique_ptr<float[]> local_result(new float[local_gpu_count * tensor_num_of_elements]);
-    if (bytes_per_element == 4) {
-      for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
-        HCTR_LIB_THROW(cudaMemcpy(local_result.get() + local_gpu_id * tensor_num_of_elements,
-                                  tensor_entries_list[local_gpu_id][index].bag.get_ptr(),
-                                  tensor_size_in_bytes, cudaMemcpyDeviceToHost));
-      }
-    } else {
-      std::unique_ptr<__half[]> local_result_half(
-          new __half[local_gpu_count * tensor_num_of_elements]);
-      for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
-        HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
-                                  tensor_entries_list[local_gpu_id][index].bag.get_ptr(),
-                                  tensor_size_in_bytes, cudaMemcpyDeviceToHost));
-      }
-      auto transform = [](float* dst_ptr, const __half* src_ptr, size_t num_of_elements) {
-        for (size_t i{0}; i < num_of_elements; ++i) {
-          dst_ptr[i] = static_cast<float>(src_ptr[i]);
-        }
-      };
-      transform(local_result.get(), local_result_half.get(),
-                local_gpu_count * tensor_num_of_elements);
+    std::unique_ptr<__half[]> local_result_half(
+        new __half[local_gpu_count * tensor_num_of_elements]);
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
+                                tensor_entries_list[local_gpu_id][index].tensor.data(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
     }
+    auto transform = [](float* dst_ptr, const __half* src_ptr, size_t num_of_elements) {
+      for (size_t i{0}; i < num_of_elements; ++i) {
+        dst_ptr[i] = static_cast<float>(src_ptr[i]);
+      }
+    };
+    transform(local_result.get(), local_result_half.get(),
+              local_gpu_count * tensor_num_of_elements);
+  }
 
-    const int numprocs{core23::MpiInitService::get().world_size()};
-    if (numprocs > 1) {
+  const int numprocs{core23::MpiInitService::get().world_size()};
+  if (numprocs > 1) {
 #ifdef ENABLE_MPI
-      HCTR_MPI_THROW(MPI_Gather(local_result.get(), local_gpu_count * tensor_num_of_elements,
-                                MPI_FLOAT, global_result, local_gpu_count * tensor_num_of_elements,
-                                MPI_FLOAT, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Gather(local_result.get(), local_gpu_count * tensor_num_of_elements,
+                              MPI_FLOAT, global_result, local_gpu_count * tensor_num_of_elements,
+                              MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
-    } else {
-      memcpy(global_result, local_result.get(),
-             local_gpu_count * tensor_num_of_elements * sizeof(float));
-    }
+  } else {
+    memcpy(global_result, local_result.get(),
+           local_gpu_count * tensor_num_of_elements * sizeof(float));
   }
 }
 
 void Model::create_networks() {
-  if (use_core23_network()) {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      core23_networks_.emplace_back(new Core23TempNetwork(resource_manager_->get_local_cpu(),
-                                                          resource_manager_->get_local_gpu(i),
-                                                          solver_.use_mixed_precision));
-    }
-    train_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
-    evaluate_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
-  } else {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
-                                         resource_manager_->get_local_gpu(i),
-                                         solver_.use_mixed_precision));
-      blobs_buff_list_.emplace_back(GeneralBuffer2<CudaAllocator>::create());
-    }
-
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      train_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-      train_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-      evaluate_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-      evaluate_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-      wgrad_buff_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-      wgrad_buff_half_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-      opt_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-      opt_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-      auto id = resource_manager_->get_local_gpu(i)->get_local_id();
-      if (solver_.use_mixed_precision) {
-        wgrad_buff_half_list_.emplace_back(
-            (solver_.grouped_all_reduce)
-                ? std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad_)
-                      ->get_network_wgrad_buffs()[id]
-                : std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad_)
-                      ->get_network_wgrad_buffs()[id]);
-        wgrad_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-      } else {
-        wgrad_buff_list_.emplace_back(
-            (solver_.grouped_all_reduce)
-                ? std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad_)
-                      ->get_network_wgrad_buffs()[id]
-                : std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad_)
-                      ->get_network_wgrad_buffs()[id]);
-        wgrad_buff_half_list_.emplace_back(
-            blobs_buff_list_[i]->create_block<__half>());  // placeholder
-      }
-    }
-
-    // resize train_tensor_entries_list_ and evaluate_tensor_entries_list_
-    train_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
-    evaluate_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
-
-    train_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
-    evaluate_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    core23_networks_.emplace_back(new Core23TempNetwork(resource_manager_->get_local_cpu(),
+                                                        resource_manager_->get_local_gpu(i),
+                                                        solver_.use_mixed_precision));
   }
+  train_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
+  evaluate_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
 }
 
 void Model::build_networks() {
-  if (!core23_networks_.empty()) {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      core23_networks_[i]->create_and_set_optimizer(opt_params_);
-    }
-    auto aligned_size = 16 * resource_manager_->get_local_gpu_count();
-    core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
-                                                                   : GetWgradBufferChannel()};
-    for (int g = 0; g < resource_manager_->get_local_gpu_count(); g++) {
-      auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
-      core23::Device device(core23::DeviceType::GPU, device_id);
-      auto wgrad_buffer = core23::GetBuffer(bp, device);
-      auto wgrad_size = wgrad_buffer->reserved_size();
-      size_t padded_bytes = wgrad_size % aligned_size;
-      padded_bytes += aligned_size - padded_bytes;
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    core23_networks_[i]->create_and_set_optimizer(opt_params_);
+  }
+  auto aligned_size = 16 * resource_manager_->get_local_gpu_count();
+  core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
+                                                                 : GetWgradBufferChannel()};
+  for (int g = 0; g < resource_manager_->get_local_gpu_count(); g++) {
+    auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
+    core23::Device device(core23::DeviceType::GPU, device_id);
+    auto wgrad_buffer = core23::GetBuffer(bp, device);
+    auto wgrad_size = wgrad_buffer->reserved_size();
+    size_t padded_bytes = wgrad_size % aligned_size;
+    padded_bytes += aligned_size - padded_bytes;
 
-      wgrad_tensor_successor_.emplace_back(core23::TensorParams()
-                                               .device(device)
-                                               .shape({static_cast<int64_t>(padded_bytes)})
-                                               .data_type(core23::ScalarType::Char)
-                                               .buffer_params(bp));
-    }
-
-  } else {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      if (solver_.use_mixed_precision) {
-        networks_[i]->optimizer_ = std::move(Optimizer::Create(
-            opt_params_, train_weight_buff_list_[i]->as_tensor(),
-            train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
-            solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
-            solver_.use_mixed_precision));
-      } else {
-        networks_[i]->optimizer_ = std::move(
-            Optimizer::Create(opt_params_, train_weight_buff_list_[i]->as_tensor(),
-                              train_weight_buff_half_list_[i]->as_tensor(),
-                              wgrad_buff_list_[i]->as_tensor(), solver_.scaler, opt_buff_list_[i],
-                              resource_manager_->get_local_gpu(i), solver_.use_mixed_precision));
-      }
-
-      networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
-      networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
-      networks_[i]->wgrad_tensor_ = wgrad_buff_list_[i]->as_tensor();
-      networks_[i]->wgrad_tensor_half_ = wgrad_buff_half_list_[i]->as_tensor();
-      networks_[i]->evaluate_weight_tensor_ = evaluate_weight_buff_list_[i]->as_tensor();
-      networks_[i]->evaluate_weight_tensor_half_ = evaluate_weight_buff_half_list_[i]->as_tensor();
-      networks_[i]->opt_tensor_ = opt_buff_list_[i]->as_tensor();
-      networks_[i]->opt_tensor_half_ = opt_buff_half_list_[i]->as_tensor();
-      CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
-      blobs_buff_list_[i]->allocate();
-
-      // Check that there is a loss for every associated label and set the internal weight of the
-      // loss object
-      std::map<std::string, std::unique_ptr<ILoss>>::iterator loss_lookup;
-      for (std::map<std::string, float>::iterator iter = label_weights_.begin();
-           iter != label_weights_.end(); ++iter) {
-        loss_lookup = networks_[i]->train_losses_.find(iter->first);
-        if (loss_lookup == networks_[i]->train_losses_.end()) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
-        }
-        loss_lookup->second->set_label_weight(iter->second);
-
-        loss_lookup = networks_[i]->evaluate_losses_.find(iter->first);
-        if (loss_lookup == networks_[i]->evaluate_losses_.end()) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "Label weight names and losses do not match.");
-        }
-        loss_lookup->second->set_label_weight(iter->second);
-      }
-    }
-    exchange_wgrad_->allocate();
-    for (size_t ebc_id = 0; ebc_id < ebc_list_.size(); ++ebc_id) {
-      ebc_list_[ebc_id]->bind_grouped_wgrad_ptr();
-    }
+    wgrad_tensor_successor_.emplace_back(core23::TensorParams()
+                                             .device(device)
+                                             .shape({static_cast<int64_t>(padded_bytes)})
+                                             .data_type(core23::ScalarType::Char)
+                                             .buffer_params(bp));
   }
   buff_allocated_ = true;
 }
@@ -3313,30 +2871,24 @@ void Model::initialize() {
 #pragma omp parallel num_threads(number_of_networks())
   {
     size_t id = omp_get_thread_num();
-    if (!core23_networks_.empty()) {
-      op(core23_networks_, id);
-    } else {
-      op(networks_, id);
-    }
+    op(core23_networks_, id);
   }
 
-  if (!core23_networks_.empty()) {
-    int num_gpus = resource_manager_->get_local_gpu_count();
-    std::vector<void*> wgrad_buffer_ptrs;
-    size_t wgrad_buffer_size;
-    core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
-                                                                   : GetWgradBufferChannel()};
-    for (int g = 0; g < num_gpus; g++) {
-      auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
-      core23::Device device(core23::DeviceType::GPU, device_id);
-      auto wgrad_buffer = core23::GetBuffer(bp, device);
-      auto [ptr_, size_] = wgrad_buffer->decay();
-      wgrad_buffer_size = size_;
-      HCTR_CHECK_HINT(size_ && ptr_, "wgrad is null or it's a confederal buffer");
-      wgrad_buffer_ptrs.push_back(ptr_);
-    }
-    exchange_wgrad_->init_ar_comm(wgrad_buffer_ptrs, wgrad_buffer_size);
+  int num_gpus = resource_manager_->get_local_gpu_count();
+  std::vector<void*> wgrad_buffer_ptrs;
+  size_t wgrad_buffer_size;
+  core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
+                                                                 : GetWgradBufferChannel()};
+  for (int g = 0; g < num_gpus; g++) {
+    auto device_id = resource_manager_->get_local_gpu(g)->get_device_id();
+    core23::Device device(core23::DeviceType::GPU, device_id);
+    auto wgrad_buffer = core23::GetBuffer(bp, device);
+    auto [ptr_, size_] = wgrad_buffer->decay();
+    wgrad_buffer_size = size_;
+    HCTR_CHECK_HINT(size_ && ptr_, "wgrad is null or it's a confederal buffer");
+    wgrad_buffer_ptrs.push_back(ptr_);
   }
+  exchange_wgrad_->init_ar_comm(wgrad_buffer_ptrs, wgrad_buffer_size);
 #endif
   init_params_for_dense_();
   if (solver_.perf_logging) {
@@ -3366,13 +2918,7 @@ void Model::create_metrics() {
                                 });
   }
 
-  auto num_metrics = [&]() {
-    if (core23_networks_.empty()) {
-      return networks_[0]->get_raw_metrics_all().size();
-    } else {
-      return core23_networks_[0]->get_raw_metrics_all().size();
-    }
-  };
+  auto num_metrics = [&]() { return core23_networks_[0]->get_raw_metrics_all().size(); };
   for (const auto& metric : solver_.metrics_spec) {
     // Only AUC is currently supported for models with more than one loss layer
     if ((metric.first != metrics::Type::AUC) && num_metrics() > 1) {
@@ -3382,7 +2928,7 @@ void Model::create_metrics() {
 
     metrics_.emplace_back(std::move(metrics::Metric::Create(
         metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
-        solver_.max_eval_batches, label_dim, resource_manager_, !use_core23_network())));
+        solver_.max_eval_batches, label_dim, resource_manager_)));
   }
 }
 
@@ -3391,41 +2937,22 @@ void Model::create_pipelines() {
   if (embeddings_.size() == 1) {
     auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
     for (size_t i = 0; i < lr_scheds.size(); i++) {
-      if (core23_networks_.empty()) {
-        networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
-      } else {
-        core23_networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
-      }
+      core23_networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
     }
   }
 
   if (is_scheduled_datareader() && is_scheduled_embedding()) {
     // will create pipeline for sparse embedding and dense network
-    if (core23_networks_.empty()) {
-      create_train_pipeline(networks_);
-      create_evaluate_pipeline(networks_);
-    } else {
-      create_train_pipeline(core23_networks_);
-      create_evaluate_pipeline(core23_networks_);
-    }
+    create_train_pipeline(core23_networks_);
+    create_evaluate_pipeline(core23_networks_);
   } else {
     if (solver_.use_embedding_collection) {
-      if (core23_networks_.empty()) {
-        create_train_pipeline_with_ebc(networks_);
-        create_evaluate_pipeline_with_ebc(networks_);
-      } else {
-        create_train_pipeline_with_ebc(core23_networks_);
-        create_evaluate_pipeline_with_ebc(core23_networks_);
-      }
+      create_train_pipeline_with_ebc(core23_networks_);
+      create_evaluate_pipeline_with_ebc(core23_networks_);
     } else {
       // will create pipeline for dense network.
-      if (core23_networks_.empty()) {
-        create_train_network_pipeline(networks_);
-        create_eval_network_pipeline(networks_);
-      } else {
-        create_train_network_pipeline(core23_networks_);
-        create_eval_network_pipeline(core23_networks_);
-      }
+      create_train_network_pipeline(core23_networks_);
+      create_eval_network_pipeline(core23_networks_);
     }
   }
 
@@ -3563,12 +3090,6 @@ void Model::create_pipelines() {
 #endif
 }
 
-size_t Model::number_of_networks() const {
-  if (core23_networks_.empty()) {
-    return networks_.size();
-  } else {
-    return core23_networks_.size();
-  }
-}
+size_t Model::number_of_networks() const { return core23_networks_.size(); }
 
 }  // namespace HugeCTR

@@ -2303,7 +2303,6 @@ void Core23TempMultiCrossLayer<T>::search_algorithm() {
       }
     }
   }
-  if (this->get_gpu().get_device_id() == 0) std::cout << "DCN search_algo done" << std::endl;
 }
 template <typename T>
 void Core23TempMultiCrossLayer<T>::initialize() {

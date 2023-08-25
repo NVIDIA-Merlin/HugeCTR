@@ -16,11 +16,10 @@
 
 #include <gtest/gtest.h>
 
-#include <core23/mpi_init_service.hpp>
+#include <HugeCTR/include/network_buffer_channels.hpp>
 #include <cstdio>
 #include <fstream>
 #include <functional>
-#include <general_buffer2.hpp>
 #include <metrics.hpp>
 #include <resource_managers/resource_manager_ext.hpp>
 #include <sstream>
@@ -102,8 +101,13 @@ static int execution_number = 0;
 template <typename T, typename Generator>
 void averageloss_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
                       Generator gen, size_t num_evals = 1) {
-  const int num_procs{core23::MpiInitService::get().world_size()};
-  const int rank{core23::MpiInitService::get().world_rank()};
+  int num_procs = 1, rank = 0;
+#ifdef ENABLE_MPI
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+#endif
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
 
   std::vector<std::vector<int>> vvgpu;
   int num_local_gpus = device_list.size();
@@ -133,18 +137,18 @@ void averageloss_test(std::vector<int> device_list, size_t batch_size, size_t nu
   // Setup the containers
   std::vector<size_t> dims = {1, batch_size};
 
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs(num_local_gpus);
-  std::vector<Tensor2<float>> loss_tensors(num_local_gpus);
-  std::vector<metrics::RawMetricMap> metric_maps(num_local_gpus);
+  // std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs(num_local_gpus);
+  std::vector<core23::Tensor> loss_tensors(num_local_gpus);
+  std::vector<metrics::Core23RawMetricMap> metric_maps(num_local_gpus);
 
   for (int i = 0; i < num_local_gpus; i++) {
     CudaDeviceContext context(resource_manager->get_local_gpu(i)->get_device_id());
+    loss_tensors[i] = core23::Tensor(core23::TensorParams()
+                                         .data_type(core23::ToScalarType<float>::value)
+                                         .shape({1, 1})
+                                         .buffer_params(blobs_buffer_params));
 
-    bufs[i] = GeneralBuffer2<CudaAllocator>::create();
-    bufs[i]->reserve({1, 1}, &loss_tensors[i]);
-    bufs[i]->allocate();
-
-    metric_maps[i] = {{metrics::RawType::Loss, loss_tensors[i].shrink()}};
+    metric_maps[i] = {{metrics::RawType::Loss, loss_tensors[i]}};
   }
 
   std::vector<float> h_labels(num_node_samples);
@@ -190,7 +194,7 @@ void averageloss_test(std::vector<int> device_list, size_t batch_size, size_t nu
           h_loss = h_loss / num_local_gpus;
         }
 
-        HCTR_LIB_THROW(cudaMemcpyAsync(loss_tensors[i].get_ptr(), &h_loss, sizeof(float),
+        HCTR_LIB_THROW(cudaMemcpyAsync(loss_tensors[i].data(), &h_loss, sizeof(float),
                                        cudaMemcpyHostToDevice, stream));
         int n_nets = 1;
         ref_result += h_loss / n_nets / num_procs;
@@ -249,30 +253,3 @@ TEST(averageloss_test, fp32_8gpu_correct) {
 TEST(averageloss_test, fp32_8gpu_wrong) {
   averageloss_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<float>);
 }
-// TEST(averageloss_test, fp32_8gpu_large)      { averageloss_test<float>({0,1,2,3,4,5,6,7}, 131072,
-// 89137319, gen_random<float>, 2); }
-
-// TEST(averageloss_test, fp16_1gpu) { averageloss_test<__half>({0}, 15, 200, gen_random<__half>); }
-// TEST(averageloss_test, fp16_1gpu_odd) { averageloss_test<__half>({0}, 11, 182,
-// gen_random<__half>); } TEST(averageloss_test, fp16_2gpu) { averageloss_test<__half>({0, 1}, 10,
-// 540, gen_random<__half>); } TEST(averageloss_test, fp16_2gpu_odd) { averageloss_test<__half>({0,
-// 1}, 11, 443, gen_random<__half>); } TEST(averageloss_test, fp16_2_random_gpu) {
-// averageloss_test<__half>({4, 6}, 13, 2351, gen_random<__half>); } TEST(averageloss_test,
-// fp16_4gpu) {
-//   averageloss_test<__half>({0, 1, 2, 3}, 5500, 22 * 5500 + 424, gen_random<__half>);
-// }
-// TEST(averageloss_test, fp16_4gpu_multi) {
-//   averageloss_test<__half>({0, 1, 2, 3}, 7320, 81 * 7320 + 322, gen_random<__half>);
-// }
-// TEST(averageloss_test, fp16_8gpu) {
-//   averageloss_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 4321, 891573, gen_random<__half>, 2);
-// }
-// TEST(averageloss_test, fp16_8gpu_correct) {
-//   averageloss_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<__half>);
-// }
-// TEST(averageloss_test, fp16_8gpu_wrong) {
-//   averageloss_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<__half>);
-// }
-// // TEST(averageloss_test, fp16_8gpu_large)      { averageloss_test<__half>({0,1,2,3,4,5,6,7},
-// 131072, 89137319,
-// // gen_random<__half>, 2); }

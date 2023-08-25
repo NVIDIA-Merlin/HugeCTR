@@ -1076,14 +1076,6 @@ void Model::evaluate_pipeline_with_ebc() {
   }
 }
 
-template void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>&);
-template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>&);
-template void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&);
-template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>&);
-template void Model::create_train_pipeline_with_ebc(
-    std::vector<std::shared_ptr<Network>>& networks);
-template void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>&);
-
 template void Model::create_train_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
 template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
 template void Model::create_train_network_pipeline(

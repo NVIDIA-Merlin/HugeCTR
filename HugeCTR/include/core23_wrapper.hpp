@@ -19,6 +19,7 @@
 #include <general_buffer2.hpp>
 namespace HugeCTR {
 
+// TODO: remove those wrapper after we deprecate hybrid embedding
 class Core23WrappingBuffer : public TensorBuffer2 {
  public:
   Core23WrappingBuffer(const core23::Tensor& core23_tensor) : core23_tensor_(core23_tensor) {}
@@ -53,46 +54,5 @@ class LegacyWrappingBuffer : public core23::Buffer {
 
   HugeCTR::Tensor2<T> tensor2_;
 };
-
-template <typename T>
-HugeCTR::Tensor2<T> wrap_tensor2_with_core23_tensor(const core23::Tensor& core23_tensor) {
-  HCTR_CHECK_HINT(core23::ToScalarType<T>::value == core23_tensor.data_type().type(),
-                  "cannot convert to different datatype ");
-  auto shape = core23_tensor.shape();
-  std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
-  auto buffer = std::make_shared<Core23WrappingBuffer>(core23_tensor);
-  return HugeCTR::Tensor2<T>(dimensions, buffer);
-}
-
-template <typename T>
-HugeCTR::Tensors2<T> wrap_tensors2_with_core23_tensors(
-    const std::vector<core23::Tensor>& core23_tensors) {
-  HugeCTR::Tensors2<T> tensors2;
-  std::transform(core23_tensors.begin(), core23_tensors.end(), std::back_inserter(tensors2),
-                 [](const core23::Tensor& t) { return wrap_tensor2_with_core23_tensor<T>(t); });
-  return tensors2;
-}
-
-template <typename T>
-core23::Tensor wrap_core23_tensor_with_tensor2(Tensor2<T> tensor2, const core23::Device& device) {
-  std::vector<int64_t> dimensions;
-  std::transform(tensor2.get_dimensions().begin(), tensor2.get_dimensions().end(),
-                 std::back_inserter(dimensions),
-                 [](const size_t& d) { return static_cast<int64_t>(d); });
-  core23::Shape shape(dimensions);
-  core23::BufferParams buffer_params;
-  buffer_params.custom_factory = [tensor2](const auto&, const auto& device, auto allocator) {
-    return std::make_shared<LegacyWrappingBuffer<T>>(tensor2, device, std::move(allocator));
-  };
-  return core23::Tensor(core23::TensorParams(shape).device(device).buffer_params(buffer_params));
-}
-template <typename T>
-std::vector<core23::Tensor> wrap_core23_tensors_with_tensors2(const Tensors2<T>& tensors2,
-                                                              const core23::Device& device) {
-  std::vector<core23::Tensor> core23_tensors;
-  std::transform(tensors2.begin(), tensors2.end(), std::back_inserter(core23_tensors),
-                 [device](const auto& t) { return wrap_core23_tensor_with_tensor2<T>(t, device); });
-  return core23_tensors;
-}
 
 }  // namespace HugeCTR
