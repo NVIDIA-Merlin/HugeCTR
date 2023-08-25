@@ -202,7 +202,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   DensePreprocess dense_preprocess{float_label_dense};
   for (int iter = 0; iter < 12; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
-    auto &sparse_tensorbag = data_reader.get_sparse_tensors("localized");
+    auto &sparse_tensorbag = data_reader.get_sparse_tensor23s("localized");
     HCTR_LOG_S(INFO, WORLD) << "current_batch_size:" << current_batch_size << std::endl;
     if (current_batch_size == 0) return;
     if (iter % round == round - 1) {
@@ -212,7 +212,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
     }
 
     for (size_t local_id = 0; local_id < local_gpu_count; ++local_id) {
-      auto sparse_tensor = SparseTensor<T>::stretch_from(sparse_tensorbag[local_id]);
+      auto sparse_tensor = sparse_tensorbag[local_id];
 
       ASSERT_TRUE(sparse_tensor.nnz() == static_cast<size_t>(current_batch_size * slot_num));
       std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
@@ -238,12 +238,10 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
         }
       }
 
-      auto dense_tensorbag = data_reader.get_dense_tensors()[local_id];
+      auto dense_tensor = data_reader.get_dense_tensor23s()[local_id];
       if (use_mixed_precision) {
-        auto dense_tensor = Tensor2<__half>::stretch_from(dense_tensorbag);
-
         std::unique_ptr<__half[]> dense(new __half[batch_size_per_gpu * dense_dim]);
-        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.data(),
                                   batch_size_per_gpu * dense_dim * sizeof(__half),
                                   cudaMemcpyDeviceToHost));
 
@@ -263,10 +261,8 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
           ASSERT_FLOAT_EQ(val, expected);
         }
       } else {
-        auto dense_tensor = Tensor2<float>::stretch_from(dense_tensorbag);
-
         std::unique_ptr<float[]> dense(new float[batch_size_per_gpu * dense_dim]);
-        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.data(),
                                   batch_size_per_gpu * dense_dim * sizeof(float),
                                   cudaMemcpyDeviceToHost));
 

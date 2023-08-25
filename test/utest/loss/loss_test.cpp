@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <HugeCTR/include/network_buffer_channels.hpp>
+#include <core23/tensor_container.hpp>
 #include <cstdlib>
 #include <loss.hpp>
 #include <regularizers/no_regularizer.hpp>
@@ -25,30 +27,45 @@
 using namespace HugeCTR;
 using namespace HugeCTR::test;
 
-void transpose(float *a, size_t m, size_t n) {
+void transpose(float *a, int64_t m, int64_t n) {
   std::vector<float> tmp;
   tmp.resize(m * n);
-  for (size_t i = 0; i < m; ++i)
-    for (size_t j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
-  for (size_t i = 0; i < m * n; ++i) a[i] = tmp[i];
+  for (int64_t i = 0; i < m; ++i)
+    for (int64_t j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
+  for (int64_t i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
-void cross_entropy_loss(size_t batch_size) {
-  size_t feature_dim = 2;
+void cross_entropy_loss(int64_t batch_size) {
+  int64_t feature_dim = 2;
+
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
 
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
-  Tensor2<float> input_tensor;
-  buff->reserve({batch_size, feature_dim}, &input_tensor);
-  Tensor2<float> label_tensor;
-  buff->reserve({batch_size, 1}, &label_tensor);
-  Tensor2<float> loss_tensor;
-  buff->reserve({1, 1}, &loss_tensor);
+  core23::Tensor input_tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<float>::value)
+                                                   .shape({batch_size, feature_dim})
+                                                   .buffer_params(blobs_buffer_params));
 
-  std::shared_ptr<BufferBlock2<float>> weight_buff = buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
+  core23::Tensor label_tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<float>::value)
+                                                   .shape({batch_size, 1})
+                                                   .buffer_params(blobs_buffer_params));
 
-  std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-      weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size, test::get_default_gpu()));
+  core23::Tensor loss_tensor = core23::Tensor(core23::TensorParams()
+                                                  .data_type(core23::ToScalarType<float>::value)
+                                                  .shape({1, 1})
+                                                  .buffer_params(blobs_buffer_params));
+
+  core23::Tensor empty_tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<float>::value)
+                                                   .shape({1, 1})
+                                                   .buffer_params(blobs_buffer_params));
+
+  WeightTensors weight_tensors({empty_tensor}, {1});
+  WgradTensors<float> wgrad_tensors({empty_tensor}, {1});
+  std::shared_ptr<NoRegularizer<float>> no_regularizer(
+      new NoRegularizer<float>(weight_tensors, wgrad_tensors, batch_size, test::get_default_gpu()));
 
   CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, no_regularizer,
                               test::get_default_gpu(), 1);
@@ -57,16 +74,16 @@ void cross_entropy_loss(size_t batch_size) {
 
   buff->allocate();
 
-  float *d_input = input_tensor.get_ptr();
-  float *d_label = label_tensor.get_ptr();
-  float *d_loss = loss_tensor.get_ptr();
+  float *d_input = input_tensor.data<float>();
+  float *d_label = label_tensor.data<float>();
+  float *d_loss = loss_tensor.data<float>();
 
   std::unique_ptr<float[]> h_input(new float[batch_size * feature_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size]);
 
   srand(time(NULL));
-  for (size_t i = 0; i < batch_size * feature_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
-  for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
+  for (int64_t i = 0; i < batch_size * feature_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
+  for (int64_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
 
   // GPU
   HCTR_LIB_THROW(cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
@@ -89,7 +106,7 @@ void cross_entropy_loss(size_t batch_size) {
 #elif SCALE_1024
   scaler = 1024;
 #endif
-  for (size_t i = 0; i < batch_size; ++i) {
+  for (int64_t i = 0; i < batch_size; ++i) {
     z0_exp = exp(h_input[i * feature_dim]);
     z1_exp = exp(h_input[i * feature_dim + 1]);
 
@@ -111,38 +128,39 @@ void cross_entropy_loss(size_t batch_size) {
 TEST(loss_test, CrossEntropyLoss_2048_row_major) { cross_entropy_loss(2048); }
 TEST(loss_test, CrossEntropyLoss_64_row_major) { cross_entropy_loss(64); }
 
-void binary_cross_entropy_loss(size_t batch_size) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+void binary_cross_entropy_loss(int64_t batch_size) {
+  core23::BufferParams blobs_buffer_params = {};
+  blobs_buffer_params.channel = GetBlobsBufferChannel();
 
-  Tensor2<float> input_tensor;
-  buff->reserve({batch_size, 1}, &input_tensor);
-  Tensor2<float> label_tensor;
-  buff->reserve({batch_size, 1}, &label_tensor);
-  Tensor2<float> loss_tensor;
-  buff->reserve({1, 1}, &loss_tensor);
+  core23::Tensor input_tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<float>::value)
+                                                   .shape({batch_size, 1})
+                                                   .buffer_params(blobs_buffer_params));
+  core23::Tensor label_tensor = core23::Tensor(core23::TensorParams()
+                                                   .data_type(core23::ToScalarType<float>::value)
+                                                   .shape({batch_size, 1})
+                                                   .buffer_params(blobs_buffer_params));
+  core23::Tensor loss_tensor = core23::Tensor(core23::TensorParams()
+                                                  .data_type(core23::ToScalarType<float>::value)
+                                                  .shape({1, 1})
+                                                  .buffer_params(blobs_buffer_params));
 
-  std::shared_ptr<BufferBlock2<float>> weight_buff = buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
-
-  std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-      weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size, test::get_default_gpu()));
+  std::shared_ptr<NoRegularizer<float>> no_regularizer(
+      new NoRegularizer<float>(std::nullopt, std::nullopt, batch_size, test::get_default_gpu()));
 
   BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, loss_tensor, no_regularizer,
                                     test::get_default_gpu(), 1);
   bce.set_label_weight(1.0);
-
-  buff->allocate();
-
-  float *d_input = input_tensor.get_ptr();
-  float *d_label = label_tensor.get_ptr();
-  float *d_loss = loss_tensor.get_ptr();
+  float *d_input = input_tensor.data<float>();
+  float *d_label = label_tensor.data<float>();
+  float *d_loss = loss_tensor.data<float>();
 
   std::unique_ptr<float[]> h_input(new float[batch_size]);
   std::unique_ptr<float[]> h_label(new float[batch_size]);
 
   srand(time(NULL));
-  for (size_t i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;
-  for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
+  for (int64_t i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;
+  for (int64_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
   // GPU
   HCTR_LIB_THROW(
       cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice));
@@ -151,7 +169,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
 
   // Test with separate regularizer and compute methods
   float rterm = bce.regularizer_compute_rterm();
-  const auto &input_dim = input_tensor.get_dimensions();
+  const auto &input_dim = input_tensor.shape();
   bce.compute(true, input_dim[0], rterm);
   bce.regularizer_initialize_wgrad(true);
 
@@ -167,7 +185,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
 #elif SCALE_1024
   scaler = 1024;
 #endif
-  for (size_t i = 0; i < batch_size; ++i) {
+  for (int64_t i = 0; i < batch_size; ++i) {
     x = h_input[i];
     val = 1 / (1 + exp(-h_input[i]));
     y = h_label[i];

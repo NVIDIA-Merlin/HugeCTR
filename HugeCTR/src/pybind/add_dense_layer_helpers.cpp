@@ -226,7 +226,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor;  // out_tensor.empty() == true
       std::unique_ptr<Layer> layer;
-      // TODO: remove if-else once the refactoring is done
       if (in_tensors[0].dims() == 2) {
         if (use_mixed_precision) {
           layer.reset(new ConcatLayer<__half>(in_tensors, out_tensor, gpu_resource));
@@ -285,7 +284,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
       [[maybe_unused]] float rate = dense_layer.dropout_rate;
       std::unique_ptr<Layer> layer;
-      // TODO: remove if-else once the refactoring is done
       if (use_mixed_precision) {
         layer.reset(new DropoutLayer<__half>(in_tensor, out_tensor, rate, gpu_resource));
       } else {
@@ -301,7 +299,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
       float alpha = dense_layer.elu_alpha;
       std::unique_ptr<Layer> layer;
-      // TODO: remove if-else once the refactoring is done
       if (use_mixed_precision) {
         layer.reset(new EluLayer<__half>(in_tensor, out_tensor, alpha, gpu_resource));
       } else {
@@ -318,7 +315,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Tensor output_tensor(tensor_params.shape(
           {input_tensors[0].size(0), 1, max_sequence_len_from, max_sequence_len_to}));
       std::unique_ptr<Layer> layer;
-      // TODO: remove if-else once the refactoring is done
       if (use_mixed_precision) {
         layer.reset(new SequenceMaskLayer<__half>(input_tensors, output_tensor,
                                                   max_sequence_len_from, max_sequence_len_to,
@@ -650,7 +646,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       auto& in_tensor = input_output_info.input_tensors[0];
       core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
       std::unique_ptr<Layer> layer;
-      // TODO: remove if-else once the refactoring is done
       if (use_mixed_precision) {
         layer.reset(new ReluLayer<__half>(in_tensor, out_tensor, gpu_resource));
       } else {
@@ -896,7 +891,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     case Layer_t::Scale: {
       [[maybe_unused]] auto& scale_in_tensor = input_output_info.input_tensors[0];
       core23::Tensor scale_out_tensor;
-      HugeCTR::Tensor2<float> scale_out_tensor2;
       layers.emplace_back(new core23::ScaleLayer<float>(
           scale_in_tensor, scale_out_tensor, dense_layer.axis, dense_layer.factor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], scale_out_tensor});

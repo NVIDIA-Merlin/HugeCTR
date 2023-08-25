@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.20)
 file(GLOB loss_test_src
   loss_test.cpp
   multi_cross_entropy_loss_test.cpp
+  loss_with_regularizer_test.cpp
 )
 
 add_executable(loss_test ${loss_test_src})

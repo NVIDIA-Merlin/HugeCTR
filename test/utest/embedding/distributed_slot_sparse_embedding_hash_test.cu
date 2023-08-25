@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <nvToolsExt.h>
 
+#include <core23_helper.hpp>
 #include <data_generator.hpp>
 #include <data_readers/data_reader.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
@@ -29,7 +30,6 @@
 #include <utest/embedding/embedding_test_utils.hpp>
 #include <utest/embedding/sparse_embedding_hash_cpu.hpp>
 #include <utest/test_utils.hpp>
-
 using namespace HugeCTR;
 using namespace embedding_test;
 
@@ -49,7 +49,7 @@ const int combiner = 0;  // 0-sum, 1-mean
 const long long label_dim = 1;
 const long long dense_dim = 0;
 typedef long long T;
-
+using SparseTensor23s = std::vector<SparseTensor23>;
 const float scaler = 1.0f;  // used in mixed precision training
 
 // In order to not allocate the total size of hash table on each GPU, the users need to set the
@@ -223,20 +223,14 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
                                                       true,
                                                       false};
 
-  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
-    sparse_tensors.resize(tensorbags.size());
-    for (size_t j = 0; j < tensorbags.size(); ++j) {
-      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
-    }
-  };
-  SparseTensors<T> train_input;
-  copy(train_data_reader->get_sparse_tensors("distributed"), train_input);
-  SparseTensors<T> test_input;
-  copy(test_data_reader->get_sparse_tensors("distributed"), test_input);
+  SparseTensor23s train_input = train_data_reader->get_sparse_tensor23s("distributed");
+  SparseTensor23s test_input = test_data_reader->get_sparse_tensor23s("distributed");
 
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, test_input, embedding_params, resource_manager));
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(train_input),
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(test_input), embedding_params,
+          resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -485,18 +479,13 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
                                                       true,
                                                       false};
 
-  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
-    sparse_tensors.resize(tensorbags.size());
-    for (size_t j = 0; j < tensorbags.size(); ++j) {
-      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
-    }
-  };
-  SparseTensors<T> train_input;
-  copy(train_data_reader->get_sparse_tensors("distributed"), train_input);
+  SparseTensor23s train_input = train_data_reader->get_sparse_tensor23s("distributed");
 
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, train_input, embedding_params, resource_manager));
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(train_input),
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(train_input), embedding_params,
+          resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -667,18 +656,13 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
                                                       true,
                                                       false};
 
-  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
-    sparse_tensors.resize(tensorbags.size());
-    for (size_t j = 0; j < tensorbags.size(); ++j) {
-      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
-    }
-  };
-  SparseTensors<T> train_input;
-  copy(train_data_reader->get_sparse_tensors("distributed"), train_input);
+  SparseTensor23s train_input = train_data_reader->get_sparse_tensor23s("distributed");
 
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, train_input, embedding_params, resource_manager));
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(train_input),
+          core_helper::convert_sparse_tensors23_to_sparse_tensors<T>(train_input), embedding_params,
+          resource_manager));
 
   // init hash table file
   if (pid == 0) {

@@ -1236,6 +1236,8 @@ for i in range(train_steps):
 
 ## Inference API
 
+> :warning: **Deprecation Warning**: the offline inference based on `InferenceSession` and `InferenceModel` will be deprecated in a future release. Please check out the [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html) for alternatives based on TensorFlow and TensorRT.
+
 For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceModel`. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to [HugeCTR Backend](https://github.com/triton-inference-server/hugectr_backend) if online inference with Triton is needed.
 
 Please **NOTE** that Inference API requires a configuration JSON file of the model graph, which can derived from the `Model.graph_to_json()` method. Besides, `model_name` within `CreateSolver` should be specified during training in order to correctly dump the JSON file.

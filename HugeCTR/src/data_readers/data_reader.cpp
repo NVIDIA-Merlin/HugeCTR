@@ -236,60 +236,7 @@ void DataReader<TypeKey>::start() {
     throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
-// TODO REMOVE IT
-template <typename TypeKey>
-const std::vector<SparseTensorBag> DataReader<TypeKey>::get_sparse_tensors(
-    const std::string &name) {
-  if (output23_->sparse_tensors_map.find(name) == output23_->sparse_tensors_map.end()) {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "no such sparse output in data reader:" + name);
-  }
-  std::vector<SparseTensorBag> tmp_tensors;
-  // convert from SparseTensor23 tp SparseTensor<SparseType>
-  // offset is negligible
-  for (const auto &sparse23 : output23_->sparse_tensors_map[name]) {
-    core23::Tensor value_tensor = sparse23.get_value_tensor();
-    core23::Tensor off_tensor = sparse23.get_rowoffset_tensor();
-    auto shape = value_tensor.shape();
-    std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
 
-    auto value_buffer = PreallocatedBuffer2<TypeKey>::create(value_tensor.data(), dimensions);
-    auto rowoffset_buffer = PreallocatedBuffer2<TypeKey>::create(
-        off_tensor.data(), {(size_t)sparse23.rowoffset_count()});
-
-    std::shared_ptr<Tensor2<TypeKey>> value_tensor2(new Tensor2<TypeKey>);
-    std::shared_ptr<Tensor2<TypeKey>> off_tensor2(new Tensor2<TypeKey>);
-    SparseTensor<TypeKey> current_sparse(dimensions, value_buffer, rowoffset_buffer,
-                                         sparse23.get_nnz_ptr(), sparse23.rowoffset_count());
-    tmp_tensors.push_back(current_sparse.shrink());
-  }
-  return tmp_tensors;
-}
-// TODO REMOVE IT
-template <typename TypeKey>
-const std::vector<TensorBag2> DataReader<TypeKey>::get_dense_tensors() const {
-  if (output23_->use_mixed_precision) {
-    std::vector<Tensor2<__half>> ret;
-    for (auto tensor : output23_->dense_tensors) {
-      auto shape = tensor.shape();
-      std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
-      auto buffer = PreallocatedBuffer2<__half>::create(tensor.data(), dimensions);
-      Tensor2<__half> tensor2(dimensions, buffer);
-      ret.push_back(tensor2);
-    }
-    return tensors_to_bags(ret);
-  } else {
-    std::vector<Tensor2<float>> ret;
-    for (auto tensor : output23_->dense_tensors) {
-      auto shape = tensor.shape();
-      std::vector<size_t> dimensions(shape.data(), shape.data() + shape.dims());
-      auto buffer = PreallocatedBuffer2<float>::create(tensor.data(), dimensions);
-      Tensor2<float> tensor2(dimensions, buffer);
-      ret.push_back(tensor2);
-    }
-    return tensors_to_bags(ret);
-  }
-  return {};
-}
 template <typename TypeKey>
 const std::vector<SparseTensor23> &DataReader<TypeKey>::get_sparse_tensor23s(
     const std::string &name) {

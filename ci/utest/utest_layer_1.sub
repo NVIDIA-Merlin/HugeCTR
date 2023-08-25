@@ -2,5 +2,4 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
       cd /workdir/build/bin && \
-      ./layers_test --gtest_filter=concat_3d_layer.*:matmul_layer.* && \
-      ./dense_layer_test"
+      ./core23_layers_test --gtest_filter=concat_3d_layer.*:matmul_layer.*"
