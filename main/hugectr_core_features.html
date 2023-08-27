@@ -31,9 +31,8 @@
 <body class="wy-body-for-nav">
   <div class="banner">
     <p class="banner">
-      Beginning in January 2023, versions for all NVIDIA Merlin projects
-      will change from semantic versioning like <code>4.0</code>
-      to calendar versioning like <code>23.01</code>.</p>
+      After the HugeCTR <code>v23.08<code>, the offline inference feature will be deprecated.
+      Check out our Hierarchical Parameter Server plugins for TensorRT and TensorFlow as alternatives.
   </div>
 
   <div class="wy-grid-for-nav">
@@ -166,7 +165,7 @@ are described in the following topics.</p>
 <h2>HugeCTR to ONNX Converter<a class="headerlink" href="#hugectr-to-onnx-converter" title="Permalink to this headline"></a></h2>
 <p>The HugeCTR to Open Neural Network Exchange (ONNX) converter (hugectr2onnx) is a Python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.</p>
 <p>After training with our HugeCTR Python APIs, you can get the files for dense models, sparse models, and graph configurations, which are required as inputs when using the <code class="docutils literal notranslate"><span class="pre">hugectr2onnx.converter.convert</span></code> API. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. You can convert both dense and sparse models or only dense models.
-For more information, refer to the <code class="docutils literal notranslate"><span class="pre">onnx_converter</span></code> directory of the HugeCTR <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">repository</a> on GitHub and the <a class="reference internal" href="notebooks/hugectr2onnx_demo.html"><span class="doc std std-doc">hugectr2onnx_demo.ipynb</span></a> sample notebook.</p>
+For more information, refer to the <code class="docutils literal notranslate"><span class="pre">onnx_converter</span></code> directory of the HugeCTR <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">repository</a> on GitHub and the <span class="xref myst">hugectr2onnx_demo.ipynb</span> sample notebook.</p>
 </div>
 <div class="section" id="hdfs-support">
 <h2>HDFS Support<a class="headerlink" href="#hdfs-support" title="Permalink to this headline"></a></h2>
@@ -178,7 +177,7 @@ If you want to build <a class="reference external" href="https://nvidia-merlin.g
 <div class="section" id="hierarchical-parameter-server">
 <h2>Hierarchical Parameter Server<a class="headerlink" href="#hierarchical-parameter-server" title="Permalink to this headline"></a></h2>
 <p>HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed recommendation inference framework,that combines a high-performance GPU embedding cache with an hierarchical storage architecture, to realize low-latency retrieval ofembeddings for online model inference tasks. Among other things, our HPS features (1) redundant hierarchical storage, (2) a novelGPU-enabled high-bandwidth cache to accelerate parallel embedding lookup, (3) online training support and (4) light-weight APIs forintegration into existing large-scale recommendation workflow.</p>
-<p>Try out our <a class="reference internal" href="notebooks/hugectr_wdl_prediction.html"><span class="doc std std-doc">hugectr_wdl_prediction.ipynb Notebook</span></a>. For more information, refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server">Distributed Deployment</a>.</p>
+<p>Try out our <span class="xref myst">hugectr_wdl_prediction.ipynb Notebook</span>. For more information, refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server">Distributed Deployment</a>.</p>
 <p>For more information about Hierrachical Parameter Server, see the details for <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/blob/main/hps_backend/docs/architecture.md">HPS Backend</a> and <a class="reference internal" href="hierarchical_parameter_server/hps_database_backend.html"><span class="doc std std-doc">HPS Database Backend</span></a>.</p>
 </div>
 <div class="section" id="sparse-operation-kit">
