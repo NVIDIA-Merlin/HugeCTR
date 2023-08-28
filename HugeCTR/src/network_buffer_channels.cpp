@@ -22,12 +22,13 @@ namespace HugeCTR {
 
 namespace {
 
-std::unordered_map<NetworkBufferChannelType, std::string> g_type_to_name = {
+static std::unordered_map<NetworkBufferChannelType, std::string> g_type_to_name = {
     {NetworkBufferChannelType::Blobs, "BLOBS"},   {NetworkBufferChannelType::Weight, "WEIGHT"},
     {NetworkBufferChannelType::WeightHalf, "WH"}, {NetworkBufferChannelType::Wgrad, "WG"},
     {NetworkBufferChannelType::WgradHalf, "WGH"}, {NetworkBufferChannelType::OptState, "OPT"},
 };
-}
+
+}  // namespace
 std::string SetNetworkBufferChannel(NetworkBufferChannelType type, const std::string& new_name) {
   if (g_type_to_name.find(type) == g_type_to_name.end()) {
     HCTR_OWN_THROW(Error_t::WrongInput, "There is no such BufferChannel type");

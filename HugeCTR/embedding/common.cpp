@@ -575,13 +575,8 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
   core23::TensorParams wgrads_params = core23::TensorParams().device(device);
   int alignment_num = 32;
   if (grouped) {
-    if (wgrad->attr.type.type() == core23::ScalarType::Float) {
-      wgrads_params.alignment(alignment_num).buffer_channel(buffer_channel);
-    } else if (wgrad->attr.type.type() == core23::ScalarType::Half) {
-      wgrads_params.alignment(alignment_num).buffer_channel(buffer_channel);
-    } else {
-      HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput, "Embedding wgrad type set wrong can't support!");
-    }
+    // out-of-place modifications
+    wgrads_params = wgrads_params.alignment(alignment_num).buffer_channel(buffer_channel);
   }
   wgrad->data = core23::Tensor(wgrads_params.shape({max_buffer_size}).data_type(wgrad->attr.type));
 
