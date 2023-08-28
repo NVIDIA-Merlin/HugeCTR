@@ -26,22 +26,6 @@
 #include <vector>
 
 using namespace HugeCTR;
-namespace {
-__half operator*(const __half& lhs, const __half& rhs) {
-  return __float2half(__half2float(lhs) * __half2float(rhs));
-}
-__half operator+(const __half& lhs, const __half& rhs) {
-  return __float2half(__half2float(lhs) + __half2float(rhs));
-}
-__half operator*(const __half& lhs, const float& rhs) {
-  return __float2half(__half2float(lhs) * (rhs));
-}
-__half operator*(const float& lhs, const __half& rhs) { return rhs * lhs; }
-__half operator+(const __half& lhs, const float& rhs) {
-  return __float2half(__half2float(lhs) + (rhs));
-}
-__half operator+(const float& lhs, const __half& rhs) { return rhs + lhs; }
-}  // namespace
 
 template <typename T>
 class MultiCrossLayerTest {
@@ -170,7 +154,9 @@ class MultiCrossLayerTest {
       out[j] = 0.0f;
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[j] = out[j] + T(in_m[k] * in_v[i]);
+        out[j] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(out[j]) +
+                                                TypeConvert<float, T>::convert(in_m[k]) *
+                                                    TypeConvert<float, T>::convert(in_v[i]));
       }
     }
   }
@@ -194,9 +180,11 @@ class MultiCrossLayerTest {
           float acc = 0.f;
           for (size_t k = 0; k < rowB; k++) {
             // column of A is rowA
-            acc = acc + (A[r * rowB + k] * B[c * rowB + k]);
+            acc = acc + TypeConvert<float, T>::convert(A[r * rowB + k]) *
+                            TypeConvert<float, T>::convert(B[c * rowB + k]);
           }
-          C[r * colB + c] = ((C[r * colB + c]) * beta + (acc));
+          C[r * colB + c] = TypeConvert<T, float>::convert(
+              TypeConvert<float, T>::convert(C[r * colB + c]) * beta + acc);
         }
       }
     } else if (transA) {
@@ -206,9 +194,11 @@ class MultiCrossLayerTest {
           float acc = 0.f;
           for (size_t k = 0; k < rowB; k++) {
             // column of A is rowA
-            acc = acc + (A[k * rowA + r] * B[k * colB + c]);
+            acc = acc + TypeConvert<float, T>::convert(A[k * rowA + r]) *
+                            TypeConvert<float, T>::convert(B[k * colB + c]);
           }
-          C[r * colB + c] = ((C[r * colB + c]) * beta + (acc));
+          C[r * colB + c] = TypeConvert<T, float>::convert(
+              TypeConvert<float, T>::convert(C[r * colB + c]) * beta + (acc));
         }
       }
     } else {
@@ -217,9 +207,11 @@ class MultiCrossLayerTest {
           float acc = 0.f;
           for (size_t k = 0; k < rowB; k++) {
             // column of A is rowB
-            acc = acc + (A[r * rowB + k] * B[k * colB + c]);
+            acc = acc + TypeConvert<float, T>::convert(A[r * rowB + k]) *
+                            TypeConvert<float, T>::convert(B[k * colB + c]);
           }
-          C[r * colB + c] = ((C[r * colB + c]) * beta + (acc));
+          C[r * colB + c] = TypeConvert<T, float>::convert(
+              TypeConvert<float, T>::convert(C[r * colB + c]) * beta + (acc));
         }
       }
     }
@@ -234,7 +226,8 @@ class MultiCrossLayerTest {
   void matrix_matrix_elementwise_dot(T* C, const T* A, const T* B, size_t w, size_t batchsize) {
     for (size_t r = 0; r < batchsize; r++) {
       for (size_t c = 0; c < w; c++) {
-        C[r * w + c] = A[r * w + c] * B[r * w + c];
+        C[r * w + c] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(A[r * w + c]) *
+                                                      TypeConvert<float, T>::convert(B[r * w + c]));
       }
     }
 
@@ -248,7 +241,8 @@ class MultiCrossLayerTest {
                                      std::ofstream& ofs) {
     for (size_t r = 0; r < batchsize; r++) {
       for (size_t c = 0; c < w; c++) {
-        C[r * w + c] = A[r * w + c] * B[r * w + c];
+        C[r * w + c] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(A[r * w + c]) *
+                                                      TypeConvert<float, T>::convert(B[r * w + c]));
         ofs << "C(" << r << "," << c << ") is " << A[r * w + c] << " * " << B[r * w + c] << "="
             << C[r * w + c] << std::endl;
       }
@@ -259,7 +253,8 @@ class MultiCrossLayerTest {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[k] = in_m[k] * in_v[j];
+        out[k] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(in_m[k]) *
+                                                TypeConvert<float, T>::convert(in_v[j]));
       }
     }
   }
@@ -268,7 +263,8 @@ class MultiCrossLayerTest {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[k] = in_m_1[k] + in_m_2[k];
+        out[k] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(in_m_1[k]) +
+                                                TypeConvert<float, T>::convert(in_m_2[k]));
       }
     }
   }
@@ -277,7 +273,8 @@ class MultiCrossLayerTest {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[k] = in_m[k] + in_v[i];
+        out[k] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(in_m[k]) +
+                                                TypeConvert<float, T>::convert(in_v[i]));
       }
     }
   }
@@ -287,7 +284,9 @@ class MultiCrossLayerTest {
       out[j] = 0.0f;
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[j] = out[j] + T(in_m_1[k] * in_m_2[k]);
+        out[j] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(out[j]) +
+                                                (TypeConvert<float, T>::convert(in_m_1[k]) *
+                                                 TypeConvert<float, T>::convert(in_m_2[k])));
       }
     }
   }
@@ -297,7 +296,9 @@ class MultiCrossLayerTest {
       out[i] = 0.0f;
       for (size_t j = 0; j < h; j++) {
         size_t k = j * w + i;
-        out[i] = out[i] + T(in_m[k] * in_v[j]);
+        out[i] = TypeConvert<T, float>::convert(
+            TypeConvert<float, T>::convert(out[i]) +
+            (TypeConvert<float, T>::convert(in_m[k]) * TypeConvert<float, T>::convert(in_v[j])));
       }
     }
   }
@@ -307,7 +308,7 @@ class MultiCrossLayerTest {
       out[i] = 0.0f;
       for (size_t j = 0; j < h; j++) {
         size_t k = j * w + i;
-        out[i] = out[i] + in_m[k];
+        out[i] = (TypeConvert<float, T>::convert(out[i]) + TypeConvert<float, T>::convert(in_m[k]));
       }
     }
   }
@@ -316,7 +317,8 @@ class MultiCrossLayerTest {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[k] = in_v_1[j] * in_v_2[i];
+        out[k] =
+            (TypeConvert<float, T>::convert(in_v_1[j]) * TypeConvert<float, T>::convert(in_v_2[i]));
       }
     }
   }

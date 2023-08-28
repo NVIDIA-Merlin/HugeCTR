@@ -1042,21 +1042,28 @@ void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
       }
     }
   };
-  // use default buffer channel for eval
-  add_dense_layers_op(false);
-  std::unordered_map<NetworkBufferChannelType, std::string> new_channel = {
-      {NetworkBufferChannelType::Blobs, "TRAIN_BLOBS"},
-      {NetworkBufferChannelType::WeightHalf, "TRAIN_WEIGHT_HALF"},
-      {NetworkBufferChannelType::Weight, "TRAIN_WEIGHT"},
-      {NetworkBufferChannelType::Wgrad, "TRAIN_WGRAD"},
-      {NetworkBufferChannelType::WgradHalf, "TRAIN_WGRAD_HALF"},
+  std::unordered_map<NetworkBufferChannelType, std::string> original_channel;
+  const std::unordered_map<NetworkBufferChannelType, std::string> new_channel = {
+      {NetworkBufferChannelType::Blobs, "EVAL_BLOBS"},
+      {NetworkBufferChannelType::WeightHalf, "EVAL_WEIGHT_HALF"},
+      {NetworkBufferChannelType::Weight, "EVAL_WEIGHT"},
+      {NetworkBufferChannelType::Wgrad, "EVAL_WGRAD"},
+      {NetworkBufferChannelType::WgradHalf, "EVAL_WGRAD_HALF"},
   };
 
-  //  set bufferchannel for train layer
-  //  freeze the train BufferChannel because the ExchangeWgrad needs it
+  //! Embeddings and Train layers should use default channels;
+  //! set new buffer channel for eval layers
   for (auto it = new_channel.begin(); it != new_channel.end(); it++) {
+    auto original = SetNetworkBufferChannel(it->first, it->second);
+    original_channel.emplace(std::make_pair(it->first, original));
+  }
+  add_dense_layers_op(false);
+
+  //! Restore the channel
+  for (auto it = original_channel.begin(); it != original_channel.end(); it++) {
     SetNetworkBufferChannel(it->first, it->second);
   }
+
   add_dense_layers_op(true);
 }
 
