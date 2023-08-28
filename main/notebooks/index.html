@@ -32,7 +32,7 @@
   <div class="banner">
     <p class="banner">
       After the HugeCTR <code>v23.08<code>, the offline inference feature will be deprecated.
-      Check out our Hierarchical Parameter Server plugins for TensorRT and TensorFlow as alternatives.
+      Check out our Hierarchical Parameter Server plugins for TensorRT and TensorFlow as alternatives.</p>
   </div>
 
   <div class="wy-grid-for-nav">
@@ -116,15 +116,15 @@ Docker images are available from the NVIDIA GPU Cloud (NGC).</p>
 <div class="section" id="pull-the-ngc-docker-and-run-it">
 <h2>2. Pull the NGC Docker and run it<a class="headerlink" href="#pull-the-ngc-docker-and-run-it" title="Permalink to this headline"></a></h2>
 <p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:23.06
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:23.08
 </pre></div>
 </div>
 <p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>--ipc<span class="o">=</span>host<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span><span class="w"> </span>-u<span class="w"> </span>root<span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/HugeCTR<span class="w"> </span>-w<span class="w"> </span>/HugeCTR<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:8888<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:23.06
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>--ipc<span class="o">=</span>host<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1<span class="w"> </span>--ulimit<span class="w"> </span><span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span><span class="w"> </span>-u<span class="w"> </span>root<span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/HugeCTR<span class="w"> </span>-w<span class="w"> </span>/HugeCTR<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:8888<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:23.08
 </pre></div>
 </div>
 <blockquote>
-<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.06</span></code> container.</p>
+<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.08</span></code> container.</p>
 </div></blockquote>
 </div>
 <div class="section" id="customized-building-optional">
