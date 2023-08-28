@@ -24,8 +24,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="HugeCTR Wide and Deep Model with Criteo" href="hugectr_wdl_prediction.html" />
-    <link rel="prev" title="HugeCTR to ONNX Converter" href="hugectr2onnx_demo.html" /> 
+    <link rel="next" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" />
+    <link rel="prev" title="HugeCTR Example Notebooks" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -62,17 +62,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Continuous Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="training_and_inference_with_remote_filesystem.html">HugeCTR Training and Inference with Remote File System Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hugectr_e2e_demo.html">HugeCTR End-end Example with NVTabular</a></li>
 </ul>
@@ -452,7 +445,7 @@ BinaryCrossEntropyLoss                  add1                          loss
 <p>This section gives the code sample for continuous training using the low-level API.
 The program logic is the same as the preceding code sample.</p>
 <p>Although the low-level APIs provide fine-grained control of the training logic, we encourage you to use the high-level API if it can satisfy your requirements because the naked data reader and embedding training cache logics are not straightforward and error prone.</p>
-<p>For more about the low-level API, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#low-level-training-api">Low-level Training API</a> and samples of <a class="reference internal" href="hugectr_criteo.html"><span class="doc std std-doc">Low-level Training</span></a>.</p>
+<p>For more about the low-level API, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#low-level-training-api">Low-level Training API</a> and samples of <span class="xref myst">Low-level Training</span>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> wdl_etc.py
@@ -643,8 +636,8 @@ HugeCTR Version: 4.1
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="hugectr2onnx_demo.html" class="btn btn-neutral float-left" title="HugeCTR to ONNX Converter" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="hugectr_wdl_prediction.html" class="btn btn-neutral float-right" title="HugeCTR Wide and Deep Model with Criteo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="HugeCTR Example Notebooks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="multi_gpu_offline_inference.html" class="btn btn-neutral float-right" title="Multi-GPU Offline Inference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -679,10 +672,6 @@ HugeCTR Version: 4.1
       <dd><a href="../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="continuous_training.html">v23.08.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>

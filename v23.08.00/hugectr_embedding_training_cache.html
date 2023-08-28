@@ -132,7 +132,7 @@
 <li><p>The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the <a class="reference internal" href="api/python_interface.html#get-incremental-model-method"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">get_incremental_model()</span></code></span></a> interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.</p></li>
 <li><p>We revised our <code class="docutils literal notranslate"><span class="pre">criteo2hugectr</span></code> tool to support the key set extraction for the Criteo dataset. And we also provided a <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts">Parquet key set extraction script</a> to help you get key set from NVT processed / Synthetic Parquet datasets.</p></li>
 </ul>
-<p>Please check the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> to learn how the ETC can be used to accelerate continuous training. And please check the <a class="reference internal" href="notebooks/embedding_training_cache_example.html"><span class="doc std std-doc">HugeCTR Embedding Training Cache Notebook</span></a> for an end-to-end demo of using ETC to train a synthetic Parquet dataset.</p>
+<p>Please check the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> to learn how the ETC can be used to accelerate continuous training. And please check the <span class="xref myst">HugeCTR Embedding Training Cache Notebook</span> for an end-to-end demo of using ETC to train a synthetic Parquet dataset.</p>
 </div>
 <div class="section" id="feature-description">
 <h2>Feature Description<a class="headerlink" href="#feature-description" title="Permalink to this headline"></a></h2>
@@ -463,10 +463,6 @@ If all blocks are occupied (<code class="docutils literal notranslate"><span cla
       <dd><a href="../v23.06.00/hugectr_embedding_training_cache.html">v23.06.00</a></dd>
       <dd><a href="../v23.06.01/hugectr_embedding_training_cache.html">v23.06.01</a></dd>
       <dd><a href="hugectr_embedding_training_cache.html">v23.08.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../main/hugectr_embedding_training_cache.html">main</a></dd>
     </dl>
   </div>
 </div><script>

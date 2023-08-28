@@ -148,7 +148,7 @@
 </div>
 <div class="section" id="about-the-hugectr-python-interface">
 <h2>About the HugeCTR Python Interface<a class="headerlink" href="#about-the-hugectr-python-interface" title="Permalink to this headline"></a></h2>
-<p>As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to <a class="reference internal" href="../notebooks/hugectr_criteo.html"><span class="doc std std-doc">HugeCTR Python Interface Notebook</span></a> to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples"><code class="docutils literal notranslate"><span class="pre">samples</span></code></a> directory of the HugeCTR repository.</p>
+<p>As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to <span class="xref myst">HugeCTR Python Interface Notebook</span> to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples"><code class="docutils literal notranslate"><span class="pre">samples</span></code></a> directory of the HugeCTR repository.</p>
 </div>
 <div class="section" id="high-level-training-api">
 <h2>High-level Training API<a class="headerlink" href="#high-level-training-api" title="Permalink to this headline"></a></h2>
@@ -895,7 +895,7 @@ It allows the users to construct their model flexibly without the JSON configura
 </div>
 <p>Implementation Ⅰ: freeze the weights of all the embedding layers.
 This method takes no extra arguments and freezes the sparse weights of the model. Users can use this method when they only want to train the dense weights.</p>
-<p>Implementation Ⅱ: freeze the weights of a specific embedding layer. Please refer to Section 3.4 of <a class="reference internal" href="../notebooks/hugectr_criteo.html"><span class="doc std std-doc">HugeCTR Criteo Notebook</span></a> for the usage.</p>
+<p>Implementation Ⅱ: freeze the weights of a specific embedding layer. Please refer to Section 3.4 of <span class="xref myst">HugeCTR Criteo Notebook</span> for the usage.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_name</span></code>: String, the name of the embedding layer.</p></li>
@@ -1237,6 +1237,9 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 </div>
 <div class="section" id="inference-api">
 <h2>Inference API<a class="headerlink" href="#inference-api" title="Permalink to this headline"></a></h2>
+<blockquote>
+<div><p>:warning: <strong>Deprecation Warning</strong>: the offline inference based on <code class="docutils literal notranslate"><span class="pre">InferenceSession</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> will be deprecated in a future release. Please check out the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a> for alternatives based on TensorFlow and TensorRT.</p>
+</div></blockquote>
 <p>For HugeCTR inference API, the core data structures are <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code>. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> if online inference with Triton is needed.</p>
 <p>Please <strong>NOTE</strong> that Inference API requires a configuration JSON file of the model graph, which can derived from the <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json()</span></code> method. Besides, <code class="docutils literal notranslate"><span class="pre">model_name</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code> should be specified during training in order to correctly dump the JSON file.</p>
 <div class="section" id="inferenceparams">
@@ -1452,10 +1455,6 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
       <dd><a href="../../v23.06.00/api/python_interface.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/api/python_interface.html">v23.06.01</a></dd>
       <dd><a href="python_interface.html">v23.08.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../../main/api/python_interface.html">main</a></dd>
     </dl>
   </div>
 </div><script>

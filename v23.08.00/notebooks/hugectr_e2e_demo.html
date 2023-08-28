@@ -62,17 +62,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="training_and_inference_with_remote_filesystem.html">HugeCTR Training and Inference with Remote File System Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR End-end Example with NVTabular</a></li>
 </ul>
@@ -134,6 +127,9 @@
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-end-end-example-with-nvtabular">
 <h1>HugeCTR End-end Example with NVTabular<a class="headerlink" href="#hugectr-end-end-example-with-nvtabular" title="Permalink to this headline"></a></h1>
+<blockquote>
+<div><p><strong>Deprecation Warning</strong>: this Notebook is based on the offline inference API <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code>, which will be deprecated in a future release. Please check out the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a> for alternatives based on TensorFlow and TensorRT.</p>
+</div></blockquote>
 <div class="section" id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
 <p>In this sample notebook, we are going to:</p>
@@ -1470,10 +1466,6 @@ ding cache: True, cache size percentage: 1.000000
       <dd><a href="../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="hugectr_e2e_demo.html">v23.08.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../../main/index.html">main</a></dd>
     </dl>
   </div>
 </div><script>
