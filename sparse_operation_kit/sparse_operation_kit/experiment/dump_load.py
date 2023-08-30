@@ -616,8 +616,8 @@ def save_table_to_filesystem_static(var, optimizer, path, have_states):
 
                 with open(weight_path, mode="ba+") as femb:
                     weight_np.tofile(femb)
-                del tmp_indice 
-                del tmp_weight 
+                del tmp_indice
+                del tmp_weight
 
     else:
         if gpu_id == target_gpu:
@@ -732,8 +732,8 @@ def save_table_to_filesystem_dynamic(var, optimizer, path, have_states):
                     indice_np.tofile(fkey)
                 with open(weight_path, mode="ba+") as femb:
                     weight_np.tofile(femb)
-                del tmp_indice 
-                del tmp_weight 
+                del tmp_indice
+                del tmp_weight
 
     else:
         if gpu_id == target_gpu:

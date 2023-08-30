@@ -49,7 +49,8 @@ class TFAdapter : public ::embedding::ILookup {
            cudaStream_t stream = 0);
 
   // for ResourceVariable
-  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
+  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,
+           std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 
@@ -78,7 +79,8 @@ class DummyVarAdapter : public ::embedding::ILookup {
   DummyVarAdapter();
   virtual ~DummyVarAdapter() = default;
 
-  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
+  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,
+           std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 

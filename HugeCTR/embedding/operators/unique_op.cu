@@ -30,27 +30,22 @@ __forceinline__ __device__ unsigned long atomicAdd(unsigned long* address, unsig
   return (unsigned long)::atomicAdd((unsigned long long*)address, (unsigned long long)val);
 }
 
-__forceinline__ __device__ uint32_t atomicCAS(uint32_t* address, uint32_t compare,
-                                               uint32_t val) {
-  return (uint32_t)::atomicCAS((unsigned int*)address, (unsigned int)compare,(unsigned int)val);
+__forceinline__ __device__ uint32_t atomicCAS(uint32_t* address, uint32_t compare, uint32_t val) {
+  return (uint32_t)::atomicCAS((unsigned int*)address, (unsigned int)compare, (unsigned int)val);
 }
 
-
-__forceinline__ __device__ int32_t atomicCAS(int32_t* address, int32_t compare,
-                                               int32_t val) {
-  return (int32_t)::atomicCAS((int*)address, (int)compare,(int)val);
-
+__forceinline__ __device__ int32_t atomicCAS(int32_t* address, int32_t compare, int32_t val) {
+  return (int32_t)::atomicCAS((int*)address, (int)compare, (int)val);
 }
 
-
-__forceinline__ __device__ uint64_t atomicCAS(uint64_t* address, uint64_t compare,
-                                               uint64_t val) {
-  return (uint64_t)::atomicCAS((unsigned long long*)address, (unsigned long long)compare,(unsigned long long)val);
+__forceinline__ __device__ uint64_t atomicCAS(uint64_t* address, uint64_t compare, uint64_t val) {
+  return (uint64_t)::atomicCAS((unsigned long long*)address, (unsigned long long)compare,
+                               (unsigned long long)val);
 }
 
-__forceinline__ __device__ int64_t atomicCAS(int64_t* address, int64_t compare,
-                                               int64_t val) {
-  return (int64_t)::atomicCAS((unsigned long long*)address, (unsigned long long)compare,(unsigned long long)val);
+__forceinline__ __device__ int64_t atomicCAS(int64_t* address, int64_t compare, int64_t val) {
+  return (int64_t)::atomicCAS((unsigned long long*)address, (unsigned long long)compare,
+                              (unsigned long long)val);
 }
 
 template <typename KeyType, typename CounterType>
@@ -70,8 +65,8 @@ __global__ void init_kernel(KeyType* keys, CounterType* vals, CounterType* count
 
 template <typename KeyType, typename CounterType>
 __global__ void dump_kernel(KeyType* d_key, const KeyType* keys, const CounterType* vals,
-                            const size_t offset, const size_t search_length, uint64_t* d_dump_counter,
-                            const KeyType empty_key) {
+                            const size_t offset, const size_t search_length,
+                            uint64_t* d_dump_counter, const KeyType empty_key) {
   /* Per block accumulator */
   __shared__ size_t block_acc;
 
@@ -110,10 +105,10 @@ __global__ void dump_kernel(KeyType* d_key, const KeyType* keys, const CounterTy
 }
 
 template <typename KeyType, typename CounterType, typename hasher>
-__global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key,  CounterType* d_val, const size_t len,
-                                  KeyType* keys, CounterType* vals, const size_t capacity,
-                                  CounterType* d_global_counter, const KeyType empty_key,
-                                  const CounterType empty_val) {
+__global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key, CounterType* d_val,
+                                  const size_t len, KeyType* keys, CounterType* vals,
+                                  const size_t capacity, CounterType* d_global_counter,
+                                  const KeyType empty_key, const CounterType empty_val) {
   const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < len) {
     KeyType target_key = d_key[idx];
@@ -131,14 +126,13 @@ __global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key,  
       if (empty_key == old_key) {
         CounterType result_val;
         result_val = atomicAdd(d_global_counter, 1);
-	d_unique_key[result_val] = target_key;
+        d_unique_key[result_val] = target_key;
         d_val[idx] = result_val;
         target_val_pos = result_val;
         break;
       } else if (target_key == old_key) {
-        while (target_val_pos == empty_val){
-        }
-          ;
+        while (target_val_pos == empty_val) {
+        };
         d_val[idx] = target_val_pos;
         break;
       }
@@ -153,8 +147,9 @@ __global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key,  
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
           typename hasher>
 unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique_op(
-    std::shared_ptr<CoreResourceManager> core,const size_t capacity, const CounterType init_counter_val)
-    : core_(core),capacity_(capacity), init_counter_val_(init_counter_val) {
+    std::shared_ptr<CoreResourceManager> core, const size_t capacity,
+    const CounterType init_counter_val)
+    : core_(core), capacity_(capacity), init_counter_val_(init_counter_val) {
   // Check parameter
   if (capacity_ == 0) {
     HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput, "Invalid value for unique_op capacity");
@@ -168,17 +163,17 @@ unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique_op(
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
 
   keys_ = core23::Tensor(params.shape({static_cast<int64_t>(capacity_)})
-                                         .data_type(core23::ToScalarType<KeyType>::value));
+                             .data_type(core23::ToScalarType<KeyType>::value));
   vals_ = core23::Tensor(params.shape({static_cast<int64_t>(capacity_)})
-                                         .data_type(core23::ToScalarType<CounterType>::value));
+                             .data_type(core23::ToScalarType<CounterType>::value));
 
-  counter_ = core23::Tensor(params.shape({static_cast<int64_t>(1)})
-                                         .data_type(core23::ToScalarType<CounterType>::value));
-
+  counter_ = core23::Tensor(
+      params.shape({static_cast<int64_t>(1)}).data_type(core23::ToScalarType<CounterType>::value));
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType><<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_>>>(
-      keys_.data<KeyType>(), vals_.data<CounterType>(), counter_.data<CounterType>(), capacity_, empty_key, empty_val, init_counter_val_);
+      keys_.data<KeyType>(), vals_.data<CounterType>(), counter_.data<CounterType>(), capacity_,
+      empty_key, empty_val, init_counter_val_);
 
   // Wait for initialization to finish
   HCTR_LIB_THROW(cudaStreamSynchronize(0));
@@ -206,11 +201,15 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
   // Launch get_insert kernel to do unique
   get_insert_kernel<KeyType, CounterType, hasher>
       <<<(len - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-          d_key, d_unique_key, d_output_index, len, keys_.data<KeyType>(), vals_.data<CounterType>(), capacity_, counter_.data<CounterType>(), empty_key, empty_val);
-  cudaMemcpyAsync(d_output_counter, counter_.data<CounterType>(), sizeof(CounterType), cudaMemcpyDeviceToDevice, stream);
+          d_key, d_unique_key, d_output_index, len, keys_.data<KeyType>(),
+          vals_.data<CounterType>(), capacity_, counter_.data<CounterType>(), empty_key, empty_val);
+  cudaMemcpyAsync(d_output_counter, counter_.data<CounterType>(), sizeof(CounterType),
+                  cudaMemcpyDeviceToDevice, stream);
   // Launch dump kernel
-  //dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
-  //    d_unique_key, keys_.data<KeyType>(), vals_.data<CounterType>(), 0, capacity_, d_output_counter, empty_key);
+  // dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0,
+  // stream>>>(
+  //    d_unique_key, keys_.data<KeyType>(), vals_.data<CounterType>(), 0, capacity_,
+  //    d_output_counter, empty_key);
 
   HCTR_LIB_THROW(cudaGetLastError());
 }
@@ -218,16 +217,14 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
           typename hasher>
 void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::clear(cudaStream_t stream) {
-
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType>
       <<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_, 0, stream>>>(
-        keys_.data<KeyType>(), vals_.data<CounterType>(), counter_.data<CounterType>(), capacity_, empty_key, empty_val, init_counter_val_);
+          keys_.data<KeyType>(), vals_.data<CounterType>(), counter_.data<CounterType>(), capacity_,
+          empty_key, empty_val, init_counter_val_);
 
   HCTR_LIB_THROW(cudaGetLastError());
 }
-
-
 
 template class unique_op<int64_t, uint64_t, std::numeric_limits<int64_t>::max(),
                          std::numeric_limits<uint64_t>::max()>;

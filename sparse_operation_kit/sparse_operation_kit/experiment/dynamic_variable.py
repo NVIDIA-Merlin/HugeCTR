@@ -159,7 +159,7 @@ class DynamicVariable(ResourceVariable):
                             unique_name=self._dummy_name,
                             key_type=self._key_type,
                             dtype=self._handle_dtype,
-                            config=self._config
+                            config=self._config,
                         )
                     # TODO: Add is_initialized_op
                     # is_initialized_op = ops.convert_to_tensor(True)
@@ -240,7 +240,6 @@ class DynamicVariable(ResourceVariable):
     @property
     def backend_type(self):
         return self._var_type
-
 
     @property
     def config_dict(self):

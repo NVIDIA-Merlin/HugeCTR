@@ -210,11 +210,12 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   ValueType* d_values;
   CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
-  //KeyType* d_keys;
-  //CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
-  //ValueType* d_values;
-  //CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
-  hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr, stream);  // Meta missing
+  // KeyType* d_keys;
+  // CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  // ValueType* d_values;
+  // CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr,
+                           stream);  // Meta missing
   CUDACHECK(cudaStreamSynchronize(stream));
 
   // clang-format off
@@ -222,7 +223,7 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
   //CUDACHECK(cudaMemcpy(keys, d_keys, sizeof(KeyType) * num_keys,cudaMemcpyDeviceToHost));
   //CUDACHECK(cudaMemcpy(values, d_values, sizeof(ValueType) * num_keys * dim,cudaMemcpyDeviceToHost));
-  // clang-format on
+  //  clang-format on
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
 }
@@ -232,10 +233,10 @@ void HKVVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueTyp
                                              size_t num_keys, cudaStream_t stream) {
   int64_t dim = cols();
   // `keys` and `values` are pointers of host memory
-  //KeyType* d_keys;
-  //CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
-  //ValueType* d_values;
-  //CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  // KeyType* d_keys;
+  // CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  // ValueType* d_values;
+  // CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
 
   KeyType* d_keys;
   CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));

@@ -90,7 +90,7 @@ std::shared_ptr<VariableBase<int32_t, float>> VariableFactory::create(
     return std::make_shared<DETVariable<int32_t, float>>(cols, 2E4, initializer, stream);
   }
   if (type == "hybrid") {
-      throw std::runtime_error("int32_t Keytype for hkv is not implemented yet.");
+    throw std::runtime_error("int32_t Keytype for hkv is not implemented yet.");
   }
 }
 

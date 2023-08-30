@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>
 #include <core23/tensor_params.hpp>
+#include <cstdint>
 #include <embedding/common.hpp>
 #include <utils.hpp>
 #define UNIQUE_OP_LOAD_FACTOR 0.75
@@ -144,7 +144,8 @@ template <typename KeyType, typename CounterType, KeyType empty_key, CounterType
 class unique_op {
  public:
   // Ctor
-  unique_op(std::shared_ptr<CoreResourceManager> core,const size_t capacity, const CounterType init_counter_val = 0);
+  unique_op(std::shared_ptr<CoreResourceManager> core, const size_t capacity,
+            const CounterType init_counter_val = 0);
 
   // Get the max capacity of unique op obj
   size_t get_capacity() const;

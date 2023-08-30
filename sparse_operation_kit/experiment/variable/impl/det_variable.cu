@@ -165,10 +165,10 @@ void DETVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueTyp
   map_->lookup(d_keys, d_values, num_keys, stream);
   CUDACHECK(cudaStreamSynchronize(stream));
 
-  //CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
-  //                          cudaMemcpyHostToDevice, stream));
+  // CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
+  //                           cudaMemcpyHostToDevice, stream));
 
-  std::memcpy(d_values,values, sizeof(ValueType) * num_keys * dim);
+  std::memcpy(d_values, values, sizeof(ValueType) * num_keys * dim);
   map_->scatter_update(d_keys, d_values, num_keys, stream);
   CUDACHECK(cudaStreamSynchronize(stream));
   CUDACHECK(cudaFree(d_keys));
