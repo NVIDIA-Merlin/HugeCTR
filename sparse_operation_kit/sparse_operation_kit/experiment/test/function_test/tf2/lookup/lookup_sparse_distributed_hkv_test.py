@@ -83,11 +83,8 @@ if __name__ == "__main__":
             embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
             loss = 0
             for i in range(len(embeddings)):
-                # print(indices[i])
-                # print(embeddings[i])
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
-        print("")
         sok_optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
@@ -105,7 +102,6 @@ if __name__ == "__main__":
         loss = step(sok_vars, indices)
         loss1.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30, "sok loss = ", loss)
-        # print("loss:", loss)
     out1 = []
     for i in range(len(sok_vars)):
         out1.append(tf.nn.embedding_lookup(sok_vars[i], local_indices[i]))
@@ -140,7 +136,6 @@ if __name__ == "__main__":
         loss = step2(tf_vars, indices)
         loss2.append(loss)
         print("-" * 30 + "iteration %d" % i + "-" * 30, "sok loss = ", loss)
-        # print("tf loss:", loss)
     out2 = []
     for i, v in enumerate(tf_vars):
         out2.append(tf.nn.embedding_lookup(v, local_indices[i]))

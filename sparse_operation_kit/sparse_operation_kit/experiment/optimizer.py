@@ -168,7 +168,6 @@ class OptimizerWrapperV1(object):
                         else:
                             tmp_config = v.config_dict
                             tmp_initializer = v.initializer_str
-                            print("kanghui before optimizer apply sate")
                             slot = DynamicVariable(
                                 dimension=v.dimension,
                                 initializer=self._initial_vals[slot_name],
