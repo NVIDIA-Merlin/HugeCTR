@@ -510,17 +510,17 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       break;
     }
     case Layer_t::MultiHeadAttention: {
-      if (input_output_info.input_tensors.size() < 2) {
+      if (input_output_info.input_tensors.size() < 3) {
         HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs at lease two input tensors ");
+                       "MultiHeadAttentionLayer needs at lease 3 input tensors ");
       }
       [[maybe_unused]] auto num_attention_heads = dense_layer.num_attention_heads;
       [[maybe_unused]] auto transpose_b = dense_layer.transpose_b;
 
       auto& in_tensors = input_output_info.input_tensors;
-      if (in_tensors[0].shape().dims() != 4 && in_tensors[1].shape().dims() != 3) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs 3D or 4D input tensors ");
+      if (in_tensors[0].shape().dims() != 3 || in_tensors[1].shape().dims() != 3 ||
+          in_tensors[2].shape().dims() != 3) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs 3D Q,K,V input tensors");
       }
       std::vector<core23::Tensor> out_tensors;
       if (use_mixed_precision) {

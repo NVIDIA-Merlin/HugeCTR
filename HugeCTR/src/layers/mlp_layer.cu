@@ -297,7 +297,8 @@ Core23TempMLPLayer<T>::Core23TempMLPLayer(
       skip_head_dgrad_(skip_head_dgrad),
       async_wgrad_(async_wgrad),
       fuse_wb_(fuse_wb),
-      enable_tf32_compute_(enable_tf32_compute) {
+      enable_tf32_compute_(enable_tf32_compute),
+      event_overlap_created_(false) {
   int num_layers = num_outputs.size();
   train_tensors_.resize(num_layers);
   mask_tensors_.resize(num_layers);

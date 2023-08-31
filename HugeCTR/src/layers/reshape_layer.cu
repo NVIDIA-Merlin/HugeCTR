@@ -52,33 +52,13 @@ ReshapeLayer<T>::ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor
     : Layer({input_tensor}, {output_tensor}, gpu_resource),
       in_place_(true),
       batch_size_(output_tensor.size(0)),
-      n_slot_(output_tensor.dims() == 2 ? 0 : output_tensor.size(1)),
-      vector_length_(output_tensor.size(output_tensor.dims() - 1)),
+      n_slot_(0),
+      vector_length_(0),
       n_active_slot_(0) {
   try {
     auto n_in_elems = input_tensor.num_elements();
-    const auto out_shape = output_tensor.shape();
-    switch (out_shape.dims()) {
-      case 2:
-        if (vector_length_ > n_in_elems) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
-        }
-        if (n_in_elems % vector_length_ != 0) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
-        }
-        break;
-      case 3:
-        if ((vector_length_ * n_slot_) > n_in_elems) {
-          HCTR_OWN_THROW(Error_t::WrongInput,
-                         "leading_dim and time_step cannot be bigger than n_in_elems");
-        }
-        if (n_in_elems % (vector_length_ * n_slot_) != 0) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "n_in_elems % (vector_length_ * n_slot_) != 0");
-        }
-        break;
-      default:
-        HCTR_OWN_THROW(Error_t::WrongInput, "Output tensor dimension is not supported.");
-    }
+    HCTR_CHECK_HINT(input_tensor.num_elements() == output_tensor.num_elements(),
+                    "Reshape layer: input and output shapes are not compatible");
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;

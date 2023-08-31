@@ -15,63 +15,99 @@
  */
 
 #include <algorithm>
+#include <core23/tensor_operations.hpp>
 #include <functional>
 #include <layers/multi_head_attention_layer.hpp>
+#include <memory>
 #include <network_buffer_channels.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
 namespace HugeCTR {
 
-// transpose from [batch_size, seq_len, hidden_num] -> [batch_size, head_num, seq_len,
-// size_per_head]
+// Q ==> seq_out
+// K,V ==> seq_in
+// transpose
+// from [batch_size, seq_len, hidden_num] => [batch_size, seq_len, head_num, size_per_head] =>
+// to [batch_size, head_num, seq_len, size_per_head]
 template <typename T>
-__global__ void transpose_QKV(T* q_buf, T* k_buf, T* v_buf, const T* Q, const T* K, const T* V,
-                              const int batch_size, const int seq_len, const int head_num,
-                              const int hidden_dim) {
+__global__ void transpose_0213(T* output, const T* input, const int batch_size, const int seq_len,
+                               const int head_num, const int size_per_head) {
+  const int hidden_dim = size_per_head * head_num;
   int d0_stride = hidden_dim * seq_len;
   int d1_stride = hidden_dim;
-  int d2_stride = hidden_dim / head_num;
+  int d2_stride = size_per_head;
 
   int d0_out_stride = d0_stride;
   int d1_out_stride = d2_stride;
   int d2_out_stride = d2_stride * seq_len;
-
-  int d0 = blockIdx.x;   // Batch
-  int d1 = blockIdx.y;   // Sequence ID (0-127)
-  int d2 = threadIdx.y;  // Head (0-11)
-  int d3 = threadIdx.x;  // Values
-
-  float input_Q = Q[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
-  q_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = input_Q;
-
-  float input_K = K[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
-  k_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = input_K;
-
-  float input_V = V[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
-  v_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = input_V;
+  int flatten_len = batch_size * seq_len * head_num * size_per_head;
+  int gtid = blockIdx.x * blockDim.x + threadIdx.x;
+  int grid_stride = blockDim.x * gridDim.x;
+  for (int in_idx = gtid; in_idx < flatten_len; in_idx += grid_stride) {
+    int d0 = in_idx / d0_stride;                // Batch
+    int d1 = (in_idx % d0_stride) / d1_stride;  // Sequence ID (0-127)
+    int d2 = (in_idx % d1_stride) / d2_stride;  // Head (0-11)
+    int d3 = in_idx % d2_stride;                // Values
+    int out_idx = d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3;
+    output[out_idx] = input[in_idx];
+  }
 }
+// 2 arrays
 template <typename T>
-__global__ void transpose_V(T* v_buf, const T* V, const int batch_size, const int seq_len,
-                            const int head_num, const int hidden_dim) {
+__global__ void transpose_0213(T* k_buf, T* v_buf, const T* K, const T* V, const int batch_size,
+                               const int seq_len, const int head_num, const int size_per_head) {
+  const int hidden_dim = size_per_head * head_num;
   int d0_stride = hidden_dim * seq_len;
   int d1_stride = hidden_dim;
-  int d2_stride = hidden_dim / head_num;
+  int d2_stride = size_per_head;
 
   int d0_out_stride = d0_stride;
   int d1_out_stride = d2_stride;
   int d2_out_stride = d2_stride * seq_len;
-
-  int d0 = blockIdx.x;   // Batch
-  int d1 = blockIdx.y;   // Sequence ID (0-127)
-  int d2 = threadIdx.y;  // Head (0-11)
-  int d3 = threadIdx.x;  // Values
-
-  float input_V = V[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
-  v_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = input_V;
+  int flatten_len = batch_size * seq_len * head_num * size_per_head;
+  int gtid = blockIdx.x * blockDim.x + threadIdx.x;
+  int grid_stride = blockDim.x * gridDim.x;
+  for (int in_idx = gtid; in_idx < flatten_len; in_idx += grid_stride) {
+    int d0 = in_idx / d0_stride;                // Batch
+    int d1 = (in_idx % d0_stride) / d1_stride;  // Sequence ID (0-127)
+    int d2 = (in_idx % d1_stride) / d2_stride;  // Head (0-11)
+    int d3 = in_idx % d2_stride;                // Values
+    int out_idx = d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3;
+    v_buf[out_idx] = V[in_idx];
+    k_buf[out_idx] = K[in_idx];
+  }
 }
+// 3 arrays
+template <typename T>
+__global__ void transpose_0213(T* q_buf, T* k_buf, T* v_buf, const T* Q, const T* K, const T* V,
+                               const int batch_size, const int seq_len, const int head_num,
+                               const int size_per_head) {
+  const int hidden_dim = size_per_head * head_num;
+  int d0_stride = hidden_dim * seq_len;
+  int d1_stride = hidden_dim;
+  int d2_stride = size_per_head;
+
+  int d0_out_stride = d0_stride;
+  int d1_out_stride = d2_stride;
+  int d2_out_stride = d2_stride * seq_len;
+  int flatten_len = batch_size * seq_len * head_num * size_per_head;
+  int gtid = blockIdx.x * blockDim.x + threadIdx.x;
+  int grid_stride = blockDim.x * gridDim.x;
+  for (int in_idx = gtid; in_idx < flatten_len; in_idx += grid_stride) {
+    int d0 = in_idx / d0_stride;                // Batch
+    int d1 = (in_idx % d0_stride) / d1_stride;  // Sequence ID (0-127)
+    int d2 = (in_idx % d1_stride) / d2_stride;  // Head (0-11)
+    int d3 = in_idx % d2_stride;                // Values
+    int out_idx = d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3;
+    v_buf[out_idx] = V[in_idx];
+    k_buf[out_idx] = K[in_idx];
+    q_buf[out_idx] = Q[in_idx];
+  }
+}
+
 // transpose from [batch_size, head_num, seq_len, size_per_head] -> [batch_size, seq_len,
 // hidden_num]
+// TODO remove it if perf is not good
 template <typename T>
 __global__ void transpose_QKV_back(T* q_buf, T* k_buf, T* v_buf, const T* Q, const T* K, const T* V,
                                    const int batch_size, const int seq_len, const int head_num,
@@ -98,29 +134,27 @@ __global__ void transpose_QKV_back(T* q_buf, T* k_buf, T* v_buf, const T* Q, con
     v_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = val_v;
   }
 }
-
+// TODO remove it if perf is not good
 template <typename T>
-__global__ void transpose_V_back(T* v_buf, const T* V, const int batch_size, const int seq_len,
-                                 const int head_num, const int hidden_dim) {
+__global__ void transpose_V(T* v_buf, const T* V, const int batch_size, const int seq_len,
+                            const int head_num, const int hidden_dim) {
   int d0_stride = hidden_dim * seq_len;
-  int d1_stride = d0_stride / head_num;
+  int d1_stride = hidden_dim;
   int d2_stride = hidden_dim / head_num;
 
   int d0_out_stride = d0_stride;
   int d1_out_stride = d2_stride;
-  int d2_out_stride = hidden_dim;
+  int d2_out_stride = d2_stride * seq_len;
 
-  int d0 = blockIdx.x;            // Batch
-  int d1 = blockIdx.y / seq_len;  // Head
-  int d2 = blockIdx.y % seq_len;  // Sequence Id
-  int d3 = threadIdx.x;           // Values
+  int d0 = blockIdx.x;   // Batch
+  int d1 = blockIdx.y;   // Sequence ID (0-127)
+  int d2 = threadIdx.y;  // Head (0-11)
+  int d3 = threadIdx.x;  // Values
 
-  if (d2 < seq_len) {
-    float val_v = V[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
-    v_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = val_v;
-  }
+  float input_V = V[d0 * d0_stride + d1 * d1_stride + d2 * d2_stride + d3];
+  v_buf[d0 * d0_out_stride + d1 * d1_out_stride + d2 * d2_out_stride + d3] = input_V;
 }
-
+// input is q, k, v, mask
 template <typename T>
 MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     const std::vector<core23::Tensor>& input_tensors, std::vector<core23::Tensor>& output_tensors,
@@ -130,72 +164,43 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute),
       num_(input_tensors_.size()),
-      dims_(input_tensors_[0].dims()),
-      transpose_b_(transpose_b) {
+      dims_(input_tensors_[0].dims()) {
   try {
+    // k always is the gemm K
     int64_t m = 0, k = 0, h = 0, b = 0, size_per_head = 0;
-
-    // check if the input shape is legit
-    if (dims_ != 4 && dims_ != 3) {
-      HCTR_OWN_THROW(Error_t::WrongInput,
-                     "MultiHeadAttentionLayer needs 4D or 3D input tensors, but accept " +
-                         std::to_string(dims_) + "D inputs");
-    } else if (dims_ == 4) {
-      if (num_ < 2) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs 2 input tensors: query and key");
-      }
-      if (input_tensors_[1].dims() != dims_) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
-      }
-      if (input_tensors_[0].size(0) != input_tensors_[1].size(0)) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "input tensors must have the same batch_size");
-      }
-      if (input_tensors_[1].size(dims_ - 1) != input_tensors_[0].size(dims_ - 1) &&
-          input_tensors_[0].size(dims_ - 1) != input_tensors_[1].size(dims_ - 2)) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "The last two dimension of 4D the input tensors should be m x n, k x n or m "
-                       "x n, n x k");
-      }
-      if (transpose_b_) {
-        b = input_tensors_[0].size(0);
-        h = input_tensors_[0].size(1);
-        m = input_tensors_[0].size(dims_ - 2);
-        k = input_tensors_[1].size(dims_ - 2);
-        size_per_head = input_tensors_[0].size(dims_ - 1);
+    for (auto i{0ul}; i < input_tensors.size(); i++) {
+      if (i == 3) {
+        HCTR_CHECK_HINT(input_tensors[i].dims() == 4, "mask should be 4D tensor");
       } else {
-        b = input_tensors_[0].size(0);
-        h = input_tensors_[0].size(1);
-        m = input_tensors_[0].size(dims_ - 2);
-        k = input_tensors_[0].size(dims_ - 1);
-        size_per_head = input_tensors_[1].size(dims_ - 1);
+        HCTR_CHECK_HINT(input_tensors[i].dims() == 3, "Query, Key, Value should be 3D tensor");
       }
-    } else if (dims_ == 3) {
-      // query: [batch_size, seq_len, hidden_dim]
-      // key: [batch_size, seq_len, hidden_dim]
-      // value: [batch_size, seq_len, hidden_dim]
-      if (num_ < 3) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs 3 input tensors: query, key and value");
-      }
-      if (input_tensors_[1].dims() != dims_ || input_tensors_[2].dims() != dims_) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
-      }
-      if (input_tensors_[0].size(dims_ - 1) != input_tensors_[1].size(dims_ - 1) ||
-          input_tensors_[0].size(dims_ - 1) != input_tensors_[2].size(dims_ - 1)) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same hidden_dim");
-      }
-      if (input_tensors_[0].size(dims_ - 2) != input_tensors_[1].size(dims_ - 2) ||
-          input_tensors_[0].size(dims_ - 2) != input_tensors_[2].size(dims_ - 2)) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same seq_len");
-      }
-      transpose_b_ = true;
-      b = input_tensors_[0].size(0);
-      h = num_attention_heads;
-      m = input_tensors_[0].size(dims_ - 2);
-      k = input_tensors_[1].size(dims_ - 2);
-      size_per_head = input_tensors_[0].size(dims_ - 1) / h;
     }
+
+    // [batchsize, seq_from, hidden]
+    auto q_tensor = input_tensors_[0];
+    // [batchsize, seq_to, hidden]
+    auto k_tensor = input_tensors_[1];
+    // [batchsize, seq_to, hidden]
+    auto v_tensor = input_tensors_[2];
+    auto q_shape = q_tensor.shape();
+    auto k_shape = k_tensor.shape();
+    auto v_shape = v_tensor.shape();
+
+    HCTR_CHECK_HINT(q_shape[0] == k_shape[0] && k_shape[0] == v_shape[0],
+                    "The first dim of Query, Key, Value should be batchsize ");
+
+    HCTR_CHECK_HINT(q_shape[2] == k_shape[2] && k_shape[2] == v_shape[2],
+                    " Query, Key, Value should have the same hidden dimension");
+    HCTR_CHECK_HINT(k_shape[1] == v_shape[1], "Key, Value should have the same shape");
+
+    transpose_b_ = true;
+    b = q_shape[0];
+    h = num_attention_heads;
+    // m is seq_from
+    m = q_shape[1];
+    // k is seq_to
+    k = k_shape[1];
+    size_per_head = q_shape[2] / h;
     num_head_ = h;
     core23::BufferParams buf_p{.channel = GetBlobsBufferChannel()};
 
@@ -203,27 +208,35 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
                                     .my_params()
                                     .data_type(core23::ToScalarType<T>::value)
                                     .buffer_params(buf_p);
+    // this is the bgemm results
+    // m is seq_from, k is seq_to
+    core23::Shape score_shape = {b, h, m, k};
+    core23::Shape from_shape = {b, h, m, size_per_head};
+    core23::Shape to_shape = {b, h, k, size_per_head};
+    attention_score_4d_ = core23::Tensor(common_tensor_params.shape(score_shape));
+    attention_softmax_4d_ = core23::Tensor(common_tensor_params.shape(score_shape));
+    attention_out_4d_ = core23::Tensor(common_tensor_params.shape(from_shape));
+    output_tensors.emplace_back(common_tensor_params.shape({b, m, size_per_head * h}));
 
-    if (transpose_b_) {
-      core23::Shape out_shape = {b, h, m, k};
-      output_tensors.emplace_back(common_tensor_params.shape(out_shape));
-    } else {
-      value_buf_tensor_ = core23::Tensor(common_tensor_params.shape({b, h, m, size_per_head}));
-      core23::Shape out_shape = {b, m, size_per_head * h};
-      output_tensors.emplace_back(common_tensor_params.shape(out_shape));
-    }
+    fprop_query_tensor_ = core23::Tensor(common_tensor_params);
+    fprop_softmax_tensor_ = core23::Tensor(common_tensor_params.shape(score_shape));
 
-    fprop_inputA_tensor_ = core23::Tensor(common_tensor_params);
-
-    if (dims_ == 3) {
-      core23::Shape out_shape = {b, h, m, size_per_head};
-      query_buf_tensor_ = core23::Tensor(common_tensor_params.shape(out_shape));
-      key_buf_tensor_ = core23::Tensor(common_tensor_params.shape(out_shape));
-      output_tensors.emplace_back(common_tensor_params.shape(out_shape));
-    }
+    query_buf_tensor_ = core23::Tensor(common_tensor_params.shape(from_shape));
+    key_buf_tensor_ = core23::Tensor(common_tensor_params.shape(to_shape));
+    attention_value_4d_ = core23::Tensor(common_tensor_params.shape(to_shape));
 
     output_tensors_ = output_tensors;
-
+    // with masked
+    if (input_tensors.size() == 4) {
+      std::vector<core23::Tensor> bottoms{attention_score_4d_, input_tensors[3]};
+      masked_softmax_layer_ = std::make_unique<core23::MaskedSoftmaxLayer<T>>(
+          bottoms, attention_softmax_4d_, 1.0f, gpu_resource);
+      masked_softmax_layer_->initialize();
+    } else {
+      softmax_layer_ = std::make_unique<SoftmaxLayer<T>>(attention_score_4d_, attention_softmax_4d_,
+                                                         gpu_resource);
+      softmax_layer_->initialize();
+    }
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -239,563 +252,275 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     : Layer(gpu_resource),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
-  try {
-    transpose_b_ = transpose_b;
-    num_ = in_tensors.size();
-
-    // error input checking
-    dims_ = in_tensors[0].get_dimensions().size();
-    if (dims_ != 4 && dims_ != 3) {
-      HCTR_OWN_THROW(Error_t::WrongInput,
-                     "MultiHeadAttentionLayer needs 4D or 3D input tensors, but accept " +
-                         std::to_string(dims_) + "D inputs");
-    }
-    if (dims_ == 4) {
-      if (num_ < 2) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs 2 input tensors: query and key");
-      }
-      if (in_tensors[1].get_dimensions().size() != static_cast<size_t>(dims_)) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
-      }
-      if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "input tensors must have the same batch_size");
-      }
-      if (in_tensors[1].get_dimensions()[dims_ - 1] != in_tensors[0].get_dimensions()[dims_ - 1] &&
-          in_tensors[0].get_dimensions()[dims_ - 1] != in_tensors[1].get_dimensions()[dims_ - 2]) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "The last two dimension of 4D the input tensors should be m x n, k x n or m "
-                       "x n, n x k");
-      }
-    }
-    if (dims_ == 3) {
-      // query: [batch_size, seq_len, hidden_dim]
-      // key: [batch_size, seq_len, hidden_dim]
-      // value: [batch_size, seq_len, hidden_dim]
-      if (num_ < 3) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs 3 input tensors: query, key and value");
-      }
-      if (in_tensors[1].get_dimensions().size() != static_cast<size_t>(dims_) ||
-          in_tensors[2].get_dimensions().size() != static_cast<size_t>(dims_)) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
-      }
-      if (in_tensors[0].get_dimensions()[dims_ - 1] != in_tensors[1].get_dimensions()[dims_ - 1] ||
-          in_tensors[0].get_dimensions()[dims_ - 1] != in_tensors[2].get_dimensions()[dims_ - 1]) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same hidden_dim");
-      }
-      if (in_tensors[0].get_dimensions()[dims_ - 2] != in_tensors[1].get_dimensions()[dims_ - 2] ||
-          in_tensors[0].get_dimensions()[dims_ - 2] != in_tensors[2].get_dimensions()[dims_ - 2]) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same seq_len");
-      }
-    }
-
-    for (size_t i = 0; i < static_cast<size_t>(num_); i++) {
-      in_tensors_.push_back(in_tensors[i]);
-    }
-    size_t m = 0, k = 0, h = 0, b = 0, size_per_head = 0;
-    if (dims_ == 4 && transpose_b_) {
-      b = in_tensors[0].get_dimensions()[0];
-      h = in_tensors[0].get_dimensions()[1];
-      m = in_tensors[0].get_dimensions()[dims_ - 2];
-      k = in_tensors[1].get_dimensions()[dims_ - 2];
-      size_per_head = in_tensors[0].get_dimensions()[dims_ - 1];
-    }
-    if (dims_ == 4 && !transpose_b_) {
-      b = in_tensors[0].get_dimensions()[0];
-      h = in_tensors[0].get_dimensions()[1];
-
-      m = in_tensors[0].get_dimensions()[dims_ - 2];
-      k = in_tensors[0].get_dimensions()[dims_ - 1];
-      size_per_head = in_tensors[1].get_dimensions()[dims_ - 1];
-    }
-    if (dims_ == 3) {
-      transpose_b_ = true;
-      b = in_tensors[0].get_dimensions()[0];
-      h = num_attention_heads;
-
-      m = in_tensors[0].get_dimensions()[dims_ - 2];
-      k = in_tensors[1].get_dimensions()[dims_ - 2];
-      size_per_head = in_tensors[0].get_dimensions()[dims_ - 1] / h;
-    }
-    num_head_ = h;
-    if (transpose_b_) {
-      std::vector<size_t> out_dim = {b, h, m, k};
-
-      Tensor2<T> attention_score_item;
-      blobs_buff->reserve(out_dim, &attention_score_item);
-      out_tensors.push_back(attention_score_item);
-    } else {
-      blobs_buff->reserve({b, h, m, size_per_head}, &value_buf_);
-      std::vector<size_t> out_dim = {b, m, size_per_head * h};
-
-      Tensor2<T> attention_out_item;
-      blobs_buff->reserve(out_dim, &attention_out_item);
-      out_tensors.push_back(attention_out_item);
-    }
-
-    blobs_buff->reserve(in_tensors[0].get_dimensions(), &fprop_inputA_);
-    if (dims_ == 3) {
-      blobs_buff->reserve({b, h, m, size_per_head}, &query_buf_);
-      blobs_buff->reserve({b, h, m, size_per_head}, &key_buf_);
-      Tensor2<T> value_4d_item;
-      blobs_buff->reserve({b, h, m, size_per_head}, &value_4d_item);
-      out_tensors.push_back(value_4d_item);
-    }
-
-    for (auto& out_tensor : out_tensors) {
-      out_tensors_.push_back(out_tensor);
-    }
-  } catch (const std::runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
-  }
+  HCTR_DIE("Legacy layer deprecated");
 }
 
 template <typename T>
 void MultiHeadAttentionLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  if (input_tensors_.empty()) {
-    T* query = in_tensors_[0].get_ptr();
-    T* query_buf;
-    T* key = in_tensors_[1].get_ptr();
-    T* key_buf;
-    T* value;
-    T* score;
-    T* value_4d;
-    T* attention_out = out_tensors_[0].get_ptr();
+  T* query = input_tensors_[0].data<T>();
+  T* key = input_tensors_[1].data<T>();
+  T* value = input_tensors_[2].data<T>();
 
-    const auto& in_tensor_dim = in_tensors_[0].get_dimensions();
-    const auto& out_tensor_dim = out_tensors_[0].get_dimensions();
+  T* query_buf = query_buf_tensor_.data<T>();
+  T* key_buf = key_buf_tensor_.data<T>();
 
-    size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
-    if (dims_ == 4 && transpose_b_) {
-      head_num = in_tensor_dim[1];
-      batch_size = in_tensor_dim[0];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      size_per_head = in_tensor_dim[dims_ - 1];
-      to_seq_len = out_tensor_dim[dims_ - 1];
-    }
-    if (dims_ == 4 && !transpose_b_) {
-      batch_size = in_tensor_dim[0];
-      head_num = in_tensor_dim[1];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      to_seq_len = in_tensor_dim[dims_ - 1];
-      size_per_head = in_tensors_[1].get_dimensions()[dims_ - 1];
-    }
+  T* score = attention_score_4d_.data<T>();
+  T* value_4d = attention_value_4d_.data<T>();
+  // attention_out = transpose(attention_out_tmp)
+  T* attention_out = output_tensors_[0].data<T>();
+  T* attention_out_tmp = attention_out_4d_.data<T>();
 
-    if (dims_ == 3) {
-      query_buf = query_buf_.get_ptr();
-      key_buf = key_buf_.get_ptr();
-      value = in_tensors_[2].get_ptr();
-      value_4d = out_tensors_[1].get_ptr();
-      head_num = num_head_;
-      batch_size = in_tensor_dim[0];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      to_seq_len = from_seq_len;
-      size_per_head = in_tensor_dim[dims_ - 1] / head_num;
-      dim3 block_dim(size_per_head, head_num);
-      dim3 grid_dim(batch_size, from_seq_len);
-      transpose_QKV<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+  const auto& in_tensor_shape = input_tensors_[0].shape();
+  const auto& out_tensor_shape = output_tensors_[0].shape();
+
+  size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
+  /* 1. transpose
+      input : q,k,v
+      output : query_buf, key_buf, attention_value_4d_(value)
+  */
+  {
+    head_num = num_head_;
+    batch_size = in_tensor_shape[0];
+    from_seq_len = in_tensor_shape[dims_ - 2];
+    to_seq_len = input_tensors_[1].size(dims_ - 2);
+    size_per_head = in_tensor_shape[dims_ - 1] / head_num;
+
+    if (from_seq_len == to_seq_len) {
+      int flatten_len = batch_size * head_num * size_per_head * from_seq_len;
+      dim3 block_dim(1024);
+      dim3 grid_dim((flatten_len - 1) / block_dim.x + 1);
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
           query_buf, key_buf, value_4d, query, key, value, batch_size, from_seq_len, head_num,
-          head_num * size_per_head);
-      query = query_buf;
-      key = key_buf;
-    }
-    const int batch_count = head_num * batch_size;
-    cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
-
-    cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
-    if (transpose_b_) {
-      const int m = from_seq_len;
-      const int n = to_seq_len;
-      const int k = size_per_head;
-      float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
-      long long int stride_a = static_cast<long long int>(to_seq_len) * size_per_head;
-      long long int stride_b = static_cast<long long int>(from_seq_len) * size_per_head;
-      long long int stride_c = static_cast<long long int>(from_seq_len) * to_seq_len;
-
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, key, a_type, k,
-          stride_a, query, b_type, k, stride_b, &beta, attention_out, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-
+          size_per_head);
     } else {
-      score = in_tensors_[0].get_ptr();
-      value = in_tensors_[1].get_ptr();
-      value_4d = value_buf_.get_ptr();
-      const int m = from_seq_len;
-      const int n = size_per_head;
-      const int k = to_seq_len;
-
-      float alpha = 1.0f, beta = 0.0f;
-      long long int stride_a = static_cast<long long int>(m) * k;
-      long long int stride_b = static_cast<long long int>(k) * n;
-      long long int stride_c = static_cast<long long int>(m) * n;
-
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, value, b_type,
-          n, stride_b, score, a_type, k, stride_a, &beta, value_4d, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-      dim3 block_dim(size_per_head);
-      dim3 grid_dim(batch_size, head_num * from_seq_len);
-      transpose_V_back<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-          attention_out, value_4d, batch_size, from_seq_len, head_num, head_num * size_per_head);
+      dim3 block_dim(1024);
+      int len = batch_size * head_num * size_per_head * from_seq_len;
+      dim3 grid_dim((len - 1) / block_dim.x + 1);
+      // transpose Q
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          query_buf, query, batch_size, from_seq_len, head_num, size_per_head);
+      len = batch_size * head_num * size_per_head * to_seq_len;
+      grid_dim.x = (len - 1) / block_dim.x + 1;
+      // transpose KV
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          key_buf, value_4d, key, value, batch_size, to_seq_len, head_num, size_per_head);
     }
-    HCTR_LIB_THROW(cudaMemcpyAsync((void*)fprop_inputA_.get_ptr(), (void*)query,
-                                   in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
-  } else {
-    T* query = input_tensors_[0].data<T>();
-    T* query_buf;
-    T* key = input_tensors_[1].data<T>();
-    T* key_buf;
-    T* value;
-    T* score;
-    T* value_4d;
-    T* attention_out = output_tensors_[0].data<T>();
-
-    const auto& in_tensor_shape = input_tensors_[0].shape();
-    const auto& out_tensor_shape = output_tensors_[0].shape();
-
-    size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
-    if (dims_ == 4 && transpose_b_) {
-      head_num = in_tensor_shape[1];
-      batch_size = in_tensor_shape[0];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      size_per_head = in_tensor_shape[dims_ - 1];
-      to_seq_len = out_tensor_shape[dims_ - 1];
-    }
-    if (dims_ == 4 && !transpose_b_) {
-      batch_size = in_tensor_shape[0];
-      head_num = in_tensor_shape[1];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      to_seq_len = in_tensor_shape[dims_ - 1];
-      size_per_head = input_tensors_[1].shape()[dims_ - 1];
-    }
-
-    if (dims_ == 3) {
-      query_buf = query_buf_tensor_.data<T>();
-      key_buf = key_buf_tensor_.data<T>();
-      value = input_tensors_[2].data<T>();
-      value_4d = output_tensors_[1].data<T>();
-      head_num = num_head_;
-      batch_size = in_tensor_shape[0];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      to_seq_len = from_seq_len;
-      size_per_head = in_tensor_shape[dims_ - 1] / head_num;
-      dim3 block_dim(size_per_head, head_num);
-      dim3 grid_dim(batch_size, from_seq_len);
-      transpose_QKV<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-          query_buf, key_buf, value_4d, query, key, value, batch_size, from_seq_len, head_num,
-          head_num * size_per_head);
-      query = query_buf;
-      key = key_buf;
-    }
-    const int batch_count = head_num * batch_size;
-    cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
-
-    cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
-    if (transpose_b_) {
-      const int m = from_seq_len;
-      const int n = to_seq_len;
-      const int k = size_per_head;
-      float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
-      long long int stride_a = static_cast<long long int>(to_seq_len) * size_per_head;
-      long long int stride_b = static_cast<long long int>(from_seq_len) * size_per_head;
-      long long int stride_c = static_cast<long long int>(from_seq_len) * to_seq_len;
-
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, key, a_type, k,
-          stride_a, query, b_type, k, stride_b, &beta, attention_out, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-
-    } else {
-      score = input_tensors_[0].data<T>();
-      value = input_tensors_[1].data<T>();
-      value_4d = value_buf_tensor_.data<T>();
-      const int m = from_seq_len;
-      const int n = size_per_head;
-      const int k = to_seq_len;
-
-      float alpha = 1.0f, beta = 0.0f;
-      long long int stride_a = static_cast<long long int>(m) * k;
-      long long int stride_b = static_cast<long long int>(k) * n;
-      long long int stride_c = static_cast<long long int>(m) * n;
-
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, value, b_type,
-          n, stride_b, score, a_type, k, stride_a, &beta, value_4d, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-      dim3 block_dim(size_per_head);
-      dim3 grid_dim(batch_size, head_num * from_seq_len);
-      transpose_V_back<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-          attention_out, value_4d, batch_size, from_seq_len, head_num, head_num * size_per_head);
-    }
-    HCTR_LIB_THROW(cudaMemcpyAsync(fprop_inputA_tensor_.data(), (void*)query,
-                                   input_tensors_[0].num_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
+    query = query_buf;
+    key = key_buf;
   }
+  const int batch_count = head_num * batch_size;
+  cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+  cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+  cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+
+  cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
+  /* 2. bgemm
+     input : query_buf, key_buf
+     output: attention_score_4d_(score)
+  */
+
+  {
+    const int m = from_seq_len;
+    const int n = to_seq_len;
+    const int k = size_per_head;
+    float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
+    long long int stride_a = static_cast<long long int>(to_seq_len) * size_per_head;
+    long long int stride_b = static_cast<long long int>(from_seq_len) * size_per_head;
+    long long int stride_c = static_cast<long long int>(from_seq_len) * to_seq_len;
+
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, key, a_type, k,
+        stride_a, query, b_type, k, stride_b, &beta, score, c_type, n, stride_c, batch_count,
+        compute_type, algo));
+  }
+
+  /* 3. softmax
+     input : attention_score_4d_
+     output: attention_softmax_4d_
+  */
+  if (masked_softmax_layer_) {
+    masked_softmax_layer_->fprop(true);
+  } else {
+    softmax_layer_->fprop(true);
+  }
+  score = attention_softmax_4d_.data<T>();
+  /* 4. bgemm
+     input : attention_softmax_4d_(score), attention_value_4d_
+     output: attention_out_tmp -> attention_out
+  */
+  {
+    const int m = from_seq_len;
+    const int n = size_per_head;
+    const int k = to_seq_len;
+
+    float alpha = 1.0f, beta = 0.0f;
+    long long int stride_a = static_cast<long long int>(m) * k;
+    long long int stride_b = static_cast<long long int>(k) * n;
+    long long int stride_c = static_cast<long long int>(m) * n;
+
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, value_4d, b_type,
+        n, stride_b, score, a_type, k, stride_a, &beta, attention_out_tmp, c_type, n, stride_c,
+        batch_count, compute_type, algo));
+    {
+      int flatten_len = batch_size * head_num * size_per_head * from_seq_len;
+      dim3 block_dim(1024);
+      dim3 grid_dim((flatten_len - 1) / block_dim.x + 1);
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          attention_out, attention_out_tmp, batch_size, head_num, from_seq_len, size_per_head);
+    }
+  }
+  HCTR_LIB_THROW(cudaMemcpyAsync(fprop_query_tensor_.data(), (void*)query_buf,
+                                 input_tensors_[0].num_bytes(), cudaMemcpyDeviceToDevice,
+                                 get_gpu().get_stream()));
+  HCTR_LIB_THROW(cudaMemcpyAsync(fprop_softmax_tensor_.data(), attention_softmax_4d_.data(),
+                                 attention_softmax_4d_.num_bytes(), cudaMemcpyDeviceToDevice,
+                                 get_gpu().get_stream()));
 }
 
 template <typename T>
 void MultiHeadAttentionLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
+  T* query = input_tensors_[0].data<T>();
+  T* key = input_tensors_[1].data<T>();
+  T* value = input_tensors_[2].data<T>();
 
-  if (input_tensors_.empty()) {
-    T* query = in_tensors_[0].get_ptr();
-    T* query_buf;
-    T* key = in_tensors_[1].get_ptr();
-    T* key_buf;
-    T* value;
-    T* score;
-    T* value_4d;
-    T* attention_out = out_tensors_[0].get_ptr();
+  T* query_buf = query_buf_tensor_.data<T>();
+  T* key_buf = key_buf_tensor_.data<T>();
 
-    const auto& in_tensor_dim = in_tensors_[0].get_dimensions();
-    const auto& out_tensor_dim = out_tensors_[0].get_dimensions();
+  T* score = attention_softmax_4d_.data<T>();
+  T* value_4d = attention_value_4d_.data<T>();
+  T* attention_out = output_tensors_[0].data<T>();
+  T* attention_out_tmp = attention_out_4d_.data<T>();
 
-    size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
-    if (dims_ == 4 && transpose_b_) {
-      query = in_tensors_[0].get_ptr();
-      key = in_tensors_[1].get_ptr();
-      head_num = in_tensor_dim[1];
-      batch_size = in_tensor_dim[0];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      size_per_head = in_tensor_dim[dims_ - 1];
-      to_seq_len = out_tensor_dim[dims_ - 1];
-    }
+  const auto& in_tensor_shape = input_tensors_[0].shape();
+  const auto& out_tensor_shape = output_tensors_[0].shape();
 
-    if (dims_ == 4 && !transpose_b_) {
-      batch_size = in_tensor_dim[0];
-      head_num = in_tensor_dim[1];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      to_seq_len = in_tensor_dim[dims_ - 1];
-      size_per_head = in_tensors_[1].get_dimensions()[dims_ - 1];
-    }
-    if (dims_ == 3) {
-      head_num = num_head_;
-      batch_size = in_tensor_dim[0];
-      from_seq_len = in_tensor_dim[dims_ - 2];
-      to_seq_len = in_tensor_dim[dims_ - 2];
-      size_per_head = in_tensor_dim[dims_ - 1] / head_num;
-      query = query_buf_.get_ptr();
-      key = key_buf_.get_ptr();
-    }
+  size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
+  {
+    head_num = num_head_;
+    batch_size = in_tensor_shape[0];
+    from_seq_len = in_tensor_shape[dims_ - 2];
+    to_seq_len = input_tensors_[1].size(dims_ - 2);
+    size_per_head = in_tensor_shape[dims_ - 1] / head_num;
+  }
 
-    const int batch_count = head_num * batch_size;
-    cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+  const int batch_count = head_num * batch_size;
+  cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+  cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+  cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
 
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
-    cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-    if (transpose_b_) {
-      const int m = from_seq_len;
-      const int n = size_per_head;
-      const int k = to_seq_len;
+  cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
+  /* 1. bgemm
+     input : attention_out -> attention_out_tmp
+     output: attention_softmax_4d_(score), attention_value_4d_
+  */
+  {
+    int flatten_len = batch_size * head_num * size_per_head * from_seq_len;
+    dim3 block_dim(1024);
+    dim3 grid_dim((flatten_len - 1) / block_dim.x + 1);
 
-      float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
+    transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+        attention_out_tmp, attention_out, batch_size, from_seq_len, head_num, size_per_head);
+    const int m = from_seq_len;
+    const int n = to_seq_len;
+    const int k = size_per_head;
 
-      long long int stride_a = static_cast<long long int>(n) * k;
-      long long int stride_b = static_cast<long long int>(k) * m;
-      long long int stride_c = static_cast<long long int>(n) * m;
+    float alpha = 1.0f, beta = 0.0f;
 
-      // gradient respect to input A   matmul(C,B)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, key, a_type, n,
-          stride_a, attention_out, b_type, k, stride_b, &beta, query, c_type, n, stride_c,
-          batch_count, compute_type, algo));
+    long long int stride_a = static_cast<long long int>(n) * k;
+    long long int stride_b = static_cast<long long int>(k) * m;
+    long long int stride_c = static_cast<long long int>(n) * m;
 
-      T* cur_Q = fprop_inputA_.get_ptr();
+    // gradient respect to input A   matmul(C,B^T)
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, value_4d, b_type,
+        k, stride_a, attention_out_tmp, b_type, k, stride_b, &beta, score, c_type, n, stride_c,
+        batch_count, compute_type, algo));
+    T* cur_Q = fprop_softmax_tensor_.data<T>();
 
-      // gradient respect to input B  matmul(C^T,A)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, cur_Q, a_type,
-          n, stride_c, attention_out, b_type, k, stride_b, &beta, key, c_type, n, stride_a,
-          batch_count, compute_type, algo));
+    // gradient respect to input B     matmul(A^T, C)
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, k, n, m, &alpha, attention_out_tmp,
+        a_type, k, stride_b, cur_Q, b_type, n, stride_c, &beta, value_4d, c_type, k, stride_a,
+        batch_count, compute_type, algo));
+  }
+  /* 2. softmax
+     input:  attention_softmax_4d_
+     output: attention_score_4d_
+  */
 
-      if (dims_ == 3) {
-        query = in_tensors_[0].get_ptr();
-        query_buf = query_buf_.get_ptr();
-        key = in_tensors_[1].get_ptr();
-        key_buf = key_buf_.get_ptr();
-        value = in_tensors_[2].get_ptr();
-        value_4d = out_tensors_[1].get_ptr();
-        dim3 block_dim(size_per_head);
-        dim3 grid_dim(batch_size, head_num * from_seq_len);
-        transpose_QKV_back<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-            query, key, value, query_buf, key_buf, value_4d, batch_size, from_seq_len, head_num,
-            head_num * size_per_head);
-      }
-    } else {
-      score = in_tensors_[0].get_ptr();
-      value = in_tensors_[1].get_ptr();
-      value_4d = value_buf_.get_ptr();
-      dim3 block_dim(size_per_head, head_num);
-      dim3 grid_dim(batch_size, from_seq_len);
-      transpose_V<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-          value_4d, attention_out, batch_size, from_seq_len, head_num, head_num * size_per_head);
-      const int m = from_seq_len;
-      const int n = to_seq_len;
-      const int k = size_per_head;
-
-      float alpha = 1.0f, beta = 0.0f;
-
-      long long int stride_a = static_cast<long long int>(n) * k;
-      long long int stride_b = static_cast<long long int>(k) * m;
-      long long int stride_c = static_cast<long long int>(n) * m;
-
-      // gradient respect to input A   matmul(C,B^T)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, value, b_type,
-          k, stride_a, value_4d, b_type, k, stride_b, &beta, score, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-      T* cur_Q = fprop_inputA_.get_ptr();
-
-      // gradient respect to input B     matmul(A^T, C)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, k, n, m, &alpha, value_4d,
-          a_type, k, stride_b, cur_Q, b_type, n, stride_c, &beta, value, c_type, k, stride_a,
-          batch_count, compute_type, algo));
-    }
+  if (masked_softmax_layer_) {
+    masked_softmax_layer_->bprop();
   } else {
-    T* query = input_tensors_[0].data<T>();
-    T* query_buf;
-    T* key = input_tensors_[1].data<T>();
-    T* key_buf;
-    T* value;
-    T* score;
-    T* value_4d;
-    T* attention_out = output_tensors_[0].data<T>();
+    softmax_layer_->bprop();
+  }
+  score = attention_score_4d_.data<T>();
 
-    const auto& in_tensor_shape = input_tensors_[0].shape();
-    const auto& out_tensor_shape = output_tensors_[0].shape();
+  /* 3. bgemm
+     input: attention_score_4d_
+     output : query_buf, key_buf
+  */
+  {
+    const int m = from_seq_len;
+    const int n = size_per_head;
+    const int k = to_seq_len;
 
-    size_t head_num = 0, batch_size = 0, from_seq_len = 0, to_seq_len = 0, size_per_head = 0;
-    if (dims_ == 4 && transpose_b_) {
-      query = input_tensors_[0].data<T>();
-      key = input_tensors_[1].data<T>();
-      head_num = in_tensor_shape[1];
-      batch_size = in_tensor_shape[0];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      size_per_head = in_tensor_shape[dims_ - 1];
-      to_seq_len = out_tensor_shape[dims_ - 1];
-    }
+    float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
 
-    if (dims_ == 4 && !transpose_b_) {
-      batch_size = in_tensor_shape[0];
-      head_num = in_tensor_shape[1];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      to_seq_len = in_tensor_shape[dims_ - 1];
-      size_per_head = input_tensors_[1].shape()[dims_ - 1];
-    }
-    if (dims_ == 3) {
-      head_num = num_head_;
-      batch_size = in_tensor_shape[0];
-      from_seq_len = in_tensor_shape[dims_ - 2];
-      to_seq_len = in_tensor_shape[dims_ - 2];
-      size_per_head = in_tensor_shape[dims_ - 1] / head_num;
-      query = query_buf_tensor_.data<T>();
-      key = key_buf_tensor_.data<T>();
-    }
+    long long int stride_a = static_cast<long long int>(n) * k;
+    long long int stride_b = static_cast<long long int>(k) * m;
+    long long int stride_c = static_cast<long long int>(n) * m;
 
-    const int batch_count = head_num * batch_size;
-    cudaDataType_t a_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t b_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
-    cudaDataType_t c_type = use_mixed_precision_ ? CUDA_R_16F : CUDA_R_32F;
+    // gradient respect to input A   matmul(C,B)
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, key_buf, a_type,
+        n, stride_a, score, b_type, k, stride_b, &beta, query_buf, c_type, n, stride_c, batch_count,
+        compute_type, algo));
+    // a copy of query_buf
+    T* cur_Q = fprop_query_tensor_.data<T>();
 
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+    // gradient respect to input B  matmul(C^T,A)
+    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
+        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, cur_Q, a_type, n,
+        stride_c, score, b_type, k, stride_b, &beta, key_buf, c_type, n, stride_a, batch_count,
+        compute_type, algo));
+  }
 
-    cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-    if (transpose_b_) {
-      const int m = from_seq_len;
-      const int n = size_per_head;
-      const int k = to_seq_len;
-
-      float alpha = 1.0f / (float)(sqrt(size_per_head)), beta = 0.0f;
-
-      long long int stride_a = static_cast<long long int>(n) * k;
-      long long int stride_b = static_cast<long long int>(k) * m;
-      long long int stride_c = static_cast<long long int>(n) * m;
-
-      // gradient respect to input A   matmul(C,B)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, key, a_type, n,
-          stride_a, attention_out, b_type, k, stride_b, &beta, query, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-
-      T* cur_Q = fprop_inputA_tensor_.data<T>();
-
-      // gradient respect to input B  matmul(C^T,A)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, cur_Q, a_type,
-          n, stride_c, attention_out, b_type, k, stride_b, &beta, key, c_type, n, stride_a,
-          batch_count, compute_type, algo));
-
-      if (dims_ == 3) {
-        query = input_tensors_[0].data<T>();
-        query_buf = query_buf_tensor_.data<T>();
-        key = input_tensors_[1].data<T>();
-        key_buf = key_buf_tensor_.data<T>();
-        value = input_tensors_[2].data<T>();
-        value_4d = output_tensors_[1].data<T>();
-        dim3 block_dim(size_per_head);
-        dim3 grid_dim(batch_size, head_num * from_seq_len);
-        transpose_QKV_back<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-            query, key, value, query_buf, key_buf, value_4d, batch_size, from_seq_len, head_num,
-            head_num * size_per_head);
-      }
+  /* 4. transpose
+    input : query_buf, key_buf, attention_value_4d_(value)
+    output: q,k,v
+  */
+  {
+    if (from_seq_len == to_seq_len) {
+      int flatten_len = batch_size * head_num * size_per_head * from_seq_len;
+      dim3 block_dim(1024);
+      dim3 grid_dim((flatten_len - 1) / block_dim.x + 1);
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          query, key, value, query_buf, key_buf, value_4d, batch_size, head_num, from_seq_len,
+          size_per_head);
     } else {
-      score = input_tensors_[0].data<T>();
-      value = input_tensors_[1].data<T>();
-      value_4d = value_buf_tensor_.data<T>();
-      dim3 block_dim(size_per_head, head_num);
-      dim3 grid_dim(batch_size, from_seq_len);
-      transpose_V<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
-          value_4d, attention_out, batch_size, from_seq_len, head_num, head_num * size_per_head);
-      const int m = from_seq_len;
-      const int n = to_seq_len;
-      const int k = size_per_head;
+      int flatten_len = batch_size * head_num * size_per_head * from_seq_len;
+      dim3 block_dim(1024);
+      dim3 grid_dim((flatten_len - 1) / block_dim.x + 1);
 
-      float alpha = 1.0f, beta = 0.0f;
-
-      long long int stride_a = static_cast<long long int>(n) * k;
-      long long int stride_b = static_cast<long long int>(k) * m;
-      long long int stride_c = static_cast<long long int>(n) * m;
-
-      // gradient respect to input A   matmul(C,B^T)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, value, b_type,
-          k, stride_a, value_4d, b_type, k, stride_b, &beta, score, c_type, n, stride_c,
-          batch_count, compute_type, algo));
-      // T* cur_Q = fprop_inputA_.get_ptr();
-      T* cur_Q = fprop_inputA_tensor_.data<T>();
-
-      // gradient respect to input B     matmul(A^T, C)
-      HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-          get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, k, n, m, &alpha, value_4d,
-          a_type, k, stride_b, cur_Q, b_type, n, stride_c, &beta, value, c_type, k, stride_a,
-          batch_count, compute_type, algo));
+      // transpose Q
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          query, query_buf, batch_size, head_num, from_seq_len, size_per_head);
+      flatten_len = batch_size * head_num * size_per_head * to_seq_len;
+      grid_dim.x = (flatten_len - 1) / block_dim.x + 1;
+      // transpose KV
+      transpose_0213<<<grid_dim, block_dim, 0, get_gpu().get_stream()>>>(
+          key, value, key_buf, value_4d, batch_size, head_num, to_seq_len, size_per_head);
     }
   }
 }

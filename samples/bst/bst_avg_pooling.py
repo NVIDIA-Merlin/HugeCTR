@@ -180,25 +180,9 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["query_emb", "key_emb", "value_emb"],
-        top_names=["attention_score", "attn_value_4d"],
-        num_attention_heads=4,
-        transpose_b=True,
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Softmax,
-        bottom_names=["attention_score", "sequence_mask"],
-        top_names=["attention_score_softmax"],
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["attention_score_softmax", "attn_value_4d"],
+        bottom_names=["query_emb", "key_emb", "value_emb", "sequence_mask"],
         top_names=["attention_out"],
-        transpose_b=False,
+        num_attention_heads=4,
     )
 )
 model.add(

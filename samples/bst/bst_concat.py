@@ -180,25 +180,9 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["query_emb", "key_emb", "value_emb"],
-        top_names=["attention_score", "attn_value_4d"],
-        num_attention_heads=4,
-        transpose_b=True,
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Softmax,
-        bottom_names=["attention_score", "sequence_mask"],
-        top_names=["attention_score_softmax"],
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["attention_score_softmax", "attn_value_4d"],
+        bottom_names=["query_emb", "key_emb", "value_emb", "sequence_mask"],
         top_names=["attention_out"],
-        transpose_b=False,
+        num_attention_heads=4,
     )
 )
 model.add(
@@ -357,8 +341,6 @@ model.add(
         top_names=["loss"],
     )
 )
-model.compile()
 model.summary()
+model.compile()
 model.fit(max_iter=88000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="bst")
-# model.graph_to_json(graph_config_file = "bst.json")
-# model.export_predictions( "prediction_fit",  "label_fit")
