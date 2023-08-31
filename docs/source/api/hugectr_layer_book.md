@@ -985,39 +985,36 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MatrixMutiply,
 ```
 #### MultiHeadAttention Layer
 
-The MultiHeadAttention Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.
-
+The MultiHeadAttention Layer is a binary operation that produces a matrix output from 3 matrix inputs by performing matrix mutiplication. The formulas is as follows:
+$$
+\mathbf{O} = \text {softmax} (s \cdot (\mathbf{Q} \cdot \mathbf{K}) \odot \mathbf{M}) \cdot \mathbf{V}
+$$
+Where $Q, K, V$ are 3D inputs and $O$ is 3D output. The $\odot$ represents element-wise dot while $\cdot$ represents matrix inner product. $\mathbf{M}$ is used to mask out padded input due to the inequality of sequence length.
+Please refer to [Attention is all you need](https://arxiv.org/pdf/1706.03762.pdf) for more details.
 Parameter:
 
 * `num_attention_heads`: The number of attention heads. Default value is 1.
-* `transpose_b`: Transpose the second input or not when do matrix multiplication. Default value is False.
 
 Input and Output Shapes:
 
-* input: 4D: (batch_size, num_attention_heads, from_seq_len, size_per_head), (batch_size, num_attention_heads, to_seq_len, size_per_head)
-* output: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len)
-
-* input: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len), (batch_size, num_attention_heads, to_seq_len, size_per_head)
-* output: 4D: (batch_size, from_seq_len, num_attention_heads * size_per_head) when transpose_b is set to False
-
-* input: 3D: (batch_size, seq_len, hidden_dim), (batch_size, seq_len, hidden_dim), (batch_size, seq_len, hidden_dim)
-* output: 4D: (batch_size, num_attention_heads, from_seq_len, to_seq_len) and (batch_size, num_attention_heads, from_seq_len, to_seq_len)
+* input: 
+  * $Q$: (batch_size, seq_from, hidden_dim), 
+  * $K$: (batch_size, seq_to, hidden_dim), 
+  * $V$: (batch_size, seq_to, hidden_dim)
+  * $M$ (optional): (batch_size, 1, seq_from, seq_to)
+* output:
+  * $O$: (batch_size, seq_from, hidden_dim)
 
 Example:
 ```python
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
-                            bottom_names = ["query","key"],
-                            top_names = ["attention_score"],
-                            transpose_b = True))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
-                            bottom_names = ["query","key","value"],
-                            top_names = ["attention_score","value_4d_out"],
-                            num_attention_heads = 4,
-                            transpose_b = True))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
-                            bottom_names = ["attention_score","value_4d"],
-                            top_names = ["attention_out"],
-                            transpose_b = False))
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.MultiHeadAttention,
+        bottom_names=["query", "key", "value", "mask"],
+        top_names=["attention_out"],
+        num_attention_heads=4,
+    )
+)
 ```
 #### SequenceMask Layer
 

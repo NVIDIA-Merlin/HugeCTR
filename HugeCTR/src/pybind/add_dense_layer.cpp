@@ -1191,28 +1191,31 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       break;
     }
     case Layer_t::MultiHeadAttention: {
+      // [batchsize, ]
       auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
-      auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
-      if (dim1.size() == 4) {
-        if (dense_layer.transpose_b) {
-          tensor_shape_info_raw.insert(std::make_pair(
-              dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim1[2], dim2[2]}));
-        } else {
-          tensor_shape_info_raw.insert(std::make_pair(
-              dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[2], dim2[3] * dim1[1]}));
-        }
-      } else if (dim1.size() == 3) {
-        tensor_shape_info_raw.insert(std::make_pair(
-            dense_layer.top_names[0],
-            std::vector<int>{dim1[0], dense_layer.num_attention_heads, dim1[1], dim2[1]}));
-        tensor_shape_info_raw.insert(
-            std::make_pair(dense_layer.top_names[1],
-                           std::vector<int>{dim1[0], dense_layer.num_attention_heads, dim1[1],
-                                            dim1[2] / dense_layer.num_attention_heads}));
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "MultiHeadAttentionLayer needs two 4D or 3D input tensors ");
-      }
+      // auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], dim1));
+
+      // if (dim1.size() == 4) {
+      //   if (dense_layer.transpose_b) {
+      //     tensor_shape_info_raw.insert(std::make_pair(
+      //         dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim1[2], dim2[2]}));
+      //   } else {
+      //     tensor_shape_info_raw.insert(std::make_pair(
+      //         dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[2], dim2[3] * dim1[1]}));
+      //   }
+      // } else if (dim1.size() == 3) {
+      //   tensor_shape_info_raw.insert(std::make_pair(
+      //       dense_layer.top_names[0],
+      //       std::vector<int>{dim1[0], dense_layer.num_attention_heads, dim1[1], dim2[1]}));
+      //   tensor_shape_info_raw.insert(
+      //       std::make_pair(dense_layer.top_names[1],
+      //                      std::vector<int>{dim1[0], dense_layer.num_attention_heads, dim1[1],
+      //                                       dim1[2] / dense_layer.num_attention_heads}));
+      // } else {
+      //   HCTR_OWN_THROW(Error_t::WrongInput,
+      //                  "MultiHeadAttentionLayer needs two 4D or 3D input tensors ");
+      // }
       break;
     }
     case Layer_t::Interaction: {

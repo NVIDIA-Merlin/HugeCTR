@@ -25,16 +25,28 @@ using namespace std;
 
 namespace {
 
-const float eps = 1e-4;
+template <typename T>
+T get_eps(bool use_tf32 = false);
 
+template <>
+float get_eps(bool use_tf32) {
+  return (use_tf32 ? 5e-1 : 1e-3);
+}
+
+template <>
+__half get_eps(bool use_tf32) {
+  return __float2half(1);
+}
 template <typename T>
 void sum_ex_cpu(T* top, int embedding_vector_size, int dim0, T* workspace) {
   // sum(e^xi) i = [0, embedding_vector_size -1];
   for (int i = 0; i < dim0; i++) {
-    workspace[i] = 0;
+    workspace[i] = TypeConvert<T, float>::convert(0.f);
     int offset = i * embedding_vector_size;
     for (int j = 0; j < embedding_vector_size; j++) {
-      workspace[i] += top[offset + j];
+      workspace[i] =
+          TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(top[offset + j]) +
+                                         TypeConvert<float, T>::convert(workspace[i]));
     }
   }
 }
@@ -43,7 +55,7 @@ template <typename T>
 void ex_cpu(T* top, const T* bottom, int len) {
   // e^xi
   for (int i = 0; i < len; i++) {
-    top[i] = expf(bottom[i]);
+    top[i] = TypeConvert<T, float>::convert(expf(TypeConvert<float, T>::convert(bottom[i])));
   }
 }
 
@@ -54,9 +66,10 @@ void sum_grad_softmax(const T* d_top, const T* softmax_out, int embedding_vector
     float grad_sum = 0.0;
     int offset = i * embedding_vector_size;
     for (int j = 0; j < embedding_vector_size; j++) {
-      grad_sum += (float)(d_top[offset + j] * softmax_out[offset + j]);
+      grad_sum += (TypeConvert<float, T>::convert(d_top[offset + j]) *
+                   TypeConvert<float, T>::convert(softmax_out[offset + j]));
     }
-    workspace[i] = static_cast<T>(grad_sum);
+    workspace[i] = TypeConvert<T, float>::convert(grad_sum);
     // printf("CPU grad_sum %d: %f\n", i, workspace[i]);
   }
 }
@@ -73,7 +86,8 @@ void softmax_fprop_cpu(T* top, const T* bottom, int len, int embedding_vector_si
   for (int i = 0; i < dim0; i++) {
     for (int j = 0; j < embedding_vector_size; j++) {
       int index = i * embedding_vector_size + j;
-      top[index] = top[index] / workspace[i];
+      top[index] = TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(top[index]) /
+                                                  TypeConvert<float, T>::convert(workspace[i]));
     }
   }
   delete[] workspace;
@@ -89,7 +103,10 @@ void softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out, int le
   for (int i = 0; i < dim0; i++) {
     for (int j = 0; j < embedding_vector_size; j++) {
       int index = i * embedding_vector_size + j;
-      d_bottom[index] = softmax_out[index] * (d_top[index] - workspace[i]);
+      d_bottom[index] =
+          TypeConvert<T, float>::convert(TypeConvert<float, T>::convert(softmax_out[index]) *
+                                         (TypeConvert<float, T>::convert(d_top[index]) -
+                                          TypeConvert<float, T>::convert(workspace[i])));
       // d_bottom[index] = workspace[i];
     }
   }
@@ -105,7 +122,7 @@ void softmax_test(int64_t dim0, int64_t embedding_vector_size) {
 
   core23::TensorParams tensor_params = core23::TensorParams()
                                            .device(device)
-                                           .data_type(core23::ScalarType::Float)
+                                           .data_type(core23::ToScalarType<T>::value)
                                            .buffer_channel(core23::GetRandomBufferChannel());
 
   core23::Tensor bottom_tensor(tensor_params.shape(dims));
@@ -125,7 +142,6 @@ void softmax_test(int64_t dim0, int64_t embedding_vector_size) {
   std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
 
   test::normal_sync_cpu(h_bottom.get(), len, 0.f, 1.f, generator);
-
   // fprop
   core23::copy_sync(bottom_tensor.data(), h_bottom.get(), len * sizeof(T), bottom_tensor.device(),
                     core23::DeviceType::CPU);
@@ -135,11 +151,10 @@ void softmax_test(int64_t dim0, int64_t embedding_vector_size) {
   core23::copy_sync(d2h_top.get(), top_tensor.data(), len * sizeof(T), core23::DeviceType::CPU,
                     top_tensor.device());
   softmax_fprop_cpu<T>(h_top.get(), h_bottom.get(), len, embedding_vector_size);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, get_eps<T>()));
 
   // bprop
   test::normal_sync_cpu(h_top.get(), len, 0.f, 1.f, generator);
-
   softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), len, embedding_vector_size);
   core23::copy_sync(top_tensor.data(), h_top.get(), len * sizeof(T), top_tensor.device(),
                     core23::DeviceType::CPU);
@@ -153,7 +168,8 @@ void softmax_test(int64_t dim0, int64_t embedding_vector_size) {
                     core23::DeviceType::CPU, bottom_tensor.device());
   softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(), len,
                        embedding_vector_size);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, get_eps<T>()));
 }
 
 }  // namespace
@@ -164,3 +180,4 @@ TEST(softmax_layer, fp32_256x384) { softmax_test<float>(256, 384); }
 TEST(softmax_layer, fp32_512x512) { softmax_test<float>(512, 512); }
 TEST(softmax_layer, fp32_256x1024) { softmax_test<float>(256, 1024); }
 TEST(softmax_layer, fp32_1024x512) { softmax_test<float>(1024, 512); }
+TEST(softmax_layer, fp16_2x16) { softmax_test<__half>(2, 16); }

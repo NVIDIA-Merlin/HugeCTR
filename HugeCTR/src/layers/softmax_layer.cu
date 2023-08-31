@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <core23/tensor_operations.hpp>
 #include <functional>
 #include <include/utils.cuh>
 #include <layers/element_wise_function.hpp>
@@ -23,7 +24,6 @@
 #include <linalg/reduce.cuh>
 #include <linalg/unary_op.cuh>
 #include <utils.hpp>
-
 namespace HugeCTR {
 
 template <typename T>
@@ -138,23 +138,23 @@ void __global__ Softmax_bprop_kernel(T* top, T* bottom, T* softmax, int m, int n
 template <>
 void __global__ Softmax_bprop_kernel(__half* top, __half* bottom, __half* softmax, int m, int n) {
   int offset = blockIdx.x * n;
-  float grad_softmax = static_cast<float>(0.0f);
-  __shared__ __half grad_sum;
+  float grad_softmax = 0.f;
+  __shared__ float grad_sum;
 
   for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
     int idx = offset + tid;
-    grad_softmax += static_cast<float>(top[idx] * softmax[idx]);
+    grad_softmax += __half2float(top[idx]) * __half2float(softmax[idx]);
   }
 
   float tmp = blockReduceSum<float>(grad_softmax);
   if (threadIdx.x == 0) {
-    grad_sum = static_cast<__half>(tmp);
+    grad_sum = tmp;
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
     int idx = offset + tid;
-    __half tmp = __hsub(top[idx], grad_sum);
-    bottom[idx] = __hmul(bottom[idx], tmp);
+    bottom[idx] =
+        __half2float(softmax[idx]) * __half2float(top[idx]) - __half2float(softmax[idx]) * grad_sum;
   }
 }
 

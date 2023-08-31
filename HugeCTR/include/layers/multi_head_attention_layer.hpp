@@ -16,8 +16,9 @@
 #pragma once
 
 #include <layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
+#include <layers/softmax_layer.hpp>
 #include <vector>
-
 namespace HugeCTR {
 
 /**
@@ -56,6 +57,8 @@ class MultiHeadAttentionLayer : public Layer {
    */
   void bprop() override;
 
+  std::vector<T>& get_debug_vector() { return debug_vector_; };
+
  private:
   /*
    * stores the references to the input tensors of this layer.
@@ -79,10 +82,21 @@ class MultiHeadAttentionLayer : public Layer {
   Tensor2<T> query_buf_;
   Tensor2<T> key_buf_;
   Tensor2<T> value_buf_;
-  core23::Tensor fprop_inputA_tensor_;
+  core23::Tensor fprop_query_tensor_;
+  core23::Tensor fprop_softmax_tensor_;
   core23::Tensor query_buf_tensor_;
   core23::Tensor key_buf_tensor_;
-  core23::Tensor value_buf_tensor_;
+  core23::Tensor attention_out_4d_;
+
+  core23::Tensor attention_value_4d_;
+  core23::Tensor attention_score_4d_;
+  core23::Tensor attention_softmax_4d_;
+
+  // masked_softmax_layer_ xor softmax_layer_
+  std::unique_ptr<core23::MaskedSoftmaxLayer<T>> masked_softmax_layer_;
+  std::unique_ptr<SoftmaxLayer<T>> softmax_layer_;
+
+  std::vector<T> debug_vector_;
 };
 
 }  // namespace HugeCTR
