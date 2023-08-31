@@ -31,6 +31,24 @@ include_directories(${CONDA_PREFIX}/include/libcudf/libcudacxx)
 
 link_directories(${CONDA_PREFIX}/lib)
 
+# Check cudf version
+execute_process(COMMAND bash -c "pip show cudf|grep Version | sed 's/.*: //'" OUTPUT_VARIABLE CUDF_VERSION)
+message(STATUS "CUDF_VERSION = ${CUDF_VERSION}")
+
+string(COMPARE EQUAL "${CUDF_VERSION}" "" CUDF_RESULT)
+if (NOT CUDF_RESULT)
+    string(REPLACE "." ";" CUDF_VERSION_LIST ${CUDF_VERSION})
+    list(GET CUDF_VERSION_LIST 0 CUDF_VERSION_MAJOR)
+    list(GET CUDF_VERSION_LIST 1 CUDF_VERSION_MINOR)
+    list(GET CUDF_VERSION_LIST 1 CUDF_VERSION_PATCH)
+
+    if(${CUDF_VERSION_MAJOR} EQUAL 23 AND ${CUDF_VERSION_MINOR} GREATER 6)
+       add_definitions(-DCUDF_GE_2306)
+    endif()
+else()
+    message(FATAL_ERROR "Can not detect cudf in your environment! ")
+endif()
+
 add_executable(dlrm_raw ${dlrm_raw_src})
 
 target_link_libraries(dlrm_raw PUBLIC hugectr_core23)
