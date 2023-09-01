@@ -1,0 +1,3 @@
+#!/bin/bash
+
+srun --container-image="${CONT}" --container-mounts="${MOUNTS}"  bash -cx "bash /workdir/ci/benchmark/147gb_model_benchmark/test.sh"

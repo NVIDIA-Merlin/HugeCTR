@@ -497,25 +497,25 @@ hps_tf_fuse_table_benchmark_check:
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_hps_tf_fuse_table_benchmark.sub
 
-3fc_147gb_model_benchmark:
+147gb_model_benchmark:
   extends: .selene_test_job
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_tf_hps_trt_plugin
   variables:
-    GPFSFOLDER: $LOGDIR/3fc_147gb_model_benchmark
+    GPFSFOLDER: $LOGDIR/147gb_model_benchmark
     CONT: $TF_TRT_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/hps_tf_benchmark/3fc_147gb_ci_model_repo:/model_repo
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/hps_tf_benchmark/147gb_ci_model_repo:/model_repo
     WALLTIME: "00:45:00"
-    TEST_CMD: ./ci/benchmark/3fc_147gb_model_benchmark/run.sub
+    TEST_CMD: ./ci/benchmark/147gb_model_benchmark/run.sub
 
-3fc_147gb_model_benchmark_check:
+147gb_model_benchmark_check:
   extends: .selene_post_test_job
   needs:
-    - 3fc_147gb_model_benchmark
+    - 147gb_model_benchmark
   variables:
-    GPFSFOLDER: $LOGDIR/3fc_147gb_model_benchmark_check
+    GPFSFOLDER: $LOGDIR/147gb_model_benchmark_check
     CONT: $TF_TRT_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/3fc_147gb_model_benchmark:/logs
+    MOUNTS: $LOGDIR/147gb_model_benchmark:/logs
     WALLTIME: "00:15:00"
-    TEST_CMD: ./ci/post_test/check_3fc_147gb_model_benchmark.sub
+    TEST_CMD: ./ci/post_test/check_147gb_model_benchmark.sub
