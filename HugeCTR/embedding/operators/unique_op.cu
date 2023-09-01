@@ -121,16 +121,25 @@ __global__ void get_insert_kernel(const KeyType* d_key, KeyType* d_unique_key, C
         assert(false && "error: unique op fails: hashtable is full");
       }
       // Try to set the key for the current slot to target key
-      const KeyType old_key = atomicCAS(keys + hash_index, empty_key, target_key);
+      // const KeyType old_key = atomicCAS(keys + hash_index, empty_key, target_key);
+      const KeyType existing_key = keys[hash_index];
       volatile CounterType& target_val_pos = vals[hash_index];
-      if (empty_key == old_key) {
-        CounterType result_val;
-        result_val = atomicAdd(d_global_counter, 1);
-        d_unique_key[result_val] = target_key;
-        d_val[idx] = result_val;
-        target_val_pos = result_val;
-        break;
-      } else if (target_key == old_key) {
+      if (empty_key == existing_key) {
+        const KeyType old_key = atomicCAS(keys + hash_index, empty_key, target_key);
+        if (empty_key == old_key) {
+          CounterType result_val;
+          result_val = atomicAdd(d_global_counter, 1);
+          d_unique_key[result_val] = target_key;
+          d_val[idx] = result_val;
+          target_val_pos = result_val;
+          break;
+        } else if (target_key == old_key) {
+          while (target_val_pos == empty_val) {
+          };
+          d_val[idx] = target_val_pos;
+          break;
+        }
+      } else if (target_key == existing_key) {
         while (target_val_pos == empty_val) {
         };
         d_val[idx] = target_val_pos;
