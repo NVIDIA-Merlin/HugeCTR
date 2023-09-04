@@ -15,7 +15,7 @@
 """
 
 _Major = 1
-_Minor = 2
+_Minor = 3
 _Patch = 0
 
 __version__ = ".".join(map(str, [_Major, _Minor, _Patch]))
