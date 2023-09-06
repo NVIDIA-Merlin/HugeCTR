@@ -75,6 +75,16 @@ REGISTER_OP("DummyVarInitialize")
     .Attr("config: string = '{}'")
     .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
+REGISTER_OP("DummyVarTablePtr")
+    .Input("input: resource")
+    .Output("output:uint64")
+    .Attr("key_type: {int32, int64} = DT_INT64")
+    .Attr("dtype: {float32} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) {
+      c->set_output(0, c->Vector(1));
+      return sok_tsl_status();
+     });
+
 REGISTER_OP("DummyVarShape")
     .Input("input: resource")
     .Output("output: out_type")

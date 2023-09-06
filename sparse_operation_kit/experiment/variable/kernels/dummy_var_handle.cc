@@ -222,6 +222,49 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
 #undef REGISTER_GPU_KERNELS
 
 // -----------------------------------------------------------------------------------------------
+// DummyVarPtr 
+// -----------------------------------------------------------------------------------------------
+
+template <typename KeyType, typename ValueType>
+class DummyVarTablePtrOp : public OpKernel {
+ public:
+  explicit DummyVarTablePtrOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
+
+  void Compute(OpKernelContext* ctx) override {
+
+    // std::cout << info << std::endl;
+    core::RefCountPtr<DummyVar<KeyType, ValueType>> var;
+    OP_REQUIRES_OK(ctx, LookupResource(ctx, HandleFromInput(ctx, 0), &var));
+    var->mu()->lock_shared();
+    auto var_ptr = var->get_var_ptr();
+    var->mu()->unlock_shared();
+    Tensor* output;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {1}, &output));
+    *(static_cast<uint64_t*>(output->data())) = reinterpret_cast<uint64_t>(var_ptr);
+
+  }
+
+};
+
+#define REGISTER_GPU_KERNELS(key_type_tf, key_type, dtype_tf, dtype)   \
+  REGISTER_KERNEL_BUILDER(Name("DummyVarTablePtr")                   \
+                              .Device(DEVICE_GPU)                      \
+                              .HostMemory("input")                  \
+                              .HostMemory("output")                  \
+                              .TypeConstraint<key_type_tf>("key_type") \
+                              .TypeConstraint<dtype_tf>("dtype"),      \
+                          DummyVarTablePtrOp<key_type, dtype>)
+#if TF_VERSION_MAJOR == 1
+REGISTER_GPU_KERNELS(int64, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32, int32_t, float, float);
+#else
+REGISTER_GPU_KERNELS(int64_t, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
+#endif
+#undef REGISTER_GPU_KERNELS
+
+
+// -----------------------------------------------------------------------------------------------
 // DummyVarShape
 // -----------------------------------------------------------------------------------------------
 template <typename KeyType, typename ValueType, typename OutType>

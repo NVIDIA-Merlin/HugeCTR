@@ -47,9 +47,10 @@ class DETVariable : public VariableBase<KeyType, ValueType> {
                    cudaStream_t stream = 0) override;
   void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,
                       cudaStream_t stream = 0) override;
+  void* table_ptr() override;
 
  private:
-  std::unique_ptr<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>> map_;
+  std::shared_ptr<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>> map_;
 
   size_t dimension_;
   size_t initial_capacity_;

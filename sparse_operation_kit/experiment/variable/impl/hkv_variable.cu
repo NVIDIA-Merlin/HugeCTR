@@ -346,5 +346,11 @@ void HKVVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const 
   CUDACHECK(cudaStreamSynchronize(stream));
 }
 
+
+template <typename KeyType, typename ValueType>
+void* HKVVariable<KeyType, ValueType>::table_ptr(){
+    return (void*)(&hkv_table_);
+}
+
 template class HKVVariable<int64_t, float>;
 }  // namespace sok

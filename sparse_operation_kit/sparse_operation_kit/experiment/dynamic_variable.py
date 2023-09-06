@@ -269,6 +269,10 @@ class DynamicVariable(ResourceVariable):
     def initializer_str(self):
         return self._initializer
 
+    @property
+    def dynamic_table_ptr(self):
+        return dynamic_variable_ops.dummy_var_table_ptr(self._handle)
+
     def key_map(self, indices):
         return indices
 

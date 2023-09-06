@@ -51,10 +51,11 @@ class HKVVariable : public VariableBase<KeyType, ValueType> {
                    cudaStream_t stream = 0) override;
   void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,
                       cudaStream_t stream = 0) override;
+  void* table_ptr() override;
 
  private:
   using HKVTable = nv::merlin::HashTable<KeyType, ValueType, uint64_t>;
-  std::unique_ptr<HKVTable> hkv_table_ = std::make_unique<HKVTable>();
+  std::shared_ptr<HKVTable> hkv_table_ = std::make_shared<HKVTable>();
   nv::merlin::HashTableOptions hkv_table_option_;
 
   size_t dimension_;

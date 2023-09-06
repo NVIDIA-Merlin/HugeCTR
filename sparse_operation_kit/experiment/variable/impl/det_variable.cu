@@ -95,7 +95,7 @@ DETVariable<KeyType, ValueType>::DETVariable(size_t dimension, size_t initial_ca
   float initial_val = 0.0;
   parse_initializer(initializer_, use_const_initializer, initial_val);
 
-  map_ = std::make_unique<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>>(
+  map_ = std::make_shared<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>>(
       dimension_, initial_capacity_,
       cuco::initializer(curand_states_, use_const_initializer, initial_val));
   if (!map_) {
@@ -197,6 +197,12 @@ template <typename KeyType, typename ValueType>
 void DETVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const ValueType* values,
                                                      size_t num_keys, cudaStream_t stream) {
   map_->scatter_update(keys, values, num_keys, stream);
+}
+
+template <typename KeyType, typename ValueType>
+void* DETVariable<KeyType, ValueType>::table_ptr(){
+    throw std::runtime_error("DET don't support output table_ptr");   
+    return nullptr;
 }
 
 template class DETVariable<int32_t, float>;

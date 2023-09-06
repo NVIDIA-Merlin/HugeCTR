@@ -43,6 +43,7 @@ class VariableBase {
                            cudaStream_t stream = 0) = 0;
   virtual void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,
                               cudaStream_t stream = 0) = 0;
+  virtual void* table_ptr() = 0;
 };
 
 class VariableFactory {

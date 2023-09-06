@@ -60,6 +60,7 @@ class DummyVar : public ResourceBase {
   void ScatterUpdate(const void *keys, const void *values, size_t num_keys, cudaStream_t stream);
 
   inline std::shared_ptr<sok::VariableBase<KeyType, ValueType>> get_var() { return var_; }
+  inline void* get_var_ptr() { return var_->table_ptr(); }
 
  private:
   std::shared_ptr<sok::VariableBase<KeyType, ValueType>> var_;
