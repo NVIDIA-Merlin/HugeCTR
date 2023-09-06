@@ -75,7 +75,7 @@ Here's a list of notebooks that you can run:
 | H100-SXM5-80GB + 2 x Intel Xeon Platinum 8480C 56-Core Processor (2TB CPU Memory) | PCIe Gen5 | 773 |
 | H100-NVL-94GB + NVIDIA Grace 72-Core Processor (480GB CPU Memory) |  NVLink-C2C  | 210 |
 
-- [demo_for_tf_trained_model.ipynb](demo_for_tf_trained_model.ipynb): Demonstrates how to train with TensorFlow and then build the HPS-integrated TensorRT engine for deployment.
+- [demo_for_tf_trained_model.ipynb](demo_for_tf_trained_model.ipynb): Demonstrates how to train with TensorFlow and then build the HPS-integrated TensorRT engine for deployment. The multi-GPU deployment on Triton is demonstrated.
 
 - [demo_for_pytorch_trained_model.ipynb](demo_for_pytorch_trained_model.ipynb): Demonstrates how to train with PyTorch and then build the HPS-integrated TensorRT engine for deployment.
 
