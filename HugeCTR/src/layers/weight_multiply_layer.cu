@@ -23,7 +23,6 @@
 #include <linalg/reduce.cuh>
 #include <utils.cuh>
 #include <utils.hpp>
-
 namespace HugeCTR {
 
 namespace {
@@ -40,7 +39,21 @@ __global__ void weight_multiply_kernel(const T* input, const T* weight, T* outpu
     }
   }
 }
-
+template <typename T>
+__global__ void weight_wgrad_reduce_kernel(const T* top_grad, T* wgrad, int batch_size,
+                                           int slot_num, int embedding_vec_size) {
+  T my_sum = T(0.f);
+  for (int b = blockIdx.x; b < slot_num * embedding_vec_size; b += gridDim.x) {
+    my_sum = T(0.f);
+    for (int i = threadIdx.x; i < batch_size; i += blockDim.x) {
+      my_sum += top_grad[b * batch_size + i];
+    }
+    my_sum = blockReduceSum(my_sum);
+    if (!threadIdx.x) {
+      wgrad[b] = my_sum;
+    }
+  }
+}
 template <typename T>
 __global__ void weight_multiply_transpose_fuse_kernel(int batch_size, int slot_num,
                                                       int embedding_vec_size, const T* top_grad,
@@ -92,9 +105,9 @@ void weight_multiply_wgrad(const T* top_grad, const T* input, T* wgrad, T* wgrad
                  (batch_size + blockSize1.y - 1) / blockSize1.y, 1);
   weight_multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
       batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
-
-  MLCommon::LinAlg::reduce(wgrad, wgrad_tmp_trans, batch_size, slot_num * embedding_vec_size, T(0),
-                           true, true, stream, true);
+  // MLCommon::LinAlg::reduce sometimes produce wrong answer
+  weight_wgrad_reduce_kernel<<<slot_num * embedding_vec_size, 512, 0, stream>>>(
+      wgrad_tmp_trans, wgrad, batch_size, slot_num, embedding_vec_size);
 }
 
 template <>
@@ -106,9 +119,13 @@ void weight_multiply_wgrad<__half>(const __half* top_grad, const __half* input, 
                  (batch_size + blockSize1.y - 1) / blockSize1.y, 1);
   weight_multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
       batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
-
-  MLCommon::LinAlg::coalescedReduction(wgrad, wgrad_tmp_trans, batch_size,
-                                       slot_num * embedding_vec_size, __float2half(0.0f), stream);
+  // coalescedReduction could lead to implicit shared memory misaligned address error reported by
+  // compute-sanitizer, but sometimes gives right result...??
+  // MLCommon::LinAlg::coalescedReduction(wgrad, wgrad_tmp_trans, batch_size,
+  //                                      slot_num * embedding_vec_size, __float2half(0.0f),
+  //                                      stream);
+  weight_wgrad_reduce_kernel<<<slot_num * embedding_vec_size, 512, 0, stream>>>(
+      wgrad_tmp_trans, wgrad, batch_size, slot_num, embedding_vec_size);
 }
 
 template <typename T>
@@ -227,7 +244,6 @@ void WeightMultiplyLayer<T>::bprop() {
   T* wgrad_tmp_trans = wgrad_tmp_trans_.get_ptr();
   T* input = in_tensors_[0].get_ptr();
   T* output = out_tensors_[0].get_ptr();
-
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
                         embedding_vec_size_, this->get_gpu().get_stream());
 
@@ -354,7 +370,6 @@ void Core23TempWeightMultiplyLayer<T>::bprop() {
   T* wgrad_tmp_trans = wgrad_tmp_trans_.data<T>();
   T* input = this->input_tensors_[0].template data<T>();
   T* output = this->output_tensors_[0].template data<T>();
-
   weight_multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_,
                         embedding_vec_size_, this->get_gpu().get_stream());
 

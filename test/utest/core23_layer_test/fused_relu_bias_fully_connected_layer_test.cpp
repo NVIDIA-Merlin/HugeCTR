@@ -25,6 +25,17 @@
 #include <vector>
 
 using namespace HugeCTR;
+template <typename T>
+static void fill_data(T *data, int N) {
+  unsigned seed = time(0);
+  srand(seed);
+  for (int i = 0; i < N; i++) {
+    data[i] = (T((float)(rand() % 3 - 1)));
+    if (rand() % 50) {
+      data[i] = (T((float)(0)));
+    }
+  }
+}
 
 static void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool transpose_b,
                    int m, int k, int n) {
@@ -55,20 +66,21 @@ static void cpu_add_bias_and_re(__half *top, __half *middle, const __half *bias,
   }
 }
 
-static void cpu_reverse_add_bias_and_re(__half *bias_grad, __half *top, const __half *bprop_out,
-                                        int m, int n) {
+static void cpu_reverse_add_bias_and_re(__half *bias_grad, __half *acts_bottom_dgrad,
+                                        const __half *top_dgrad, int m, int n) {
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) {
-      if (TypeConvert<float, __half>::convert(top[i * n + j]) < 0) {
-        top[i * n + j] = TypeConvert<__half, float>::convert(0.0f);
+      if (TypeConvert<float, __half>::convert(acts_bottom_dgrad[i * n + j]) <= 0.f) {
+        acts_bottom_dgrad[i * n + j] = TypeConvert<__half, float>::convert(0.0f);
       } else {
-        top[i * n + j] = bprop_out[i * n + j];
+        acts_bottom_dgrad[i * n + j] = top_dgrad[i * n + j];
       }
     }
 
   for (int i = 0; i < n; ++i) {
     float sum = 0.0f;
-    for (int j = 0; j < m; ++j) sum += TypeConvert<float, __half>::convert(top[j * n + i]);
+    for (int j = 0; j < m; ++j)
+      sum += TypeConvert<float, __half>::convert(acts_bottom_dgrad[j * n + i]);
     bias_grad[i] = TypeConvert<__half, float>::convert(sum);
   }
 }
@@ -177,6 +189,10 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
   simulator.fill(h_kernel.get(), k * n);
   simulator.fill(h_bias.get(), n);
 
+  fill_data(h_bottom.get(), m * k);
+  fill_data(h_kernel.get(), n * k);
+  fill_data(h_bias.get(), n);
+
   HCTR_LIB_THROW(
       cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
@@ -198,8 +214,10 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-3), 0.15f)
       << "fprop cross_check result fail" << std::endl;
 
-  simulator.fill(h_top.get(), m * n);
+  // simulator.fill(h_top.get(), m * n);
   simulator.fill(h_bprop_out.get(), m * n);
+  // fill_data(h_top.get(), n * m);        // middle
+  fill_data(h_bprop_out.get(), n * m);  // top
 
   HCTR_LIB_THROW(
       cudaMemcpy(d_top, h_bprop_out.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
@@ -224,7 +242,6 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
   HCTR_LIB_THROW(
       cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
 
-  // check result
   ASSERT_LT(compare_array(h_bprop_in.get(), d2h_bprop_in.get(), m * k, 1e-1), 0.05f)
       << " bprop cross_check input_grad fail" << std::endl;
   ASSERT_LT(compare_array(h_kernel_grad.get(), d2h_kernel_grad.get(), k * n, 1e-1), 0.05f)
@@ -247,4 +264,7 @@ TEST(fused_relu_bias_fully_connected_layer, fp16_2048x512x1024) {
 }
 TEST(fused_relu_bias_fully_connected_layer, fp16_2048x1024x1024) {
   fully_connected_layer_test(2048, 1024, 1024);
+}
+TEST(fused_relu_bias_fully_connected_layer, fp16_32x64x1024) {
+  fully_connected_layer_test(128, 1024, 1024);
 }
