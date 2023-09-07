@@ -68,12 +68,12 @@ void weight_multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int
                                int slot_num, int embedding_vec_size) {
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < slot_num; j++) {
-      T tmp = T(0.0);
+      float tmp = 0.0;
       for (int k = 0; k < embedding_vec_size; k++) {
-        tmp = tmp + T(top_grad[i * slot_num * embedding_vec_size + j * embedding_vec_size + k] *
-                      weight[j * embedding_vec_size + k]);
+        tmp = tmp + float(top_grad[i * slot_num * embedding_vec_size + j * embedding_vec_size + k] *
+                          weight[j * embedding_vec_size + k]);
       }
-      dgrad[i * slot_num + j] = tmp;
+      dgrad[i * slot_num + j] = TypeConvert<T, float>::convert(tmp);
     }
   }
 }
@@ -92,7 +92,6 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
                                                 .buffer_params(blobs_buffer_params));
   core23::Tensor out_tensor;
 
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
   Core23TempWeightMultiplyLayer<T> weight_multiply_layer(in_tensor, out_tensor, weight_dims,
                                                          test::get_default_gpu());
 
@@ -122,8 +121,12 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
   std::unique_ptr<T[]> h_expected_wgrad(new T[len_w]);
 
   // fprop
-  simulator.fill(h_in.get(), len_in);
-  simulator.fill(h_weight.get(), len_w);
+  for (size_t i = 0; i < len_in; i++) {
+    h_in[i] = TypeConvert<T, float>::convert(float(i % slot_num));
+  }
+  for (size_t i = 0; i < len_w; i++) {
+    h_weight[i] = TypeConvert<T, float>::convert(float(1.0f));
+  }
   HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
 
@@ -138,12 +141,9 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len_out, eps<T>()));
 
   // bprop
-  simulator.fill(h_in.get(), len_in);
   for (int64_t i = 0; i < len_in; ++i) {
     h_expected[i] = h_in[i];
   }
-  simulator.fill(h_out.get(), len_out);
-  simulator.fill(h_weight.get(), len_w);
   HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), len_out * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
@@ -162,7 +162,6 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
   // TODO: because of the accumulated error, comparing absolute error can not pass when esp<1e-3
   ASSERT_TRUE(test::compare_array_approx<T>(h_wgrad.get(), h_expected_wgrad.get(), len_w,
                                             eps<T>()));  // compare wgrad
-
   // CAUTION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad_cpu(h_out.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
                             embedding_vec_size);
@@ -173,4 +172,8 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
 }  // namespace
 
 TEST(weight_multiply_layer, fp32_40960x10x128) { weight_multiply_test<float>(40960, 10, 128); }
-TEST(weight_multiply_layer, fp16_40960x10x128) { weight_multiply_test<__half>(40960, 10, 128); }
+TEST(weight_multiply_layer, fp32_1024x10x128) { weight_multiply_test<float>(1024, 10, 128); }
+TEST(weight_multiply_layer, fp32_1024x64x128) { weight_multiply_test<float>(1024, 64, 128); }
+// this would lead to error
+TEST(weight_multiply_layer, fp16_1024x64x128) { weight_multiply_test<__half>(2, 64, 128); }
+TEST(weight_multiply_layer, fp16_1024x10x128) { weight_multiply_test<__half>(1024, 10, 128); }

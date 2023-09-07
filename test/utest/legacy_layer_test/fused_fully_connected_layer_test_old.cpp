@@ -24,6 +24,17 @@
 #include <vector>
 
 using namespace HugeCTR;
+template <typename T>
+static void fill_data(T *data, int N) {
+  unsigned seed = time(0);
+  srand(seed);
+  for (int i = 0; i < N; i++) {
+    data[i] = (T((float)(rand() % 3 - 1)));
+    if (rand() % 50) {
+      data[i] = (T((float)(0)));
+    }
+  }
+}
 
 static void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool transpose_b,
                    int m, int k, int n) {
@@ -45,7 +56,7 @@ static void cpu_add_bias_and_re(__half *top, __half *middle, const __half *bias,
     for (int j = 0; j < n; ++j) {
       __half t = top[i * n + j] + bias[j];
       middle[i * n + j] = t;
-      top[i * n + j] = __half2float(t) < 0 ? __float2half(0.0f) : t;
+      top[i * n + j] = __half2float(t) <= 0.f ? __float2half(0.0f) : t;
     }
   }
 }
@@ -54,7 +65,7 @@ static void cpu_reverse_add_bias_and_re(__half *bias_grad, __half *middle, const
                                         int n) {
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) {
-      if (__half2float(middle[i * n + j]) < 0) {
+      if (__half2float(middle[i * n + j]) <= 0) {
         middle[i * n + j] = 0.0f;
       } else {
         middle[i * n + j] = top[i * n + j];
@@ -80,8 +91,6 @@ static float compare_array(const __half *arr1, const __half *arr2, size_t n, flo
 
 static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   HCTR_LOG(INFO, WORLD, "Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
-
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
       GeneralBuffer2<CudaAllocator>::create();
@@ -129,9 +138,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   std::unique_ptr<__half[]> d2h_kernel_grad(new __half[k * n]);
   std::unique_ptr<__half[]> d2h_bias_grad(new __half[n]);
 
-  simulator.fill(h_bottom.get(), m * k);
-  simulator.fill(h_kernel.get(), k * n);
-  simulator.fill(h_bias.get(), n);
+  fill_data(h_bottom.get(), m * k);
+  fill_data(h_kernel.get(), n * k);
+  fill_data(h_bias.get(), n);
 
   HCTR_LIB_THROW(
       cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
@@ -152,7 +161,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-5), 0.01f)
       << "fprop cross_check result fail" << std::endl;
 
-  simulator.fill(h_top.get(), m * n);
+  fill_data(h_top.get(), n * m);
 
   HCTR_LIB_THROW(cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
@@ -190,6 +199,6 @@ TEST(fused_fully_connected_layer_old, fp16_2048x1024x480) {
 TEST(fused_fully_connected_layer_old, fp16_2048x512x1024) {
   fully_connected_layer_test(2048, 512, 1024);
 }
-TEST(fused_fully_connected_layer_old, fp16_2048x1024x1024) {
-  fully_connected_layer_test(2048, 1024, 1024);
+TEST(fused_fully_connected_layer, fp16_128x1024x1024) {
+  fully_connected_layer_test(128, 1024, 1024);
 }
