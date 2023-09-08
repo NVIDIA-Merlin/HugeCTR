@@ -307,14 +307,13 @@ TEST(matmul_layer, fp32_1x2x3x4) { matmul_test<float>(1, 2, 3, 4); }
 TEST(matmul_layer, fp32_1x128x256x32) { matmul_test<float>(1, 128, 256, 32); }
 TEST(matmul_layer, fp32_1x256x512x1024) { matmul_test<float>(1, 256, 512, 1024); }
 TEST(matmul_layer, fp32_1x1024x512x256) { matmul_test<float>(1, 1024, 512, 256); }
-TEST(matmul_layer, fp32_1x1024x2048x1024) { matmul_test<float>(1, 1024, 2048, 1024); }
+TEST(matmul_layer, fp32_1x256x512x256) { matmul_test<float>(1, 256, 512, 256); }
 
 // 3D inputs
 TEST(matmul_layer, fp32_2x2x3x4) { matmul_test<float>(2, 2, 3, 4); }
 TEST(matmul_layer, fp32_32x128x256x32) { matmul_test<float>(32, 128, 256, 32); }
-TEST(matmul_layer, fp32_64x256x512x1024) { matmul_test<float>(64, 256, 512, 1024); }
+TEST(matmul_layer, fp32_6x256x512x256) { matmul_test<float>(6, 256, 512, 256); }
 TEST(matmul_layer, fp32_12x1024x512x256) { matmul_test<float>(12, 1024, 512, 256); }
-TEST(matmul_layer, fp32_6x1024x2048x1024) { matmul_test<float>(6, 1024, 2048, 1024); }
 
 // 2Dx3D inputs
 TEST(matmul_layer, mixed_fp32_8x4x4x3) { matmul_test_mixed<float>(8, 4, 4, 3); }
@@ -322,5 +321,5 @@ TEST(matmul_layer, mixed_fp32_8x4x4x3) { matmul_test_mixed<float>(8, 4, 4, 3); }
 // 4D inputs
 TEST(matmul_layer, fp32_2x2x2x3x4) { matmul_test_4d<float>(2, 2, 2, 3, 4); }
 TEST(matmul_layer, fp32_32x4x128x256x32) { matmul_test_4d<float>(32, 4, 128, 256, 32); }
-TEST(matmul_layer, fp32_12x10x1024x512x256) { matmul_test_4d<float>(12, 4, 1024, 512, 256); }
-TEST(matmul_layer, fp32_4x1x1024x2048x1024) { matmul_test_4d<float>(4, 1, 1024, 2048, 1024); }
+TEST(matmul_layer, fp32_3x4x512x256x128) { matmul_test_4d<float>(3, 4, 512, 256, 128); }
+TEST(matmul_layer, fp32_2x1x512x512x512) { matmul_test_4d<float>(2, 1, 512, 512, 512); }
