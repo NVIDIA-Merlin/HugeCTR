@@ -70,7 +70,7 @@ SequenceMaskLayer<T>::SequenceMaskLayer(
     : Layer(gpu_resource),
       max_sequence_len_from_(max_sequence_len_from),
       max_sequence_len_to_(max_sequence_len_to) {
-  assert(in_tensor.get_dimensions().size() == 2);
+  assert(in_tensors.size() == 2);
 
   for (const Tensor2<T>& in_tensor : in_tensors) {
     in_tensors_.push_back(in_tensor);

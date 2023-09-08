@@ -17,8 +17,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <utils.cuh>
-
 #define private public
 #define protected public
 #include <embeddings/hybrid_sparse_embedding.hpp>

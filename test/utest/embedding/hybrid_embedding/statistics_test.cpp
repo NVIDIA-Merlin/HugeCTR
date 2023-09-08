@@ -116,7 +116,6 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
   HugeCTR::hybrid_embedding::HybridEmbeddingInputGenerator<dtype> input_generator(848484);
   std::vector<dtype> raw_data = input_generator.generate_categorical_input(batch_size, num_tables);
   std::vector<size_t> table_sizes = input_generator.get_table_sizes();
-  size_t num_categories = EmbeddingTableFunctors<dtype>::get_num_categories(table_sizes);
   HCTR_LOG_S(DEBUG, WORLD) << "Number of tables : " << num_tables << std::endl;
   {
     auto log = HCTR_LOG_S(DEBUG, WORLD);

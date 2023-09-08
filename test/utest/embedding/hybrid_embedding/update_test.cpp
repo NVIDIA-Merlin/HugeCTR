@@ -23,7 +23,6 @@
 #include <embeddings/hybrid_embedding/model.hpp>
 #include <utest/embedding/hybrid_embedding/hybrid_embedding_cpu.hpp>
 #include <utest/embedding/hybrid_embedding/test_common.cuh>
-#include <utils.cuh>
 
 /************************ Infrequent embedding update ************************/
 

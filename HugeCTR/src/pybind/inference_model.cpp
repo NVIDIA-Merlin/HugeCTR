@@ -363,7 +363,7 @@ void InferenceModel::check_out_tensor(int index, float* local_result) {
   size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
 
   if (bytes_per_element == 4) {
-    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+    for (int local_gpu_id{}; local_gpu_id < local_gpu_count; ++local_gpu_id) {
       HCTR_LIB_THROW(cudaMemcpy(local_result + local_gpu_id * tensor_num_of_elements,
                                 inference_tensor_entries_list_[local_gpu_id][index].bag.get_ptr(),
                                 tensor_size_in_bytes, cudaMemcpyDeviceToHost));
@@ -371,7 +371,7 @@ void InferenceModel::check_out_tensor(int index, float* local_result) {
   } else {
     std::unique_ptr<__half[]> local_result_half(
         new __half[local_gpu_count * tensor_num_of_elements]);
-    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+    for (int local_gpu_id{}; local_gpu_id < local_gpu_count; ++local_gpu_id) {
       HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
                                 inference_tensor_entries_list_[local_gpu_id][index].bag.get_ptr(),
                                 tensor_size_in_bytes, cudaMemcpyDeviceToHost));

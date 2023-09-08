@@ -147,11 +147,11 @@ struct OptHyperParams {
 // Comment: Maybe it's better to separate this class as std::variant<SGDParams, AdamParams, ...> and
 // use function overload to deal with different params for different update algorithm
 struct OptParams {
-  Optimizer_t optimizer;
-  float lr;
+  Optimizer_t optimizer{Optimizer_t::SGD};
+  float lr{};
   OptHyperParams hyperparams;
-  Update_t update_type;
-  float scaler;
+  Update_t update_type{Update_t::Local};
+  float scaler{};
 
   inline static size_t num_parameters_per_weight(Optimizer_t opt_type) {
     switch (opt_type) {

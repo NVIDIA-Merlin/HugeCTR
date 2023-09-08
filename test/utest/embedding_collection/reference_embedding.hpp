@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <embedding/embedding.hpp>

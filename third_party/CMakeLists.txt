@@ -23,6 +23,13 @@ set(FETCHCONTENT_QUIET FALSE)
 # NOTE: Confine individual dependencies in a function scope to avoid unintentionally
 #       leaking genericly named variables (e.g.: WITH_SSL).
 
+function(build_gtest)
+  message("=== Dependency: Google Test ===================================================")
+  set(BUILD_GMOCK ON)
+  add_subdirectory(googletest)
+endfunction()
+build_gtest()
+
 function(build_json)
   message("=== Dependency: NLohmann / JSON ===============================================")
   set(JSON_BuildTests OFF)

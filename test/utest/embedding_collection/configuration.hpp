@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <sys/time.h>
 
 #include <core/hctr_impl/hctr_backend.hpp>
