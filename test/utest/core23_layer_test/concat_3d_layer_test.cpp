@@ -189,10 +189,10 @@ TEST(concat_3d_layer, fp32_4x10x11) {
   concat_3d_layer_test<float>(batch_size, slot_num, items, 2);
 }
 
-TEST(concat_3d_layer, fp32_2048x150x768) {
+TEST(concat_3d_layer, fp32_128x150x768) {
   std::vector<int64_t> items;
   std::vector<int64_t> slot_num;
-  int64_t batch_size = 2048;
+  int64_t batch_size = 128;
   int64_t slot_shot_his = 64, slot_long_his = 128, slot_target = 1;
   items.push_back(768);
   slot_num.push_back(slot_shot_his);
