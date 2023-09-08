@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <core23/data_type_helpers.cuh>

@@ -27,16 +27,17 @@ namespace HugeCTR {
 
 struct FileStats {
   long long num_rows;
-  FileStats(long long num_rows) : num_rows(num_rows) {}
   long long num_groups;
   std::vector<long long> row_groups_offset;  //
+  long long max_row_group_;
+
+  FileStats(long long num_rows) : FileStats(num_rows, {}, {}, {}) {}
   FileStats(long long num_rows, long long num_groups, std::vector<long long> row_groups_offset,
             long long max_row_group)
       : num_rows(num_rows),
         num_groups(num_groups),
         row_groups_offset(row_groups_offset),
         max_row_group_(max_row_group) {}
-  long long max_row_group_;
 };
 
 struct Cols {

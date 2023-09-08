@@ -22,7 +22,6 @@
 #include <embeddings/hybrid_embedding/data.hpp>
 #include <embeddings/hybrid_embedding/utils.hpp>
 #include <tensor2.hpp>
-#include <utils.cuh>
 
 using namespace HugeCTR;
 using namespace hybrid_embedding;

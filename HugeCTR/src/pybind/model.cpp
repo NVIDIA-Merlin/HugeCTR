@@ -2275,8 +2275,7 @@ bool Model::eval() {
     assert(current_batchsize > 0 && "Received batch of  size 0");
 
 #ifndef DATA_READING_TEST
-    assert((networks_.size() >= 1 || core23_networks_.size() >= 1) &&
-           "(core23)networks_.size() should not less than 1.");
+    assert((core23_networks_.size() >= 1) && "(core23)networks_.size() should not less than 1.");
 
     if (solver_.use_embedding_collection) {
       evaluate_pipeline_with_ebc();
@@ -2790,7 +2789,7 @@ void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_resu
 
   std::unique_ptr<float[]> local_result(new float[local_gpu_count * tensor_num_of_elements]);
   if (bytes_per_element == 4) {
-    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+    for (int local_gpu_id{}; local_gpu_id < local_gpu_count; ++local_gpu_id) {
       HCTR_LIB_THROW(cudaMemcpy(local_result.get() + local_gpu_id * tensor_num_of_elements,
                                 tensor_entries_list[local_gpu_id][index].tensor.data(),
                                 tensor_size_in_bytes, cudaMemcpyDeviceToHost));
@@ -2798,7 +2797,7 @@ void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_resu
   } else {
     std::unique_ptr<__half[]> local_result_half(
         new __half[local_gpu_count * tensor_num_of_elements]);
-    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+    for (int local_gpu_id{}; local_gpu_id < local_gpu_count; ++local_gpu_id) {
       HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
                                 tensor_entries_list[local_gpu_id][index].tensor.data(),
                                 tensor_size_in_bytes, cudaMemcpyDeviceToHost));
@@ -2876,7 +2875,7 @@ void Model::initialize() {
 
   int num_gpus = resource_manager_->get_local_gpu_count();
   std::vector<void*> wgrad_buffer_ptrs;
-  size_t wgrad_buffer_size;
+  size_t wgrad_buffer_size{};
   core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
                                                                  : GetWgradBufferChannel()};
   for (int g = 0; g < num_gpus; g++) {

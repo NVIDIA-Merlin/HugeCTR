@@ -21,6 +21,11 @@
 #include <embeddings/hybrid_embedding/model.hpp>
 #include <utest/embedding/hybrid_embedding/input_generator.hpp>
 
+template <typename IntType>
+constexpr inline IntType ceildiv(IntType a, IntType b) {
+  return (a + b - 1) / b;
+}
+
 using namespace HugeCTR;
 using namespace HugeCTR::hybrid_embedding;
 

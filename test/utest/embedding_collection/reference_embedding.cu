@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+#include <utest/embedding_collection/reference_embedding.hpp>
 #include <utils.cuh>
-
-#include "reference_embedding.hpp"
 
 __global__ void copy_float_emb_vec_ptrs_data_kernel(const float **emb_vec_ptrs, float *data,
                                                     size_t num_keys, int vec_size

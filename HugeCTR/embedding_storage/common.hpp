@@ -58,12 +58,17 @@ struct InitParams {
     if (initializer_type == HugeCTR::Initializer_t::Uniform) {
       HCTR_CHECK_HINT(up_bound > 0, "initialize type uniform should specify up_bound");
       this->uniform_params.up_bound = up_bound;
+    } else {
+      this->uniform_params.up_bound = {};
     }
     if (initializer_type == HugeCTR::Initializer_t::Sinusoidal) {
       HCTR_CHECK_HINT(max_sequence_len > 0,
                       "initialize type uniform should specify max_sequence_len");
       this->sinusoidal_params.ev_size = ev_size;
       this->sinusoidal_params.max_sequence_len = max_sequence_len;
+    } else {
+      this->sinusoidal_params.ev_size = {};
+      this->sinusoidal_params.max_sequence_len = {};
     }
   }
 };

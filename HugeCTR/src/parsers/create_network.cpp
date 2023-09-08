@@ -786,10 +786,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         };
 
         if (use_mixed_precision) {
-          __half type;
+          __half type{};
           add_mlp(type);
         } else {
-          float type;
+          float type{};
           add_mlp(type);
         }
         break;

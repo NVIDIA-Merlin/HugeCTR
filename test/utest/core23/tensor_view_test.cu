@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <core23/cuda_primitives.cuh>

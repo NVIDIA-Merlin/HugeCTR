@@ -25,7 +25,6 @@
 #include <utest/embedding/hybrid_embedding/data_test.hpp>
 #include <utest/embedding/hybrid_embedding/input_generator.hpp>
 #include <utest/embedding/hybrid_embedding/statistics_test.hpp>
-#include <utils.cuh>
 #include <vector>
 
 using namespace HugeCTR;
@@ -612,7 +611,6 @@ TEST(hybrid_embedding_model_test, init_model) {
   }
 }
 TEST(hybrid_embedding_model_test, large_table_sizes) {
-  const size_t N = 5;
   const size_t batch_size = 64 * 1024;
   size_t num_nodes = 1;
   size_t num_instances = 1;
@@ -621,14 +619,12 @@ TEST(hybrid_embedding_model_test, large_table_sizes) {
   long long num_categories = -1;
   long long num_frequent = -1;
   float lr = 0.0001f;
-  CommunicationType comm_type = CommunicationType::NVLink_SingleNode;
   std::vector<size_t> table_sizes{(1ul << 28), 1ul << 10};
   HybridEmbeddingConfig<long long> config{
       num_nodes, num_instances, num_tables, embedding_vec_size, num_categories, num_frequent, lr};
   model_init_test<long long>(batch_size, config, table_sizes);
 }
 TEST(hybrid_embedding_model_test, debug) {
-  const size_t N = 5;
   const size_t batch_size = 64 * 1024;
   model_init_test<uint32_t>(2, 1, batch_size, CommunicationType::NVLink_SingleNode);
 }

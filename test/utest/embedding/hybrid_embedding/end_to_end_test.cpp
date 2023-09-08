@@ -49,8 +49,6 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
-  size_t num_local_gpus = device_list.size();
-  // size_t num_total_gpus = num_procs*num_local_gpus;
 
   // if there are multi-node, we assume each node has the same gpu device_list
   for (int i = 0; i < num_procs; i++) {

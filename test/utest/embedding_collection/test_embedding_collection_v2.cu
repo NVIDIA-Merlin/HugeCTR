@@ -26,10 +26,9 @@
 #include <filesystem>
 #include <numeric>
 #include <resource_managers/resource_manager_ext.hpp>
+#include <utest/embedding_collection/configuration.hpp>
 #include <utest/embedding_collection/reference_embedding.hpp>
 #include <utils.cuh>
-
-#include "configuration.hpp"
 using namespace embedding;
 
 template <typename KeyType, typename OffsetType, typename EmbType>

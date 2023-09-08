@@ -395,8 +395,8 @@ void EmbeddingParameterIO::dump_embedding_weight(const std::string& parameters_f
         size_t key_offset = offset_per_rank[myrank] * sizeof(key_t);
         size_t weight_offset = key_offset * table_ev_length * sizeof(float);
 
-        key_t* table_key_ptr;
-        float* table_weight_ptr;
+        key_t* table_key_ptr{};
+        float* table_weight_ptr{};
         if (table_key_num_local > 0) {
           table_key_ptr = (key_t*)malloc(table_key_num_local * sizeof(key_t));
           table_weight_ptr = (float*)malloc(weight_length_local * sizeof(float));
