@@ -75,17 +75,6 @@ utests_hybrid_e2e:
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     TEST_CMD: ./ci/utest/utest_hybrid_e2e.sub
 
-utests_inference:
-  extends: .selene_test_job
-  needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: build_train_inference
-  variables:
-    GPFSFOLDER: $LOGDIR/utests_inference
-    CONT: $TRAIN_INFER_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-    TEST_CMD: ./ci/utest/utest_inference.sub
-
 utests_hps:
   extends: .selene_test_job
   needs:
@@ -216,18 +205,6 @@ mlperf_generalization:
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/integration_test/mlperf_generalization/overlapped_pipeline.sub
 
-# python interface inference
-inference_session:
-  extends: .selene_test_job
-  needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/inference_session
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-    TEST_CMD: ./ci/integration_test/inference/inference_session.sub
-
 inference_hps:
   extends: .selene_test_job
   needs:
@@ -311,18 +288,6 @@ ebc_utest_multi_node:
     WALLTIME: "00:45:00"
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/ebc/utest.multinode.sub
-
-# hugectr inference correctness test
-inference_model:
-  extends: .selene_test_job
-  needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/inference_model
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
-    TEST_CMD: ./ci/integration_test/inference/inference_model.sub
 
 # hugectr to onnx converter test
 hugectr2onnx:

@@ -179,50 +179,6 @@ void Core23TempNetwork::upload_params_to_device(const std::string& model_file) {
   return;
 }
 
-void Core23TempNetwork::upload_params_to_device_inference(const std::string& model_file) {
-  auto fs = FileSystemBuilder::build_unique_by_path(model_file);
-  CudaDeviceContext context(get_device_id());
-
-  std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_->num_bytes()]);
-  fs->read(model_file, params.get(), evaluate_weight_tensor_->num_bytes(), 0);
-  HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_->data(), params.get(),
-                                 evaluate_weight_tensor_->num_bytes(), cudaMemcpyHostToDevice,
-                                 gpu_resource_->get_stream()));
-  if (use_mixed_precision_) {
-    conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
-  }
-  return;
-}
-
-void Core23TempNetwork::upload_non_trainable_params_to_device_inference(
-    const std::string& model_file) {
-  HCTR_LOG(INFO, ROOT, "Upload non-trainable parameters from JSON file to inference layers\n");
-  const nlohmann::json& params_json(read_json_file(model_file));
-  const nlohmann::json& params_for_layers = get_json(params_json, "layers");
-  size_t counter = 0;
-  CudaDeviceContext context(get_device_id());
-  for (size_t i{0}; i < evaluate_layers_.size(); ++i) {
-    auto params_tensors = evaluate_layers_[i]->get_non_trainable_params_as_tensors();
-    if (!params_tensors.empty()) {
-      const nlohmann::json& params = params_for_layers[counter];
-      std::string layer_type = get_value_from_json<std::string>(params, "type");
-      if (layer_type == "BatchNorm") {
-        std::vector<float> running_mean = get_json(params, "mean");
-        std::vector<float> running_variance = get_json(params, "var");
-        HCTR_LIB_THROW(cudaMemcpyAsync(params_tensors[0].data(), running_mean.data(),
-                                       params_tensors[0].num_bytes(), cudaMemcpyHostToDevice,
-                                       gpu_resource_->get_stream()));
-        HCTR_LIB_THROW(cudaMemcpyAsync(params_tensors[1].data(), running_variance.data(),
-                                       params_tensors[1].num_bytes(), cudaMemcpyHostToDevice,
-                                       gpu_resource_->get_stream()));
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Only BatchNorm layer has non-trainable parameters");
-      }
-      ++counter;
-    }
-  }
-}
-
 void Core23TempNetwork::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 

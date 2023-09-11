@@ -29,7 +29,7 @@ def str2bool(v):
     return v.lower() in ("true")
 
 
-ps_json_template["models"][0]["max_batch_size"] = args.batchsize
+ps_json_template["models"][0]["max_batch_size"] = int(args.batchsize)
 ps_json_template["models"][0]["mixed_precision"] = str2bool(args.mixed_precision)
 ps_json_template["models"][0]["embedding_cache_type"] = args.ec_type
 

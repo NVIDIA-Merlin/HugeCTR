@@ -15,7 +15,6 @@
 """
 
 import hugectr
-from hugectr.inference import InferenceParams, CreateInferenceSession
 import hugectr2onnx
 import onnxruntime as ort
 from utils import read_samples_for_dcn, compare_array_approx
@@ -32,6 +31,7 @@ def hugectr2onnx_dcn_test(
     sparse_models,
     onnx_model_path,
     model_name,
+    ground_truth,
     ntp_file="",
 ):
     hugectr2onnx.converter.convert(
@@ -47,22 +47,7 @@ def hugectr2onnx_dcn_test(
         batch_size * num_batches,
     )
 
-    inference_params = InferenceParams(
-        model_name=model_name,
-        max_batchsize=batch_size,
-        hit_rate_threshold=1,
-        dense_model_file=dense_model,
-        sparse_model_files=sparse_models,
-        device_id=0,
-        use_gpu_embedding_cache=True,
-        cache_size_percentage=0.6,
-        i64_input_key=False,
-        non_trainable_params_file=ntp_file,
-    )
-    inference_session = CreateInferenceSession(graph_config, inference_params)
-    predictions = inference_session.predict(
-        num_batches, data_source, hugectr.DataReaderType_t.Norm, hugectr.Check_t.Sum
-    )
+    predictions = np.load(ground_truth).reshape(batch_size * num_batches)
     compare_array_approx(res, predictions, model_name, 1e-3, 1e-2)
 
 
@@ -77,6 +62,7 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/dcn0_sparse_2000.model"],
         "/onnx_converter/onnx_models/dcn.onnx",
         "dcn",
+        "/onnx_converter/hugectr_models/dcn_preds.npy",
     )
     hugectr2onnx_dcn_test(
         64,
@@ -88,6 +74,7 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/deepfm0_sparse_2000.model"],
         "/onnx_converter/onnx_models/deepfm.onnx",
         "deepfm",
+        "/onnx_converter/hugectr_models/deepfm_preds.npy",
     )
     hugectr2onnx_dcn_test(
         64,
@@ -99,6 +86,7 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/dlrm0_sparse_2000.model"],
         "/onnx_converter/onnx_models/dlrm.onnx",
         "dlrm",
+        "/onnx_converter/hugectr_models/dlrm_preds.npy",
         "/onnx_converter/hugectr_models/dlrm_dense_2000.model.ntp.json",
     )
     hugectr2onnx_dcn_test(
@@ -111,4 +99,5 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/dlrm_mlp0_sparse_2000.model"],
         "/onnx_converter/onnx_models/dlrm_mlp.onnx",
         "dlrm_mlp",
+        "/onnx_converter/hugectr_models/dlrm_mlp_preds.npy",
     )

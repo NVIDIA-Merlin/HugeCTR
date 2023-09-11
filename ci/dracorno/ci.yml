@@ -41,18 +41,6 @@ utests_layer_2:
 #    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
 #    TEST_CMD: ./ci/utest/utest_embedding.sub
 
-utests_inference:
-  extends: .dracorno_test_job
-  needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: build_train_inference
-  variables:
-    GPFSFOLDER: $DRACO_LOGDIR/utests_inference
-    CONT: $TRAIN_INFER_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/inference:/hugectr/test/utest/
-    DGXNNODES: 1
-    TEST_CMD: ./ci/utest/utest_inference.sub
-
 criteo:
   extends: .dracorno_test_job
   needs:

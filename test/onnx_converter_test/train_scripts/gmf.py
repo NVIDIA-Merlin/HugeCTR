@@ -18,8 +18,8 @@ import hugectr
 from mpi4py import MPI
 
 solver = hugectr.CreateSolver(
-    max_eval_batches=1000,
-    batchsize_eval=2770,
+    max_eval_batches=1,
+    batchsize_eval=6400,
     batchsize=17548,
     lr=0.0045,
     vvgpu=[[0]],
@@ -109,7 +109,12 @@ model.summary()
 model.fit(
     max_iter=2100,
     display=200,
-    eval_interval=1000,
+    eval_interval=2000,
     snapshot=2000,
     snapshot_prefix="/onnx_converter/hugectr_models//gmf",
 )
+
+import numpy as np
+
+preds = model.check_out_tensor("gmf_out", hugectr.Tensor_t.Evaluate)
+np.save("/onnx_converter/hugectr_models/gmf_preds.npy", preds)

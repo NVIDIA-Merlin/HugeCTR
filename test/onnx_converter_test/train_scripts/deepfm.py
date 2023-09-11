@@ -18,8 +18,8 @@ import hugectr
 from mpi4py import MPI
 
 solver = hugectr.CreateSolver(
-    max_eval_batches=300,
-    batchsize_eval=16384,
+    max_eval_batches=1,
+    batchsize_eval=6400,
     batchsize=16384,
     lr=0.001,
     vvgpu=[[0]],
@@ -246,7 +246,12 @@ model.summary()
 model.fit(
     max_iter=2300,
     display=200,
-    eval_interval=1000,
+    eval_interval=2000,
     snapshot=2000,
     snapshot_prefix="/onnx_converter/hugectr_models/deepfm",
 )
+
+import numpy as np
+
+preds = model.check_out_tensor("add", hugectr.Tensor_t.Evaluate)
+np.save("/onnx_converter/hugectr_models/deepfm_preds.npy", preds)

@@ -21,18 +21,19 @@
             "sparse_files":["/model/dlrm/1/dlrm0_sparse_20000.model"],
             "dense_file":"/model/dlrm/1/dlrm_dense_20000.model",
             "network_file":"/model/dlrm/1/dlrm.json",
-            "num_of_worker_buffer_in_pool": "6",
-            "num_of_refresher_buffer_in_pool":"1",
-            "deployed_device_list":["0"],
-            "max_batch_size":"1",
+            "num_of_worker_buffer_in_pool": 6,
+            "num_of_refresher_buffer_in_pool":1,
+            "deployed_device_list":[0],
+            "max_batch_size":1,
             "mixed_precision":true,
-            "default_value_for_each_table":["0.0"],
-            "cache_refresh_percentage_per_iteration":"0.2",
-            "hit_rate_threshold":"1.1",
-            "gpucacheper":"0.5",
+            "default_value_for_each_table":[0.0],
+            "cache_refresh_percentage_per_iteration":0.2,
+            "hit_rate_threshold":1.1,
+            "gpucacheper":0.5,
             "maxnum_catfeature_query_per_table_per_sample":[26],
             "embedding_vecsize_per_table":[128],
-            "gpucache":"true"
+            "gpucache":true
         }
     ]
 }
+

@@ -19,7 +19,7 @@ from mpi4py import MPI
 
 solver = hugectr.CreateSolver(
     max_eval_batches=1,
-    batchsize_eval=4096,
+    batchsize_eval=6400,
     batchsize=64,
     lr=0.001,
     vvgpu=[[0]],
@@ -340,7 +340,12 @@ model.summary()
 model.fit(
     max_iter=8100,
     display=200,
-    eval_interval=1000,
+    eval_interval=8000,
     snapshot=8000,
     snapshot_prefix="/onnx_converter/hugectr_models/din",
 )
+
+import numpy as np
+
+preds = model.check_out_tensor("fc3", hugectr.Tensor_t.Evaluate)
+np.save("/onnx_converter/hugectr_models/din_preds.npy", preds)

@@ -48,6 +48,7 @@ file(
 
 list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
 list(REMOVE_ITEM huge_ctr_src "inference_benchmark/metrics.cpp")
+
 if(DISABLE_CUDF)
   list(REMOVE_ITEM huge_ctr_src "data_readers/file_source_parquet.cpp")
   list(REMOVE_ITEM huge_ctr_src "data_readers/metadata.cpp")

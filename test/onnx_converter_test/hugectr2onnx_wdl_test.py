@@ -15,7 +15,6 @@
 """
 
 import hugectr
-from hugectr.inference import InferenceParams, CreateInferenceSession
 import hugectr2onnx
 import onnxruntime as ort
 from utils import read_samples_for_wdl, compare_array_approx
@@ -32,6 +31,7 @@ def hugectr2onnx_wdl_test(
     sparse_models,
     onnx_model_path,
     model_name,
+    ground_truth,
 ):
     hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models)
     label, dense, wide_data, deep_data = read_samples_for_wdl(
@@ -50,22 +50,7 @@ def hugectr2onnx_wdl_test(
         batch_size * num_batches,
     )
 
-    inference_params = InferenceParams(
-        model_name=model_name,
-        max_batchsize=batch_size,
-        hit_rate_threshold=1,
-        dense_model_file=dense_model,
-        sparse_model_files=sparse_models,
-        device_id=0,
-        use_gpu_embedding_cache=True,
-        cache_size_percentage=0.6,
-        i64_input_key=False,
-    )
-    inference_session = CreateInferenceSession(graph_config, inference_params)
-    predictions = inference_session.predict(
-        num_batches, data_source, hugectr.DataReaderType_t.Norm, hugectr.Check_t.Sum
-    )
-
+    predictions = np.load(ground_truth).reshape(batch_size * num_batches)
     compare_array_approx(res, predictions, model_name, 1e-3, 1e-2)
 
 
@@ -83,4 +68,5 @@ if __name__ == "__main__":
         ],
         "/onnx_converter/onnx_models/wdl.onnx",
         "wdl",
+        "/onnx_converter/hugectr_models/wdl_preds.npy",
     )

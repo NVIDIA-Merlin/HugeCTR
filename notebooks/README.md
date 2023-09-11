@@ -99,7 +99,7 @@ The notebooks are located within the container and can be found in the `/HugeCTR
 Here's a list of notebooks that you can run:
 - [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo.ipynb): Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.
 - [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
-- [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb): Explain how to do multi-GPU offline inference with HugeCTR Python APIs.
+- ~multi_gpu_offline_inference.ipynb~: It was deprecated. Check out [this HPS TRT notebook](hps_trt/notebooks/demo_for_tf_trained_model.ipynb) as an alternative.
 - [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
 - [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb): Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.
 
@@ -118,7 +118,6 @@ The specifications of the system on which each notebook can run successfully are
 | ---------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
 | [multi-modal-data](multi-modal-data)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
 | [continuous_training.ipynb](continuous_training.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
-| [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu   |
 | [hps_demo.ipynb](hps_demo.ipynb)                                       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
 | [training_with_remote_filesystem.ipynb](training_with_remote_filesystem.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
 | [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo_with_nvtabular.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |

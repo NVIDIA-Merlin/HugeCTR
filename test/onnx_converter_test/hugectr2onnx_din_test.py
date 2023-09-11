@@ -15,7 +15,6 @@
 """
 
 import hugectr
-from hugectr.inference import InferenceParams, CreateInferenceSession
 import hugectr2onnx
 import onnxruntime as ort
 from utils import read_samples_for_din, compare_array_approx
@@ -32,6 +31,7 @@ def hugectr2onnx_din_test(
     sparse_models,
     onnx_model_path,
     model_name,
+    ground_truth,
 ):
     hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models)
     dense, user, good, cate = read_samples_for_din(data_file, batch_size * num_batches, slot_num=23)
@@ -49,50 +49,7 @@ def hugectr2onnx_din_test(
         batch_size * num_batches,
     )
 
-    inference_params = InferenceParams(
-        model_name=model_name,
-        max_batchsize=batch_size,
-        hit_rate_threshold=1,
-        dense_model_file=dense_model,
-        sparse_model_files=sparse_models,
-        device_id=0,
-        use_gpu_embedding_cache=True,
-        cache_size_percentage=0.6,
-        i64_input_key=True,
-    )
-    inference_session = CreateInferenceSession(graph_config, inference_params)
-    slot_size_array = [
-        192403,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        63001,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        801,
-    ]
-    predictions = inference_session.predict(
-        num_batches,
-        data_source,
-        hugectr.DataReaderType_t.Parquet,
-        hugectr.Check_t.Non,
-        slot_size_array,
-    )
+    predictions = np.load(ground_truth).reshape(batch_size * num_batches)
 
     compare_array_approx(res, predictions, model_name, 1e-2, 1e-1)
 
@@ -112,6 +69,7 @@ if __name__ == "__main__":
         ],
         "/onnx_converter/onnx_models/din.onnx",
         "din",
+        "/onnx_converter/hugectr_models/din_preds.npy",
     )
     hugectr2onnx_din_test(
         64,
@@ -127,4 +85,5 @@ if __name__ == "__main__":
         ],
         "/onnx_converter/onnx_models/din_try.onnx",
         "din_try",
+        "/onnx_converter/hugectr_models/din_try_preds.npy",
     )
