@@ -157,7 +157,8 @@ build_inference:
     DST_IMAGE: $INFER_IMAGE_VERSIONED
     CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80;90\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
-    BUILD_HUGECTR_BACKEND: 1
+    BUILD_HPS_BACKEND: 1
+    HUGECTR_BACKEND_VER: main
     TRITON_BRANCH: ${TARGET_TRITON_BRANCH}
 
 build_sok_tf2:
@@ -529,19 +530,6 @@ e2e_nvt_regression_test:
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
-
-notebook_hugectr:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/notebook_hugectr
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/workdir/tools/day_0,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1
-    WALLTIME: "01:00:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/notebooks/notebook_hugectr.sub
 
 nb_hps_demo:
   extends: .cluster_test_job_daily

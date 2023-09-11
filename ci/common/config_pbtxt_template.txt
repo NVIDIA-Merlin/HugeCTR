@@ -1,19 +1,14 @@
 name: "dlrm"
-backend: "hugectr"
+backend: "hps"
 max_batch_size:%%batchsize,
 input [
-   {
-    name: "DES"
-    data_type: TYPE_FP32
-    dims: [ -1 ]
-  },
   {
-    name: "CATCOLUMN"
+    name: "KEYS"
     data_type: TYPE_INT64
     dims: [ -1 ]
   },
   {
-    name: "ROWINDEX"
+    name: "NUMKEYS"
     data_type: TYPE_INT32
     dims: [ -1 ]
   }

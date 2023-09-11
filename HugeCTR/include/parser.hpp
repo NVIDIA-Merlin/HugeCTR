@@ -101,54 +101,6 @@ struct Solver {
   Solver() {}
 };
 
-class InferenceParser {
- private:
-  nlohmann::json config_;                     /**< configure file. */
-  std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
- public:
-  std::string label_name;
-  std::string dense_name;
-  std::vector<std::string> sparse_names;
-  size_t label_dim;                             /**< dense feature dimension */
-  size_t dense_dim;                             /**< dense feature dimension */
-  size_t slot_num;                              /**< total slot number */
-  size_t num_embedding_tables;                  /**< number of embedding tables */
-  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */
-  std::vector<std::size_t> max_nnz_for_tables;  /**< max nnz for each embedding table*/
-  std::vector<std::size_t>
-      max_feature_num_for_tables; /**< max feature number of each embedding table */
-  std::vector<std::size_t>
-      embed_vec_size_for_tables;     /**< embedding vector size for each embedding table */
-  size_t max_feature_num_per_sample; /**< max feature number per table */
-  size_t max_embedding_vector_size_per_sample; /**< max embedding vector size per sample */
-
-  template <typename TypeEmbeddingComp>
-  void create_pipeline_inference(const InferenceParams& inference_params,
-                                 core23::Tensor& dense_input_bag,
-                                 std::vector<std::shared_ptr<core23::Tensor>>& rows,
-                                 std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
-                                 std::vector<size_t>& embedding_table_slot_size,
-                                 std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
-                                 std::vector<TensorEntry>& inference_tensor_entries,
-                                 const std::shared_ptr<ResourceManager> resource_manager);
-  /**
-   * Ctor.
-   * Ctor only verify the configure file, doesn't create pipeline.
-   */
-  InferenceParser(const nlohmann::json& config);
-
-  /**
-   * Create inference pipeline, which only creates network and embedding
-   */
-  void create_pipeline(const InferenceParams& inference_params, core23::Tensor& dense_input_bag,
-                       std::vector<std::shared_ptr<core23::Tensor>>& row,
-                       std::vector<std::shared_ptr<core23::Tensor>>& embeddingvec,
-                       std::vector<size_t>& embedding_table_slot_size,
-                       std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
-                       std::vector<TensorEntry>& inference_tensor_entries,
-                       const std::shared_ptr<ResourceManager> resource_manager);
-};
-
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file);
 
@@ -428,42 +380,6 @@ inline void check_graph(std::map<std::string, bool>& tensor_active,
     }
   }
 }
-
-template <typename TypeKey, typename TypeFP>
-struct create_embedding {
-  void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
-                  std::vector<std::shared_ptr<core23::Tensor>>& rows,
-                  std::vector<std::shared_ptr<core23::Tensor>>& embeddingvecs,
-                  std::vector<size_t>& embedding_table_slot_size,
-                  std::vector<TensorEntry>* tensor_entries,
-                  std::vector<std::shared_ptr<Layer>>* embeddings,
-                  const std::shared_ptr<GPUResource> gpu_resource,
-                  std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff);
-};
-
-template <typename TypeKey>
-struct create_datareader {
-  // Used by InferenceSession
-  void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
-                  std::shared_ptr<IDataReader>& data_reader,
-                  const std::shared_ptr<ResourceManager> resource_manager,
-                  std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-                  std::map<std::string, core23::Tensor>& label_dense_map, const std::string& source,
-                  const DataReaderType_t data_reader_type, const Check_t check_type,
-                  const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-                  long long num_samples, const DataSourceParams& data_source_params);
-  // Used by InferenceModel
-  void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
-                  std::shared_ptr<IDataReader>& data_reader,
-                  const std::shared_ptr<ResourceManager> resource_manager,
-                  std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<core23::Tensor>& label_tensor_list,
-                  std::vector<core23::Tensor>& dense_tensor_list, const std::string& source,
-                  const DataReaderType_t data_reader_type, const Check_t check_type,
-                  const std::vector<long long>& slot_size_array, const bool repeat_dataset,
-                  const DataSourceParams& data_source_params,
-                  bool reading_file_sequentially = false);
-};
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {
   int max_feature_num_per_sample = 0;

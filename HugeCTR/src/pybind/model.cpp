@@ -1865,8 +1865,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
                                  << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
         }
-        if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-          this->download_params_to_files(snapshot_prefix, iter);
+        if (snapshot > 0 && (iter + 1) % snapshot == 0 && iter != 0) {
+          this->download_params_to_files(snapshot_prefix, iter + 1);
         }
         iter++;
       } while (data_reader_train_status_);
@@ -2092,8 +2092,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                         float(iter) / max_iter);  // use iteration to calculate it's in which epoch
         }
       }
-      if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-        this->download_params_to_files(snapshot_prefix, iter);
+      if (snapshot > 0 && (iter + 1) % snapshot == 0 && iter != 0) {
+        this->download_params_to_files(snapshot_prefix, iter + 1);
       }
     }  // end for iter
     for (auto tc : training_callbacks_) {

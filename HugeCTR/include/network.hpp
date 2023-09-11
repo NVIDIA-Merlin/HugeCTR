@@ -161,17 +161,6 @@ class Network final {
   void upload_params_to_device(const std::string& model_file);
 
   /**
-   * Read parameters from model_file.
-   */
-  void upload_params_to_device_inference(const std::string& model_file);
-
-  /**
-   * Read non-trainable parameters from model_file, e.g., running mean and running variable for
-   * BatchNorm
-   */
-  void upload_non_trainable_params_to_device_inference(const std::string& model_file);
-
-  /**
    * Writing parameters to cpu buffer.
    */
   void download_params_to_host(float* weight);
@@ -223,20 +212,6 @@ class Network final {
    * search_algorithm layer by layer
    */
   void search_algorithm();
-
-  /**
-   * factory method to create network
-   */
-  static Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-                                 std::vector<TensorEntry>& train_tensor_entries,
-                                 std::vector<TensorEntry>& evaluate_tensor_entries,
-                                 int num_networks_in_global,
-                                 std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
-                                 const std::shared_ptr<CPUResource>& cpu_resource,
-                                 const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                 bool use_algorithm_search, bool inference_flag,
-                                 bool grouped_all_reduce);
 
   /**
    * add layer to network, python interface use only

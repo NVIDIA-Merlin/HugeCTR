@@ -28,7 +28,6 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/inference_utils.hpp>
 #include <hps/lookup_session.hpp>
-#include <inference/inference_session.hpp>
 #include <inference_benchmark/profiler.hpp>
 #include <inference_key_generator.hpp>
 #include <iostream>

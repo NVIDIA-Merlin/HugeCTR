@@ -21,8 +21,8 @@ NUM_EXPERTS = 3
 NUM_TASKS = 2
 
 solver = hugectr.CreateSolver(
-    max_eval_batches=100,
-    batchsize_eval=762,
+    max_eval_batches=1,
+    batchsize_eval=16384,
     batchsize=641,
     lr=0.001,
     vvgpu=[[0]],
@@ -550,7 +550,14 @@ model.summary()
 model.fit(
     max_iter=2300,
     display=200,
-    eval_interval=1000,
+    eval_interval=2000,
     snapshot=2000,
     snapshot_prefix="/onnx_converter/hugectr_models/mmoe",
 )
+
+import numpy as np
+
+preds1 = model.check_out_tensor("A_fc2", hugectr.Tensor_t.Evaluate)
+preds2 = model.check_out_tensor("B_fc2", hugectr.Tensor_t.Evaluate)
+preds = np.concatenate([preds1, preds2], axis=1)
+np.save("/onnx_converter/hugectr_models/mmoe_parquet_preds.npy", preds)

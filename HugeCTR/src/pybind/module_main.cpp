@@ -23,7 +23,6 @@
 #include <pybind/embedding_collection_wrapper.hpp>
 #include <pybind/embedding_training_cache_wrapper.hpp>
 #include <pybind/hps_wrapper.hpp>
-#include <pybind/inference_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
 #include <pybind/model_wrapper.hpp>
 #include <pybind/optimizer_wrapper.hpp>
@@ -43,7 +42,6 @@ PYBIND11_MODULE(hugectr, m) {
   LearningRateSchedulerPybind(m);
   OptimizerPybind(m);
   ModelPybind(m);
-  InferencePybind(m);
   EmbeddingCollectionPybind(m);
   HPSPybind(m);
   TrainingCallbackPybind(m);

@@ -45,7 +45,7 @@ def wdl_test(json_file):
     model.compile()
     model.summary()
     model.fit(
-        max_iter=10000, display=200, eval_interval=1000, snapshot=10000, snapshot_prefix="wdl"
+        max_iter=10000, display=200, eval_interval=1000, snapshot=100000, snapshot_prefix="wdl"
     )
     return
 

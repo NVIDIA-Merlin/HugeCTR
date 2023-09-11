@@ -33,17 +33,6 @@ except ImportError:
 TEST_PATH = dirname(dirname(realpath(__file__)))
 
 
-@pytest.mark.skipif(hugectr is None, reason="hugectr not installed")
-def test_multi_gpu_offline_inference():
-    notebook = os.path.join(dirname(TEST_PATH), "notebooks/multi_gpu_offline_inference.ipynb")
-    with testbook(
-        notebook,
-        execute=False,
-        timeout=3600,
-    ) as nb:
-        nb.execute_cell(list(range(0, len(nb.cells))))
-
-
 def test_prototype_indices():
     notebook = os.path.join(dirname(TEST_PATH), "notebooks/prototype_indices.ipynb")
     with testbook(

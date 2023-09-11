@@ -17,16 +17,12 @@
 import hugectr
 from mpi4py import MPI
 
-from hugectr.inference import InferenceParams, CreateInferenceSession
 import hugectr2onnx
 import onnxruntime as ort
 from utils import read_samples_for_mmoe, compare_array_approx
 import numpy as np
 
-from hugectr.inference import InferenceModel, InferenceParams
-import numpy as np
-
-
+ground_truth = "/onnx_converter/hugectr_models/mmoe_parquet_preds.npy"
 graph_config = "/onnx_converter/graph_files/mmoe.json"
 dense_model = "/onnx_converter/hugectr_models/mmoe_dense_2000.model"
 sparse_models = ["/onnx_converter/hugectr_models/mmoe0_sparse_2000.model"]
@@ -85,26 +81,8 @@ preds1 = res[1].reshape((batch_size * num_batches, 1))
 onnx_preds = np.concatenate((preds0, preds1), axis=1)
 print("onnx_preds.shape: ", onnx_preds.shape)
 
-inference_params = InferenceParams(
-    model_name="mmoe",
-    max_batchsize=batch_size,
-    hit_rate_threshold=1.0,
-    dense_model_file="/onnx_converter/hugectr_models/mmoe_dense_2000.model",
-    sparse_model_files=["/onnx_converter/hugectr_models/mmoe0_sparse_2000.model"],
-    device_id=0,
-    use_gpu_embedding_cache=False,
-    cache_size_percentage=1.0,
-    i64_input_key=False,
-    use_mixed_precision=False,
-    use_cuda_graph=True,
-)
-inference_session = CreateInferenceSession(
-    "/onnx_converter/graph_files/mmoe.json", inference_params
-)
+predictions = np.load(ground_truth).reshape(batch_size * num_batches, 2)
 
-predictions = inference_session.predict(
-    num_batches, data_source, hugectr.DataReaderType_t.Parquet, hugectr.Check_t.Non, slot_size_array
-)
 print("predictions.shape: ", predictions.shape)
 
 compare_array_approx(onnx_preds, predictions, "mmoe", 1e-2, 1e-1)
