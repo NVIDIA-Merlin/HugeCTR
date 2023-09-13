@@ -24,86 +24,12 @@
 #include <vector>
 
 namespace HugeCTR {
+
 /**
  * @brief
  * This class implements the fully connected layer.
  */
 class FusedFullyConnectedLayer : public TrainableLayer<__half> {
-  // Optimized cublasGemmEx algorithm selection
-  cublasGemmAlgo_t falgo_k_{CUBLAS_GEMM_DEFAULT};
-  cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
-  cublasGemmAlgo_t balgo_x_{CUBLAS_GEMM_DEFAULT};
-
-  /*
-   * stores the references to the bottom tensors of this layer.
-   */
-  Tensor2<__half> bottom_tensor_;
-
-  /*
-   * stores the references to the top tensors of this layer.
-   */
-  Tensor2<__half> top_tensor_;
-
-  /*
-   * stores the references to the intermediate top tensors of this layer.
-   */
-  Tensor2<__half> middle_tensor_;
-
-  /*
-   * stores the references to the intermediate bias grad tensors of this layer.
-   */
-  Tensor2<float> bias_grad_tensor_;
-
-  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
-  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
-
-  Tensor2<__half>& get_bottom_tensor(bool is_train) { return bottom_tensor_; }
-
- public:
-  /**
-   * forward pass
-   */
-  void fprop(bool is_train) final;
-  /**
-   * backward pass
-   */
-  void bprop() final;
-  /*
-   * algorithm search for cublasGemmEx
-   */
-  void search_algorithm() final;
-  /**
-   * This is the constructor of the FullyConnectedLayer.
-   * It will check whether the format combination of all tensors is supported or not.
-   * Only two kinds of tensor formats are supported:
-   * (1) weight, input, output, wgrad are all in row-major.
-   * (2) weight, input, output, wgrad are all in column-major.
-   * @param weight_buff: stores the weight tensor
-   * @param wgrad_buff: stores the gradient values of the weight calculated in backward pass
-   * @param bottom_tensor: stores the tensor from bottom layer
-   * @param top_tensor: stores the tensor to top layer
-   * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
-   * (col-major)
-   */
-  FusedFullyConnectedLayer(
-      const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
-      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
-      const std::shared_ptr<GPUResource>& gpu_resource,
-      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-  FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
-  FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);
-};
-
-/**
- * @brief
- * This class implements the fully connected layer.
- */
-class Core23TempFusedFullyConnectedLayer : public Core23TempTrainableLayer<__half> {
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
@@ -150,12 +76,12 @@ class Core23TempFusedFullyConnectedLayer : public Core23TempTrainableLayer<__hal
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  Core23TempFusedFullyConnectedLayer(
+  FusedFullyConnectedLayer(
       const core23::Tensor& bottom_tensor, const core23::Tensor& top_tensor,
       const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-  Core23TempFusedFullyConnectedLayer(const Core23TempFusedFullyConnectedLayer&) = delete;
-  Core23TempFusedFullyConnectedLayer& operator=(const Core23TempFusedFullyConnectedLayer&);
+  FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
+  FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);
 };
 
 }  // namespace HugeCTR

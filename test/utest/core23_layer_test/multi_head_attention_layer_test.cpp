@@ -305,7 +305,7 @@ void multi_head_attention_cpu_fused(T *q_4d, T *k_4d, T *v_4d, T *output, T *tmp
   // Just to revert k_4d back
   transpose(k_4d, b, h, k, n);
   for (int64_t i = 0; i < b * h * m * n; i++) {
-    tmp_score[i] = tmp_score[i] / ((float)sqrt(k));
+    tmp_score[i] = (float)tmp_score[i] / sqrt((float)k);
   }
   // masked softmax
   softmax_fprop_cpu<T>(tmp_softmax, tmp_score.get(), b * h * m * n, n);

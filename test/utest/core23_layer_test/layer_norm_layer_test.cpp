@@ -214,9 +214,8 @@ void layer_norm_test(core23::Shape dims) {
                                                  .shape(dims)
                                                  .buffer_params(blobs_buffer_params));
 
-  typename Core23TempLayerNormLayer<T>::Params params = {eps};
-  Core23TempLayerNormLayer<T> layer_norm_layer(in_tensor, out_tensor, params,
-                                               test::get_default_gpu());
+  typename LayerNormLayer<T>::Params params = {eps};
+  LayerNormLayer<T> layer_norm_layer(in_tensor, out_tensor, params, test::get_default_gpu());
 
   const auto& in_tensor_dim = dims;
   int64_t batch_size = 1;

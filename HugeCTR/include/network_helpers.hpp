@@ -44,9 +44,9 @@ std::vector<core23::Tensor> get_trainable_tensor_vector(
     }
   };
   for (auto& layer : layers) {
-    auto trainable_layer = dynamic_cast<Core23TempTrainableLayer<DType>*>(layer.get());
+    auto trainable_layer = dynamic_cast<TrainableLayer<DType>*>(layer.get());
     if (!op(trainable_layer)) {
-      auto trainable_layer = dynamic_cast<Core23TempTrainableLayer<DType, true>*>(layer.get());
+      auto trainable_layer = dynamic_cast<TrainableLayer<DType, true>*>(layer.get());
       op(trainable_layer);
     }
   }

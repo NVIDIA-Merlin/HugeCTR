@@ -25,86 +25,7 @@ namespace HugeCTR {
  * GRU function (Interest Extractor Layer) as a derived class of Layer
  */
 template <typename T>
-class GRULayer : public Layer {
-  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
-  size_t workSpaceSize;
-  size_t reserveSpaceSize;
-  size_t inputTensorSize, outputTensorSize, hiddenTensorSize;
-
-  Tensors2<float> &get_in_tensors(bool is_train) { return in_tensors_; }
-
- public:
-  /**
-   * A method of implementing the forward pass of GRU
-   * @param stream CUDA stream where the forward propagation is executed
-   */
-  void fprop(bool is_train) final;
-  /**
-   * A method of implementing the backward pass of GRU
-   * @param stream CUDA stream where the backward propagation is executed
-   */
-  void bprop() final;
-
-  /**
-   * Ctor of GRULayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  GRULayer(const std::shared_ptr<BufferBlock2<T>> &weight_buff,
-           const std::shared_ptr<BufferBlock2<T>> &wgrad_buff, const Tensor2<T> &in_tensor,
-           const Tensor2<T> &out_tensor, size_t hiddenSize, size_t batch_size, size_t SeqLength,
-           size_t embedding_vec_size, const std::shared_ptr<GPUResource> &gpu_resource,
-           std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-
- private:
-  int *seqLengthArray = NULL;
-  int *devSeqLengthArray = NULL;
-  void *weightSpace = NULL;
-  void *dweightSpace = NULL;
-  void *workSpace = NULL;
-  void *reserveSpace = NULL;
-  void *hx = NULL;
-
-  cudnnHandle_t cudnnHandle;
-  cudnnRNNDescriptor_t rnnDesc;
-  cudnnRNNDataDescriptor_t in_Desc;
-  cudnnRNNDataDescriptor_t out_Desc;
-  cudnnTensorDescriptor_t cDesc;
-  cudnnTensorDescriptor_t hDesc;
-  cudnnDropoutDescriptor_t dropoutDesc;
-  cudnnDataType_t data_type;
-
-  int dimHidden[3];
-  int strideHidden[3];
-  unsigned long long seed;
-  size_t stateSize;
-  void *states;
-  float dropout = 0;
-  size_t weightSpaceSize;
-  size_t seqLength_, miniBatch, embedding_vec_size_, m = 512;
-  int hiddenSize_;  // = 512; //half of the seqLength
-  int numLinearLayers;
-};
-
-/**
- * GRU function (Interest Extractor Layer) as a derived class of Layer
- */
-template <typename T>
-class Core23TempGRULayer : public Core23TempTrainableLayer<T> {
+class GRULayer : public TrainableLayer<T> {
   cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
 
   size_t workSpaceSize;
@@ -126,15 +47,15 @@ class Core23TempGRULayer : public Core23TempTrainableLayer<T> {
   void bprop() final;
 
   /**
-   * Ctor of Core23TempGRULayer.
+   * Ctor of GRULayer.
    * @param in_tensor the input tensor
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  Core23TempGRULayer(const core23::Tensor &in_tensor, const core23::Tensor &out_tensor,
-                     int64_t hiddenSize, int64_t batch_size, int64_t SeqLength,
-                     int64_t embedding_vec_size, const std::shared_ptr<GPUResource> &gpu_resource,
-                     std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+  GRULayer(const core23::Tensor &in_tensor, const core23::Tensor &out_tensor, int64_t hiddenSize,
+           int64_t batch_size, int64_t SeqLength, int64_t embedding_vec_size,
+           const std::shared_ptr<GPUResource> &gpu_resource,
+           std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
 
  private:
   int *seqLengthArray = nullptr;

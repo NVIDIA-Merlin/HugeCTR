@@ -52,7 +52,7 @@ class MultiCrossLayerTest {
   std::vector<std::vector<T>> h_kernel_grads_;
   std::vector<std::vector<T>> h_bias_grads_;
 
-  std::shared_ptr<Core23TempMultiCrossLayer<T>> layer_;
+  std::shared_ptr<MultiCrossLayer<T>> layer_;
   test::GaussianDataSimulator data_sim_;
 
   std::vector<T*> weights_ptrs_;
@@ -611,8 +611,8 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    layer_.reset(new Core23TempMultiCrossLayer<T>({d_input_}, {d_output_}, test::get_default_gpu(),
-                                                  layers, projection_dim_, {}, false, false));
+    layer_.reset(new MultiCrossLayer<T>({d_input_}, {d_output_}, test::get_default_gpu(), layers,
+                                        projection_dim_, {}, false, false));
 
     layer_->initialize();
 

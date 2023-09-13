@@ -250,8 +250,8 @@ static void init_data_cpu(Param<T>& p, int* input_dims, int* output_dims, int n_
 }
 
 bool is_mlp_layer(Layer* layer) {
-  return dynamic_cast<Core23TempMLPLayer<__half>*>(layer) != nullptr ||
-         dynamic_cast<Core23TempMLPLayer<float>*>(layer) != nullptr;
+  return dynamic_cast<MLPLayer<__half>*>(layer) != nullptr ||
+         dynamic_cast<MLPLayer<float>*>(layer) != nullptr;
 }
 
 template <typename T>
@@ -264,7 +264,7 @@ static void copy_data_from_cpu(Param<T>& p, int* input_dims, int* output_dims, i
 
   for (int i = 0; i < n_layers; i++) {
     auto index = map_mlp[i];
-    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+    auto layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
     d_kernel[i] = layer->get_kernel(index[1]).template data<T>();
     d_bias[i] = layer->get_bias(index[1]).template data<T>();
     d_kernel_grad[i] = layer->get_kernel_grad(index[1]).template data<T>();
@@ -339,10 +339,10 @@ static void mlp_test(std::vector<Layer_t> network,
                                               .data_type(core23::ToScalarType<T>::value)
                                               .buffer_params(buffer_params));
 
-    layers.emplace_back(
-        new Core23TempMLPLayer<T>(train_in_tensors, train_out_tensors, num_outputs, gpu_resource,
-                                  relu, bias, std::vector<Initializer_t>(), false,
-                                  config_set.async_mlp_wgrad, use_fuse_wb[i], enable_tf32_compute));
+    layers.emplace_back(new MLPLayer<T>(train_in_tensors, train_out_tensors, num_outputs,
+                                        gpu_resource, relu, bias, std::vector<Initializer_t>(),
+                                        false, config_set.async_mlp_wgrad, use_fuse_wb[i],
+                                        enable_tf32_compute));
 
     if (i != cnt_mlp - 1) {
       core23::Tensor in_mlp_tensor =
@@ -406,7 +406,7 @@ static void mlp_test(std::vector<Layer_t> network,
   std::vector<T*> d_bias_grad(n_fc_layers);
   for (int i = 0; i < n_fc_layers; i++) {
     auto index = map_mlp[i];
-    auto layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+    auto layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
     d_kernel[i] = layer->get_kernel(index[1]).template data<T>();
     d_bias[i] = layer->get_bias(index[1]).template data<T>();
     d_kernel_grad[i] = layer->get_kernel_grad(index[1]).template data<T>();
@@ -441,7 +441,7 @@ static void mlp_test(std::vector<Layer_t> network,
 
     for (int i = 0; i < n_fc_layers; i++) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+      auto mlp_layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
       if (i > 0 && fc_in_dims[i] != fc_out_dims[i - 1]) {
         auto& input_tensors = mlp_layer->get_input_tensors();
         HCTR_LIB_THROW(cudaMemcpy(input_tensors[0].template data<T>(), p.h_bottom[i].get(),
@@ -459,7 +459,7 @@ static void mlp_test(std::vector<Layer_t> network,
     // Check results
     for (int i = 0; i < n_fc_layers; i++) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+      auto mlp_layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
       ASSERT_LE(check_data_cpu_and_gpu(p.h_top[i].get(), inner_tensors[index[1]].template data<T>(),
                                        batch_size * fc_out_dims[i], 1e-2),
@@ -470,7 +470,7 @@ static void mlp_test(std::vector<Layer_t> network,
     // initialize dX
     {
       auto index = map_mlp[n_fc_layers - 1];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+      auto mlp_layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
       HCTR_LIB_THROW(cudaMemcpy(
           inner_tensors[index[1]].template data<T>(), p.h_top_grad[n_fc_layers - 1].get(),
@@ -512,7 +512,7 @@ static void mlp_test(std::vector<Layer_t> network,
     // Check results
     for (int i = n_fc_layers - 1; i >= 0; i--) {
       auto index = map_mlp[i];
-      auto mlp_layer = dynamic_cast<Core23TempMLPLayer<T>*>(layers[index[0]].get());
+      auto mlp_layer = dynamic_cast<MLPLayer<T>*>(layers[index[0]].get());
       auto& inner_tensors = mlp_layer->get_inner_tensors();
 
       ASSERT_LE(check_data_cpu_and_gpu(p.h_bias_grad[i].get(),

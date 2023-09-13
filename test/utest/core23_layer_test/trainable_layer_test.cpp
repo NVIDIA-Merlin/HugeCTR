@@ -30,8 +30,8 @@ namespace {
  * gradients for trainable layers. The fprop and bprop methods are not actually implemented.
  */
 template <typename DType, bool use_FP32_weight>
-class DummyTrainableLayer : public Core23TempTrainableLayer<DType, use_FP32_weight> {
-  using Base = Core23TempTrainableLayer<DType, use_FP32_weight>;
+class DummyTrainableLayer : public TrainableLayer<DType, use_FP32_weight> {
+  using Base = TrainableLayer<DType, use_FP32_weight>;
   using WeightType = typename Base::WeightType;
 
  public:

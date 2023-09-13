@@ -43,7 +43,7 @@
 
 namespace HugeCTR {
 
-class Core23TempNetwork;
+class Network;
 
 namespace {
 

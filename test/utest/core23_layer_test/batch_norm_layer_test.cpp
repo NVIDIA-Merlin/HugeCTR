@@ -209,9 +209,8 @@ void batch_norm_test(int64_t batch_size, int64_t num_feature) {
                                                  .shape(dims)
                                                  .buffer_params(blobs_buffer_params));
 
-  typename Core23TempBatchNormLayer<T>::Params params = {1.0, eps};
-  Core23TempBatchNormLayer<T> batch_norm_layer(in_tensor, out_tensor, params,
-                                               test::get_default_gpu());
+  typename BatchNormLayer<T>::Params params = {1.0, eps};
+  BatchNormLayer<T> batch_norm_layer(in_tensor, out_tensor, params, test::get_default_gpu());
 
   batch_norm_layer.initialize();
 

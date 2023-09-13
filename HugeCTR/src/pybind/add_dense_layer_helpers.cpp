@@ -160,13 +160,13 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
                                                    dense_layer.beta_init_type};
       if (use_mixed_precision) {
-        Core23TempBatchNormLayer<__half>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new Core23TempBatchNormLayer<__half>(
-            bn_in_tensor, bn_out_tensor, params, gpu_resource, initializer_types));
+        BatchNormLayer<__half>::Params params = {dense_layer.factor, dense_layer.eps};
+        layers.emplace_back(new BatchNormLayer<__half>(bn_in_tensor, bn_out_tensor, params,
+                                                       gpu_resource, initializer_types));
       } else {
-        Core23TempBatchNormLayer<float>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new Core23TempBatchNormLayer<float>(bn_in_tensor, bn_out_tensor, params,
-                                                                gpu_resource, initializer_types));
+        BatchNormLayer<float>::Params params = {dense_layer.factor, dense_layer.eps};
+        layers.emplace_back(new BatchNormLayer<float>(bn_in_tensor, bn_out_tensor, params,
+                                                      gpu_resource, initializer_types));
       }
       break;
     }
@@ -178,13 +178,13 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
                                                    dense_layer.beta_init_type};
 
       if (use_mixed_precision) {
-        Core23TempLayerNormLayer<__half>::Params params = {dense_layer.eps};
-        layers.emplace_back(new Core23TempLayerNormLayer<__half>(
-            ln_in_tensor, ln_out_tensor, params, gpu_resource, initializer_types));
+        LayerNormLayer<__half>::Params params = {dense_layer.eps};
+        layers.emplace_back(new LayerNormLayer<__half>(ln_in_tensor, ln_out_tensor, params,
+                                                       gpu_resource, initializer_types));
       } else {
-        Core23TempLayerNormLayer<float>::Params params = {dense_layer.eps};
-        layers.emplace_back(new Core23TempLayerNormLayer<float>(ln_in_tensor, ln_out_tensor, params,
-                                                                gpu_resource, initializer_types));
+        LayerNormLayer<float>::Params params = {dense_layer.eps};
+        layers.emplace_back(new LayerNormLayer<float>(ln_in_tensor, ln_out_tensor, params,
+                                                      gpu_resource, initializer_types));
       }
       break;
     }
@@ -373,12 +373,12 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       }
 
       if (use_mixed_precision) {
-        layers.emplace_back(new Core23TempMLPLayer<__half>(
+        layers.emplace_back(new MLPLayer<__half>(
             in_tensors, train_out_tensors, num_outputs, gpu_resource, acts, biases,
             initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
             dense_layer.compute_config.fuse_wb, enable_tf32_compute));
       } else {
-        layers.emplace_back(new Core23TempMLPLayer<float>(
+        layers.emplace_back(new MLPLayer<float>(
             in_tensors, train_out_tensors, num_outputs, gpu_resource, acts, biases,
             initializer_types, skip_dgrad, dense_layer.compute_config.async_wgrad,
             dense_layer.compute_config.fuse_wb, enable_tf32_compute));
@@ -448,10 +448,10 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         core23::Tensor db_out_tensor;
 
         if (pos_type == FcPosition_t::None) {
-          layers.emplace_back(new Core23TempFusedFullyConnectedLayer(
-              train_in_tensor, train_out_tensor, gpu_resource, initializer_types));
+          layers.emplace_back(new FusedFullyConnectedLayer(train_in_tensor, train_out_tensor,
+                                                           gpu_resource, initializer_types));
         } else {
-          layers.emplace_back(new Core23TempFusedReluBiasFullyConnectedLayer(
+          layers.emplace_back(new FusedReluBiasFullyConnectedLayer(
               train_in_tensor, mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor,
               mask_out_tensor, dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type,
               skip_dgrad, initializer_types, dense_layer.compute_config.async_wgrad, head_mask_in,
@@ -499,12 +499,12 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       }
 
       if (use_mixed_precision) {
-        layers.emplace_back(new Core23TempFullyConnectedLayer<__half>(
-            in_tensor, fc_out_tensor, gpu_resource, initializer_types));
+        layers.emplace_back(new FullyConnectedLayer<__half>(in_tensor, fc_out_tensor, gpu_resource,
+                                                            initializer_types));
       } else {
-        layers.emplace_back(new Core23TempFullyConnectedLayer<float>(
-            in_tensor, fc_out_tensor, gpu_resource, use_mixed_precision, enable_tf32_compute,
-            initializer_types));
+        layers.emplace_back(new FullyConnectedLayer<float>(in_tensor, fc_out_tensor, gpu_resource,
+                                                           use_mixed_precision, enable_tf32_compute,
+                                                           initializer_types));
       }
       output_tensor_entities.push_back({input_output_info.output_names[0], fc_out_tensor});
       break;
@@ -599,11 +599,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Tensor out_tensor(tensor_params.shape(mc_in_tensor.shape()));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       if (use_mixed_precision) {
-        layers.emplace_back(new Core23TempMultiCrossLayer<__half>(
+        layers.emplace_back(new MultiCrossLayer<__half>(
             {mc_in_tensor}, {out_tensor}, gpu_resource, num_layers, projection_dim,
             initializer_types, enable_tf32_compute, async_wgrad));
       } else {
-        layers.emplace_back(new Core23TempMultiCrossLayer<float>(
+        layers.emplace_back(new MultiCrossLayer<float>(
             {mc_in_tensor}, {out_tensor}, gpu_resource, num_layers, projection_dim,
             initializer_types, enable_tf32_compute, async_wgrad));
       }
@@ -773,11 +773,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Shape weight_dims{static_cast<int64_t>(dense_layer.weight_dims[0]),
                                 static_cast<int64_t>(dense_layer.weight_dims[1])};
       if (use_mixed_precision) {
-        layers.emplace_back(new Core23TempWeightMultiplyLayer<__half>(
-            in_tensor, out_tensor, weight_dims, gpu_resource, initializer_types));
+        layers.emplace_back(new WeightMultiplyLayer<__half>(in_tensor, out_tensor, weight_dims,
+                                                            gpu_resource, initializer_types));
       } else {
-        layers.emplace_back(new Core23TempWeightMultiplyLayer<float>(
-            in_tensor, out_tensor, weight_dims, gpu_resource, initializer_types));
+        layers.emplace_back(new WeightMultiplyLayer<float>(in_tensor, out_tensor, weight_dims,
+                                                           gpu_resource, initializer_types));
       }
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
@@ -838,7 +838,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       auto& in_tensor = input_output_info.input_tensors[0];
       int64_t num_output = dense_layer.num_output;
       core23::Tensor gru_out_tensor(tensor_params.shape({in_tensor.shape().size(0), num_output}));
-      layers.emplace_back(new Core23TempGRULayer<float>(
+      layers.emplace_back(new GRULayer<float>(
           in_tensor, gru_out_tensor, dense_layer.num_output, dense_layer.batchsize,
           dense_layer.SeqLength, dense_layer.vector_size, gpu_resource, initializer_types));
       output_tensor_entities.push_back({input_output_info.output_names[0], gru_out_tensor});
