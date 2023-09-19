@@ -802,10 +802,40 @@ __global__ void gather_concat_fprop_kernel(T *out, const T *in0, const T *mat, c
       T value = (tid < w) ? in0[bid * w + tid] : s_buf[tid - w];
       out[g_out_idx] = value;
     }
+    if (!threadIdx.x && !threadIdx.y) {
+      out[(bid + 1) * out_len - 1] = (T)0.f;
+    }
     __syncthreads();
   }
 }
 
+template <typename T>
+__global__ void gather_concat_fprop_kernel_no_shared(T *out, const T *in0, const T *mat,
+                                                     const int h, const int n_ins, const int w) {
+  int out_len = w + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
+  for (int bid = blockIdx.x; bid < h; bid += gridDim.x) {
+    int g_in_idx_base = bid * n_ins * n_ins;
+    int g_out_idx_base = bid * out_len + w;  // the first w elements should be copied from in0
+    // lower triangle
+    for (int row = threadIdx.y; row < n_ins; row += blockDim.y) {
+      int g_out_idx = g_out_idx_base + (row) * (row - 1) / 2;
+      for (int col = threadIdx.x; col < n_ins; col += blockDim.x) {
+        if (col < row) {
+          int idx_in_blk = row * n_ins + col;
+          int g_in_idx = g_in_idx_base + idx_in_blk;
+          out[g_out_idx + col] = mat[g_in_idx];
+        }
+      }
+    }
+    // copy bottom mlp
+    for (int col = threadIdx.x; col < w; col += blockDim.x) {
+      out[g_out_idx_base - w + col] = in0[bid * w + col];
+    }
+    if (!threadIdx.x && !threadIdx.y) {
+      out[(bid + 1) * out_len - 1] = (T)0.f;
+    }
+  }
+}
 template <typename T>
 __global__ void transpose_and_add_oneshot(const T *src, T *dst, const int h, const int n_ins) {
   extern __shared__ char s_buf_char[];
@@ -896,6 +926,32 @@ __global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const i
   }
 }
 
+template <typename T>
+__global__ void gather_concat_bprop_kernel_no_shared(const T *out, T *in0, T *mat, const int h,
+                                                     const int n_ins, const int w) {
+  int out_len = w + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
+  for (int bid = blockIdx.x; bid < h; bid += gridDim.x) {
+    int g_in_idx_base = bid * n_ins * n_ins;
+    int g_out_idx_base = bid * out_len + w;  // the first w elements should be copied from in0
+    // lower triangle gradient
+    for (int row = threadIdx.y; row < n_ins; row += blockDim.y) {
+      int g_out_idx = g_out_idx_base + (row) * (row - 1) / 2;
+      for (int col = threadIdx.x; col < n_ins; col += blockDim.x) {
+        int idx_in_blk = row * n_ins + col;
+        int g_in_idx = g_in_idx_base + idx_in_blk;
+        if (col < row) {
+          mat[g_in_idx] = out[g_out_idx + col];
+        } else {
+          mat[g_in_idx] = T(0.f);
+        }
+      }
+    }
+    // copy bottom mlp gradient
+    for (int col = threadIdx.x; col < w; col += blockDim.x) {
+      in0[bid * w + col] = out[g_out_idx_base - w + col];
+    }
+  }
+}
 }  // anonymous namespace
 
 template <typename T>
@@ -1145,8 +1201,13 @@ void InteractionLayer<T>::fprop_generic(bool is_train) {
     dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
     dim3 block1(16, 16, 1);
     size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-        gather, in0, mat, h, n_ins, in_w);
+    if (smem_size < 47 * 1024) {  // 47 KB
+      gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    } else {
+      gather_concat_fprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    }
   } else {
     // phase 0: concat
     auto *concat = intermediate_tensors_[0].data<T>();
@@ -1200,8 +1261,13 @@ void InteractionLayer<T>::fprop_generic(bool is_train) {
     dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
     dim3 block1(16, 16, 1);
     size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-        gather, in0, mat, h, n_ins, in_w);
+    if (smem_size < 47 * 1024) {  // 47 KB
+      gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    } else {
+      gather_concat_fprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    }
   }
   HCTR_LIB_THROW(cudaGetLastError());
 }
@@ -1264,8 +1330,13 @@ void InteractionLayer<T>::bprop_generic() {
     dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
     dim3 block1(16, 16, 1);
     size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-        gather, in0, mat, h, n_ins, in_w);
+    if (smem_size < 47 * 1024) {
+      gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    } else {
+      gather_concat_bprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    }
     // HCTR_LOG(INFO,ROOT,"gather_concat_bprop_kernel called\n");
     // phase 1:
     const int batch_count = h;
@@ -1338,8 +1409,13 @@ void InteractionLayer<T>::bprop_generic() {
     dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
     dim3 block1(16, 16, 1);
     size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-        gather, in0, mat, h, n_ins, in_w);
+    if (smem_size < 47 * 1024) {
+      gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    } else {
+      gather_concat_bprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+          gather, in0, mat, h, n_ins, in_w);
+    }
 
     // phase 1:
     const int batch_count = h;
