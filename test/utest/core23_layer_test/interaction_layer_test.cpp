@@ -192,6 +192,10 @@ void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         if (n > m) {
+          // if (p == 0) {
+          //   printf("cpu mat %ld out_id %ld : %f, row %ld, col %ld\n", mat_stride + m * n_ins + n,
+          //          out_stride + cur_idx, (float)(h_matmul[mat_stride + m * n_ins + n]), m, n);
+          // }
           // use h_mat_dev
           h_ref[out_stride + cur_idx++] = h_matmul[mat_stride + m * n_ins + n];
         }
@@ -285,9 +289,16 @@ void interaction_layer_test(int64_t height, int64_t n_emb, int64_t in_width,
 }  // namespace
 
 TEST(interaction_layer, fp32_512x479) { interaction_layer_test<float>(512, 26, 128); }
+TEST(interaction_layer, fp32_1x156) { interaction_layer_test<float>(1, 156, 128); }
+TEST(interaction_layer, fp32_2x300) { interaction_layer_test<float>(2, 300, 128); }
+TEST(interaction_layer, fp32_2x10) { interaction_layer_test<float>(16, 300, 128); }
 
 TEST(interaction_layer, fp32_512x1340) { interaction_layer_test<float>(512, 33, 128); }
 TEST(interaction_layer, tf32_512x479) { interaction_layer_test<float>(512, 26, 128, true); }
+
+TEST(interaction_layer, fp16_1x500) { interaction_layer_test<__half>(1, 500, 8); }
+TEST(interaction_layer, fp16_2x300) { interaction_layer_test<__half>(2, 300, 128); }
+TEST(interaction_layer, fp16_2x16) { interaction_layer_test<__half>(2, 33, 8); }
 
 TEST(interaction_layer, fp16_512x479) {
   int major = 0;
