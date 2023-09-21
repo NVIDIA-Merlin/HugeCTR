@@ -303,7 +303,7 @@ hugectr2onnx:
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
 # hps_tf_plugin
-hierarchical_parameter_server:
+hps_tf_plugin:
   extends: .selene_test_job
   needs:
     - pipeline: $PARENT_PIPELINE_ID
@@ -312,7 +312,19 @@ hierarchical_parameter_server:
     GPFSFOLDER: $LOGDIR/hps_tf
     CONT: $TF_TRT_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    TEST_CMD: ./ci/integration_test/hps/hps.sub
+    TEST_CMD: ./ci/integration_test/hps/hps_tf.sub
+
+# hps_torch_plugin
+hps_torch_plugin:
+  extends: .selene_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_pytorch_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_torch
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/hps/hps_torch.sub
 
 # embedding_plugin
 sparse_operation_kit_ut-TF2:
@@ -404,6 +416,18 @@ gcs_backend_test:
     CONT: $TRAIN_IMAGE_VERSIONED_WITH_GCS
     TEST_CMD: ./ci/integration_test/gcs/gcs_backend_test.sub
 
+hps_torch_fuse_table_benchmark:
+  extends: .selene_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_pytorch_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_torch_fuse_table_benchmark
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/hps_torch_fuse_table_benchmark/ci_model_repo:/model_repo,/lustre/fsw/devtech/hpc-hugectr/hps_torch_fuse_table_benchmark/perf_data:/perf_data
+    WALLTIME: "00:45:00"
+    TEST_CMD: ./ci/benchmark/hps_torch_fuse_table_benchmark/run.sub
+
 hps_tf_fuse_table_benchmark:
   extends: .selene_test_job
   needs:
@@ -450,6 +474,17 @@ dlrm_dcnv2_1node_check:
     MOUNTS: $LOGDIR/dlrm_dcnv2_benchmark_1node:/logs
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_dcnv2_dlrm_1node.sub
+
+hps_torch_fuse_table_benchmark_check:
+  extends: .selene_post_test_job
+  needs:
+    - hps_torch_fuse_table_benchmark
+  variables:
+    GPFSFOLDER: $LOGDIR/hps_torch_fuse_table_benchmark_check
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/hps_torch_fuse_table_benchmark:/logs
+    WALLTIME: "00:15:00"
+    TEST_CMD: ./ci/post_test/check_hps_torch_fuse_table_benchmark.sub
 
 hps_tf_fuse_table_benchmark_check:
   extends: .selene_post_test_job

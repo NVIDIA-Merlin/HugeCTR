@@ -208,6 +208,7 @@ build_pytorch_hps_trt_plugin:
   variables:
     FROM_IMAGE: ${IMAGE_PYTORCH}
     DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
+    BUILD_TORCH_PLUGIN: 1    
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
     #BUILD_HPS_BACKEND: 1

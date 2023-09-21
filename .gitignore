@@ -58,6 +58,10 @@ docs/source/release_notes.md
 
 docs/source/hps_tf/notebooks
 docs/source/hps_trt/notebooks/
+docs/source/hps_torch/notebooks/
 hps_tf/_skbuild
 hps_tf/dist/
 hps_tf/merlin_hps.egg-info/
+hps_torch/_skbuild
+hps_torch/dist/
+hps_torch/merlin_hps.egg-info/
