@@ -218,6 +218,21 @@ void LookupSession::lookup_with_table_fusion_impl(const void* keys, float* d_vec
       }
     }
   }
+
+  // Wait for outputs of each table to be ready
+  {
+    std::unique_lock lock(mutex_);
+    if (cv_.wait_for(lock, wait_duration_, [this, fused_table_id] {
+          return counter_for_each_fused_table_[fused_table_id] ==
+                 num_original_tables_in_each_fused_table_[fused_table_id];
+        })) {
+    } else {
+      HCTR_LOG_S(ERROR, WORLD) << "Time out. The fusing table feature of HPS requires CPU "
+                                  "multithreading for embedding lookup."
+                               << std::endl;
+      return;
+    }
+  }
 }
 
 void LookupSession::lookup_from_device_impl(const void* d_keys, float* d_vectors, size_t num_keys,

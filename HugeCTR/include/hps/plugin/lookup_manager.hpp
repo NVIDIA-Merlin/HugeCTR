@@ -26,6 +26,7 @@ using namespace HugeCTR;
 typedef enum {
   TENSORFLOW = 0,
   TENSORRT = 1,
+  TORCH = 2,
 } pluginType_t;
 
 class LookupManager final {

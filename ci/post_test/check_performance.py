@@ -61,6 +61,10 @@ log_pattern = {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
     },
+    "hps_torch_fuse_table_benchmark": {
+        "cmd_log": r"compute infer",
+        "result_log": r"compute infer (\d+\.?\d*) usec",
+    },
     "hps_tf_fuse_table_benchmark": {
         "cmd_log": r"compute infer",
         "result_log": r"compute infer (\d+\.?\d*) usec",
@@ -100,6 +104,7 @@ def extract_result_from_log(job_name, log_path):
                     results.append(result)
     if (
         job_name == "hps_plugin_benchmark"
+        or job_name == "hps_torch_fuse_table_benchmark"
         or job_name == "hps_tf_fuse_table_benchmark"
         or job_name == "147gb_model_benchmark"
     ):
@@ -316,11 +321,15 @@ if __name__ == "__main__":
                     expected = expected_result[model_name][batch_size]
                     check_perf_result(perf, expected)
                     idx += 1
-        elif args.job_name == "hps_tf_fuse_table_benchmark":
+        elif (
+            args.job_name == "hps_tf_fuse_table_benchmark"
+            or args.job_name == "hps_torch_fuse_table_benchmark"
+        ):
             perf_result = extract_result_from_log(args.job_name, args.log_path)
             idx = 0
             batch_sizes = ["256", "1024", "4096", "16384"]
-            print("HPS Fuse Table TF Model Inference Latency (usec)")
+            print(f"Job Name: {args.job_name}")
+            print("HPS Fuse Table Model Inference Latency (usec)")
             print("-" * 137)
             print(
                 "batch_size\t8_static_table_unfused\t\t8_static_table_autofused\t8_dynamic_table_unfused\t\t8_dynamic_table_autofused"

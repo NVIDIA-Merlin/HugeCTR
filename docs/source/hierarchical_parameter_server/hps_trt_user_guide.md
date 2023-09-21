@@ -49,6 +49,7 @@ The plugin supports the following compute capabilities:
 | 7.0                | NVIDIA V100 (Volta)  | 70  |
 | 7.5                | NVIDIA T4 (Turing)   | 75  |
 | 8.0                | NVIDIA A100 (Ampere) | 80  |
+| 9.0                | NVIDIA H100 (Hopper) | 90  |
 
 ### Installing HPS Using NGC Containers
 

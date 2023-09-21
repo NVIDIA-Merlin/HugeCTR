@@ -32,6 +32,9 @@ the HPS library, and the subcomponents of the library.
 [HPS plugin for TensorRT](hps_trt_user_guide.md)
 :  Provides a unified solution to build and deploy HPS-integrated TensorRT engines for models trained with different frameworks.
 
+[HPS plugin for Torch](hps_torch_user_guide.md)
+:  Provides HPS as a Torch extension to deploy Torch models with large embedding tables.
+
 [HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend)
 :  The backend for Triton Inference Server is an inference deployment framework that integrates HPS for end-to-end inference on Triton.
    Documentation for the backend is available from the `hugectr_backend` repository at the preceding URL.

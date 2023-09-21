@@ -180,16 +180,28 @@ ebc_multi_node:
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
 
 ### Stage: test
-hierarchical_parameter_server:
+hps_tf_plugin:
   extends: .dracorno_test_job
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_tf_hps_trt_plugin
   variables:
-    GPFSFOLDER: $DRACO_LOGDIR/hierarchical_parameter_server
+    GPFSFOLDER: $DRACO_LOGDIR/hps_tf
     CONT: $TF_TRT_IMAGE_VERSIONED
     MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
-    TEST_CMD: ./ci/integration_test/hps/hps.sub
+    TEST_CMD: ./ci/integration_test/hps/hps_tf.sub
+
+# hps_torch_plugin
+hps_torch_plugin:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_pytorch_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/hps_torch
+    CONT: $PYTORCH_TRT_IMAGE_VERSIONED
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    TEST_CMD: ./ci/integration_test/hps/hps_torch.sub
 
 s3_backend_test:
   extends: .dracorno_test_job

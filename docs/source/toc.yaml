@@ -24,6 +24,7 @@ subtrees:
                   - file: hps_tf/notebooks/hps_pretrained_model_training_demo.ipynb
                   - file: hps_tf/notebooks/sok_to_hps_dlrm_demo.ipynb
                   - file: hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
+                  - file: hps_tf/notebooks/hps_table_fusion_demo.ipynb
               - file: hierarchical_parameter_server/hps_tf_api/index.rst
                 title: API Documentation
           - file: hierarchical_parameter_server/hps_trt_user_guide.md
@@ -37,9 +38,18 @@ subtrees:
                   - file: hps_trt/notebooks/demo_for_hugectr_trained_model.ipynb
               - file: hierarchical_parameter_server/hps_trt_api/index.rst
                 title: API Documentation
+          - file: hierarchical_parameter_server/hps_torch_user_guide.md
+            title: HPS Plugin for Torch
+            entries:
+              - file: hps_torch/notebooks/index.md
+                title: Notebooks
+                entries:
+                  - file: hps_torch/notebooks/hps_torch_demo.ipynb
+              - file: hierarchical_parameter_server/hps_torch_api/index.rst
+                title: API Documentation                   
           - file: hierarchical_parameter_server/hps_dlrm_benchmark.md
             title: Benchmark HPS-integrated DLRM
-          - file: hierarchical_parameter_server/profling_hps.md
+          - file: hierarchical_parameter_server/profiling_hps.md
             title: Profiling HPS
       - file: sparse_operation_kit.md
         title: Sparse Operation Kit

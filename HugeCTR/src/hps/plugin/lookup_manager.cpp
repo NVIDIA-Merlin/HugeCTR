@@ -143,6 +143,10 @@ bool LookupManager::init_check(parameter_server_config& ps_config, int32_t globa
       }
       break;
     }
+    case TORCH: {
+      // Currently no check is needed for HPS Torch plugin
+      break;
+    }
     default: {
       assert(!"Error: no such layer && should never get here!");
     }

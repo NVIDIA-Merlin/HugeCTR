@@ -146,6 +146,7 @@ stages:
     - echo "BUILD_HUGECTR2ONNX=${BUILD_HUGECTR2ONNX}"
     - echo "BUILD_SOK=${BUILD_SOK}"
     - echo "BUILD_TF_PLUGIN=${BUILD_TF_PLUGIN}"
+    - echo "BUILD_TORCH_PLUGIN=${BUILD_TORCH_PLUGIN}"
     #- git submodule update --init --recursive
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
         echo "FROM ${FROM_IMAGE}.new_image" > ${JOB_DOCKERFILE};
@@ -180,6 +181,10 @@ stages:
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
         echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_TORCH_PLUGIN" == 1 ]]; then
+        echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir/hps_torch/ && TORCH_CUDA_ARCH_LIST=\"7.0 7.5 8.0 9.0\" python setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
         echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
