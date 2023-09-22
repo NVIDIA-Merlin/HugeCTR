@@ -52,7 +52,7 @@ if(ENABLE_GCS)
   target_link_libraries(huge_ctr_hps PUBLIC google_cloud_cpp_storage)
 endif()
 
-target_link_libraries(huge_ctr_hps PUBLIC gpu_cache tbb hiredis redis++ rocksdb-shared rdkafka)
+target_link_libraries(huge_ctr_hps PUBLIC gpu_cache tbb rdkafka)
 
 target_compile_features(huge_ctr_hps PUBLIC cxx_std_17)
 target_link_libraries(huge_ctr_hps PUBLIC numa )

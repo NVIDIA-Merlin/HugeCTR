@@ -24,6 +24,8 @@
 
 namespace HugeCTR {
 
+#ifdef HCTR_USE_ROCKS_DB
+
 template <typename Key>
 RocksDBBackend<Key>::RocksDBBackend(const RocksDBBackendParams& params)
     : Base(params), db_{nullptr} {
@@ -459,5 +461,7 @@ size_t RocksDBBackend<Key>::load_dump_sst(const std::string& table_name, const s
 
 template class RocksDBBackend<unsigned int>;
 template class RocksDBBackend<long long>;
+
+#endif  // HCTR_USE_ROCKS_DB
 
 }  // namespace HugeCTR

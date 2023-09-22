@@ -15,12 +15,14 @@
  */
 #pragma once
 
-#include <rocksdb/db.h>
-
 #include <filesystem>
 #include <hps/database_backend.hpp>
 #include <hps/database_backend_detail.hpp>
 #include <unordered_map>
+
+#ifdef HCTR_USE_ROCKS_DB
+#include <rocksdb/db.h>
+#endif  // HCTR_USE_ROCKS_DB
 
 namespace HugeCTR {
 
@@ -35,6 +37,8 @@ struct RocksDBBackendParams final : public PersistentBackendParams {
       false};  // If \p true will open the database in \p read-only mode. This allows simultaneously
                // querying the same RocksDB database from multiple clients.
 };
+
+#ifdef HCTR_USE_ROCKS_DB
 
 /**
  * \p DatabaseBackend implementation that connects to a RocksDB to store/retrieve information (i.e.
@@ -117,6 +121,8 @@ class RocksDBBackend final : public PersistentBackend<Key, RocksDBBackendParams>
   rocksdb::WriteOptions write_options_;
   rocksdb::IngestExternalFileOptions ingest_file_options_;
 };
+
+#endif  // HCTR_USE_ROCKS_DB
 
 // TODO: Remove me!
 #pragma GCC diagnostic pop

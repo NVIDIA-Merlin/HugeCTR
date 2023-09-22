@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <rocksdb/sst_file_writer.h>
-
 #include <algorithm>
 #include <chrono>
 #include <common.hpp>
@@ -26,6 +24,10 @@
 #include <string>
 #include <thread_pool.hpp>
 #include <vector>
+
+#ifdef HCTR_USE_ROCKS_DB
+#include <rocksdb/sst_file_writer.h>
+#endif  // HCTR_USE_ROCKS_DB
 
 namespace HugeCTR {
 
@@ -222,7 +224,9 @@ class DatabaseBackendBase {
 
   virtual size_t dump_bin(const std::string& table_name, std::ofstream& file) = 0;
 
+#ifdef HCTR_USE_ROCKS_DB
   virtual size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) = 0;
+#endif  // HCTR_USE_ROCKS_DB
 
   /**
    * Loads the contents of a dump file into a table.

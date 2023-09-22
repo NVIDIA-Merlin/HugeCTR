@@ -236,6 +236,7 @@ int main(int argc, char** argv) {
     params.allocation_rate = hm_alloc_rate;
     params.shared_memory_size = hm_sm_size;
     db = std::make_unique<MultiProcessHashMapBackend<Key>>(params);
+#ifdef HCTR_USE_REDIS
   } else if (db_type == "redis") {
     RedisClusterBackendParams params;
     params.max_batch_size = re_batch_size;
@@ -243,14 +244,17 @@ int main(int argc, char** argv) {
     params.address = re_address;
     params.num_node_connections = re_connections;
     db = std::make_unique<RedisClusterBackend<Key>>(params);
+#endif  // HCTR_USE_REDIS
+#ifdef HCTR_USE_ROCKS_DB
   } else if (db_type == "rocksdb") {
     RocksDBBackendParams params;
     params.max_batch_size = ro_batch_size;
     params.path = ro_path;
     params.num_threads = ro_threads;
     db = std::make_unique<RocksDBBackend<Key>>(params);
+#endif  // HCTR_USE_ROCKS_DB
   } else {
-    HCTR_DIE("Invalid db_type!");
+    HCTR_DIE("Unsupported db_type!");
   }
 
   const size_t kv_size = sizeof(Key) + emb_size * sizeof(float);
@@ -272,8 +276,8 @@ int main(int argc, char** argv) {
     }
 
     std::vector<Key> keys(std::max(fill_burst, query_amount));
-    // std::vector<float> out_values(query_amount * emb_size);
-    std::vector<float, AlignedAllocator<float>> out_values(query_amount * emb_size);
+    // std::vector<float> out_values(keys.size() * emb_size);
+    std::vector<float, AlignedAllocator<float>> out_values(keys.size() * emb_size);
 
     HCTR_LOG_S(INFO, WORLD) << "Filling database..." << std::endl;
     for (size_t i = 0; i < fill_amount;) {
@@ -384,5 +388,8 @@ int main(int argc, char** argv) {
   }
 
   HCTR_LOG_S(INFO, WORLD) << "Destroying database..." << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "Sleep forever (press CTRL + C)!\n";
+  while (true) {
+  }
   db.reset();
 }

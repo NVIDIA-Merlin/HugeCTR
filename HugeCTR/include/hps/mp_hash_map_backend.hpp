@@ -86,7 +86,9 @@ class MultiProcessHashMapBackend final
 
   size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
 
+#ifdef HCTR_USE_ROCKS_DB
   size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+#endif  // HCTR_USE_ROCKS_DB
 
  protected:
   using Segment = boost::interprocess::managed_shared_memory;

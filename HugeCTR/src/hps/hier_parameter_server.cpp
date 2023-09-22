@@ -140,6 +140,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
         volatile_db_ = std::make_unique<MultiProcessHashMapBackend<TypeHashKey>>(params);
       } break;
 
+#ifdef HCTR_USE_REDIS
       case DatabaseType_t::RedisCluster: {
         HCTR_LOG_S(INFO, WORLD) << "Creating RedisCluster backend..." << std::endl;
         RedisClusterBackendParams params{
@@ -160,6 +161,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
         };
         volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(params);
       } break;
+#endif  // HCTR_USE_REDIS
 
       default:
         HCTR_DIE("Selected backend (volatile_db.type = %d) is not supported!", conf.type);
@@ -181,6 +183,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
       case DatabaseType_t::Disabled:
         break;  // No persistent database.
 
+#ifdef HCTR_USE_ROCKS_DB
       case DatabaseType_t::RocksDB: {
         HCTR_LOG_S(INFO, WORLD) << "Creating RocksDB backend..." << std::endl;
         RocksDBBackendParams params{
@@ -191,6 +194,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(const parameter_server_con
         };
         persistent_db_ = std::make_unique<RocksDBBackend<TypeHashKey>>(params);
       } break;
+#endif  // HCTR_USE_ROCKS_DB
 
       default:
         HCTR_DIE("Selected backend (persistent_db.type = %d) is not supported!", conf.type);

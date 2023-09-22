@@ -14,7 +14,7 @@
 #
 
 cmake_minimum_required(VERSION 3.20)
-message(STATUS "Building third_party dependencies.")
+message(STATUS "Configuring third_party dependencies...")
 
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 include(FetchContent)
@@ -41,7 +41,12 @@ endfunction()
 build_json()
 
 function(build_redis)
-  message("=== Dependency: Hiredis =======================================================")
+  list(FIND HCTR_FEATURES "redis" HCTR_FEATURE_ENABLED)
+  if(${HCTR_FEATURE_ENABLED} EQUAL -1)
+    return()
+  endif()
+
+  message("=== Configure Dependency: Hiredis =============================================")
   set(ENABLE_SSL ON)
   set(DISABLE_TESTS ON)
   add_subdirectory(hiredis)
@@ -64,7 +69,7 @@ function(build_redis)
     add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
   endif()
 
-  message("=== Dependency: Redis++ =======================================================")
+  message("=== Configure Dependency: Redis++ =============================================")
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
   set(REDIS_PLUS_PLUS_BUILD_STATIC OFF)
   set(REDIS_PLUS_PLUS_BUILD_TEST OFF)
@@ -74,7 +79,12 @@ endfunction()
 build_redis()
 
 function(build_rocksdb)
-  message("=== Dependency: RocksDB =======================================================")
+  list(FIND HCTR_FEATURES "rocks_db" HCTR_FEATURE_ENABLED)
+  if(${HCTR_FEATURE_ENABLED} EQUAL -1)
+    return()
+  endif()
+
+  message("=== Configure Dependency: RocksDB =============================================")
   set(PORTABLE ON)
   set(WITH_TESTS OFF)
   set(WITH_BENCHMARK_TOOLS OFF)

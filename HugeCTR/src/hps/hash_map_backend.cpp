@@ -516,6 +516,7 @@ size_t HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstrea
   return num_entries;
 }
 
+#ifdef HCTR_USE_ROCKS_DB
 template <typename Key>
 size_t HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) {
   const std::shared_lock lock(read_write_guard_);
@@ -554,6 +555,7 @@ size_t HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::Sst
 
   return entries.size();
 }
+#endif  // HCTR_USE_ROCKS_DB
 
 template <typename Key>
 size_t HashMapBackend<Key>::resolve_overflow_(const std::string& table_name,

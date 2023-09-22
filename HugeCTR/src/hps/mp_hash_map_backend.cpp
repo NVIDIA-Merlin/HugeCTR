@@ -602,6 +602,7 @@ size_t MultiProcessHashMapBackend<Key>::dump_bin(const std::string& table_name,
   return num_entries;
 }
 
+#ifdef HCTR_USE_ROCKS_DB
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
                                                  rocksdb::SstFileWriter& file) {
@@ -641,6 +642,7 @@ size_t MultiProcessHashMapBackend<Key>::dump_sst(const std::string& table_name,
 
   return entries.size();
 }
+#endif  // HCTR_USE_ROCKS_DB
 
 template <typename Key>
 size_t MultiProcessHashMapBackend<Key>::resolve_overflow_(const std::string& table_name,
