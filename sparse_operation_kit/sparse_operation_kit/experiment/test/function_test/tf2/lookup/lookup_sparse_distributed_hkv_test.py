@@ -74,7 +74,7 @@ if __name__ == "__main__":
     right = batch_size // hvd.size() * (hvd.rank() + 1)
 
     # initialize optimizer
-    optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+    optimizer = tf.optimizers.SGD(learning_rate=1.0, momentum=0.9)
     # sok_optimizer = sok.SGD(lr=1.0)
     sok_optimizer = sok.OptimizerWrapper(optimizer)
 
@@ -83,8 +83,6 @@ if __name__ == "__main__":
             embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
             loss = 0
             for i in range(len(embeddings)):
-                # print(indices[i])
-                # print(embeddings[i])
                 loss = loss + tf.reduce_sum(embeddings[i])
         grads = tape.gradient(loss, params)
         sok_optimizer.apply_gradients(zip(grads, params))
@@ -103,8 +101,7 @@ if __name__ == "__main__":
             indices.append(total_indices[j][i * batch_size + left : i * batch_size + right])
         loss = step(sok_vars, indices)
         loss1.append(loss)
-        print("-" * 30 + "iteration %d" % i + "-" * 30)
-        # print("loss:", loss)
+        print("-" * 30 + "iteration %d" % i + "-" * 30, "sok loss = ", loss)
     out1 = []
     for i in range(len(sok_vars)):
         out1.append(tf.nn.embedding_lookup(sok_vars[i], local_indices[i]))
@@ -120,6 +117,7 @@ if __name__ == "__main__":
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
         grads = [hvd.allreduce(grad, op=hvd.Sum) for grad in grads]
+
         optimizer.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
@@ -137,8 +135,7 @@ if __name__ == "__main__":
             )
         loss = step2(tf_vars, indices)
         loss2.append(loss)
-        print("-" * 30 + "iteration %d" % i + "-" * 30)
-        # print("tf loss:", loss)
+        print("-" * 30 + "iteration %d" % i + "-" * 30, "sok loss = ", loss)
     out2 = []
     for i, v in enumerate(tf_vars):
         out2.append(tf.nn.embedding_lookup(v, local_indices[i]))
