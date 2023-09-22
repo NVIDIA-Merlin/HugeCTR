@@ -46,6 +46,8 @@ struct RedisClusterBackendParams final : public VolatileBackendParams {
       "redis.localhost"};  // SNI to request (can deviate from connection address).
 };
 
+#ifdef HCTR_USE_REDIS
+
 /**
  * \p DatabaseBackend implementation that connects to a Redis to store/retrieve information (i.e.
  * distributed storage).
@@ -101,7 +103,9 @@ class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBacken
 
   size_t dump_bin(const std::string& table_name, std::ofstream& file) override;
 
+#ifdef HCTR_USE_ROCKS_DB
   size_t dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+#endif  // HCTR_USE_ROCKS_DB
 
  protected:
   /**
@@ -150,6 +154,8 @@ class RedisClusterBackend final : public VolatileBackend<Key, RedisClusterBacken
   // Worker used to update timestamps and carry out overflow handling.
   mutable ThreadPool background_worker_{"redis bg worker", 1};
 };
+
+#endif  // HCTR_USE_REDIS
 
 // TODO: Remove me!
 #pragma GCC diagnostic pop

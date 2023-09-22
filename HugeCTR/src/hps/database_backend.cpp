@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-#include <rocksdb/sst_file_reader.h>
-
 #include <core23/logger.hpp>
 #include <fstream>
 #include <hps/database_backend.hpp>
 #include <hps/database_backend_detail.hpp>
 #include <sstream>
+
+#ifdef HCTR_USE_ROCKS_DB
+#include <rocksdb/sst_file_reader.h>
+#endif  // HCTR_USE_ROCKS_DB
 
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"
@@ -105,6 +107,7 @@ size_t DatabaseBackendBase<Key>::dump(const std::string& table_name, const std::
       hit_count = dump_bin(table_name, file);
     } break;
 
+#ifdef HCTR_USE_ROCKS_DB
     case DatabaseTableDumpFormat_t::SST: {
       rocksdb::Options options;
       rocksdb::EnvOptions env_options;
@@ -116,6 +119,7 @@ size_t DatabaseBackendBase<Key>::dump(const std::string& table_name, const std::
 
       HCTR_ROCKSDB_CHECK(file.Finish());
     } break;
+#endif  // HCTR_USE_ROCKS_DB
 
     default: {
       HCTR_DIE("Unsupported DB table dump format!");
@@ -209,6 +213,9 @@ size_t DatabaseBackendBase<Key>::load_dump_bin(const std::string& table_name,
 template <typename Key>
 size_t DatabaseBackendBase<Key>::load_dump_sst(const std::string& table_name,
                                                const std::string& path) {
+  size_t hit_count{};
+
+#ifdef HCTR_USE_ROCKS_DB
   rocksdb::Options options;
   rocksdb::SstFileReader file{options};
   HCTR_ROCKSDB_CHECK(file.Open(path));
@@ -217,7 +224,6 @@ size_t DatabaseBackendBase<Key>::load_dump_sst(const std::string& table_name,
   std::unique_ptr<rocksdb::Iterator> it{file.NewIterator(read_options)};
   it->SeekToFirst();
 
-  size_t hit_count{0};
   uint32_t value_size{0};
   std::vector<Key> keys;
   std::vector<char> values;
@@ -252,6 +258,9 @@ size_t DatabaseBackendBase<Key>::load_dump_sst(const std::string& table_name,
     insert(table_name, keys.size(), keys.data(), values.data(), value_size, value_size);
     hit_count += keys.size();
   }
+#else
+  HCTR_OWN_THROW_(Error_t::IllegalCall, "HugeCTR was compiled without RocksDB support!");
+#endif  // HCTR_USE_ROCKS_DB
 
   return hit_count;
 }

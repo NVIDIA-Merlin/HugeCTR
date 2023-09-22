@@ -63,7 +63,51 @@ if(CLANGFORMAT)
 endif()
 
 option(ENABLE_GCS "Enable GCS" OFF)
+
+# List of supported features.
+set(HCTR_SUPPORTED_FEATURES "")
+list(APPEND HCTR_SUPPORTED_FEATURES "redis")
+list(APPEND HCTR_SUPPORTED_FEATURES "rocks_db")
+
+# List of features enabled in this build configuration.
+set(HCTR_FEATURES "${HCTR_SUPPORTED_FEATURES}" CACHE STRING "Enabled optional features")
+list(REMOVE_DUPLICATES HCTR_FEATURES)
+string(TOLOWER "${HCTR_FEATURES}" HCTR_FEATURES)
+
+# Verify and print feature selection.
+message(STATUS "Enabled optional HugeCTR features:")
+foreach(HCTR_FEATURE ${HCTR_FEATURES})
+  message(STATUS "  ${HCTR_FEATURE}")
+  list(FIND HCTR_SUPPORTED_FEATURES "${HCTR_FEATURE}" HCTR_FEATURE_ENABLED)
+  if(${HCTR_FEATURE_ENABLED} EQUAL -1)
+    message(FATAL_ERROR "Unsupported feature \"${HCTR_FEATURE}\"! Supported features: ${HCTR_SUPPORTED_FEATURES}")
+  endif()
+endforeach()
+
+# Build dependencies.
 add_subdirectory(third_party)
+
+# Expand include path and library list accordingly, and toggle preprocessor flags.
+foreach(HCTR_FEATURE ${HCTR_FEATURES})
+  if(${HCTR_FEATURE} STREQUAL "redis")
+    include_directories(
+      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
+      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
+      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/tls
+    )
+    link_libraries(hiredis redis++)
+  elseif(${HCTR_FEATURE} STREQUAL "rocks_db")
+    include_directories(
+      ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
+    )
+    link_libraries(rocksdb-shared)
+  endif()
+
+  string(TOUPPER "${HCTR_FEATURE}" HCTR_FEATURE)
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DHCTR_USE_${HCTR_FEATURE}")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DHCTR_USE_${HCTR_FEATURE}")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DHCTR_USE_${HCTR_FEATURE}")
+endforeach()
 
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
@@ -242,10 +286,6 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
-  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
-  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
-  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/tls
-  ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
   ${PROJECT_SOURCE_DIR}/third_party/librdkafka/src
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
   ${PROJECT_SOURCE_DIR}/third_party/dynamic_embedding_table

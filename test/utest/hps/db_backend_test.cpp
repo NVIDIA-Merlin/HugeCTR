@@ -43,17 +43,21 @@ std::unique_ptr<DatabaseBackendBase<T>> make_db(const DatabaseType_t database_ty
       return std::make_unique<HashMapBackend<T>>(params);
     } break;
 
+#ifdef HCTR_USE_REDIS
     case DatabaseType_t::RedisCluster: {
       RedisClusterBackendParams params;
       params.address = "127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002";
       return std::make_unique<RedisClusterBackend<T>>(params);
     } break;
+#endif  // HCTR_USE_REDIS
 
+#ifdef HCTR_USE_ROCKS_DB
     case DatabaseType_t::RocksDB: {
       RocksDBBackendParams params;
       params.path = "/hugectr/Test_Data/rockdb";
       return std::make_unique<RocksDBBackend<T>>(params);
     } break;
+#endif  // HCTR_USE_ROCKS_DB
 
     default:
       HCTR_DIE("Unsupported database type!");

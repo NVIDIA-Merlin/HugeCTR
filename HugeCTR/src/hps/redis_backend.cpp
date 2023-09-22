@@ -30,6 +30,8 @@
 
 namespace HugeCTR {
 
+#ifdef HCTR_USE_REDIS
+
 inline std::string make_hkey(const std::string& table_name, const size_t part, const char suffix) {
   std::ostringstream os;
   // These curly brackets (`{` and `}`) are not a design choice. Instead, this will trigger Redis to
@@ -750,6 +752,7 @@ size_t RedisClusterBackend<Key>::dump_bin(const std::string& table_name, std::of
   return num_entries;
 }
 
+#ifdef HCTR_USE_ROCKS_DB
 template <typename Key>
 size_t RedisClusterBackend<Key>::dump_sst(const std::string& table_name,
                                           rocksdb::SstFileWriter& file) {
@@ -782,6 +785,7 @@ size_t RedisClusterBackend<Key>::dump_sst(const std::string& table_name,
 
   return keys.size();
 }
+#endif  // HCTR_USE_ROCKS_DB
 
 template <typename Key>
 void RedisClusterBackend<Key>::resolve_overflow_(const std::string& table_name,
@@ -1069,5 +1073,7 @@ void RedisClusterBackend<Key>::queue_metadata_refresh_(const std::string& table_
 
 template class RedisClusterBackend<unsigned int>;
 template class RedisClusterBackend<long long>;
+
+#endif  // HCTR_USE_REDIS
 
 }  // namespace HugeCTR
