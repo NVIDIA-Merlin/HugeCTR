@@ -49,6 +49,7 @@ class DynamicVariable(ResourceVariable):
     var_type: string
         a string to specify to use DET or HKV as the backend.
         If use HKV as the backend, only support tf.int64 as key_type
+        If use HKV as the backend, please set init_capacity and max_capacity value equal to 2 powers.
 
     key_type: dtype
         specify the data type of indices. Unlike the static variable of
@@ -99,13 +100,15 @@ class DynamicVariable(ResourceVariable):
         self._indices = None
         self._mode = mode
         self._config = json.dumps(kwargs)
+        self._config_dict = kwargs
         if var_type == "hybrid" and self._key_type != tf.int64:
             raise NotImplementedError("only key_type tf.int64 is supported in HKV backend")
         if name == None:
             global dynamic_variable_count
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
             dynamic_variable_count += 1
-
+        var_type = "hbm" if var_type is None else var_type
+        self._var_type = var_type
         self._base = super(DynamicVariable, self)
         self._base.__init__(
             initial_value=[[0.0] * dimension],
@@ -128,7 +131,7 @@ class DynamicVariable(ResourceVariable):
                 with ops.NullContextmanager():
                     shape = [None, dimension]
                     initializer = "" if initializer is None else initializer
-                    var_type = "hbm" if var_type is None else var_type
+                    self._initializer = initializer
                     handle = dynamic_variable_ops.dummy_var_handle(
                         container="DummyVariableContainer",
                         shared_name=self._dummy_name,
@@ -156,6 +159,7 @@ class DynamicVariable(ResourceVariable):
                             unique_name=self._dummy_name,
                             key_type=self._key_type,
                             dtype=self._handle_dtype,
+                            config=self._config,
                         )
                     # TODO: Add is_initialized_op
                     # is_initialized_op = ops.convert_to_tensor(True)
@@ -234,6 +238,14 @@ class DynamicVariable(ResourceVariable):
         return self._handle_dtype
 
     @property
+    def backend_type(self):
+        return self._var_type
+
+    @property
+    def config_dict(self):
+        return self._config_dict
+
+    @property
     def target_gpu(self):
         if self._mode is not None and self._mode[: len("localized")] == "localized":
             target_gpu = int(self._mode.split(":")[1])
@@ -252,6 +264,10 @@ class DynamicVariable(ResourceVariable):
     @property
     def num_gpus(self):
         return num_gpus()
+
+    @property
+    def initializer_str(self):
+        return self._initializer
 
     def key_map(self, indices):
         return indices

@@ -389,6 +389,7 @@ def to_list(any_obj):
 def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     shard, dimensions = [], []
     for param in params:
+
         shard.append(param.target_gpu)
         if importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
             param, kv_variable_ops.EmbeddingVariable

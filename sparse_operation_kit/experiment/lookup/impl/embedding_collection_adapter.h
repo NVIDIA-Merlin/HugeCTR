@@ -31,6 +31,8 @@
 #include "HugeCTR/embedding/embedding_table.hpp"
 
 #include "variable/kernels/dummy_var.h"
+#include "lookup/impl/embedding_collection.hpp"
+#include "HugeCTR/embedding/operators/unique_op.hpp"
 // clang-format on
 
 namespace sok {
@@ -47,7 +49,8 @@ class TFAdapter : public ::embedding::ILookup {
            cudaStream_t stream = 0);
 
   // for ResourceVariable
-  void set(std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
+  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,
+           std::vector<tensorflow::core::RefCountPtr<tensorflow::Var>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 
@@ -56,6 +59,7 @@ class TFAdapter : public ::embedding::ILookup {
               core23::Tensor& embedding_vec) override;
 
  private:
+  std::shared_ptr<sok::CoreResourceManager> tf_backend_;
   int sm_count_;
   std::vector<float*> data_;
   std::vector<int> dimensions_;
@@ -75,7 +79,8 @@ class DummyVarAdapter : public ::embedding::ILookup {
   DummyVarAdapter();
   virtual ~DummyVarAdapter() = default;
 
-  void set(std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
+  void set(std::shared_ptr<sok::CoreResourceManager> tf_backend,
+           std::vector<tensorflow::core::RefCountPtr<tensorflow::DummyVar<KeyType, DType>>>& vars,
            std::vector<tensorflow::tf_shared_lock>& locks, std::vector<int>& dimensions,
            std::vector<int>& scale, cudaStream_t stream = 0);
 
@@ -84,6 +89,7 @@ class DummyVarAdapter : public ::embedding::ILookup {
               core23::Tensor& embedding_vec) override;
 
  private:
+  std::shared_ptr<sok::CoreResourceManager> tf_backend_;
   int sm_count_;
   // std::vector<int> id_space_to_local_index_;
   std::vector<OffsetType> id_space_offset_;

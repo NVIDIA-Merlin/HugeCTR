@@ -37,12 +37,12 @@ __device__ __forceinline__ unsigned int GlobalThreadId() {
 }
 
 template <typename T>
-__global__ void generate_uniform_kernel(curandState* state, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_uniform_kernel(curandState* state, T* result, size_t n) {
+  auto id = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random uniforms */
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = curand_uniform_double(&localState);
   }
   /* Copy state back to global memory */
@@ -50,15 +50,15 @@ __global__ void generate_uniform_kernel(curandState* state, T* result, int n) {
 }
 
 template <typename T>
-__global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+__global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_found, size_t dim) {
+  auto id = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random uniforms */
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = curand_uniform_double(&localState);
     }
   }
@@ -67,32 +67,32 @@ __global__ void generate_uniform_kernel(curandState* state, T** result, bool* d_
 }
 
 template <typename T>
-__global__ void const_initializer_kernel(float val, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+__global__ void const_initializer_kernel(float val, T* result, size_t n) {
+  auto id = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = static_cast<T>(val);
   }
 }
 
 template <typename T>
-__global__ void const_initializer_kernel(float val, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+__global__ void const_initializer_kernel(float val, T** result, bool* d_found, size_t dim) {
+  size_t id = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = static_cast<T>(val);
     }
   }
 }
 
 template <typename T>
-__global__ void generate_normal_kernel(curandState* state, T* result, int n) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_normal_kernel(curandState* state, T* result, size_t n) {
+  auto id = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random normals */
-  for (int i = id; i < n; i += blockDim.x * gridDim.x) {
+  for (size_t i = id; i < n; i += blockDim.x * gridDim.x) {
     result[i] = curand_normal_double(&localState);
   }
   /* Copy state back to global memory */
@@ -100,16 +100,16 @@ __global__ void generate_normal_kernel(curandState* state, T* result, int n) {
 }
 
 template <typename T>
-__global__ void generate_normal_kernel(curandState* state, T** result, bool* d_found, int dim) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void generate_normal_kernel(curandState* state, T** result, bool* d_found, size_t dim) {
+  auto id = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
 
-  int emb_id = blockIdx.x;
-  int emb_vec_id = threadIdx.x;
+  size_t emb_id = blockIdx.x;
+  size_t emb_vec_id = threadIdx.x;
   /* Copy state to local memory for efficiency */
   curandState localState = state[GlobalThreadId()];
   /* Generate pseudo-random normals */
   if (!d_found[emb_id]) {
-    for (int i = emb_vec_id; i < dim; i += blockDim.x) {
+    for (size_t i = emb_vec_id; i < dim; i += blockDim.x) {
       result[emb_id][i] = curand_normal_double(&localState);
     }
   }
@@ -206,19 +206,24 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
 
   // `keys` and `values` are pointers of host memory
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
-  hkv_table_->export_batch(num_keys, 0, d_keys, d_values, nullptr, stream);  // Meta missing
+  // KeyType* d_keys;
+  // CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  // ValueType* d_values;
+  // CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+  hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr,
+                           stream);  // Meta missing
+  CUDACHECK(cudaStreamSynchronize(stream));
 
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(keys, d_keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyDeviceToHost, stream));
-  CUDACHECK(cudaMemcpyAsync(values, d_values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyDeviceToHost, stream));
-  // clang-format on
-  CUDACHECK(cudaStreamSynchronize(stream));
+  std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
+  std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
+  //CUDACHECK(cudaMemcpy(keys, d_keys, sizeof(KeyType) * num_keys,cudaMemcpyDeviceToHost));
+  //CUDACHECK(cudaMemcpy(values, d_values, sizeof(ValueType) * num_keys * dim,cudaMemcpyDeviceToHost));
+  //  clang-format on
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
 }
@@ -227,23 +232,31 @@ template <typename KeyType, typename ValueType>
 void HKVVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueType* values,
                                              size_t num_keys, cudaStream_t stream) {
   int64_t dim = cols();
-
   // `keys` and `values` are pointers of host memory
+  // KeyType* d_keys;
+  // CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  // ValueType* d_values;
+  // CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
+
   KeyType* d_keys;
-  CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
   ValueType* d_values;
-  CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
-
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
   // clang-format off
-  CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_keys, keys, sizeof(KeyType) * num_keys,
+  //                          cudaMemcpyHostToDevice, stream));
 
-  CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
-                            cudaMemcpyHostToDevice, stream));
+  //CUDACHECK(cudaMemcpyAsync(d_values, values, sizeof(ValueType) * num_keys * dim,
+  //                          cudaMemcpyHostToDevice, stream));
 
+  //CUDACHECK(cudaStreamSynchronize(stream));
+  std::memcpy(d_keys, keys, sizeof(KeyType) * num_keys);
+  std::memcpy(d_values, values, sizeof(ValueType) * num_keys * dim);
   hkv_table_->insert_or_assign(num_keys, d_keys, d_values, nullptr, stream);
 
   CUDACHECK(cudaStreamSynchronize(stream));
+  CUDACHECK(cudaFree(d_keys));
+  CUDACHECK(cudaFree(d_values));
 }
 
 template <typename KeyType, typename ValueType>
@@ -256,10 +269,10 @@ void HKVVariable<KeyType, ValueType>::lookup(const KeyType* keys, ValueType* val
   int64_t dim = cols();
 
   if (initializer_ == "normal" || initializer_ == "random") {
-    generate_normal_kernel<<<(num_keys * dim - 1) / 1024, 1024, 0, stream>>>(curand_states_, values,
+    generate_normal_kernel<<<(num_keys * dim + 1024 - 1) / 1024, 1024, 0, stream>>>(curand_states_, values,
                                                                              num_keys * dim);
   } else if (initializer_ == "uniform") {
-    generate_uniform_kernel<<<(num_keys * dim - 1) / 1024, 1024, 0, stream>>>(
+    generate_uniform_kernel<<<(num_keys * dim + 1024 - 1) / 1024, 1024, 0, stream>>>(
         curand_states_, values, num_keys * dim);
   } else {
     try {
@@ -334,5 +347,4 @@ void HKVVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const 
 }
 
 template class HKVVariable<int64_t, float>;
-template class HKVVariable<int32_t, float>;
 }  // namespace sok

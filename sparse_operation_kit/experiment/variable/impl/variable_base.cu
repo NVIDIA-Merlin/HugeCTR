@@ -82,6 +82,17 @@ std::shared_ptr<VariableBase<KeyType, ValueType>> VariableFactory::create(
         max_load_factor, block_size, device_id, io_by_cpu, evict_strategy, stream);
   }
 }
+template <>
+std::shared_ptr<VariableBase<int32_t, float>> VariableFactory::create(
+    int64_t rows, int64_t cols, const std::string &type, const std::string &initializer,
+    const std::string &config, cudaStream_t stream) {
+  if (type == "hbm") {
+    return std::make_shared<DETVariable<int32_t, float>>(cols, 2E4, initializer, stream);
+  }
+  if (type == "hybrid") {
+    throw std::runtime_error("int32_t Keytype for hkv is not implemented yet.");
+  }
+}
 
 template std::shared_ptr<VariableBase<int32_t, float>> VariableFactory::create<int32_t, float>(
     int64_t rows, int64_t cols, const std::string &type, const std::string &initializer,
