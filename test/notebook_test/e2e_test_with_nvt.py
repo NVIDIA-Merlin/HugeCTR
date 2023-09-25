@@ -30,7 +30,7 @@ TEST_PATH = dirname(dirname(realpath(__file__)))
 
 @pytest.mark.skipif(hugectr is None, reason="hugectr not installed")
 def test_criteo_hugectr():
-    notebook = os.path.join(dirname(TEST_PATH), "notebooks/hugectr_e2e_demo.ipynb")
+    notebook = os.path.join(dirname(TEST_PATH), "notebooks/hugectr_e2e_demo_with_nvtabular.ipynb")
     input_path = "/dir/to/criteo/day_0"  # hard code here may need to change
     with testbook(
         notebook,

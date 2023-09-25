@@ -20,6 +20,17 @@ utests:
     WALLTIME: "02:00:00"
     TEST_CMD: ./ci/utest/utest.sub
 
+utests_embedding_collection:
+  extends: .selene_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_embedding_collection
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/,/raid:/raid,/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw
+    TEST_CMD: ./ci/utest/utest_embedding_collection.sub
+
 utests_core23:
   extends: .selene_test_job
   needs:
