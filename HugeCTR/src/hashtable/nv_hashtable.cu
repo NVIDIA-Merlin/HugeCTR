@@ -271,7 +271,7 @@ void HashTable<KeyType, ValType>::dump(KeyType* d_key, ValType* d_val, size_t* d
                                        cudaStream_t stream) const {
   size_t search_length = static_cast<size_t>(capacity_ / LOAD_FACTOR);
   // Before we call the kernel, set the global counter to 0
-  HCTR_LIB_THROW(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));
   // grid size according to the searching length.
   const int grid_size = (search_length - 1) / BLOCK_SIZE_ + 1;
   // dump_kernel: dump bucket container_[0, search_length) to d_key and d_val, and report
