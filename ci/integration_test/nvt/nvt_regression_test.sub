@@ -7,5 +7,5 @@ srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash 
     bash preprocess.sh && \
     cd /workdir/tools/ && \
     bash preprocess.sh 1 criteo_data nvt 1 0 0 && \
-    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/hugectr_e2e_demo.ipynb && \
+    sed -i 's/from mpi4py import MPI/#from mpi4py import MPI/g' /workdir/notebooks/hugectr_e2e_demo_with_nvtabular.ipynb && \
     cd /workdir/test/notebook_test && pytest e2e_test_with_nvt.py"
