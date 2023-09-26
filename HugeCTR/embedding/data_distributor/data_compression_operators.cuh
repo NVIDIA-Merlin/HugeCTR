@@ -122,6 +122,13 @@ struct TablePartitioner {
   view_type view() const noexcept { return view_type{lookup_id_to_local_table_id.data<int>()}; }
 };
 
+struct IdentityPartitionerView {
+  template <typename KeyType>
+  DEVICE_INLINE int operator()(const KeyPair<KeyType> &key_pair) const noexcept {
+    return key_pair.feature_id;
+  }
+};
+
 union TableValue {
   uint64_t value;
   struct Detail {

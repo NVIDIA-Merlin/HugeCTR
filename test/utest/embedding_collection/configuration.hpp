@@ -62,7 +62,7 @@ static std::vector<EmbeddingConfiguration> tiny_embedding{
     {1, {1, 10}, 10000, 8, Combiner::Sum},
     {1, {1, 10}, 1000000, 16, Combiner::Sum},
     {1, {1, 10}, 25000000, 16, Combiner::Sum},
-    {1, {1}, 25000000, 16},
+    {1, {1, 10}, 25000000, 16},
     {16, {1}, 10, 8},
     {10, {1}, 1000, 8},
     {4, {1}, 10000, 8},
