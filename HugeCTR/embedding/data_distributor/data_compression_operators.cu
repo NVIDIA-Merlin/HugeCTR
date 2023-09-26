@@ -63,13 +63,15 @@ __global__ void partition_and_unique_kernel(
 
 template <typename KeyType, typename BucketRangeType, typename HashTable>
 __global__ void partition_and_unique_kernel(
-    const KeyType *keys, const int *feature_ids, size_t num_keys, HashTable table,
+    const KeyType *keys, const int *feature_ids, const int *lookup_id_to_local_table_id,
+    size_t num_keys, HashTable table,
     CompressedDataView<KeyType, BucketRangeType> compressed_data) {
   CUDA_1D_KERNEL_LOOP(i, num_keys) {
     const KeyType key = keys[i];
     const int feature_id = feature_ids[i];
+    const int table_id = lookup_id_to_local_table_id[feature_id];
 
-    uint32_t r_idx_plus_one = table.find({key, feature_id}, compressed_data.partitioned_data);
+    uint32_t r_idx_plus_one = table.find({key, table_id}, compressed_data.partitioned_data);
 
     compressed_data.reverse_idx[i] = r_idx_plus_one - 1;
   }
@@ -511,9 +513,9 @@ void PartitionAndUniqueOperator::partition_and_unique_by_table_id(
           compressed_data.partitioned_data.d_num_key_per_partition.data(), 0,
           compressed_data.partitioned_data.d_num_key_per_partition.num_bytes(), stream));
 
-      TablePartitionerView partitioner{table_partitioner.lookup_id_to_local_table_id.data<int>()};
-      UniqueTableView<KeyType, BucketRangeType, TablePartitionerView> hash_table{
-          (TableEntry<KeyType> *)hash_table_storage_.data(), table_capacity_, partitioner};
+      IdentityPartitionerView identity_partitioner;
+      UniqueTableView<KeyType, BucketRangeType, IdentityPartitionerView> hash_table{
+          (TableEntry<KeyType> *)hash_table_storage_.data(), table_capacity_, identity_partitioner};
       CompressedDataView<KeyType, BucketRangeType> compressed_data_view{
           compressed_data.partitioned_data.view<KeyType, BucketRangeType>(),
           compressed_data.reverse_idx.data<BucketRangeType>()};
@@ -524,7 +526,8 @@ void PartitionAndUniqueOperator::partition_and_unique_by_table_id(
       int block_size = kernel_param.max_thread_per_block;
 
       partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
-          keys_gpu_major.data<KeyType>(), feature_ids_gpu_major.data<int>(), num_keys, hash_table,
+          keys_gpu_major.data<KeyType>(), feature_ids_gpu_major.data<int>(),
+          table_partitioner.lookup_id_to_local_table_id.data<int>(), num_keys, hash_table,
           compressed_data_view);
     });
   });
