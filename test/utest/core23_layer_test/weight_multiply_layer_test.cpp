@@ -92,8 +92,8 @@ void weight_multiply_test(int64_t batch_size, int64_t slot_num, int64_t embeddin
                                                 .buffer_params(blobs_buffer_params));
   core23::Tensor out_tensor;
 
-  Core23TempWeightMultiplyLayer<T> weight_multiply_layer(in_tensor, out_tensor, weight_dims,
-                                                         test::get_default_gpu());
+  WeightMultiplyLayer<T> weight_multiply_layer(in_tensor, out_tensor, weight_dims,
+                                               test::get_default_gpu());
 
   weight_multiply_layer.initialize();
 

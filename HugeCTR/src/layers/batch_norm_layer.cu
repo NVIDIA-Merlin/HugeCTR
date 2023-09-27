@@ -29,206 +29,10 @@ using ToStringType = typename std::conditional<std::is_same<T, __half>::value, f
 }
 
 template <typename T>
-BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                                  const std::shared_ptr<BufferBlock2<WeightType>>& weight_buff,
-                                  const std::shared_ptr<BufferBlock2<WeightType>>& wgrad_buff,
-                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+BatchNormLayer<T>::BatchNormLayer(const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
                                   const Params& params,
                                   const std::shared_ptr<GPUResource>& gpu_resource,
                                   std::vector<Initializer_t> initializer_types)
-    : Base(master_weight_buff, weight_buff, wgrad_buff, gpu_resource, initializer_types),
-      params_(params),
-      mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
-  CudaDeviceContext context(this->get_device_id());
-  const auto& in_tensor_dim = in_tensor.get_dimensions();
-  const auto& out_tensor_dim = out_tensor.get_dimensions();
-
-  assert(get_size_from_dims(in_tensor_dim) == get_size_from_dims(out_tensor_dim));
-  assert(in_tensor_dim.size() == 2 && out_tensor_dim.size() == 2);
-  assert(in_tensor_dim[0] == out_tensor_dim[0]);
-  assert(in_tensor_dim[1] == out_tensor_dim[1]);
-
-  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&in_out_desc_));
-
-  size_t num_feature = in_tensor_dim[1];
-  int batch_size = in_tensor_dim[0];
-
-  cudnnDataType_t data_type = std::is_same<T, __half>::value ? CUDNN_DATA_HALF : CUDNN_DATA_FLOAT;
-  int n_stride = num_feature;
-  int w_stride = 1;
-
-  HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
-                                              num_feature, n_stride, 1, 1, w_stride));
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-
-  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
-
-  HCTR_LIB_THROW(cudnnDeriveBNTensorDescriptor(gamma_beta_desc_, in_out_desc_, mode_));
-
-  std::vector<size_t> gamma_dim = {num_feature, 1};
-
-  // gamma & beta
-  this->set_weight(0, gamma_dim);
-  this->set_weight(1, gamma_dim);
-
-  gamma_ = this->get_weight(0);
-  beta_ = this->get_weight(1);
-  // gamma grad & beta grad
-  this->set_wgrad(0, gamma_dim);
-  this->set_wgrad(1, gamma_dim);
-  gamma_grad_ = this->get_wgrad(0);
-  beta_grad_ = this->get_wgrad(1);
-
-  // result running mean & var
-  blob_buff->reserve(gamma_dim, &result_running_mean_);
-  blob_buff->reserve(gamma_dim, &result_running_var_);
-
-  // save running mean & var (cache)
-  blob_buff->reserve(gamma_dim, &result_save_mean_);
-  blob_buff->reserve(gamma_dim, &result_save_inv_var_);
-}
-
-template <typename T>
-BatchNormLayer<T>::~BatchNormLayer() {
-  try {
-    HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(in_out_desc_));
-    HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
-  } catch (const std::runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-  }
-}
-
-template <typename T>
-void BatchNormLayer<T>::initialize() {
-  // host array to get running mean & var
-
-  size_t num_feature = in_tensors_[0].get_dimensions()[1];
-
-  std::shared_ptr<GeneralBuffer2<HostAllocator>> internal_host_buf =
-      GeneralBuffer2<HostAllocator>::create();
-
-  internal_host_buf->reserve({num_feature}, &h_result_running_mean_);
-  internal_host_buf->reserve({num_feature}, &h_result_running_var_);
-
-  internal_host_buf->allocate();
-}
-
-template <typename T>
-void BatchNormLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(this->get_device_id());
-  float one = 1.0f, zero = 0.0f;
-
-  Tensor2<T>& in_tensor = in_tensors_[0];
-  Tensor2<T>& out_tensor = out_tensors_[0];
-  T* in = in_tensor.get_ptr();
-  T* out = out_tensor.get_ptr();
-
-  float* gamma = gamma_.get_ptr();
-  float* beta = beta_.get_ptr();
-
-  float* result_running_mean = result_running_mean_.get_ptr();
-  float* result_running_var = result_running_var_.get_ptr();
-  float* result_save_mean = result_save_mean_.get_ptr();
-  float* result_save_inv_var = result_save_inv_var_.get_ptr();
-
-  if (is_train) {
-    HCTR_LIB_THROW(cudnnBatchNormalizationForwardTraining(
-        this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
-        gamma_beta_desc_, gamma, beta, params_.factor, result_running_mean, result_running_var,
-        params_.eps, result_save_mean, result_save_inv_var));
-  } else {
-    HCTR_LIB_THROW(cudnnBatchNormalizationForwardInference(
-        this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
-        gamma_beta_desc_, gamma, beta, result_running_mean, result_running_var, params_.eps));
-  }
-}
-
-template <typename T>
-void BatchNormLayer<T>::bprop() {
-  CudaDeviceContext context(this->get_device_id());
-
-  float one = 1.0f, zero = 0.0f;
-
-  Tensor2<T>& in_tensor = in_tensors_[0];
-  Tensor2<T>& out_tensor = out_tensors_[0];
-  T* in = in_tensor.get_ptr();
-  T* out = out_tensor.get_ptr();
-
-  float* gamma = gamma_.get_ptr();
-
-  float* gamma_grad = gamma_grad_.get_ptr();
-  float* beta_grad = beta_grad_.get_ptr();
-
-  float* result_save_mean = result_save_mean_.get_ptr();
-  float* result_save_inv_var = result_save_inv_var_.get_ptr();
-
-  HCTR_LIB_THROW(cudnnBatchNormalizationBackward(
-      this->get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, in,
-      in_out_desc_, out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad,
-      params_.eps, result_save_mean, result_save_inv_var));
-}
-
-template <typename T>
-std::string BatchNormLayer<T>::get_no_trained_params_in_string() {
-  float* d_result_running_mean = result_running_mean_.get_ptr();
-  float* d_result_running_var = result_running_var_.get_ptr();
-  size_t n_byte = result_running_mean_.get_size_in_bytes();
-  size_t n_elem = n_byte / sizeof(T);
-
-  HCTR_LIB_THROW(cudaMemcpy(h_result_running_mean_.get_ptr(), d_result_running_mean, n_byte,
-                            cudaMemcpyDeviceToHost));
-  HCTR_LIB_THROW(cudaMemcpy(h_result_running_var_.get_ptr(), d_result_running_var, n_byte,
-                            cudaMemcpyDeviceToHost));
-
-  std::string result = "      \"type\": \"BatchNorm\",\n";
-  result += "      \"mean\": [";
-  for (size_t i = 0; i < n_elem; i++) {
-    result += std::to_string(ToStringType<T>(h_result_running_mean_.get_ptr()[i]));
-    if (i != (n_elem - 1)) result += ", ";
-  }
-  result += "],\n";
-
-  result += "      \"var\": [";
-  for (size_t i = 0; i < n_elem; i++) {
-    result += std::to_string(ToStringType<T>(h_result_running_var_.get_ptr()[i]));
-    if (i != (n_elem - 1)) result += ", ";
-  }
-  result += "]";
-
-  return result;
-}
-
-template <typename T>
-std::vector<TensorBag2> BatchNormLayer<T>::get_tensors_for_non_trainable_params() {
-  std::vector<TensorBag2> tensors;
-  tensors.push_back(result_running_mean_.shrink());
-  tensors.push_back(result_running_var_.shrink());
-  return tensors;
-}
-
-template <typename T>
-std::unique_ptr<DataSimulator> BatchNormLayer<T>::get_default_initializer(const int index) {
-  std::unique_ptr<DataSimulator> simu;
-  if (0 == index) {
-    simu.reset(new ConstantDataSimulator(1.0f));
-  } else if (1 == index) {
-    simu.reset(new ConstantDataSimulator(0.0f));
-  } else {
-    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
-  }
-  return simu;
-}
-
-template class BatchNormLayer<float>;
-template class BatchNormLayer<__half>;
-
-template <typename T>
-Core23TempBatchNormLayer<T>::Core23TempBatchNormLayer(
-    const core23::Tensor& in_tensor, const core23::Tensor& out_tensor, const Params& params,
-    const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
     : Base({in_tensor}, {out_tensor}, gpu_resource, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
@@ -303,7 +107,7 @@ Core23TempBatchNormLayer<T>::Core23TempBatchNormLayer(
 }
 
 template <typename T>
-Core23TempBatchNormLayer<T>::~Core23TempBatchNormLayer() {
+BatchNormLayer<T>::~BatchNormLayer() {
   try {
     HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(in_out_desc_));
     HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
@@ -313,7 +117,7 @@ Core23TempBatchNormLayer<T>::~Core23TempBatchNormLayer() {
 }
 
 template <typename T>
-void Core23TempBatchNormLayer<T>::initialize() {
+void BatchNormLayer<T>::initialize() {
   // host array to get running mean & var
 
   int64_t num_feature = this->input_tensors_[0].shape().size(1);
@@ -330,7 +134,7 @@ void Core23TempBatchNormLayer<T>::initialize() {
 }
 
 template <typename T>
-void Core23TempBatchNormLayer<T>::fprop(bool is_train) {
+void BatchNormLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(this->get_device_id());
   float one = 1.0f, zero = 0.0f;
 
@@ -360,7 +164,7 @@ void Core23TempBatchNormLayer<T>::fprop(bool is_train) {
 }
 
 template <typename T>
-void Core23TempBatchNormLayer<T>::bprop() {
+void BatchNormLayer<T>::bprop() {
   CudaDeviceContext context(this->get_device_id());
 
   float one = 1.0f, zero = 0.0f;
@@ -385,7 +189,7 @@ void Core23TempBatchNormLayer<T>::bprop() {
 }
 
 template <typename T>
-std::string Core23TempBatchNormLayer<T>::get_no_trained_params_in_string() {
+std::string BatchNormLayer<T>::get_no_trained_params_in_string() {
   float* d_result_running_mean = result_running_mean_.data<float>();
   float* d_result_running_var = result_running_var_.data<float>();
   int64_t n_byte = result_running_mean_.num_bytes();
@@ -416,13 +220,12 @@ std::string Core23TempBatchNormLayer<T>::get_no_trained_params_in_string() {
 }
 
 template <typename T>
-std::vector<core23::Tensor> Core23TempBatchNormLayer<T>::get_non_trainable_params_as_tensors() {
+std::vector<core23::Tensor> BatchNormLayer<T>::get_non_trainable_params_as_tensors() {
   return {result_running_mean_, result_running_var_};
 }
 
 template <typename T>
-std::unique_ptr<DataSimulator> Core23TempBatchNormLayer<T>::get_default_initializer(
-    const int index) {
+std::unique_ptr<DataSimulator> BatchNormLayer<T>::get_default_initializer(const int index) {
   std::unique_ptr<DataSimulator> simu;
   if (0 == index) {
     simu.reset(new ConstantDataSimulator(1.0f));
@@ -434,6 +237,6 @@ std::unique_ptr<DataSimulator> Core23TempBatchNormLayer<T>::get_default_initiali
   return simu;
 }
 
-template class Core23TempBatchNormLayer<float>;
-template class Core23TempBatchNormLayer<__half>;
+template class BatchNormLayer<float>;
+template class BatchNormLayer<__half>;
 }  // namespace HugeCTR

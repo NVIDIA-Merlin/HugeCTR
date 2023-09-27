@@ -111,8 +111,8 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
                                                  .shape({m, n})
                                                  .buffer_params(blobs_buffer_params));
 
-  Core23TempFusedFullyConnectedLayer fully_connected_layer(bottom_tensor, top_tensor,
-                                                           test::get_default_gpu());
+  FusedFullyConnectedLayer fully_connected_layer(bottom_tensor, top_tensor,
+                                                 test::get_default_gpu());
 
   // Initialize tensors to 0 and choose cublas algorithms
   fully_connected_layer.initialize();

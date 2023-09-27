@@ -134,7 +134,7 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
                                         .shape({m, n})
                                         .buffer_params(blobs_buffer_params));
 
-  Core23TempFusedReluBiasFullyConnectedLayer fully_connected_layer(
+  FusedReluBiasFullyConnectedLayer fully_connected_layer(
       train_in_tensor, mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor,
       mask_out_tensor, dRelu_out_tensor, db_out_tensor, test::get_default_gpu(),
       FcPosition_t::Isolated, Activation_t::Relu, false, std::vector<Initializer_t>(), false, true);

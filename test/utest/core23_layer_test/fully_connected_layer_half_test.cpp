@@ -83,8 +83,8 @@ static void fully_connected_layer_test(int64_t m, int64_t n, int64_t k) {
                                                  .shape({m, n})
                                                  .buffer_params(blobs_buffer_params));
 
-  Core23TempFullyConnectedLayer<__half> fully_connected_layer(bottom_tensor, top_tensor,
-                                                              test::get_default_gpu());
+  FullyConnectedLayer<__half> fully_connected_layer(bottom_tensor, top_tensor,
+                                                    test::get_default_gpu());
   // Initialize tensors to 0 and choose cublas algorithms
   fully_connected_layer.initialize();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
@@ -202,8 +202,8 @@ static void fully_connected_layer_test_3d(int64_t batch_size, int64_t seq_len, i
                                                  .shape({batch_size, seq_len, n})
                                                  .buffer_params(blobs_buffer_params));
 
-  Core23TempFullyConnectedLayer<__half> fully_connected_layer(bottom_tensor, top_tensor,
-                                                              test::get_default_gpu());
+  FullyConnectedLayer<__half> fully_connected_layer(bottom_tensor, top_tensor,
+                                                    test::get_default_gpu());
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
   fully_connected_layer.initialize();

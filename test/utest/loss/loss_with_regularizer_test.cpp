@@ -98,11 +98,11 @@ void loss_with_regularizer_test(Regularizer_t type, int64_t batch_size, int64_t 
                                                  .shape({batch_size, 1})
                                                  .buffer_params(blobs_buffer_params));
 
-  Core23TempFullyConnectedLayer<float> fc_layer_no(in_tensor, out_tensor, test::get_default_gpu(),
-                                                   false, false);
+  FullyConnectedLayer<float> fc_layer_no(in_tensor, out_tensor, test::get_default_gpu(), false,
+                                         false);
 
-  Core23TempFullyConnectedLayer<float> fc_layer_re(in_tensor, out_tensor, test::get_default_gpu(),
-                                                   false, false);
+  FullyConnectedLayer<float> fc_layer_re(in_tensor, out_tensor, test::get_default_gpu(), false,
+                                         false);
 
   core23::Tensor loss_tensor_no = core23::Tensor(core23::TensorParams()
                                                      .data_type(core23::ToScalarType<float>::value)

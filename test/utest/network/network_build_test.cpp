@@ -62,7 +62,7 @@ add_layers(std::shared_ptr<GPUResource> gpu, core23::Tensor& label_tensor, core2
 
   for (int64_t i = 1; i <= 5; i++) {
     if (i % 2 == 1) {
-      train_layers.emplace_back(new Core23TempFullyConnectedLayer<float>(
+      train_layers.emplace_back(new FullyConnectedLayer<float>(
           tensors[i - 1], tensors[i], gpu, use_mixed_precision, enable_tf32_compute,
           {Initializer_t::Default, Initializer_t::Default}));
     } else {

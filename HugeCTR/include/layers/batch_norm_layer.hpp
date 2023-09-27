@@ -31,15 +31,6 @@ class BatchNormLayer : public TrainableLayer<T, true> {
   using Base = TrainableLayer<T, true>;
   using WeightType = typename Base::WeightType;
 
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   /**
    * BatchNorm parameters
@@ -51,107 +42,16 @@ class BatchNormLayer : public TrainableLayer<T, true> {
 
   /**
    * Ctor of BatchNormLayer.
-   * @param weight_buff weight buffer for internal gamma/beta tensors
-   * @param wgrad_buff gradient buffer for internal gamma/beta tensors
    * @param in_tensor the input tensor
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param params BatchNorm parameters
    * @param cudnn_handle cuDNN handle created externally
    * @param device_id the id of GPU where this layer belongs
    */
-  BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                 const std::shared_ptr<BufferBlock2<WeightType>>& weight_buff,
-                 const std::shared_ptr<BufferBlock2<WeightType>>& wgrad_buff,
-                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                 const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, const Params& params,
-                 const std::shared_ptr<GPUResource>& gpu_resource,
+  BatchNormLayer(const core23::Tensor& in_tensor, const core23::Tensor& out_tensor,
+                 const Params& params, const std::shared_ptr<GPUResource>& gpu_resource,
                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~BatchNormLayer() override;
-
-  void initialize() override;
-
-  /**
-   * A method of implementing the forward pass of BatchNorm
-   * @param stream CUDA stream where the forward propagation is executed
-   */
-  void fprop(bool is_train) override;
-
-  /**
-   * A method of implementing the forward pass of BatchNorm
-   * @param stream CUDA stream where the forward propagation is executed
-   */
-  void bprop() override;
-
-  /**
-   * A method to get mean and variance which are needed for inference as string.
-   * Session is in charge of calling this method and store the contensts to file.
-   * See Session::download_params_to_file() for more detailed information.
-   */
-  std::string get_no_trained_params_in_string() override;
-
-  std::vector<TensorBag2> get_tensors_for_non_trainable_params() override;
-
- private:
-  /**
-   * A method of defining how gamma and beta are initialized.
-   * Gamma is initialized to 1s while Beta is 0ed.
-   * Override this function to change the initialization behavior.
-   */
-  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
-
-  const Params params_;
-  const cudnnBatchNormMode_t mode_;
-  cudnnTensorDescriptor_t in_out_desc_;
-  cudnnTensorDescriptor_t gamma_beta_desc_;
-
-  // these four pointers are just for convenience
-  // they are deleted by Layer d'tor through the other pointer aliases: weight_ and wgrad_
-  Tensor2<float> gamma_;
-  Tensor2<float> beta_;
-  Tensor2<float> gamma_grad_;
-  Tensor2<float> beta_grad_;
-
-  // these tensors are internal only managed by smart ptrs
-  Tensor2<float> result_running_mean_;
-  Tensor2<float> result_running_var_;
-  Tensor2<float> result_save_mean_;
-  Tensor2<float> result_save_inv_var_;
-
-  // host arCore23Temp to do device-to-host copy for mean and var
-  Tensor2<float> h_result_running_mean_;
-  Tensor2<float> h_result_running_var_;
-};
-
-/**
- * BatchNorm layer based on cuDNN
- */
-template <typename T>
-class Core23TempBatchNormLayer : public Core23TempTrainableLayer<T, true> {
-  using Base = Core23TempTrainableLayer<T, true>;
-  using WeightType = typename Base::WeightType;
-
- public:
-  /**
-   * BatchNorm parameters
-   */
-  struct Params {
-    double factor; /**<  moving average computation factor*/
-    double eps;    /**< small value to avoid divide-by-zero error*/
-  };
-
-  /**
-   * Ctor of Core23TempBatchNormLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param params BatchNorm parameters
-   * @param cudnn_handle cuDNN handle created externally
-   * @param device_id the id of GPU where this layer belongs
-   */
-  Core23TempBatchNormLayer(
-      const core23::Tensor& in_tensor, const core23::Tensor& out_tensor, const Params& params,
-      const std::shared_ptr<GPUResource>& gpu_resource,
-      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-  ~Core23TempBatchNormLayer() override;
 
   void initialize() override;
 
@@ -202,7 +102,7 @@ class Core23TempBatchNormLayer : public Core23TempTrainableLayer<T, true> {
   core23::Tensor result_save_mean_;
   core23::Tensor result_save_inv_var_;
 
-  // host arCore23Temp to do device-to-host copy for mean and var
+  // host ar to do device-to-host copy for mean and var
   core23::Tensor h_result_running_mean_;
   core23::Tensor h_result_running_var_;
 };

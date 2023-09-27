@@ -224,8 +224,8 @@ static void gru_layer_test(int64_t batch_size, int64_t hiddenSize, int64_t embed
                                                  .shape({1, batch_size * SeqLength * hiddenSize})
                                                  .buffer_params(blobs_buffer_params));
 
-  Core23TempGRULayer<T> gru_layer(in_tensor, out_tensor, hiddenSize, batch_size, SeqLength,
-                                  embedding_vec_size, test::get_default_gpu());
+  GRULayer<T> gru_layer(in_tensor, out_tensor, hiddenSize, batch_size, SeqLength,
+                        embedding_vec_size, test::get_default_gpu());
   // Initialize tensors to 0 and choose cublas algorithms
   gru_layer.initialize();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
