@@ -42,7 +42,10 @@ EmbeddingTrainingCacheImpl<TypeKey>::EmbeddingTrainingCacheImpl(
     : embeddings_(embeddings),
       ps_manager_(ps_types, sparse_embedding_files, get_embedding_type(embeddings),
                   embedding_params, get_max_embedding_size_(), resource_manager, local_paths,
-                  hmem_cache_configs) {}
+                  hmem_cache_configs) {
+  HCTR_LOG_S(WARNING, WORLD) << "EmbeddingTrainingCache will be deprecated in a future release"
+                             << std::endl;
+}
 
 template <typename TypeKey>
 void EmbeddingTrainingCacheImpl<TypeKey>::load_(std::vector<std::string>& keyset_file_list) {

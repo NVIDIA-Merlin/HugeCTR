@@ -98,7 +98,7 @@ The notebooks are located within the container and can be found in the `/HugeCTR
 
 Here's a list of notebooks that you can run:
 - [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo.ipynb): Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.
-- [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
+- [continuous_training.ipynb](continuous_training.ipynb) (deprecated): Notebook to introduce how to deploy continued training with HugeCTR.
 - ~multi_gpu_offline_inference.ipynb~: It was deprecated. Check out [this HPS TRT notebook](hps_trt/notebooks/demo_for_tf_trained_model.ipynb) as an alternative.
 - [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
 - [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb): Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.
