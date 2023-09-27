@@ -1,4 +1,4 @@
-# HugeCTR Embedding Training Cache
+# HugeCTR Embedding Training Cache (Deprecated)
 
 ```{contents}
 ---
@@ -9,6 +9,8 @@ backlinks: none
 ```
 
 ## Introduction to the HugeCTR Embedded Training Cache
+
+**Warning**: this feature will be deprecated in a future release.
 
 This document introduces the **Embedding Training Cache (ETC)** feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.
 

@@ -99,7 +99,9 @@ solver = hugectr.CreateSolver(max_eval_batches = 300,
 
 ***
 
-#### CreateETC method
+#### CreateETC method (deprecated)
+
+**Warning**: this method will be deprecated in a future release.
 
 ```python
 hugectr.CreateETC()
