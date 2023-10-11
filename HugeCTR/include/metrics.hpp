@@ -35,26 +35,19 @@ using CountType = u_int32_t;
 enum class RawType { Loss, Pred, Label };
 enum class Type { AUC, AverageLoss, HitRate, NDCG, SMAPE };
 
-using RawMetricMap = std::map<RawType, TensorBag2>;
 using Core23RawMetricMap = std::map<RawType, core23::Tensor>;
-using MultiLossMetricMap = std::map<std::string, RawMetricMap>;
 using Core23MultiLossMetricMap = std::map<std::string, Core23RawMetricMap>;
 
 void get_raw_metric_as_host_float_tensor(Core23RawMetricMap metric_map, RawType raw_type,
-                                         bool mixed_precision, float* rst, size_t num);
-
-void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type,
                                          bool mixed_precision, float* rst, size_t num);
 
 class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
                                         int batch_size_eval, int n_batches, int label_dim,
-                                        const std::shared_ptr<ResourceManager>& resource_manager,
-                                        bool use_old_tensor = false);
+                                        const std::shared_ptr<ResourceManager>& resource_manager);
   Metric();
   virtual ~Metric();
-  virtual void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) = 0;
   virtual void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) = 0;
   virtual void global_reduce(int n_nets) = 0;
   virtual float finalize_metric() = 0;
@@ -77,7 +70,6 @@ class AverageLoss : public Metric {
   AverageLoss(const std::shared_ptr<ResourceManager>& resource_manager);
   ~AverageLoss() override;
 
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
@@ -98,7 +90,6 @@ class HitRate : public Metric {
   HitRate(int batch_size_per_gpu, const std::shared_ptr<ResourceManager>& resource_manager);
   ~HitRate() override;
 
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
@@ -128,7 +119,6 @@ class SMAPE : public Metric {
   SMAPE(int batch_size_per_gpu, const std::shared_ptr<ResourceManager>& resource_manager);
   ~SMAPE() override;
 
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
@@ -178,118 +168,6 @@ class ReallocBuffer {
   }
   void realloc_ptr_mmap(void** ptr, size_t old_size, size_t new_size);
   void release_mmap_memory();
-};
-
-class AUCStorageOld {
- public:
-  float* d_class_preds(size_t class_id) { return class_preds_[class_id].get_ptr(); }
-  float* d_class_labels(size_t class_id) { return class_labels_[class_id].get_ptr(); }
-
-  float* d_lr_unsorted_preds() { return lr_unsorted_preds_.get_ptr(); }
-  float* d_lr_sorted_preds() { return lr_sorted_preds_.get_ptr(); }
-  float* d_lr_sorted_labels() { return lr_sorted_labels_.get_ptr(); }
-  int* d_lr_class_ids() { return lr_class_ids_.get_ptr(); }
-  int* d_lr_sorted_class_ids() { return lr_sorted_class_ids_.get_ptr(); }
-
-  void* d_workspace(size_t stream_id) { return workspace_[stream_id].get_ptr(); }
-  size_t& temp_storage_bytes(size_t stream_id) { return allocated_temp_storage_[stream_id]; }
-
-  void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                  size_t num_global_gpus, size_t label_dim, size_t num_streams,
-                  const std::vector<int>& peers, cudaStream_t stream);
-  void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream,
-                             size_t stream_id);
-  void realloc_workspace(size_t temp_storage, size_t stream_id);
-  bool realloc_local_reduce_storage(size_t input_size);
-  void free_all();
-
- private:
-  const float reallocate_factor_ = 1.2f;
-  std::vector<size_t> allocated_temp_storage_;
-  std::vector<size_t> num_allocated_redistributed_;
-  std::vector<CUmemAccessDesc> access_desc_;  // Access descriptors used by ReallocBuffers
-
-  // Raw per-class data
-  size_t num_classes_ = 1;
-  std::vector<Tensor2<float>> class_preds_;
-  std::vector<Tensor2<float>> class_labels_;
-
-  // Local reduce storage
-  size_t allocated_lr_input_size_ = 0;
-  ReallocBuffer<float, ReallocType_t::NO_COPY> lr_unsorted_preds_;
-  ReallocBuffer<float, ReallocType_t::NO_COPY> lr_sorted_preds_;
-  ReallocBuffer<float, ReallocType_t::NO_COPY> lr_sorted_labels_;
-  ReallocBuffer<int, ReallocType_t::NO_COPY> lr_class_ids_;
-  ReallocBuffer<int, ReallocType_t::NO_COPY> lr_sorted_class_ids_;
-
-  // Workspace for CUB functions
-  std::vector<ReallocBuffer<int8_t, ReallocType_t::NO_COPY>> workspace_;
-
-  struct FinalizeStorage {
-    ReallocBuffer<float, ReallocType_t::MMAP> preds_1_;
-    ReallocBuffer<float, ReallocType_t::MMAP> labels_1_;
-    ReallocBuffer<float, ReallocType_t::MMAP> preds_2_;
-    ReallocBuffer<float, ReallocType_t::MMAP> labels_2_;
-    ReallocBuffer<CountType, ReallocType_t::MMAP> identical_pred_starts_;
-    ReallocBuffer<CountType, ReallocType_t::MMAP> identical_pred_lengths_;
-
-    Tensor2<CountType> local_bins_;
-    Tensor2<CountType> global_bins_;
-    Tensor2<CountType> local_bins_sum_;
-    Tensor2<CountType> global_bins_sum_;
-    Tensor2<CountType> partition_offsets_;
-    Tensor2<int> pivots_;
-    Tensor2<CountType> all_partition_offsets_;
-    Tensor2<CountType> recv_offsets_;
-    Tensor2<float> pos_per_gpu_;
-    Tensor2<float> neg_per_gpu_;
-    Tensor2<int> num_identical_segments_;
-    Tensor2<float> halo_tpr_;
-    Tensor2<float> halo_fpr_;
-    Tensor2<CountType> tp_offsets_;
-    Tensor2<CountType> fp_offsets_;
-    Tensor2<float> auc_;
-
-    size_t num_redistributed_samples;
-    std::vector<size_t> all_num_redistributed_samples;
-
-    float* d_labels() { return labels_1_.get_ptr(); }
-    float* d_preds() { return preds_1_.get_ptr(); }
-    CountType* d_local_bins() { return local_bins_.get_ptr(); }
-    CountType* d_global_bins() { return global_bins_.get_ptr(); }
-    CountType* d_local_bins_sum() { return local_bins_sum_.get_ptr(); }
-    CountType* d_global_bins_sum() { return global_bins_sum_.get_ptr(); }
-    int* d_pivots() { return pivots_.get_ptr(); }
-    CountType* d_partition_offsets() { return partition_offsets_.get_ptr(); }
-    float* d_partitioned_preds() { return preds_2_.get_ptr(); }
-    float* d_partitioned_labels() { return labels_2_.get_ptr(); }
-    CountType* d_all_partition_offsets() { return all_partition_offsets_.get_ptr(); }
-    CountType* d_recv_offsets() { return recv_offsets_.get_ptr(); }
-    float* d_presorted_preds() { return preds_1_.get_ptr(); }
-    float* d_presorted_labels() { return labels_1_.get_ptr(); }
-    float* d_sorted_preds() { return preds_2_.get_ptr(); }
-    float* d_sorted_labels() { return labels_2_.get_ptr(); }
-    float* d_tp() { return preds_1_.get_ptr(); }
-    float* d_fp() { return labels_1_.get_ptr(); }
-    float* d_pos_per_gpu() { return pos_per_gpu_.get_ptr(); }
-    float* d_neg_per_gpu() { return neg_per_gpu_.get_ptr(); }
-    float* d_tpr() { return preds_2_.get_ptr(); }
-    float* d_fpr() { return labels_2_.get_ptr(); }
-    CountType* d_identical_pred_starts() { return identical_pred_starts_.get_ptr(); }
-    CountType* d_identical_pred_lengths() { return identical_pred_lengths_.get_ptr(); }
-    int* d_num_identical_segments() { return num_identical_segments_.get_ptr(); }
-    float* d_halo_tpr() { return halo_tpr_.get_ptr(); }
-    float* d_halo_fpr() { return halo_fpr_.get_ptr(); }
-    CountType* d_tp_offsets() { return tp_offsets_.get_ptr(); }
-    CountType* d_fp_offsets() { return fp_offsets_.get_ptr(); }
-    float* d_auc() { return auc_.get_ptr(); }
-  };
-
-  // Intermediate storage needed in finalize metric, one element per stream
-  std::vector<FinalizeStorage> finalize_storage_;
-
- public:
-  FinalizeStorage& fst(size_t stream_id) { return finalize_storage_[stream_id]; }
 };
 
 class AUCStorage {
@@ -411,10 +289,9 @@ class AUC : public Metric {
   using PredType = T;
   using LabelType = float;
   AUC(int batch_size_per_gpu, int n_batches, int label_dim,
-      const std::shared_ptr<ResourceManager>& resource_manager, bool use_old_tensor = true);
+      const std::shared_ptr<ResourceManager>& resource_manager);
   ~AUC() override;
 
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
@@ -450,72 +327,8 @@ class AUC : public Metric {
 
   std::vector<size_t> offsets_;
   std::vector<AUCStorage> storage_;
-  std::vector<AUCStorageOld> storage_old_;
-  bool use_old_tensor_;
   std::vector<std::vector<cudaStream_t>> streams_;
   std::vector<float> per_class_aucs_;
-};
-
-class NDCGStorageOld {
- public:
-  void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                  size_t num_global_gpus, const std::vector<int>& peers);
-  void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
-  void realloc_workspace(size_t temp_storage);
-  void* d_workspace() { return workspace_.get_ptr(); }
-  size_t& temp_storage_bytes() { return allocated_temp_storage_; }
-
- private:
-  const float reallocate_factor_ = 1.2f;
-  size_t allocated_temp_storage_;
-  size_t num_allocated_redistributed_;
-  std::vector<CUmemAccessDesc> access_desc_;  // Access descriptors used by ReallocBuffers
-
-  // Workspace for CUB functions
-  ReallocBuffer<int8_t, ReallocType_t::NO_COPY> workspace_;
-
-  ReallocBuffer<float, ReallocType_t::MMAP> preds_1_;
-  ReallocBuffer<float, ReallocType_t::MMAP> labels_1_;
-  ReallocBuffer<float, ReallocType_t::MMAP> preds_2_;
-  ReallocBuffer<float, ReallocType_t::MMAP> labels_2_;
-  ReallocBuffer<float, ReallocType_t::MMAP> scaled_labels_;
-
-  Tensor2<CountType> local_bins_;
-  Tensor2<CountType> global_bins_;
-  Tensor2<CountType> local_bins_sum_;
-  Tensor2<CountType> global_bins_sum_;
-  Tensor2<CountType> partition_offsets_;
-  Tensor2<int> pivots_;
-  Tensor2<CountType> all_partition_offsets_;
-  Tensor2<CountType> recv_offsets_;
-  Tensor2<float> dcg_;
-  Tensor2<CountType> label_count_;
-  Tensor2<float> ideal_dcg_;
-
- public:
-  float* d_labels() { return labels_1_.get_ptr(); }
-  float* d_preds() { return preds_1_.get_ptr(); }
-  CountType* d_local_bins() { return local_bins_.get_ptr(); }
-  CountType* d_global_bins() { return global_bins_.get_ptr(); }
-  CountType* d_local_bins_sum() { return local_bins_sum_.get_ptr(); }
-  CountType* d_global_bins_sum() { return global_bins_sum_.get_ptr(); }
-  int* d_pivots() { return pivots_.get_ptr(); }
-  CountType* d_partition_offsets() { return partition_offsets_.get_ptr(); }
-  float* d_partitioned_preds() { return preds_2_.get_ptr(); }
-  float* d_partitioned_labels() { return labels_2_.get_ptr(); }
-  CountType* d_all_partition_offsets() { return all_partition_offsets_.get_ptr(); }
-  CountType* d_recv_offsets() { return recv_offsets_.get_ptr(); }
-  float* d_presorted_preds() { return preds_1_.get_ptr(); }
-  float* d_presorted_labels() { return labels_1_.get_ptr(); }
-  float* d_sorted_preds() { return preds_2_.get_ptr(); }
-  float* d_sorted_labels() { return labels_2_.get_ptr(); }
-  float* d_scaled_labels() { return scaled_labels_.get_ptr(); }
-  float* d_dcg() { return dcg_.get_ptr(); }
-  CountType* d_label_count() { return label_count_.get_ptr(); }
-  float* d_ideal_dcg() { return ideal_dcg_.get_ptr(); }
-
-  size_t num_redistributed_samples;
-  std::vector<size_t> all_num_redistributed_samples;
 };
 
 class NDCGStorage {
@@ -586,10 +399,9 @@ class NDCG : public Metric {
   using PredType = T;
   using LabelType = float;
   NDCG(int batch_size_per_gpu, int n_batches,
-       const std::shared_ptr<ResourceManager>& resource_manager, bool use_old_tensor = true);
+       const std::shared_ptr<ResourceManager>& resource_manager);
   ~NDCG() override;
 
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void local_reduce(int local_gpu_id, Core23RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
@@ -614,9 +426,7 @@ class NDCG : public Metric {
   size_t num_total_samples_;
 
   std::vector<size_t> offsets_;
-  std::vector<NDCGStorageOld> storage_old_;
   std::vector<NDCGStorage> storage_;
-  bool use_old_tensor_;
 };
 
 /*
@@ -655,47 +465,7 @@ class HitRate: public Metric {
   AUCBarrier barrier_;
 
   std::vector<size_t> offsets_;
-  std::vector<AUCStorageOld> storage_old_;
-};
-*/
-
-/*
-template <typename T>
-class HitRate: public Metric {
- public:
-  using PredType = T;
-  using LabelType = float;
-  HitRate(int batch_size_per_gpu, int n_batches,
-      const std::shared_ptr<ResourceManager>& resource_manager);
-  ~HitRate() override;
-
-  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
-  void global_reduce(int n_nets) override;
-  float finalize_metric() override;
-  std::string name() const override { return "HitRate"; };
-
-  // Public in order to use device lambda
-  float _finalize_metric_per_gpu(int device_id);
-
- private:
-  const float pred_min_ = 0.0f;
-  const float pred_max_ = 1.0f;
-  const int num_bins_per_gpu_ = 10000;
-
-  std::shared_ptr<ResourceManager> resource_manager_;
-
-  int n_batches_;
-  int num_local_gpus_;
-  int num_global_gpus_;
-  int batch_size_per_gpu_;
-  int num_bins_;
-  int num_partitions_;
-  size_t num_total_samples_;
-
-  AUCBarrier barrier_;
-
-  std::vector<size_t> offsets_;
-  std::vector<AUCStorageOld> storage_old_;
+  std::vector<AUCStorage> storage_;
 };
 */
 
@@ -735,7 +505,47 @@ class HitRate: public Metric {
   AUCBarrier barrier_;
 
   std::vector<size_t> offsets_;
-  std::vector<AUCStorageOld> storage_old_;
+  std::vector<AUCStorage> storage_;
+};
+*/
+
+/*
+template <typename T>
+class HitRate: public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
+
+  // Public in order to use device lambda
+  float _finalize_metric_per_gpu(int device_id);
+
+ private:
+  const float pred_min_ = 0.0f;
+  const float pred_max_ = 1.0f;
+  const int num_bins_per_gpu_ = 10000;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+
+  int n_batches_;
+  int num_local_gpus_;
+  int num_global_gpus_;
+  int batch_size_per_gpu_;
+  int num_bins_;
+  int num_partitions_;
+  size_t num_total_samples_;
+
+  AUCBarrier barrier_;
+
+  std::vector<size_t> offsets_;
+  std::vector<AUCStorage> storage_;
 };
 */
 
