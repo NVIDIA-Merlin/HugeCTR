@@ -43,7 +43,6 @@
 #include <io/hadoop_filesystem.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
-#include <network.hpp>
 #include <nlohmann/json.hpp>
 #include <training_callback.hpp>
 

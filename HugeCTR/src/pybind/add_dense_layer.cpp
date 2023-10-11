@@ -954,36 +954,6 @@ struct InputOutputInfo {
   std::vector<std::string> output_names;
 };
 
-static bool get_tensor_from_entries(const std::vector<TensorEntry> tensor_entries,
-                                    const std::string& name, TensorBag2* bag) {
-  for (const TensorEntry& entry : tensor_entries) {
-    if (entry.name == name) {
-      *bag = entry.bag;
-      return true;
-    }
-  }
-  return false;
-}
-
-static InputOutputInfo get_input_tensor_and_output_name(
-    std::vector<std::string>& bottom_names, std::vector<std::string>& top_names,
-    const std::vector<TensorEntry>& tensor_entries) {
-  std::vector<TensorBag2> bottom_bags;
-  for (auto& bottom_name : bottom_names) {
-    for (auto& top_name : top_names) {
-      if (bottom_name == top_name) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
-      }
-    }
-    TensorBag2 bag;
-    if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
-    }
-    bottom_bags.push_back(bag);
-  }
-  return {bottom_bags, top_names};
-}
-
 template <typename T>
 static std::shared_ptr<Regularizer<T>> create_regularizer(
     bool use_regularizer, Regularizer_t regularizer_type, float lambda,

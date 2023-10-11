@@ -250,10 +250,10 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
   // Create metric
   metrics::Metric* metric;
   if (auc) {
-    metric = new metrics::AUC<T>(batch_size / num_classes, num_batches, num_classes,
-                                 resource_manager, false);
+    metric =
+        new metrics::AUC<T>(batch_size / num_classes, num_batches, num_classes, resource_manager);
   } else {
-    metric = new metrics::NDCG<T>(batch_size, num_batches, resource_manager, false);
+    metric = new metrics::NDCG<T>(batch_size, num_batches, resource_manager);
   }
 
   std::vector<float> h_labels(num_node_samples);
