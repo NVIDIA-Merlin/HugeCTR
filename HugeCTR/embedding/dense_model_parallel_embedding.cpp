@@ -40,7 +40,8 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
 
   HCTR_CHECK_HINT(ebc_param.shard_matrix.size() == num_gpus,
                   "shard matrix should contain num_gpus row.");
-  this->num_local_hotness_ = 0;
+  this->num_local_hotness_after_reduction_ = 0;
+  this->num_local_hotness_before_reduction_ = 0;
   this->num_local_lookup_ = 0;
   this->global_hotness_ = 0;
   this->global_ev_offset_ = 0;
@@ -56,8 +57,9 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
   std::vector<int> ev_length_in_output_buffer;
   std::vector<int> h_local_table_id_list;
   std::vector<int> h_ev_size_list;
-
+  // iterate over all lookup and calculate embedding output hotness(after reduction) offset
   for (int lookup_id = 0; lookup_id < num_lookup_; ++lookup_id) {
+    // if this dense lookup is not in current grouped lookup
     if (std::find(ebc_param.grouped_lookup_params[grouped_id].lookup_ids.begin(),
                   ebc_param.grouped_lookup_params[grouped_id].lookup_ids.end(),
                   lookup_id) == ebc_param.grouped_lookup_params[grouped_id].lookup_ids.end()) {
@@ -70,16 +72,26 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
       local_id_in_output_buffer++;
       continue;
     }
-    this->num_local_hotness_ += lookup_params[lookup_id].max_hotness;
-    this->global_hotness_ += lookup_params[lookup_id].max_hotness;
-    this->h_local_hotness_range_.push_back(lookup_params[lookup_id].max_hotness);
-    this->h_local_hotness_.push_back(lookup_params[lookup_id].max_hotness);
-    this->global_ev_offset_ +=
-        (lookup_params[lookup_id].max_hotness * lookup_params[lookup_id].ev_size);
+    // else find current dense lookup!!
+    // the combiner can be Sum even if the lookup is dense. dense lookup only stands for
+    // unique-based lookup
+    this->num_local_hotness_before_reduction_ += lookup_params[lookup_id].max_hotness;
+    int tmp_hotness = lookup_params[lookup_id].combiner == Combiner::Concat
+                          ? lookup_params[lookup_id].max_hotness
+                          : 1;
+    // TODO this if is redundant?
+    if (ebc_param.grouped_lookup_params[grouped_id].do_reduction_for_dense) {
+      tmp_hotness = 1;
+    }
+    // num_local_hotness_after_reduction_is the output hotness, i.e. after embedding combiner
+    this->num_local_hotness_after_reduction_ += tmp_hotness;
+    this->global_hotness_ += tmp_hotness;
+    this->h_local_hotness_range_.push_back(tmp_hotness);
+    this->h_local_hotness_.push_back(tmp_hotness);
+    this->global_ev_offset_ += (tmp_hotness * lookup_params[lookup_id].ev_size);
     h_ev_size_list.push_back(lookup_params[lookup_id].ev_size);
 
-    ev_length_in_output_buffer.push_back(lookup_params[lookup_id].max_hotness *
-                                         lookup_params[lookup_id].ev_size);
+    ev_length_in_output_buffer.push_back(tmp_hotness * lookup_params[lookup_id].ev_size);
 
     lookup_ids_in_embedding.push_back(local_id_in_output_buffer);
     local_id_in_output_buffer++;
@@ -116,14 +128,16 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
   model_buffer_attr.init(core, ebc_param, grouped_id);
   network_indices.init(core, this->h_local_hotness_range_, this->h_local_hotness_,
                        this->h_ev_start_indices_, this->num_local_lookup_, this->global_ev_offset_);
-  network_buffer_attr.init(core, ebc_param, grouped_id, this->num_local_hotness_);
+  network_buffer_attr.init(core, ebc_param, grouped_id, this->num_local_hotness_before_reduction_);
   wgrad_attr.init(core, ebc_param, grouped_id);
 }
 
 DenseUniformModelParallelEmbedding::DenseUniformModelParallelEmbedding(
     std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &params,
     size_t grouped_id)
-    : core_(core), meta_(core, params, grouped_id) {
+    : core_(core),
+      meta_(core, params, grouped_id),
+      do_reduction_(params.grouped_lookup_params[grouped_id].do_reduction_for_dense) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   model_forward_ = ModelForward{core};
@@ -133,25 +147,30 @@ DenseUniformModelParallelEmbedding::DenseUniformModelParallelEmbedding(
 
   local_reduce_index_calculation_.init(core);
 
-  local_reduce_.init(core, meta_.ev_size_, meta_.num_local_hotness_ * params.universal_batch_size);
+  local_reduce_.init(core, meta_.ev_size_,
+                     meta_.num_local_hotness_after_reduction_ * params.universal_batch_size);
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams tensor_params = core23::TensorParams().device(device);
 
   embedding_vec_ = core23::init_tensor_list<float>(
-      params.universal_batch_size * meta_.num_local_hotness_, core->get_device_id());
+      params.universal_batch_size * meta_.num_local_hotness_before_reduction_,
+      core->get_device_id());
 
   model_comm_buffer_.init(core, meta_.model_buffer_attr, params.universal_batch_size);
   network_buffer_.init(core, meta_.network_buffer_attr, params.universal_batch_size);
 }
-
 void DenseUniformModelParallelEmbedding::model_forward(const EmbeddingInput &embedding_input,
                                                        ILookup *embedding_table, int batch_size) {
+  // (lookup) Results are emb vector addresses
+  // output is embedding_vec_
   embedding_table->lookup(
       embedding_input.keys, embedding_input.h_num_keys,
       embedding_input.dense_compression_input.num_keys_per_table_offset,
       (size_t)embedding_input.dense_compression_input.num_keys_per_table_offset.num_elements(),
       embedding_input.dense_compression_input.table_ids, embedding_vec_);
-
+  // (gather) Results are emb embedding vectors stored in model_comm_buffer_,
+  // output is model_comm_buffer_
+  // num_model_reverse_idx is the number of unique key (the length of embedding_vec_)
   model_forward_.dense_forward(
       embedding_vec_,
       embedding_input.dense_compression_input.model_parallel_compression_input.model_reverse_idx,
@@ -163,6 +182,7 @@ void DenseUniformModelParallelEmbedding::model_forward(const EmbeddingInput &emb
 void DenseUniformModelParallelEmbedding::network_forward(const EmbeddingInput &embedding_input,
                                                          EmbeddingOutput &embedding_output,
                                                          int batch_size) {
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
   all2all_comm_.dense_communicate(
       model_comm_buffer_.data,
       embedding_input.dense_compression_input.model_parallel_compression_input.h_send_k_per_gpu,
@@ -170,7 +190,7 @@ void DenseUniformModelParallelEmbedding::network_forward(const EmbeddingInput &e
       embedding_input.dense_compression_input.model_parallel_compression_input.h_recv_k_per_gpu,
       meta_.ev_size_);
   network_forward_.dense_forward(embedding_input, network_buffer_, meta_.network_indices,
-                                 embedding_output, batch_size);
+                                 embedding_output, batch_size, do_reduction_);
 }
 
 void DenseUniformModelParallelEmbedding::network_backward(const EmbeddingOutput &top_grad,
@@ -200,14 +220,15 @@ void DenseUniformModelParallelEmbedding::local_reduce(Wgrad &wgrad, int batch_si
 
   local_reduce_.local_reduce(reduction_indices_, model_comm_buffer_, wgrad);
 }
-
+// model forward(local lookup) is per-gpu, happens after data distributor does keys unique
+// network forward is after local lookup, all embedding vectors must be all2all so as to get the dp
+// embedding vectors
 void DenseUniformModelParallelEmbedding::forward_per_gpu(Stage stage,
                                                          const EmbeddingInput &embedding_input,
                                                          ILookup *embedding_table,
                                                          EmbeddingOutput &embedding_output,
                                                          int batch_size) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
-
   switch (stage) {
     case Stage::DenseMPModelForward: {
       model_forward(embedding_input, embedding_table, batch_size);

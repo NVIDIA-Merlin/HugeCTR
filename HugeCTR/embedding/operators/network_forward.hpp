@@ -115,7 +115,7 @@ class NetworkForward {
   void dense_forward(const EmbeddingInput &embedding_input,
                      const DenseNetworkBuffer &network_buffer,
                      const DenseNetworkIndices &network_indices, EmbeddingOutput &embedding_output,
-                     int batch_size);
+                     int batch_size, bool do_reduction = false);
 
   void compute(const core23::Tensor &row_lengths, const core23::Tensor &d_combiner_list,
                const core23::Tensor &network_comm_buffer, const core23::Tensor &network_ids,

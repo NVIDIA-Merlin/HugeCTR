@@ -32,7 +32,6 @@
 #include <vector>
 
 namespace HugeCTR {
-
 class DataDistributor {
  public:
   using Result = std::vector<embedding::EmbeddingInput>;

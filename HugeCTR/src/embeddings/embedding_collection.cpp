@@ -35,14 +35,14 @@ EmbeddingCollection::EmbeddingCollection(
   for (size_t i = 0; i < emb_table_param_list.size(); ++i) {
     embedding_optimizers_.push_back(emb_table_param_list[i].opt_param);
   }
-
   int num_gpus = resource_manager->get_local_gpu_count();
 
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
-
+    // embedding storage
     embedding_tables_.push_back(create_grouped_embedding_tables(resource_manager, core[gpu_id],
                                                                 ebc_param_, emb_table_param_list));
+    // embedding ops
     embeddings_.push_back(create_grouped_embeddings(core[gpu_id], ebc_param_));
     eval_embeddings_.push_back(create_grouped_embeddings(core[gpu_id], eval_ebc_param_));
   }
@@ -219,8 +219,8 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
 void EmbeddingCollection::forward_per_gpu(Stage stage, bool is_train, int gpu_id,
                                           const HugeCTR::DataDistributor::Result &input,
                                           core23::Tensor &output_buffer, int batch_size) {
+  // embedding ops
   auto &embeddings = is_train ? embeddings_[gpu_id] : eval_embeddings_[gpu_id];
-
   for (size_t grouped_id = 0; grouped_id < embeddings.size(); ++grouped_id) {
     if (!embeddings[grouped_id]->is_valid_stage(stage)) continue;
 
@@ -245,7 +245,6 @@ void EmbeddingCollection::forward_per_gpu(bool is_train, int gpu_id,
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "comm strategy not supported in forward_per_gpu");
   }
-
   for (auto stage : stages) {
     forward_per_gpu(stage, is_train, gpu_id, input, output_buffer, batch_size);
   }

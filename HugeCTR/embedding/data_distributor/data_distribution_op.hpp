@@ -40,10 +40,10 @@ class IDataDistributionOp {
 
 class DenseMPDataDistributionOp final : public IDataDistributionOp {
  public:
-  DenseMPDataDistributionOp(
-      std::shared_ptr<core::CoreResourceManager> core,
-      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
-      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
+  DenseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
+                            const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+                            const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list,
+                            bool do_reduction = false);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                   cudaStream_t stream) override;
@@ -88,6 +88,7 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   CompactPartitionDataOperator compact_partitioned_data_operator_;
 
   std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
+  bool do_reduction_;
 };
 
 class SparseMPDataDistributionOp : public IDataDistributionOp {

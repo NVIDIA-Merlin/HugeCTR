@@ -130,14 +130,15 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
 DenseMPDataDistributionOp::DenseMPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
     const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
-    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list, bool do_reduction)
     : core_(core),
       ebc_param_(ebc_param),
       num_global_gpus_(core->get_global_gpu_count()),
       dense_temp_storage_(core, ebc_param_, group_id),
       partition_and_unique_operator_(core, ebc_param_, group_id),
       compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table) {
+      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
+      do_reduction_(ebc_param.grouped_lookup_params[group_id].do_reduction_for_dense) {
   CudaDeviceContext context(core->get_device_id());
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
@@ -150,9 +151,11 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
 
 void DenseMPDataDistributionOp::distribute(const DataDistributionInput& input,
                                            embedding::EmbeddingInput& output, cudaStream_t stream) {
+  // get the network_dst_bucket_ids
   filter_before_all2all(input, output, stream);
   all2all_keys_per_bucket(output, stream);
   all2all_keys(output, stream);
+  // get the final unique lookup keys
   filter_after_all2all(output, stream);
   convert_indices(output);
 }
@@ -161,10 +164,15 @@ void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
                                                       embedding::EmbeddingInput& output,
                                                       cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
-
-  partition_and_unique_operator_.fill_continuous_bucket_ids(
-      input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
-      dense_temp_storage_.h_num_network_reverse_idx, stream);
+  if (embedding_type_ == embedding::EmbeddingType::Dense && !do_reduction_) {
+    partition_and_unique_operator_.fill_continuous_bucket_ids(
+        input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
+        dense_temp_storage_.h_num_network_reverse_idx, stream);
+  } else if (embedding_type_ == embedding::EmbeddingType::Dense && do_reduction_) {
+    partition_and_unique_operator_.fill_continuous_bucket_ids_for_reduction(
+        input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
+        dense_temp_storage_.h_num_network_reverse_idx, stream);
+  }
 
   CompressedData compressed_data_after_shard_matrix_partition{
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition,

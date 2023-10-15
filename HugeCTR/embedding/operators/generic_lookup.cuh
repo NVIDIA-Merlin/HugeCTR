@@ -526,7 +526,6 @@ __global__ void one_to_one_atomic_vec4(CopyDesc copy_desc, int ev_length) {
     int vec_length = copy_desc.get_vec_length(global_index);
     for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
       Vec4T<float> src_elem;
-      // Vec4T<float> accum[kMaxElemPerThread];
       int idx4 = 4 * kWarpSize * i + 4 * lane_id;
       int n = min(vec_length - idx4, copy_width);
       src_elem.load(tmp_src + idx4, n);
@@ -1002,6 +1001,38 @@ __global__ void one_to_one_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
 }
 
 template <typename CopyDesc, int kMaxElemPerThread>
+__global__ void reset_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
+  using src_type = typename CopyDesc::SrcT;
+  using dst_type = typename CopyDesc::DstT;
+  using vec_length_type = int;
+
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+  int i_ev = blockIdx.x * blockDim.y + warp_id;
+  if (i_ev < copy_desc.num_vec_) {
+    vec_length_type vec_length = copy_desc.get_vec_length(i_ev);
+
+    dst_type *dst_ev = copy_desc.get_dst_ptr(i_ev);
+
+    Vec4T<float> accum[kMaxElemPerThread];
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      accum[i].reset();
+    }
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < vec_length; ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(vec_length - idx4, copy_width);
+      accum[i].store(dst_ev + idx4, n);
+    }
+  }
+}
+
+template <typename CopyDesc, int kMaxElemPerThread>
 __global__ void one_to_one_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_desc) {
   using src_type = typename CopyDesc::SrcT;
   using dst_type = typename CopyDesc::DstT;
@@ -1231,7 +1262,16 @@ make_MultiToOne_reduce_weight(int num_vec, LambdaKey get_key, LambdaSrcVecLength
 };
 
 template <typename CopyDesc>
-void copy_one_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
+void copy_one_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream,
+                     bool only_reset = false) {
+  if (only_reset) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    reset_warp_per_ev_vec4_kernel<CopyDesc, 1><<<grid_size, block_size, 0, stream>>>(copy_desc);
+
+    return;
+  }
+
   if (max_ev_size <= 128) {
     int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
     dim3 block_size{32, 2};
@@ -1253,7 +1293,14 @@ void copy_one_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
 
 template <typename CopyDesc>
 void copy_one_to_one(CopyDesc copy_desc, const HugeCTR::core23::KernelParams &kernel_params,
-                     int max_ev_size, cudaStream_t stream) {
+                     int max_ev_size, cudaStream_t stream, bool only_reset = false) {
+  if (only_reset) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    reset_warp_per_ev_vec4_kernel<CopyDesc, 1><<<grid_size, block_size, 0, stream>>>(copy_desc);
+
+    return;
+  }
   if (max_ev_size <= 128) {
     int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
     dim3 block_size{32, 8};
@@ -1440,7 +1487,6 @@ void one_to_one_atomic(CopyDesc desc, const HugeCTR::core23::KernelParams &kerne
                        int ev_size, int key_num, cudaStream_t stream) {
   int grid_size = (key_num - 1) / WGRAD_REDUCE_BLOCK_SIZE + 1;
   int block_size = WGRAD_REDUCE_BLOCK_SIZE;
-
   if (ev_size <= 128) {
     one_to_one_atomic_vec4<CopyDesc, 1><<<grid_size, block_size, 0, stream>>>(desc, ev_size);
 

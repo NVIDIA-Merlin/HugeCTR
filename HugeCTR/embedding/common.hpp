@@ -119,6 +119,13 @@ struct DataDistributionInput {
 }  // namespace HugeCTR
 
 namespace embedding {
+inline bool enable_unique_for_sparse() {
+  const char *env_combiner = getenv("ENABLE_UNIQUE_OPTIMIZATION_FOR_SPARSE");
+  if (env_combiner && std::stoi(env_combiner) != 0) {
+    return true;
+  }
+  return false;
+}
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
 
@@ -240,6 +247,7 @@ struct EmbeddingCollectionParam {
 
       std::vector<int> sparse_lookup_ids;
       std::vector<std::vector<int>> dense_lookup_ids;
+      std::vector<std::vector<int>> dense_lookup_with_reduction_ids;
 
       for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
         int table_id = lookup_params[lookup_id].table_id;
@@ -258,6 +266,19 @@ struct EmbeddingCollectionParam {
           } else {
             dense_lookup_ids[idx].push_back(lookup_id);
           }
+        } else if (enable_unique_for_sparse() &&
+                   table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+          int idx = -1;
+          for (int i = 0; i < static_cast<int>(dense_lookup_with_reduction_ids.size()); ++i) {
+            int current_ev_size =
+                this->lookup_params[dense_lookup_with_reduction_ids[i][0]].ev_size;
+            if (current_ev_size == this->lookup_params[lookup_id].ev_size) idx = i;
+          }
+          if (idx == -1) {
+            dense_lookup_with_reduction_ids.push_back({lookup_id});
+          } else {
+            dense_lookup_with_reduction_ids[idx].push_back(lookup_id);
+          }
         } else if (combiner == Combiner::Sum || combiner == Combiner::Average) {
           sparse_lookup_ids.push_back(lookup_id);
         } else {
@@ -275,6 +296,14 @@ struct EmbeddingCollectionParam {
         } else {
           HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
                          "table placement strategy not supported in embedding collection.");
+        }
+      }
+
+      if (!dense_lookup_with_reduction_ids.empty()) {
+        for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_with_reduction_ids) {
+          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
+                                             dense_lookup_ids_with_same_ev_size,
+                                             EmbeddingType::Dense, true);
         }
       }
       if (!dense_lookup_ids.empty()) {

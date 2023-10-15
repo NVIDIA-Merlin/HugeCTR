@@ -236,7 +236,7 @@ void DenseNetworkBuffer::init(std::shared_ptr<CoreResourceManager> core,
 NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core) : core_(core) {}
 
 namespace {
-
+// sparse
 void network_forward_to_batch_major_output(const core23::Tensor& dp_num_keys_per_bucket,
                                            const NetworkBuffer& network_buffer,
                                            const NetworkIndices& network_indices,
@@ -316,6 +316,7 @@ void network_forward_to_batch_major_output(const core23::Tensor& dp_num_keys_per
     });
   });
 }
+// sparse
 
 void network_forward_to_feature_major_output(const core23::Tensor& dp_num_keys_per_bucket,
                                              const NetworkBuffer& network_buffer,
@@ -403,6 +404,7 @@ struct DenseNetworkForwardFeatureMajorOneToOneDesc {
   using SrcT = src_emb_t;
   using DstT = dst_emb_t;
 
+  HOST_DEVICE_INLINE int num_vec() { return num_vec_; }
   HOST_DEVICE_INLINE bool need_copy(int i) { return true; }
 
   HOST_DEVICE_INLINE int get_vec_length(int i) { return ev_size; }
@@ -438,6 +440,7 @@ template <typename src_emb_t, typename dst_emb_t, typename offset_t>
 struct DenseNetworkForwardBatchMajorOneToOneDesc {
   using SrcT = src_emb_t;
   using DstT = dst_emb_t;
+  HOST_DEVICE_INLINE int num_vec() { return num_vec_; }
 
   HOST_DEVICE_INLINE bool need_copy(int i) { return true; }
 
@@ -471,12 +474,14 @@ struct DenseNetworkForwardBatchMajorOneToOneDesc {
   dst_emb_t* __restrict__ dst_ptr;
 };
 
+// dense
 void dense_network_forward_to_batch_major_output(const EmbeddingInput& embedding_input,
                                                  const DenseNetworkBuffer& network_buffer,
                                                  const DenseNetworkIndices& network_indices,
                                                  const HugeCTR::core23::KernelParams& kernel_params,
                                                  EmbeddingOutput& embedding_output, int batch_size,
-                                                 int gpu_id, int num_gpus, cudaStream_t stream) {
+                                                 int gpu_id, int num_gpus, cudaStream_t stream,
+                                                 bool do_reduction) {
   int batch_size_per_gpu = batch_size / num_gpus;
 
   int ev_size = network_buffer.attr.ev_size;
@@ -510,17 +515,26 @@ void dense_network_forward_to_batch_major_output(const EmbeddingInput& embedding
                                     ev_start_indices_ptr,    reverse_idx_ptr,
                                     bucket_ids_ptr,          network_comm_buffer_ptr,
                                     output_buffer_ptr};
-        copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream);
+        if (do_reduction) {
+          copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream, true);
+          one_to_one_atomic(one_to_one_desc, kernel_params, ev_size, num_network_reverse_idx,
+                            stream);
+
+        } else {
+          copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream, false);
+        }
       });
     });
   });
 }
 
+// network is input;
+// output is embedding_output
 void dense_network_forward_to_feature_major_output(
     const EmbeddingInput& embedding_input, const DenseNetworkBuffer& network_buffer,
     const DenseNetworkIndices& network_indices, const HugeCTR::core23::KernelParams& kernel_params,
     EmbeddingOutput& embedding_output, int batch_size, int gpu_id, int num_gpus,
-    cudaStream_t stream) {
+    cudaStream_t stream, bool do_reduction) {
   int batch_size_per_gpu = batch_size / num_gpus;
 
   int ev_size = network_buffer.attr.ev_size;
@@ -548,7 +562,6 @@ void dense_network_forward_to_feature_major_output(
         auto ev_start_indices_ptr = network_indices.d_ev_start_indices.data<int>();
         auto hotness_list = network_indices.d_local_hotness.data<int>();
         using CopyDesc = DenseNetworkForwardFeatureMajorOneToOneDesc<emb_t, dst_emb_t, offset_t>;
-
         CopyDesc one_to_one_desc = {num_network_reverse_idx,
                                     ev_size,
                                     batch_size_per_gpu,
@@ -560,7 +573,14 @@ void dense_network_forward_to_feature_major_output(
                                     bucket_ids_ptr,
                                     network_comm_buffer_ptr,
                                     output_buffer_ptr};
-        copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream);
+
+        if (do_reduction) {
+          copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream, true);
+          one_to_one_atomic(one_to_one_desc, kernel_params, ev_size, num_network_reverse_idx,
+                            stream);
+        } else {
+          copy_one_to_one(one_to_one_desc, kernel_params, ev_size, stream, false);
+        }
       });
     });
   });
@@ -592,21 +612,22 @@ void NetworkForward::sparse_forward(const core23::Tensor& dp_num_keys_per_bucket
 void NetworkForward::dense_forward(const EmbeddingInput& embedding_input,
                                    const DenseNetworkBuffer& network_buffer,
                                    const DenseNetworkIndices& network_indices,
-                                   EmbeddingOutput& embedding_output, int batch_size) {
+                                   EmbeddingOutput& embedding_output, int batch_size,
+                                   bool do_reduction) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   auto stream = core_->get_local_gpu()->get_stream();
   int gpu_id = core_->get_global_gpu_id();
   int num_gpus = core_->get_global_gpu_count();
 
   if (embedding_output.attr.layout == EmbeddingLayout::FeatureMajor) {
-    dense_network_forward_to_feature_major_output(embedding_input, network_buffer, network_indices,
-                                                  core_->get_kernel_param(), embedding_output,
-                                                  batch_size, gpu_id, num_gpus, stream);
+    dense_network_forward_to_feature_major_output(
+        embedding_input, network_buffer, network_indices, core_->get_kernel_param(),
+        embedding_output, batch_size, gpu_id, num_gpus, stream, do_reduction);
   } else {
     HCTR_ASSERT(embedding_output.attr.layout == EmbeddingLayout::BatchMajor);
     dense_network_forward_to_batch_major_output(embedding_input, network_buffer, network_indices,
                                                 core_->get_kernel_param(), embedding_output,
-                                                batch_size, gpu_id, num_gpus, stream);
+                                                batch_size, gpu_id, num_gpus, stream, do_reduction);
   }
 }
 

@@ -30,7 +30,8 @@ namespace embedding {
 using namespace core;
 
 struct DenseUniformModelParallelEmbeddingMeta {
-  mutable int num_local_hotness_;
+  mutable int num_local_hotness_after_reduction_;
+  mutable int num_local_hotness_before_reduction_;
   int global_hotness_;
 
   int num_lookup_;
@@ -71,11 +72,12 @@ class DenseUniformModelParallelEmbedding : public IGroupedEmbeddingOp {
 
   NetworkBackward network_backward_;
 
-  core23::Tensor embedding_vec_;
+  core23::Tensor embedding_vec_;  // storing lookup result (embedding vector addresses)
 
   DenseModelCommBuffer model_comm_buffer_;
   DenseNetworkBuffer network_buffer_;
 
+  bool do_reduction_;
   void model_forward(const EmbeddingInput &embedding_input, ILookup *embedding_table,
                      int batch_size);
 

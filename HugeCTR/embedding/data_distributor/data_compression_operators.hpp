@@ -81,7 +81,10 @@ class PartitionAndUniqueOperator {
 
   void fill_continuous_bucket_ids(const DataDistributionInput &input, core23::Tensor &bucket_ids,
                                   core23::Tensor &h_num_bucket_ids, cudaStream_t stream);
-
+  void fill_continuous_bucket_ids_for_reduction(const DataDistributionInput &input,
+                                                core23::Tensor &bucket_ids,
+                                                core23::Tensor &h_num_bucket_ids,
+                                                cudaStream_t stream);
   // dense mp
   template <typename Partitioner>
   void partition_and_unique_on_dp_input(const DataDistributionInput &input,
