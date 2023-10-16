@@ -1204,38 +1204,6 @@ sparse_embedding1_train_flow = model.check_out_tensor("sparse_embedding1", hugec
 fc1_evaluate_flow = model.check_out_tensor("fc1", hugectr.Tensor_t.Evaluate)
 ```
 
-***
-
-#### export_predictions method
-
-```python
-hugectr.Model.export_predictions()
-```
-
-If you want to export the predictions for specified data, using [predict() in inference API](#predict-method) is recommended. This method will export the last batch of evaluation prediction and label to file. If the file already exists, the evaluation result will be appended to the end of the file. This method will only export `eval_batch_size` evaluation result each time. So it should be used in the following way:
-
-```python
-for i in range(train_steps):
-  # do train
-  ...
-  # clean prediction / label result file
-  prediction_file_in_current_step = "predictions" + str(i)
-  if os.path.exists(prediction_file_in_current_step):
-    os.remove(prediction_file_in_current_step)
-  label_file_in_current_step = "label" + str(i)
-  if os.path.exists(label_file_in_current_step):
-    os.remove(label_file_in_current_step)
-  # do evaluation and export prediction
-  for _ in range(solver.max_eval_batches):
-    model.eval()
-    model.export_predictions(prediction_file_in_current_step, label_file_in_current_step)
-```
-
-**Arguments**
-* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be written. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
-
-* `output_label_file_name`: String, the file to which the evaluation labels will be written. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
-
 ## Inference API
 
 > **Deprecation Warning**: the offline inference based on `InferenceSession` and `InferenceModel` will be deprecated in a future release. Please check out the [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html) for alternatives based on TensorFlow and TensorRT.

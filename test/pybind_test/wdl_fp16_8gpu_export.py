@@ -16,6 +16,7 @@
 
 import hugectr
 import sys
+import numpy as np
 
 
 def wdl_test(json_file, export_path_prefix):
@@ -56,10 +57,9 @@ def wdl_test(json_file, export_path_prefix):
         if i % 1000 == 0 and i != 0:
             for _ in range(solver.max_eval_batches):
                 model.eval()
-                model.export_predictions(
-                    export_path_prefix + "prediction" + str(i),
-                    export_path_prefix + "label" + str(i),
-                )
+            eval_results = model.check_out_tensor("add1", hugectr.Tensor_t.Evaluate)
+            np.save(export_path_prefix + "eval" + str(i) + ".npy", eval_results)
+            print("[HUGECTR][INFO] eval results shape: {}".format(eval_results.shape))
             metrics = model.get_eval_metrics()
             print("[HUGECTR][INFO] iter: {}, {}".format(i, metrics))
     return

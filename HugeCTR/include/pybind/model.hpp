@@ -468,9 +468,6 @@ class Model final {
 
   Error_t download_params_to_files(std::string prefix, int iter);
 
-  Error_t export_predictions(const std::string& output_prediction_file_name,
-                             const std::string& output_label_file_name);
-
   void check_overflow() const;
 
   void copy_weights_for_evaluation();
