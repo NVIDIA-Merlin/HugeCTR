@@ -254,8 +254,6 @@ void ModelPybind(pybind11::module &m) {
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
       .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)
-      .def("export_predictions", &HugeCTR::Model::export_predictions,
-           pybind11::arg("output_prediction_file_name"), pybind11::arg("output_label_file_name"))
       .def(
           "check_out_tensor",
           [](HugeCTR::Model &self, const std::string &tensor_name, Tensor_t tensor_type) {

@@ -352,5 +352,4 @@ model.add(
 model.compile()
 model.summary()
 model.fit(max_iter=88000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="bst")
-# model.graph_to_json(graph_config_file = "bst.json")
-# model.export_predictions( "prediction_fit",  "label_fit")
+# model.graph_to_json(graph_config_file = "din.json")
