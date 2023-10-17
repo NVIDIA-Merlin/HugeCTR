@@ -290,7 +290,7 @@ stages:
     - .hugectr:rules:test_in_child
   variables:
     CLUSTER:       "dracorno"
-    SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
+    SLURM_ACCOUNT: "coreai_devtech_hugectr"
     SLURM_PARTITION: ${DRACO_SLURM_PARTITION}
     DATA_PREFIX: ${DRACO_DATA_PREFIX}
     WALLTIME:      "02:00:00"
@@ -349,7 +349,7 @@ stages:
     - .sok:rules:test_in_child
   variables:
     CLUSTER:       "dracorno"
-    SLURM_ACCOUNT: "gpu_compute_devtech_hpc_hugectr"
+    SLURM_ACCOUNT: "coreai_devtech_hugectr"
     DATA_PREFIX: ${DRACO_DATA_PREFIX}
     SLURM_PARTITION: ${DRACO_SLURM_PARTITION}
     WALLTIME:      "02:00:00"
