@@ -49,7 +49,7 @@ criteo:
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/criteo
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    MOUNTS: ${DRACO_CRITEO_PARQUET_DATASET}:${DATASET_MOUNT}
     TEST_CMD: ./ci/integration_test/criteo/criteo.sub
 
 dcn:
@@ -83,7 +83,7 @@ wdl:
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/wdl                                                      # log dir, usually $LOGDIR + job name
     CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
-    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}                                      # node num
+    MOUNTS: ${DRACO_WDL_PARQUET_DATASET}:${DATASET_MOUNT}                                      # node num
     TEST_CMD: ./ci/integration_test/wdl/wdl.sub 
 
 deepfm:
@@ -151,7 +151,7 @@ py_single_node:
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/py_single_node
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT}
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DRACO_WDL_PARQUET_DATASET}:${NEW_CRITEO_MOUNT}
     TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 hugectr2onnx:

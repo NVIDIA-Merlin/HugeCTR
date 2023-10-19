@@ -10,6 +10,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
+    "input_key_type": "I64",
     "max_eval_batches": 2048,
     "auc_threshold": 0.8071
   },
@@ -55,7 +56,7 @@
       "sparse_embedding_hparam": {
         "embedding_vec_size": 16,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 321
+        "workspace_size_per_gpu_in_mb": 495
       }
     },
     {

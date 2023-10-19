@@ -18,7 +18,8 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "max_eval_batches": 2048,
-    "mixed_precision": 1024
+    "mixed_precision": 1024,
+    "input_key_type": "I64"
   },
   "optimizer": {
     "type": "Adam",
@@ -34,9 +35,11 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
-      "check": "Sum",
+      "format": "Parquet",
+      "source": "./_file_list.txt",
+      "eval_source": "./_file_list.txt",
+      "check": "None",
+      "slot_size_array": [381808, 22456, 14763, 7118, 19308, 4, 6443, 1259, 54, 341642, 112151, 94957, 11, 2188, 8399, 61, 4, 949, 15, 382633, 246818, 370704, 92823, 9773, 78, 34],
       "label": {
         "top": "label",
         "label_dim": 1

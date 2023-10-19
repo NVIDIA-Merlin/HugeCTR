@@ -356,7 +356,7 @@ wdl_multi_gpu:
     GPFSFOLDER: $LOGDIR/wdl_multi_gpu                                                      # log dir, usually $LOGDIR + job name
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
     CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}                                          # mount
     WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
     DGXNNODES: 1                                                                 # node num
     TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub
@@ -408,7 +408,7 @@ py_low_level:
     GPFSFOLDER: $LOGDIR/py_low_level
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT},/raid:/raid
+    MOUNTS: /raid:/raid,${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
     WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub

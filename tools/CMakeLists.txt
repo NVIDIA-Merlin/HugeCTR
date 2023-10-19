@@ -15,9 +15,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 if(NOT DISABLE_CUDF)
-    add_subdirectory(criteo_script)
     add_subdirectory(raw_script)
-    add_subdirectory(criteo_script_legacy)
     add_subdirectory(dlrm_script)
     add_subdirectory(io_benchmark)
     add_subdirectory(db_benchmark)

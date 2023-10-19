@@ -26,10 +26,40 @@ solver = hugectr.CreateSolver(
     repeat_dataset=True,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./criteo_data/file_list.txt"],
-    eval_source="./criteo_data/file_list_test.txt",
-    check_type=hugectr.Check_t.Sum,
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./criteo_data/train/_file_list.txt"],
+    eval_source="./criteo_data/val/_file_list.txt",
+    slot_size_array=[
+        278899,
+        355877,
+        203750,
+        18573,
+        14082,
+        7020,
+        18966,
+        4,
+        6382,
+        1246,
+        49,
+        185920,
+        71354,
+        67346,
+        11,
+        2166,
+        7340,
+        60,
+        4,
+        934,
+        15,
+        204208,
+        141572,
+        199066,
+        60940,
+        9115,
+        72,
+        34,
+    ],
+    check_type=hugectr.Check_t.Non,
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.Adam,
@@ -46,8 +76,8 @@ model.add(
         dense_dim=13,
         dense_name="dense",
         data_reader_sparse_param_array=[
-            hugectr.DataReaderSparseParam("wide_data", 30, True, 1),
-            hugectr.DataReaderSparseParam("deep_data", 2, False, 26),
+            hugectr.DataReaderSparseParam("wide_data", 1, True, 2),
+            hugectr.DataReaderSparseParam("deep_data", 1, False, 26),
         ],
     )
 )
@@ -86,7 +116,15 @@ model.add(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["sparse_embedding2"],
         top_names=["reshape2"],
-        leading_dim=1,
+        leading_dim=2,
+    )
+)
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.ReduceSum,
+        bottom_names=["reshape2"],
+        top_names=["wide_redn"],
+        axis=1,
     )
 )
 model.add(
@@ -237,7 +275,7 @@ model.add(
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Add, bottom_names=["fc8", "reshape2"], top_names=["add1"]
+        layer_type=hugectr.Layer_t.Add, bottom_names=["fc8", "wide_redn"], top_names=["add1"]
     )
 )
 model.add(

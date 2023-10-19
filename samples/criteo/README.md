@@ -24,7 +24,7 @@ If you want to build the HugeCTR Docker container on your own, refer to [How to 
 You should make sure that HugeCTR Python interface is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
 ```shell
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
-``` 
+```
 
 ## Download the Dataset ##
 Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory. 
@@ -42,50 +42,27 @@ During preprocessing, the amount of data, which is used to speed up the preproce
 ## Preprocess the Dataset ##
 When running this sample, the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used. The dataset contains 24 files in which each file corresponds to one day of data. To reduce preprocessing time, only one file is used. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly.
 
-After you've downloaded the dataset, you can use one of the following methods to prepare the dataset for HugeCTR training:
-- [Perl](#preprocess-the-dataset-through-perl) (Deprecated)
-- [NVTabular](#preprocess-the-dataset-through-nvtabular)
-
-### Preprocess the Dataset Through Perl (Deprecated) ###
-To preprocess the dataset through Perl, run the following command:
-```shell
-$ bash preprocess.sh 1 criteo_data perl 1
-```
-**IMPORTANT NOTES**: 
-- The first argument represents the dataset postfix.  For example, if `day_1` is used, the postfix is `1`.
-- The second argument `criteo_data` is where the preprocessed data is stored. You may want to change it in cases where multiple datasets are generated concurrently. If you change it, `source` and `eval_source` in your JSON configuration file must be changed as well.
-- The last argument represents the number of slots used in this sample.
+After you've downloaded the dataset, you can use [NVTabular](#preprocess-the-dataset-through-nvtabular) to prepare the dataset for HugeCTR training:
 
 ### Preprocess the Dataset Through NVTabular ###
+
 HugeCTR supports data processing through NVTabular. Make sure that the NVTabular Docker environment has been set up successfully. For more information, see [NVTAbular github](https://github.com/NVIDIA/NVTabular). Ensure that you're using the latest version of NVTabular and mount the HugeCTR ${project_root} volume into the NVTabular Docker.
 
 Execute the following preprocessing command:
    ```shell
-   $ bash preprocess.sh 1 criteo_data nvt 1 1 0
+$ bash preprocess.sh 1 criteo_data nvt 1 0
    ```
 
 **IMPORTANT NOTES**: 
-- The first and second arguments are the same as Perl's, as shown above.
-- If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
-- The fifth argument must be set to `1`. It means that criteo mode is ON, in another words, ignoring the dense features.
+
+- The first argument represents the dataset postfix.  For example, if `day_1` is used, the postfix is `1`.
+- The second argument `criteo_data` is where the preprocessed data is stored. You may want to change it in cases where multiple datasets are generated concurrently. If you change it, `source` and `eval_source` in your JSON configuration file must be changed as well.
+- The fourth argument must be set to `1`. It means that criteo mode is ON, in another words, ignoring the dense features.
 - The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF). It must remain set to `0`.
 
 ## Train with HugeCTR ##
-Run the following command after preprocessing the dataset through Perl:
-```shell
-$ python3 ../samples/criteo/criteo.py
-```
 
-Run one of the following commands after preprocessing the dataset through NVTabular using either the Parquet or Binary output:
-
-**Parquet Output**
 ```shell
 $ python3 ../samples/criteo/criteo_parquet.py
 ```
 
-**Binary Output**
-```shell
-$ python3 ../samples/criteo/criteo_bin.py
-```
-
-**NOTE**: If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.

@@ -24,7 +24,6 @@ import numpy as np
 def hugectr2onnx_dcn_test(
     batch_size,
     num_batches,
-    data_source,
     data_file,
     graph_config,
     dense_model,
@@ -55,8 +54,7 @@ if __name__ == "__main__":
     hugectr2onnx_dcn_test(
         64,
         100,
-        "./dcn_data/file_list_test.txt",
-        "./dcn_data/val/sparse_embedding0.data",
+        "./deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet",
         "/onnx_converter/graph_files/dcn.json",
         "/onnx_converter/hugectr_models/dcn_dense_2000.model",
         ["/onnx_converter/hugectr_models/dcn0_sparse_2000.model"],
@@ -67,8 +65,7 @@ if __name__ == "__main__":
     hugectr2onnx_dcn_test(
         64,
         100,
-        "./dcn_data/file_list_test.txt",
-        "./dcn_data/val/sparse_embedding0.data",
+        "./deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet",
         "/onnx_converter/graph_files/deepfm.json",
         "/onnx_converter/hugectr_models/deepfm_dense_2000.model",
         ["/onnx_converter/hugectr_models/deepfm0_sparse_2000.model"],
@@ -79,8 +76,7 @@ if __name__ == "__main__":
     hugectr2onnx_dcn_test(
         64,
         100,
-        "./dcn_data/file_list_test.txt",
-        "./dcn_data/val/sparse_embedding0.data",
+        "./deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet",
         "/onnx_converter/graph_files/dlrm.json",
         "/onnx_converter/hugectr_models/dlrm_dense_2000.model",
         ["/onnx_converter/hugectr_models/dlrm0_sparse_2000.model"],
@@ -92,8 +88,7 @@ if __name__ == "__main__":
     hugectr2onnx_dcn_test(
         64,
         100,
-        "./dcn_data/file_list_test.txt",
-        "./dcn_data/val/sparse_embedding0.data",
+        "./deepfm_data_nvt/val/0.35ab81b16b4a409ba42a1baf89dcba52.parquet",
         "/onnx_converter/graph_files/dlrm_mlp.json",
         "/onnx_converter/hugectr_models/dlrm_mlp_dense_2000.model",
         ["/onnx_converter/hugectr_models/dlrm_mlp0_sparse_2000.model"],

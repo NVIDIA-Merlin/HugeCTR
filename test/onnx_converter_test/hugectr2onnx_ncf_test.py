@@ -24,7 +24,6 @@ import numpy as np
 def hugectr2onnx_ncf_test(
     batch_size,
     num_batches,
-    data_source,
     data_file,
     graph_config,
     dense_model,
@@ -34,11 +33,12 @@ def hugectr2onnx_ncf_test(
     ground_truth,
 ):
     hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models)
-    label, dense, keys = read_samples_for_ncf(data_file, batch_size * num_batches, slot_num=2)
+    label, keys = read_samples_for_ncf(data_file, batch_size * num_batches, slot_num=2)
+    dense = np.zeros([batch_size * num_batches, 0])
     sess = ort.InferenceSession(onnx_model_path)
     res = sess.run(
         output_names=[sess.get_outputs()[0].name],
-        input_feed={sess.get_inputs()[0].name: dense, sess.get_inputs()[1].name: keys},
+        input_feed={sess.get_inputs()[0].name: None, sess.get_inputs()[1].name: keys},
     )
     res = res[0].reshape(
         batch_size * num_batches,
@@ -52,8 +52,7 @@ if __name__ == "__main__":
     hugectr2onnx_ncf_test(
         64,
         100,
-        "./data/ml-20m/test_filelist.txt",
-        "./data/ml-20m/test_huge_ctr_data_0.dat",
+        "./movie_len_parquet/val/part_0.parquet",
         "/onnx_converter/graph_files/ncf.json",
         "/onnx_converter/hugectr_models/ncf_dense_2000.model",
         ["/onnx_converter/hugectr_models/ncf0_sparse_2000.model"],
@@ -64,8 +63,7 @@ if __name__ == "__main__":
     hugectr2onnx_ncf_test(
         64,
         100,
-        "./data/ml-20m/test_filelist.txt",
-        "./data/ml-20m/test_huge_ctr_data_0.dat",
+        "./movie_len_parquet/val/part_0.parquet",
         "/onnx_converter/graph_files/gmf.json",
         "/onnx_converter/hugectr_models/gmf_dense_2000.model",
         ["/onnx_converter/hugectr_models/gmf0_sparse_2000.model"],
@@ -76,8 +74,7 @@ if __name__ == "__main__":
     hugectr2onnx_ncf_test(
         64,
         100,
-        "./data/ml-20m/test_filelist.txt",
-        "./data/ml-20m/test_huge_ctr_data_0.dat",
+        "./movie_len_parquet/val/part_0.parquet",
         "/onnx_converter/graph_files/neumf.json",
         "/onnx_converter/hugectr_models/neumf_dense_2000.model",
         ["/onnx_converter/hugectr_models/neumf0_sparse_2000.model"],

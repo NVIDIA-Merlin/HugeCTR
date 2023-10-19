@@ -31,20 +31,8 @@ if [[ $3 == "nvt" ]]; then
     exit 2
 	fi
 	echo "Preprocessing script: NVTabular"
-elif [[ $3 == "perl" ]]; then
-  if [[ $# -ne 4 ]]; then
-		echo "Usage: preprocess.sh [DATASET_NO.] [DST_DATA_DIR] perl [NUM_SLOTS]"
-    exit 2
-	fi
-	echo "Preprocessing script: Perl"
-elif [[ $3 == "pandas" ]]; then
-  if [[ $# -lt 5 ]]; then
-		echo "Usage: preprocess.sh [DATASET_NO.] [DST_DATA_DIR] pandas [IS_DENSE_NORMALIZED] [IS_FEATURE_CROSSED] (FILE_LIST_LENGTH)"
-    exit 2
-	fi
-	echo "Preprocessing script: Pandas"
 else
-	echo "Error: $3 is an invalid script type. Pick one from {nvt, perl, pandas}."
+	echo "Script type must be nvt"
 	exit 2
 fi
 
@@ -97,8 +85,8 @@ split_dataset()
 
 echo "Preprocessing..."
 if [[ $SCRIPT_TYPE == "nvt" ]]; then
-	IS_PARQUET_FORMAT=$4
-	IS_CRITEO_MODE=$5
+	IS_PARQUET_FORMAT=1
+	IS_CRITEO_MODE=$4
 	FEATURE_CROSS_LIST_OPTION=""
 	if [[ ( $IS_CRITEO_MODE -eq 0 ) && ( $6 -eq 1 ) ]]; then
 		FEATURE_CROSS_LIST_OPTION="--feature_cross_list C1_C2,C3_C4"
@@ -118,32 +106,6 @@ if [[ $SCRIPT_TYPE == "nvt" ]]; then
 		--criteo_mode=$IS_CRITEO_MODE         \
 		$FEATURE_CROSS_LIST_OPTION
 
-elif [[ $SCRIPT_TYPE == "perl" ]]; then
-	NUM_SLOT=$4
-  split_dataset day_$1_shuf
-	perl criteo_script_legacy/preprocess.pl $DST_DATA_DIR/train/train.txt $DST_DATA_DIR/val/val.txt $DST_DATA_DIR/val/test.txt                      && \
-	criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/train/train.txt.out $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt && \
-	criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/val/test.txt.out $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt
-
-elif [[ $SCRIPT_TYPE == "pandas" ]]; then
-	python3 criteo_script/preprocess.py                 \
-		--src_csv_path=$DST_DATA_DIR/day_$1_shuf          \
-		--dst_csv_path=$DST_DATA_DIR/day_$1_shuf.out      \
-		--normalize_dense=$4 --feature_cross=$5      &&   \
-  split_dataset day_$1_shuf.out
-	NUM_WIDE_KEYS=""
-	if [[ $5 -ne 0 ]]; then
-		NUM_WIDE_KEYS=2
-	fi
-
-  FILE_LIST_LENGTH=""
-  if [[ $# -gt 5 ]]; then
-    FILE_LIST_LENGTH=$6
-	fi
-
-	criteo2hugectr $DST_DATA_DIR/train/train.txt $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH && \
-	criteo2hugectr $DST_DATA_DIR/val/test.txt $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH
-fi
 
 if [ $? -ne 0 ]; then
 	exit 2

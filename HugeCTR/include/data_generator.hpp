@@ -187,7 +187,6 @@ class DataWriter {
     array_.clear();
   }
 };
-
 template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
                               int num_records_per_file, int slot_num, int vocabulary_size,
@@ -272,6 +271,107 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
   HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
   return;
 }
+// [files][feats][value]
+// without default value
+template <typename T, Check_t CK_T>
+void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
+                              int num_records_per_file, int slot_num, int vocabulary_size,
+                              int label_dim, int dense_dim, int max_nnz, bool long_tail,
+                              float alpha,
+                              std::vector<std::vector<std::vector<T>>>* generated_value,
+                              std::vector<std::vector<std::vector<T>>>* generated_rowoffset,
+                              std::vector<std::vector<std::vector<float>>>* generated_label,
+                              std::vector<std::vector<std::vector<float>>>* generated_dense) {
+  HCTR_LOG(WARNING, WORLD,
+           "Norm format will be deprecated in a future release, please use Parquet for an "
+           "alternative\n");
+  if (file_exist(file_list_name)) {
+    HCTR_LOG_S(INFO, WORLD) << "File (" << file_list_name
+                            << ") exist. To generate new dataset please remove this file."
+                            << std::endl;
+    return;
+  }
+  if (generated_value && generated_rowoffset && generated_label && generated_dense) {
+    generated_value->resize(num_files);
+    generated_rowoffset->resize(num_files);
+    generated_label->resize(num_files);
+    generated_dense->resize(num_files);
+    for (int k = 0; k < num_files; k++) {
+      generated_value->at(k).resize(slot_num);
+      generated_rowoffset->at(k).resize(slot_num);
+      generated_label->at(k).resize(label_dim);
+      if (dense_dim) generated_dense->at(k).resize(dense_dim);
+    }
+  }
+  std::string directory;
+  const size_t last_slash_idx = data_prefix.rfind('/');
+  if (std::string::npos != last_slash_idx) {
+    directory = data_prefix.substr(0, last_slash_idx);
+  }
+  check_make_dir(directory);
+
+  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+  file_list_stream << (std::to_string(num_files) + "\n");
+#pragma omp parallel for ordered
+  for (int k = 0; k < num_files; k++) {
+    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
+#pragma omp ordered
+    file_list_stream << (tmp_file_name + "\n");
+    HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
+    // data generation;
+    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
+
+    DataWriter<CK_T> data_writer(out_stream);
+    DataSetHeader header = {
+        Checker_Traits<CK_T>::ID(), num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
+
+    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    data_writer.write();
+
+    for (int i = 0; i < num_records_per_file; i++) {
+      IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for label and dense
+      std::shared_ptr<IDataSimulator<T>> ldata_sim;
+      if (long_tail)
+        ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
+      else
+        ldata_sim.reset(new IntUniformDataSimulator<T>(0, vocabulary_size - 1));  // for key
+      for (int j = 0; j < label_dim + dense_dim; j++) {
+        float label_dense = fdata_sim.get_num();
+        if (j < label_dim && generated_label != nullptr) {
+          generated_label->at(k).at(j).push_back(label_dense);
+        }
+        if (j >= label_dim && generated_dense != nullptr) {
+          generated_dense->at(k)[j - label_dim].push_back(label_dense);
+        }
+        data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
+      }
+      for (int s = 0; s < slot_num; s++) {
+        int nnz = idata_sim.get_num();
+        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
+        for (int j = 0; j < nnz; j++) {
+          T key = ldata_sim->get_num();
+          while ((key % static_cast<T>(slot_num)) !=
+                 static_cast<T>(s)) {  // guarantee the key belongs to the current slot_id(=k)
+            key = ldata_sim->get_num();
+          }
+          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+          if (generated_value != nullptr) {
+            generated_value->at(k)[s].push_back(key);
+          }
+        }
+        if (generated_rowoffset != nullptr) {
+          generated_rowoffset->at(k)[s].push_back(nnz);
+        }
+      }
+      data_writer.write();
+    }
+    out_stream.close();
+  }
+  file_list_stream.close();
+  HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
+  return;
+}
 
 /**
  * Adding finer control e.g.: --voc-size-array=312,32,231234,124332,4554
@@ -283,6 +383,9 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
                                std::vector<size_t> voc_size_array, int label_dim, int dense_dim,
                                std::vector<int> nnz_array, int num_threads = 1,
                                bool long_tail = false, float alpha = 0.0) {
+  HCTR_LOG(WARNING, WORLD,
+           "Norm format will be deprecated in a future release, please use Parquet for an "
+           "alternative\n");
   // check if slot_num == voc_size_array.size == nnz_array.size
   if (slot_num != (int)voc_size_array.size() || slot_num != (int)nnz_array.size()) {
     HCTR_LOG(ERROR, WORLD, "slot_num != voc_size_array.size() || slot_num != nnz_array.size()\n");
@@ -394,7 +497,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
 }
 
 #ifndef DISABLE_CUDF
-template <typename T>
+template <typename KeyType>
 void data_generation_for_parquet(std::string file_list_name, std::string data_prefix, int num_files,
                                  int num_records_per_file, int slot_num, int label_dim,
                                  int dense_dim, const std::vector<size_t> slot_size_array,
@@ -404,6 +507,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     HCTR_LOG(ERROR, WORLD, "slot_num != slot_size_array.size() || slot_num != nnz_array.size()\n");
     exit(-1);
   }
+  using T = typename std::conditional<std::is_same_v<KeyType, long long>, int64_t, KeyType>::type;
   std::string directory;
   const size_t last_slash_idx = data_prefix.rfind('/');
   if (std::string::npos != last_slash_idx) {
@@ -533,8 +637,11 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     metadata << "{\"col_name\": \"C" << i << "\", "
              << "\"index\":" << i << "}, ";
   }
-  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim - 1) << "\", "
-           << "\"index\":" << (label_dim + dense_dim - 1) << "} ";
+  if (dense_dim > 0) {
+    metadata << "{\"col_name\": \"C" << (label_dim + dense_dim - 1) << "\", "
+             << "\"index\":" << (label_dim + dense_dim - 1) << "} ";
+  }
+
   metadata << "], ";
 
   metadata << "\"cats\": [";
@@ -551,6 +658,130 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
   metadata_file_stream << metadata.str();
   metadata_file_stream.close();
 }
+template <typename T>
+void data_generation_for_parquet(
+    std::string file_list_name, std::string data_prefix,
+    const std::vector<std::vector<std::vector<T>>>& generated_value,  // [file][fea_id][value]
+    const std::vector<std::vector<std::vector<T>>>& generated_rowoffset,
+    const std::vector<std::vector<std::vector<float>>>& generated_label,
+    const std::vector<std::vector<std::vector<float>>>& generated_dense) {
+  int num_files = generated_value.size();
+  int slot_num = generated_value[0].size();
+  int label_dim = generated_label[0].size();
+  int dense_dim = generated_dense[0].size();
+  int num_records_per_file = generated_label[0][0].size();
+  using cat_type = typename std::conditional<std::is_same_v<T, long long>, int64_t, T>::type;
+  if (num_files < 1) {
+    HCTR_LOG(ERROR, WORLD, "num files==0\n");
+    exit(-1);
+  }
+  if (generated_value.size() != generated_rowoffset.size() ||
+      generated_label.size() != generated_value.size() ||
+      generated_dense.size() != generated_value.size()) {
+    HCTR_LOG(ERROR, WORLD, "num files not consistent!\n");
+    exit(-1);
+  }
+  std::string directory;
+  const size_t last_slash_idx = data_prefix.rfind('/');
+  if (std::string::npos != last_slash_idx) {
+    directory = data_prefix.substr(0, last_slash_idx);
+  }
+  check_make_dir(directory);
+
+  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+  file_list_stream << (std::to_string(num_files) + "\n");
+
+  using CVector = std::vector<std::unique_ptr<cudf::column>>;
+  for (int k = 0; k < num_files; k++) {
+    CVector cols;
+    // for label columns
+    std::string tmp_file_name(data_prefix + std::to_string(k) + ".parquet");
+    file_list_stream << (tmp_file_name + "\n");
+    HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
+    for (int j = 0; j < label_dim; j++) {
+      rmm::device_buffer dev_buffer(generated_label[k][j].data(),
+                                    sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      cols.emplace_back(std::make_unique<cudf::column>(
+          cudf::data_type{cudf::type_to_id<float>()}, cudf::size_type(num_records_per_file),
+          std::move(dev_buffer), rmm::device_buffer{}, 0));
+    }
+    for (int j = 0; j < dense_dim; j++) {
+      rmm::device_buffer dev_buffer(generated_dense[k][j].data(),
+                                    sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      cols.emplace_back(std::make_unique<cudf::column>(
+          cudf::data_type{cudf::type_to_id<float>()}, cudf::size_type(num_records_per_file),
+          std::move(dev_buffer), rmm::device_buffer{}, 0));
+    }
+    for (int s = 0; s < slot_num; s++) {
+      if (*std::max_element(generated_rowoffset[k][s].begin(), generated_rowoffset[k][s].end()) >
+          1) {
+        std::cerr << "Does not support multi-hot!";
+        exit(-1);
+      }
+
+      rmm::device_buffer dev_buffer(generated_value[k][s].data(),
+                                    sizeof(T) * generated_value[k][s].size(),
+                                    rmm::cuda_stream_default);
+      cols.emplace_back(
+          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<cat_type>()},
+                                         cudf::size_type(generated_value[k][s].size()),
+                                         std::move(dev_buffer), rmm::device_buffer{}, 0));
+    }
+    cudf::table input_table(std::move(cols));
+    cudf::io::parquet_writer_options writer_args = cudf::io::parquet_writer_options::builder(
+        cudf::io::sink_info{tmp_file_name}, input_table.view());
+    cudf::io::write_parquet(writer_args);
+  }
+  HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
+  // also write metadata
+  std::ostringstream metadata;
+  metadata << "{ \"file_stats\": [";
+  for (int i = 0; i < num_files - 1; i++) {
+    std::string filepath = data_prefix + std::to_string(i) + std::string(".parquet");
+    metadata << "{\"file_name\": \"" << filepath << "\", "
+             << "\"num_rows\":" << num_records_per_file << "}, ";
+  }
+  std::string filepath = data_prefix + std::to_string(num_files - 1) + std::string(".parquet");
+  metadata << "{\"file_name\": \"" << filepath << "\", "
+           << "\"num_rows\":" << num_records_per_file << "} ";
+  metadata << "], ";
+  metadata << "\"labels\": [";
+  for (int i = 0; i < label_dim - 1; i++) {
+    metadata << "{\"col_name\": \"label" << i << "\", "
+             << "\"index\":" << i << "}, ";
+  }
+  metadata << "{\"col_name\": \"label" << label_dim - 1 << "\", "
+           << "\"index\":" << label_dim - 1 << "} ";
+  metadata << "], ";
+
+  metadata << "\"conts\": [";
+  for (int i = label_dim; i < (label_dim + dense_dim - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
+  }
+  if (dense_dim > 0) {
+    metadata << "{\"col_name\": \"C" << (label_dim + dense_dim - 1) << "\", "
+             << "\"index\":" << (label_dim + dense_dim - 1) << "} ";
+  }
+
+  metadata << "], ";
+
+  metadata << "\"cats\": [";
+  for (int i = label_dim + dense_dim; i < (label_dim + dense_dim + slot_num - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
+  }
+  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim + slot_num - 1) << "\", "
+           << "\"index\":" << (label_dim + dense_dim + slot_num - 1) << "} ";
+  metadata << "] ";
+  metadata << "}";
+
+  std::ofstream metadata_file_stream{directory + "/_metadata.json"};
+  metadata_file_stream << metadata.str();
+  metadata_file_stream.close();
+  HCTR_LOG_S(INFO, WORLD) << " _metadata.json generation done!" << std::endl;
+}
+
 #endif
 
 // Add a new data_generation function for LocalizedSparseEmbedding testing
@@ -558,12 +789,31 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 template <typename T, Check_t CK_T>
-void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num,
-                                        int vocabulary_size, int label_dim, int dense_dim,
-                                        int max_nnz, bool long_tail = false, float alpha = 0.0) {
+void data_generation_for_localized_test(
+    std::string file_list_name, std::string data_prefix, int num_files, int num_records_per_file,
+    int slot_num, int vocabulary_size, int label_dim, int dense_dim, int max_nnz,
+    bool long_tail = false, float alpha = 0.0,
+    std::vector<std::vector<std::vector<T>>>* generated_value = nullptr,
+    std::vector<std::vector<std::vector<T>>>* generated_rowoffset = nullptr,
+    std::vector<std::vector<std::vector<float>>>* generated_label = nullptr,
+    std::vector<std::vector<std::vector<float>>>* generated_dense = nullptr) {
+  HCTR_LOG(WARNING, WORLD,
+           "Norm format will be deprecated in a future release, please use Parquet for an "
+           "alternative\n");
   if (file_exist(file_list_name)) {
     return;
+  }
+  if (generated_value && generated_rowoffset && generated_label && generated_dense) {
+    generated_value->resize(num_files);
+    generated_rowoffset->resize(num_files);
+    generated_label->resize(num_files);
+    generated_dense->resize(num_files);
+    for (int k = 0; k < num_files; k++) {
+      generated_value->at(k).resize(slot_num);
+      generated_rowoffset->at(k).resize(slot_num);
+      generated_label->at(k).resize(label_dim);
+      if (dense_dim) generated_dense->at(k).resize(dense_dim);
+    }
   }
   std::string directory;
   const size_t last_slash_idx = data_prefix.rfind('/');
@@ -599,16 +849,28 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
+        if (j < label_dim && generated_label != nullptr) {
+          generated_label->at(k).at(j).push_back(label_dense);
+        }
+        if (j >= label_dim && generated_dense != nullptr) {
+          generated_dense->at(k)[j - label_dim].push_back(label_dense);
+        }
       }
-      for (int k = 0; k < slot_num; k++) {
+      for (int s = 0; s < slot_num; s++) {
         int nnz = idata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         for (int j = 0; j < nnz; j++) {
           T key = ldata_sim->get_num();
-          while ((key % slot_num) != k) {  // guarantee the key belongs to the current slot_id(=k)
+          while ((key % slot_num) != s) {  // guarantee the key belongs to the current slot_id(=k)
             key = ldata_sim->get_num();
           }
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+          if (generated_value != nullptr) {
+            generated_value->at(k)[s].push_back(key);
+          }
+        }
+        if (generated_rowoffset != nullptr) {
+          generated_rowoffset->at(k)[s].push_back(nnz);
         }
       }
       data_writer.write();
@@ -618,15 +880,33 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   file_list_stream.close();
   return;
 }
-
+// TODO remove it
 template <typename T, Check_t CK_T>
-void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num,
-                                        int vocabulary_size, int label_dim, int dense_dim,
-                                        int max_nnz, const std::vector<size_t> slot_sizes,
-                                        bool long_tail = false, float alpha = 0.0) {
+void data_generation_for_localized_test(
+    std::string file_list_name, std::string data_prefix, int num_files, int num_records_per_file,
+    int slot_num, int vocabulary_size, int label_dim, int dense_dim, int max_nnz,
+    const std::vector<size_t> slot_sizes, bool long_tail = false, float alpha = 0.0,
+    std::vector<std::vector<std::vector<T>>>* generated_value = nullptr,
+    std::vector<std::vector<std::vector<T>>>* generated_rowoffset = nullptr,
+    std::vector<std::vector<std::vector<float>>>* generated_label = nullptr,
+    std::vector<std::vector<std::vector<float>>>* generated_dense = nullptr) {
+  HCTR_LOG(WARNING, WORLD,
+           "Norm format will be deprecated in a future release, please use Parquet for an "
+           "alternative\n");
   if (file_exist(file_list_name)) {
     return;
+  }
+  if (generated_value && generated_rowoffset && generated_label && generated_dense) {
+    generated_value->resize(num_files);
+    generated_rowoffset->resize(num_files);
+    generated_label->resize(num_files);
+    generated_dense->resize(num_files);
+    for (int k = 0; k < num_files; k++) {
+      generated_value->at(k).resize(slot_num);
+      generated_rowoffset->at(k).resize(slot_num);
+      generated_label->at(k).resize(label_dim);
+      if (dense_dim) generated_dense->at(k).resize(dense_dim);
+    }
   }
   std::string directory;
   const size_t last_slash_idx = data_prefix.rfind('/');
@@ -657,13 +937,19 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
+        if (j < label_dim && generated_label != nullptr) {
+          generated_label->at(k).at(j).push_back(label_dense);
+        }
+        if (j >= label_dim && generated_dense != nullptr) {
+          generated_dense->at(k)[j - label_dim].push_back(label_dense);
+        }
       }
       size_t offset = 0;
-      for (int k = 0; k < slot_num; k++) {
+      for (int s = 0; s < slot_num; s++) {
         // int nnz = idata_sim.get_num();
         int nnz = max_nnz;  // for test
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        size_t slot_size = slot_sizes[k];
+        size_t slot_size = slot_sizes[s];
         std::shared_ptr<IDataSimulator<T>> ldata_sim;
         if (long_tail)
           ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, slot_size - 1, alpha));
@@ -672,8 +958,14 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
         for (int j = 0; j < nnz; j++) {
           T key = ldata_sim->get_num() + offset;
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+          if (generated_value != nullptr) {
+            generated_value->at(k)[s].push_back(key);
+          }
         }
         offset += slot_size;
+        if (generated_rowoffset != nullptr) {
+          generated_rowoffset->at(k)[s].push_back(nnz);
+        }
       }
       data_writer.write();
     }

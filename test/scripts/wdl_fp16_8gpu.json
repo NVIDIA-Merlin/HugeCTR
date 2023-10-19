@@ -19,7 +19,8 @@
     "eval_interval": 1000,
     "max_eval_batches": 2048,
     "mixed_precision": 1024,
-    "export_predictions_prefix": "/workdir/export_predictions_wdl_fp16_8gpu/"
+    "export_predictions_prefix": "/workdir/export_predictions_wdl_fp16_8gpu/",
+    "input_key_type": "I64"
   },
   "optimizer": {
     "type": "Adam",
@@ -35,9 +36,11 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
-      "check": "Sum",
+      "format": "Parquet",
+      "source": "./wdl_data_parquet/train/_file_list.txt",
+      "eval_source": "./wdl_data_parquet/val/_file_list.txt",
+      "check": "None",
+      "slot_size_array": [203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34, 278899, 355877],
       "label": {
         "top": "label",
         "label_dim": 1
@@ -48,16 +51,16 @@
       },
       "sparse": [
         {
-          "top": "wide_data",
-          "nnz_per_slot": 30,
-          "is_fixed_length": false,
-          "slot_num": 1
-        },
-        {
           "top": "deep_data",
           "nnz_per_slot": 2,
           "is_fixed_length": false,
           "slot_num": 26
+        },
+        {
+          "top": "wide_data",
+          "slot_num": 2,
+          "is_fixed_length": true,
+          "nnz_per_slot": 1
         }
       ]
     },
@@ -111,11 +114,18 @@
       "leading_dim": 416
     },
     {
-      "name": "reshape2",
+      "name": "reshape_tmp",
       "type": "Reshape",
       "bottom": "sparse_embedding2",
+      "top": "wide_reshape",
+      "leading_dim": 2
+    },
+    {
+      "name": "reshape2",
+      "type": "ReduceSum",
+      "bottom": "wide_reshape",
       "top": "reshape2",
-      "leading_dim": 1
+      "axis": 1
     },
     {
       "name": "concat1",

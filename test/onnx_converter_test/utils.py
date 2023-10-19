@@ -17,10 +17,72 @@
 import struct
 import numpy as np
 import pandas as pd
+import pdb
+
+wdl_slot_size = [
+    203750,
+    18573,
+    14082,
+    7020,
+    18966,
+    4,
+    6382,
+    1246,
+    49,
+    185920,
+    71354,
+    67346,
+    11,
+    2166,
+    7340,
+    60,
+    4,
+    934,
+    15,
+    204208,
+    141572,
+    199066,
+    60940,
+    9115,
+    72,
+    34,
+    278899,
+    355877,
+]
+wdl_offset = np.insert(np.cumsum(wdl_slot_size), 0, 0)[:-1]
+dcn_slot_size = [
+    203931,
+    18598,
+    14092,
+    7012,
+    18977,
+    4,
+    6385,
+    1245,
+    49,
+    186213,
+    71328,
+    67288,
+    11,
+    2168,
+    7338,
+    61,
+    4,
+    932,
+    15,
+    204515,
+    141526,
+    199433,
+    60919,
+    9137,
+    71,
+    34,
+]
+dcn_offset = np.insert(np.cumsum(dcn_slot_size), 0, 0)[:-1]
 
 
 def compare_array_approx(results, reference, model_name, abs_th, rel_th):
-    mean_relative_error = np.mean(np.abs(results - reference) / (np.abs(reference)))
+    mean_relative_error = np.mean(np.abs(results - reference) / (np.abs(reference) + 1e-10))
     mean_absolute_error = np.mean(np.abs(results - reference))
     if mean_absolute_error > abs_th and mean_relative_error > rel_th:
         raise RuntimeError(
@@ -42,113 +104,97 @@ def compare_array_approx(results, reference, model_name, abs_th, rel_th):
         )
 
 
-def read_samples_for_dcn(data_file, num_samples=64, key_type="I32", slot_num=26):
+def read_samples_for_dcn(
+    data_file, num_samples=64, key_type="I64", slot_num=26, slot_shift=dcn_offset
+):
     key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
-    with open(data_file, "rb") as file:
-        # skip data_header
-        file.seek(4 + 64 + 1, 0)
-        batch_label = []
-        batch_dense = []
-        batch_keys = []
-        for _ in range(num_samples):
-            # one sample
-            length_buffer = file.read(4)  # int
-            length = struct.unpack("i", length_buffer)
-            label_buffer = file.read(4)  # int
-            label = struct.unpack("i", label_buffer)[0]
-            dense_buffer = file.read(4 * 13)  # dense_dim * float
-            dense = struct.unpack("13f", dense_buffer)
-            keys = []
-            for _ in range(slot_num):
-                nnz_buffer = file.read(4)  # int
-                nnz = struct.unpack("i", nnz_buffer)[0]
-                key_buffer = file.read(key_type_map[key_type][1] * nnz)  # nnz * sizeof(key_type)
-                key = struct.unpack(str(nnz) + key_type_map[key_type][0], key_buffer)
-                keys += list(key)
-            check_bit_buffer = file.read(1)  # char
-            check_bit = struct.unpack("c", check_bit_buffer)[0]
-            batch_label.append(label)
-            batch_dense.append(dense)
-            batch_keys.append(keys)
-    batch_label = np.reshape(np.array(batch_label, dtype=np.float32), newshape=(num_samples, 1))
-    batch_dense = np.reshape(np.array(batch_dense, dtype=np.float32), newshape=(num_samples, 13))
-    batch_keys = np.reshape(np.array(batch_keys, dtype=np.int64), newshape=(num_samples, 26, 1))
+    df = pd.read_parquet(data_file, engine="pyarrow")
+    columns = df.columns
+    batch_label = np.reshape(
+        df[columns[0]].loc[0 : num_samples - 1].to_numpy(), newshape=(num_samples, 1)
+    )
+    batch_dense = np.reshape(
+        df[columns[1:14]].loc[0 : num_samples - 1].to_numpy(),
+        newshape=(num_samples, 13),
+    )
+    batch_keys = np.reshape(
+        (df[columns[14:40]].loc[0 : num_samples - 1] + slot_shift).to_numpy(),
+        newshape=(num_samples, 26, 1),
+    )
+    # print("label",batch_label)
+    # print("dense",batch_dense)
+    # print("keys",batch_keys)
     return batch_label, batch_dense, batch_keys
 
 
-def read_samples_for_wdl(data_file, num_samples=64, key_type="I32", slot_num=26):
+def read_samples_for_wdl(
+    data_file, num_samples=64, key_type="I64", slot_num=26, slot_shift=wdl_offset
+):
     key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
-    with open(data_file, "rb") as file:
-        # skip data_header
-        file.seek(4 + 64 + 1, 0)
-        batch_label = []
-        batch_dense = []
-        batch_wide_data = []
-        batch_deep_data = []
-        for _ in range(num_samples):
-            # one sample
-            length_buffer = file.read(4)  # int
-            length = struct.unpack("i", length_buffer)
-            label_buffer = file.read(4)  # int
-            label = struct.unpack("i", label_buffer)[0]
-            dense_buffer = file.read(4 * 13)  # dense_dim * float
-            dense = struct.unpack("13f", dense_buffer)
-            keys = []
-            for _ in range(slot_num):
-                nnz_buffer = file.read(4)  # int
-                nnz = struct.unpack("i", nnz_buffer)[0]
-                key_buffer = file.read(key_type_map[key_type][1] * nnz)  # nnz * sizeof(key_type)
-                key = struct.unpack(str(nnz) + key_type_map[key_type][0], key_buffer)
-                keys += list(key)
-            check_bit_buffer = file.read(1)  # char
-            check_bit = struct.unpack("c", check_bit_buffer)[0]
-            batch_label.append(label)
-            batch_dense.append(dense)
-            batch_wide_data.append(keys[0:2])
-            batch_deep_data.append(keys[2:28])
-    batch_label = np.reshape(np.array(batch_label, dtype=np.float32), newshape=(num_samples, 1))
-    batch_dense = np.reshape(np.array(batch_dense, dtype=np.float32), newshape=(num_samples, 13))
-    batch_wide_data = np.reshape(
-        np.array(batch_wide_data, dtype=np.int64), newshape=(num_samples, 1, 2)
+    df = pd.read_parquet(data_file, engine="pyarrow")
+    columns = df.columns
+    batch_label = np.reshape(
+        df[columns[0]].loc[0 : num_samples - 1].to_numpy(), newshape=(num_samples, 1)
+    )
+    batch_dense = np.reshape(
+        df[columns[1:14]].loc[0 : num_samples - 1].to_numpy(),
+        newshape=(num_samples, 13),
     )
     batch_deep_data = np.reshape(
-        np.array(batch_deep_data, dtype=np.int64), newshape=(num_samples, 26, 1)
+        (df[columns[14:40]].loc[0 : num_samples - 1] + slot_shift[0:26]).to_numpy(),
+        newshape=(num_samples, 26, 1),
+    )
+    batch_wide_data = np.reshape(
+        (df[columns[40:42]].loc[0 : num_samples - 1] + slot_shift[26:28]).to_numpy(),
+        newshape=(num_samples, 2, 1),
     )
     return batch_label, batch_dense, batch_wide_data, batch_deep_data
 
 
+ncf_slot_size = [162543, 56573]
+ncf_offset = np.insert(np.cumsum(ncf_slot_size), 0, 0)[:-1]
+
+
 def read_samples_for_ncf(data_file, num_samples=64, key_type="I32", slot_num=2):
     key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
-    with open(data_file, "rb") as file:
-        # skip data_header
-        file.seek(64, 0)
-        batch_label = []
-        batch_dense = []
-        batch_keys = []
-        for _ in range(num_samples):
-            # one sample
-            label_buffer = file.read(4)  # int
-            label = struct.unpack("f", label_buffer)[0]
-            dense_buffer = file.read(4)  # dense_dim * float
-            dense = struct.unpack("f", dense_buffer)
-            keys = []
-            for _ in range(slot_num):
-                nnz_buffer = file.read(4)  # int
-                nnz = struct.unpack("i", nnz_buffer)[0]
-                key_buffer = file.read(key_type_map[key_type][1] * nnz)  # nnz * sizeof(key_type)
-                key = struct.unpack(str(nnz) + key_type_map[key_type][0], key_buffer)
-                keys += list(key)
-            batch_label.append(label)
-            batch_dense.append(dense)
-            batch_keys.append(keys)
-    batch_label = np.reshape(np.array(batch_label, dtype=np.float32), newshape=(num_samples, 1))
-    batch_dense = np.reshape(np.array(batch_dense, dtype=np.float32), newshape=(num_samples, 1))
-    batch_keys = np.reshape(np.array(batch_keys, dtype=np.int64), newshape=(num_samples, 2, 1))
-    return batch_label, batch_dense, batch_keys
+    df = pd.read_parquet(data_file, engine="pyarrow")
+    columns = df.columns
+    batch_label = np.reshape(
+        df[columns[3]].loc[0 : num_samples - 1].to_numpy(), newshape=(num_samples, 1)
+    )
+    batch_keys = np.reshape(
+        (df[columns[0:2]].loc[0 : num_samples - 1] + ncf_offset[0:2]).to_numpy(),
+        newshape=(num_samples, 2, 1),
+    )
+    return batch_label, batch_keys
 
 
-slot_size_array = [192403, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 801]
-slot_shift = np.insert(np.cumsum(slot_size_array), 0, 0)[:-1]
+din_slot_size = [
+    192403,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    63001,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    801,
+]
+slot_shift = np.insert(np.cumsum(din_slot_size), 0, 0)[:-1]
 
 
 def read_samples_for_din(

@@ -252,12 +252,15 @@ hugectr.DataReaderParams()
 `DataReaderParams` specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., [Norm](#norm), [Raw](#raw) and [Parquet](#parquet). An `DataReaderParams` instance is required to initialize the `Model` instance.
 
 **Arguments**
+
+> **Deprecation Warning**: Norm and Raw data reader will be deprecated in a future release. Please check out the Parquet and RawAsync for alternatives.
+
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format.
 Specify one of the following types:
-  * `hugectr.DataReaderType_t.Norm`
-  * `hugectr.DataReaderType_t.Raw`
-  * `hugectr.DataReaderType_t.Parquet`
-  * `hugectr.DataReaderType_t.RawAsync`
+  * `hugectr.DataReaderType_t.Norm` can read Norm format dataset
+  * `hugectr.DataReaderType_t.Raw` can read Raw format dataset
+  * `hugectr.DataReaderType_t.Parquet` can read Parquet format dataset
+  * `hugectr.DataReaderType_t.RawAsync` can read Raw format dataset
 
 * `source`: List[str] or String, the training dataset source.
 For Norm or Parquet dataset, specify the file list of training data, such as `source = "file_list.txt"`.
@@ -318,6 +321,8 @@ The default value is an empty list.
 ### Dataset formats
 
 We support the following dataset formats within our `DataReaderParams`.
+
+> **Deprecation Warning**: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.
 
 * [Norm](#norm)
 * [Raw](#raw)

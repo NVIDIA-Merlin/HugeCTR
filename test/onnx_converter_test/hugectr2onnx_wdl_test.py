@@ -24,7 +24,6 @@ import numpy as np
 def hugectr2onnx_wdl_test(
     batch_size,
     num_batches,
-    data_source,
     data_file,
     graph_config,
     dense_model,
@@ -35,15 +34,15 @@ def hugectr2onnx_wdl_test(
 ):
     hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models)
     label, dense, wide_data, deep_data = read_samples_for_wdl(
-        data_file, batch_size * num_batches, slot_num=27
+        data_file, batch_size * num_batches, slot_num=28
     )
     sess = ort.InferenceSession(onnx_model_path)
     res = sess.run(
         output_names=[sess.get_outputs()[0].name],
         input_feed={
             sess.get_inputs()[0].name: dense,
-            sess.get_inputs()[1].name: wide_data,
-            sess.get_inputs()[2].name: deep_data,
+            sess.get_inputs()[1].name: deep_data,
+            sess.get_inputs()[2].name: wide_data,
         },
     )
     res = res[0].reshape(
@@ -58,8 +57,7 @@ if __name__ == "__main__":
     hugectr2onnx_wdl_test(
         64,
         100,
-        "./wdl_data/file_list_test.txt",
-        "./wdl_data/val/sparse_embedding0.data",
+        "./wdl_data_parquet/val/0.9598d8cc5a1e4f85ae31f8068cb47fbb.parquet",
         "/onnx_converter/graph_files/wdl.json",
         "/onnx_converter/hugectr_models/wdl_dense_2000.model",
         [

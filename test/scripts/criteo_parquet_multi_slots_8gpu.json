@@ -2,17 +2,24 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 18000,
+    "max_iter": 5000,
     "gpu": [
-      0
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
     ],
-    "batchsize": 2048,
-    "snapshot": 10000000,
+    "batchsize": 4096,
+    "snapshot": 10000,
     "snapshot_prefix": "./",
+    "batchsize_eval": 512,
     "eval_interval": 1000,
-    "max_eval_batches": 2048,
-    "input_key_type": "I64",
-    "export_predictions_prefix": "/workdir/export_predictions_criteo_1gpu/"
+    "max_eval_batches": 100,
+    "input_key_type": "I64"
   },
   "optimizer": {
     "type": "Adam",
@@ -32,6 +39,7 @@
       "source": "./_file_list.txt",
       "eval_source": "./_file_list.txt",
       "check": "None",
+      "slot_size_array": [132, 421, 1398, 1787, 53, 10, 3043, 78, 4, 2192, 2130, 1432, 1805, 25, 1854, 1559, 10, 1113, 515, 4, 1473, 9, 15, 1579, 40, 1193],
       "label": {
         "top": "label",
         "label_dim": 1
@@ -43,9 +51,9 @@
       "sparse": [
         {
           "top": "data1",
-          "slot_num": 1,
-          "is_fixed_length": true,
-          "nnz_per_slot": 100
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 4
         }
       ]
     },
@@ -57,7 +65,8 @@
       "sparse_embedding_hparam": {
         "embedding_vec_size": 64,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 1551
+        "slot_size_array": [132, 421, 1398, 1787, 53, 10, 3043, 78, 4, 2192, 2130, 1432, 1805, 25, 1854, 1559, 10, 1113, 515, 4, 1473, 9, 15, 1579, 40, 1193],
+        "workspace_size_per_gpu_in_mb": 588
       }
     },
     {
@@ -65,7 +74,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 64
+      "leading_dim": 1664
     },
     {
       "name": "fc1",

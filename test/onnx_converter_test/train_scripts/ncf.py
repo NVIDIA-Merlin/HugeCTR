@@ -28,14 +28,15 @@ solver = hugectr.CreateSolver(
         hugectr.MetricsType.AverageLoss: 0.0,
         hugectr.MetricsType.AUC: 1.0,
     },
+    i64_input_key=True,
     repeat_dataset=True,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./data/ml-20m/train_filelist.txt"],
-    eval_source="./data/ml-20m/test_filelist.txt",
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./movie_len_parquet/train/_file_list.txt"],
+    eval_source="./movie_len_parquet/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
-    num_workers=10,
+    slot_size_array=[162543, 56573],
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.Adam,
@@ -49,7 +50,7 @@ model.add(
     hugectr.Input(
         label_dim=1,
         label_name="label",
-        dense_dim=1,
+        dense_dim=0,
         dense_name="dense",
         data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data", 1, True, 2)],
     )
@@ -57,7 +58,7 @@ model.add(
 model.add(
     hugectr.SparseEmbedding(
         embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-        workspace_size_per_gpu_in_mb=150,  # 3 for 1M dataset
+        workspace_size_per_gpu_in_mb=165,  # 3 for 1M dataset
         embedding_vec_size=64,
         combiner="sum",
         sparse_embedding_name="mlp_embedding",

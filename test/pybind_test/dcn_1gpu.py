@@ -21,16 +21,44 @@ solver = hugectr.CreateSolver(
     batchsize_eval=2048,
     batchsize=2048,
     vvgpu=[[0]],
-    i64_input_key=False,
+    i64_input_key=True,
     use_mixed_precision=False,
     repeat_dataset=True,
     use_cuda_graph=True,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./file_list.txt"],
-    eval_source="./file_list_test.txt",
-    check_type=hugectr.Check_t.Sum,
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./_file_list.txt"],
+    eval_source="./_file_list.txt",
+    check_type=hugectr.Check_t.Non,
+    slot_size_array=[
+        381808,
+        22456,
+        14763,
+        7118,
+        19308,
+        4,
+        6443,
+        1259,
+        54,
+        341642,
+        112151,
+        94957,
+        11,
+        2188,
+        8399,
+        61,
+        4,
+        949,
+        15,
+        382633,
+        246818,
+        370704,
+        92823,
+        9773,
+        78,
+        34,
+    ],
 )
 optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.Adam)
 model = hugectr.Model(solver, reader, optimizer)
@@ -46,7 +74,7 @@ model.add(
 model.add(
     hugectr.SparseEmbedding(
         embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-        workspace_size_per_gpu_in_mb=321,
+        workspace_size_per_gpu_in_mb=495,
         embedding_vec_size=16,
         combiner="sum",
         sparse_embedding_name="sparse_embedding1",
@@ -64,7 +92,9 @@ model.add(
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Concat, bottom_names=["reshape1", "dense"], top_names=["concat1"]
+        layer_type=hugectr.Layer_t.Concat,
+        bottom_names=["reshape1", "dense"],
+        top_names=["concat1"],
     )
 )
 model.add(
@@ -137,4 +167,10 @@ model.add(
 )
 model.compile()
 model.summary()
-model.fit(max_iter=12000, display=200, eval_interval=1000, snapshot=100000, snapshot_prefix="dcn")
+model.fit(
+    max_iter=12000,
+    display=200,
+    eval_interval=1000,
+    snapshot=100000,
+    snapshot_prefix="dcn",
+)

@@ -24,9 +24,7 @@ Please refer to [How to Start Your Development](https://nvidia-merlin.github.io/
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ```
 ## Download and Preprocess the MovieLens data ##
-The [Movielens dataset](https://grouplens.org/datasets/movielens/) provided by GroupLens Research is used in this example, but the provided prerocessing scripts can be edited to format other user-item interaction data for use with this example. Scripts are provided to download and preprocess both the 1M and 20M MovieLens datasets, and minor editing of the model definition is needed to use this sample code on other datasets. The default 20M MovieLens dataset used in this example contains 20 million interactions between 138493 users and 26744 items.  After preprocessing, each interaction is simply a userId and itemId.
-
-The provided script `get_ml20_dataset.sh` downloads and extracts the MovieLens 20M dataset. The dataset can then be prepared for training of the NCF model by running the provided python script `preprocess-20m.py`.  To run the preprocessing python script in the docker container, first install pytorch with the command:
+Please refer to [NVTabular](https://nvidia-merlin.github.io/NVTabular/v0.5.0/examples/getting-started-movielens/01-Download-Convert.html#) for data downloading and preprocessing.
 
 ```shell
 $ pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
@@ -43,18 +41,6 @@ By default, this will run 10 epochs of the dataset and provide Cumulative Hit Ra
 
 
 If you are using the `Movielens 1M` dataset instead, simply run `get_ml1_data.sh` and `python preprocess-1m.py` to prepare the dataset.  Then edit `ncf.py` to use `ml-1m` directories, and change  parameters to the values that are commented out in `ncf.py` (such as `workspace_size_per_gpu_in_mb`).  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
-
-
-## Performance Evaluation ##
-Example code for training the NCF model is also available with [Tensorflow](https://ngc.nvidia.com/catalog/resources/nvidia:ncf_for_tensorflow) and [PyTorch](https://ngc.nvidia.com/catalog/resources/nvidia:ncf_for_pytorch).  Below is a table with the average training time and computed hit rate after 10 epochs using different NVIDIA GPU hardware using HugeCTR, Tensorflow, and PyTorch.
-
-| GPU(s) | HitRate | 1x V100 | 8x V100 | 1x A100 |
-| ------ | ------ | ------ | ------ | ------ |
-| HugeCTR | 0.951* | 44.64s | 17.04s | 32.38s |
-| TensorFlow | 0.959 | 62.99s | 16.03s | 49.63s |
-| Pytorch | 0.953 | 94.6s | 17.14s | 49.13s |
-
-\* NCF in HugeCTR computes the cumulative hit rate, while TensorFlow and Pytorch use top10 hit rate.  These metrics differ, so the accuracy of HugeCTR may differ from TensorFlow and Pytorch.
 
 ## Variatons of NCF ##
 The [NCF model](https://arxiv.org/abs/1708.05031) is described along with two additional models that are designed for this type of data: GMF and NeuMF.  This sample directory also contains the HugeCTR model definitions for these models.  To train the GMF or NeuMF model, run `python gmf.py` or `python neumf.py`, respectively.  However, we find that, on this MovieLens 20M dataset, the standard NCF model (`ncf.py`) provides the best Cumulative HitRate using the fewest number of epochs.

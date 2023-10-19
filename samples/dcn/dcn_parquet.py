@@ -74,7 +74,7 @@ model.add(
         label_name="label",
         dense_dim=13,
         dense_name="dense",
-        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 2, False, 26)],
+        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 1, False, 26)],
     )
 )
 model.add(

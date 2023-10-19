@@ -21,7 +21,8 @@ import os
 
 def embedding_training_cache_test(json_file, output_dir):
     dataset = [
-        ("file_list." + str(i) + ".txt", "file_list." + str(i) + ".keyset") for i in range(5)
+        ("train" + str(i) + "/file_list." + str(i) + ".txt", "train" + str(i) + "/file.keyset")
+        for i in range(5)
     ]
     solver = hugectr.CreateSolver(
         batchsize=16384,
@@ -34,11 +35,41 @@ def embedding_training_cache_test(json_file, output_dir):
         repeat_dataset=False,
     )
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./file_list.0.txt"],
-        keyset=["./file_list.0.keyset"],
-        eval_source="./file_list.5.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["train0/file_list.0.txt"],
+        keyset=["train0/file.keyset"],
+        eval_source="./train5/file_list.5.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            203750,
+            18573,
+            14082,
+            7020,
+            18966,
+            4,
+            6382,
+            1246,
+            49,
+            185920,
+            71354,
+            67346,
+            11,
+            2166,
+            7340,
+            60,
+            4,
+            934,
+            15,
+            204208,
+            141572,
+            199066,
+            60940,
+            9115,
+            72,
+            34,
+            278899,
+            355877,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.Adam)
     etc = hugectr.CreateETC(
@@ -53,7 +84,7 @@ def embedding_training_cache_test(json_file, output_dir):
     data_reader_train = model.get_data_reader_train()
     data_reader_eval = model.get_data_reader_eval()
     embedding_training_cache = model.get_embedding_training_cache()
-    data_reader_eval.set_source("file_list.5.txt")
+    data_reader_eval.set_source("./train5/file_list.5.txt")
     data_reader_eval_flag = True
     iteration = 0
     for file_list, keyset_file in dataset:
@@ -74,7 +105,7 @@ def embedding_training_cache_test(json_file, output_dir):
                     data_reader_eval_flag = model.eval()
                     batches += 1
                 if not data_reader_eval_flag:
-                    data_reader_eval.set_source()
+                    data_reader_eval.set_source("./train5/file_list.5.txt")
                     data_reader_eval_flag = True
                 metrics = model.get_eval_metrics()
                 print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
