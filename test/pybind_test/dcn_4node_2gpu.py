@@ -26,16 +26,44 @@ def model_test(json_file):
         batchsize_eval=16384,
         batchsize=16384,
         vvgpu=[[0, 1], [2, 3], [4, 5], [6, 7]],
-        i64_input_key=False,
+        i64_input_key=True,
         use_mixed_precision=False,
         repeat_dataset=True,
         use_cuda_graph=True,
     )
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./file_list.txt"],
-        eval_source="./file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./_file_list.txt"],
+        eval_source="./_file_list.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            381808,
+            22456,
+            14763,
+            7118,
+            19308,
+            4,
+            6443,
+            1259,
+            54,
+            341642,
+            112151,
+            94957,
+            11,
+            2188,
+            8399,
+            61,
+            4,
+            949,
+            15,
+            382633,
+            246818,
+            370704,
+            92823,
+            9773,
+            78,
+            34,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.Adam)
     model = hugectr.Model(solver, reader, optimizer)
@@ -43,7 +71,11 @@ def model_test(json_file):
     model.summary()
     model.compile()
     model.fit(
-        max_iter=10000, display=200, eval_interval=1000, snapshot=100000, snapshot_prefix="dcn"
+        max_iter=10000,
+        display=200,
+        eval_interval=1000,
+        snapshot=100000,
+        snapshot_prefix="dcn",
     )
 
 

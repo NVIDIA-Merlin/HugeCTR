@@ -26,10 +26,38 @@ solver = hugectr.CreateSolver(
     repeat_dataset=True,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./criteo_data/file_list.txt"],
-    eval_source="./criteo_data/file_list_test.txt",
-    check_type=hugectr.Check_t.Sum,
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./criteo_data/train/_file_list.txt"],
+    eval_source="./criteo_data/val/_file_list.txt",
+    slot_size_array=[
+        203931,
+        18598,
+        14092,
+        7012,
+        18977,
+        4,
+        6385,
+        1245,
+        49,
+        186213,
+        71328,
+        67288,
+        11,
+        2168,
+        7338,
+        61,
+        4,
+        932,
+        15,
+        204515,
+        141526,
+        199433,
+        60919,
+        9137,
+        71,
+        34,
+    ],
+    check_type=hugectr.Check_t.Non,
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.Adam,
@@ -45,7 +73,7 @@ model.add(
         label_name="label",
         dense_dim=13,
         dense_name="dense",
-        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 2, False, 26)],
+        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 1, False, 26)],
     )
 )
 model.add(

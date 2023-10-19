@@ -142,7 +142,16 @@ void add_input(Input& input, DataReaderParams& reader_params,
     core23_reader::SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
-
+  if (format == DataReaderType_t::Norm) {
+    HCTR_LOG(WARNING, WORLD,
+             "Norm Reader will be deprecated in a future release, please use Parquet Reader for an "
+             "alternative\n");
+  }
+  if (format == DataReaderType_t::Raw) {
+    HCTR_LOG(WARNING, WORLD,
+             "Raw Reader will be deprecated in a future release, please use RawAsync Reader for an "
+             "alternative\n");
+  }
   if ((format == DataReaderType_t::RawAsync)) {
     if (reader_params.async_param.multi_hot_reader) {
       bool is_float_dense = reader_params.async_param.is_dense_float;

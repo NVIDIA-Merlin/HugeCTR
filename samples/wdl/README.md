@@ -42,73 +42,42 @@ During preprocessing, the amount of data, which is used to speed up the preproce
 ## Preprocess the Dataset ##
 When running this sample, the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used. The dataset contains 24 files in which each file corresponds to one day of data. To reduce preprocessing time, only one file is used. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly.
 
-After you've downloaded the dataset, you can use one of the following methods to prepare the dataset for HugeCTR trainings:
-- [Pandas](#preprocess-the-dataset-through-pandas)
-- [NVTabular](#preprocess-the-dataset-through-nvtabular)
-
-### Preprocess the Dataset Through Pandas ###
-To preprocess the dataset through Pandas, run the following command:
-```shell
-$ bash preprocess.sh 1 criteo_data pandas 1 1
-```
-
-**IMPORTANT NOTES**: 
-- The first argument represents the dataset postfix.  For instance, if `day_1` is used, the postfix is `1`.
-- The second argument, `criteo_data`, is where the preprocessed data is stored. You may want to change it in cases where multiple datasets are generated concurrently. If you change it, `source` and `eval_source` in your JSON configuration file must be changed as well.
-- The fourth argument (the one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
-- The last argument decides if the feature crossing is applied (1=ON, 0=OFF).
+After you've downloaded the dataset, you can use [NVTabular](#preprocess-the-dataset-through-nvtabular) to prepare the dataset for HugeCTR training:
 
 ### Preprocess the Dataset Through NVTabular ###
+
 HugeCTR supports data processing through NVTabular. Make sure that the NVTabular Docker environment has been set up successfully. For more information, see [NVTAbular github](https://github.com/NVIDIA/NVTabular). Ensure that you're using the latest version of NVTabular and mount the HugeCTR ${project_root} volume into the NVTabular Docker.
 
-Execute one of the following preprocessing commands:
+Execute the following preprocessing command:
    ```shell
-   $ bash preprocess.sh 1 criteo_data nvt 1 0 1 # parquet output
-   ```
-
-   ```shell
-   $ bash preprocess.sh 1 criteo_data nvt 0 0 1 # nvt binary output
+$ bash preprocess.sh 1 criteo_data nvt 0 1
    ```
 
 **IMPORTANT NOTES**: 
-- The first and second arguments are the same as Pandas's, as shown above.
-- If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
-- The fifth argument must be set to `0`. It means that criteo mode is OFF, in another words, DO NOT ignore the dense features.
-- The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF).
+- The first argument represents the dataset postfix.  For example, if `day_1` is used, the postfix is `1`.
+- The second argument `criteo_data` is where the preprocessed data is stored. You may want to change it in cases where multiple datasets are generated concurrently. If you change it, `source` and `eval_source` in your JSON configuration file must be changed as well.
+- The fourth argument must be set to `1`. It means that criteo mode is ON, in another words, ignoring the dense features.
+- The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF). It must remain set to `1`.
 
 ## Train with HugeCTR ##
-Run the following command after preprocessing the dataset through Pandas:
-```shell
-$ python3 ../samples/wdl/wdl.py
-```
 
-To train your model with HugeCTR on an 8-GPU machine such as DGX, run the following command after preprocessing the dataset through Pandas:
+To train your model with HugeCTR on an 8-GPU machine such as DGX, run the following command after preprocessing the dataset
 ```shell
 $ python3 ../samples/wdl/wdl_8gpu.py
 ```
 
-Run one of the following commands after preprocessing the dataset through NVTabular using either the Parquet or Binary output:
+or with single GPU:
 
-**Parquet Output**
 ```shell
-$ python3 ../samples/wdl/wdl_parquet.py
+$ python3 ../samples/wdl/wdl_1gpu.py
 ```
-
-**Binary Output**
-```shell
-$ python3 ../samples/wdl/wdl_bin.py
-```
-
-**NOTE**: If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
-
 ## Additional Details About The Model Graph ##
 ```
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 2, 1),
-                        hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
-                        sparse_names = ["wide_data", "deep_data"]))
+                        hugectr.DataReaderSparseParam("wide_data", 1, True, 2),
+                        hugectr.DataReaderSparseParam("deep_data", 1, False, 26)))
 ```
 ```
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
@@ -140,7 +109,15 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             bottom_names = ["sparse_embedding2"],
                             top_names = ["reshape2"],
-                            leading_dim=1))
+                            leading_dim=2))
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.ReduceSum,
+        bottom_names=["reshape2"],
+        top_names=["wide_redn"],
+        axis=1,
+    )
+)
 ```
 
 The Reshape layer after the embedding usually has `leading_dim` = `slot_num`*`embedding_vec_size`, which means a concatenation of the category features.

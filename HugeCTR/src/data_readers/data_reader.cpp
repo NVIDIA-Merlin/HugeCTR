@@ -272,6 +272,7 @@ void DataReader<TypeKey>::set_source(std::string file_name) {
 template <typename TypeKey>
 void DataReader<TypeKey>::create_drwg_norm(std::string file_name, Check_t check_type,
                                            bool start_reading_from_beginning) {
+  // HCTR_DIE("Norm data reader is deprecated, please use Parquet instead\n");
   source_type_ = SourceType_t::FileList;
   worker_group_.reset(new core23_reader::DataReaderWorkerGroupNorm<TypeKey>(
       thread_buffers_, resource_manager_, file_name, repeat_, check_type, params_,

@@ -54,35 +54,35 @@ If you'd like to quickly train a model using the Python interface, do the follow
 
 2. Write a simple Python script to generate a synthetic dataset:
    ```
-   # dcn_norm_generate.py
+   # dcn_parquet_generate.py
    import hugectr
    from hugectr.tools import DataGeneratorParams, DataGenerator
    data_generator_params = DataGeneratorParams(
-     format = hugectr.DataReaderType_t.Norm,
+     format = hugectr.DataReaderType_t.Parquet,
      label_dim = 1,
      dense_dim = 13,
      num_slot = 26,
      i64_input_key = False,
-     source = "./dcn_norm/file_list.txt",
-     eval_source = "./dcn_norm/file_list_test.txt",
-     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120,
-     1543],
-     check_type = hugectr.Check_t.Sum,
+     source = "./dcn_parquet/file_list.txt",
+     eval_source = "./dcn_parquet/file_list_test.txt",
+     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 
+                        20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120,
+                        1543 ],
      dist_type = hugectr.Distribution_t.PowerLaw,
      power_law_type = hugectr.PowerLaw_t.Short)
    data_generator = DataGenerator(data_generator_params)
    data_generator.generate()
    ```
 
-3. Generate the Norm dataset for your DCN model by running the following command:
+3. Generate the Parquet dataset for your DCN model by running the following command:
    ```
-   python dcn_norm_generate.py
+   python dcn_parquet_generate.py
    ```
-   **NOTE**: The generated dataset will reside in the folder `./dcn_norm`, which contains training and evaluation data.
+   **NOTE**: The generated dataset will reside in the folder `./dcn_parquet`, which contains training and evaluation data.
 
 4. Write a simple Python script for training:
    ```
-   # dcn_norm_train.py
+   # dcn_parquet_train.py
    import hugectr
    from mpi4py import MPI
    solver = hugectr.CreateSolver(max_eval_batches = 1280,
@@ -91,10 +91,11 @@ If you'd like to quickly train a model using the Python interface, do the follow
                                  lr = 0.001,
                                  vvgpu = [[0]],
                                  repeat_dataset = True)
-   reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
-                                    source = ["./dcn_norm/file_list.txt"],
-                                    eval_source = "./dcn_norm/file_list_test.txt",
-                                    check_type = hugectr.Check_t.Sum)
+   reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
+                                    source = ["./dcn_parquet/file_list.txt"],
+                                    eval_source = "./dcn_parquet/file_list_test.txt",
+                                    slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 
+                                                      20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543 ])
    optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                        update_type = hugectr.Update_t.Global)
    model = hugectr.Model(solver, reader, optimizer)
@@ -150,7 +151,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
 
 5. Train the model by running the following command:
    ```
-   python dcn_norm_train.py
+   python dcn_parquet_train.py
    ```
    **NOTE**: It is presumed that the evaluation AUC value is incorrect since randomly generated datasets are being used. When the training is done, files that contain the
    dumped graph JSON, saved model weights, and optimizer states will be generated.

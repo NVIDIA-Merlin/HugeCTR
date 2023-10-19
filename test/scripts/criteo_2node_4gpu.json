@@ -22,7 +22,7 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "max_eval_batches": 100,
-    "auc_threshold": 0.7964
+    "input_key_type": "I64"
   },
   "optimizer": {
     "type": "Adam",
@@ -38,9 +38,10 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
-      "check": "Sum",
+      "format": "Parquet",
+      "source": "./_file_list.txt",
+      "eval_source": "./_file_list.txt",
+      "check": "None",
       "label": {
         "top": "label",
         "label_dim": 1

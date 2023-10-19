@@ -123,15 +123,30 @@ inline void generate_sparse_model_impl(
   if (std::filesystem::exists(file_list_name_eval)) {
     std::filesystem::remove(file_list_name_eval);
   }
+  std::vector<std::vector<std::vector<TypeKey>>> train_generated_value;
+  std::vector<std::vector<std::vector<TypeKey>>> train_generated_rowoffset;
+  std::vector<std::vector<std::vector<float>>> train_generated_label;
+  std::vector<std::vector<std::vector<float>>> train_generated_dense;
 
+  std::vector<std::vector<std::vector<TypeKey>>> test_generated_value;
+  std::vector<std::vector<std::vector<TypeKey>>> test_generated_rowoffset;
+  std::vector<std::vector<std::vector<float>>> test_generated_label;
+  std::vector<std::vector<std::vector<float>>> test_generated_dense;
   // data generation
   HugeCTR::data_generation_for_test<TypeKey, check>(
       file_list_name_train, prefix, num_files, batch_num_train * batchsize, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, false, 0, &train_generated_value,
+      &train_generated_rowoffset, &train_generated_label, &train_generated_dense);
   HugeCTR::data_generation_for_test<TypeKey, check>(
       file_list_name_eval, prefix, num_files, batch_num_eval * batchsize, slot_num, vocabulary_size,
-      label_dim, dense_dim, max_nnz_per_slot);
-
+      label_dim, dense_dim, max_nnz_per_slot, false, 0, &test_generated_value,
+      &test_generated_rowoffset, &test_generated_label, &test_generated_dense);
+  HugeCTR::data_generation_for_parquet<TypeKey>(file_list_name_train, prefix, train_generated_value,
+                                                train_generated_rowoffset, train_generated_label,
+                                                train_generated_dense);
+  HugeCTR::data_generation_for_parquet<TypeKey>(file_list_name_eval, prefix, test_generated_value,
+                                                test_generated_rowoffset, test_generated_label,
+                                                test_generated_dense);
   // create train/eval data readers
   const DataReaderSparseParam param = {"distributed", max_nnz_per_slot, false,
                                        static_cast<int>(slot_num)};
@@ -144,9 +159,17 @@ inline void generate_sparse_model_impl(
   std::unique_ptr<core23_reader::DataReader<TypeKey>> data_reader_eval(
       new core23_reader::DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params,
                                              resource_manager, true, num_workers, false));
+  data_reader_train->create_drwg_parquet(
+      file_list_name_train, false, std::vector<long long>(slot_num, 0), true,
+      std::max(batch_num_train * batchsize, batch_num_eval * batchsize), label_dim + dense_dim,
+      label_dim + dense_dim);
+  data_reader_eval->create_drwg_parquet(
+      file_list_name_eval, false, std::vector<long long>(slot_num, 0), true,
+      std::max(batch_num_train * batchsize, batch_num_eval * batchsize), label_dim + dense_dim,
+      label_dim + dense_dim);
 
-  data_reader_train->create_drwg_norm(file_list_name_train, check);
-  data_reader_eval->create_drwg_norm(file_list_name_eval, check);
+  // data_reader_train->create_drwg_norm(file_list_name_train, check);
+  // data_reader_eval->create_drwg_norm(file_list_name_eval, check);
 
   Embedding_t embedding_type = Embedding_t::LocalizedSlotSparseEmbeddingHash;
 

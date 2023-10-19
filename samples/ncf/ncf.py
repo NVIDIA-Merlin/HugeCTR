@@ -31,11 +31,11 @@ solver = hugectr.CreateSolver(
     repeat_dataset=False,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./data/ml-20m/train_filelist.txt"],
-    eval_source="./data/ml-20m/test_filelist.txt",
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./movie_len_parquet/train/_file_list.txt"],
+    eval_source="./movie_len_parquet/val/_file_list.txt",
     check_type=hugectr.Check_t.Non,
-    num_workers=10,
+    slot_size_array=[162543, 56573],
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.Adam,

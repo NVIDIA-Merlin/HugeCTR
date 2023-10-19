@@ -67,6 +67,10 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const char *train_file_list_name = "train_file_list.txt";
 const char *test_file_list_name = "test_file_list.txt";
+
+const char *train_file_list_parquet_name = "train_file_list_parquet.txt";
+const char *test_file_list_parquet_name = "test_file_list_parquet.txt";
+
 const char *prefix = "./data_reader_test_data/temp_dataset_";
 
 const char *sparse_model_file = "localized_hash_table";
@@ -218,19 +222,39 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
         std::remove(test_file_list_name);
       }
     }
+    std::vector<std::vector<std::vector<T>>> train_generated_value;
+    std::vector<std::vector<std::vector<T>>> train_generated_rowoffset;
+    std::vector<std::vector<std::vector<float>>> train_generated_label;
+    std::vector<std::vector<std::vector<float>>> train_generated_dense;
+
+    std::vector<std::vector<std::vector<T>>> test_generated_value;
+    std::vector<std::vector<std::vector<T>>> test_generated_rowoffset;
+    std::vector<std::vector<std::vector<float>>> test_generated_label;
+    std::vector<std::vector<std::vector<float>>> test_generated_dense;
     // data generation: key's corresponding slot_id=(key%slot_num)
+    // TODO currently, generate norm file for CPU reference while parquet for GPU reader
     if (slot_sizes.size() > 0) {
       HugeCTR::data_generation_for_localized_test<T, CHK>(
           train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
-          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes, false, 0.0,
+          &train_generated_value, &train_generated_rowoffset, &train_generated_label,
+          &train_generated_dense);
       HugeCTR::data_generation_for_localized_test<T, CHK>(
           test_file_list_name, prefix, num_files, test_batch_num * test_batchsize, slot_num,
-          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes, false, 0.0,
+          &test_generated_value, &test_generated_rowoffset, &test_generated_label,
+          &test_generated_dense);
     } else {
       HCTR_OWN_THROW(
           Error_t::WrongInput,
           "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
     }
+    HugeCTR::data_generation_for_parquet<T>(train_file_list_parquet_name, prefix,
+                                            train_generated_value, train_generated_rowoffset,
+                                            train_generated_label, train_generated_dense);
+    HugeCTR::data_generation_for_parquet<T>(test_file_list_parquet_name, prefix,
+                                            test_generated_value, test_generated_rowoffset,
+                                            test_generated_label, test_generated_dense);
   }
 
 #ifdef ENABLE_MPI
@@ -247,13 +271,19 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       new core23_reader::DataReader<T>(train_batchsize, label_dim, dense_dim, params,
                                        resource_manager, true, num_chunk_threads, false));
 
-  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+  train_data_reader->create_drwg_parquet(
+      train_file_list_parquet_name, false, std::vector<long long>(slot_num, 0), true,
+      std::max(train_batch_num * train_batchsize, test_batch_num * test_batchsize),
+      label_dim + dense_dim, label_dim + dense_dim);
 
   std::unique_ptr<core23_reader::DataReader<T>> test_data_reader(
       new core23_reader::DataReader<T>(test_batchsize, label_dim, dense_dim, params,
                                        resource_manager, true, num_chunk_threads, false));
 
-  test_data_reader->create_drwg_norm(test_file_list_name, CHK);
+  test_data_reader->create_drwg_parquet(
+      test_file_list_parquet_name, false, std::vector<long long>(slot_num, 0), true,
+      std::max(train_batch_num * train_batchsize, test_batch_num * test_batchsize),
+      label_dim + dense_dim, label_dim + dense_dim);
 
   // generate hashtable
   if (resource_manager->is_master_process()) {
@@ -461,19 +491,25 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
       std::remove(train_file_list_name);
     }
   }
+  std::vector<std::vector<std::vector<T>>> train_generated_value;
+  std::vector<std::vector<std::vector<T>>> train_generated_rowoffset;
+  std::vector<std::vector<std::vector<float>>> train_generated_label;
+  std::vector<std::vector<std::vector<float>>> train_generated_dense;
 
   // data generation: key's corresponding slot_id=(key%slot_num)
   if (slot_sizes.size() > 0) {
     HugeCTR::data_generation_for_localized_test<T, CHK>(
         train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
-        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
-    HugeCTR::data_generation_for_localized_test<T, CHK>(
-        test_file_list_name, prefix, num_files, test_batch_num * test_batchsize, slot_num,
-        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes, false, 0.0,
+        &train_generated_value, &train_generated_rowoffset, &train_generated_label,
+        &train_generated_dense);
   } else {
     HCTR_OWN_THROW(
         Error_t::WrongInput,
         "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
+    HugeCTR::data_generation_for_parquet<T>(train_file_list_parquet_name, prefix,
+                                            train_generated_value, train_generated_rowoffset,
+                                            train_generated_label, train_generated_dense);
   }
 
   // setup a data reader
@@ -485,7 +521,10 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
       new core23_reader::DataReader<T>(train_batchsize, label_dim, dense_dim, params,
                                        resource_manager, true, num_chunk_threads, false));
 
-  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+  train_data_reader->create_drwg_parquet(
+      train_file_list_parquet_name, false, std::vector<long long>(slot_num, 0), true,
+      std::max(train_batch_num * train_batchsize, test_batch_num * test_batchsize),
+      label_dim + dense_dim, label_dim + dense_dim);
 
   // generate hashtable
   init_sparse_model(sparse_model_file);
@@ -615,20 +654,25 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
     if (std::filesystem::exists(train_file_list_name)) {
       std::filesystem::remove(train_file_list_name);
     }
-
+    std::vector<std::vector<std::vector<T>>> train_generated_value;
+    std::vector<std::vector<std::vector<T>>> train_generated_rowoffset;
+    std::vector<std::vector<std::vector<float>>> train_generated_label;
+    std::vector<std::vector<std::vector<float>>> train_generated_dense;
     // data generation: key's corresponding slot_id=(key%slot_num)
     if (slot_sizes.size() > 0) {
       HugeCTR::data_generation_for_localized_test<T, CHK>(
           train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
-          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
-      HugeCTR::data_generation_for_localized_test<T, CHK>(
-          test_file_list_name, prefix, num_files, test_batch_num * test_batchsize, slot_num,
-          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes, false, 0.0,
+          &train_generated_value, &train_generated_rowoffset, &train_generated_label,
+          &train_generated_dense);
     } else {
       HCTR_OWN_THROW(
           Error_t::WrongInput,
           "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
     }
+    HugeCTR::data_generation_for_parquet<T>(train_file_list_parquet_name, prefix,
+                                            train_generated_value, train_generated_rowoffset,
+                                            train_generated_label, train_generated_dense);
   }
 
 #ifdef ENABLE_MPI
@@ -644,7 +688,10 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
       new core23_reader::DataReader<T>(train_batchsize, label_dim, dense_dim, params,
                                        resource_manager, true, num_chunk_threads, false));
 
-  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+  train_data_reader->create_drwg_parquet(
+      train_file_list_parquet_name, false, std::vector<long long>(slot_num, 0), true,
+      std::max(train_batch_num * train_batchsize, test_batch_num * test_batchsize),
+      label_dim + dense_dim, label_dim + dense_dim);
 
   const SparseEmbeddingHashParams embedding_params = {train_batchsize,
                                                       test_batchsize,

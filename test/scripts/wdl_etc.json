@@ -11,8 +11,7 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "max_eval_batches": 2048,
-    "input_key_type": "I64",
-    "mixed_precision": 1024
+    "auc_threshold": 0.801
   },
   "optimizer": {
     "type": "Adam",
@@ -21,18 +20,16 @@
       "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0001
+      "epsilon": 1e-07
     }
   },
   "layers": [
     {
       "name": "data",
       "type": "Data",
-      "format": "Parquet",
-      "source": "./_file_list.txt",
-      "eval_source": "./_file_list.txt",
-      "check": "None",
-      "slot_size_array": [381808, 22456, 14763, 7118, 19308, 4, 6443, 1259, 54, 341642, 112151, 94957, 11, 2188, 8399, 61, 4, 949, 15, 382633, 246818, 370704, 92823, 9773, 78, 34],
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
+      "check": "Sum",
       "label": {
         "top": "label",
         "label_dim": 1
@@ -43,7 +40,13 @@
       },
       "sparse": [
         {
-          "top": "data1",
+          "top": "wide_data",
+          "slot_num": 1,
+          "is_fixed_length": true,
+          "nnz_per_slot": 30
+        },
+        {
+          "top": "deep_data",
           "slot_num": 26,
           "is_fixed_length": false,
           "nnz_per_slot": 2
@@ -51,14 +54,45 @@
       ]
     },
     {
+      "name": "sparse_embedding2",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "wide_data",
+      "top": "sparse_embedding2",
+      "sparse_embedding_hparam": {
+        "embedding_vec_size": 1,
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 27
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 1e-07
+        }
+      }
+    },
+    {
       "name": "sparse_embedding1",
       "type": "DistributedSlotSparseEmbeddingHash",
-      "bottom": "data1",
+      "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "embedding_vec_size": 16,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 495
+        "workspace_size_per_gpu_in_mb": 426
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 1e-07
+        }
       }
     },
     {
@@ -67,6 +101,13 @@
       "bottom": "sparse_embedding1",
       "top": "reshape1",
       "leading_dim": 416
+    },
+    {
+      "name": "reshape2",
+      "type": "Reshape",
+      "bottom": "sparse_embedding2",
+      "top": "reshape2",
+      "leading_dim": 1
     },
     {
       "name": "concat1",
@@ -78,37 +119,9 @@
       "top": "concat1"
     },
     {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [
-        [
-          0,
-          429
-        ],
-        [
-          0,
-          429
-        ]
-      ],
-      "top": [
-        "slice11",
-        "slice12"
-      ]
-    },
-    {
-      "name": "multicross1",
-      "type": "MultiCross",
-      "bottom": "slice11",
-      "top": "multicross1",
-      "mc_param": {
-        "num_layers": 6
-      }
-    },
-    {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "slice12",
+      "bottom": "concat1",
       "top": "fc1",
       "fc_param": {
         "num_output": 1024
@@ -150,28 +163,28 @@
       "top": "dropout2"
     },
     {
-      "name": "concat2",
-      "type": "Concat",
-      "bottom": [
-        "dropout2",
-        "multicross1"
-      ],
-      "top": "concat2"
-    },
-    {
       "name": "fc4",
       "type": "InnerProduct",
-      "bottom": "concat2",
+      "bottom": "dropout2",
       "top": "fc4",
       "fc_param": {
         "num_output": 1
       }
     },
     {
+      "name": "add1",
+      "type": "Add",
+      "bottom": [
+        "fc4",
+        "reshape2"
+      ],
+      "top": "add1"
+    },
+    {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
       "bottom": [
-        "fc4",
+        "add1",
         "label"
       ],
       "top": "loss"

@@ -26,16 +26,16 @@ def model_test(json_file):
         batchsize_eval=16384,
         batchsize=16384,
         vvgpu=[[0, 1, 2, 3], [4, 5, 6, 7]],
-        i64_input_key=False,
+        i64_input_key=True,
         use_mixed_precision=False,
         repeat_dataset=True,
         use_cuda_graph=True,
     )
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./file_list.txt"],
-        eval_source="./file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./_file_list.txt"],
+        eval_source="./_file_list.txt",
+        check_type=hugectr.Check_t.Non,
     )
     optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.Adam)
     model = hugectr.Model(solver, reader, optimizer)

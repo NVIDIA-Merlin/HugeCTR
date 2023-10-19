@@ -130,7 +130,7 @@ dcn_8gpu:
     GPFSFOLDER: $LOGDIR/dcn
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:40:00"
+    WALLTIME: "01:00:00"
     TEST_CMD: ./ci/integration_test/dcn/dcn_8gpu.sub
 
 dlrm_benchmark_1node:
@@ -164,7 +164,7 @@ wdl:
   variables:
     GPFSFOLDER: $LOGDIR/wdl                                                      # log dir, usually $LOGDIR + job name
     CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}                                          # mount
     WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
     TEST_CMD: ./ci/integration_test/wdl/wdl.sub                                  # test script
 
@@ -189,7 +189,7 @@ dlrm:
     GPFSFOLDER: $LOGDIR/dlrm
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:15:00"
+    WALLTIME: "00:45:00"
     TEST_CMD: ./ci/integration_test/dlrm/dlrm.sub
 
 mmoe:
@@ -270,8 +270,8 @@ py_single_node:
   variables:
     GPFSFOLDER: $LOGDIR/py_single_node
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:15:00"
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
+    WALLTIME: "00:30:00"
     TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 ebc_multi_node:

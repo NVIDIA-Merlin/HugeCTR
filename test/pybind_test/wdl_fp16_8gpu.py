@@ -25,17 +25,17 @@ def wdl_test(json_file):
         batchsize=16384,
         vvgpu=[[0, 1, 2, 3, 4, 5, 6, 7]],
         lr=0.001,
-        i64_input_key=False,
+        i64_input_key=True,
         use_mixed_precision=True,
         scaler=1024,
         repeat_dataset=True,
         use_cuda_graph=True,
     )
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./file_list.txt"],
-        eval_source="./file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./wdl_data_parquet/train/_file_list.txt"],
+        eval_source="./wdl_data_parquet/val/_file_list.txt",
+        check_type=hugectr.Check_t.Non,
     )
     optimizer = hugectr.CreateOptimizer(
         optimizer_type=hugectr.Optimizer_t.Adam, beta1=0.9, beta2=0.999, epsilon=0.0001
@@ -45,7 +45,11 @@ def wdl_test(json_file):
     model.compile()
     model.summary()
     model.fit(
-        max_iter=10000, display=200, eval_interval=1000, snapshot=100000, snapshot_prefix="wdl"
+        max_iter=10000,
+        display=200,
+        eval_interval=1000,
+        snapshot=10000,
+        snapshot_prefix="wdl",
     )
     return
 

@@ -10,6 +10,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
+    "input_key_type": "I64",
     "max_eval_batches": 2048
   },
   "optimizer": {
@@ -26,9 +27,11 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
-      "check": "Sum",
+      "format": "Parquet",
+      "source": "./_file_list.txt",
+      "eval_source": "./_file_list.txt",
+      "check": "None",
+      "slot_size_array": [381808, 22456, 14763, 7118, 19308, 4, 6443, 1259, 54, 341642, 112151, 94957, 11, 2188, 8399, 61, 4, 949, 15, 382633, 246818, 370704, 92823, 9773, 78, 34],
       "label": {
         "top": "label",
         "label_dim": 1
@@ -54,7 +57,7 @@
       "sparse_embedding_hparam": {
         "embedding_vec_size": 16,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 1164
+        "workspace_size_per_gpu_in_mb": 495
       }
     },
     {

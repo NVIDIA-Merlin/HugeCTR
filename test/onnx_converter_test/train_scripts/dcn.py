@@ -24,12 +24,41 @@ solver = hugectr.CreateSolver(
     lr=0.001,
     vvgpu=[[0]],
     repeat_dataset=True,
+    i64_input_key=True,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./dcn_data/file_list.txt"],
-    eval_source="./dcn_data/file_list_test.txt",
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./deepfm_data_nvt/train/_file_list.txt"],
+    eval_source="./deepfm_data_nvt/val/_file_list.txt",
     check_type=hugectr.Check_t.Sum,
+    slot_size_array=[
+        203931,
+        18598,
+        14092,
+        7012,
+        18977,
+        4,
+        6385,
+        1245,
+        49,
+        186213,
+        71328,
+        67288,
+        11,
+        2168,
+        7338,
+        61,
+        4,
+        932,
+        15,
+        204515,
+        141526,
+        199433,
+        60919,
+        9137,
+        71,
+        34,
+    ],
 )
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.Adam,
@@ -161,5 +190,5 @@ model.fit(
 
 import numpy as np
 
-preds = model.check_out_tensor("fc3", hugectr.Tensor_t.Evaluate)
-np.save("/onnx_converter/hugectr_models/dcn_preds.npy", preds)
+checkout_res = model.check_out_tensor("fc3", hugectr.Tensor_t.Evaluate)
+np.save("/onnx_converter/hugectr_models/dcn_preds.npy", checkout_res)

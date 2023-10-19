@@ -21,6 +21,7 @@ import sys
 import os
 
 
+# TODO replace the norm with Parquet
 def embedding_training_cache_test(json_file, output_dir):
     dataset = [
         ("file_list." + str(i) + ".txt", "file_list." + str(i) + ".keyset") for i in range(5)
@@ -36,11 +37,41 @@ def embedding_training_cache_test(json_file, output_dir):
         repeat_dataset=False,
     )
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["file_list." + str(i) + ".txt" for i in range(5)],
-        keyset=["file_list." + str(i) + ".keyset" for i in range(5)],
-        eval_source="./file_list.5.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["train" + str(i) + "/file_list." + str(i) + ".txt" for i in range(5)],
+        keyset=["train" + str(i) + "/file.keyset" for i in range(5)],
+        eval_source="train5/file_list.5.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            203750,
+            18573,
+            14082,
+            7020,
+            18966,
+            4,
+            6382,
+            1246,
+            49,
+            185920,
+            71354,
+            67346,
+            11,
+            2166,
+            7340,
+            60,
+            4,
+            934,
+            15,
+            204208,
+            141572,
+            199066,
+            60940,
+            9115,
+            72,
+            34,
+            278899,
+            355877,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(optimizer_type=hugectr.Optimizer_t.Adam)
     hc_cnfg = hugectr.CreateHMemCache(4, 0.5, 2)
@@ -58,9 +89,9 @@ def embedding_training_cache_test(json_file, output_dir):
     updated_model = model.get_incremental_model()
     model.save_params_to_files(os.path.join(output_dir, "wdl"))
     model.set_source(
-        source=["file_list." + str(i) + ".txt" for i in range(6, 9)],
-        keyset=["file_list." + str(i) + ".keyset" for i in range(6, 9)],
-        eval_source="./file_list.5.txt",
+        source=["train" + str(i) + "/file_list." + str(i) + ".txt" for i in range(6, 9)],
+        keyset=["train" + str(i) + "/file.keyset" for i in range(6, 9)],
+        eval_source="train5/file_list.5.txt",
     )
     model.fit(num_epochs=1, eval_interval=200, display=200)
     updated_model = model.get_incremental_model()
