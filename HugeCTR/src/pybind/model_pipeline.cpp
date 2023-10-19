@@ -581,9 +581,8 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>
         }
 
       } else {
-        train_data_distributor_->distribute(
-            local_id, train_ebc_key_list_[local_id], train_ebc_bucket_range_list_[local_id],
-            train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
+        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                       "embedding collection can only be used with AsyncMultiHot DataReader.");
       }
     });
 
@@ -852,9 +851,8 @@ void Model::train_pipeline_with_ebc() {
                                               train_data_reader_->get_full_batchsize());
         }
       } else {
-        train_data_distributor_->distribute(id, train_ebc_key_list_[id],
-                                            train_ebc_bucket_range_list_[id], train_ddl_output_[id],
-                                            train_data_reader_->get_full_batchsize());
+        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                       "embedding collection can only be used with AsyncMultiHot DataReader.");
       }
       graph_.train_copy_ops_[id]->run();
       graph_.train_copy_ops_[id + resource_manager_->get_local_gpu_count()]->run();
@@ -913,9 +911,8 @@ void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Networ
               evaluate_ddl_output_[local_id], evaluate_data_reader_->get_current_batchsize());
         }
       } else {
-        eval_data_distributor_->distribute(
-            local_id, evaluate_ebc_key_list_[local_id], evaluate_ebc_bucket_range_list_[local_id],
-            evaluate_ddl_output_[local_id], evaluate_data_reader_->get_current_batchsize());
+        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                       "embedding collection can only be used with AsyncMultiHot DataReader.");
       }
     });
 
@@ -1038,9 +1035,8 @@ void Model::evaluate_pipeline_with_ebc() {
         }
 
       } else {
-        eval_data_distributor_->distribute(
-            id, evaluate_ebc_key_list_[id], evaluate_ebc_bucket_range_list_[id],
-            evaluate_ddl_output_[id], evaluate_data_reader_->get_current_batchsize());
+        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                       "embedding collection can only be used with AsyncMultiHot DataReader.");
       }
       graph_.evaluate_copy_ops_[id]->run();
       graph_.evaluate_copy_ops_[id + resource_manager_->get_local_gpu_count()]->run();

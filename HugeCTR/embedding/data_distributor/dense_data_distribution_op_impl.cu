@@ -127,115 +127,6 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
                       key_type, offset_type);
 }
 
-DenseDPDataDistributionOp::DenseDPTempStorage::DenseDPTempStorage(
-    std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id) {
-  CudaDeviceContext ctx(core->get_device_id());
-  int global_gpu_count = core->get_global_gpu_count();
-  int batch_size = ebc_param.universal_batch_size;
-  int batch_size_per_gpu = batch_size / global_gpu_count;
-  auto key_type = ebc_param.key_type;
-  auto offset_type = ebc_param.offset_type;
-  int num_lookup = ebc_param.num_lookup;
-  auto& grouped_lookup_param = ebc_param.grouped_lookup_params[group_id];
-
-  int global_gpu_id = core->get_global_gpu_id();
-  int max_num_features_in_current_gpu =
-      calc_max_num_features_in_current_gpu(global_gpu_id, ebc_param, group_id);
-
-  embedding::WgradAttr wgrad_attr;
-  wgrad_attr.init(core, ebc_param, group_id);
-  this->num_table = wgrad_attr.num_table;
-
-  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-  core23::TensorParams params = core23::TensorParams().device(device);
-
-  std::vector<int> local_lookup_id_to_global_lookup_ids =
-      calc_local_lookup_id_to_global_lookup_ids(global_gpu_id, ebc_param, group_id);
-
-  this->table_partitioner_ = std::make_unique<TablePartitioner>(
-      core, num_lookup, local_lookup_id_to_global_lookup_ids, wgrad_attr);
-
-  this->h_num_reverse_idx = core23::Tensor(
-      params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
-  this->partitioned_data =
-      PartitionedData(core, wgrad_attr.num_table,
-                      batch_size_per_gpu * max_num_features_in_current_gpu, key_type, offset_type);
-}
-
-DenseDPDataDistributionOp::DenseDPDataDistributionOp(
-    std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
-    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
-    : core_(core),
-      ebc_param_(ebc_param),
-      embedding_type_(ebc_param_.grouped_lookup_params[group_id].embedding_type),
-      num_global_gpus_(core->get_global_gpu_count()),
-      dense_temp_storage_(core, ebc_param_, group_id),
-      partition_and_unique_operator_(core, ebc_param_, group_id),
-      compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
-      select_valid_reverse_idx_operator_(core, ebc_param, group_id) {
-  CudaDeviceContext context(core->get_device_id());
-
-  if (embedding_type_ == embedding::EmbeddingType::FrequentDense) {
-    partition_and_unique_operator_.init_hash_table_with_frequent_keys(
-        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data,
-        ebc_param_.key_type, ebc_param_.offset_type);
-  }
-
-  partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
-
-  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::AddOffset) {
-    indices_converter_ = std::make_unique<embedding::KeysToIndicesConverter>(
-        core, emb_table_param_list, ebc_param_, group_id);
-  }
-}
-
-void DenseDPDataDistributionOp::distribute(const DataDistributionInput& input,
-                                           embedding::EmbeddingInput& output, cudaStream_t stream) {
-  auto& dense_compression_output = output.dense_compression_input;
-
-  if (embedding_type_ == embedding::EmbeddingType::Dense) {
-    partition_and_unique_operator_.fill_continuous_bucket_ids(
-        input, dense_compression_output.data_parallel_compression_input.dst_bucket_ids,
-        dense_temp_storage_.h_num_reverse_idx, stream);
-  }
-
-  CompressedData compressed_data{
-      dense_temp_storage_.partitioned_data,
-      dense_compression_output.data_parallel_compression_input.reverse_idx};
-  partition_and_unique_operator_.partition_and_unique_on_dp_input(
-      embedding_type_, input, *dense_temp_storage_.table_partitioner_, compressed_data, stream);
-
-  CompactedPartitionData continuous_partition_data{
-      output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
-  compact_partitioned_data_operator_(compressed_data.partitioned_data, continuous_partition_data,
-                                     stream);
-
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-  if (embedding_type_ == embedding::EmbeddingType::FrequentDense) {
-    select_valid_reverse_idx_operator_(compressed_data.reverse_idx,
-                                       dense_temp_storage_.h_num_reverse_idx, stream);
-  }
-
-  dense_compression_output.data_parallel_compression_input.num_reverse_idx =
-      *(dense_temp_storage_.h_num_reverse_idx.data<uint64_t>());
-  compress_reverse_idx_range_operator_(
-      output.dense_compression_input.data_parallel_compression_input.num_reverse_idx,
-      compressed_data, stream);
-
-  convert_indices(output);
-}
-
-void DenseDPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {
-  if (ebc_param_.keys_preprocess_strategy_ == embedding::KeysPreprocessStrategy::None) return;
-
-  indices_converter_->convert(output.keys, output.h_num_keys,
-                              output.dense_compression_input.num_keys_per_table_offset,
-                              output.dense_compression_input.table_ids);
-}
-
 DenseMPDataDistributionOp::DenseMPDataDistributionOp(
     std::shared_ptr<core::CoreResourceManager> core,
     const embedding::EmbeddingCollectionParam& ebc_param, size_t group_id,
@@ -247,15 +138,9 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
       dense_temp_storage_(core, ebc_param_, group_id),
       partition_and_unique_operator_(core, ebc_param_, group_id),
       compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
-      select_valid_reverse_idx_operator_(core, ebc_param, group_id) {
+      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table) {
   CudaDeviceContext context(core->get_device_id());
-
-  if (embedding_type_ == embedding::EmbeddingType::InfrequentDense) {
-    partition_and_unique_operator_.init_hash_table_with_frequent_keys(
-        std::shared_ptr<core::CoreResourceManager>(), ebc_param_.dense_freq_keys_data,
-        ebc_param_.key_type, ebc_param_.offset_type);
-  }
+  HCTR_CHECK(embedding_type_ == embedding::EmbeddingType::Dense);
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
 
@@ -279,11 +164,9 @@ void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
                                                       cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
 
-  if (embedding_type_ == embedding::EmbeddingType::Dense) {
-    partition_and_unique_operator_.fill_continuous_bucket_ids(
-        input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
-        dense_temp_storage_.h_num_network_reverse_idx, stream);
-  }
+  partition_and_unique_operator_.fill_continuous_bucket_ids(
+      input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
+      dense_temp_storage_.h_num_network_reverse_idx, stream);
 
   CompressedData compressed_data_after_shard_matrix_partition{
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition,
@@ -291,11 +174,6 @@ void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInpu
   partition_and_unique_operator_.partition_and_unique_on_dp_input(
       embedding_type_, input, *dense_temp_storage_.shard_partitioner_,
       compressed_data_after_shard_matrix_partition, stream);
-
-  if (embedding_type_ == embedding::EmbeddingType::InfrequentDense) {
-    select_valid_reverse_idx_operator_(compressed_data_after_shard_matrix_partition.reverse_idx,
-                                       dense_temp_storage_.h_num_network_reverse_idx, stream);
-  }
 }
 
 void DenseMPDataDistributionOp::all2all_keys_per_bucket(embedding::EmbeddingInput& output,

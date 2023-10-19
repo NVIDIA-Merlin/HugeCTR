@@ -88,46 +88,6 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   PartitionAndUniqueOperator partition_and_unique_operator_;
   CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
   CompactPartitionDataOperator compact_partitioned_data_operator_;
-  SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
-
-  std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
-};
-
-class DenseDPDataDistributionOp final : public IDataDistributionOp {
- public:
-  DenseDPDataDistributionOp(
-      std::shared_ptr<core::CoreResourceManager> core,
-      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
-      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
-
-  void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override;
-
-  void convert_indices(embedding::EmbeddingInput &output);
-
- private:
-  std::shared_ptr<core::CoreResourceManager> core_;
-
-  embedding::EmbeddingCollectionParam ebc_param_;
-
-  embedding::EmbeddingType embedding_type_;
-
-  size_t num_global_gpus_;
-  // Dense Unique Operators
-  struct DenseDPTempStorage {
-    DenseDPTempStorage(std::shared_ptr<core::CoreResourceManager> core,
-                       const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id);
-    int num_table;
-    std::unique_ptr<TablePartitioner> table_partitioner_;
-
-    core23::Tensor h_num_reverse_idx;  // uint64_t
-    PartitionedData partitioned_data;
-  } dense_temp_storage_;
-
-  PartitionAndUniqueOperator partition_and_unique_operator_;
-  CompressReverseIdxRangeOperator compress_reverse_idx_range_operator_;
-  CompactPartitionDataOperator compact_partitioned_data_operator_;
-  SelectValidReverseIdxOperator select_valid_reverse_idx_operator_;
 
   std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
 };

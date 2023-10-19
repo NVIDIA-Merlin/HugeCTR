@@ -138,9 +138,6 @@ std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p) {
     case AllreduceStrategy::GroupDense:
       os << "GroupDense";
       break;
-    case AllreduceStrategy::Sparse:
-      os << "Sparse";
-      break;
     default:
       HCTR_OWN_THROW(HugeCTR::Error_t::NotInitialized, "AllreduceStrategy is not initialized");
   }
@@ -397,11 +394,6 @@ std::vector<int> get_allreduce_buffer_num_keys(
   return vocabulary_size_list;
 }
 
-void Wgrad::bind_data_ptr(void *ptr) {
-  data = core23::Tensor::bind(ptr, {static_cast<int64_t>(this->max_buffer_size)}, this->attr.type,
-                              this->unique_keys.device());
-}
-
 WgradInitializer &WgradInitializer::init(Wgrad &other) {
   this->wgrad = &other;
   wgrad->attr = wgrad_attr;
@@ -528,31 +520,6 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   return *this;
 }
 
-AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(bool not_grouped) {
-  wgrad->attr = wgrad_attr;
-  int gpu_id = core->get_global_gpu_id();
-  std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
-  std::vector<int> h_unique_table_ids(wgrad_attr.sorted_unique_table_ids.num_elements());
-  core23::copy_sync(h_unique_table_ids, wgrad_attr.sorted_unique_table_ids);
-  std::vector<int> h_local_num_keys_list =
-      get_allreduce_buffer_num_keys(h_unique_table_ids, table_id_to_vocabulary_size);
-
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
-
-  int64_t max_buffer_size = 0;
-  for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
-    max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
-  }
-  wgrad->max_buffer_size = max_buffer_size;
-  if (not_grouped) {
-    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-    core23::TensorParams params = core23::TensorParams().device(device);
-    wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
-  }
-
-  return *this;
-}
-
 AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
     bool grouped, const core23::BufferChannel &buffer_channel) {
   wgrad->attr = wgrad_attr;
@@ -569,7 +536,6 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
   for (size_t i = 0; i < h_local_num_keys_list.size(); ++i) {
     max_buffer_size += h_local_num_keys_list[i] * h_local_ev_size_list[i];
   }
-  wgrad->max_buffer_size = max_buffer_size;
 
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams wgrads_params = core23::TensorParams().device(device);
