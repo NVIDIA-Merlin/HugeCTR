@@ -189,23 +189,8 @@ UniformDPEmbedding::UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "sort strategy not supported.");
   }
 
-  if (params.allreduce_strategy_ == AllreduceStrategy::Dense ||
-      params.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
-    local_reduce_index_calculation_.dense_allreduce_index_calculation = {
-        core, local_reduce_index_calculation, sort_op, cal_dst_ids, segmented_unique};
-  } else if (params.allreduce_strategy_ == AllreduceStrategy::Sparse) {
-    SparseAllreduceCalEVStartIndicesStorage sparse_allreduce_storage{
-        core, meta_.num_local_hotness_, params.universal_batch_size / num_gpus, key_type};
-    local_reduce_index_calculation_.sparse_allreduce_index_calculation = {
-        core,
-        local_reduce_index_calculation,
-        sort_op,
-        cal_dst_ids,
-        segmented_unique,
-        sparse_allreduce_storage};
-  } else {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "allreduce strategy not supported.");
-  }
+  local_reduce_index_calculation_ = {core, local_reduce_index_calculation, sort_op, cal_dst_ids,
+                                     segmented_unique};
   local_reduce_.init(core, meta_.max_ev_size_,
                      meta_.num_local_hotness_ * (params.universal_batch_size / num_gpus));
 }
@@ -214,17 +199,9 @@ void UniformDPEmbedding::backward_index_calculation(const EmbeddingInput& embedd
                                                     Wgrad& wgrad, int batch_size) {
   int num_gpus = core_->get_global_gpu_count();
   local_reduce_buffer_.data = wgrad.data;
-  if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense ||
-      meta_.allreduce_strategy_ == AllreduceStrategy::GroupDense) {
-    local_reduce_index_calculation_.dense_allreduce_index_calculation.cal_for_sparse_indices(
-        embedding_input, wgrad.ev_start_indices, reduction_indices_, local_reduce_buffer_,
-        batch_size / num_gpus);
-  } else if (meta_.allreduce_strategy_ == AllreduceStrategy::Sparse) {
-    local_reduce_index_calculation_.sparse_allreduce_index_calculation.cal_for_sparse_input(
-        embedding_input, reduction_indices_, local_reduce_buffer_, wgrad, batch_size / num_gpus);
-  } else {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "allreduce strategy not supported.");
-  }
+  local_reduce_index_calculation_.cal_for_sparse_indices(embedding_input, wgrad.ev_start_indices,
+                                                         reduction_indices_, local_reduce_buffer_,
+                                                         batch_size / num_gpus);
 }
 
 void UniformDPEmbedding::forward(const EmbeddingInput& embedding_input, ILookup* embedding_table,
@@ -245,21 +222,6 @@ void UniformDPEmbedding::forward(const EmbeddingInput& embedding_input, ILookup*
 
 void UniformDPEmbedding::dense_allreduce(embedding::Wgrad& wgrad, int batch_size) {
   allreduce_comm_.communicate(wgrad.data, wgrad.data.num_elements());
-}
-
-void UniformDPEmbedding::sparse_allreduce(embedding::Wgrad& wgrad, int batch_size) {
-  cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  size_t h_num_unique_keys = 0ul;
-  HCTR_LIB_THROW(cudaMemcpyAsync(&h_num_unique_keys, wgrad.num_unique_keys.data<uint64_t>(),
-                                 sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-
-  uint32_t num_ev_elements;
-  HCTR_LIB_THROW(cudaMemcpyAsync(&num_ev_elements,
-                                 wgrad.ev_start_indices.data<uint32_t>() + h_num_unique_keys,
-                                 sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-  allreduce_comm_.communicate(wgrad.data, num_ev_elements);
 }
 
 void UniformDPEmbedding::local_reduce(const EmbeddingOutput& top_grad,
@@ -317,9 +279,6 @@ void UniformDPEmbedding::backward_per_gpu(Stage stage, const EmbeddingInput& emb
     case Stage::DPAllreduce: {
       if (meta_.allreduce_strategy_ == AllreduceStrategy::Dense) {
         dense_allreduce(wgrad, batch_size);
-      }
-      if (meta_.allreduce_strategy_ == AllreduceStrategy::Sparse) {
-        sparse_allreduce(wgrad, batch_size);
       }
     } break;
     default:

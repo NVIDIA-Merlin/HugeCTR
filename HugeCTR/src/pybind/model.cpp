@@ -934,12 +934,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
 
   embedding::AllreduceStrategy allreduce_strategy = ebc_config.allreduce_strategy_;
   if (solver_.grouped_all_reduce) {
-    if (allreduce_strategy == embedding::AllreduceStrategy::Dense) {
-      allreduce_strategy = embedding::AllreduceStrategy::GroupDense;
-    } else if (allreduce_strategy == embedding::AllreduceStrategy::Sparse) {
-      HCTR_OWN_THROW(Error_t::WrongInput,
-                     "Solver grouped_all_reduce can't be set with AllreduceStrategy::Sparse");
-    }
+    allreduce_strategy = embedding::AllreduceStrategy::GroupDense;
   }
 
   embedding::EmbeddingCollectionParam ebc_param{num_table,
@@ -2976,15 +2971,6 @@ void Model::create_pipelines() {
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization",
                     sparse_embedding_params_[i].sparse_embedding_name);
     }
-  }
-
-  if (solver_.grouped_all_reduce) {
-    if (ebc_list_.size() > 0) {
-      for (size_t i = 0; i < ebc_list_.size(); ++i) {
-        embed_wgrad_size += ebc_list_[i]->get_grouped_wgrad_length();
-      }
-    }
-    exchange_wgrad_->update_embed_wgrad_size(embed_wgrad_size);
   }
 
 #ifdef ENABLE_MPI

@@ -37,30 +37,4 @@ HOST_DEVICE_INLINE int64_t bs_upper_bound_sub_one(const T *const arr, int64_t nu
   }
   return (start == num && arr[start - 1] != target) ? num : start - 1;
 }
-
-template <typename T>
-class ArrayView {
- public:
-  using value_type = T;
-  using size_type = int64_t;
-  // using difference_type = ptrdiff_t;
-  using reference = value_type &;
-  using const_reference = value_type const &;
-
- private:
-  using pointer = T *;
-  pointer data_;
-  size_type len_;
-
- public:
-  HOST_DEVICE_INLINE ArrayView(void *data, size_type len)
-      : data_(static_cast<pointer>(data)), len_(len) {}
-
-  HOST_DEVICE_INLINE const_reference operator[](size_type index) const { return data_[index]; }
-
-  HOST_DEVICE_INLINE reference operator[](size_type index) { return data_[index]; }
-
-  HOST_DEVICE_INLINE size_type &size() { return len_; }
-};
-
 }  // namespace embedding

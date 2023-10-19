@@ -329,69 +329,6 @@ void PartitionAndUniqueOperator::init_hash_table_for_unique(
   });
 }
 
-struct DummyPartitionerView {
-  template <typename KeyType>
-  DEVICE_INLINE int operator()(const KeyPair<KeyType> &key_pair) const noexcept {
-    return 0;
-  }
-};
-
-void PartitionAndUniqueOperator::init_hash_table_with_frequent_keys(
-    std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::DenseFrequentKeysData &dense_frequent_keys_data, core23::DataType key_type,
-    core23::DataType bucket_range_type) {
-  CudaDeviceContext ctx(core->get_device_id());
-
-  size_t num_frequent_keys = 0;
-  for (size_t i = 0; i < dense_frequent_keys_data.h_frequent_keys.size(); ++i) {
-    num_frequent_keys += dense_frequent_keys_data.h_frequent_keys[i].num_elements();
-  }
-
-  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-  core23::TensorParams params = core23::TensorParams().device(device);
-
-  // 1. create hash table
-  this->table_capacity_ = 2 * num_frequent_keys;
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
-    size_t table_size = this->table_capacity_ * sizeof(TableEntry<KeyType>);
-    this->hash_table_storage_ = core23::Tensor(
-        params.shape({static_cast<int64_t>(table_size)}).data_type(core23::ScalarType::Char));
-  });
-
-  // 2. clean hash table
-  HCTR_LIB_THROW(
-      cudaMemset(this->hash_table_storage_.data(), 0, this->hash_table_storage_.num_bytes()));
-
-  // 3. insert frequent key one by one
-  for (size_t i = 0; i < dense_frequent_keys_data.table_ids.size(); ++i) {
-    const auto &h_frequent_keys = dense_frequent_keys_data.h_frequent_keys[i];
-    PartitionedData temp_partitioned_data{
-        core, 1, static_cast<size_t>(h_frequent_keys.num_elements()), key_type, bucket_range_type};
-    core23::TensorParams single_allocation_params = core23::TensorParams().device(device);
-    core23::Tensor d_frequent_keys =
-        core23::Tensor(single_allocation_params.shape({h_frequent_keys.num_elements()})
-                           .data_type(h_frequent_keys.data_type()));
-    core23::copy_sync(d_frequent_keys, h_frequent_keys);
-
-    DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), KeyType, [&] {
-      DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range_type.type(), BucketRangeType, [&] {
-        UniqueTableView<KeyType, BucketRangeType, DummyPartitionerView> hash_table{
-            (TableEntry<KeyType> *)this->hash_table_storage_.data(), this->table_capacity_,
-            DummyPartitionerView()};
-
-        int table_id = dense_frequent_keys_data.table_ids[i];
-
-        auto &kernel_param = core_->get_kernel_param();
-        int grid_size = kernel_param.num_sms * (kernel_param.max_thread_per_sm / 256);
-        int block_size = 256;
-        init_frequent_keys_hash_table<<<grid_size, block_size>>>(
-            d_frequent_keys.data<KeyType>(), d_frequent_keys.num_elements(), table_id, hash_table,
-            temp_partitioned_data.view<KeyType, BucketRangeType>());
-      });
-    });
-  }
-}
-
 void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributionInput &input,
                                                             core23::Tensor &bucket_ids,
                                                             core23::Tensor &h_num_bucket_ids,
@@ -432,6 +369,8 @@ template <typename Partitioner>
 void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
     embedding::EmbeddingType embedding_type, const DataDistributionInput &input,
     const Partitioner &partitioner, CompressedData &compressed_data, cudaStream_t stream) {
+  HCTR_CHECK(embedding_type == embedding::EmbeddingType::Dense);
+
   auto key_type = compressed_data.partitioned_data.partitioned_keys.data_type();
   auto bucket_range_type = compressed_data.reverse_idx.data_type();
 
@@ -459,34 +398,14 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
       int block_size = 512;
       int grid_size = kernel_param.num_sms * (kernel_param.max_thread_per_sm / block_size);
 
-      if (embedding_type == embedding::EmbeddingType::Dense) {
-        HCTR_LIB_THROW(cudaMemsetAsync(hash_table_storage_.data(), 0,
-                                       hash_table_storage_.num_bytes(), stream));
-        UniqueTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
-            (TableEntry<KeyType> *)hash_table_storage_.data(), table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
-            dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
-            range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
-            hash_table, compressed_data_view);
-      }
-      if (embedding_type == embedding::EmbeddingType::InfrequentDense) {
-        FrequentTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
-            (TableEntry<KeyType> *)frequent_key_hash_table_storage_.data(),
-            frequent_key_hash_table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
-            dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
-            range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
-            hash_table, compressed_data_view);
-      }
-      if (embedding_type == embedding::EmbeddingType::FrequentDense) {
-        InfrequentTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
-            (TableEntry<KeyType> *)frequent_key_hash_table_storage_.data(),
-            frequent_key_hash_table_capacity_, partitioner_view};
-        partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
-            dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
-            range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
-            hash_table, compressed_data_view);
-      }
+      HCTR_LIB_THROW(
+          cudaMemsetAsync(hash_table_storage_.data(), 0, hash_table_storage_.num_bytes(), stream));
+      UniqueTableView<KeyType, BucketRangeType, partitioner_view_type> hash_table{
+          (TableEntry<KeyType> *)hash_table_storage_.data(), table_capacity_, partitioner_view};
+      partition_and_unique_kernel<<<grid_size, block_size, 0, stream>>>(
+          dp_keys_ptrs, dp_bucket_range_ptrs, d_lookup_ids_.data<int>(),
+          range_on_lookup_ids.data<BucketRangeType>(), num_local_lookup_, batch_size_per_gpu_,
+          hash_table, compressed_data_view);
     });
   });
 }
@@ -616,47 +535,4 @@ void CompressReverseIdxRangeOperator::operator()(size_t num_bucket_ids,
   });
 }
 
-struct SelectValidReverseIdx {
-  DEVICE_INLINE bool operator()(const size_t &idx) const { return idx != kInvalidReverseIdx; }
-};
-
-SelectValidReverseIdxOperator::SelectValidReverseIdxOperator(
-    std::shared_ptr<core::CoreResourceManager> core,
-    const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id)
-    : core_(core) {
-  CudaDeviceContext ctx(core->get_device_id());
-
-  int num_features = 0;
-  for (int lookup_id : ebc_param.grouped_lookup_params[group_id].lookup_ids) {
-    num_features += ebc_param.lookup_params[lookup_id].max_hotness;
-  }
-  int num_global_gpus = core->get_global_gpu_count();
-  int batch_size_per_gpu = ebc_param.universal_batch_size / num_global_gpus;
-  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-  core23::TensorParams params = core23::TensorParams().device(device);
-
-  {
-    size_t temp_storage_nbytes = 0;
-    cub::DeviceSelect::If(nullptr, temp_storage_nbytes, (uint64_t *)nullptr, (uint64_t *)nullptr,
-                          (uint64_t *)nullptr, num_features * batch_size_per_gpu,
-                          SelectValidReverseIdx());
-    this->d_temp_select_storage_ =
-        core23::Tensor(params.shape({static_cast<int64_t>(temp_storage_nbytes)})
-                           .data_type(core23::ScalarType::Char));
-  }
-}
-
-void SelectValidReverseIdxOperator::operator()(core23::Tensor &reverse_idx,
-                                               core23::Tensor &h_num_reverse_idx,
-                                               cudaStream_t stream) const {
-  auto bucket_range_type = reverse_idx.data_type();
-
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range_type.type(), BucketRangeType, [&] {
-    size_t temp_nbytes = d_temp_select_storage_.num_bytes();
-    cub::DeviceSelect::If(d_temp_select_storage_.data(), temp_nbytes,
-                          reverse_idx.data<BucketRangeType>(), reverse_idx.data<BucketRangeType>(),
-                          h_num_reverse_idx.data<BucketRangeType>(), reverse_idx.num_elements(),
-                          SelectValidReverseIdx(), stream);
-  });
-}
 }  // namespace HugeCTR

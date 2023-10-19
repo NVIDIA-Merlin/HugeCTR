@@ -428,9 +428,7 @@ class EmbeddingReferenceGPU {
     auto &gpu_allgather_ev_start_indices = global_batch_input.gpu_allgather_ev_start_indices;
 
     auto &grouped_lookup_param = ebc_param_.grouped_lookup_params[group_id];
-    HCTR_CHECK_HINT(!(grouped_lookup_param.embedding_type == EmbeddingType::FrequentDense ||
-                      grouped_lookup_param.embedding_type == EmbeddingType::InfrequentDense),
-                    "ebc utest does not support hybrid embedding yet");
+
     auto &lookup_param = ebc_param_.lookup_params[lookup_id];
     int table_id = lookup_param.table_id;
 

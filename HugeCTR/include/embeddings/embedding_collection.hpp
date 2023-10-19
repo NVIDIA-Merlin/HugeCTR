@@ -132,7 +132,6 @@ class EmbeddingCollectionConfig {
     if (existed) return;
     if (emb_table_config.table_param.max_vocabulary_size < 0) {
       keys_preprocess_strategy_ = ::embedding::KeysPreprocessStrategy::None;
-      allreduce_strategy_ = ::embedding::AllreduceStrategy::Sparse;
     }
     emb_table_config_list_.push_back(emb_table_config);
   }
@@ -279,14 +278,9 @@ class EmbeddingCollection {
 
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingOp>>> embeddings_, eval_embeddings_;
 
-  std::vector<std::vector<EmbeddingOutputAttr>> embedding_output_attrs;
+  std::vector<std::vector<EmbeddingOutputAttr>> embedding_output_attrs_;
   std::vector<std::vector<Wgrad>> wgrad_list_;
   std::unique_ptr<HugeCTR::GPUBarrier> gpu_barrier_;
-
-  // For grouped all reduce
-  std::vector<HugeCTR::Tensor2<float>> wgrad_tensor2_float_list_;
-  std::vector<HugeCTR::Tensor2<__half>> wgrad_tensor2_half_list_;
-  size_t grouped_allreduce_length_ = 0;
 
   void init_embedding_output_attrs(std::vector<std::shared_ptr<CoreResourceManager>> core);
 
@@ -297,11 +291,6 @@ class EmbeddingCollection {
 
   IGroupedEmbeddingTable *get_table(int gpu_id, size_t grouped_id) {
     int grouped_table_id = ebc_param_.grouped_lookup_params[grouped_id].grouped_table_idx;
-    if (grouped_table_id == -1) {
-      HCTR_CHECK(ebc_param_.grouped_lookup_params[grouped_id].embedding_type ==
-                 EmbeddingType::FrequentDense);
-      return frequent_embedding_tables_[gpu_id].get();
-    }
 
     return embedding_tables_[gpu_id][grouped_table_id].get();
   }
@@ -310,7 +299,6 @@ class EmbeddingCollection {
   // Fix:load and dump use these , put it on public temporary
   std::vector<HugeCTR::OptParams> embedding_optimizers_;
   std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingTable>>> embedding_tables_;
-  std::vector<std::unique_ptr<RaggedStaticEmbeddingTable>> frequent_embedding_tables_;
   EmbeddingCollectionParam ebc_param_;
   EmbeddingCollectionParam eval_ebc_param_;
   std::vector<EmbeddingTableParam> emb_table_param_list_;
@@ -357,10 +345,6 @@ class EmbeddingCollection {
   }
 
   const std::vector<Wgrad> &get_wgrad(int gpu_id) const { return wgrad_list_[gpu_id]; }
-
-  size_t get_grouped_wgrad_length() { return grouped_allreduce_length_; };
-
-  void bind_grouped_wgrad_ptr();
 };
 
 }  // namespace embedding

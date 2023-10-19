@@ -79,11 +79,6 @@ class PartitionAndUniqueOperator {
   void init_hash_table_for_unique(std::shared_ptr<core::CoreResourceManager> core,
                                   core23::DataType key_type);
 
-  void init_hash_table_with_frequent_keys(
-      std::shared_ptr<core::CoreResourceManager> core,
-      const embedding::DenseFrequentKeysData &dense_frequent_keys_data, core23::DataType key_type,
-      core23::DataType bucket_range_type);
-
   void fill_continuous_bucket_ids(const DataDistributionInput &input, core23::Tensor &bucket_ids,
                                   core23::Tensor &h_num_bucket_ids, cudaStream_t stream);
 
@@ -105,7 +100,6 @@ class PartitionAndUniqueOperator {
   std::shared_ptr<core::CoreResourceManager> core_;
 
   core23::Tensor frequent_key_hash_table_storage_;
-  size_t frequent_key_hash_table_capacity_;
 
   core23::Tensor hash_table_storage_;
   size_t table_capacity_;
@@ -144,20 +138,5 @@ class CompressReverseIdxRangeOperator {
 
  private:
   std::shared_ptr<core::CoreResourceManager> core_;
-};
-
-class SelectValidReverseIdxOperator {
- public:
-  SelectValidReverseIdxOperator(std::shared_ptr<core::CoreResourceManager> core,
-                                const embedding::EmbeddingCollectionParam &ebc_param,
-                                size_t group_id);
-
-  void operator()(core23::Tensor &reverse_idx, core23::Tensor &h_num_reverse_idx,
-                  cudaStream_t stream) const;
-
- private:
-  std::shared_ptr<core::CoreResourceManager> core_;
-
-  core23::Tensor d_temp_select_storage_;
 };
 }  // namespace HugeCTR

@@ -91,8 +91,6 @@ class UniformDPEmbedding : public IGroupedEmbeddingOp {
 
   void dense_allreduce(embedding::Wgrad &wgrad, int batch_size);
 
-  void sparse_allreduce(embedding::Wgrad &wgrad, int batch_size);
-
  public:
   UniformDPEmbedding(std::shared_ptr<CoreResourceManager> core,
                      const EmbeddingCollectionParam &params, size_t grouped_id);

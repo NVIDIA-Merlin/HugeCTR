@@ -45,9 +45,6 @@ class DataDistributor {
                   const std::vector<core23::Tensor>& dp_bucket_range, Result& output,
                   int batch_size);
 
-  void distribute(int gpu_id, const core23::Tensor& fullbatch_keys,
-                  const core23::Tensor& fullbatch_bucket_range, Result& output, int batch_size);
-
  private:
   struct GpuCommData {
     // This is a performance optimization to prevent us from computing bucket ranges each iteration.
@@ -57,10 +54,6 @@ class DataDistributor {
   };
 
   void init_comm_data();
-
-  void init_batch_major_fullbatch_input_preprocessor();
-
-  void init_indices_converter();
 
   void init_filtered_all_to_all();
 
@@ -91,42 +84,6 @@ class DataDistributor {
   size_t num_local_gpus_;
   size_t num_global_gpus_;
   size_t num_features_;
-
-  struct KeyFilterInitParams {
-    int num_lookup;
-    int global_gpu_id;
-    int total_gpu_count;
-
-    int num_local_lookup;
-    int num_hotness;
-    int num_local_hotness;
-
-    core23::Tensor d_local_lookup_ids;
-    core23::Tensor d_local_shard_ids;
-    core23::Tensor d_local_num_shards;
-
-    KeyFilterInitParams(const std::shared_ptr<core::CoreResourceManager>& core_resource_manager,
-                        const embedding::EmbeddingCollectionParam& ebc_param, size_t grouped_id);
-  };
-  std::vector<std::vector<KeyFilterInitParams>> key_filters_init_params_;
-
-  struct KeyFilter {
-    embedding::MPKeySelector mp_key_selector;
-    embedding::ModelIndexCalculation mp_index_calculation;
-    embedding::DPKeySelector dp_key_selector;
-    embedding::DPIndexCalculation dp_index_calculation;
-  };
-  std::vector<std::vector<KeyFilter>> key_filters_;
-
-  void init_key_filter();
-
-  std::vector<std::unique_ptr<embedding::PreprocessInput>> preprocess_inputs_;
-
-  std::vector<embedding::CompressOffset> compress_offsets_;
-  std::vector<core23::Tensor> d_local_table_id_lists_;
-  std::vector<embedding::KeysToIndicesConverter> indices_converters_;
-
-  void convert_indices(int gpu_id, DataDistributor::Result& output);
 };
 
 DataDistributor::Result allocate_output_for_data_distributor(

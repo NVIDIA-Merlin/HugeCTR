@@ -278,7 +278,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      EmbeddingLayout::FeatureMajor,
                                      embedding::SortStrategy::Segmented,
                                      embedding::KeysPreprocessStrategy::AddOffset,
-                                     embedding::AllreduceStrategy::Sparse,
+                                     embedding::AllreduceStrategy::Dense,
                                      CommunicationStrategy::Uniform};
   auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
 

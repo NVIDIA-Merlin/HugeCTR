@@ -138,10 +138,9 @@ enum class SortStrategy : int8_t { Radix, Segmented };
 std::ostream &operator<<(std::ostream &os, const SortStrategy &p);
 enum class KeysPreprocessStrategy : int8_t { None, AddOffset };
 std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p);
-enum class AllreduceStrategy : int8_t { Sparse, Dense, GroupDense };
+enum class AllreduceStrategy : int8_t { Dense, GroupDense };
 std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p);
-enum class EmbeddingType : int8_t { Sparse, Dense, FrequentDense, InfrequentDense };
-enum class DenseCompressionStrategy : int8_t { Unique, CacheFrequent };
+enum class EmbeddingType : int8_t { Sparse, Dense };
 
 struct LookupParam {
   int lookup_id;
@@ -169,7 +168,7 @@ struct GroupedTableParam {
 };
 
 struct GroupedLookupParam {
-  int grouped_table_idx;  // -1 means lookup in local cache
+  int grouped_table_idx;
   TablePlacementStrategy table_placement_strategy;
 
   std::vector<int> lookup_ids;
@@ -180,11 +179,6 @@ struct GroupedLookupParam {
         table_placement_strategy(tps),
         lookup_ids(lookup_ids),
         embedding_type(embedding_type) {}
-};
-
-struct DenseFrequentKeysData {
-  std::vector<int> table_ids;
-  std::vector<core23::Tensor> h_frequent_keys;
 };
 
 struct EmbeddingCollectionParam {
@@ -211,9 +205,6 @@ struct EmbeddingCollectionParam {
   KeysPreprocessStrategy keys_preprocess_strategy_;
   AllreduceStrategy allreduce_strategy_;
   CommunicationStrategy comm_strategy_;
-
-  DenseCompressionStrategy dense_compression_strategy_ = DenseCompressionStrategy::Unique;
-  DenseFrequentKeysData dense_freq_keys_data;
 
   EmbeddingCollectionParam(
       int num_table, int num_lookup, const std::vector<LookupParam> &lookup_params,
@@ -277,15 +268,10 @@ struct EmbeddingCollectionParam {
                                            sparse_lookup_ids, EmbeddingType::Sparse);
       }
       if (!dense_lookup_ids.empty()) {
-        if (dense_compression_strategy_ == DenseCompressionStrategy::Unique) {
-          for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_ids) {
-            grouped_lookup_params.emplace_back(
-                grouped_table_id, table_param.table_placement_strategy,
-                dense_lookup_ids_with_same_ev_size, EmbeddingType::Dense);
-          }
-        } else {
-          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                         "dense_compression_strategy not supported in embedding collection.");
+        for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_ids) {
+          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
+                                             dense_lookup_ids_with_same_ev_size,
+                                             EmbeddingType::Dense);
         }
       }
     }
@@ -318,8 +304,6 @@ struct EmbeddingCollectionParam {
     *shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
     *num_shard = static_cast<int>(shard_gpus.size());
   }
-
-  void init_dense_frequent_keys(const DenseFrequentKeysData &data) { dense_freq_keys_data = data; }
 };
 
 struct EmbeddingInput {
@@ -331,12 +315,6 @@ struct EmbeddingInput {
   core23::Tensor num_keys_per_bucket;
 
   struct DenseCompressionInput {
-    struct DataParallelCompressionInput {
-      core23::Tensor reverse_idx;     // bucket_range_type
-      core23::Tensor dst_bucket_ids;  // bucket_range_type
-      size_t num_reverse_idx;
-    } data_parallel_compression_input;
-
     struct ModelParallelCompressionInput {
       core23::Tensor h_send_k_per_gpu;  // bucket_range_type
       core23::Tensor h_recv_k_per_gpu;  // bucket_range_type
@@ -418,8 +396,6 @@ struct Wgrad {
   core23::Tensor ev_start_indices;  // uint32_t
 
   core23::Tensor data;
-  int64_t max_buffer_size;
-  void bind_data_ptr(void *ptr);
 };
 
 struct WgradInitializer {
@@ -447,7 +423,6 @@ struct AllreduceWgradInitializer {
   AllreduceWgradInitializer &init(Wgrad &other);
 
   AllreduceWgradInitializer &init_indices();
-  AllreduceWgradInitializer &init_data(bool not_grouped);
   AllreduceWgradInitializer &init_data(bool grouped, const core23::BufferChannel &buffer_channel);
 };
 

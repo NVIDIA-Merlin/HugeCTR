@@ -55,15 +55,15 @@ EmbeddingCollection::EmbeddingCollection(
 void EmbeddingCollection::init_embedding_output_attrs(
     std::vector<std::shared_ptr<CoreResourceManager>> core) {
   int num_gpus = resource_manager_->get_local_gpu_count();
-  embedding_output_attrs.resize(num_gpus);
+  embedding_output_attrs_.resize(num_gpus);
 
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     int num_grouped = static_cast<int>(ebc_param_.grouped_lookup_params.size());
 
-    embedding_output_attrs[gpu_id].resize(num_grouped);
+    embedding_output_attrs_[gpu_id].resize(num_grouped);
     for (size_t grouped_id = 0; grouped_id < num_grouped; ++grouped_id) {
-      embedding_output_attrs[gpu_id][grouped_id].init(core[gpu_id], ebc_param_);
-      embedding_output_attrs[gpu_id][grouped_id].update_mutable_data(core[gpu_id], ebc_param_);
+      embedding_output_attrs_[gpu_id][grouped_id].init(core[gpu_id], ebc_param_);
+      embedding_output_attrs_[gpu_id][grouped_id].update_mutable_data(core[gpu_id], ebc_param_);
     }
   }
 }
@@ -73,8 +73,6 @@ void EmbeddingCollection::init_wgrad(std::vector<std::shared_ptr<CoreResourceMan
   int num_gpus = resource_manager_->get_local_gpu_count();
 
   wgrad_list_.resize(num_gpus);
-  wgrad_tensor2_float_list_.resize(num_gpus);
-  wgrad_tensor2_half_list_.resize(num_gpus);
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     HugeCTR::CudaDeviceContext context(core[gpu_id]->get_device_id());
     int num_grouped = static_cast<int>(ebc_param_.grouped_lookup_params.size());
@@ -82,9 +80,8 @@ void EmbeddingCollection::init_wgrad(std::vector<std::shared_ptr<CoreResourceMan
     for (size_t grouped_id = 0; grouped_id < num_grouped; ++grouped_id) {
       Wgrad &wgrad = wgrad_list_[gpu_id][grouped_id];
       auto current_tps = ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy;
-      // 1. mp or sparse allreduce
-      if (ebc_param_.allreduce_strategy_ == AllreduceStrategy::Sparse ||
-          current_tps == TablePlacementStrategy::ModelParallel) {
+      // 1. when mp or sparse allreduce,
+      if (current_tps == TablePlacementStrategy::ModelParallel) {
         WgradInitializer{core[gpu_id], ebc_param_, grouped_id,
                          embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
             .init(wgrad)
@@ -105,64 +102,23 @@ void EmbeddingCollection::init_wgrad(std::vector<std::shared_ptr<CoreResourceMan
                       HCTR_CHECK_HINT(vocabulary_size > 0, "vocabuary_size should > 0.");
                     });
 
-      int use_core23 = 1;
-      if (getenv("HUGECTR_CORE23_NETWORK")) {
-        use_core23 = atoi(getenv("HUGECTR_CORE23_NETWORK"));
-      }
-      if (use_core23) {
-        // 2. dense allreduce can be group or not grouped
-        bool grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::GroupDense);
-        if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Float) {
-          AllreduceWgradInitializer{core[gpu_id], ebc_param_, table_id_to_vocabulary_size,
-                                    grouped_id, embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
-              .init(wgrad)
-              .init_indices()
-              .init_data(grouped, HugeCTR::GetWgradBufferChannel());
-
-        } else if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Half) {
-          AllreduceWgradInitializer{core[gpu_id], ebc_param_, table_id_to_vocabulary_size,
-                                    grouped_id, embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
-              .init(wgrad)
-              .init_indices()
-              .init_data(grouped, HugeCTR::GetWgradHalfBufferChannel());
-
-        } else {
-          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                         "Embedding wgrad type set wrong can't support!");
-        }
-      } else {
-        // 2. not grouped dense allreduce
-        bool not_grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::Dense);
+      // 2. dense allreduce can be group or not grouped
+      bool grouped = (ebc_param_.allreduce_strategy_ == AllreduceStrategy::GroupDense);
+      if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Float) {
         AllreduceWgradInitializer{core[gpu_id], ebc_param_, table_id_to_vocabulary_size, grouped_id,
                                   embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
             .init(wgrad)
             .init_indices()
-            .init_data(not_grouped);
-        if (not_grouped) continue;
-
-        // 3. grouped dense allreduce
-        HCTR_CHECK_HINT(exchange_wgrad != nullptr,
-                        "if you want to group allreduce , you need send a exchange_wgrad into "
-                        "embedding_collection");
-
-        if (wgrad.attr.type.match<float>()) {
-          auto grouped_wgrad_buff =
-              std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<float>>(exchange_wgrad)
-                  ->get_embed_wgrad_buffs()[gpu_id];
-          grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
-                                      &(wgrad_tensor2_float_list_[gpu_id]));
-          if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(float);
-        } else if (wgrad.attr.type.match<__half>()) {
-          auto grouped_wgrad_buff =
-              std::dynamic_pointer_cast<HugeCTR::GroupedExchangeWgrad<__half>>(exchange_wgrad)
-                  ->get_embed_wgrad_buffs()[gpu_id];
-          grouped_wgrad_buff->reserve({static_cast<size_t>(wgrad.max_buffer_size)},
-                                      &(wgrad_tensor2_half_list_[gpu_id]));
-          if (gpu_id == 0) grouped_allreduce_length_ = wgrad.max_buffer_size * sizeof(__half);
-        } else {
-          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                         "have a wrong wgrad type, wgrad type need be float or __half");
-        }
+            .init_data(grouped, HugeCTR::GetWgradBufferChannel());
+      } else if (ebc_param_.wgrad_type_.type() == core23::ScalarType::Half) {
+        AllreduceWgradInitializer{core[gpu_id], ebc_param_, table_id_to_vocabulary_size, grouped_id,
+                                  embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
+            .init(wgrad)
+            .init_indices()
+            .init_data(grouped, HugeCTR::GetWgradHalfBufferChannel());
+      } else {
+        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
+                       "Embedding wgrad type set wrong can't support!");
       }
     }
   }
@@ -226,16 +182,17 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
     dst_result.h_num_keys = src_result.h_num_keys;
 
     auto &grouped_lookup_params = ebc_param_.grouped_lookup_params[grouped_id];
+    core23::copy_async(dst_result.num_keys_per_bucket, src_result.num_keys_per_bucket, stream);
+
     if (grouped_lookup_params.embedding_type == EmbeddingType::Sparse) {
       core23::copy_async(dst_result.bucket_range, src_result.bucket_range, stream);
-      core23::copy_async(dst_result.num_keys_per_bucket, src_result.num_keys_per_bucket, stream);
-    }
-    if (grouped_lookup_params.embedding_type == EmbeddingType::Dense) {
-      core23::copy_async(dst_result.dense_compression_input.num_keys_per_table_offset,
-                         src_result.dense_compression_input.num_keys_per_table_offset, stream);
-      core23::copy_async(dst_result.dense_compression_input.table_ids,
-                         src_result.dense_compression_input.table_ids, stream);
+    } else if (grouped_lookup_params.embedding_type == EmbeddingType::Dense) {
       if (grouped_lookup_params.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+        core23::copy_async(dst_result.dense_compression_input.num_keys_per_table_offset,
+                           src_result.dense_compression_input.num_keys_per_table_offset, stream);
+        core23::copy_async(dst_result.dense_compression_input.table_ids,
+                           src_result.dense_compression_input.table_ids, stream);
+
         auto &dst_compression_input =
             dst_result.dense_compression_input.model_parallel_compression_input;
         auto &src_compression_input =
@@ -253,18 +210,15 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
             src_compression_input.num_network_reverse_idx;
         core23::copy_async(dst_compression_input.network_dst_bucket_ids,
                            src_compression_input.network_dst_bucket_ids, stream);
+      } else if (grouped_lookup_params.table_placement_strategy ==
+                 TablePlacementStrategy::DataParallel) {
+        // FIXME: duplicate with sparse embedding type
+        core23::copy_async(dst_result.bucket_range, src_result.bucket_range, stream);
+      } else {
+        HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "not supported table placement strategy.");
       }
-      if (grouped_lookup_params.table_placement_strategy == TablePlacementStrategy::DataParallel) {
-        auto &dst_compression_input =
-            dst_result.dense_compression_input.data_parallel_compression_input;
-        auto &src_compression_input =
-            src_result.dense_compression_input.data_parallel_compression_input;
-        core23::copy_async(dst_compression_input.reverse_idx, src_compression_input.reverse_idx,
-                           stream);
-        core23::copy_async(dst_compression_input.dst_bucket_ids,
-                           src_compression_input.dst_bucket_ids, stream);
-        dst_compression_input.num_reverse_idx = src_compression_input.num_reverse_idx;
-      }
+    } else {
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "not supported embedding_type.");
     }
   }
 }
@@ -278,7 +232,7 @@ void EmbeddingCollection::forward_per_gpu(Stage stage, bool is_train, int gpu_id
     if (!embeddings[grouped_id]->is_valid_stage(stage)) continue;
 
     ILookup *lookup = dynamic_cast<ILookup *>(get_table(gpu_id, grouped_id));
-    EmbeddingOutput embedding_output{output_buffer, embedding_output_attrs[gpu_id][grouped_id]};
+    EmbeddingOutput embedding_output{output_buffer, embedding_output_attrs_[gpu_id][grouped_id]};
 
     embeddings[grouped_id]->forward_per_gpu(stage, input[grouped_id], lookup, embedding_output,
                                             batch_size);
@@ -310,7 +264,7 @@ void EmbeddingCollection::backward_per_gpu(Stage stage, int gpu_id,
   for (size_t grouped_id = 0; grouped_id < embeddings_[gpu_id].size(); ++grouped_id) {
     if (!embeddings_[gpu_id][grouped_id]->is_valid_stage(stage)) continue;
 
-    EmbeddingOutput top_grad_buffer{top_grad, embedding_output_attrs[gpu_id][grouped_id]};
+    EmbeddingOutput top_grad_buffer{top_grad, embedding_output_attrs_[gpu_id][grouped_id]};
     embeddings_[gpu_id][grouped_id]->backward_per_gpu(stage, input[grouped_id], top_grad_buffer,
                                                       wgrad_list_[gpu_id][grouped_id], batch_size);
   }
@@ -363,31 +317,6 @@ void EmbeddingCollection::set_learning_rate(float lr) {
   for (auto &table_list : embedding_tables_) {
     for (auto &t : table_list) {
       t->set_learning_rate(lr);
-    }
-  }
-  for (auto &cache : frequent_embedding_tables_) {
-    cache->set_learning_rate(lr);
-  }
-}
-
-void EmbeddingCollection::bind_grouped_wgrad_ptr() {
-  if (ebc_param_.allreduce_strategy_ != AllreduceStrategy::GroupDense) return;
-  int num_gpus = static_cast<int>(wgrad_list_.size());
-  for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); ++grouped_id) {
-    if (ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy !=
-        TablePlacementStrategy::DataParallel) {
-      continue;
-    }
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      auto &wgrad = wgrad_list_[gpu_id][grouped_id];
-      if (wgrad.attr.type.match<float>()) {
-        wgrad.bind_data_ptr(wgrad_tensor2_float_list_[gpu_id].get_ptr());
-      } else if (wgrad.attr.type.match<__half>()) {
-        wgrad.bind_data_ptr(wgrad_tensor2_half_list_[gpu_id].get_ptr());
-      } else {
-        HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                       "have a wrong wgrad type, wgrad type need be float or __half");
-      }
     }
   }
 }

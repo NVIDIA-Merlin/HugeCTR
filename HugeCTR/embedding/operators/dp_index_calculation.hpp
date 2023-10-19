@@ -35,7 +35,7 @@ struct DPKeySelector {
 
 using DPIndexCalculation = IndexCalculation<DPKeySelector>;
 
-struct DenseAllreduceIndexCalculation {
+struct DPLocalReduceIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
   LocalReduceIndexCalculation local_reduce_index_calculation_;
   SortKeyAndSrcIdOp indices_sort_;
@@ -50,51 +50,6 @@ struct DenseAllreduceIndexCalculation {
   void cal_for_dense_indices(const EmbeddingInput& embedding_input,
                              const core23::Tensor& ev_start_indices_in_allreduce_buffer,
                              ReductionIndices& reduction_indices, Wgrad& wgrad, int batch_size);
-};
-
-struct BroadcastResult {
-  core23::Tensor allgather_num_unique_keys_;    // uint64_t, [num_gpus]
-  core23::Tensor h_allgather_num_unique_keys_;  // uint64_t, [num_gpus]
-  core23::Tensor allgather_unique_keys_;
-  core23::Tensor allgather_table_ids_;
-  size_t num_allgather_keys_;
-};
-
-struct SparseAllreduceCalEVStartIndicesTempStorage {
-  core23::Tensor mask_unique_keys_in_allgather_unique_keys_;  // int
-  core23::Tensor d_temp_select_unique_keys_in_allgather_unique_keys_;
-  core23::Tensor d_temp_scan_ev_start_indices_storage_;
-};
-
-struct SparseAllreduceCalEVStartIndicesStorage {
-  BroadcastResult broadcast_result_;
-  core23::Tensor hash_table_;
-  SparseAllreduceCalEVStartIndicesTempStorage temp_storage_;
-
-  SparseAllreduceCalEVStartIndicesStorage() = default;
-
-  SparseAllreduceCalEVStartIndicesStorage(std::shared_ptr<CoreResourceManager> core,
-                                          int local_hotness_sum, int batch_size_per_gpu,
-                                          core23::DataType key_type);
-};
-
-struct SparseAllreduceIndexCalculation {
-  std::shared_ptr<CoreResourceManager> core_;
-  LocalReduceIndexCalculation local_reduce_index_calculation_;
-  SortKeyAndSrcIdOp segmented_sort_device_;
-  CalDstIds cal_dst_ids_;
-  SegmentdUnique segmented_unique_;
-
-  SparseAllreduceCalEVStartIndicesStorage cal_ev_start_indices_storage_;
-
-  void cal_for_sparse_input(const EmbeddingInput& embedding_input,
-                            ReductionIndices& reduction_indices, Wgrad& local_reduce_wgrad,
-                            Wgrad& allreduce_wgrad, int batch_size_per_gpu);
-};
-
-struct DPLocalReduceIndexCalculation {
-  SparseAllreduceIndexCalculation sparse_allreduce_index_calculation;
-  DenseAllreduceIndexCalculation dense_allreduce_index_calculation;
 };
 
 }  // namespace embedding

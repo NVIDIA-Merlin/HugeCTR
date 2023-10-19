@@ -405,7 +405,7 @@ std::vector<Configuration> get_ebc_single_node_utest_configuration() {
       EmbeddingCollectionOption{
           embedding::EmbeddingLayout::FeatureMajor, embedding::EmbeddingLayout::FeatureMajor,
           embedding::KeysPreprocessStrategy::AddOffset, embedding::SortStrategy::Segmented,
-          embedding::AllreduceStrategy::Sparse, embedding::CommunicationStrategy::Uniform},
+          embedding::AllreduceStrategy::Dense, embedding::CommunicationStrategy::Uniform},
   };
 
   std::vector<Configuration> configurations{
@@ -453,7 +453,7 @@ std::vector<Configuration> get_ebc_two_node_utest_configuration() {
       EmbeddingCollectionOption{
           embedding::EmbeddingLayout::FeatureMajor, embedding::EmbeddingLayout::FeatureMajor,
           embedding::KeysPreprocessStrategy::AddOffset, embedding::SortStrategy::Segmented,
-          embedding::AllreduceStrategy::Sparse, embedding::CommunicationStrategy::Hierarchical},
+          embedding::AllreduceStrategy::Dense, embedding::CommunicationStrategy::Hierarchical},
   };
 
   std::vector<Configuration> configurations{
