@@ -17,9 +17,24 @@ from argparse import Namespace
 from itertools import chain, product
 from typing import List
 import numpy as np
-
 from .planner import CostModel, Planner
 
+def filter_sparse_dense_table(args,table_ids,slot_sizes,multi_hots,ev_sizes):
+    sparse_table_ids = []
+    sparse_slot_sizes = []
+    sparse_multi_hots = []
+    sparse_ev_sizes = []
+    dense_table_ids = []
+    for i in range(len(sparse_table_ids)):
+        if sparse_multi_hots[i] <= args.sd_threshold:
+            dense_table_ids.append(table_ids[i])        
+        else:
+            sparse_table_ids.append(table_ids[i]) 
+            sparse_slot_sizes.append(slot_sizes[i]) 
+            sparse_multi_hots.append(multi_hots[i]) 
+            sparse_ev_sizes.append(ev_sizes[i]) 
+    
+    return sparse_table_ids,sparse_slot_sizes,sparse_multi_hots,sparse_ev_sizes,dense_table_ids
 
 def generate_plan_ragged_ev_size(
     table_id_list: List[int],
@@ -28,19 +43,26 @@ def generate_plan_ragged_ev_size(
     ev_size_list: List[int],
     sharding_plan: str,
     num_nodes: int,
-    num_gpus: int,
+    num_gpus_per_node: int,
     args: Namespace,
     log_result: bool,
+    dp_threshold: int = 0,
 ):
+    num_gpus = num_nodes * num_gpus_per_node
     assert len(table_id_list) == len(slot_size_array)
     assert len(table_id_list) == len(multi_hot_sizes)
     assert len(table_id_list) == len(ev_size_list)
-
     def sanity_check(shard_matrix, shard_strategy):
         # mainly to make sure all the tables are sharded
         msg = "Not all tables covered in the sharding plan"
         assert set(chain(*shard_matrix)) == set(range(len(slot_size_array))), msg
-        shard_strategy_list = [x for strategy_pair in shard_strategy for x in strategy_pair[1]]
+        shard_strategy_list_raw = [x for strategy_pair in shard_strategy for x in strategy_pair[1]]
+        shard_strategy_list = []
+        for i in range(len(shard_strategy_list_raw)):
+            if isinstance(shard_strategy_list_raw[i],tuple):
+                shard_strategy_list.append(shard_strategy_list_raw[i][0])
+            else:
+                shard_strategy_list.append(shard_strategy_list_raw[i])
         assert set(shard_strategy_list) == set(range(len(slot_size_array))), msg
 
     def replace_table_id(shard_matrix, shard_strategy):
@@ -53,7 +75,11 @@ def generate_plan_ragged_ev_size(
         for strategy, table_ids in shard_strategy:
             table_ids_after_replacement = []
             for table_id in table_ids:
-                table_ids_after_replacement.append(table_id_list[table_id])
+                if isinstance(table_id,tuple):
+                    table_id_replacement = (table_id_list[table_id],table_id[1])
+                    table_ids_after_replacement.append(table_id_replacement)
+                else:
+                    table_ids_after_replacement.append(table_id_list[table_id])
             shard_strategy_after_replacement.append((strategy, table_ids_after_replacement))
         return shard_matrix_after_replacement, shard_strategy_after_replacement
 
@@ -61,15 +87,23 @@ def generate_plan_ragged_ev_size(
         shard_strategy, shard_matrix = [], []
         for pair in shard_strategy_int:
             if len(pair[1]) != 0:
-                shard_strategy.append((pair[0], [str(x) for x in pair[1]]))
+                tmp_table_ids = []
+                for i in range(len(pair[1]):
+                    tmp_table_info = pair[1][i]
+                    if isinstance(,tuple):
+                        tmp_table_ids.append((str(tmp_table_info[0]),tmp_table_info[1]))
+                    else:
+                        tmp_table_ids.append(str(tmp_table_info))
+ 
+                shard_strategy.append((pair[0], tmp_table_ids))
         for sub_matrix_ in shard_matrix_int:
             shard_matrix.append([str(x) for x in sub_matrix_])
         return shard_matrix, shard_strategy
+    
 
     if sharding_plan in ["round_robin", "uniform", "table_row_wise"]:
         # sharding strategies that don't exploit system configs
         mp_table = [i for i in range(len(slot_size_array))]
-
         if sharding_plan == "round_robin":
             shard_matrix_ = [[] for _ in range(num_gpus)]
 
@@ -90,7 +124,9 @@ def generate_plan_ragged_ev_size(
                 for gpu_id in range(num_local_gpus):
                     target_gpu = target_node * num_local_gpus + gpu_id
                     shard_matrix_[target_gpu].append(table_id)
+
         shard_strategy_ = [("mp", [i for i in range(len(slot_size_array))])]
+        shard_column_wise_nums_ = []
 
     elif sharding_plan in ["auto", "hier_auto"]:
         # sharding strategies that exploit system configs
@@ -99,34 +135,43 @@ def generate_plan_ragged_ev_size(
             byte_per_elem = 8
         elif args.optimizer == "sgd":
             byte_per_elem = 4
-
+         
+        
         if sharding_plan == "auto":
             cost_model = CostModel(
                 1,
-                args.mem_comm_bw_ratio / args.mem_comm_work_ratio,
-                np.array(ev_size_list).astype(np.float) * byte_per_elem * 1e-9,
+                args.mem_comm_bw_ratio,
+                args.mem_comm_work_ratio,
+                args.dense_comm_work_ratio,
+                args.batchsize,
+                np.array(ev_size_list).astype(np.float64) * byte_per_elem/1024/1024/1024,
                 np.array(ev_size_list),
                 dram_cap,
                 slot_size_array,
+                1,
+                unique_ratio = 0.4
             )
-            planner = Planner(multi_hot_sizes, num_gpus, cost_model, log_result=log_result)
-            shard_strategy_, shard_matrix_ = planner.plan()
+            planner = Planner(multi_hot_sizes, np.array(ev_size_list),num_nodes, num_gpus_per_node, args.batchsize,False, cost_model, log_result=log_result,dp_threshold=dp_threshold)
+            shard_strategy_, shard_matrix_,shard_column_wise_nums_ = planner.plan()
 
         elif sharding_plan == "hier_auto":
             if num_nodes <= 1:
-                raise Exception(
-                    "hier_auto plan is only applicable to configs with more than one node"
-                )
+                raise Exception("hier_auto plan is only applicable to configs with more than one node")
             cost_model = CostModel(
                 1,
-                args.mem_comm_bw_ratio / args.mem_comm_work_ratio,
-                np.array(ev_size_list) * byte_per_elem * 1e-9,
+                args.mem_comm_bw_ratio,
+                args.mem_comm_work_ratio,
+                args.dense_comm_work_ratio,
+                args.batchsize,
+                np.array(ev_size_list).astype(np.float64) * byte_per_elem/1024/1024/1024,
                 np.array(ev_size_list),
                 dram_cap * args.num_gpus_per_node,
                 slot_size_array,
+                1,
+                unique_ratio = 0.4
             )
-            planner = Planner(multi_hot_sizes, num_nodes, cost_model, log_result=log_result)
-            shard_strategy_, shard_matrix_node_ = planner.plan()
+            planner = Planner(multi_hot_sizes,np.array(ev_size_list), num_nodes, num_gpus_per_node, args.batchsize,True, cost_model, log_result=log_result,dp_threshold=dp_threshold)
+            shard_strategy_, shard_matrix_node_,shard_column_wise_nums_ = planner.plan()
             shard_matrix_ = []
             for node_shard_matrix in shard_matrix_node_:
                 for i in range(args.num_gpus_per_node):
@@ -149,18 +194,18 @@ def generate_plan_ragged_ev_size(
         logging.info("shard_strategy:")
         logging.info(shard_strategy)
         logging.info("\n")
-    return shard_matrix, shard_strategy
-
+    return shard_matrix, shard_strategy,shard_column_wise_nums_
 
 def generate_plan(
-    slot_size_array: List[int],
-    multi_hot_sizes: List[int],
-    ev_size_list: List[int],
-    combiner_list: List[str],
-    num_nodes: int,
-    num_gpus: int,
-    args: Namespace,
-    log_result: bool,
+        slot_size_array: List[int],
+        multi_hot_sizes: List[int],
+        ev_size_list: List[int],
+        combiner_list: List[str],
+        num_nodes: int,
+        num_gpus_per_node: int,
+        args: Namespace,
+        log_result: bool,
+        dp_threshold: int = 0,
 ):
     combiner_set = sorted(list(set(combiner_list)))
 
@@ -169,12 +214,13 @@ def generate_plan(
     assert num_table == len(ev_size_list)
     assert num_table == len(combiner_list)
     table_id_list = list(range(num_table))
-
+    num_gpus = num_nodes*num_gpus_per_node
     shard_matrix = [[] for _ in range(num_gpus)]
     sparse_mp_shard_table_ids = []
     dense_mp_shard_table_ids = []
     dp_shard_table_ids = []
-    for combiner in combiner_set:
+    dense_sparse_table_ids = []
+    for  combiner in combiner_set:
         filtered_table_id_list = []
         filtered_slot_size_array = []
         filtered_multi_hot_sizes = []
@@ -189,56 +235,75 @@ def generate_plan(
         if len(filtered_table_id_list) == 0:
             continue
 
-        if combiner == "concat":
-            one_shard_matrix, one_shard_strategy = generate_plan_ragged_ev_size(
+        if combiner == 'concat':
+            one_shard_matrix, one_shard_strategy,one_shard_column_wise_nums = generate_plan_ragged_ev_size(
                 filtered_table_id_list,
                 filtered_slot_size_array,
                 filtered_multi_hot_sizes,
                 filtered_ev_sizes,
                 "uniform",
                 num_nodes,
-                num_gpus,
+                num_gpus_per_node,
                 args,
                 log_result,
+                dp_threshold
             )
-        elif combiner == "sum":
-            one_shard_matrix, one_shard_strategy = generate_plan_ragged_ev_size(
+        elif combiner == 'sum':
+            #first filter which table use dense do sparse 
+            filtered_table_id_list,filtered_slot_size_array,filtered_multi_hot_sizes,filtered_ev_sizes,tmp_dense_sparse_table_ids = filter_sparse_dense_table(args,filtered_table_id_list,filtered_slot_size_array,filtered_multi_hot_sizes,filtered_ev_sizes)
+            dense_sparse_table_ids+=tmp_dense_sparse_table_ids
+            one_shard_matrix, one_shard_strategy,one_shard_column_wise_nums = generate_plan_ragged_ev_size(
                 filtered_table_id_list,
                 filtered_slot_size_array,
                 filtered_multi_hot_sizes,
                 filtered_ev_sizes,
                 args.sharding_plan,
                 num_nodes,
-                num_gpus,
+                num_gpus_per_node,
                 args,
                 log_result,
+                dp_threshold
             )
+            #add spase dense table id to shard_matrix
+            if len(dense_sparse_table_ids) > 0:
+                for gpu_id in range(num_gpus):
+                    shard_matrix[gpu_id] += tmp_dense_sparse_table_ids
         else:
             raise
         for gpu_id in range(num_gpus):
             shard_matrix[gpu_id] += one_shard_matrix[gpu_id]
+        sparse_mp_shard_table_ids.append(tmp_dense_sparse_table_ids)
+        #add sparse dense 
         for strategy, table_ids in one_shard_strategy:
-            if strategy == "dp":
+            if strategy == 'dp':
                 dp_shard_table_ids += table_ids
-            if strategy == "mp" and combiner == "sum":
+            if strategy == 'mp' and combiner == "sum":
                 sparse_mp_shard_table_ids.append(table_ids)
-            if strategy == "mp" and combiner == "concat":
+            if strategy == 'mp' and combiner == "concat":
                 dense_mp_shard_table_ids += table_ids
 
     shard_strategy = []
     if len(dp_shard_table_ids) > 0:
-        shard_strategy.append(("dp", dp_shard_table_ids))
+        shard_strategy.append(
+            ('dp', dp_shard_table_ids)
+        )
 
     if len(sparse_mp_shard_table_ids) > 0:
         if args.disable_fuse_sparse_embedding:
             for each_mp_shard_table_ids in sparse_mp_shard_table_ids:
-                shard_strategy.append(("mp", each_mp_shard_table_ids))
+                shard_strategy.append(
+                    ('mp', each_mp_shard_table_ids)
+                )
         else:
             fused_sparse_mp_shard_table_ids = list(chain.from_iterable(sparse_mp_shard_table_ids))
-            shard_strategy.append(("mp", fused_sparse_mp_shard_table_ids))
+            shard_strategy.append(
+                ('mp', fused_sparse_mp_shard_table_ids)
+            )
 
     if len(dense_mp_shard_table_ids) > 0:
-        shard_strategy.append(("mp", dense_mp_shard_table_ids))
+        shard_strategy.append(
+            ('mp', dense_mp_shard_table_ids)
+        )
     if log_result:
         logging.info("Provided system info: ")
         logging.info("num_gpu_per_nodes: %d", args.num_gpus_per_node)
@@ -250,4 +315,4 @@ def generate_plan(
         logging.info("shard_strategy:")
         logging.info(shard_strategy)
         logging.info("\n")
-    return shard_matrix, shard_strategy
+    return shard_matrix, shard_strategy,dense_sparse_table_ids

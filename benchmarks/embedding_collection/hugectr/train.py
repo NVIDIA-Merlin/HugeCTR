@@ -93,14 +93,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--sharding_plan",
         help="Sharding plan to use",
         type=str,
-        choices=["round_robin", "uniform", "auto", "hier_auto", "table_row_wise"],
+        choices=["round_robin", "uniform", "auto", "hier_auto"],
         default="round_robin",
     )
     parser.add_argument(
         "--mem_comm_bw_ratio",
         help="The ratio between the communication and the memory bw of the system",
         type=float,
-        default=3.35e12 / 450e9,
+        default=2000 / 25,
     )
     parser.add_argument(
         "--mem_comm_work_ratio",
@@ -108,6 +108,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=float,
         default=8 / 2,
     )
+
+    parser.add_argument(
+        "--dense_comm_work_ratio",
+        help="The ratio between the communication and the memory work of the network",
+        type=float,
+        default=4 / 2,
+    )
+
     parser.add_argument(
         "--memory_cap_for_embedding",
         help="The amount of memory can be used for storing embedding in GB",
@@ -146,6 +154,13 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=str,
         default="s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s",
     )
+    parser.add_argument(
+        "--sd_threshold",
+        help="hotness threshold , if hotness less than this threshold , sparse will use unique base",
+        type=int,
+        default=2,
+    )
+
     parser.add_argument(
         "--dense_dim",
         help="dense input dim",
@@ -299,6 +314,7 @@ num_nodes = comm.Get_size()
 rank = comm.Get_rank()
 num_gpus = num_nodes * args.num_gpus_per_node
 is_rank_zero = rank == 0
+is_rank_zero = rank == 0
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -310,16 +326,16 @@ if args.eval_interval is None:
     args.eval_interval = math.floor(0.05 * iter_per_epoch)
 if args.max_eval_batches is None:
     args.max_eval_batches = math.ceil(args.eval_num_samples / args.batchsize_eval)
-
-shard_matrix, shard_strategy = sharding.generate_plan(
+shard_matrix, shard_strategy, dense_sparse_table_ids = sharding.generate_plan(
     TABLE_SIZE_ARRAY,
     MULTI_HOT_SIZES,
     EMB_VEC_SIZES,
     COMBINERS,
     num_nodes,
-    num_gpus,
+    args.num_gpus_per_node,
     args,
     is_rank_zero,
+    dp_threshold=args.dp_threshold,
 )
 
 # 1. Create Solver, DataReaderParams and Optimizer
