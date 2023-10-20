@@ -36,7 +36,7 @@ template <typename MainOp, typename Fallback>
 __global__ void half4_relu_kernel(__half* __restrict__ out, const __half* __restrict__ in, int size,
                                   MainOp main_op, Fallback fallback) {
   const __half2 zero2 = TypeFunc<__half2>::zero();
-  const half4 zero4 = {zero2, zero2};
+  const half4 zero4 = half4{zero2, zero2};
   half4* out4 = reinterpret_cast<half4*>(out);
   const half4* in4 = reinterpret_cast<const half4*>(in);
 
