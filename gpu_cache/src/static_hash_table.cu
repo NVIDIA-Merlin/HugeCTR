@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
+#include <cstdio>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -361,21 +363,18 @@ StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size,
   n = num_pages * page_size;
 
   // Fetch memory.
-  void *p;
   if (n != 0) {
-    p = mmap(nullptr, n, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_UNINITIALIZED |
-                 (page_shift << HUGETLB_FLAG_ENCODE_SHIFT),
-             -1, 0);
+    void *const p{mmap(nullptr, n, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_UNINITIALIZED |
+                           (page_shift << HUGETLB_FLAG_ENCODE_SHIFT),
+                       -1, 0)};
     if (p == MAP_FAILED) {
-      p = nullptr;
-      printf("Error: mmap allocation failed! \n");
+      printf("Error: mmap allocation failed! (error = %s)\n", std::strerror(errno));
+      std::abort();
     }
     CUDA_CHECK(cudaHostRegister(p, n, cudaHostRegisterMapped));
-  } else {
-    p = nullptr;
+    table_values_ = static_cast<value_type *>(p);
   }
-  table_values_ = static_cast<value_type *>(p);
 #else
   if (enable_pagelock) {
     CUDA_CHECK(
@@ -442,18 +441,21 @@ StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size,
   CUDA_CHECK(cudaFree(table_indices_));
 
 #ifdef USE_HUGE_PAGES
-  CUDA_CHECK(cudaHostUnregister(table_values_));
-  size_t align_m = 16;
-  size_t num_values = (value_capacity_ * value_dim_ + align_m - 1) / align_m * align_m;
-  size_t n = sizeof(value_type) * num_values;
-  constexpr size_t page_size_mb{2};
-  constexpr size_t page_size{page_size_mb * 1024 * 1024};
-  const size_t num_pages{(n + page_size - 1) / page_size};
-  n = num_pages * page_size;
-  if (munmap(table_values_, n) != 0) {
-    printf("Error: mmap free failed! \n");
+  if (table_values_) {
+    CUDA_CHECK(cudaHostUnregister(table_values_));
+    size_t align_m = 16;
+    size_t num_values = (value_capacity_ * value_dim_ + align_m - 1) / align_m * align_m;
+    size_t n = sizeof(value_type) * num_values;
+    constexpr size_t page_size_mb{2};
+    constexpr size_t page_size{page_size_mb * 1024 * 1024};
+    const size_t num_pages{(n + page_size - 1) / page_size};
+    n = num_pages * page_size;
+    if (munmap(table_values_, n) != 0) {
+      printf("Error: mmap free failed! (error = %s)\n", std::strerror(errno));
+      std::abort();
+    }
+    table_values_ = nullptr;
   }
-  CUDA_CHECK(cudaFreeHost(table_values_));
 #else
   if constexpr (nv::is_fp8<value_type>::value) {
     CUDA_CHECK(cudaFree(quant_scales_));
@@ -481,7 +483,7 @@ void StaticHashTable<key_type, value_type, out_value_type, tile_size, group_size
   LookupKernel<tile_size, group_size><<<grid, block, 0, stream>>>(
       table_keys_, table_indices_, quant_scales_, key_capacity_, keys, num_keys, table_values_,
       value_dim_, values, hash_, empty_key, default_value, invalid_slot);
-  cudaStreamSynchronize(stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template class StaticHashTable<uint32_t, float, float>;
