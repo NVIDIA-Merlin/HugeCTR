@@ -27,10 +27,10 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/benchmarks/*.cpp
     ${PROJECT_SOURCE_DIR}/benchmarks/*.cu
     ${PROJECT_SOURCE_DIR}/benchmarks/*.cuh
-    ${PROJECT_SOURCE_DIR}/gpu_cache/*.hpp
-    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cpp
-    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cu
-    ${PROJECT_SOURCE_DIR}/gpu_cache/*.cuh
+    ${PROJECT_SOURCE_DIR}/gpu_cache/include.hpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/include/*.cuh
+    ${PROJECT_SOURCE_DIR}/gpu_cache/src/*.cpp
+    ${PROJECT_SOURCE_DIR}/gpu_cache/src/*.cu
     ${PROJECT_SOURCE_DIR}/hps_tf/*.hpp
     ${PROJECT_SOURCE_DIR}/hps_tf/*.cpp
     ${PROJECT_SOURCE_DIR}/hps_tf/*.cu
