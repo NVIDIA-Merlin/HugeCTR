@@ -40,8 +40,6 @@ void cross_entropy_loss(int64_t batch_size) {
   core23::BufferParams blobs_buffer_params = {};
   blobs_buffer_params.channel = GetBlobsBufferChannel();
 
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-
   core23::Tensor input_tensor = core23::Tensor(core23::TensorParams()
                                                    .data_type(core23::ToScalarType<float>::value)
                                                    .shape({batch_size, feature_dim})
@@ -71,8 +69,6 @@ void cross_entropy_loss(int64_t batch_size) {
                               test::get_default_gpu(), 1);
 
   cel.set_label_weight(1.0);
-
-  buff->allocate();
 
   float *d_input = input_tensor.data<float>();
   float *d_label = label_tensor.data<float>();

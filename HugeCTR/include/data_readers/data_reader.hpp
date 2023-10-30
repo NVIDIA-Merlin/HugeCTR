@@ -48,8 +48,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <typename TypeKey>
 class DataReader : public IDataReader {
  private:
@@ -59,8 +57,7 @@ class DataReader : public IDataReader {
   std::shared_ptr<DataReaderOutput23> output23_;
 
   std::shared_ptr<DataReaderWorkerGroup> worker_group_;
-  std::shared_ptr<core23_reader::DataCollector<TypeKey>>
-      data_collector_; /**< pointer of DataCollector */
+  std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
 
   /* Each gpu will have several csr output for different embedding */
   const std::vector<DataReaderSparseParam> params_;
@@ -127,5 +124,4 @@ class DataReader : public IDataReader {
 #endif
   void set_source(std::string file_name = std::string()) override;
 };
-};  // namespace core23_reader
 }  // namespace HugeCTR

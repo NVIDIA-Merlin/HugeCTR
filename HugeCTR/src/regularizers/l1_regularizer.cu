@@ -34,12 +34,6 @@ void launch_initialize_wgrad_kernel(const float* weight, T* wgrad, int num_eleme
 }  // namespace
 
 template <typename T>
-L1Regularizer<T>::L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-                                const int batch_size, const float lambda,
-                                const std::shared_ptr<GPUResource>& gpu_resource)
-    : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource), lambda_(lambda) {}
-
-template <typename T>
 L1Regularizer<T>::L1Regularizer(std::optional<WeightTensors> weight_tensors,
                                 std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                                 const float lambda,

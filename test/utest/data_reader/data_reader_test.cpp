@@ -96,9 +96,8 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   thread_buffer->device_dense_buffers = label_dense_tensor;
   // setup a data reader
   std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
-  core23_reader::DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer,
-                                                 file_list_name, buffer_length, repeat, CHK,
-                                                 params);
+  DataReaderWorker<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_list_name,
+                                  buffer_length, repeat, CHK, params);
   // call read a batch
   size_t value_offset = 0;
   int round = (num_samples - 1) / batchsize + 1;
@@ -179,7 +178,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
 }
 void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_threads, bool repeat,
                                 bool use_mixed_precision) {
-  using DataReaderType = core23_reader::DataReader<T>;
+  using DataReaderType = DataReader<T>;
   std::vector<T> generated_sparse_value;
   std::vector<T> generated_sparse_rowoffset;
   std::vector<float> generated_label_data;

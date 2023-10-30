@@ -21,16 +21,6 @@
 namespace HugeCTR {
 
 template <typename T>
-Regularizer<T>::Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-                            const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource)
-    : weight_buff_(weight_buff),
-      wgrad_buff_(wgrad_buff),
-      weight_tensors_(std::nullopt),
-      wgrad_tensors_(std::nullopt),
-      batch_size_(batch_size),
-      gpu_resource_(gpu_resource) {}
-
-template <typename T>
 Regularizer<T>::Regularizer(std::optional<WeightTensors> weight_tensors,
                             std::optional<WgradTensors<T>> wgrad_tensors, const int batch_size,
                             const std::shared_ptr<GPUResource>& gpu_resource)
@@ -48,13 +38,6 @@ void Regularizer<T>::compute_rterm() {
     const float* weight = flat_weight_tensor.data();
     auto num_elements = flat_weight_tensor.size(0);
     do_compute_rterm(weight, &h_rterm_, num_elements);
-    return;
-  } else if (weight_buff_.allocated()) {
-    // legacy branch
-    const float* weight = weight_buff_.get_ptr();
-    auto num_elements = weight_buff_.get_num_elements();
-    do_compute_rterm(weight, &h_rterm_, num_elements);
-    return;
   } else {
     do_compute_rterm(nullptr, &h_rterm_, 0);
   }
@@ -64,22 +47,16 @@ template <typename T>
 void Regularizer<T>::initialize_wgrad() {
   CudaDeviceContext context(get_device_id());
   // no regularizer
-  if (!weight_tensors_ && !weight_buff_.allocated()) {
+  if (!weight_tensors_) {
     return;
   }
-  if (!wgrad_tensors_) {
-    const float* weight = weight_buff_.get_ptr();
-    T* wgrad = wgrad_buff_.get_ptr();
-    auto num_elements = weight_buff_.get_num_elements();
-    do_initialize_wgrad(weight, wgrad, num_elements, get_gpu().get_stream());
-  } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    const float* weight = flat_weight_tensor.data();
-    T* wgrad = flat_wgrad_tensor.data();
-    auto num_elements = flat_weight_tensor.size(0);
-    do_initialize_wgrad(weight, wgrad, num_elements, get_gpu().get_stream());
-  }
+
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  const float* weight = flat_weight_tensor.data();
+  T* wgrad = flat_wgrad_tensor.data();
+  auto num_elements = flat_weight_tensor.size(0);
+  do_initialize_wgrad(weight, wgrad, num_elements, get_gpu().get_stream());
 }
 
 template class Regularizer<float>;

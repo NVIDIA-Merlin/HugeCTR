@@ -345,8 +345,8 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
-                                           resource_manager, true, device_list.size(), false);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true,
+                            device_list.size(), false);
   data_reader.create_drwg_parquet(file_list_name, false, slot_offset, true,
                                   sample_per_file + batchsize, label_dim + dense_dim_array.size(),
                                   label_dim + dense_dim);
@@ -517,8 +517,8 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
-                                           resource_manager, true, device_list.size(), false);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true,
+                            device_list.size(), false);
 
   data_reader.create_drwg_parquet(file_list_name, true, slot_offset, true,
                                   sample_per_file + batchsize, label_dim + dense_dim_array.size(),
@@ -656,8 +656,8 @@ void data_reader_group_epoch_strided_batch_test_impl(int num_files, long long sa
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
-                                           resource_manager, false, device_list.size(), false);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, false,
+                            device_list.size(), false);
 
   data_reader.create_drwg_parquet(file_list_name, false, slot_offset, false,
                                   sample_per_file + batchsize, label_dim + dense_dim_array.size(),
@@ -873,8 +873,8 @@ void data_reader_group_epoch_squential_batch_test_impl(int num_files, long long 
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
-                                           resource_manager, false, device_list.size(), false);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, false,
+                            device_list.size(), false);
 
   data_reader.create_drwg_parquet(file_list_name, true, slot_offset, false,
                                   sample_per_file + batchsize, label_dim + dense_dim_array.size(),
@@ -1100,7 +1100,7 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
   char epoch_start_ = 0;
   auto epoch_mtx_ = std::make_shared<std::mutex>();
   auto epoch_cv_ = std::make_shared<std::condition_variable>();
-  core23_reader::ParquetDataReaderWorker<T> data_reader(
+  ParquetDataReaderWorker<T> data_reader(
       0, 1, gpu_resource_group->get_local_gpu(0), loop_flag, &end_flag, thread_buffer,
       file_list_name, strict_order, true, params, DataSourceParams(), slot_offset, gpu_id,
       df_container_consumer_[0], df_container_producer_, df_container_producer_stats_,
@@ -1120,7 +1120,7 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
   std::cout << "core23::ScalarType::Float is " << static_cast<int32_t>(core23::ScalarType::Float)
             << std::endl;
 
-  std::thread producer(&core23_reader::ParquetDataReaderWorker<T>::do_h2d, &data_reader);
+  std::thread producer(&ParquetDataReaderWorker<T>::do_h2d, &data_reader);
 
   iters = 1;
   for (int i = 0; i < iters; i++) {

@@ -34,10 +34,10 @@ namespace HugeCTR {
 /**
  * @brief Dense network (embedding is not included)
  *
- * Each GPU (device) has an instance of Core23TempNetwork. Core23TempNetwork performs
+ * Each GPU (device) has an instance of Network. Network performs
  * forward/backward/loss/update of the dense layers.
  */
-class Core23TempNetwork final {
+class Network final {
  public:
   /**
    * Ctor.
@@ -45,13 +45,12 @@ class Core23TempNetwork final {
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Core23TempNetwork(const std::shared_ptr<CPUResource>& cpu_resource,
-                    const std::shared_ptr<GPUResource>& gpu_resource,
-                    bool use_mixed_precision = false);
-  Core23TempNetwork(const Core23TempNetwork&) = delete;
-  Core23TempNetwork& operator=(const Core23TempNetwork&) = delete;
-  Core23TempNetwork(Core23TempNetwork&&) = default;
-  Core23TempNetwork& operator=(Core23TempNetwork&) = default;
+  Network(const std::shared_ptr<CPUResource>& cpu_resource,
+          const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision = false);
+  Network(const Network&) = delete;
+  Network& operator=(const Network&) = delete;
+  Network(Network&&) = default;
+  Network& operator=(Network&) = default;
 
   /**
    * Forward, backward and update the network.

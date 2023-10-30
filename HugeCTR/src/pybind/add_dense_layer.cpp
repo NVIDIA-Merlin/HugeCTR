@@ -954,31 +954,6 @@ struct InputOutputInfo {
   std::vector<std::string> output_names;
 };
 
-template <typename T>
-static std::shared_ptr<Regularizer<T>> create_regularizer(
-    bool use_regularizer, Regularizer_t regularizer_type, float lambda,
-    const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
-    const std::shared_ptr<GPUResource>& gpu_resource) {
-  std::shared_ptr<Regularizer<T>> reg(
-      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
-  if (use_regularizer) {
-    switch (regularizer_type) {
-      case Regularizer_t::L1: {
-        reg.reset(new L1Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
-        break;
-      }
-      case Regularizer_t::L2: {
-        reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
-        break;
-      }
-      default: {
-        assert(!"Error: no such regularizer!");
-      }
-    }
-  }
-  return reg;
-}
-
 void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
   for (auto& dense_layer : dense_layers) {
     pre_add_dense_layer(dense_layer);
@@ -1001,14 +976,13 @@ void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
             is_train ? embedding_dependent_ : false, solver_);
       }
       if (is_train) {
-        core23_networks_[i]->set_train_layers(std::move(layers));
-        core23_networks_[i]->set_train_losses(std::move(losses), label_weights_);
-        core23_networks_[i]->set_top_and_bottom_layers(std::move(top_layers),
-                                                       std::move(bottom_layers));
+        networks_[i]->set_train_layers(std::move(layers));
+        networks_[i]->set_train_losses(std::move(losses), label_weights_);
+        networks_[i]->set_top_and_bottom_layers(std::move(top_layers), std::move(bottom_layers));
       } else {
-        core23_networks_[i]->set_evaluate_layers(std::move(layers));
-        core23_networks_[i]->set_evaluate_losses(std::move(losses), label_weights_);
-        core23_networks_[i]->set_raw_metrics(std::move(raw_metrics));
+        networks_[i]->set_evaluate_layers(std::move(layers));
+        networks_[i]->set_evaluate_losses(std::move(losses), label_weights_);
+        networks_[i]->set_raw_metrics(std::move(raw_metrics));
       }
     }
   };

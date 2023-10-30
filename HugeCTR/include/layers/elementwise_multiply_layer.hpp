@@ -24,62 +24,10 @@ namespace HugeCTR {
  * Layer which does element-wise multiplication of input tensors.
  * All the input tensors should have the same shape.
  */
+
 template <typename T>
 class ElementwiseMultiplyLayer : public Layer {
  public:
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
-  /**
-   * Ctor of ElementwiseMultiplyLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ElementwiseMultiplyLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                           const std::shared_ptr<GPUResource>& gpu_resource);
-
-  void initialize() override;
-
-  /**
-   * ElementwiseMultiplyLayer's forward propagation
-   * @param stream CUDA stream where the forward propagation is executed
-   */
-  void fprop(bool is_train) override;
-  /**
-   * ElementwiseMultiplyLayer's backward propagation
-   * @param stream CUDA stream where the forward propagation is executed
-   */
-  void bprop() override;
-
- private:
-  int size_;
-  size_t num_;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
-  bool initialized_{false};
-  Tensor2<T> fprop_output_;
-};
-namespace core23 {
-template <typename T>
-class ElementwiseMultiplyLayer : public Layer {
- public:
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<core23::Tensor> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<core23::Tensor> out_tensors_;
-
   /**
    * Ctor of ElementwiseMultiplyLayer.
    * @param in_tensor the input tensor
@@ -112,5 +60,4 @@ class ElementwiseMultiplyLayer : public Layer {
   core23::Tensor fprop_output_;
 };
 
-};  // namespace core23
 }  // namespace HugeCTR

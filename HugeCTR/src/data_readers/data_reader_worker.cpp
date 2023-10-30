@@ -21,7 +21,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
 template <typename T>
 void DataReaderWorker<T>::read_new_file() {
   nvtxRangePushA("read_new_file");
@@ -274,9 +273,8 @@ void DataReaderWorker<T>::read_a_batch() {
   buffer23_->state.store(BufferState::ReadyForRead);
   nvtxRangePop();
 }
-}  // namespace core23_reader
 
-template class core23_reader::DataReaderWorker<uint32_t>;
-template class core23_reader::DataReaderWorker<long long>;
+template class DataReaderWorker<uint32_t>;
+template class DataReaderWorker<long long>;
 
 }  // namespace HugeCTR

@@ -18,8 +18,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
                                 std::vector<DataReaderSparseParam> &params,
@@ -164,8 +162,8 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
             .device({core23::DeviceType::GPU, static_cast<int8_t>(gpu_id)}));
   }
 
-  data_collector_ = std::make_shared<core23_reader::DataCollector<TypeKey>>(
-      thread_buffers_, broadcast_buffer_, output23_, resource_manager);
+  data_collector_ = std::make_shared<DataCollector<TypeKey>>(thread_buffers_, broadcast_buffer_,
+                                                             output23_, resource_manager);
 }
 template <typename TypeKey>
 DataReader<TypeKey>::~DataReader() {
@@ -274,9 +272,9 @@ void DataReader<TypeKey>::create_drwg_norm(std::string file_name, Check_t check_
                                            bool start_reading_from_beginning) {
   // HCTR_DIE("Norm data reader is deprecated, please use Parquet instead\n");
   source_type_ = SourceType_t::FileList;
-  worker_group_.reset(new core23_reader::DataReaderWorkerGroupNorm<TypeKey>(
-      thread_buffers_, resource_manager_, file_name, repeat_, check_type, params_,
-      start_reading_from_beginning));
+  worker_group_.reset(
+      new DataReaderWorkerGroupNorm<TypeKey>(thread_buffers_, resource_manager_, file_name, repeat_,
+                                             check_type, params_, start_reading_from_beginning));
   file_name_ = file_name;
 }
 template <typename TypeKey>
@@ -295,7 +293,7 @@ void DataReader<TypeKey>::create_drwg_raw(std::string file_name, long long num_s
                    "dataset key type and dataset size is not compatible.");
   }
   source_type_ = SourceType_t::Mmap;
-  worker_group_.reset(new core23_reader::DataReaderWorkerGroupRaw<TypeKey>(
+  worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
       thread_buffers_, resource_manager_, file_name, num_samples, repeat_, params_, label_dim_,
       dense_dim_, batchsize_, float_label_dense, data_shuffle, start_reading_from_beginning));
   file_name_ = file_name;
@@ -309,14 +307,13 @@ void DataReader<TypeKey>::create_drwg_parquet(std::string file_list, bool strict
                                               int label_dense_dim) {
   source_type_ = SourceType_t::Parquet;
   // worker_group_.empty
-  worker_group_.reset(new core23_reader::DataReaderWorkerGroupParquet<TypeKey>(
+  worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
       thread_buffers_, file_list, strict_order_of_batches, repeat_, params_, slot_offset,
       data_source_params_, resource_manager_, start_reading_from_beginning, label_dense_num,
       label_dense_dim, max_samples_per_group));
 }
 #endif
-};  // namespace core23_reader
 
-template class core23_reader::DataReader<long long int>;
-template class core23_reader::DataReader<uint32_t>;
+template class DataReader<long long int>;
+template class DataReader<uint32_t>;
 }  // namespace HugeCTR

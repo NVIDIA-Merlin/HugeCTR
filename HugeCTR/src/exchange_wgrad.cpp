@@ -23,15 +23,8 @@ template <typename T>
 NetworkExchangeWgrad<T>::NetworkExchangeWgrad(
     const std::shared_ptr<ResourceManager>& resource_manager)
     : resource_manager_(resource_manager), num_gpus_(resource_manager->get_local_gpu_count()) {
-  bufs_.resize(num_gpus_, NULL);
-  network_wgrad_buffs_.resize(num_gpus_, NULL);
-  null_wgrad_buffs_.resize(num_gpus_, NULL);
-
-  for (size_t g = 0; g < num_gpus_; g++) {
-    bufs_[g] = GeneralBuffer2<CudaAllocator>::create();
-    network_wgrad_buffs_[g] = bufs_[g]->create_block<T>();
-  }
-
+  // TODO remove it after Hybrid embedding is deprecated
+  null_wgrad_buffs_.resize(num_gpus_, nullptr);
   auto ar_comm = resource_manager_->get_ar_comm();
   ar_handle_ = ar_comm->register_coll();
 }
@@ -42,26 +35,6 @@ void NetworkExchangeWgrad<T>::init_ar_comm(const std::vector<void*>& ptr, size_t
   for (size_t g = 0; g < num_gpus_; g++) {
     HCTR_CHECK_HINT(ptr[g], "buffer does not exist");
     ar_comm->set_coll_buf(ar_handle_, ptr[g], network_wgrad_size_, g);
-  }
-  ar_comm->register_coll_buf(ar_handle_);
-}
-template <typename T>
-void NetworkExchangeWgrad<T>::allocate() {
-  int alignment = 16 * num_gpus_;
-  for (size_t g = 0; g < num_gpus_; g++) {
-    auto& gpu_resource = resource_manager_->get_local_gpu(g);
-    CudaDeviceContext context(gpu_resource->get_device_id());
-    bufs_[g]->allocate_aligned(alignment);
-  }
-
-  network_wgrad_size_ = network_wgrad_buffs_[0]->as_tensor().get_size_in_bytes();
-  if (network_wgrad_size_ % alignment != 0) {
-    network_wgrad_size_ += (alignment - (network_wgrad_size_ % alignment));
-  }
-
-  auto ar_comm = resource_manager_->get_ar_comm();
-  for (size_t g = 0; g < num_gpus_; g++) {
-    ar_comm->set_coll_buf(ar_handle_, bufs_[g]->get_ptr(), network_wgrad_size_, g);
   }
   ar_comm->register_coll_buf(ar_handle_);
 }
@@ -81,15 +54,8 @@ template <typename T>
 GroupedExchangeWgrad<T>::GroupedExchangeWgrad(
     const std::shared_ptr<ResourceManager>& resource_manager)
     : resource_manager_(resource_manager), num_gpus_(resource_manager->get_local_gpu_count()) {
-  bufs_.resize(num_gpus_, NULL);
-  network_wgrad_buffs_.resize(num_gpus_, NULL);
-  embed_wgrad_buffs_.resize(num_gpus_, NULL);
-
-  for (size_t g = 0; g < num_gpus_; g++) {
-    bufs_[g] = GeneralBuffer2<CudaAllocator>::create();
-    network_wgrad_buffs_[g] = bufs_[g]->create_block<T>();
-    embed_wgrad_buffs_[g] = bufs_[g]->create_block<T>();
-  }
+  // TODO remove it after Hybrid embedding is deprecated
+  embed_wgrad_buffs_.resize(num_gpus_, nullptr);
 
   auto ar_comm = resource_manager_->get_ar_comm();
   ar_handle_ = ar_comm->register_coll();
@@ -104,39 +70,11 @@ void GroupedExchangeWgrad<T>::init_ar_comm(const std::vector<void*>& ptr, size_t
   }
   ar_comm->register_coll_buf(ar_handle_);
 }
-template <typename T>
-void GroupedExchangeWgrad<T>::allocate() {
-  int alignment = 16 * num_gpus_;
-  for (size_t g = 0; g < num_gpus_; g++) {
-    auto& gpu_resource = resource_manager_->get_local_gpu(g);
-    CudaDeviceContext context(gpu_resource->get_device_id());
-    bufs_[g]->allocate_aligned(alignment);
-  }
-
-  network_wgrad_size_ = network_wgrad_buffs_[0]->as_tensor().get_size_in_bytes();
-  if (network_wgrad_size_ % alignment != 0) {
-    network_wgrad_size_ += (alignment - (network_wgrad_size_ % alignment));
-  }
-
-  auto ar_comm = resource_manager_->get_ar_comm();
-  for (size_t g = 0; g < num_gpus_; g++) {
-    ar_comm->set_coll_buf(ar_handle_, bufs_[g]->get_ptr(), bufs_[g]->get_size_in_bytes(), g);
-  }
-  ar_comm->register_coll_buf(ar_handle_);
-}
 
 template <typename T>
 void GroupedExchangeWgrad<T>::update_embed_wgrad_size(size_t size) {
-  if (const char* env_p = std::getenv("HUGECTR_CORE23_NETWORK"); env_p && std::atoi(env_p) == 0) {
-    int alignment = 16 * num_gpus_;  // default 256B
-    if (size % alignment != 0) {
-      size += (alignment - (size % alignment));
-    }
-    embed_wgrad_size_ = size;
-
-    auto ar_comm = resource_manager_->get_ar_comm();
-    ar_comm->update_size(ar_handle_, network_wgrad_size_ + embed_wgrad_size_);
-  }
+  // do nothing
+  return;
 }
 
 template <typename T>

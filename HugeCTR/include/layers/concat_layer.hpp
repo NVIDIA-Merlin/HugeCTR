@@ -33,16 +33,6 @@ class ConcatLayer : public Layer {
  public:
   ConcatLayer(const std::vector<core23::Tensor>& input_tensors, core23::Tensor& output_tensor,
               const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of ConcatLayer.
-   * @param in_tensors the vector of the input tensors
-   * @param out_tensor the resulting output tensor
-   * @param blobs_buff GeneralBuffer used to create the output tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-              const std::shared_ptr<GPUResource>& gpu_resource);
   ~ConcatLayer() override{};
 
   /**
@@ -55,16 +45,6 @@ class ConcatLayer : public Layer {
    * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
-
- private:
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensor2<T> out_tensor_;
 };
 
 }  // namespace HugeCTR

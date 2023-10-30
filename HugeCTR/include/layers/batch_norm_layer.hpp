@@ -17,7 +17,6 @@
 
 #include <cudnn.h>
 
-#include <general_buffer2.hpp>
 #include <memory>
 #include <trainable_layer.hpp>
 

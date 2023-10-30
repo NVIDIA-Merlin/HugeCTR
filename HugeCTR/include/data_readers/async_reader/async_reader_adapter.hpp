@@ -26,8 +26,6 @@
 #include <scheduleable.hpp>
 #include <sparse_tensor.hpp>
 namespace HugeCTR {
-namespace core23_reader {
-
 template <typename SparseType>
 class AsyncReader : public SchedulableDataReader {
   using LabelType = float;
@@ -155,5 +153,4 @@ class AsyncReader : public SchedulableDataReader {
   bool cache_buffers_ = false;
 };
 
-};  // namespace core23_reader
 }  // namespace HugeCTR

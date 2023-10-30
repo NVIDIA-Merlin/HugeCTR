@@ -19,7 +19,6 @@
 #include <data_readers/data_reader_worker_raw.hpp>
 
 namespace HugeCTR {
-namespace core23_reader {
 template <typename TypeKey>
 class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
   std::shared_ptr<MmapOffsetList> file_offset_list_;
@@ -78,15 +77,13 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
     }
 
     for (size_t i = 0; i < num_workers; i++) {
-      std::shared_ptr<IDataReaderWorker> data_reader(
-          new core23_reader::DataReaderWorkerRaw<TypeKey>(
-              i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
-              data_reader_loop_flag_, output_buffers[i], file_offset_list_, repeat, params,
-              float_label_dense));
+      std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorkerRaw<TypeKey>(
+          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
+          data_reader_loop_flag_, output_buffers[i], file_offset_list_, repeat, params,
+          float_label_dense));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();
   }
 };
-};  // namespace core23_reader
 }  // namespace HugeCTR

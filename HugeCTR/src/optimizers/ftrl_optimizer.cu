@@ -45,24 +45,6 @@ __global__ void ftrl_update_kernel(int len, float* weight, float* z, float* n, c
 }  // namespace
 
 template <typename T>
-FtrlOptimizer<T>::FtrlOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                const std::shared_ptr<GPUResource>& gpu_resource,
-                                float learning_rate, float beta, float lambda1, float lambda2,
-                                float scaler)
-    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
-      wgrad_(wgrad),
-      wgrad_tensors_({}),
-      beta_(beta),
-      lambda1_(lambda1),
-      lambda2_(lambda2) {
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-  opt_buf->reserve({weight_main.get_num_elements()}, &n_);
-  opt_buf->reserve({weight_main.get_num_elements()}, &z_);
-}
-template <typename T>
 FtrlOptimizer<T>::FtrlOptimizer(std::optional<WeightTensors> weight_tensors,
                                 std::optional<WgradTensors<T>> wgrad_tensors,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
@@ -85,17 +67,10 @@ FtrlOptimizer<T>::FtrlOptimizer(std::optional<WeightTensors> weight_tensors,
 }
 template <typename T>
 void FtrlOptimizer<T>::initialize() {
-  if (!wgrad_tensors_) {
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(n_.get_ptr(), 0, n_.get_size_in_bytes(), gpu_resource_->get_stream()));
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(z_.get_ptr(), 0, z_.get_size_in_bytes(), gpu_resource_->get_stream()));
-  } else {
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(n_tensor_.data(), 0, n_tensor_.num_bytes(), gpu_resource_->get_stream()));
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(z_tensor_.data(), 0, z_tensor_.num_bytes(), gpu_resource_->get_stream()));
-  }
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(n_tensor_.data(), 0, n_tensor_.num_bytes(), gpu_resource_->get_stream()));
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(z_tensor_.data(), 0, z_tensor_.num_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -104,30 +79,18 @@ void FtrlOptimizer<T>::update() {
 
   constexpr size_t block_dim = 256;
 
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-    float* weight = weight_main_.get_ptr();
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  const T* wgrad = flat_wgrad_tensor.data();
 
-    float* z = z_.get_ptr();
-    float* n = n_.get_ptr();
-    const T* wgrad = wgrad_.get_ptr();
-    ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
-  } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    const T* wgrad = flat_wgrad_tensor.data();
+  auto len = flat_weight_tensor.size(0);
+  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-    auto len = flat_weight_tensor.size(0);
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-
-    float* z = z_tensor_.data<float>();
-    float* n = n_tensor_.data<float>();
-    ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
-  }
+  float* z = z_tensor_.data<float>();
+  float* n = n_tensor_.data<float>();
+  ftrl_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, z, n, wgrad, lr_, beta_, lambda1_, lambda2_ + beta_ / lr_, scaler_);
 }
 
 template class FtrlOptimizer<float>;

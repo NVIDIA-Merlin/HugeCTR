@@ -17,7 +17,6 @@
 #include <core23/details/simple_cuda_allocator.hpp>
 #include <core23/logger.hpp>
 #include <core23/macros.hpp>
-
 namespace HugeCTR {
 
 namespace core23 {

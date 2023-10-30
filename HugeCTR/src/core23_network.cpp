@@ -29,9 +29,8 @@ namespace HugeCTR {
 void conv_weight_gpu(size_t grid, size_t block, __half* dst, const float* src, int elems,
                      cudaStream_t stream);
 
-Core23TempNetwork::Core23TempNetwork(const std::shared_ptr<CPUResource>& cpu_resource,
-                                     const std::shared_ptr<GPUResource>& gpu_resource,
-                                     bool use_mixed_precision)
+Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
+                 const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision)
     : cpu_resource_(cpu_resource),
       gpu_resource_(gpu_resource),
       use_mixed_precision_(use_mixed_precision) {}
@@ -39,7 +38,7 @@ Core23TempNetwork::Core23TempNetwork(const std::shared_ptr<CPUResource>& cpu_res
 // TODO - Update this method for multi-regularzer to run each regularizer and compute the
 // conditional weighted sum for each layer.  Then similarly compute the weighted sum of losses
 // associated with each layer
-void Core23TempNetwork::train(int64_t current_batchsize) {
+void Network::train(int64_t current_batchsize) {
   // forward
   if (use_mixed_precision_) {
     conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
@@ -64,7 +63,7 @@ void Core23TempNetwork::train(int64_t current_batchsize) {
   return;
 }
 
-void Core23TempNetwork::eval(int64_t current_batchsize) {
+void Network::eval(int64_t current_batchsize) {
   std::vector<Layer*> evaluate_layers_ptr;
   std::transform(evaluate_layers_.begin(), evaluate_layers_.end(),
                  std::back_inserter(evaluate_layers_ptr),
@@ -81,7 +80,7 @@ void Core23TempNetwork::eval(int64_t current_batchsize) {
   evaluate_losses_.begin()->second->regularizer_initialize_wgrad(
       false);  // Only 1 regularize for now
 }
-void Core23TempNetwork::predict() {
+void Network::predict() {
   std::vector<Layer*> evaluate_layers_ptr;
   std::transform(evaluate_layers_.begin(), evaluate_layers_.end(),
                  std::back_inserter(evaluate_layers_ptr),
@@ -90,7 +89,7 @@ void Core23TempNetwork::predict() {
   prop_layers(evaluate_layers_ptr, true, false);
 }
 
-float Core23TempNetwork::get_loss() {
+float Network::get_loss() {
   float loss_host = 0.f;
   float* loss_temp = new float[train_loss_tensor_.size()];
   size_t i = 0;
@@ -109,15 +108,13 @@ float Core23TempNetwork::get_loss() {
   return loss_host;
 }
 
-metrics::Core23MultiLossMetricMap Core23TempNetwork::get_raw_metrics_all() const {
-  return raw_metrics_;
-}
+metrics::Core23MultiLossMetricMap Network::get_raw_metrics_all() const { return raw_metrics_; }
 
-metrics::Core23RawMetricMap Core23TempNetwork::get_raw_metrics(std::string loss_name) const {
+metrics::Core23RawMetricMap Network::get_raw_metrics(std::string loss_name) const {
   return raw_metrics_.find(loss_name)->second;
 }
 
-void Core23TempNetwork::download_params_to_host(const std::string& write_path) {
+void Network::download_params_to_host(const std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
 
@@ -130,7 +127,7 @@ void Core23TempNetwork::download_params_to_host(const std::string& write_path) {
   return;
 }
 
-void Core23TempNetwork::download_opt_states_to_host(const std::string& write_path) {
+void Network::download_opt_states_to_host(const std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
   auto fs = FileSystemBuilder::build_unique_by_path(write_path);
@@ -147,7 +144,7 @@ void Core23TempNetwork::download_opt_states_to_host(const std::string& write_pat
   fs->write(write_path, h_opt_states.get(), dst_size_in_byte, true);
 }
 
-std::string Core23TempNetwork::get_no_trained_params_in_string() {
+std::string Network::get_no_trained_params_in_string() {
   bool prev_exist = false;
   std::string net_str;
   for (auto& layer : train_layers_) {
@@ -168,7 +165,7 @@ std::string Core23TempNetwork::get_no_trained_params_in_string() {
   return net_str;
 }
 
-void Core23TempNetwork::upload_params_to_device(const std::string& model_file) {
+void Network::upload_params_to_device(const std::string& model_file) {
   auto fs = FileSystemBuilder::build_unique_by_path(model_file);
   CudaDeviceContext context(get_device_id());
 
@@ -179,7 +176,7 @@ void Core23TempNetwork::upload_params_to_device(const std::string& model_file) {
   return;
 }
 
-void Core23TempNetwork::download_params_to_host(float* weight) {
+void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 
   HCTR_LIB_THROW(cudaMemcpy(weight, train_weight_tensor_->data(), train_weight_tensor_->num_bytes(),
@@ -188,7 +185,7 @@ void Core23TempNetwork::download_params_to_host(float* weight) {
   return;
 }
 
-void Core23TempNetwork::upload_params_to_device(float* params) {
+void Network::upload_params_to_device(float* params) {
   CudaDeviceContext context(get_device_id());
 
   HCTR_LIB_THROW(cudaMemcpy(train_weight_tensor_->data(), params, train_weight_tensor_->num_bytes(),
@@ -197,7 +194,7 @@ void Core23TempNetwork::upload_params_to_device(float* params) {
   return;
 }
 
-void Core23TempNetwork::upload_opt_states_to_device(char* h_opt_states) {
+void Network::upload_opt_states_to_device(char* h_opt_states) {
   CudaDeviceContext context(get_device_id());
 
   size_t src_size_in_byte = opt_tensor_->num_bytes();
@@ -209,14 +206,14 @@ void Core23TempNetwork::upload_opt_states_to_device(char* h_opt_states) {
   return;
 }
 
-void Core23TempNetwork::init_params(size_t index) {
+void Network::init_params(size_t index) {
   CudaDeviceContext context(get_device_id());
   for (auto& layer : train_layers_) {
     layer->init_params(cpu_resource_->get_replica_uniform_curand_generator(index));
   }
 }
 
-void Core23TempNetwork::exchange_wgrad() {
+void Network::exchange_wgrad() {
   CudaDeviceContext context(get_device_id());
   if (use_mixed_precision_) {
     HCTR_LIB_THROW(ncclAllReduce((const void*)wgrad_tensor_half_->data(),
@@ -230,12 +227,12 @@ void Core23TempNetwork::exchange_wgrad() {
   }
 }
 
-void Core23TempNetwork::update_params() {
+void Network::update_params() {
   optimizer_->update();
   return;
 }
 
-void Core23TempNetwork::initialize(bool is_train) {
+void Network::initialize(bool is_train) {
   CudaDeviceContext context(get_device_id());
   for (auto& layer : train_layers_) {
     layer->initialize();
@@ -248,7 +245,7 @@ void Core23TempNetwork::initialize(bool is_train) {
   }
 }
 
-void Core23TempNetwork::search_algorithm() {
+void Network::search_algorithm() {
   for (auto& layer : train_layers_) {
     layer->search_algorithm();
   }
@@ -257,7 +254,7 @@ void Core23TempNetwork::search_algorithm() {
   }
 }
 
-void Core23TempNetwork::copy_weights_from_train_layers_to_evaluate_layers() {
+void Network::copy_weights_from_train_layers_to_evaluate_layers() {
   CudaDeviceContext context(get_device_id());
   HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_->data(), train_weight_tensor_->data(),
                                  train_weight_tensor_->num_bytes(), cudaMemcpyDeviceToDevice,
@@ -268,7 +265,7 @@ void Core23TempNetwork::copy_weights_from_train_layers_to_evaluate_layers() {
   }
 }
 
-void Core23TempNetwork::copy_non_trainable_params_from_train_layers_to_evaluate_layers() {
+void Network::copy_non_trainable_params_from_train_layers_to_evaluate_layers() {
   CudaDeviceContext context(get_device_id());
   for (size_t i{0}; i < train_layers_.size(); ++i) {
     auto tensors_in_train_layers = train_layers_[i]->get_non_trainable_params_as_tensors();
@@ -282,7 +279,7 @@ void Core23TempNetwork::copy_non_trainable_params_from_train_layers_to_evaluate_
   }
 }
 
-void Core23TempNetwork::set_train_layers(std::vector<std::unique_ptr<Layer>>&& train_layers) {
+void Network::set_train_layers(std::vector<std::unique_ptr<Layer>>&& train_layers) {
   if (use_mixed_precision_) {
     train_weight_tensor_half_ = get_trainable_tensors<__half, __half>(
         train_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
@@ -298,7 +295,7 @@ void Core23TempNetwork::set_train_layers(std::vector<std::unique_ptr<Layer>>&& t
   }
   train_layers_ = std::move(train_layers);
 }
-void Core23TempNetwork::set_evaluate_layers(std::vector<std::unique_ptr<Layer>>&& evaluate_layers) {
+void Network::set_evaluate_layers(std::vector<std::unique_ptr<Layer>>&& evaluate_layers) {
   if (use_mixed_precision_) {
     evaluate_weight_tensor_half_ = get_trainable_tensors<__half, __half>(
         evaluate_layers, [](auto& layer) -> auto{ return layer->get_weights(); });
@@ -311,37 +308,35 @@ void Core23TempNetwork::set_evaluate_layers(std::vector<std::unique_ptr<Layer>>&
   evaluate_layers_ = std::move(evaluate_layers);
 }
 
-void Core23TempNetwork::set_train_losses(
-    std::map<std::string, std::unique_ptr<ILoss>>&& train_losses,
-    const std::map<std::string, float>& label_weights) {
+void Network::set_train_losses(std::map<std::string, std::unique_ptr<ILoss>>&& train_losses,
+                               const std::map<std::string, float>& label_weights) {
   set_losses_common(train_losses, label_weights, train_loss_tensor_);
   train_losses_ = std::move(train_losses);
 }
-void Core23TempNetwork::set_evaluate_losses(
-    std::map<std::string, std::unique_ptr<ILoss>>&& evaluate_losses,
-    const std::map<std::string, float>& label_weights) {
+void Network::set_evaluate_losses(std::map<std::string, std::unique_ptr<ILoss>>&& evaluate_losses,
+                                  const std::map<std::string, float>& label_weights) {
   set_losses_common(evaluate_losses, label_weights, evaluate_loss_tensor_);
   evaluate_losses_ = std::move(evaluate_losses);
 }
 
-void Core23TempNetwork::set_top_and_bottom_layers(std::vector<Layer*>&& top_layers,
-                                                  std::vector<Layer*>&& bottom_layers) {
+void Network::set_top_and_bottom_layers(std::vector<Layer*>&& top_layers,
+                                        std::vector<Layer*>&& bottom_layers) {
   top_layers_ = std::move(top_layers);
   bottom_layers_ = std::move(bottom_layers);
 }
 
-void Core23TempNetwork::set_raw_metrics(metrics::Core23MultiLossMetricMap&& raw_metrics) {
+void Network::set_raw_metrics(metrics::Core23MultiLossMetricMap&& raw_metrics) {
   raw_metrics_ = std::move(raw_metrics);
 }
 
-void Core23TempNetwork::set_optimizer(std::unique_ptr<Optimizer> optimizer) {
+void Network::set_optimizer(std::unique_ptr<Optimizer> optimizer) {
   auto opt_tensors = optimizer->get_opt_state_tensors();
   int64_t num_opt_tensors = opt_tensors.size();
   opt_tensor_.emplace(opt_tensors, core23::Shape({num_opt_tensors}));
   optimizer_ = std::move(optimizer);
 }
 
-void Core23TempNetwork::create_and_set_optimizer(const OptParams& opt_params) {
+void Network::create_and_set_optimizer(const OptParams& opt_params) {
   if (use_mixed_precision_) {
     auto weight_tensors = get_master_weight_tensor_vector<__half>(train_layers_);
     auto weight_half_tensors = get_weight_tensor_vector<__half>(train_layers_);
@@ -362,9 +357,8 @@ void Core23TempNetwork::create_and_set_optimizer(const OptParams& opt_params) {
   opt_tensor_.emplace(opt_tensors, core23::Shape({num_opt_tensors}));
 }
 
-void Core23TempNetwork::conv_weight_(
-    std::optional<core23::TensorContainer<__half, 1, 1>>& target_opt,
-    const std::optional<core23::TensorContainer<float, 1, 1>>& source_opt) {
+void Network::conv_weight_(std::optional<core23::TensorContainer<__half, 1, 1>>& target_opt,
+                           const std::optional<core23::TensorContainer<float, 1, 1>>& source_opt) {
   CudaDeviceContext context(get_device_id());
   auto& target = target_opt.value();
   const auto& source = source_opt.value();
@@ -378,7 +372,7 @@ void Core23TempNetwork::conv_weight_(
                   gpu_resource_->get_stream());
 }
 
-void Core23TempNetwork::prop_layers(const std::vector<Layer*>& layers, bool fprop, bool train) {
+void Network::prop_layers(const std::vector<Layer*>& layers, bool fprop, bool train) {
   if (fprop) {
     for (auto& layer : layers) {
       layer->fprop(train);
@@ -390,10 +384,9 @@ void Core23TempNetwork::prop_layers(const std::vector<Layer*>& layers, bool fpro
   }
 }
 
-void Core23TempNetwork::set_losses_common(
-    const std::map<std::string, std::unique_ptr<ILoss>>& losses,
-    const std::map<std::string, float>& label_weights,
-    std::map<std::string, core23::Tensor>& loss_tensors) {
+void Network::set_losses_common(const std::map<std::string, std::unique_ptr<ILoss>>& losses,
+                                const std::map<std::string, float>& label_weights,
+                                std::map<std::string, core23::Tensor>& loss_tensors) {
   for (auto& pair : losses) {
     if (use_mixed_precision_) {
       auto loss_ptr = dynamic_cast<Loss<__half>*>(pair.second.get());

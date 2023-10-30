@@ -96,80 +96,6 @@ __global__ void concat_3d_along_axis_2_kernel(bool forward, T** inputs, T* outpu
 }  // namespace
 
 template <typename T>
-Concat3DLayer<T>::Concat3DLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                                int axis, const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource), axis_(axis), num_(in_tensors.size()) {
-  try {
-    if (in_tensors.empty()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
-    }
-    assert(axis < 3);
-
-    int n_in_tensors = in_tensors.size();
-
-    for (int i = 0; i < n_in_tensors; i++) {
-      auto cur_in_dims = in_tensors[i].get_dimensions();
-      if (i != 0) {
-        auto first_in_dims = in_tensors[0].get_dimensions();
-        if (cur_in_dims[0] != first_in_dims[0]) {
-          HCTR_OWN_THROW(Error_t::WrongInput,
-                         "All the input tensors must have the same shape in dimension 0");
-        }
-        if (axis == 1) {
-          if (cur_in_dims[2] != first_in_dims[2]) {
-            HCTR_OWN_THROW(
-                Error_t::WrongInput,
-                "When concatenating along axis 1, all the input tensors must have the same "
-                "shape in dimension 2");
-          }
-        }
-        if (axis == 2) {
-          if (cur_in_dims[1] != first_in_dims[1]) {
-            HCTR_OWN_THROW(
-                Error_t::WrongInput,
-                "When concatenating along axis 2, all the input tensors must have the same "
-                "shape in dimension 1");
-          }
-        }
-      }
-      if (cur_in_dims.size() != 3) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Only 3D tensors can be concatenated");
-      }
-      if (i == 0) {
-        batch_size_ = cur_in_dims[0];
-        if (axis == 1) {
-          new_width_ = cur_in_dims[2];
-        }
-        if (axis == 2) {
-          new_slot_num_ = cur_in_dims[1];
-        }
-      }
-      if (axis == 1) {
-        new_slot_num_ += cur_in_dims[1];
-        h_vecs_size_.push_back(cur_in_dims[1]);
-      }
-      if (axis == 2) {
-        new_width_ += cur_in_dims[2];
-        h_vecs_size_.push_back(cur_in_dims[2]);
-      }
-    }
-    std::vector<size_t> out_dims = {batch_size_, new_slot_num_, new_width_};
-    blobs_buff->reserve(out_dims, &out_tensor);
-
-    for (const Tensor2<T>& in_tensor : in_tensors) {
-      in_tensors_.push_back(in_tensor);
-    }
-    out_tensor_ = out_tensor;
-
-    blobs_buff->reserve({num_}, &d_inputs_);
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
-  }
-}
-
-template <typename T>
 Concat3DLayer<T>::Concat3DLayer(std::vector<core23::Tensor>& input_tensors,
                                 core23::Tensor& output_tensor, int axis,
                                 const std::shared_ptr<GPUResource>& gpu_resource)
@@ -242,29 +168,15 @@ Concat3DLayer<T>::Concat3DLayer(std::vector<core23::Tensor>& input_tensors,
 
 template <typename T>
 void Concat3DLayer<T>::initialize() {
-  if (input_tensors_.empty()) {
-    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
-        GeneralBuffer2<CudaHostAllocator>::create();
-    pinned_host_buf->reserve({num_}, &h_inputs_);
-    pinned_host_buf->allocate();
-
-    for (size_t i = 0; i < num_; i++) {
-      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
-    }
-    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                   num_ * sizeof(T*), cudaMemcpyHostToDevice,
-                                   get_gpu().get_stream()));
-  } else {
-    core23::Tensor h_ptrs(core23::TensorParams()
-                              .device(core23::DeviceType::CPU)
-                              .shape({static_cast<int64_t>(input_tensors_.size())})
-                              .data_type(core23::ScalarType::Pointer));
-    for (int64_t i = 0; i < h_ptrs.num_elements(); i++) {
-      h_ptrs.data<T*>()[i] = input_tensors_[i].data<T>();
-    }
-    d_ptrs_ = core23::Tensor(h_ptrs.my_params().device(output_tensors_[0].device()));
-    core23::copy_async(d_ptrs_, h_ptrs, get_gpu().get_stream());
+  core23::Tensor h_ptrs(core23::TensorParams()
+                            .device(core23::DeviceType::CPU)
+                            .shape({static_cast<int64_t>(input_tensors_.size())})
+                            .data_type(core23::ScalarType::Pointer));
+  for (int64_t i = 0; i < h_ptrs.num_elements(); i++) {
+    h_ptrs.data<T*>()[i] = input_tensors_[i].data<T>();
   }
+  d_ptrs_ = core23::Tensor(h_ptrs.my_params().device(output_tensors_[0].device()));
+  core23::copy_async(d_ptrs_, h_ptrs, get_gpu().get_stream());
   HCTR_LIB_THROW(cudaMemcpyToSymbolAsync(const_vecs_size, h_vecs_size_.data(),
                                          sizeof(size_t) * num_, 0, cudaMemcpyHostToDevice,
                                          get_gpu().get_stream()));
@@ -278,8 +190,8 @@ void Concat3DLayer<T>::fprop(bool is_train) {
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
   int axis = axis_;
-  T** d_ptrs = input_tensors_.empty() ? d_inputs_.get_ptr() : d_ptrs_.data<T*>();
-  T* output = input_tensors_.empty() ? out_tensor_.get_ptr() : output_tensors_[0].data<T>();
+  T** d_ptrs = d_ptrs_.data<T*>();
+  T* output = output_tensors_[0].data<T>();
   if (axis == 1) {
     concat_3d_along_axis_1_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
         true, d_ptrs, output, batch_size_, new_slot_num_, new_width_, num_);
@@ -298,8 +210,8 @@ void Concat3DLayer<T>::bprop() {
   dim3 block_size(256, 1, 1);
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
-  T** d_ptrs = input_tensors_.empty() ? d_inputs_.get_ptr() : d_ptrs_.data<T*>();
-  T* output = input_tensors_.empty() ? out_tensor_.get_ptr() : output_tensors_[0].data<T>();
+  T** d_ptrs = d_ptrs_.data<T*>();
+  T* output = output_tensors_[0].data<T>();
   if (axis == 1) {
     concat_3d_along_axis_1_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
         false, d_ptrs, output, batch_size_, new_slot_num_, new_width_, num_);

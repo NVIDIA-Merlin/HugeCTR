@@ -23,7 +23,6 @@
 namespace HugeCTR {
 namespace MultiHot {
 
-namespace core23_reader {
 template <typename SparseType>
 class AsyncDataReader : public SchedulableDataReader {
   using LabelType = float;
@@ -160,6 +159,5 @@ class AsyncDataReader : public SchedulableDataReader {
   std::vector<core23::Tensor> temp_tensors_;
 };
 
-};  // namespace core23_reader
 }  // namespace MultiHot
 }  // namespace HugeCTR

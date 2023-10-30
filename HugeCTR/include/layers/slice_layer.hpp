@@ -32,18 +32,6 @@ class SliceLayer : public Layer {
   SliceLayer(const core23::Tensor& input_tensor, std::vector<core23::Tensor>& output_tensors,
              std::vector<std::pair<int, int>>& ranges,
              const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of SliceLayer.
-   * @param in_tensor input tensor
-   * @param out_tensors vector where the pointers to the created output tensors are stored
-   * @param blobs_buff GeneralBuffer used to create the output tensor
-   * @param ranges set of the slice ranges along columns
-   * @param device_id the id of GPU where this layer belongs
-   */
-  SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
-             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-             std::vector<std::pair<int, int>>& ranges,
-             const std::shared_ptr<GPUResource>& gpu_resource);
   ~SliceLayer() override{};
 
   /**
@@ -58,15 +46,6 @@ class SliceLayer : public Layer {
   void bprop() override;
 
  private:
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensor2<T> in_tensor_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
   std::vector<int> slices_start_;
 };
 

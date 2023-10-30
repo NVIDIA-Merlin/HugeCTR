@@ -19,7 +19,6 @@
 #include <functional>
 #include <gpu_resource.hpp>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/gru_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/matrix_vector_op.cuh>

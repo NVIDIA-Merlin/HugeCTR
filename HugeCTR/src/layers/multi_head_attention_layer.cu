@@ -229,7 +229,7 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     // with masked
     if (input_tensors.size() == 4) {
       std::vector<core23::Tensor> bottoms{attention_score_4d_, input_tensors[3]};
-      masked_softmax_layer_ = std::make_unique<core23::MaskedSoftmaxLayer<T>>(
+      masked_softmax_layer_ = std::make_unique<MaskedSoftmaxLayer<T>>(
           bottoms, attention_softmax_4d_, 1.0f, gpu_resource);
       masked_softmax_layer_->initialize();
     } else {
@@ -241,18 +241,6 @@ MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
-}
-
-template <typename T>
-MultiHeadAttentionLayer<T>::MultiHeadAttentionLayer(
-    const Tensors2<T>& in_tensors, Tensors2<T>& out_tensors,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int num_attention_heads,
-    bool transpose_b, const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute)
-    : Layer(gpu_resource),
-      use_mixed_precision_(use_mixed_precision),
-      enable_tf32_compute_(enable_tf32_compute) {
-  HCTR_DIE("Legacy layer deprecated");
 }
 
 template <typename T>

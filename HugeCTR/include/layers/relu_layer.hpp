@@ -24,27 +24,9 @@ namespace HugeCTR {
  */
 template <typename T>
 class ReluLayer : public Layer {
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   ReluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
             const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of ReluLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-            const std::shared_ptr<GPUResource>& gpu_resource);
-
   /**
    * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the forward propagation is executed
@@ -62,27 +44,9 @@ class ReluLayer : public Layer {
  */
 template <>
 class ReluLayer<__half> : public Layer {
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensor2<__half> bottom_tensor_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensor2<__half> top_tensor_;
-
  public:
   ReluLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
             const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of ReluLayer.
-   * @param bottom_tensor the input tensor
-   * @param top_tensor the output tensor which has the same dim with in_tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ReluLayer(const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
-            const std::shared_ptr<GPUResource>& gpu_resource);
-
   /**
    * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the forward propagation is executed

@@ -26,37 +26,9 @@ namespace HugeCTR {
  */
 template <typename T>
 class DropoutLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer.
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   DropoutLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor, float rate,
                const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of DropoutLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param rate fraction of the inputs set to zero., 0 < rate < 1, default = 0.5
-   * @param device_id the id of GPU where this layer belongs
-   */
-  DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-               const std::shared_ptr<GPUResource>& gpu_resource);
-
   ~DropoutLayer() override;
 
   /**
@@ -70,16 +42,13 @@ class DropoutLayer : public Layer {
    */
   void bprop() override;
 
-  const float* mask() const {
-    return noise_mask_.empty() ? mask_.get_ptr() : noise_mask_.data<float>();
-  }
+  const float* mask() const { return noise_mask_.data<float>(); }
 
  private:
   cudnnDropoutDescriptor_t dropout_descriptor_;
   float rate_;
   float scale_;
   void* cudnn_status_;
-  Tensor2<float> mask_;
   core23::Tensor noise_mask_;
   cudnnTensorDescriptor_t in_out_desc_;
   size_t reserveSpaceSizeInBytes_;

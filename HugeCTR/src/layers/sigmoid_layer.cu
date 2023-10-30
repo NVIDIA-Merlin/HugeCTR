@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <functional>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/unary_op.cuh>
@@ -49,124 +48,62 @@ SigmoidLayer<T>::SigmoidLayer(const core23::Tensor& input_tensor,
 }
 
 template <typename T>
-SigmoidLayer<T>::SigmoidLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                              const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
-  assert(in_tensor.get_num_elements() % 2 == 0);
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-}
-
-template <typename T>
 void SigmoidLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    int len = in_tensors_[0].get_num_elements();
+  int len = input_tensors_[0].num_elements();
 
-    auto fop = [] __device__(T in) { return T(1) / (T(1) + exponential(-in)); };
+  auto fop = [] __device__(T in) { return T(1) / (T(1) + exponential(-in)); };
 
-    MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop,
-                              get_gpu().get_stream());
-  } else {
-    int len = input_tensors_[0].num_elements();
-
-    auto fop = [] __device__(T in) { return T(1) / (T(1) + exponential(-in)); };
-
-    MLCommon::LinAlg::unaryOp(output_tensors_[0].data<T>(), input_tensors_[0].data<T>(), len, fop,
-                              get_gpu().get_stream());
-  }
+  MLCommon::LinAlg::unaryOp(output_tensors_[0].data<T>(), input_tensors_[0].data<T>(), len, fop,
+                            get_gpu().get_stream());
 }
 
 template <>
 void SigmoidLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    int len = in_tensors_[0].get_num_elements();
+  int len = input_tensors_[0].num_elements();
 
-    const __half2 one2 = __float2half2_rn(1.0f);
-    auto fop = [one2] __device__(__half2 in) { return one2 / (one2 + exponential(-in)); };
+  const __half2 one2 = __float2half2_rn(1.0f);
+  auto fop = [one2] __device__(__half2 in) { return one2 / (one2 + exponential(-in)); };
 
-    MLCommon::LinAlg::unaryOp(reinterpret_cast<__half2*>(out_tensors_[0].get_ptr()),
-                              reinterpret_cast<__half2*>(in_tensors_[0].get_ptr()), len / 2, fop,
-                              get_gpu().get_stream());
-  } else {
-    int len = input_tensors_[0].num_elements();
-
-    const __half2 one2 = __float2half2_rn(1.0f);
-    auto fop = [one2] __device__(__half2 in) { return one2 / (one2 + exponential(-in)); };
-
-    MLCommon::LinAlg::unaryOp(reinterpret_cast<__half2*>(output_tensors_[0].data<__half>()),
-                              reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()), len / 2,
-                              fop, get_gpu().get_stream());
-  }
+  MLCommon::LinAlg::unaryOp(reinterpret_cast<__half2*>(output_tensors_[0].data<__half>()),
+                            reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()), len / 2,
+                            fop, get_gpu().get_stream());
 }
 
 template <typename T>
 void SigmoidLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    int len = in_tensors_[0].get_num_elements();
+  int len = input_tensors_[0].num_elements();
 
-    auto bop = [] __device__(T d_out, T d_in) {
-      T y = T(1) / (T(1) + exponential(-d_in));
-      return d_out * y * (T(1) - y);
-    };
+  auto bop = [] __device__(T d_out, T d_in) {
+    T y = T(1) / (T(1) + exponential(-d_in));
+    return d_out * y * (T(1) - y);
+  };
 
-    MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
-                               in_tensors_[0].get_ptr(), len, bop, get_gpu().get_stream());
-  } else {
-    int len = input_tensors_[0].num_elements();
-
-    auto bop = [] __device__(T d_out, T d_in) {
-      T y = T(1) / (T(1) + exponential(-d_in));
-      return d_out * y * (T(1) - y);
-    };
-
-    MLCommon::LinAlg::binaryOp(input_tensors_[0].data<T>(), output_tensors_[0].data<T>(),
-                               input_tensors_[0].data<T>(), len, bop, get_gpu().get_stream());
-  }
+  MLCommon::LinAlg::binaryOp(input_tensors_[0].data<T>(), output_tensors_[0].data<T>(),
+                             input_tensors_[0].data<T>(), len, bop, get_gpu().get_stream());
 }
 
 template <>
 void SigmoidLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed late
-  if (input_tensors_.empty()) {
-    int len = in_tensors_[0].get_num_elements();
+  int len = input_tensors_[0].num_elements();
 
-    const __half2 one2 = __float2half2_rn(1.0f);
-    auto bop = [one2] __device__(__half2 d_out, __half2 d_in) {
-      __half2 y = one2 / (one2 + exponential(-d_in));
-      return d_out * y * (one2 - y);
-    };
+  const __half2 one2 = __float2half2_rn(1.0f);
+  auto bop = [one2] __device__(__half2 d_out, __half2 d_in) {
+    __half2 y = one2 / (one2 + exponential(-d_in));
+    return d_out * y * (one2 - y);
+  };
 
-    MLCommon::LinAlg::binaryOp(reinterpret_cast<__half2*>(in_tensors_[0].get_ptr()),
-                               reinterpret_cast<__half2*>(out_tensors_[0].get_ptr()),
-                               reinterpret_cast<__half2*>(in_tensors_[0].get_ptr()), len / 2, bop,
-                               get_gpu().get_stream());
-  } else {
-    int len = input_tensors_[0].num_elements();
-
-    const __half2 one2 = __float2half2_rn(1.0f);
-    auto bop = [one2] __device__(__half2 d_out, __half2 d_in) {
-      __half2 y = one2 / (one2 + exponential(-d_in));
-      return d_out * y * (one2 - y);
-    };
-
-    MLCommon::LinAlg::binaryOp(reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()),
-                               reinterpret_cast<__half2*>(output_tensors_[0].data<__half>()),
-                               reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()),
-                               len / 2, bop, get_gpu().get_stream());
-  }
+  MLCommon::LinAlg::binaryOp(reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()),
+                             reinterpret_cast<__half2*>(output_tensors_[0].data<__half>()),
+                             reinterpret_cast<__half2*>(input_tensors_[0].data<__half>()), len / 2,
+                             bop, get_gpu().get_stream());
 }
 
 template class SigmoidLayer<float>;

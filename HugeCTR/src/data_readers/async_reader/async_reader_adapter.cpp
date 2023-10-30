@@ -25,7 +25,6 @@
 #include <resource_manager.hpp>
 #include <utils.hpp>
 namespace HugeCTR {
-namespace core23_reader {
 template <typename SparseType>
 AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_t label_dim,
                                      size_t dense_dim, std::vector<DataReaderSparseParam>& params,
@@ -516,8 +515,6 @@ AsyncReader<SparseType>::~AsyncReader() {
   }
 }
 
-};  // namespace core23_reader
-
-template class core23_reader::AsyncReader<uint32_t>;
-template class core23_reader::AsyncReader<long long>;
+template class AsyncReader<uint32_t>;
+template class AsyncReader<long long>;
 }  // namespace HugeCTR

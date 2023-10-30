@@ -41,9 +41,6 @@ class Concat3DLayer : public Layer {
    * @param axis Dimension along which to concatenate. Must be 1 or 2
    * @param device_id the id of GPU where this layer belongs
    */
-  Concat3DLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
-                const std::shared_ptr<GPUResource>& gpu_resource);
   Concat3DLayer(std::vector<core23::Tensor>& in_tensors, core23::Tensor& out_tensor, int axis,
                 const std::shared_ptr<GPUResource>& gpu_resource);
   ~Concat3DLayer() override{};
@@ -63,14 +60,6 @@ class Concat3DLayer : public Layer {
 
  private:
   /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensor2<T> out_tensor_;
-  /*
    * stores the axis.
    */
   int axis_;
@@ -79,8 +68,6 @@ class Concat3DLayer : public Layer {
   size_t num_;
   size_t batch_size_ = 0;
   size_t new_slot_num_ = 0;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
   core23::Tensor d_ptrs_;
 };
 

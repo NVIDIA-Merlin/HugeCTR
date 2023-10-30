@@ -63,37 +63,16 @@ CastLayer<From, To>::CastLayer(const core23::Tensor& input_tensor,
 }
 
 template <typename From, typename To>
-CastLayer<From, To>::CastLayer(const Tensor2<From>& bottom_tensor, const Tensor2<To>& top_tensor,
-                               const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  assert(bottom_tensor.get_num_elements() == top_tensor.get_num_elements());
-
-  bottom_tensor_ = bottom_tensor;
-  top_tensor_ = top_tensor;
-}
-
-template <typename From, typename To>
 void CastLayer<From, To>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    const From* bottom = bottom_tensor_.get_ptr();
-    To* top = top_tensor_.get_ptr();
+  const From* in = input_tensors_[0].data<From>();
+  To* out = output_tensors_[0].data<To>();
+  int num_elements = input_tensors_[0].num_elements();
 
-    const size_t threads = 512;
-    const size_t blocks = std::min((bottom_tensor_.get_num_elements() - 1) / threads + 1, 1024ul);
-    cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, bottom,
-                                                                bottom_tensor_.get_num_elements());
-  } else {
-    const From* in = input_tensors_[0].data<From>();
-    To* out = output_tensors_[0].data<To>();
-    int num_elements = input_tensors_[0].num_elements();
-
-    const auto threads = 512;
-    const auto blocks = std::min((num_elements - 1) / threads + 1, 1024);
-    cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(out, in, num_elements);
-  }
+  const auto threads = 512;
+  const auto blocks = std::min((num_elements - 1) / threads + 1, 1024);
+  cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(out, in, num_elements);
 }
 
 template <typename From, typename To>

@@ -79,8 +79,8 @@ void core23_fused_reshape_concat_general_test(int64_t batch_size, int64_t slot_n
   core23::Tensor out_tensor;
   int64_t rows = batch_size * slot_num;
   int64_t out_size = batch_size * slot_num * out_vector_size;
-  core23::FusedReshapeConcatGeneralLayer<T> fused_reshape_concat_general_layer(
-      in_tensors, out_tensor, test::get_default_gpu());
+  FusedReshapeConcatGeneralLayer<T> fused_reshape_concat_general_layer(in_tensors, out_tensor,
+                                                                       test::get_default_gpu());
   fused_reshape_concat_general_layer.initialize();
   std::unique_ptr<T *[]> h_d_ins(new T *[num]);
   for (int i = 0; i < num; i++) {

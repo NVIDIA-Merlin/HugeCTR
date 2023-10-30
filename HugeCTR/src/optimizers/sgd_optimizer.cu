@@ -116,22 +116,6 @@ __global__ void sgd_update_kernel(int len, float* weight, __half* weight_half, c
 }  // namespace
 
 template <typename T>
-SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main,
-                              const Tensor2<__half>& weight_main_half, const Tensor2<T>& wgrad,
-                              const std::shared_ptr<GPUResource>& gpu_resource, float lr,
-                              float scaler, bool use_mixed_precision)
-    : Optimizer(weight_main, gpu_resource, lr, scaler),
-      wgrad_(wgrad),
-      weight_main_half_(weight_main_half),
-      wgrad_tensors_({}),
-      weight_half_tensors_({}),
-      use_mixed_precision_(use_mixed_precision) {
-  optimizer_type_ = Optimizer_t::SGD;
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-}
-template <typename T>
 SGDOptimizer<T>::SGDOptimizer(std::optional<WeightTensors> weight_tensors,
                               std::optional<WeightHalfTensors> weight_half_tensors,
                               std::optional<WgradTensors<T>> wgrad_tensors,
@@ -148,41 +132,24 @@ void SGDOptimizer<T>::update() {
   constexpr size_t block_dim = 256;
   constexpr int vec_width = sizeof(float4) / sizeof(float);
 
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
-    float* weight = weight_main_.get_ptr();
-    __half* weight_half = weight_main_half_.get_ptr();
-    const T* wgrad = wgrad_.get_ptr();
-
-    if (gpu_learning_rate_scheduler_ == nullptr) {
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
-    } else {
-      float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
-    }
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  __half* weight_half = nullptr;
+  if constexpr (std::is_same_v<T, __half>) {
+    auto flat_weight_half_tensor = weight_half_tensors_->flatten();
+    weight_half = flat_weight_half_tensor.data();
+  }
+  const T* wgrad = flat_wgrad_tensor.data();
+  auto len = flat_weight_tensor.size(0);
+  const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
+  if (gpu_learning_rate_scheduler_ == nullptr) {
+    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
   } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    __half* weight_half = nullptr;
-    if constexpr (std::is_same_v<T, __half>) {
-      auto flat_weight_half_tensor = weight_half_tensors_->flatten();
-      weight_half = flat_weight_half_tensor.data();
-    }
-    const T* wgrad = flat_wgrad_tensor.data();
-    auto len = flat_weight_tensor.size(0);
-    const size_t grid_dim = (len + block_dim * vec_width - 1) / (block_dim * vec_width);
-    if (gpu_learning_rate_scheduler_ == nullptr) {
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, weight_half, wgrad, lr_, scaler_, use_mixed_precision_);
-    } else {
-      float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
-    }
+    float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
+    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
   }
 }
 

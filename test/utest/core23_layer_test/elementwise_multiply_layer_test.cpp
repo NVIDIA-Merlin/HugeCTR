@@ -88,8 +88,8 @@ void core23_elementwise_multiply_test(int64_t batch_size, int64_t slot_num,
                                 .data_type(core23::ToScalarType<T>::value)
                                 .device({core23::DeviceType::GPU, 0}));
 
-  core23::ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor,
-                                                                 test::get_default_gpu());
+  ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor,
+                                                         test::get_default_gpu());
 
   elementwise_multiply_layer.initialize();
 

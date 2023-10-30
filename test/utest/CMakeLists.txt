@@ -14,7 +14,6 @@
 #
 cmake_minimum_required(VERSION 3.20)
 add_subdirectory(core23_layer_test)
-add_subdirectory(legacy_layer_test)
 add_subdirectory(data_distributor)
 add_subdirectory(data_reader)
 add_subdirectory(optimizer)

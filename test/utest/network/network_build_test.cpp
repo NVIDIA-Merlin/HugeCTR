@@ -119,13 +119,12 @@ void network_build_test() {
   std::vector<std::vector<int>> vvgpu(1, device_vec);
   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
-  std::vector<std::shared_ptr<Core23TempNetwork>> networks;
+  std::vector<std::shared_ptr<Network>> networks;
   std::vector<std::pair<core23::Tensor, core23::Tensor>> train_label_and_first_tensors;
   std::vector<std::pair<core23::Tensor, core23::Tensor>> evaluate_label_and_first_tensors;
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     auto& gpu = resource_manager->get_local_gpu(i);
-    networks.emplace_back(
-        new Core23TempNetwork(resource_manager->get_local_cpu(), gpu, use_mixed_precision));
+    networks.emplace_back(new Network(resource_manager->get_local_cpu(), gpu, use_mixed_precision));
 
     auto network = networks.back();
 
@@ -136,14 +135,20 @@ void network_build_test() {
             .device(core23::Device(core23::DeviceType::GPU, gpu->get_device_id()))
             .data_type(use_mixed_precision ? core23::ScalarType::Half : core23::ScalarType::Float);
 
-    core23::Tensor train_label_tensor(tensor_params.shape({batch_size, 1}));
-    core23::Tensor train_tensor0(train_label_tensor.my_params().shape({batch_size, width}));
+    core23::Tensor train_label_tensor(
+        tensor_params.buffer_channel(core23::GetRandomBufferChannel()).shape({batch_size, 1}));
+    core23::Tensor train_tensor0(train_label_tensor.my_params()
+                                     .buffer_channel(core23::GetRandomBufferChannel())
+                                     .shape({batch_size, width}));
     train_label_and_first_tensors.push_back({train_label_tensor, train_tensor0});
     auto [train_layers, train_losses] =
         add_layers<T>(gpu, train_label_tensor, train_tensor0, batch_size, width, scaler);
 
-    core23::Tensor evaluate_label_tensor(tensor_params.shape({batch_size, 1}));
-    core23::Tensor evaluate_tensor0(evaluate_label_tensor.my_params().shape({batch_size, width}));
+    core23::Tensor evaluate_label_tensor(
+        tensor_params.buffer_channel(core23::GetRandomBufferChannel()).shape({batch_size, 1}));
+    core23::Tensor evaluate_tensor0(evaluate_label_tensor.my_params()
+                                        .buffer_channel(core23::GetRandomBufferChannel())
+                                        .shape({batch_size, width}));
     evaluate_label_and_first_tensors.push_back({evaluate_label_tensor, evaluate_tensor0});
     auto [evaluate_layers, evaluate_losses] =
         add_layers<T>(gpu, evaluate_label_tensor, evaluate_tensor0, batch_size, width, scaler);

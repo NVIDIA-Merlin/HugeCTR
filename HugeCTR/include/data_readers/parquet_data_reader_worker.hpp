@@ -49,8 +49,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <class T>
 class ParquetDataReaderWorker : public IDataReaderWorker,
                                 public std::enable_shared_from_this<ParquetDataReaderWorker<T>> {
@@ -128,11 +126,8 @@ class ParquetDataReaderWorker : public IDataReaderWorker,
   }
   void post_set_source() override {
     is_eof_ = false;
-    if (buffer_)
-      buffer_->state.store(BufferState::ReadyForWrite);
-    else {
-      buffer23_->state.store(BufferState::ReadyForWrite);
-    }
+
+    buffer23_->state.store(BufferState::ReadyForWrite);
     global_row_group_id_ = 0;
   }
   /**
@@ -168,5 +163,4 @@ class ParquetDataReaderWorker : public IDataReaderWorker,
   DataReaderType_t get_reader_type() override { return DataReaderType_t::Parquet; }
 };
 
-}  // namespace core23_reader
 }  // namespace HugeCTR

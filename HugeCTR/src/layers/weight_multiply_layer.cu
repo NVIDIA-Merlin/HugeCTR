@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <layers/element_wise_function.hpp>
 #include <layers/weight_multiply_layer.hpp>
 #include <linalg/coalesced_reduction.cuh>
 #include <linalg/matrix_vector_op.cuh>

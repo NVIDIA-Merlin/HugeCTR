@@ -101,9 +101,8 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
       repeat);
 
   std::shared_ptr<std::atomic<bool>> loop_flag = std::make_shared<std::atomic<bool>>(1);
-  core23_reader::DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer,
-                                                    file_offset_list, repeat, params,
-                                                    float_label_dense);
+  DataReaderWorkerRaw<T> data_reader(0, 1, local_gpu, loop_flag, thread_buffer, file_offset_list,
+                                     repeat, params, float_label_dense);
 
   int round = (num_samples - 1) / batchsize + 1;
 
@@ -191,9 +190,8 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  core23_reader::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
-                                           resource_manager, repeat, num_threads,
-                                           use_mixed_precision);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, repeat,
+                            num_threads, use_mixed_precision);
 
   data_reader.create_drwg_raw(file_name, num_samples, float_label_dense, false, true);
   int round = (num_samples - 1) / batchsize + 1;

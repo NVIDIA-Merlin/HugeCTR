@@ -63,103 +63,6 @@ __global__ void fused_reshape_concat_general_kernel(bool forward, T** inputs, T*
 
 template <typename T>
 FusedReshapeConcatGeneralLayer<T>::FusedReshapeConcatGeneralLayer(
-    const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-    const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  try {
-    if (in_tensors.empty()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
-    }
-
-    num_ = in_tensors.size();
-    for (size_t i = 0; i < num_; i++) {
-      auto cur_in_dims = in_tensors[i].get_dimensions();
-      if (i != 0) {
-        auto first_in_dims = in_tensors[0].get_dimensions();
-        if (cur_in_dims[0] != first_in_dims[0]) {
-          HCTR_OWN_THROW(Error_t::WrongInput,
-                         "All the input tensors must have the same batch_size");
-        }
-        if (cur_in_dims[1] != first_in_dims[1]) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same slot_num");
-        }
-      }
-      if (cur_in_dims.size() != 3) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must be 3D");
-      }
-      if (i == 0) {
-        batch_size_ = cur_in_dims[0];
-        slot_num_ = cur_in_dims[1];
-      }
-      new_width_ += cur_in_dims[2];
-      h_vecs_size_.push_back(cur_in_dims[2]);
-    }
-
-    std::vector<size_t> out_dims = {batch_size_ * slot_num_, new_width_};
-    blobs_buff->reserve(out_dims, &out_tensor);
-
-    for (const Tensor2<T>& in_tensor : in_tensors) {
-      in_tensors_.push_back(in_tensor);
-    }
-    out_tensor_ = out_tensor;
-    blobs_buff->reserve({num_}, &d_inputs_);
-    blobs_buff->reserve({num_}, &vecs_size_);
-
-  } catch (const std::runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
-  }
-}
-
-template <typename T>
-void FusedReshapeConcatGeneralLayer<T>::initialize() {
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
-      GeneralBuffer2<CudaHostAllocator>::create();
-  pinned_host_buf->reserve({num_}, &h_inputs_);
-  pinned_host_buf->allocate();
-
-  for (size_t i = 0; i < num_; i++) {
-    h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
-  }
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)vecs_size_.get_ptr(), (void*)h_vecs_size_.data(),
-                                 num_ * sizeof(size_t), cudaMemcpyHostToDevice,
-                                 get_gpu().get_stream()));
-
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                 num_ * sizeof(T*), cudaMemcpyHostToDevice,
-                                 get_gpu().get_stream()));
-}
-
-template <typename T>
-void FusedReshapeConcatGeneralLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& out_tensor = out_tensor_;
-  T* output = out_tensor.get_ptr();
-  dim3 block_size(256, 1, 1);
-  size_t n_sms = get_gpu().get_sm_count();
-  dim3 grid_size(n_sms * 8, 1, 1);
-  fused_reshape_concat_general_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      true, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_,
-      num_);
-}
-
-template <typename T>
-void FusedReshapeConcatGeneralLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& out_tensor = out_tensor_;
-  T* output = out_tensor.get_ptr();
-  dim3 block_size(256, 1, 1);
-  size_t n_sms = get_gpu().get_sm_count();
-  dim3 grid_size(n_sms * 8, 1, 1);
-  fused_reshape_concat_general_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      false, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_,
-      num_);
-}
-namespace core23 {
-
-template <typename T>
-FusedReshapeConcatGeneralLayer<T>::FusedReshapeConcatGeneralLayer(
     const std::vector<core23::Tensor>& in_tensors, core23::Tensor& out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
@@ -265,8 +168,6 @@ void FusedReshapeConcatGeneralLayer<T>::bprop() {
       false, d_inputs_.data<T*>(), output, batch_size_, slot_num_, vecs_size_.data<size_t>(),
       new_width_, num_);
 }
-};  // namespace core23
 template class FusedReshapeConcatGeneralLayer<float>;
-template class core23::FusedReshapeConcatGeneralLayer<float>;
 
 }  // namespace HugeCTR

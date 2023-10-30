@@ -103,17 +103,7 @@ static size_t get_slot_num(const SparseTensorBag& bag) {
   return 0;
 }
 
-template <typename T>
-struct SparseInput {
-  SparseTensors<T> train_sparse_tensors;
-  SparseTensors<T> evaluate_sparse_tensors;
-  size_t slot_num;
-  size_t max_feature_num_per_sample;
-  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
-      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
-  SparseInput() {}
-};
-
+// TODO remove Tensor2 Based BufferBag
 struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;
@@ -125,7 +115,6 @@ struct BufferBag {
   std::vector<TensorBag2> uvm_key_tensor_bags;
   Tensors2<size_t> d_value_index_tensors;
 };
-namespace core23_reader {
 
 template <typename T>
 struct SparseInput {
@@ -138,7 +127,7 @@ struct SparseInput {
   SparseInput() {}
 };
 
-struct BufferBag {
+struct BufferBag23 {
   core23::Tensor keys;
   core23::Tensor slot_id;
   core23::Tensor embedding;
@@ -149,6 +138,5 @@ struct BufferBag {
   std::vector<core23::Tensor> uvm_key_tensor_bags;
   std::vector<core23::Tensor> d_value_index_tensors;
 };
-};  // namespace core23_reader
 
 }  // namespace HugeCTR

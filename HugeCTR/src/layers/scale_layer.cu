@@ -18,7 +18,6 @@
 #include <cuda_utils.cuh>
 #include <functional>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/scale_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/reduce.cuh>
@@ -80,50 +79,7 @@ void scale(T* out, T* in, int batchsize, int num_elems, int axis, int factor, cu
 }
 
 }  // namespace
-template <typename T>
-ScaleLayer<T>::ScaleLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                          const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          int axis, int factor, const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  assert(axis < 2);
-  size_t out_y = axis == 1 ? in_tensor.get_dimensions()[0] * factor : in_tensor.get_dimensions()[0];
-  size_t out_x = axis == 0 ? in_tensor.get_dimensions()[1] * factor : in_tensor.get_dimensions()[1];
-  std::vector<size_t> out_dims = {out_y, out_x};
-  blobs_buff->reserve(out_dims, &out_tensor);
 
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-  axis_ = axis;
-  factor_ = factor;
-}
-
-template <typename T>
-void ScaleLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& in_tensor = in_tensors_[0];
-  Tensor2<T>& out_tensor = out_tensors_[0];
-  const auto& in_tensor_dim = in_tensor.get_dimensions();
-  int axis = axis_;
-  int factor = factor_;
-
-  scale(out_tensor.get_ptr(), in_tensor.get_ptr(), in_tensor_dim[0], in_tensor_dim[1], axis, factor,
-        get_gpu().get_stream(), true);
-}
-
-template <typename T>
-void ScaleLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& bottom_tensor = in_tensors_[0];
-  Tensor2<T>& top_tensor = out_tensors_[0];
-  const auto& bottom_tensor_dim = bottom_tensor.get_dimensions();
-  int axis = axis_;
-  int factor = factor_;
-
-  scale(bottom_tensor.get_ptr(), top_tensor.get_ptr(), bottom_tensor_dim[0], bottom_tensor_dim[1],
-        axis, factor, get_gpu().get_stream(), false);
-}
-
-namespace core23 {
 template <typename T>
 ScaleLayer<T>::ScaleLayer(const core23::Tensor& in_tensor, core23::Tensor& out_tensor, int axis,
                           int factor, const std::shared_ptr<GPUResource>& gpu_resource)
@@ -169,9 +125,7 @@ void ScaleLayer<T>::bprop() {
         axis, factor, get_gpu().get_stream(), false);
 }
 
-}  // namespace core23
 template class ScaleLayer<float>;
-template class core23::ScaleLayer<float>;
 // template class ScaleLayer<__half>;
 
 }  // namespace HugeCTR

@@ -20,6 +20,7 @@
 
 namespace HugeCTR {
 
+// TODO remove them after hybrid embedding is deprecated
 template <typename T>
 using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
 
@@ -29,7 +30,6 @@ using BuffPtrs = std::vector<BuffPtr<T>>;
 class ExchangeWgrad {
  public:
   virtual void init_ar_comm(const std::vector<void*>& ptr, size_t sizes) = 0;
-  virtual void allocate() = 0;
   virtual void update_embed_wgrad_size(size_t size) = 0;
   virtual void allreduce(size_t device_id, cudaStream_t stream) = 0;
 };
@@ -37,9 +37,9 @@ class ExchangeWgrad {
 template <typename TypeFP>
 class NetworkExchangeWgrad : public ExchangeWgrad {
  public:
+  // TODO remove them after hybrid embedding is deprecated
   const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
   const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return null_wgrad_buffs_; }
-  void allocate() final;
   void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
@@ -47,9 +47,9 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
   ~NetworkExchangeWgrad() = default;
 
  private:
+  // TODO remove them after hybrid embedding is deprecated
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> null_wgrad_buffs_;
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
   AllReduceInPlaceComm::Handle ar_handle_;
@@ -61,9 +61,9 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
 template <typename TypeFP>
 class GroupedExchangeWgrad : public ExchangeWgrad {
  public:
+  // TODO remove them after hybrid embedding is deprecated
   const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
   const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return embed_wgrad_buffs_; }
-  void allocate() final;
   void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
@@ -71,9 +71,10 @@ class GroupedExchangeWgrad : public ExchangeWgrad {
   ~GroupedExchangeWgrad() = default;
 
  private:
+  // TODO remove them after hybrid embedding is deprecated
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> embed_wgrad_buffs_;
-  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs_;
+
   std::shared_ptr<ResourceManager> resource_manager_;
 
   AllReduceInPlaceComm::Handle ar_handle_;

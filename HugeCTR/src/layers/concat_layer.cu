@@ -85,89 +85,25 @@ ConcatLayer<T>::ConcatLayer(const std::vector<core23::Tensor>& input_tensors,
 }
 
 template <typename T>
-ConcatLayer<T>::ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-                            const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                            const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  try {
-    if (in_tensors.empty()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
-    }
-
-    int n_in_tensors = in_tensors.size();
-    size_t height = 0;
-    size_t new_width = 0;
-    for (int i = 0; i < n_in_tensors; i++) {
-      auto cur_in_dims = in_tensors[i].get_dimensions();
-      if (i != 0) {
-        auto first_in_dims = in_tensors[0].get_dimensions();
-        if (cur_in_dims[0] != first_in_dims[0]) {
-          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same height");
-        }
-      }
-      if (cur_in_dims.size() != 2) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be concatenated");
-      }
-      if (i == 0) {
-        height = cur_in_dims[0];
-      }
-      new_width += cur_in_dims[1];
-    }
-
-    std::vector<size_t> out_dims = {height, new_width};
-    blobs_buff->reserve(out_dims, &out_tensor);
-
-    for (const Tensor2<T>& in_tensor : in_tensors) {
-      in_tensors_.push_back(in_tensor);
-    }
-    out_tensor_ = out_tensor;
-
-  } catch (const std::runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
-  }
-}
-
-template <typename T>
 void ConcatLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
   auto stream = get_gpu().get_stream();
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    int n_in_tensors = in_tensors_.size();
-    int block_size = 256;
-    int n_blocks = get_gpu().get_sm_count() * 8;
-    T* out = out_tensor_.get_ptr();
-    const int2 out_dim = {static_cast<int>(out_tensor_.get_dimensions()[0]),
-                          static_cast<int>(out_tensor_.get_dimensions()[1])};
-    int offset = 0;
-    for (int i = 0; i < n_in_tensors; i++) {
-      Tensor2<T>& in_tensor = in_tensors_[i];
-      T* in = in_tensor.get_ptr();
-      const int2 in_dim = {static_cast<int>(in_tensor.get_dimensions()[0]),
-                           static_cast<int>(in_tensor.get_dimensions()[1])};
+  int n_input_tensors = input_tensors_.size();
+  int block_size = 256;
+  int n_blocks = get_gpu().get_sm_count() * 8;
+  auto& output_tensor = output_tensors_[0];
+  T* out = output_tensor.data<T>();
+  const int2 out_dim = {static_cast<int>(output_tensor.shape().size(0)),
+                        static_cast<int>(output_tensor.shape().size(1))};
+  int offset = 0;
+  for (auto& input_tensor : input_tensors_) {
+    T* in = input_tensor.data<T>();
+    const int2 in_dim = {static_cast<int>(input_tensor.shape().size(0)),
+                         static_cast<int>(input_tensor.shape().size(1))};
 
-      concat_fwd_kernel<<<n_blocks, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
-      offset += in_dim.y;
-    }
-  } else {
-    int n_input_tensors = input_tensors_.size();
-    int block_size = 256;
-    int n_blocks = get_gpu().get_sm_count() * 8;
-    auto& output_tensor = output_tensors_[0];
-    T* out = output_tensor.data<T>();
-    const int2 out_dim = {static_cast<int>(output_tensor.shape().size(0)),
-                          static_cast<int>(output_tensor.shape().size(1))};
-    int offset = 0;
-    for (auto& input_tensor : input_tensors_) {
-      T* in = input_tensor.data<T>();
-      const int2 in_dim = {static_cast<int>(input_tensor.shape().size(0)),
-                           static_cast<int>(input_tensor.shape().size(1))};
-
-      concat_fwd_kernel<<<n_blocks, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
-      offset += in_dim.y;
-    }
+    concat_fwd_kernel<<<n_blocks, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
+    offset += in_dim.y;
   }
 }
 
@@ -176,42 +112,22 @@ void ConcatLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
   auto stream = get_gpu().get_stream();
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    int block_size = 256;
-    int n_blocks = get_gpu().get_sm_count() * 8;
-    T* out = out_tensor_.get_ptr();
-    const int2 out_dim = {static_cast<int>(out_tensor_.get_dimensions()[0]),
-                          static_cast<int>(out_tensor_.get_dimensions()[1])};
-    int grid_size = std::min(out_dim.x, n_blocks);
-    int offset = 0;
-    for (std::size_t i = 0; i < in_tensors_.size(); i++) {
-      Tensor2<T>& in_tensor = in_tensors_[i];
-      T* in = in_tensor.get_ptr();
-      const int2 in_dim = {static_cast<int>(in_tensor.get_dimensions()[0]),
-                           static_cast<int>(in_tensor.get_dimensions()[1])};
+  int block_size = 256;
+  int n_blocks = get_gpu().get_sm_count() * 8;
+  auto& output_tensor = output_tensors_[0];
+  T* out = output_tensor.data<T>();
+  const int2 out_dim = {static_cast<int>(output_tensor.shape().size(0)),
+                        static_cast<int>(output_tensor.shape().size(1))};
+  int grid_size = std::min(out_dim.x, n_blocks);
+  int offset = 0;
+  for (std::size_t i = 0; i < input_tensors_.size(); i++) {
+    auto& input_tensor = input_tensors_[i];
+    T* in = input_tensor.data<T>();
+    const int2 in_dim = {static_cast<int>(input_tensor.shape().size(0)),
+                         static_cast<int>(input_tensor.shape().size(1))};
 
-      concat_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
-      offset += in_dim.y;
-    }
-  } else {
-    int block_size = 256;
-    int n_blocks = get_gpu().get_sm_count() * 8;
-    auto& output_tensor = output_tensors_[0];
-    T* out = output_tensor.data<T>();
-    const int2 out_dim = {static_cast<int>(output_tensor.shape().size(0)),
-                          static_cast<int>(output_tensor.shape().size(1))};
-    int grid_size = std::min(out_dim.x, n_blocks);
-    int offset = 0;
-    for (std::size_t i = 0; i < input_tensors_.size(); i++) {
-      auto& input_tensor = input_tensors_[i];
-      T* in = input_tensor.data<T>();
-      const int2 in_dim = {static_cast<int>(input_tensor.shape().size(0)),
-                           static_cast<int>(input_tensor.shape().size(1))};
-
-      concat_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
-      offset += in_dim.y;
-    }
+    concat_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
+    offset += in_dim.y;
   }
 }
 

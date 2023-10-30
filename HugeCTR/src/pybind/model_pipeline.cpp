@@ -29,8 +29,8 @@
 
 namespace HugeCTR {
 
-template <typename Network>
-void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_train_network_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks) {
   graph_.train_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
@@ -64,8 +64,8 @@ void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&
   }
 }
 
-template <typename Network>
-void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks) {
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
 
   for (int local_id = 0; local_id < static_cast<int>(resource_manager_->get_local_gpu_count());
@@ -93,8 +93,8 @@ void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& 
   }
 }
 
-template <typename Network>
-void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_train_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks) {
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(train_data_reader_.get());
   auto scheduled_embedding = dynamic_cast<SchedulableEmbeding*>(embeddings_[0].get());
   bool is_train = true;
@@ -390,8 +390,8 @@ void Model::train_pipeline(size_t current_batch_size) {
   }
 }
 
-template <typename Network>
-void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks) {
   auto scheduled_reader = dynamic_cast<SchedulableDataReader*>(evaluate_data_reader_.get());
   auto scheduled_embedding = dynamic_cast<SchedulableEmbeding*>(embeddings_[0].get());
   bool is_train = false;
@@ -550,8 +550,8 @@ void Model::evaluate_pipeline(size_t current_batch_size) {
   }
 }
 
-template <typename Network>
-void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks) {
   bool is_train = true;
   bool use_graph = solver_.use_cuda_graph;
 
@@ -568,12 +568,12 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>
       if (skip_prefetch_in_last_batch(is_train)) return;
 
       if (is_scheduled_datareader()) {
-        if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(
-                train_data_reader_.get())) {
+        if (auto reader =
+                dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
           train_data_distributor_->distribute(
               local_id, reader->get_current_sparse_values()[local_id], {},
               train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
-        } else if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(
+        } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
                        train_data_reader_.get())) {
           train_data_distributor_->distribute(
               local_id, reader->get_current_sparse_values()[local_id], {},
@@ -839,12 +839,12 @@ void Model::train_pipeline_with_ebc() {
       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       HCTR_CHECK(solver_.use_embedding_collection);
       if (is_scheduled_datareader()) {
-        if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(
-                train_data_reader_.get())) {
+        if (auto reader =
+                dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
           train_data_distributor_->distribute(id, reader->get_current_sparse_values()[id], {},
                                               train_ddl_output_[id],
                                               train_data_reader_->get_full_batchsize());
-        } else if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(
+        } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
                        train_data_reader_.get())) {
           train_data_distributor_->distribute(id, reader->get_current_sparse_values()[id], {},
                                               train_ddl_output_[id],
@@ -884,8 +884,8 @@ void Model::train_pipeline_with_ebc() {
   }
 }
 
-template <typename Network>
-void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks) {
+template <typename NetworkType>
+void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks) {
   bool is_train = false;
   //  bool use_graph = solver_.use_cuda_graph;
   graph_.evaluate_pipeline_.resize(resource_manager_->get_local_gpu_count());
@@ -899,12 +899,12 @@ void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Networ
     auto eval_data_distribute = std::make_shared<StreamContextScheduleable>([=] {
       if (skip_prefetch_in_last_batch(is_train)) return;
       if (is_scheduled_datareader()) {
-        if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(
-                evaluate_data_reader_.get())) {
+        if (auto reader =
+                dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(evaluate_data_reader_.get())) {
           eval_data_distributor_->distribute(
               local_id, reader->get_current_sparse_values()[local_id], {},
               evaluate_ddl_output_[local_id], evaluate_data_reader_->get_current_batchsize());
-        } else if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(
+        } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
                        evaluate_data_reader_.get())) {
           eval_data_distributor_->distribute(
               local_id, reader->get_current_sparse_values()[local_id], {},
@@ -1022,12 +1022,12 @@ void Model::evaluate_pipeline_with_ebc() {
       size_t id = omp_get_thread_num();
       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       if (is_scheduled_datareader()) {
-        if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<uint32_t>*>(
-                evaluate_data_reader_.get())) {
+        if (auto reader =
+                dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(evaluate_data_reader_.get())) {
           eval_data_distributor_->distribute(id, reader->get_current_sparse_values()[id], {},
                                              evaluate_ddl_output_[id],
                                              evaluate_data_reader_->get_current_batchsize());
-        } else if (auto reader = dynamic_cast<MultiHot::core23_reader::AsyncDataReader<long long>*>(
+        } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
                        evaluate_data_reader_.get())) {
           eval_data_distributor_->distribute(id, reader->get_current_sparse_values()[id], {},
                                              evaluate_ddl_output_[id],
@@ -1072,14 +1072,12 @@ void Model::evaluate_pipeline_with_ebc() {
   }
 }
 
-template void Model::create_train_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
-template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
-template void Model::create_train_network_pipeline(
-    std::vector<std::shared_ptr<Core23TempNetwork>>&);
-template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Core23TempNetwork>>&);
+template void Model::create_train_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_train_network_pipeline(std::vector<std::shared_ptr<Network>>&);
+template void Model::create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>&);
 template void Model::create_train_pipeline_with_ebc(
-    std::vector<std::shared_ptr<Core23TempNetwork>>& networks);
-template void Model::create_evaluate_pipeline_with_ebc(
-    std::vector<std::shared_ptr<Core23TempNetwork>>&);
+    std::vector<std::shared_ptr<Network>>& networks);
+template void Model::create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>&);
 
 }  // namespace HugeCTR

@@ -63,52 +63,24 @@ SequenceMaskLayer<T>::SequenceMaskLayer(const std::vector<core23::Tensor>& input
 }
 
 template <typename T>
-SequenceMaskLayer<T>::SequenceMaskLayer(
-    const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor, int max_sequence_len_from,
-    int max_sequence_len_to, const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-    const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource),
-      max_sequence_len_from_(max_sequence_len_from),
-      max_sequence_len_to_(max_sequence_len_to) {
-  assert(in_tensors.size() == 2);
-
-  for (const Tensor2<T>& in_tensor : in_tensors) {
-    in_tensors_.push_back(in_tensor);
-  }
-
-  out_tensor_ = out_tensor;
-}
-
-template <typename T>
 void SequenceMaskLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  // int max_sequence_len = max_sequence_len_;
-  if (input_tensors_.empty()) {
-    T* seq_from_len = in_tensors_[0].get_ptr();
-    T* seq_to_len = in_tensors_[1].get_ptr();
-    T* output = out_tensor_.get_ptr();
 
-    const size_t batch_size = in_tensors_[0].get_dimensions()[0];
-    const size_t block_dim = 1024;
+  auto* seq_from_len = input_tensors_[0].data<T>();
+  auto* seq_to_len = input_tensors_[1].data<T>();
+  auto* output = output_tensors_[0].data<T>();
 
-    build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
-        output, seq_from_len, seq_to_len, max_sequence_len_from_, max_sequence_len_to_);
-  } else {
-    auto* seq_from_len = input_tensors_[0].data<T>();
-    auto* seq_to_len = input_tensors_[1].data<T>();
-    auto* output = output_tensors_[0].data<T>();
+  const auto batch_size = input_tensors_[0].shape().size(0);
+  const size_t block_dim = 1024;
 
-    const auto batch_size = input_tensors_[0].shape().size(0);
-    const size_t block_dim = 1024;
-
-    build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
-        output, seq_from_len, seq_to_len, max_sequence_len_from_, max_sequence_len_to_);
-  }
+  build_sequence_mask_kernel<<<batch_size, block_dim, 0, get_gpu().get_stream()>>>(
+      output, seq_from_len, seq_to_len, max_sequence_len_from_, max_sequence_len_to_);
 }
 
 template <typename T>
 void SequenceMaskLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
+  return;
 }
 
 template class SequenceMaskLayer<float>;

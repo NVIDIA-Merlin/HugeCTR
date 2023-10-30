@@ -27,35 +27,8 @@ namespace HugeCTR {
  */
 template <typename T>
 class ReduceSumLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   ReduceSumLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor, int axis,
-                 const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of ReduceSumLayer.
-   * @param in_tensor the input tensor, could be 2D or 3D
-   * @param out_tensor the resulting output tensor
-   * @param axis the reduced dimension, could be 0,1,2
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ReduceSumLayer(const Tensor2<T>& in_tensors, Tensor2<T>& out_tensor,
-                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
                  const std::shared_ptr<GPUResource>& gpu_resource);
   ~ReduceSumLayer(){};
 

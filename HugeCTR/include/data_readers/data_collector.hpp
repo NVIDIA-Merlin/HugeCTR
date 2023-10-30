@@ -30,11 +30,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-template <typename TypeComp>
-void split(Tensor2<float> &label_tensor, Tensor2<TypeComp> &dense_tensor,
-           const core23::Tensor &label_dense_buffer, const int label_dense_dim,
-           cudaStream_t stream);
 template <typename TypeComp>
 void split(core23::Tensor &label_tensor, core23::Tensor &dense_tensor,
            const core23::Tensor &label_dense_buffer, const int label_dense_dim,
@@ -68,8 +63,6 @@ class DataCollector {
     void stop();
   };
   std::shared_ptr<BroadcastBuffer23> broadcast_buffer_;
-  // TODO remove it
-  std::shared_ptr<DataReaderOutput> output_buffer_;
   std::shared_ptr<DataReaderOutput23> output_buffer23_;
 
   BackgroundDataCollectorThread background_collector_;
@@ -84,10 +77,6 @@ class DataCollector {
   void stop();
   DataCollector(const std::vector<std::shared_ptr<ThreadBuffer23>> &thread_buffers,
                 const std::shared_ptr<BroadcastBuffer23> &broadcast_buffer,
-                std::shared_ptr<DataReaderOutput> &output,
-                const std::shared_ptr<ResourceManager> &resource_manager);
-  DataCollector(const std::vector<std::shared_ptr<ThreadBuffer23>> &thread_buffers,
-                const std::shared_ptr<BroadcastBuffer23> &broadcast_buffer,
                 std::shared_ptr<DataReaderOutput23> &output,
                 const std::shared_ptr<ResourceManager> &resource_manager);
   ~DataCollector();
@@ -96,5 +85,4 @@ class DataCollector {
 
   void finalize_batch();
 };
-};  // namespace core23_reader
 }  // namespace HugeCTR

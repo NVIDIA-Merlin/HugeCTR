@@ -19,11 +19,6 @@
 #include <utils.cuh>
 
 namespace HugeCTR {
-template <typename T>
-NoRegularizer<T>::NoRegularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-                                const int batch_size,
-                                const std::shared_ptr<GPUResource>& gpu_resource)
-    : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource) {}
 
 template <typename T>
 NoRegularizer<T>::NoRegularizer(std::optional<WeightTensors> weight_tensors,
@@ -39,10 +34,6 @@ void NoRegularizer<T>::do_compute_rterm(const float* weight, float* rterm, int n
 template <typename T>
 void NoRegularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                                            cudaStream_t stream) {
-  // int n_blocks = Regularizer<T>::get_gpu().get_sm_count() * 4;
-  // int block_size = 512;
-  // initialize_array<<<n_blocks, block_size, 0, stream>>>(
-  //     wgrad, num_elements, T(0.0f));
   HCTR_LIB_THROW(cudaMemsetAsync(wgrad, 0, num_elements * sizeof(T), stream));
 }
 

@@ -37,21 +37,6 @@ __global__ void momentum_sgd_update_kernel(int len, float* weight, float* moment
 }
 
 }  // namespace
-template <typename T>
-MomentumSGDOptimizer<T>::MomentumSGDOptimizer(const Tensor2<float>& weight, const Tensor2<T>& wgrad,
-                                              const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                              const std::shared_ptr<GPUResource>& gpu_resource,
-                                              float learning_rate, float momentum_factor,
-                                              float scaler)
-    : Optimizer(weight, gpu_resource, learning_rate, scaler),
-      wgrad_(wgrad),
-      wgrad_tensors_({}),
-      momentum_factor_(momentum_factor) {
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-  opt_buf->reserve({weight.get_num_elements()}, &momentum_);
-}
 
 template <typename T>
 MomentumSGDOptimizer<T>::MomentumSGDOptimizer(std::optional<WeightTensors> weight_tensors,
@@ -74,13 +59,8 @@ MomentumSGDOptimizer<T>::MomentumSGDOptimizer(std::optional<WeightTensors> weigh
 
 template <typename T>
 void MomentumSGDOptimizer<T>::initialize() {
-  if (!wgrad_tensors_) {
-    HCTR_LIB_THROW(cudaMemsetAsync(momentum_.get_ptr(), 0, momentum_.get_size_in_bytes(),
-                                   gpu_resource_->get_stream()));
-  } else {
-    HCTR_LIB_THROW(cudaMemsetAsync(momentum_tensor_.data(), 0, momentum_tensor_.num_bytes(),
-                                   gpu_resource_->get_stream()));
-  }
+  HCTR_LIB_THROW(cudaMemsetAsync(momentum_tensor_.data(), 0, momentum_tensor_.num_bytes(),
+                                 gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -89,27 +69,16 @@ void MomentumSGDOptimizer<T>::update() {
 
   constexpr size_t block_dim = 256;
 
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-    float* weight = weight_main_.get_ptr();
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  const T* wgrad = flat_wgrad_tensor.data();
+  const size_t len = flat_weight_tensor.size(0);
+  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-    float* momentum = momentum_.get_ptr();
-    T* wgrad = wgrad_.get_ptr();
-    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
-  } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    const T* wgrad = flat_wgrad_tensor.data();
-    const size_t len = flat_weight_tensor.size(0);
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-
-    float* momentum = momentum_tensor_.data<float>();
-    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
-  }
+  float* momentum = momentum_tensor_.data<float>();
+  momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
 }
 
 template class MomentumSGDOptimizer<float>;

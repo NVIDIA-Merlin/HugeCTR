@@ -20,7 +20,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
 template <typename TypeKey>
 class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   std::string file_list_; /**< file list of data set */
@@ -58,7 +57,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
 
     set_resource_manager(resource_manager_);
     for (int i = 0; i < num_threads; i++) {
-      std::shared_ptr<IDataReaderWorker> data_reader(new core23_reader::DataReaderWorker<TypeKey>(
+      std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
           i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count),
           data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat,
           check_type, params));
@@ -67,5 +66,4 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
     create_data_reader_threads();
   }
 };
-}  // namespace core23_reader
 }  // namespace HugeCTR

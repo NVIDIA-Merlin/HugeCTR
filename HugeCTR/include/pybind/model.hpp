@@ -364,7 +364,7 @@ class CopyOpImpl final : public CopyOp {
 
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
-               std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
+               std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
                std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
                std::shared_ptr<IDataReader>& train_data_reader,
@@ -375,16 +375,17 @@ void add_input(Input& input, DataReaderParams& reader_params,
                const std::shared_ptr<ResourceManager>);
 
 template <typename TypeKey, typename TypeFP>
-void add_sparse_embedding(
-    SparseEmbedding& sparse_embedding,
-    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
-    std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-    size_t batch_size_eval, OptParams& embedding_opt_params,
-    std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph, bool grouped_all_reduce,
-    size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches);
+void add_sparse_embedding(SparseEmbedding& sparse_embedding,
+                          std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                          std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
+                          std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
+                          std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                          const std::shared_ptr<ResourceManager>& resource_manager,
+                          size_t batch_size, size_t batch_size_eval,
+                          OptParams& embedding_opt_params,
+                          std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
+                          bool grouped_all_reduce, size_t num_iterations_statistics,
+                          GpuLearningRateSchedulers& gpu_lr_sches);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -492,7 +493,7 @@ class Model final {
       lr_embedding = embedding->is_trainable() ? lr : 0.f;
       embedding->set_learning_rate(lr_embedding);
     }
-    for (auto& network : core23_networks_) {
+    for (auto& network : networks_) {
       network->set_learning_rate(lr_dense);
     }
     for (auto& ebc : ebc_list_) {
@@ -506,7 +507,7 @@ class Model final {
     for (auto& embedding : embeddings_) {
       size += embedding->get_params_num();
     }
-    return static_cast<long long>(core23_networks_[0]->get_params_num()) + size;
+    return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
 
   const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
@@ -593,8 +594,8 @@ class Model final {
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 
-  std::map<std::string, core23_reader::SparseInput<long long>> sparse_input_map_64_;
-  std::map<std::string, core23_reader::SparseInput<unsigned int>> sparse_input_map_32_;
+  std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
+  std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
 
   std::vector<std::vector<TensorEntity>> train_tensor_entities_list_;
   std::vector<std::vector<TensorEntity>> evaluate_tensor_entities_list_;
@@ -624,7 +625,7 @@ class Model final {
   std::vector<std::pair<std::string, std::string>>
       input_output_info_;               /**< input output name of each layer. */
   std::vector<std::string> layer_info_; /**< type of each layer. */
-  std::vector<std::shared_ptr<Core23TempNetwork>> core23_networks_;
+  std::vector<std::shared_ptr<Network>> networks_;
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
 
   using TableNameToGlobalIDDict = std::unordered_map<std::string, std::pair<int, int>>;
@@ -758,18 +759,18 @@ class Model final {
     return (embeddings_.size() == 1 &&
             embeddings_[0]->get_embedding_type() == Embedding_t::HybridSparseEmbedding);
   }
-  template <typename Network>
-  void create_train_pipeline(std::vector<std::shared_ptr<Network>>& networks);
-  template <typename Network>
-  void create_evaluate_pipeline(std::vector<std::shared_ptr<Network>>& networks);
-  template <typename Network>
-  void create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename NetworkType>
+  void create_train_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
+  template <typename NetworkType>
+  void create_evaluate_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
+  template <typename NetworkType>
+  void create_train_network_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
   template <typename Network>
   void create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
-  template <typename Network>
-  void create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
-  template <typename Network>
-  void create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
+  template <typename NetworkType>
+  void create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks);
+  template <typename NetworkType>
+  void create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks);
 
   bool skip_prefetch_in_last_batch(bool is_train);
   long long read_a_batch(bool is_train);

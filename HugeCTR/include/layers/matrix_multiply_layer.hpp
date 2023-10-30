@@ -26,37 +26,10 @@ namespace HugeCTR {
  */
 template <typename T>
 class MatrixMultiplyLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer.
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   MatrixMultiplyLayer(const std::vector<core23::Tensor>& input_tensors,
                       core23::Tensor& output_tensor,
                       const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of MatrixMultiplyLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  MatrixMultiplyLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-                      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                      const std::shared_ptr<GPUResource>& gpu_resource);
-
   /**
    * MatrixMultiplyLayer's forward propagation
    * @param stream CUDA stream where the forward propagation is executed
@@ -72,9 +45,6 @@ class MatrixMultiplyLayer : public Layer {
   size_t num_;
   size_t dims_lhs_;
   size_t dims_rhs_;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
-  Tensor2<T> fprop_inputA_;
   core23::Tensor fprop_inputA_tensor23_;
 };
 
