@@ -2,18 +2,49 @@
 
 ## What's New in Version 23.09
 
++ **Code Cleaning and Deprecation**
+  + The offline inference has been deprecated from our documentation, notebook suite, and code. Please check out the HPS plugin for [TensorFlow](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_user_guide.html) and [TensorRT](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_trt_user_guide.html). The multi-GPU inference is not illustrated in [this HPS TRT notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/hps_trt/notebooks/demo_for_tf_trained_model.ipynb).
+  + We are working on deprecating the [Embedding Training Cache (ETC)](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_embedding_training_cache.html). If you trying using that feature, it still works but omits a deprecation warning message. In a near-futre release, they will be removed from the API and code level. Please refer to the NVIDIA [HierarchicalKV](https://github.com/NVIDIA-Merlin/HierarchicalKV) as an alternative.
+  + In this release, we have also cleaned up our C++ code and CMakeLists.txt to improve their maintainability and fix minor but potential issues. There will be more code cleanup in several future releases.
++ **General Updates**:
+  + Enabled the support of the static CUDA runtime. Now you can experimentally enable the feature by specifying `-DUSE_CUDART_STATIC=ON` in configuring the code with cmake, while the dynamic CUDA runtime is still used by default.
+  + Added HPS as a custom extension for TorchScript. A user can leverage the HPS embedding lookup during the inference of scripted torch module.
++ **Issues Fixed**:
+  + Resolved a couple of performance regressions when the SOK is used together with HKV, related to unique operation and unified memory
+  + Reduced the unnessary memory consumption of intermediate buffers in loading and dumping the SOK embedding
+  + Fixed the Interaction Layer to support large `num_slots`
+  + Resolved the occasional runtime error in using multiple H800 GPUs
+
++ **Known Issues**:
+  + If we set `max_eval_batches` and `batchsize_eval` to some large values such as 5000 and 12000 respectively, the training process leads to the illegal memory access error. [The issue](https://github.com/NVIDIA/cccl/issues/293) is from the CUB, and is fixed in its latest version. However, because it is only included in CUDA 12.3, which is not used by our NGC container yet, until we update our NGC container to rely upon that version of CUDA, please rebuild HugeCTR with the newest CUB as a workaround. Otherwise, please try to avoid such large `max_eval_batches` and `batchsize_eval`.
+  + HugeCTR can lead to a runtime error if client code calls RMM’s `rmm::mr::set_current_device_resource()` or  `rmm::mr::set_current_device_resource()` because HugeCTR’s Parquet Data Reader also calls `rmm::mr::set_current_device_resource()`, and it becomes visible to other libraries in the same process. Refer to [this issue] (https://github.com/NVIDIA-Merlin/HugeCTR/issues/356) . As a workaround, a user can set an environment variable `HCTR_RMM_SETTABLE` to 0 to disable HugeCTR to set a custom RMM device resource, if they know `rmm::mr::set_current_device_resource()`  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also [this NCCL known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and this GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
+
+## What's New in Version 23.08
+
 + **Hierarchical Parameter Server**:
-  + Support static EC fp8 quantization
-We already support quantization for fp8 in the static cache. HPS will perform fp8 quantization on the embedding vector when reading the embedding table by enable fp8_quant configuration, and perform fp32 dequantization on the embedding vector corresponding to the queried embedding key in the static embedding cache, so as to ensure the accuracy of dense part prediction.
-  + Large model deployment demo based on HPS TensorRT-plugin
-This demo shows how to use the HPS TRT-plugin to build a complete TRT engine for deploying a 147GB embedding table based on a 1TB Criteo dataset. We also provide static embedding implementation for fully offloading embedding tables to host page-locke memory for benchmarks on x86 and Grace Hopper Superchip.
+  + Support static EC fp8 quantization: We already support quantization for fp8 in the static cache. HPS will perform fp8 quantization on the embedding vector when reading the embedding table by enable fp8_quant configuration, and perform fp32 dequantization on the embedding vector corresponding to the queried embedding key in the static embedding cache, so as to ensure the accuracy of dense part prediction.
+  + Large model deployment demo based on HPS TensorRT-plugin: This demo shows how to use the HPS TRT-plugin to build a complete TRT engine for deploying a 147GB embedding table based on a 1TB Criteo dataset. We also provide static embedding implementation for fully offloading embedding tables to host page-locke memory for benchmarks on x86 and Grace Hopper Superchip.
   + Issues Fixed
     + Resolve Kafka update ingestion error. There was an error that prevented handing over online parameter updates coming from Kafka message queues to Redis database backends.
     + Fixed HPS Triton backend re-initializing the embedding cache issue due to undefined null when getting the embedded cache on the corresponding device. 
 
 + **HugeCTR Training & SOK**:
-  + Dense Embedding Support in Embedding Collection
-We add the dense embedding in embedding collection. To use the dense embedding, a user just needs to specify the `_concat_` as the combiner. For more information, please refer to [dense_embedding.py](test/embedding_collection_test/dgx_a100_one_hot.py).
+  + Dense Embedding Support in Embedding Collection: We add the dense embedding in embedding collection. To use the dense embedding, a user just needs to specify the `_concat_` as the combiner. For more information, please refer to [dense_embedding.py](test/embedding_collection_test/dgx_a100_one_hot.py).
   + Refinement of sequence mask layer and attention softmax layer to support cross-attention.
   + We introduce a more generalized reshape layer which allows user to reshape source tensor to destination tensor without dimension restriction. Please refer [Reshape Layer API](docs/source/api/hugectr_layer_book.md#reshape-layer) for more detailed information 
   + Issues Fixed
