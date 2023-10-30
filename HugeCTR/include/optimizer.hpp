@@ -207,17 +207,6 @@ class Optimizer {
    */
   template <typename T>
   static std::unique_ptr<Optimizer> Create(const OptParams& params,
-                                           const Tensor2<float>& weight_main,
-                                           const Tensor2<__half>& weight_main_half,
-                                           const Tensor2<T>& wgrad, const float scaler,
-                                           const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-                                           const std::shared_ptr<GPUResource>& gpu_resource,
-                                           bool use_mixed_precision);
-  /**
-   * Helper to create a speicifed Optimizer object
-   */
-  template <typename T>
-  static std::unique_ptr<Optimizer> Create(const OptParams& params,
                                            std::vector<core23::Tensor> weight_tensors,
                                            std::vector<core23::Tensor> weight_half_tensors,
                                            std::vector<core23::Tensor> wgrade_tensors,
@@ -225,26 +214,6 @@ class Optimizer {
                                            const std::shared_ptr<GPUResource>& gpu_resource,
                                            bool use_mixed_precision);
 
-  /**
-   * Constructor of Optimizer.
-   * @param weight_main weights to be updated
-   * @param wgrad gradient for weights
-   * @param device_id the id of GPU where update kernel is launched
-   * @param learning_rate learning rate
-   */
-  Optimizer(const Tensor2<float>& weight_main, const std::shared_ptr<GPUResource>& gpu_resource,
-            float learning_rate, float scaler)
-      : weight_main_(weight_main),
-
-        weight_tensors_({}),
-        gpu_resource_(gpu_resource),
-        lr_(learning_rate),
-        scaler_(scaler),
-        optimizer_type_(Optimizer_t::DEFAULT) {
-    if (lr_ < 0.) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "lr < 0");
-    }
-  }
   /*
    * Constructor of Optimizer with new Tensor
    * @param weight_tensors TensorContainer of all the layers' weights
@@ -299,7 +268,6 @@ class Optimizer {
   const Optimizer_t& get_optimizer_type() { return optimizer_type_; }
 
  protected:
-  Tensor2<float> weight_main_;
   std::optional<WeightTensors> weight_tensors_;
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
@@ -310,7 +278,7 @@ class Optimizer {
 
   int get_device_id() const { return gpu_resource_->get_device_id(); }
 };
-
+// TODO Remove Tensor2-based embedding sparse optimizer
 struct SparseEmbeddingHashParams;
 template <typename TypeEmbeddingComp>
 struct OptimizerTensor {

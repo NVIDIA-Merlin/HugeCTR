@@ -28,7 +28,6 @@
 
 namespace HugeCTR {
 namespace MultiHot {
-namespace core23_reader {
 template <typename SparseType>
 AsyncDataReader<SparseType>::AsyncDataReader(
     std::vector<FileSource> data_files, const std::shared_ptr<ResourceManager>& resource_manager,
@@ -549,9 +548,7 @@ AsyncDataReader<SparseType>::~AsyncDataReader() {
   }
 }
 
-};  // namespace core23_reader
-
-template class core23_reader::AsyncDataReader<uint32_t>;
-template class core23_reader::AsyncDataReader<long long>;
+template class AsyncDataReader<uint32_t>;
+template class AsyncDataReader<long long>;
 }  // namespace MultiHot
 }  // namespace HugeCTR

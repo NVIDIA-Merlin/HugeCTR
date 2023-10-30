@@ -40,7 +40,6 @@ __global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, T
   return;
 }
 
-namespace core23_reader {
 template <typename TypeComp>
 void split(core23::Tensor& label_tensor, core23::Tensor& dense_tensor,
            const core23::Tensor& label_dense_buffer, const int label_dense_dim,
@@ -136,16 +135,12 @@ template void broadcast<long long>(const std::shared_ptr<ThreadBuffer23>& thread
                                    std::vector<size_t>& last_batch_nnz_,
                                    const std::shared_ptr<ResourceManager>& resource_manager);
 
-};  // namespace core23_reader
+template void split<float>(core23::Tensor& label_tensor, core23::Tensor& dense_tensor,
+                           const core23::Tensor& label_dense_buffer, const int label_dense_dim,
+                           cudaStream_t stream);
 
-template void core23_reader::split<float>(core23::Tensor& label_tensor,
-                                          core23::Tensor& dense_tensor,
-                                          const core23::Tensor& label_dense_buffer,
-                                          const int label_dense_dim, cudaStream_t stream);
-
-template void core23_reader::split<__half>(core23::Tensor& label_tensor,
-                                           core23::Tensor& dense_tensor,
-                                           const core23::Tensor& label_dense_buffer,
-                                           const int label_dense_dim, cudaStream_t stream);
+template void split<__half>(core23::Tensor& label_tensor, core23::Tensor& dense_tensor,
+                            const core23::Tensor& label_dense_buffer, const int label_dense_dim,
+                            cudaStream_t stream);
 
 }  // namespace HugeCTR

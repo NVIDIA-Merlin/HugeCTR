@@ -18,7 +18,6 @@
 #include <cuda_utils.cuh>
 #include <functional>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/reduce.cuh>
@@ -40,24 +39,6 @@ PRelu_Dice_Layer<T>::PRelu_Dice_Layer(const core23::Tensor &input_tensor,
   E_x_ = core23::Tensor({(int64_t)hiddensize_}, core23::DataType(core23::ToScalarType<T>::value));
   Var_x_ = core23::Tensor({(int64_t)hiddensize_}, core23::DataType(core23::ToScalarType<T>::value));
   E_x2_ = core23::Tensor({(int64_t)hiddensize_}, core23::DataType(core23::ToScalarType<T>::value));
-}
-
-template <typename T>
-PRelu_Dice_Layer<T>::PRelu_Dice_Layer(
-    const Tensor2<T> &in_tensor, const Tensor2<T> &out_tensor,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff, T alpha, T epsilon,
-    const std::shared_ptr<GPUResource> &gpu_resource)
-    : Layer(gpu_resource), alpha_(alpha), epsilon_(epsilon) {
-  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
-
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-  len = in_tensors_[0].get_num_elements();
-  batchsize_ = in_tensor.get_dimensions()[0];
-  hiddensize_ = len / batchsize_;
-  blobs_buff->reserve({hiddensize_}, &E_x);
-  blobs_buff->reserve({hiddensize_}, &Var_x);
-  blobs_buff->reserve({hiddensize_}, &E_x2);
 }
 
 template <typename T>
@@ -109,106 +90,56 @@ template <typename T>
 void PRelu_Dice_Layer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    Tensor2<T> &in_tensor = in_tensors_[0];
-    Tensor2<T> &out_tensor = out_tensors_[0];
-    const auto &in_tensor_dim = in_tensor.get_dimensions();
+  core23::Tensor &input_tensor = input_tensors_[0];
+  core23::Tensor &output_tensor = output_tensors_[0];
+  const auto &input_tensor_shape = input_tensor.shape();
 
-    T alpha = alpha_;
-    T epsilon = epsilon_;
-    int batchsize = batchsize_;
-    int hiddensize = hiddensize_;
+  T alpha = alpha_;
+  T epsilon = epsilon_;
+  int batchsize = batchsize_;
+  int hiddensize = hiddensize_;
 
-    // Get mean of each batch.
-    MLCommon::LinAlg::reduce(
-        E_x.get_ptr(), in_tensor.get_ptr(), hiddensize, batchsize, T(0), true, false,
-        get_gpu().get_stream(), false, [] __device__(T in, int i) { return in; },
-        [] __device__(T a, T b) { return a + b; },
-        [batchsize] __device__(T out) { return out / batchsize; });
+  // Get mean of each batch.
+  MLCommon::LinAlg::reduce(
+      E_x_.data<T>(), input_tensor.data<T>(), hiddensize, batchsize, T(0), true, false,
+      get_gpu().get_stream(), false, [] __device__(T in, int i) { return in; },
+      [] __device__(T a, T b) { return a + b; },
+      [batchsize] __device__(T out) { return out / batchsize; });
 
-    // Get Variance of each batch. Var_x = E(x^2) - E(x)^2;
-    // E(x^2);
-    MLCommon::LinAlg::reduce(
-        E_x2.get_ptr(), in_tensor.get_ptr(), hiddensize, batchsize, T(0), true, false,
-        get_gpu().get_stream(), false, [] __device__(T in, int i) { return pow(in, 2.0); },
-        [] __device__(T a, T b) { return a + b; },
-        [batchsize] __device__(T out) { return out / batchsize; });
-    // E(x)^2;
-    MLCommon::LinAlg::unaryOp(
-        Var_x.get_ptr(), E_x.get_ptr(), hiddensize, [] __device__(T in) { return pow(in, 2.0); },
-        get_gpu().get_stream());
-    // Var_x = E(x^2) - E(x)^2;
-    MLCommon::LinAlg::binaryOp(
-        Var_x.get_ptr(), E_x2.get_ptr(), Var_x.get_ptr(), hiddensize,
-        [] __device__(T a, T b) { return a - b; }, get_gpu().get_stream());
+  // Get Variance of each batch. Var_x = E(x^2) - E(x)^2;
+  // E(x^2);
+  MLCommon::LinAlg::reduce(
+      E_x2_.data<T>(), input_tensor.data<T>(), hiddensize, batchsize, T(0), true, false,
+      get_gpu().get_stream(), false, [] __device__(T in, int i) { return pow(in, 2.0); },
+      [] __device__(T a, T b) { return a + b; },
+      [batchsize] __device__(T out) { return out / batchsize; });
+  // E(x)^2;
+  MLCommon::LinAlg::unaryOp(
+      Var_x_.data<T>(), E_x_.data<T>(), hiddensize, [] __device__(T in) { return pow(in, 2.0); },
+      get_gpu().get_stream());
+  // Var_x = E(x^2) - E(x)^2;
+  MLCommon::LinAlg::binaryOp(
+      Var_x_.data<T>(), E_x2_.data<T>(), Var_x_.data<T>(), hiddensize,
+      [] __device__(T a, T b) { return a - b; }, get_gpu().get_stream());
 
-    Dice_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), E_x.get_ptr(), Var_x.get_ptr(), alpha,
-               epsilon, in_tensor_dim[0], in_tensor_dim[1], get_gpu().get_stream());
-  } else {
-    core23::Tensor &input_tensor = input_tensors_[0];
-    core23::Tensor &output_tensor = output_tensors_[0];
-    const auto &input_tensor_shape = input_tensor.shape();
-
-    T alpha = alpha_;
-    T epsilon = epsilon_;
-    int batchsize = batchsize_;
-    int hiddensize = hiddensize_;
-
-    // Get mean of each batch.
-    MLCommon::LinAlg::reduce(
-        E_x_.data<T>(), input_tensor.data<T>(), hiddensize, batchsize, T(0), true, false,
-        get_gpu().get_stream(), false, [] __device__(T in, int i) { return in; },
-        [] __device__(T a, T b) { return a + b; },
-        [batchsize] __device__(T out) { return out / batchsize; });
-
-    // Get Variance of each batch. Var_x = E(x^2) - E(x)^2;
-    // E(x^2);
-    MLCommon::LinAlg::reduce(
-        E_x2_.data<T>(), input_tensor.data<T>(), hiddensize, batchsize, T(0), true, false,
-        get_gpu().get_stream(), false, [] __device__(T in, int i) { return pow(in, 2.0); },
-        [] __device__(T a, T b) { return a + b; },
-        [batchsize] __device__(T out) { return out / batchsize; });
-    // E(x)^2;
-    MLCommon::LinAlg::unaryOp(
-        Var_x_.data<T>(), E_x_.data<T>(), hiddensize, [] __device__(T in) { return pow(in, 2.0); },
-        get_gpu().get_stream());
-    // Var_x = E(x^2) - E(x)^2;
-    MLCommon::LinAlg::binaryOp(
-        Var_x_.data<T>(), E_x2_.data<T>(), Var_x_.data<T>(), hiddensize,
-        [] __device__(T a, T b) { return a - b; }, get_gpu().get_stream());
-
-    Dice_fprop(output_tensor.data<T>(), input_tensor.data<T>(), E_x_.data<T>(), Var_x_.data<T>(),
-               alpha, epsilon, input_tensor_shape.size(0), input_tensor_shape.size(1),
-               get_gpu().get_stream());
-  }
+  Dice_fprop(output_tensor.data<T>(), input_tensor.data<T>(), E_x_.data<T>(), Var_x_.data<T>(),
+             alpha, epsilon, input_tensor_shape.size(0), input_tensor_shape.size(1),
+             get_gpu().get_stream());
 }
 
 template <typename T>
 void PRelu_Dice_Layer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    Tensor2<T> &bottom_tensor = in_tensors_[0];
-    Tensor2<T> &top_tensor = out_tensors_[0];
-    const auto &bottom_tensor_dim = bottom_tensor.get_dimensions();
-    T alpha = alpha_;
-    T epsilon = epsilon_;
+  core23::Tensor &bottom_tensor = input_tensors_[0];
+  core23::Tensor &top_tensor = output_tensors_[0];
+  const auto &bottom_tensor_shape = bottom_tensor.shape();
+  T alpha = alpha_;
+  T epsilon = epsilon_;
 
-    Dice_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), E_x.get_ptr(), Var_x.get_ptr(), alpha,
-               epsilon, bottom_tensor_dim[0], bottom_tensor_dim[1], get_gpu().get_stream());
-  } else {
-    core23::Tensor &bottom_tensor = input_tensors_[0];
-    core23::Tensor &top_tensor = output_tensors_[0];
-    const auto &bottom_tensor_shape = bottom_tensor.shape();
-    T alpha = alpha_;
-    T epsilon = epsilon_;
-
-    Dice_bprop(top_tensor.data<T>(), bottom_tensor.data<T>(), E_x_.data<T>(), Var_x_.data<T>(),
-               alpha, epsilon, bottom_tensor_shape.size(0), bottom_tensor_shape.size(1),
-               get_gpu().get_stream());
-  }
+  Dice_bprop(top_tensor.data<T>(), bottom_tensor.data<T>(), E_x_.data<T>(), Var_x_.data<T>(), alpha,
+             epsilon, bottom_tensor_shape.size(0), bottom_tensor_shape.size(1),
+             get_gpu().get_stream());
 }
 
 template class PRelu_Dice_Layer<float>;

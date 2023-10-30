@@ -144,30 +144,23 @@ FrequentEmbeddingData<dtype, emtype>::FrequentEmbeddingData(const Model<dtype>& 
   if (grouped_wgrad_buff == NULL) {
     buf->reserve({max_num_frequent_categories, embedding_vec_size_}, &gradients);
   } else {
-    int use_core23 = 1;
-    if (getenv("HUGECTR_CORE23_NETWORK")) {
-      use_core23 = atoi(getenv("HUGECTR_CORE23_NETWORK"));
-    }
-    if (use_core23) {
-      core23::BufferParams buffer_params = {};
-      // TODO this has to be consistent with add_dense_layer.cpp:2126
-      buffer_params.channel = std::is_same_v<emtype, float> ? "TRAIN_WGRAD" : "TRAIN_WGRAD_HALF";
-      core23::Device device(core23::DeviceType::GPU, gpu_resource.get_device_id());
-      core23::Shape shape{(int64_t)max_num_frequent_categories, (int64_t)embedding_vec_size_};
+    core23::BufferParams buffer_params = {};
+    // TODO this has to be consistent with add_dense_layer.cpp:2126
+    buffer_params.channel = std::is_same_v<emtype, float> ? "TRAIN_WGRAD" : "TRAIN_WGRAD_HALF";
+    core23::Device device(core23::DeviceType::GPU, gpu_resource.get_device_id());
+    core23::Shape shape{static_cast<int64_t>(max_num_frequent_categories),
+                        static_cast<int64_t>(embedding_vec_size_)};
 
-      core23::TensorParams t_params = core23::TensorParams()
-                                          .data_type(core23::ToScalarType<emtype>::value)
-                                          .shape(shape)
-                                          .device(device)
-                                          .buffer_params(buffer_params)
-                                          .alignment(256);  // default 256 Byte
-      core23::Tensor grad_tensor(t_params);
-      wgrad_core23_buffer_ = std::make_shared<Core23WrappingBuffer>(grad_tensor);
-      gradients =
-          Tensor2<emtype>({max_num_frequent_categories, embedding_vec_size_}, wgrad_core23_buffer_);
-    } else {
-      grouped_wgrad_buff->reserve({max_num_frequent_categories, embedding_vec_size_}, &gradients);
-    }
+    core23::TensorParams t_params = core23::TensorParams()
+                                        .data_type(core23::ToScalarType<emtype>::value)
+                                        .shape(shape)
+                                        .device(device)
+                                        .buffer_params(buffer_params)
+                                        .alignment(256);  // default 256 Byte
+    core23::Tensor grad_tensor(t_params);
+    wgrad_core23_buffer_ = std::make_shared<Core23WrappingBuffer>(grad_tensor);
+    gradients =
+        Tensor2<emtype>({max_num_frequent_categories, embedding_vec_size_}, wgrad_core23_buffer_);
   }
 
   buf->allocate();

@@ -31,16 +31,6 @@ class NoRegularizer : public Regularizer<T> {
  public:
   /*
    * Constructor of NoRegularizer
-   * @param weight_buff GeneralBuffer containing all the layers' weights
-   * @param wgrad_buff GeneralBuffer containing all the layers' wgrads
-   * @param batch_size Network batch size
-   * @param device_id Device to be used
-   */
-  NoRegularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-                const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
-
-  /*
-   * Constructor of NoRegularizer
    * @param weight_tensors TensorContainer of all the layers' weights
    * @param wgrad_tensors TensorContainer of all the layers' wgrads
    * @param batch_size Network batch size

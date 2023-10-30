@@ -42,7 +42,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
                          int batches_per_thread, int label_dim, int dense_dim, int sparse_dim,
                          int num_passes, int seed, bool wait_for_gpu_idle = false,
                          bool shuffle = false) {
-  using DataReaderType = core23_reader::AsyncReader<dtype>;
+  using DataReaderType = AsyncReader<dtype>;
 
   const std::string fname = "__tmp_test.dat";
   size_t io_block_size = io_alignment * 8;

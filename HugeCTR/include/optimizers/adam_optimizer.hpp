@@ -29,21 +29,6 @@ class AdamOptimizer : public Optimizer {
   /**
    * Constructor of AdamOptimizer.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
-   * @param weight_main weights to be updated
-   * @param wgrad gradient for weights
-   * @param device_id the id of GPU where update kernel is launched
-   * @param learning_rate learning rate, alpha in Adam paper
-   * @param beta1 beta1 in Adam paper
-   * @param beta2 beta2 in Adam paper
-   * @param epsilon epsilon in Adam paper
-   */
-  AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
-                float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
-  /**
-   * Constructor of AdamOptimizer.
-   * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
    * @param weight_tensors  a lit of weight tensor in dense layers
    * @param wgrad_ gradient for weights
    * @param gpu_resource the GPU where update kernel is launched
@@ -70,9 +55,6 @@ class AdamOptimizer : public Optimizer {
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
-  Tensor2<T> wgrad_;
-  Tensor2<float> m_;
-  Tensor2<float> v_;
   std::optional<WgradTensors<T>> wgrad_tensors_;
   core23::Tensor m_tensor_;
   core23::Tensor v_tensor_;

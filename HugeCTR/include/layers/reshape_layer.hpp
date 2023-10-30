@@ -28,64 +28,20 @@ namespace HugeCTR {
  */
 template <typename T>
 class ReshapeLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
   bool in_place_;
   int batch_size_;
   int n_slot_;
   int vector_length_;
   size_t n_active_slot_;
-  Tensor2<int> selected_tensor_;
   std::vector<int> selected_;
   core23::Tensor selected_slots_tensor_;
 
   void prop_common(bool forward, bool is_train, cudaStream_t stream);
 
-  Tensors2<T>& get_in_tensors(bool is_train);
-
  public:
   ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
                const std::shared_ptr<GPUResource>& gpu_resource);
   ReshapeLayer(const core23::Tensor& input_tensor, core23::Tensor& output_tensor,
-               std::vector<int>& selected, const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * General Purpose Ctor of ReshapeLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
-   * e.g., leading_dim % vector_size == 0
-   * and it must be able to divide the total number of elements in in_tensor
-   * e.g., batch_size * n_slots * vector_size % leading_dim == 0
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-               const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
-   * @param the ID list of slots which are concatenated
-   * If it is empty, it is just near-zero-overhead in-place reshape from 3D to 2D.
-   * Otherwise, the only selected slots are concatenated in newly assigned tensor.
-   * @param device_id the id of GPU where this layer belongs
-   */
-  ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                std::vector<int>& selected, const std::shared_ptr<GPUResource>& gpu_resource);
 
   void initialize() override;

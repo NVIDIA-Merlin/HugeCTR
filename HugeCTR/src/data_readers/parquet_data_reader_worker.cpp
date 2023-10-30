@@ -19,8 +19,6 @@
 #include <data_readers/parquet_data_reader_worker.hpp>
 namespace HugeCTR {
 
-namespace core23_reader {
-// producer
 template <typename T>
 void ParquetDataReaderWorker<T>::do_h2d() {
   CudaDeviceContext context(device_id_);
@@ -465,9 +463,7 @@ ParquetDataReaderWorker<T>::~ParquetDataReaderWorker() {
   }
 }
 
-};  // namespace core23_reader
-
-template class core23_reader::ParquetDataReaderWorker<uint32_t>;
-template class core23_reader::ParquetDataReaderWorker<long long>;
+template class ParquetDataReaderWorker<uint32_t>;
+template class ParquetDataReaderWorker<long long>;
 
 }  // namespace HugeCTR

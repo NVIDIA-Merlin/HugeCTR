@@ -17,7 +17,6 @@
 
 #include <common.hpp>
 #include <core23/tensor_container.hpp>
-#include <general_buffer2.hpp>
 #include <gpu_resource.hpp>
 #include <memory>
 #include <network_helpers.hpp>
@@ -32,16 +31,6 @@ namespace HugeCTR {
 template <typename T = float>
 class Regularizer {
  public:
-  /*
-   * Constructor of Regularizer
-   * @param weight_buff GeneralBuffer containing all the layers' weights
-   * @param wgrad_buff GeneralBuffer containing all the layers' wgrads
-   * @param batch_size Network batch size
-   * @param device_id Device to be used
-   */
-  Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
-              const std::shared_ptr<GPUResource>& gpu_resource);
-
   /*
    * Constructor of Regularizer
    * @param weight_tensors TensorContainer of all the layers' weights
@@ -105,8 +94,6 @@ class Regularizer {
   virtual void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                                    cudaStream_t stream) = 0;
 
-  Tensor2<float> weight_buff_;
-  Tensor2<T> wgrad_buff_;
   std::optional<WeightTensors> weight_tensors_;
   std::optional<WgradTensors<T>> wgrad_tensors_;
   int batch_size_;

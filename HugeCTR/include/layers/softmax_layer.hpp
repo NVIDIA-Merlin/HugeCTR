@@ -21,28 +21,9 @@ namespace HugeCTR {
 
 template <typename T>
 class SoftmaxLayer : public Layer {
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
  public:
   SoftmaxLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
                const std::shared_ptr<GPUResource>& gpu_resource);
-  /**
-   * Ctor of SoftmaxLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  SoftmaxLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-               const std::shared_ptr<GPUResource>& gpu_resource);
-
   /**
    * A method of implementing the forward pass of SoftmaxLayer
    * @param stream CUDA stream where the forward propagation is executed
@@ -53,8 +34,6 @@ class SoftmaxLayer : public Layer {
    * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop() override;
-
-  Tensor2<T>& get_softmax_tensor() { return softmax_out_; }
 
   core23::Tensor& get_softmax_out_tensor() { return softmax_out23_; }
 
@@ -71,10 +50,6 @@ class SoftmaxLayer : public Layer {
   core23::Tensor workspace23_;
   core23::Tensor identity23_;
   core23::Tensor softmax_out23_;
-  // TODO: remove later
-  Tensor2<T> workspace_;
-  Tensor2<T> identity_;
-  Tensor2<T> softmax_out_;
 };
 
 }  // namespace HugeCTR

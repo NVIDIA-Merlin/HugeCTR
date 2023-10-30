@@ -88,8 +88,8 @@ void core23_fused_reshape_concat_test(int64_t batch_size, int64_t slot_num,
   int64_t rows = batch_size * slot_num;
   int64_t out_size_item = batch_size * (slot_num - 1) * out_vector_size;
   int64_t out_size_ad = batch_size * out_vector_size;
-  core23::FusedReshapeConcatLayer<T> fused_reshape_concat_layer(in_tensors, out_tensors,
-                                                                test::get_default_gpu());
+  FusedReshapeConcatLayer<T> fused_reshape_concat_layer(in_tensors, out_tensors,
+                                                        test::get_default_gpu());
 
   fused_reshape_concat_layer.initialize();
   std::unique_ptr<T *[]> h_d_ins(new T *[num]);

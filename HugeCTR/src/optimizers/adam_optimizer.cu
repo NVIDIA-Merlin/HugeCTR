@@ -42,25 +42,6 @@ __global__ void adam_update_kernel(int len, float* weight, float* m, float* v, c
 }  // namespace
 
 template <typename T>
-AdamOptimizer<T>::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                const std::shared_ptr<GPUResource>& gpu_resource,
-                                float learning_rate, float beta1, float beta2, float epsilon,
-                                float scaler)
-    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
-      wgrad_(wgrad),
-      wgrad_tensors_({}),
-      t_(0),
-      beta1_(beta1),
-      beta2_(beta2),
-      epsilon_(epsilon) {
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-  opt_buf->reserve({weight_main.get_num_elements()}, &m_);
-  opt_buf->reserve({weight_main.get_num_elements()}, &v_);
-}
-template <typename T>
 AdamOptimizer<T>::AdamOptimizer(std::optional<WeightTensors> weight_tensors,
                                 std::optional<WgradTensors<T>> wgrad_tensors,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
@@ -85,17 +66,10 @@ AdamOptimizer<T>::AdamOptimizer(std::optional<WeightTensors> weight_tensors,
 
 template <typename T>
 void AdamOptimizer<T>::initialize() {
-  if (!wgrad_tensors_) {
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(m_.get_ptr(), 0, m_.get_size_in_bytes(), gpu_resource_->get_stream()));
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(v_.get_ptr(), 0, v_.get_size_in_bytes(), gpu_resource_->get_stream()));
-  } else {
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(m_tensor_.data(), 0, m_tensor_.num_bytes(), gpu_resource_->get_stream()));
-    HCTR_LIB_THROW(
-        cudaMemsetAsync(v_tensor_.data(), 0, v_tensor_.num_bytes(), gpu_resource_->get_stream()));
-  }
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(m_tensor_.data(), 0, m_tensor_.num_bytes(), gpu_resource_->get_stream()));
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(v_tensor_.data(), 0, v_tensor_.num_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -106,31 +80,20 @@ void AdamOptimizer<T>::update() {
 
   ++t_;
   const float alpha_t = lr_ * std::sqrt(1 - std::pow(beta2_, t_)) / (1 - std::pow(beta1_, t_));
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-    float* weight = weight_main_.get_ptr();
 
-    float* m = m_.get_ptr();
-    float* v = v_.get_ptr();
-    const T* wgrad = wgrad_.get_ptr();
-    adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
-  } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    const T* wgrad = flat_wgrad_tensor.data();
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  const T* wgrad = flat_wgrad_tensor.data();
 
-    auto len = flat_weight_tensor.size(0);
-    const size_t grid_dim = (len - 1) / block_dim + 1;
+  auto len = flat_weight_tensor.size(0);
+  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-    float* m = m_tensor_.data<float>();
-    float* v = v_tensor_.data<float>();
+  float* m = m_tensor_.data<float>();
+  float* v = v_tensor_.data<float>();
 
-    adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
-  }
+  adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
 }
 
 template class AdamOptimizer<float>;

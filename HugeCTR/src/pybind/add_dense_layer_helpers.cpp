@@ -870,11 +870,11 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
         std::vector<core23::Tensor> in_tensors{in_tensor, mask_tensor};
         core23::Tensor out_tensor(tensor_params.shape(in_tensor.shape()));
         if (use_mixed_precision) {
-          layers.emplace_back(new core23::MaskedSoftmaxLayer<__half>(in_tensors, out_tensor,
-                                                                     scale_factor, gpu_resource));
+          layers.emplace_back(
+              new MaskedSoftmaxLayer<__half>(in_tensors, out_tensor, scale_factor, gpu_resource));
         } else {
-          layers.emplace_back(new core23::MaskedSoftmaxLayer<float>(in_tensors, out_tensor,
-                                                                    scale_factor, gpu_resource));
+          layers.emplace_back(
+              new MaskedSoftmaxLayer<float>(in_tensors, out_tensor, scale_factor, gpu_resource));
         }
         output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       }
@@ -891,8 +891,8 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
     case Layer_t::Scale: {
       [[maybe_unused]] auto& scale_in_tensor = input_output_info.input_tensors[0];
       core23::Tensor scale_out_tensor;
-      layers.emplace_back(new core23::ScaleLayer<float>(
-          scale_in_tensor, scale_out_tensor, dense_layer.axis, dense_layer.factor, gpu_resource));
+      layers.emplace_back(new ScaleLayer<float>(scale_in_tensor, scale_out_tensor, dense_layer.axis,
+                                                dense_layer.factor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], scale_out_tensor});
       break;
     }
@@ -900,7 +900,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
       std::vector<core23::Tensor> out_tensors;
       layers.emplace_back(
-          new core23::FusedReshapeConcatLayer<float>(in_tensors, out_tensors, gpu_resource));
+          new FusedReshapeConcatLayer<float>(in_tensors, out_tensors, gpu_resource));
       for (size_t i = 0; i < out_tensors.size(); i++) {
         output_tensor_entities.push_back({input_output_info.output_names[i], out_tensors[i]});
       }
@@ -910,7 +910,7 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       [[maybe_unused]] auto& in_tensors = input_output_info.input_tensors;
       core23::Tensor out_tensor;
       layers.emplace_back(
-          new core23::FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor, gpu_resource));
+          new FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor, gpu_resource));
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;
     }
@@ -919,10 +919,10 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
       core23::Tensor out_tensor(tensor_params.shape(in_tensors[0].shape()));
       if (use_mixed_precision) {
         layers.emplace_back(
-            new core23::ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, gpu_resource));
+            new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, gpu_resource));
       } else {
         layers.emplace_back(
-            new core23::ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, gpu_resource));
+            new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, gpu_resource));
       }
       output_tensor_entities.push_back({input_output_info.output_names[0], out_tensor});
       break;

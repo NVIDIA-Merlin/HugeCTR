@@ -170,8 +170,8 @@ void core23_masked_softmax_test(int64_t batch_size, int64_t head_num, int64_t se
                                 .data_type(core23::ToScalarType<T>::value)
                                 .device({core23::DeviceType::GPU, 0}));
 
-  core23::MaskedSoftmaxLayer<T> masked_softmax_layer(bottom_tensors, top_tensor, scalar,
-                                                     test::get_default_gpu());
+  MaskedSoftmaxLayer<T> masked_softmax_layer(bottom_tensors, top_tensor, scalar,
+                                             test::get_default_gpu());
   SequenceMaskLayer<T> sequence_mask_layer(mask_input_tensors, mask_tensor, seq_len_from,
                                            seq_len_to, test::get_default_gpu());
 

@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <functional>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/masked_softmax_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/reduce.cuh>
@@ -144,97 +143,6 @@ void mask_softmax_bprop(T* top, T* bottom, T* softmax, int m, int n, float scala
 }  // namespace
 
 template <typename T>
-MaskedSoftmaxLayer<T>::MaskedSoftmaxLayer(
-    const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor, float scalar,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-    const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource), scalar_(scalar) {
-  // Input 0: input data [batch_size, head, seq_len, seq_len]
-  // Input 1: mask [batch_size, 1, 1, seq_len]
-  assert(in_tensors[0].get_num_elements() == out_tensor.get_num_elements());
-  size_t num_ = in_tensors.size();
-
-  size_t dims_ = in_tensors[0].get_dimensions().size();
-  if (num_ < 2) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "MaskedSoftmaxLayer needs at least 2 input tensors");
-  }
-  if (in_tensors[1].get_dimensions().size() != dims_) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
-  }
-  if (in_tensors[1].get_dimensions()[dims_ - 1] != in_tensors[0].get_dimensions()[dims_ - 1]) {
-    HCTR_OWN_THROW(Error_t::WrongInput,
-                   "The last dimension of the input tensors should be the same");
-  }
-
-  for (size_t i = 0; i < num_; i++) {
-    in_tensors_.push_back(in_tensors[i]);
-  }
-  out_tensors_.push_back(out_tensor);
-
-  blobs_buff->reserve(in_tensors[0].get_dimensions(), &softmax_out_);
-}
-
-template <typename T>
-void MaskedSoftmaxLayer<T>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& in_tensor = in_tensors_[0];
-  Tensor2<T>& mask_tensor = in_tensors_[1];
-  Tensor2<T>& out_tensor = out_tensors_[0];
-  const auto& in_tensor_dim = in_tensor.get_dimensions();
-
-  mask_softmax_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), mask_tensor.get_ptr(),
-                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], in_tensor_dim[3],
-                     scalar_, get_gpu().get_stream());
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
-                                 out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                 get_gpu().get_stream()));
-}
-
-template <>
-void MaskedSoftmaxLayer<__half>::fprop(bool is_train) {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<__half>& in_tensor = in_tensors_[0];
-  Tensor2<__half>& mask_tensor = in_tensors_[1];
-  Tensor2<__half>& out_tensor = out_tensors_[0];
-  const auto& in_tensor_dim = in_tensor.get_dimensions();
-  mask_softmax_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), mask_tensor.get_ptr(),
-                     in_tensor_dim[0], in_tensor_dim[1], in_tensor_dim[2], in_tensor_dim[3],
-                     scalar_, get_gpu().get_stream());
-  HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
-                                 out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                 get_gpu().get_stream()));
-}
-
-template <typename T>
-void MaskedSoftmaxLayer<T>::bprop() {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<T>& bottom_tensor = in_tensors_[0];
-  Tensor2<T>& top_tensor = out_tensors_[0];
-  const auto& in_tensor_dim = bottom_tensor.get_dimensions();
-  int hidden_size = in_tensor_dim[in_tensor_dim.size() - 1];
-  int batch = bottom_tensor.get_num_elements() / hidden_size;
-
-  mask_softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), batch,
-                     hidden_size, scalar_, get_gpu().get_stream());
-}
-
-template <>
-void MaskedSoftmaxLayer<__half>::bprop() {
-  CudaDeviceContext context(get_device_id());
-  Tensor2<__half>& bottom_tensor = in_tensors_[0];
-  Tensor2<__half>& top_tensor = out_tensors_[0];
-  const auto& in_tensor_dim = bottom_tensor.get_dimensions();
-
-  int hidden_size = in_tensor_dim[in_tensor_dim.size() - 1];
-  int n_rows = bottom_tensor.get_num_elements() / hidden_size;
-
-  mask_softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), n_rows,
-                     hidden_size, scalar_, get_gpu().get_stream());
-}
-
-namespace core23 {
-
-template <typename T>
 MaskedSoftmaxLayer<T>::MaskedSoftmaxLayer(const Tensors& in_tensors,
                                           const core23::Tensor& out_tensor, float scalar,
                                           const std::shared_ptr<GPUResource>& gpu_resource)
@@ -325,10 +233,7 @@ void MaskedSoftmaxLayer<__half>::bprop() {
                      get_gpu().get_stream());
 }
 
-}  // namespace core23
 template class MaskedSoftmaxLayer<float>;
 template class MaskedSoftmaxLayer<__half>;
-template class core23::MaskedSoftmaxLayer<float>;
-template class core23::MaskedSoftmaxLayer<__half>;
 
 }  // namespace HugeCTR

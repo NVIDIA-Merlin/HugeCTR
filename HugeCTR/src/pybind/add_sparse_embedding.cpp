@@ -175,16 +175,17 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
 }
 
 template <typename TypeKey, typename TypeFP>
-void add_sparse_embedding(
-    SparseEmbedding& sparse_embedding,
-    std::map<std::string, core23_reader::SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<std::vector<TensorEntity>>& train_tensor_entries_list,
-    std::vector<std::vector<TensorEntity>>& evaluate_tensor_entries_list,
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-    size_t batch_size_eval, OptParams& embedding_opt_params,
-    std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph, bool grouped_all_reduce,
-    size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches) {
+void add_sparse_embedding(SparseEmbedding& sparse_embedding,
+                          std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                          std::vector<std::vector<TensorEntity>>& train_tensor_entries_list,
+                          std::vector<std::vector<TensorEntity>>& evaluate_tensor_entries_list,
+                          std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                          const std::shared_ptr<ResourceManager>& resource_manager,
+                          size_t batch_size, size_t batch_size_eval,
+                          OptParams& embedding_opt_params,
+                          std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
+                          bool grouped_all_reduce, size_t num_iterations_statistics,
+                          GpuLearningRateSchedulers& gpu_lr_sches) {
   Embedding_t embedding_type = sparse_embedding.embedding_type;
   std::string bottom_name = sparse_embedding.bottom_name;
   std::string top_name = sparse_embedding.sparse_embedding_name;
@@ -192,7 +193,7 @@ void add_sparse_embedding(
   size_t embedding_vec_size = sparse_embedding.embedding_vec_size;
   int combiner = sparse_embedding.combiner;
 
-  core23_reader::SparseInput<TypeKey> sparse_input;
+  SparseInput<TypeKey> sparse_input;
   if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find bottom");
   }
@@ -303,25 +304,25 @@ void add_sparse_embedding(
 }
 
 template void add_sparse_embedding<long long, float>(
-    SparseEmbedding&, std::map<std::string, core23_reader::SparseInput<long long>>&,
+    SparseEmbedding&, std::map<std::string, SparseInput<long long>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
     GpuLearningRateSchedulers&);
 template void add_sparse_embedding<long long, __half>(
-    SparseEmbedding&, std::map<std::string, core23_reader::SparseInput<long long>>&,
+    SparseEmbedding&, std::map<std::string, SparseInput<long long>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
     GpuLearningRateSchedulers&);
 template void add_sparse_embedding<unsigned int, float>(
-    SparseEmbedding&, std::map<std::string, core23_reader::SparseInput<unsigned int>>&,
+    SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
     GpuLearningRateSchedulers&);
 template void add_sparse_embedding<unsigned int, __half>(
-    SparseEmbedding&, std::map<std::string, core23_reader::SparseInput<unsigned int>>&,
+    SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,

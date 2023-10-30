@@ -38,20 +38,6 @@ __global__ void nesterov_update_kernel(int len, float* weight, float* accum, con
 }  // namespace
 
 template <typename T>
-NesterovOptimizer<T>::NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                        const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                        const std::shared_ptr<GPUResource>& gpu_resource,
-                                        float learning_rate, float momentum_factor, float scaler)
-    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
-      wgrad_(wgrad),
-      wgrad_tensors_({}),
-      mu_(momentum_factor) {
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-  opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
-}
-template <typename T>
 NesterovOptimizer<T>::NesterovOptimizer(std::optional<WeightTensors> weight_tensors,
                                         std::optional<WgradTensors<T>> wgrad_tensors,
                                         const std::shared_ptr<GPUResource>& gpu_resource,
@@ -71,13 +57,8 @@ NesterovOptimizer<T>::NesterovOptimizer(std::optional<WeightTensors> weight_tens
 
 template <typename T>
 void NesterovOptimizer<T>::initialize() {
-  if (!wgrad_tensors_) {
-    HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), 0, accum_.get_size_in_bytes(),
-                                   gpu_resource_->get_stream()));
-  } else {
-    HCTR_LIB_THROW(cudaMemsetAsync(accum_tensor_.data(), 0, accum_tensor_.num_bytes(),
-                                   gpu_resource_->get_stream()));
-  }
+  HCTR_LIB_THROW(cudaMemsetAsync(accum_tensor_.data(), 0, accum_tensor_.num_bytes(),
+                                 gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -86,25 +67,15 @@ void NesterovOptimizer<T>::update() {
 
   constexpr size_t block_dim = 256;
 
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-    float* weight = weight_main_.get_ptr();
-    float* accum = accum_.get_ptr();
-    T* wgrad = wgrad_.get_ptr();
-    nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, accum, wgrad, lr_, mu_, scaler_);
-  } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    const T* wgrad = flat_wgrad_tensor.data();
-    auto len = flat_weight_tensor.size(0);
-    float* accum = accum_tensor_.data<float>();
-    const size_t grid_dim = (len - 1) / block_dim + 1;
-    nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, accum, wgrad, lr_, mu_, scaler_);
-  }
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  const T* wgrad = flat_wgrad_tensor.data();
+  auto len = flat_weight_tensor.size(0);
+  float* accum = accum_tensor_.data<float>();
+  const size_t grid_dim = (len - 1) / block_dim + 1;
+  nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, accum, wgrad, lr_, mu_, scaler_);
 }
 
 template class NesterovOptimizer<float>;

@@ -278,7 +278,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::unique_ptr<core23_reader::DataReader<T>> train_data_reader(new core23_reader::DataReader<T>(
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
       train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_parquet(
@@ -286,7 +286,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       std::max(train_batch_num * train_batchsize, test_batch_num * test_batchsize),
       label_dim + dense_dim, label_dim + dense_dim);
 
-  std::unique_ptr<core23_reader::DataReader<T>> test_data_reader(new core23_reader::DataReader<T>(
+  std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
       test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   test_data_reader->create_drwg_parquet(
@@ -582,7 +582,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::unique_ptr<core23_reader::DataReader<T>> train_data_reader(new core23_reader::DataReader<T>(
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
       train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_parquet(
@@ -795,7 +795,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::unique_ptr<core23_reader::DataReader<T>> train_data_reader(new core23_reader::DataReader<T>(
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
       train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_parquet(

@@ -19,8 +19,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <typename T>
 DataReaderWorkerRaw<T>::DataReaderWorkerRaw(const int worker_id, const int worker_num,
                                             const std::shared_ptr<GPUResource>& gpu_resource,
@@ -198,9 +196,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
   return;
 }
 
-}  // namespace core23_reader
-
-template class core23_reader::DataReaderWorkerRaw<uint32_t>;
-template class core23_reader::DataReaderWorkerRaw<long long>;
+template class DataReaderWorkerRaw<uint32_t>;
+template class DataReaderWorkerRaw<long long>;
 
 }  // namespace HugeCTR

@@ -20,7 +20,6 @@
 #include <data_simulator.hpp>
 #include <fstream>
 #include <functional>
-#include <general_buffer2.hpp>
 #include <gpu_resource.hpp>
 #include <string>
 #include <vector>
@@ -47,10 +46,6 @@ class Layer {
    * stores the initializer types of this layer.
    */
   std::vector<Initializer_t> initializer_types_;
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<float> weights_;
 
   const GPUResource& get_gpu() const { return *gpu_resource_; }
   int get_device_id() const { return gpu_resource_->get_device_id(); }
@@ -68,10 +63,6 @@ class Layer {
   virtual void bprop() = 0;
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
-
-  virtual std::vector<TensorBag2> get_tensors_for_non_trainable_params() {
-    return std::vector<TensorBag2>();
-  }
 
   virtual std::vector<core23::Tensor> get_non_trainable_params_as_tensors() {
     return std::vector<core23::Tensor>();
@@ -99,28 +90,6 @@ class Layer {
    * Some of the layers requires algorithm search like fully connected layer
    */
   virtual void search_algorithm() {}
-
- private:
-  /*
-   * Layer initializer. If a layer wants the specific weight initialization,
-   * Override each private function accordingly, e.g., BatchNormLayer
-   */
-  virtual std::unique_ptr<DataSimulator> get_zero_initializer(const int index) {
-    return std::make_unique<ConstantDataSimulator>(0.0f);
-  }
-
-  virtual std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) {
-    return std::move(get_default_initializer(index));
-  }
-  virtual std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) {
-    return std::move(get_default_initializer(index));
-  }
-  virtual std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) {
-    return std::move(get_default_initializer(index));
-  }
-  virtual std::unique_ptr<DataSimulator> get_default_initializer(const int index) {
-    return std::move(get_zero_initializer(index));
-  }
 };
 
 }  // namespace HugeCTR

@@ -32,19 +32,6 @@ class MultiHeadAttentionLayer : public Layer {
                           std::vector<core23::Tensor>& output_tensors, int num_attention_heads,
                           bool transpose_b, const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute);
-  /**
-   * Ctor of MultiHeadAttentionLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
-   * @param blobs_buff GeneralBuffer used to create the output tensor
-   * @param device_id the id of GPU where this layer belongs
-   */
-  MultiHeadAttentionLayer(const Tensors2<T>& in_tensors, Tensors2<T>& out_tensor,
-                          const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          int num_attention_heads, bool transpose_b,
-                          const std::shared_ptr<GPUResource>& gpu_resource,
-                          bool use_mixed_precision, bool enable_tf32_compute);
-
   // void initialize() override;
   /**
    * MultiHeadAttentionLayer's forward propagation
@@ -60,28 +47,13 @@ class MultiHeadAttentionLayer : public Layer {
   std::vector<T>& get_debug_vector() { return debug_vector_; };
 
  private:
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-  /*
-   * stores the axis.
-   */
-
   bool enable_tf32_compute_;
   bool use_mixed_precision_;
   int64_t num_;
   int64_t dims_;
   bool transpose_b_;
   int64_t num_head_;
-  Tensor2<T> fprop_inputA_;
-  Tensor2<T> query_buf_;
-  Tensor2<T> key_buf_;
-  Tensor2<T> value_buf_;
+
   core23::Tensor fprop_query_tensor_;
   core23::Tensor fprop_softmax_tensor_;
   core23::Tensor query_buf_tensor_;
@@ -93,7 +65,7 @@ class MultiHeadAttentionLayer : public Layer {
   core23::Tensor attention_softmax_4d_;
 
   // masked_softmax_layer_ xor softmax_layer_
-  std::unique_ptr<core23::MaskedSoftmaxLayer<T>> masked_softmax_layer_;
+  std::unique_ptr<MaskedSoftmaxLayer<T>> masked_softmax_layer_;
   std::unique_ptr<SoftmaxLayer<T>> softmax_layer_;
 
   std::vector<T> debug_vector_;

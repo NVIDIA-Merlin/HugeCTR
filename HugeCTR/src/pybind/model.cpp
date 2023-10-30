@@ -2202,7 +2202,7 @@ bool Model::train() {
       return true;
     }
 
-    auto network_update = [&](int id) { core23_networks_[id]->update_params(); };
+    auto network_update = [&](int id) { networks_[id]->update_params(); };
 
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(true);
@@ -2270,7 +2270,7 @@ bool Model::eval() {
     assert(current_batchsize > 0 && "Received batch of  size 0");
 
 #ifndef DATA_READING_TEST
-    assert((core23_networks_.size() >= 1) && "(core23)networks_.size() should not less than 1.");
+    assert((networks_.size() >= 1) && "(core23)networks_.size() should not less than 1.");
 
     if (solver_.use_embedding_collection) {
       evaluate_pipeline_with_ebc();
@@ -2326,7 +2326,7 @@ Error_t Model::get_current_loss(float* loss) {
         loss_sum += network->get_loss();
       }
     };
-    accum_loss(core23_networks_);
+    accum_loss(networks_);
 
     if (resource_manager_->get_num_process() > 1) {
 #ifdef ENABLE_MPI
@@ -2383,7 +2383,7 @@ void Model::copy_weights_for_evaluation() {
       network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
     }
   };
-  op(core23_networks_);
+  op(networks_);
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
@@ -2404,7 +2404,7 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
         }
       };
 
-      op(core23_networks_[0]);
+      op(networks_[0]);
     }
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
@@ -2477,7 +2477,7 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
       }
     };
 
-    op(core23_networks_);
+    op(networks_);
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
     return rt_err.error;
@@ -2519,7 +2519,7 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
         network->upload_params_to_device(weight.get());
       }
     };
-    op(core23_networks_);
+    op(networks_);
   } catch (const core23::RuntimeError& rt_err) {
     Logger::get().print(rt_err);
     return rt_err.error;
@@ -2555,7 +2555,7 @@ void Model::init_params_for_dense_() {
     }
   };
 
-  op(core23_networks_);
+  op(networks_);
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
   }
@@ -2726,9 +2726,9 @@ void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_resu
 
 void Model::create_networks() {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    core23_networks_.emplace_back(new Core23TempNetwork(resource_manager_->get_local_cpu(),
-                                                        resource_manager_->get_local_gpu(i),
-                                                        solver_.use_mixed_precision));
+    networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
+                                       resource_manager_->get_local_gpu(i),
+                                       solver_.use_mixed_precision));
   }
   train_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
   evaluate_tensor_entities_list_.resize(resource_manager_->get_local_gpu_count());
@@ -2736,7 +2736,7 @@ void Model::create_networks() {
 
 void Model::build_networks() {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    core23_networks_[i]->create_and_set_optimizer(opt_params_);
+    networks_[i]->create_and_set_optimizer(opt_params_);
   }
   auto aligned_size = 16 * resource_manager_->get_local_gpu_count();
   core23::BufferParams bp{.channel = solver_.use_mixed_precision ? GetWgradHalfBufferChannel()
@@ -2748,7 +2748,7 @@ void Model::build_networks() {
     auto wgrad_size = wgrad_buffer->reserved_size();
     size_t padded_bytes = wgrad_size % aligned_size;
     padded_bytes += aligned_size - padded_bytes;
-
+    // alignment requirements from grouped allreduce.
     wgrad_tensor_successor_.emplace_back(core23::TensorParams()
                                              .device(device)
                                              .shape({static_cast<int64_t>(padded_bytes)})
@@ -2760,17 +2760,15 @@ void Model::build_networks() {
 
 void Model::initialize() {
 #ifndef DATA_READING_TEST
-  auto op = [this](auto& networks, const size_t id) {
-    networks[id]->initialize();
-    if (solver_.use_algorithm_search) {
-      networks[id]->search_algorithm();
-    }
-    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
-  };
+
 #pragma omp parallel num_threads(number_of_networks())
   {
     size_t id = omp_get_thread_num();
-    op(core23_networks_, id);
+    networks_[id]->initialize();
+    if (solver_.use_algorithm_search) {
+      networks_[id]->search_algorithm();
+    }
+    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
   }
 
   int num_gpus = resource_manager_->get_local_gpu_count();
@@ -2817,7 +2815,7 @@ void Model::create_metrics() {
                                 });
   }
 
-  auto num_metrics = [&]() { return core23_networks_[0]->get_raw_metrics_all().size(); };
+  auto num_metrics = [&]() { return networks_[0]->get_raw_metrics_all().size(); };
   for (const auto& metric : solver_.metrics_spec) {
     // Only AUC is currently supported for models with more than one loss layer
     if ((metric.first != metrics::Type::AUC) && num_metrics() > 1) {
@@ -2836,40 +2834,38 @@ void Model::create_pipelines() {
   if (embeddings_.size() == 1) {
     auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
     for (size_t i = 0; i < lr_scheds.size(); i++) {
-      core23_networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
+      networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
     }
   }
 
   if (is_scheduled_datareader() && is_scheduled_embedding()) {
     // will create pipeline for sparse embedding and dense network
-    create_train_pipeline(core23_networks_);
-    create_evaluate_pipeline(core23_networks_);
+    create_train_pipeline(networks_);
+    create_evaluate_pipeline(networks_);
   } else {
     if (solver_.use_embedding_collection) {
-      create_train_pipeline_with_ebc(core23_networks_);
-      create_evaluate_pipeline_with_ebc(core23_networks_);
+      create_train_pipeline_with_ebc(networks_);
+      create_evaluate_pipeline_with_ebc(networks_);
     } else {
       // will create pipeline for dense network.
-      create_train_network_pipeline(core23_networks_);
-      create_eval_network_pipeline(core23_networks_);
+      create_train_network_pipeline(networks_);
+      create_eval_network_pipeline(networks_);
     }
   }
 
   size_t embed_wgrad_size = 0;
   if (!reader_params_.async_param.multi_hot_reader) {
-    auto train_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(train_data_reader_.get());
+    auto train_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(train_data_reader_.get());
     auto eval_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(evaluate_data_reader_.get());
-    auto init_data_reader_ar_i64 =
-        dynamic_cast<core23_reader::AsyncReader<long long>*>(init_data_reader_.get());
+        dynamic_cast<AsyncReader<long long>*>(evaluate_data_reader_.get());
+    auto init_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(init_data_reader_.get());
 
     auto train_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(train_data_reader_.get());
+        dynamic_cast<AsyncReader<unsigned int>*>(train_data_reader_.get());
     auto eval_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
+        dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
     auto init_data_reader_ar_i32 =
-        dynamic_cast<core23_reader::AsyncReader<unsigned int>*>(init_data_reader_.get());
+        dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
 
     // FIXME:
     // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
@@ -2980,6 +2976,6 @@ void Model::create_pipelines() {
 #endif
 }
 
-size_t Model::number_of_networks() const { return core23_networks_.size(); }
+size_t Model::number_of_networks() const { return networks_.size(); }
 
 }  // namespace HugeCTR

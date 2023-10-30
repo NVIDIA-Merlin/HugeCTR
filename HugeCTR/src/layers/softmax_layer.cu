@@ -18,7 +18,6 @@
 #include <core23/tensor_operations.hpp>
 #include <functional>
 #include <include/utils.cuh>
-#include <layers/element_wise_function.hpp>
 #include <layers/softmax_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/reduce.cuh>
@@ -46,49 +45,19 @@ SoftmaxLayer<T>::SoftmaxLayer(const core23::Tensor& input_tensor,
 }
 
 template <typename T>
-SoftmaxLayer<T>::SoftmaxLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
-  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
-  in_tensors_.push_back(in_tensor);
-  out_tensors_.push_back(out_tensor);
-
-  len_ = in_tensors_[0].get_num_elements();
-  dims_ = in_tensor.get_dimensions().size();
-  hidden_size_ = in_tensor.get_dimensions()[dims_ - 1];
-  n_rows_ = len_ / hidden_size_;
-  blobs_buff->reserve({n_rows_}, &workspace_);
-  blobs_buff->reserve({hidden_size_}, &identity_);
-  blobs_buff->reserve(in_tensor.get_dimensions(), &softmax_out_);
-}
-
-template <typename T>
 void SoftmaxLayer<T>::initialize() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-        identity_.get_ptr(), hidden_size_, 1.0f);
-  } else {
-    initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-        identity23_.data<T>(), hidden_size_, 1.0f);
-  }
+  initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+      identity23_.data<T>(), hidden_size_, 1.0f);
 }
 
 template <>
 void SoftmaxLayer<__half>::initialize() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-        identity_.get_ptr(), hidden_size_, __float2half(1.0f));
-  } else {
-    initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-        identity23_.data<__half>(), hidden_size_, __float2half(1.0f));
-  }
+  initialize_array<<<(hidden_size_ - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+      identity23_.data<__half>(), hidden_size_, __float2half(1.0f));
 }
 
 template <typename T>
@@ -168,139 +137,69 @@ void Softmax_bprop(T* top, T* bottom, T* softmax_out, int m, int n, cudaStream_t
 template <typename T>
 void SoftmaxLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    Tensor2<T>& in_tensor = in_tensors_[0];
-    Tensor2<T>& out_tensor = out_tensors_[0];
-    const auto& in_tensor_dim = in_tensor.get_dimensions();
-    // exp(x_i)
-    MLCommon::LinAlg::unaryOp(
-        out_tensor.get_ptr(), in_tensor.get_ptr(), len_, [] __device__(T in) { return expf(in); },
-        get_gpu().get_stream());
-    // Get sum of exp(x_i) i=[0, embedding_vector_size-1].
-    MLCommon::LinAlg::reduce(workspace_.get_ptr(), out_tensor.get_ptr(), hidden_size_, n_rows_,
-                             T(0), true, true, get_gpu().get_stream());
-    // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1].
-    Softmax_fprop(out_tensor.get_ptr(), workspace_.get_ptr(), n_rows_, hidden_size_,
-                  get_gpu().get_stream());
-    HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
-                                   out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
-  } else {
-    core23::Tensor& input_tensor = input_tensors_[0];
-    core23::Tensor& output_tensor = output_tensors_[0];
-    // exp(x_i)
-    MLCommon::LinAlg::unaryOp(
-        output_tensor.data<T>(), input_tensor.data<T>(), len_,
-        [] __device__(T in) { return expf(in); }, get_gpu().get_stream());
-    // Get sum of exp(x_i) i=[0, embedding_vector_size-1].
-    MLCommon::LinAlg::reduce(workspace23_.data<T>(), output_tensor.data<T>(), hidden_size_, n_rows_,
-                             T(0), true, true, get_gpu().get_stream());
-    // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1].
-    Softmax_fprop(output_tensor.data<T>(), workspace23_.data<T>(), n_rows_, hidden_size_,
-                  get_gpu().get_stream());
-    HCTR_LIB_THROW(cudaMemcpyAsync(softmax_out23_.data(), output_tensor.data(),
-                                   output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
-  }
+  core23::Tensor& input_tensor = input_tensors_[0];
+  core23::Tensor& output_tensor = output_tensors_[0];
+  // exp(x_i)
+  MLCommon::LinAlg::unaryOp(
+      output_tensor.data<T>(), input_tensor.data<T>(), len_,
+      [] __device__(T in) { return expf(in); }, get_gpu().get_stream());
+  // Get sum of exp(x_i) i=[0, embedding_vector_size-1].
+  MLCommon::LinAlg::reduce(workspace23_.data<T>(), output_tensor.data<T>(), hidden_size_, n_rows_,
+                           T(0), true, true, get_gpu().get_stream());
+  // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1].
+  Softmax_fprop(output_tensor.data<T>(), workspace23_.data<T>(), n_rows_, hidden_size_,
+                get_gpu().get_stream());
+  HCTR_LIB_THROW(cudaMemcpyAsync(softmax_out23_.data(), output_tensor.data(),
+                                 output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
+                                 get_gpu().get_stream()));
 }
 
 template <>
 void SoftmaxLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    Tensor2<__half>& in_tensor = in_tensors_[0];
-    Tensor2<__half>& out_tensor = out_tensors_[0];
-    const auto& in_tensor_dim = in_tensor.get_dimensions();
+  core23::Tensor& input_tensor = input_tensors_[0];
+  core23::Tensor& output_tensor = output_tensors_[0];
 
-    const __half alpha = __float2half(1.0f);
-    const __half beta = __float2half(0.0f);
-    // exp(x_i)
-    MLCommon::LinAlg::unaryOp(
-        out_tensor.get_ptr(), in_tensor.get_ptr(), len_,
-        [] __device__(__half in) { return hexp(in); }, get_gpu().get_stream());
-    // Get sum of exp(x_i) i=[0, embedding_vector_size-1]
-    HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n_rows_, 1,
-                                hidden_size_, &alpha, out_tensor.get_ptr(), CUDA_R_16F,
-                                hidden_size_, identity_.get_ptr(), CUDA_R_16F, hidden_size_, &beta,
-                                workspace_.get_ptr(), CUDA_R_16F, n_rows_, CUDA_R_16F,
-                                CUBLAS_GEMM_DEFAULT));
-    // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1]
-    Softmax_fprop(out_tensor.get_ptr(), workspace_.get_ptr(), n_rows_, hidden_size_,
-                  get_gpu().get_stream());
-    HCTR_LIB_THROW(cudaMemcpyAsync((void*)softmax_out_.get_ptr(), (void*)out_tensor.get_ptr(),
-                                   out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
-  } else {
-    core23::Tensor& input_tensor = input_tensors_[0];
-    core23::Tensor& output_tensor = output_tensors_[0];
-
-    const __half alpha = __float2half(1.0f);
-    const __half beta = __float2half(0.0f);
-    // exp(x_i)
-    MLCommon::LinAlg::unaryOp(
-        output_tensor.data<__half>(), input_tensor.data<__half>(), len_,
-        [] __device__(__half in) { return hexp(in); }, get_gpu().get_stream());
-    // Get sum of exp(x_i) i=[0, embedding_vector_size-1]
-    HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n_rows_, 1,
-                                hidden_size_, &alpha, output_tensor.data(), CUDA_R_16F,
-                                hidden_size_, identity23_.data(), CUDA_R_16F, hidden_size_, &beta,
-                                workspace23_.data(), CUDA_R_16F, n_rows_, CUDA_R_16F,
-                                CUBLAS_GEMM_DEFAULT));
-    // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1]
-    Softmax_fprop(output_tensor.data<__half>(), workspace23_.data<__half>(), n_rows_, hidden_size_,
-                  get_gpu().get_stream());
-    HCTR_LIB_THROW(cudaMemcpyAsync(softmax_out23_.data(), output_tensor.data(),
-                                   output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
-                                   get_gpu().get_stream()));
-  }
+  const __half alpha = __float2half(1.0f);
+  const __half beta = __float2half(0.0f);
+  // exp(x_i)
+  MLCommon::LinAlg::unaryOp(
+      output_tensor.data<__half>(), input_tensor.data<__half>(), len_,
+      [] __device__(__half in) { return hexp(in); }, get_gpu().get_stream());
+  // Get sum of exp(x_i) i=[0, embedding_vector_size-1]
+  HCTR_LIB_THROW(cublasGemmEx(
+      get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n_rows_, 1, hidden_size_, &alpha,
+      output_tensor.data(), CUDA_R_16F, hidden_size_, identity23_.data(), CUDA_R_16F, hidden_size_,
+      &beta, workspace23_.data(), CUDA_R_16F, n_rows_, CUDA_R_16F, CUBLAS_GEMM_DEFAULT));
+  // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1]
+  Softmax_fprop(output_tensor.data<__half>(), workspace23_.data<__half>(), n_rows_, hidden_size_,
+                get_gpu().get_stream());
+  HCTR_LIB_THROW(cudaMemcpyAsync(softmax_out23_.data(), output_tensor.data(),
+                                 output_tensor.num_bytes(), cudaMemcpyDeviceToDevice,
+                                 get_gpu().get_stream()));
 }
 
 template <typename T>
 void SoftmaxLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    Tensor2<T>& bottom_tensor = in_tensors_[0];
-    Tensor2<T>& top_tensor = out_tensors_[0];
-    const auto& in_tensor_dim = bottom_tensor.get_dimensions();
+  core23::Tensor& bottom_tensor = input_tensors_[0];
+  core23::Tensor& top_tensor = output_tensors_[0];
 
-    const size_t len = bottom_tensor.get_num_elements();
-
-    Softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), n_rows_,
-                  hidden_size_, get_gpu().get_stream());
-  } else {
-    core23::Tensor& bottom_tensor = input_tensors_[0];
-    core23::Tensor& top_tensor = output_tensors_[0];
-
-    Softmax_bprop(top_tensor.data<T>(), bottom_tensor.data<T>(), softmax_out23_.data<T>(), n_rows_,
-                  hidden_size_, get_gpu().get_stream());
-  }
+  Softmax_bprop(top_tensor.data<T>(), bottom_tensor.data<T>(), softmax_out23_.data<T>(), n_rows_,
+                hidden_size_, get_gpu().get_stream());
 }
 
 template <>
 void SoftmaxLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    Tensor2<__half>& bottom_tensor = in_tensors_[0];
-    Tensor2<__half>& top_tensor = out_tensors_[0];
-    const auto& in_tensor_dim = bottom_tensor.get_dimensions();
+  core23::Tensor& bottom_tensor = input_tensors_[0];
+  core23::Tensor& top_tensor = output_tensors_[0];
 
-    Softmax_bprop(top_tensor.get_ptr(), bottom_tensor.get_ptr(), softmax_out_.get_ptr(), n_rows_,
-                  hidden_size_, get_gpu().get_stream());
-  } else {
-    core23::Tensor& bottom_tensor = input_tensors_[0];
-    core23::Tensor& top_tensor = output_tensors_[0];
-
-    Softmax_bprop(top_tensor.data<__half>(), bottom_tensor.data<__half>(),
-                  softmax_out23_.data<__half>(), n_rows_, hidden_size_, get_gpu().get_stream());
-  }
+  Softmax_bprop(top_tensor.data<__half>(), bottom_tensor.data<__half>(),
+                softmax_out23_.data<__half>(), n_rows_, hidden_size_, get_gpu().get_stream());
 }
 
 template class SoftmaxLayer<float>;

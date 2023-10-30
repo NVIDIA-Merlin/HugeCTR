@@ -12,4 +12,4 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       ./embedding_training_cache_test && \
       ./auc_test && \
       ./averageloss_test && \
-      ././communication_test"
+      ./communication_test"

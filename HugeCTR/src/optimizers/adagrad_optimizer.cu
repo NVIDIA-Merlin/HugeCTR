@@ -90,23 +90,6 @@ __global__ void ada_grad_update_kernel(int len, float* weight, const T* wgrad, f
 }  // namespace
 
 template <typename T>
-AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                                      const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                      const std::shared_ptr<GPUResource>& gpu_resource,
-                                      float learning_rate, float initial_accu_value, float epsilon,
-                                      float scaler)
-    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
-      wgrad_(wgrad),
-      wgrad_tensors_({}),
-      initial_accumulator_value_(initial_accu_value),
-      epsilon_(epsilon) {
-  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
-  }
-  opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
-}
-
-template <typename T>
 AdaGradOptimizer<T>::AdaGradOptimizer(std::optional<WeightTensors> weight_tensors,
                                       std::optional<WgradTensors<T>> wgrad_tensors,
                                       const std::shared_ptr<GPUResource>& gpu_resource,
@@ -128,13 +111,8 @@ AdaGradOptimizer<T>::AdaGradOptimizer(std::optional<WeightTensors> weight_tensor
 
 template <typename T>
 void AdaGradOptimizer<T>::initialize() {
-  if (!wgrad_tensors_) {
-    HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
-                                   accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
-  } else {
-    HCTR_LIB_THROW(cudaMemsetAsync(accum_tensor_.data(), initial_accumulator_value_,
-                                   accum_tensor_.num_bytes(), gpu_resource_->get_stream()));
-  }
+  HCTR_LIB_THROW(cudaMemsetAsync(accum_tensor_.data(), initial_accumulator_value_,
+                                 accum_tensor_.num_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -143,41 +121,22 @@ void AdaGradOptimizer<T>::update() {
 
   constexpr size_t block_dim = 256;
 
-  if (!wgrad_tensors_) {
-    const size_t len = weight_main_.get_num_elements();
-    float* weight = weight_main_.get_ptr();
-    const T* wgrad = wgrad_.get_ptr();
-    float* accum = accum_.get_ptr();
-
-    if (size_t(weight) % 16 == 0 && size_t(wgrad) % 16 == 0 && size_t(accum) % 16 == 0) {
-      auto num_sms = gpu_resource_->get_sm_count();
-      auto max_thread_per_sm = gpu_resource_->get_max_thread_per_sm();
-      size_t grid_dim = num_sms * max_thread_per_sm / block_dim;
-      ada_grad_update4_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, wgrad, accum, lr_, epsilon_, scaler_);
-    } else {
-      size_t grid_dim = (len - 1) / block_dim + 1;
-      ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, wgrad, accum, lr_, epsilon_, scaler_);
-    }
+  auto flat_weight_tensor = weight_tensors_->flatten();
+  auto flat_wgrad_tensor = wgrad_tensors_->flatten();
+  float* weight = flat_weight_tensor.data();
+  const T* wgrad = flat_wgrad_tensor.data();
+  auto len = flat_weight_tensor.size(0);
+  float* accum = accum_tensor_.data<float>();
+  if (size_t(weight) % 16 == 0 && size_t(wgrad) % 16 == 0 && size_t(accum) % 16 == 0) {
+    auto num_sms = gpu_resource_->get_sm_count();
+    auto max_thread_per_sm = gpu_resource_->get_max_thread_per_sm();
+    size_t grid_dim = num_sms * max_thread_per_sm / block_dim;
+    ada_grad_update4_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, accum, lr_, epsilon_, scaler_);
   } else {
-    auto flat_weight_tensor = weight_tensors_->flatten();
-    auto flat_wgrad_tensor = wgrad_tensors_->flatten();
-    float* weight = flat_weight_tensor.data();
-    const T* wgrad = flat_wgrad_tensor.data();
-    auto len = flat_weight_tensor.size(0);
-    float* accum = accum_tensor_.data<float>();
-    if (size_t(weight) % 16 == 0 && size_t(wgrad) % 16 == 0 && size_t(accum) % 16 == 0) {
-      auto num_sms = gpu_resource_->get_sm_count();
-      auto max_thread_per_sm = gpu_resource_->get_max_thread_per_sm();
-      size_t grid_dim = num_sms * max_thread_per_sm / block_dim;
-      ada_grad_update4_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, wgrad, accum, lr_, epsilon_, scaler_);
-    } else {
-      size_t grid_dim = (len - 1) / block_dim + 1;
-      ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, wgrad, accum, lr_, epsilon_, scaler_);
-    }
+    size_t grid_dim = (len - 1) / block_dim + 1;
+    ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, accum, lr_, epsilon_, scaler_);
   }
 }
 

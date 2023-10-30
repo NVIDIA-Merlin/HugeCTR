@@ -123,7 +123,7 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
   source.slot_id = 0;
 
   bool is_dense_float = false;
-  using DataReaderType = HugeCTR::MultiHot::core23_reader::AsyncDataReader<dtype>;
+  using DataReaderType = HugeCTR::MultiHot::AsyncDataReader<dtype>;
 
   DataReaderType data_reader({source}, resource_manager, batch_size, num_threads_per_device,
                              batches_per_thread, params, label_dim, dense_dim, mixed_precision,

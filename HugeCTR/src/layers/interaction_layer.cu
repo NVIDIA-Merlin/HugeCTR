@@ -1015,81 +1015,6 @@ void InteractionLayer<T>::init(const core23::Tensor &input_bottom_mlp_tensor,
 }
 
 template <typename T>
-void InteractionLayer<T>::init(const Tensor2<T> &in_bottom_mlp_tensor,
-                               const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
-                               Tensor2<T> &grad_tensor,
-                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-                               const std::shared_ptr<GPUResource> &gpu_resource) {
-  try {
-    auto first_in_dims = in_bottom_mlp_tensor.get_dimensions();
-    auto second_in_dims = in_embeddings.get_dimensions();
-
-    if (first_in_dims.size() != 2) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
-    }
-
-    if (second_in_dims.size() != 3) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Input Embeddings must be a 3D tensor");
-    }
-
-    if (first_in_dims[0] != second_in_dims[0]) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' batch sizes must be the same");
-    }
-
-    if (first_in_dims[1] != second_in_dims[2]) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' widths must be the same");
-    }
-
-    size_t n_ins = 1 + second_in_dims[1];
-    if (std::is_same<T, __half>::value == false ||
-        ((n_ins > 31) && (std::is_same<T, __half>::value))) {
-      size_t concat_dims_width = first_in_dims[1] + second_in_dims[1] * second_in_dims[2];
-      std::vector<size_t> concat_dims = {first_in_dims[0], concat_dims_width};
-
-      {
-        Tensor2<T> tensor;
-        blobs_buff->reserve(concat_dims, &tensor);
-        internal_tensors_.push_back(tensor);
-      }
-      {
-        std::vector<size_t> mat_dims = {first_in_dims[0], n_ins * n_ins};
-        Tensor2<T> tensor;
-        blobs_buff->reserve(mat_dims, &tensor);
-        internal_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<T> tensor;
-        blobs_buff->reserve(concat_dims, &tensor);
-        internal_tensors_.push_back(tensor);
-      }
-      if (n_ins >= n_ins_knob) {
-        std::vector<size_t> mat_dims = {first_in_dims[0], n_ins * n_ins};
-        Tensor2<T> tensor;
-        blobs_buff->reserve(mat_dims, &tensor);
-        internal_tensors_.push_back(tensor);
-      }
-    }
-
-    int concat_len = n_ins * (n_ins + 1) / 2 - n_ins;
-    std::vector<size_t> out_dims = {first_in_dims[0], first_in_dims[1] + concat_len + 1};
-    blobs_buff->reserve(out_dims, &out_tensor);
-
-    in_tensors_.push_back(in_bottom_mlp_tensor);
-    in_tensors_.push_back(in_embeddings);
-    out_tensors_.push_back(out_tensor);
-
-    if (separate_Y_and_dY_) {
-      blobs_buff->reserve(out_dims, &grad_tensor);
-      out_tensors_.push_back(grad_tensor);
-    }
-
-  } catch (const std::runtime_error &rt_err) {
-    HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
-    throw;
-  }
-}
-
-template <typename T>
 InteractionLayer<T>::InteractionLayer(const core23::Tensor &input_bottom_mlp_tensor,
                                       const core23::Tensor &input_embeddings,
                                       core23::Tensor &output_tensor,
@@ -1116,158 +1041,70 @@ InteractionLayer<T>::InteractionLayer(const core23::Tensor &input_bottom_mlp_ten
 }
 
 template <typename T>
-InteractionLayer<T>::InteractionLayer(
-    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute)
-    : Layer(gpu_resource),
-      use_mixed_precision_(use_mixed_precision),
-      enable_tf32_compute_(enable_tf32_compute),
-      separate_Y_and_dY_(false) {
-  init(in_bottom_mlp_tensor, in_embeddings, out_tensor, out_tensor, blobs_buff, gpu_resource);
-}
-
-template <typename T>
-InteractionLayer<T>::InteractionLayer(
-    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
-    Tensor2<T> &grad_tensor, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute)
-    : Layer(gpu_resource),
-      use_mixed_precision_(use_mixed_precision),
-      enable_tf32_compute_(enable_tf32_compute),
-      separate_Y_and_dY_(true) {
-  init(in_bottom_mlp_tensor, in_embeddings, out_tensor, grad_tensor, blobs_buff, gpu_resource);
-}
-
-template <typename T>
 InteractionLayer<T>::~InteractionLayer(){};
 
 template <typename T>
 void InteractionLayer<T>::fprop_generic(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    // phase 0: concat
-    T *concat = internal_tensors_[0].get_ptr();
-    T *in_mlp = get_in_tensors(is_train)[0].get_ptr();
-    T *in_emb = get_in_tensors(is_train)[1].get_ptr();
-    const int h = internal_tensors_[0].get_dimensions()[0];
-    const int out_w = internal_tensors_[0].get_dimensions()[1];
-    const int in_w = get_in_tensors(is_train)[0].get_dimensions()[1];
-    const int n_emb = get_in_tensors(is_train)[1].get_dimensions()[1];
-    const int n_ins = 1 + n_emb;
 
-    dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
-    dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
-    concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(true, concat, in_mlp, in_emb, h,
-                                                                out_w, in_w, n_emb);
-    // phase 1: matmul
-    const int batch_count = h;
-    T *mat = internal_tensors_[1].get_ptr();
-    const int m = n_ins;
-    const int n = n_ins;
-    const int k = in_w;
-    float alpha_32f = 1.0f;
-    float beta_32f = 0.0f;
-    void *alpha = &alpha_32f, *beta = &beta_32f;
-    long long int stride_a = static_cast<long long int>(n) * k;
-    long long int stride_b = static_cast<long long int>(k) * m;
-    long long int stride_c = static_cast<long long int>(n) * m;
-    cudaDataType_t a_type = CUDA_R_32F;
-    cudaDataType_t b_type = CUDA_R_32F;
-    cudaDataType_t c_type = CUDA_R_32F;
+  // phase 0: concat
+  auto *concat = intermediate_tensors_[0].data<T>();
+  auto *in_mlp = input_tensors_[0].data<T>();
+  auto *in_emb = input_tensors_[1].data<T>();
+  const int h = intermediate_tensors_[0].size(0);
+  const int out_w = intermediate_tensors_[0].size(1);
+  const int in_w = input_tensors_[0].size(1);
+  const int n_emb = input_tensors_[1].size(1);
+  const int n_ins = 1 + n_emb;
 
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
-    if (std::is_same<T, __half>::value) {
-      a_type = CUDA_R_16F;
-      b_type = CUDA_R_16F;
-      c_type = CUDA_R_16F;
-    }
-    const cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
+  dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
+  dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
+  concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(true, concat, in_mlp, in_emb, h,
+                                                              out_w, in_w, n_emb);
+  // phase 1: matmul
+  const int batch_count = h;
+  auto *mat = intermediate_tensors_[1].data<T>();
+  const int m = n_ins;
+  const int n = n_ins;
+  const int k = in_w;
+  float alpha_32f = 1.0f;
+  float beta_32f = 0.0f;
+  void *alpha = &alpha_32f, *beta = &beta_32f;
+  long long int stride_a = static_cast<long long int>(n) * k;
+  long long int stride_b = static_cast<long long int>(k) * m;
+  long long int stride_c = static_cast<long long int>(n) * m;
+  cudaDataType_t a_type = CUDA_R_32F;
+  cudaDataType_t b_type = CUDA_R_32F;
+  cudaDataType_t c_type = CUDA_R_32F;
 
-    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-        get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, alpha, concat, a_type, k,
-        stride_a, concat, b_type, k, stride_b, beta, mat, c_type, n, stride_c, batch_count,
-        compute_type, algo));
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+  if (std::is_same<T, __half>::value) {
+    a_type = CUDA_R_16F;
+    b_type = CUDA_R_16F;
+    c_type = CUDA_R_16F;
+  }
+  const cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
-    // phase 2: gather & concat
-    T *in0 = get_in_tensors(is_train)[0].get_ptr();
-    T *gather = out_tensors_[0].get_ptr();
+  HCTR_LIB_THROW(cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N,
+                                            m, n, k, alpha, concat, a_type, k, stride_a, concat,
+                                            b_type, k, stride_b, beta, mat, c_type, n, stride_c,
+                                            batch_count, compute_type, algo));
 
-    dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
-    dim3 block1(16, 16, 1);
-    size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    if (smem_size < 47 * 1024) {  // 47 KB
-      gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    } else {
-      gather_concat_fprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    }
+  // phase 2: gather & concat
+  T *in0 = input_tensors_[0].data<T>();
+  T *gather = output_tensors_[0].data<T>();
+
+  dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
+  dim3 block1(16, 16, 1);
+  size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
+  if (smem_size < 47 * 1024) {  // 47 KB
+    gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+        gather, in0, mat, h, n_ins, in_w);
   } else {
-    // phase 0: concat
-    auto *concat = intermediate_tensors_[0].data<T>();
-    auto *in_mlp = input_tensors_[0].data<T>();
-    auto *in_emb = input_tensors_[1].data<T>();
-    const int h = intermediate_tensors_[0].size(0);
-    const int out_w = intermediate_tensors_[0].size(1);
-    const int in_w = input_tensors_[0].size(1);
-    const int n_emb = input_tensors_[1].size(1);
-    const int n_ins = 1 + n_emb;
-
-    dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
-    dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
-    concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(true, concat, in_mlp, in_emb, h,
-                                                                out_w, in_w, n_emb);
-    // phase 1: matmul
-    const int batch_count = h;
-    auto *mat = intermediate_tensors_[1].data<T>();
-    const int m = n_ins;
-    const int n = n_ins;
-    const int k = in_w;
-    float alpha_32f = 1.0f;
-    float beta_32f = 0.0f;
-    void *alpha = &alpha_32f, *beta = &beta_32f;
-    long long int stride_a = static_cast<long long int>(n) * k;
-    long long int stride_b = static_cast<long long int>(k) * m;
-    long long int stride_c = static_cast<long long int>(n) * m;
-    cudaDataType_t a_type = CUDA_R_32F;
-    cudaDataType_t b_type = CUDA_R_32F;
-    cudaDataType_t c_type = CUDA_R_32F;
-
-    cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
-    if (std::is_same<T, __half>::value) {
-      a_type = CUDA_R_16F;
-      b_type = CUDA_R_16F;
-      c_type = CUDA_R_16F;
-    }
-    const cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
-    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-        get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, alpha, concat, a_type, k,
-        stride_a, concat, b_type, k, stride_b, beta, mat, c_type, n, stride_c, batch_count,
-        compute_type, algo));
-
-    // phase 2: gather & concat
-    T *in0 = input_tensors_[0].data<T>();
-    T *gather = output_tensors_[0].data<T>();
-
-    dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
-    dim3 block1(16, 16, 1);
-    size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    if (smem_size < 47 * 1024) {  // 47 KB
-      gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    } else {
-      gather_concat_fprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    }
+    gather_concat_fprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+        gather, in0, mat, h, n_ins, in_w);
   }
   HCTR_LIB_THROW(cudaGetLastError());
 }
@@ -1279,201 +1116,102 @@ template <>
 void InteractionLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    __half *in_mlp = get_in_tensors(is_train)[0].get_ptr();
-    __half *in_emb = get_in_tensors(is_train)[1].get_ptr();
-    __half *output = out_tensors_[0].get_ptr();
-    const int h = get_in_tensors(is_train)[0].get_dimensions()[0];
-    const int in_w = get_in_tensors(is_train)[0].get_dimensions()[1];
-    const int n_emb = get_in_tensors(is_train)[1].get_dimensions()[1];
-    const int n_ins = 1 + n_emb;
-    // use optimized fused kernel when num_emb + 1 < 33
-    if (n_ins >= n_ins_knob) {
-      this->fprop_generic(is_train);
-      return;
-    }
-    dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
-  } else {
-    __half *in_mlp = input_tensors_[0].data<__half>();
-    __half *in_emb = input_tensors_[1].data<__half>();
-    __half *output = output_tensors_[0].data<__half>();
-    const int h = input_tensors_[0].size(0);
-    const int in_w = input_tensors_[0].size(1);
-    const int n_emb = input_tensors_[1].size(1);
-    const int n_ins = 1 + n_emb;
-    // use optimized fused kernel when num_emb + 1 < 33
-    if (n_ins >= n_ins_knob) {
-      this->fprop_generic(is_train);
-      return;
-    }
-    dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
+  __half *in_mlp = input_tensors_[0].data<__half>();
+  __half *in_emb = input_tensors_[1].data<__half>();
+  __half *output = output_tensors_[0].data<__half>();
+  const int h = input_tensors_[0].size(0);
+  const int in_w = input_tensors_[0].size(1);
+  const int n_emb = input_tensors_[1].size(1);
+  const int n_ins = 1 + n_emb;
+  // use optimized fused kernel when num_emb + 1 < 33
+  if (n_ins >= n_ins_knob) {
+    this->fprop_generic(is_train);
+    return;
   }
+  dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
 }
 
 template <typename T>
 void InteractionLayer<T>::bprop_generic() {
   CudaDeviceContext context(get_device_id());
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    // phase 0:
-    T *gather = out_tensors_[0].get_ptr();
-    T *in0 = get_in_tensors(true)[0].get_ptr();
-    T *mat = internal_tensors_[1].get_ptr();
-    const int h = internal_tensors_[0].get_dimensions()[0];
-    const int n_ins = 1 + get_in_tensors(true)[1].get_dimensions()[1];
-    const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
-    T *mat_dst = internal_tensors_[1].get_ptr();
-    if (n_ins >= n_ins_knob) {
-      mat_dst = internal_tensors_[3].get_ptr();
-    }
-    dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
-    dim3 block1(16, 16, 1);
-    size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    if (smem_size < 47 * 1024) {
-      gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    } else {
-      gather_concat_bprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    }
-    // HCTR_LOG(INFO,ROOT,"gather_concat_bprop_kernel called\n");
-    // phase 1:
-    const int batch_count = h;
-    T *concat = internal_tensors_[0].get_ptr();
-    T *concat_tmp = internal_tensors_[2].get_ptr();
-    const int m = n_ins;
-    const int n = in_w;
-    const int k = n_ins;
-    float alpha = 1.0f;
-    float beta = 0.0f;
-    long long int stride_a = static_cast<long long int>(n) * k;
-    long long int stride_b = static_cast<long long int>(k) * m;
-    long long int stride_c = static_cast<long long int>(n) * m;
-    cudaDataType_t a_type = CUDA_R_32F;
-    cudaDataType_t b_type = CUDA_R_32F;
-    cudaDataType_t c_type = CUDA_R_32F;
-    if (std::is_same<T, __half>::value) {
-      a_type = CUDA_R_16F;
-      b_type = CUDA_R_16F;
-      c_type = CUDA_R_16F;
-    }
-    const cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
-    const cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
-    // mat = mat + T(mat)
-    {
-      dim3 block(32, 32, 1);
-      dim3 grid((n_ins + block.x - 1) / block.x, (n_ins + block.y - 1) / block.y, h);
-      // Load upper & it's symmetric lower in one go
-      size_t smem_size = sizeof(T) * block.x * block.y;
-      if (n_ins >= n_ins_knob) {
-        smem_size *= 2;
-        transpose_and_add<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst, h,
-                                                                              n_ins);
-      } else {
-        // this is more performant
-        transpose_and_add_oneshot<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst,
-                                                                                      h, n_ins);
-      }
-    }
-    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, concat, a_type, n,
-        stride_a, mat_dst, b_type, k, stride_b, &beta, concat_tmp, c_type, n, stride_c, batch_count,
-        compute_type, algo));
-
-    T *in_mlp = get_in_tensors(true)[0].get_ptr();
-    T *in_emb = get_in_tensors(true)[1].get_ptr();
-    const int out_w = internal_tensors_[0].get_dimensions()[1];
-    const int n_emb = get_in_tensors(true)[1].get_dimensions()[1];
-
-    dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
-    dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
-    concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb,
-                                                                h, out_w, in_w, n_emb);
-  } else {
-    // phase 0:
-    T *gather = output_tensors_[0].data<T>();
-    T *in0 = input_tensors_[0].data<T>();
-    T *mat = intermediate_tensors_[1].data<T>();
-    const int h = intermediate_tensors_[0].size(0);
-    const int n_ins = 1 + input_tensors_[1].size(1);
-    const int in_w = input_tensors_[0].size(1);
-    T *mat_dst = intermediate_tensors_[1].data<T>();
-    if (n_ins >= n_ins_knob) {
-      mat_dst = intermediate_tensors_[3].data<T>();
-    }
-    dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
-    dim3 block1(16, 16, 1);
-    size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-    if (smem_size < 47 * 1024) {
-      gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    } else {
-      gather_concat_bprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
-          gather, in0, mat, h, n_ins, in_w);
-    }
-
-    // phase 1:
-    const int batch_count = h;
-    T *concat = intermediate_tensors_[0].data<T>();
-    T *concat_tmp = intermediate_tensors_[2].data<T>();
-    const int m = n_ins;
-    const int n = in_w;
-    const int k = n_ins;
-    float alpha = 1.0f;
-    float beta = 0.0f;
-    long long int stride_a = static_cast<long long int>(n) * k;
-    long long int stride_b = static_cast<long long int>(k) * m;
-    long long int stride_c = static_cast<long long int>(n) * m;
-    cudaDataType_t a_type = CUDA_R_32F;
-    cudaDataType_t b_type = CUDA_R_32F;
-    cudaDataType_t c_type = CUDA_R_32F;
-    if (std::is_same<T, __half>::value) {
-      a_type = CUDA_R_16F;
-      b_type = CUDA_R_16F;
-      c_type = CUDA_R_16F;
-    }
-    const cublasComputeType_t compute_type =
-        enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
-
-    const cublasGemmAlgo_t algo =
-        use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
-    // mat = mat + T(mat)
-    {
-      dim3 block(32, 32, 1);
-      dim3 grid((n_ins + block.x - 1) / block.x, (n_ins + block.y - 1) / block.y, h);
-      // Load upper & it's symmetric lower in one go
-      size_t smem_size = sizeof(T) * block.x * block.y;
-      if (n_ins >= n_ins_knob) {
-        smem_size *= 2;
-        transpose_and_add<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst, h,
-                                                                              n_ins);
-      } else {
-        // this is more performant
-        transpose_and_add_oneshot<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst,
-                                                                                      h, n_ins);
-      }
-    }
-    HCTR_LIB_THROW(cublasGemmStridedBatchedEx(
-        get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, concat, a_type, n,
-        stride_a, mat_dst, b_type, k, stride_b, &beta, concat_tmp, c_type, n, stride_c, batch_count,
-        compute_type, algo));
-
-    T *in_mlp = input_tensors_[0].data<T>();
-    T *in_emb = input_tensors_[1].data<T>();
-    const int out_w = intermediate_tensors_[0].size(1);
-    const int n_emb = input_tensors_[1].size(1);
-
-    dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
-    dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
-    concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb,
-                                                                h, out_w, in_w, n_emb);
+  // phase 0:
+  T *gather = output_tensors_[0].data<T>();
+  T *in0 = input_tensors_[0].data<T>();
+  T *mat = intermediate_tensors_[1].data<T>();
+  const int h = intermediate_tensors_[0].size(0);
+  const int n_ins = 1 + input_tensors_[1].size(1);
+  const int in_w = input_tensors_[0].size(1);
+  T *mat_dst = intermediate_tensors_[1].data<T>();
+  if (n_ins >= n_ins_knob) {
+    mat_dst = intermediate_tensors_[3].data<T>();
   }
+  dim3 grid1(get_gpu().get_sm_count() * 8, 1, 1);
+  dim3 block1(16, 16, 1);
+  size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
+  if (smem_size < 47 * 1024) {
+    gather_concat_bprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(
+        gather, in0, mat, h, n_ins, in_w);
+  } else {
+    gather_concat_bprop_kernel_no_shared<<<grid1, block1, 0, get_gpu().get_stream()>>>(
+        gather, in0, mat, h, n_ins, in_w);
+  }
+
+  // phase 1:
+  const int batch_count = h;
+  T *concat = intermediate_tensors_[0].data<T>();
+  T *concat_tmp = intermediate_tensors_[2].data<T>();
+  const int m = n_ins;
+  const int n = in_w;
+  const int k = n_ins;
+  float alpha = 1.0f;
+  float beta = 0.0f;
+  long long int stride_a = static_cast<long long int>(n) * k;
+  long long int stride_b = static_cast<long long int>(k) * m;
+  long long int stride_c = static_cast<long long int>(n) * m;
+  cudaDataType_t a_type = CUDA_R_32F;
+  cudaDataType_t b_type = CUDA_R_32F;
+  cudaDataType_t c_type = CUDA_R_32F;
+  if (std::is_same<T, __half>::value) {
+    a_type = CUDA_R_16F;
+    b_type = CUDA_R_16F;
+    c_type = CUDA_R_16F;
+  }
+  const cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+
+  const cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
+
+  // mat = mat + T(mat)
+  {
+    dim3 block(32, 32, 1);
+    dim3 grid((n_ins + block.x - 1) / block.x, (n_ins + block.y - 1) / block.y, h);
+    // Load upper & it's symmetric lower in one go
+    size_t smem_size = sizeof(T) * block.x * block.y;
+    if (n_ins >= n_ins_knob) {
+      smem_size *= 2;
+      transpose_and_add<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst, h, n_ins);
+    } else {
+      // this is more performant
+      transpose_and_add_oneshot<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat_dst, h,
+                                                                                    n_ins);
+    }
+  }
+  HCTR_LIB_THROW(cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N,
+                                            n, m, k, &alpha, concat, a_type, n, stride_a, mat_dst,
+                                            b_type, k, stride_b, &beta, concat_tmp, c_type, n,
+                                            stride_c, batch_count, compute_type, algo));
+
+  T *in_mlp = input_tensors_[0].data<T>();
+  T *in_emb = input_tensors_[1].data<T>();
+  const int out_w = intermediate_tensors_[0].size(1);
+  const int n_emb = input_tensors_[1].size(1);
+
+  dim3 grid0(n_ins, get_gpu().get_sm_count(), 1);
+  dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
+  concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb, h,
+                                                              out_w, in_w, n_emb);
 }
 template <>
 void InteractionLayer<float>::bprop() {
@@ -1483,36 +1221,19 @@ template <>
 void InteractionLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: this block will be removed later
-  if (input_tensors_.empty()) {
-    __half *up_grad = out_tensors_[0].get_ptr();
-    if (separate_Y_and_dY_) up_grad = out_tensors_[1].get_ptr();
-    __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
-    __half *emb_grad = get_in_tensors(true)[1].get_ptr();
-    const int h = get_in_tensors(true)[0].get_dimensions()[0];
-    const int n_emb = get_in_tensors(true)[1].get_dimensions()[1];
-    const int n_ins = 1 + n_emb;
-    const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
-    if (n_ins >= n_ins_knob) {
-      this->bprop_generic();
-      return;
-    }
-    dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
-  } else {
-    __half *up_grad = output_tensors_[0].data<__half>();
-    if (separate_Y_and_dY_) up_grad = output_tensors_[1].data<__half>();
-    __half *mlp_grad = input_tensors_[0].data<__half>();
-    __half *emb_grad = input_tensors_[1].data<__half>();
-    const int h = input_tensors_[0].size(0);
-    const int n_emb = input_tensors_[1].size(1);
-    const int n_ins = 1 + n_emb;
-    const int in_w = input_tensors_[0].size(1);
-    if (n_ins >= n_ins_knob) {
-      this->bprop_generic();
-      return;
-    }
-    dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
+  __half *up_grad = output_tensors_[0].data<__half>();
+  if (separate_Y_and_dY_) up_grad = output_tensors_[1].data<__half>();
+  __half *mlp_grad = input_tensors_[0].data<__half>();
+  __half *emb_grad = input_tensors_[1].data<__half>();
+  const int h = input_tensors_[0].size(0);
+  const int n_emb = input_tensors_[1].size(1);
+  const int n_ins = 1 + n_emb;
+  const int in_w = input_tensors_[0].size(1);
+  if (n_ins >= n_ins_knob) {
+    this->bprop_generic();
+    return;
   }
+  dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
 }
 
 template class InteractionLayer<float>;

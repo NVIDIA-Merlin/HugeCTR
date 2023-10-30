@@ -18,8 +18,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <typename T>
 DataCollector<T>::BackgroundDataCollectorThread::BackgroundDataCollectorThread(
     const std::vector<std::shared_ptr<ThreadBuffer23>> &thread_buffers,
@@ -92,25 +90,9 @@ void DataCollector<T>::BackgroundDataCollectorThread::stop() {
 template <typename T>
 DataCollector<T>::DataCollector(const std::vector<std::shared_ptr<ThreadBuffer23>> &thread_buffers,
                                 const std::shared_ptr<BroadcastBuffer23> &broadcast_buffer,
-                                std::shared_ptr<DataReaderOutput> &output,
-                                const std::shared_ptr<ResourceManager> &resource_manager)
-    : broadcast_buffer_(broadcast_buffer),
-      output_buffer_(output),
-      output_buffer23_(nullptr),
-      background_collector_(thread_buffers, broadcast_buffer, resource_manager),
-      loop_flag_{true},
-      last_batch_nnz_(
-          broadcast_buffer->is_fixed_length.size() * resource_manager->get_local_gpu_count(), 0),
-      resource_manager_(resource_manager) {
-  background_collector_thread_ = std::thread([this]() { background_collector_.start(); });
-}
-template <typename T>
-DataCollector<T>::DataCollector(const std::vector<std::shared_ptr<ThreadBuffer23>> &thread_buffers,
-                                const std::shared_ptr<BroadcastBuffer23> &broadcast_buffer,
                                 std::shared_ptr<DataReaderOutput23> &output,
                                 const std::shared_ptr<ResourceManager> &resource_manager)
     : broadcast_buffer_(broadcast_buffer),
-      output_buffer_(nullptr),
       output_buffer23_(output),
       background_collector_(thread_buffers, broadcast_buffer, resource_manager),
       loop_flag_{true},
@@ -208,7 +190,6 @@ void DataCollector<T>::finalize_batch() {
   }
   broadcast_buffer_->state.store(BufferState::ReadyForWrite);
 }
-};  // namespace core23_reader
-template class core23_reader::DataCollector<long long>;
-template class core23_reader::DataCollector<uint32_t>;
+template class DataCollector<long long>;
+template class DataCollector<uint32_t>;
 }  // namespace HugeCTR

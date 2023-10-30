@@ -21,13 +21,8 @@ namespace HugeCTR {
 
 template <typename From, typename To>
 class CastLayer : public Layer {
-  Tensor2<From> bottom_tensor_;
-  Tensor2<To> top_tensor_;
-
  public:
   CastLayer(const core23::Tensor& input_tensor, const core23::Tensor& output_tensor,
-            const std::shared_ptr<GPUResource>& gpu_resource);
-  CastLayer(const Tensor2<From>& bottom_tensor, const Tensor2<To>& top_tensor,
             const std::shared_ptr<GPUResource>& gpu_resource);
   void fprop(bool is_train) override;
   void bprop() override;

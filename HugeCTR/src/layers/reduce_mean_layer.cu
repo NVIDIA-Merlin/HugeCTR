@@ -157,90 +157,28 @@ ReduceMeanLayer<T>::ReduceMeanLayer(const core23::Tensor& input_tensor,
 }
 
 template <typename T>
-ReduceMeanLayer<T>::ReduceMeanLayer(
-    const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
-    const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource), axis_(axis) {
-  try {
-    // error input checking
-    const auto& in_dims = in_tensor.get_dimensions();
-    for (auto i : in_dims) {
-      if (i == 0) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "The input dims can not be 0");
-      }
-    }
-    if (axis >= (int)(in_dims.size()) || axis < 0) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "The axis is overflow");
-    }
-
-    std::vector<size_t> out_dims(in_dims.size());
-    for (int i = 0; i < (int)(in_dims.size()); i++) {
-      if (i == axis) {
-        out_dims[i] = 1;
-      } else {
-        out_dims[i] = in_dims[i];
-      }
-    }
-
-    blobs_buff->reserve(out_dims, &out_tensor);
-    out_tensors_.push_back(out_tensor);
-    in_tensors_.push_back(in_tensor);
-
-  } catch (const std::runtime_error& rt_err) {
-    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-    throw;
-  }
-}
-template <typename T>
 void ReduceMeanLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    T* input = in_tensors_[0].get_ptr();
-    T* output = out_tensors_[0].get_ptr();
-    auto in_dims = in_tensors_[0].get_dimensions();
-    auto out_dims = out_tensors_[0].get_dimensions();
+  auto* input = input_tensors_[0].data<T>();
+  auto* output = output_tensors_[0].data<T>();
+  auto in_shape = input_tensors_[0].shape();
+  auto out_shape = output_tensors_[0].shape();
 
-    int block_num = 1;
-    for (auto dim : out_dims) {
-      block_num *= dim;
-    }
-
-    dim3 blockSize(256, 1, 1);
-    dim3 gridSize(block_num, 1, 1);
-    if (in_dims.size() == 1) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
-                                                                             in_dims[0]);
-    } else if (in_dims.size() == 2) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          input, output, axis_, in_dims[0], in_dims[1]);
-    } else if (in_dims.size() == 3) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          input, output, axis_, in_dims[0], in_dims[1], in_dims[2]);
-    }
-  } else {
-    auto* input = input_tensors_[0].data<T>();
-    auto* output = output_tensors_[0].data<T>();
-    auto in_shape = input_tensors_[0].shape();
-    auto out_shape = output_tensors_[0].shape();
-
-    auto block_num = out_shape.size();
-    dim3 blockSize(256, 1, 1);
-    dim3 gridSize(block_num, 1, 1);
-    if (in_shape.dims() == 1) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          input, output, axis_, static_cast<size_t>(in_shape.size(0)));
-    } else if (in_shape.dims() == 2) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          input, output, axis_, static_cast<size_t>(in_shape.size(0)),
-          static_cast<size_t>(in_shape.size(1)));
-    } else if (in_shape.dims() == 3) {
-      reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          input, output, axis_, static_cast<size_t>(in_shape.size(0)),
-          static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
-    }
+  auto block_num = out_shape.size();
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize(block_num, 1, 1);
+  if (in_shape.dims() == 1) {
+    reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        input, output, axis_, static_cast<size_t>(in_shape.size(0)));
+  } else if (in_shape.dims() == 2) {
+    reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        input, output, axis_, static_cast<size_t>(in_shape.size(0)),
+        static_cast<size_t>(in_shape.size(1)));
+  } else if (in_shape.dims() == 3) {
+    reduce_mean_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        input, output, axis_, static_cast<size_t>(in_shape.size(0)),
+        static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
   }
 }
 
@@ -248,50 +186,25 @@ template <typename T>
 void ReduceMeanLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  // TODO: remove later
-  if (input_tensors_.empty()) {
-    T* input = in_tensors_[0].get_ptr();
-    T* output = out_tensors_[0].get_ptr();
-    auto in_dims = in_tensors_[0].get_dimensions();
+  auto* input = input_tensors_[0].data<T>();
+  auto* output = output_tensors_[0].data<T>();
+  auto in_shape = input_tensors_[0].shape();
 
-    int size = 1;
-    for (auto dim : in_dims) {
-      size *= dim;
-    }
+  auto size = in_shape.size();
 
-    dim3 blockSize(256, 1, 1);
-    dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
-    if (in_dims.size() == 1) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, in_dims[0]);
-    } else if (in_dims.size() == 2) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, in_dims[0], in_dims[1]);
-    } else if (in_dims.size() == 3) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, in_dims[0], in_dims[1], in_dims[2]);
-    }
-  } else {
-    auto* input = input_tensors_[0].data<T>();
-    auto* output = output_tensors_[0].data<T>();
-    auto in_shape = input_tensors_[0].shape();
-
-    auto size = in_shape.size();
-
-    dim3 blockSize(256, 1, 1);
-    dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
-    if (in_shape.dims() == 1) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, static_cast<size_t>(in_shape.size(0)));
-    } else if (in_shape.dims() == 2) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, static_cast<size_t>(in_shape.size(0)),
-          static_cast<size_t>(in_shape.size(1)));
-    } else if (in_shape.dims() == 3) {
-      reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
-          output, input, axis_, static_cast<size_t>(in_shape.size(0)),
-          static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
-    }
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
+  if (in_shape.dims() == 1) {
+    reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        output, input, axis_, static_cast<size_t>(in_shape.size(0)));
+  } else if (in_shape.dims() == 2) {
+    reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        output, input, axis_, static_cast<size_t>(in_shape.size(0)),
+        static_cast<size_t>(in_shape.size(1)));
+  } else if (in_shape.dims() == 3) {
+    reduce_mean_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        output, input, axis_, static_cast<size_t>(in_shape.size(0)),
+        static_cast<size_t>(in_shape.size(1)), static_cast<size_t>(in_shape.size(2)));
   }
 }
 

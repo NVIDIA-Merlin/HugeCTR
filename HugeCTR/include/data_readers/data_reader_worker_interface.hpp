@@ -49,21 +49,7 @@ class IDataReaderWorker {
 
   bool is_eof_{false};
   const std::shared_ptr<std::atomic<bool>> &loop_flag_;
-  // TODO remove me
-  std::shared_ptr<ThreadBuffer> buffer_;
   std::shared_ptr<ThreadBuffer23> buffer23_;
-
-  IDataReaderWorker(const int worker_id, const int worker_num,
-                    const std::shared_ptr<GPUResource> &gpu_resource, bool is_eof,
-                    const std::shared_ptr<std::atomic<bool>> &loop_flag,
-                    const std::shared_ptr<ThreadBuffer> &buff)
-      : worker_id_(worker_id),
-        worker_num_(worker_num),
-        gpu_resource_(gpu_resource),
-        is_eof_(is_eof),
-        loop_flag_(loop_flag),
-        buffer_(buff),
-        buffer23_(nullptr) {}
 
   IDataReaderWorker(const int worker_id, const int worker_num,
                     const std::shared_ptr<GPUResource> &gpu_resource, bool is_eof,
@@ -74,23 +60,15 @@ class IDataReaderWorker {
         gpu_resource_(gpu_resource),
         is_eof_(is_eof),
         loop_flag_(loop_flag),
-        buffer_(nullptr),
         buffer23_(buff) {}
 
   bool wait_until_h2d_ready() {
     BufferState expected = BufferState::ReadyForWrite;
-    if (buffer_) {
-      while (!buffer_->state.compare_exchange_weak(expected, BufferState::Writing)) {
-        expected = BufferState::ReadyForWrite;
-        usleep(2);
-        if (!loop_flag_->load()) return false;  // in case main thread exit
-      }
-    } else {
-      while (!buffer23_->state.compare_exchange_weak(expected, BufferState::Writing)) {
-        expected = BufferState::ReadyForWrite;
-        usleep(2);
-        if (!loop_flag_->load()) return false;  // in case main thread exit
-      }
+
+    while (!buffer23_->state.compare_exchange_weak(expected, BufferState::Writing)) {
+      expected = BufferState::ReadyForWrite;
+      usleep(2);
+      if (!loop_flag_->load()) return false;  // in case main thread exit
     }
     return true;
   }

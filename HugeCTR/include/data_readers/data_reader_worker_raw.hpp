@@ -29,8 +29,6 @@
 
 namespace HugeCTR {
 
-namespace core23_reader {
-
 template <class T>
 class DataReaderWorkerRaw : public IDataReaderWorker {
  private:
@@ -73,5 +71,4 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
 
   DataReaderType_t get_reader_type() override { return DataReaderType_t::Raw; }
 };
-}  // namespace core23_reader
 }  // namespace HugeCTR

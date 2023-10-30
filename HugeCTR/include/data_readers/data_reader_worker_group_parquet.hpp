@@ -20,7 +20,6 @@
 #include <data_readers/parquet_data_reader_worker.hpp>
 
 namespace HugeCTR {
-namespace core23_reader {
 
 template <typename TypeKey>
 class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
@@ -113,20 +112,18 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
     }
 
     for (size_t i = 0; i < num_workers; i++) {
-      std::shared_ptr<IDataReaderWorker> data_reader(
-          new core23_reader::ParquetDataReaderWorker<TypeKey>(
-              i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
-              data_reader_loop_flag_, &this->end_flag_, output_buffers[i], file_list,
-              strict_order_of_batches, repeat, params, data_source_params, slot_offset,
-              local_device_list[i], df_container_consumer[i], df_container_producer,
-              df_container_producer_stats_, workers_has_read_, accomplished_workers_,
-              resource_manager_, dense_width_dim_, this->go_next_epoch_.data() + i,
-              this->epoch_mtx_[i], this->epoch_cv_[i]));
+      std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
+          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
+          data_reader_loop_flag_, &this->end_flag_, output_buffers[i], file_list,
+          strict_order_of_batches, repeat, params, data_source_params, slot_offset,
+          local_device_list[i], df_container_consumer[i], df_container_producer,
+          df_container_producer_stats_, workers_has_read_, accomplished_workers_, resource_manager_,
+          dense_width_dim_, this->go_next_epoch_.data() + i, this->epoch_mtx_[i],
+          this->epoch_cv_[i]));
       data_readers_.push_back(data_reader);
     }
     this->create_data_reader_threads();
   }
   ~DataReaderWorkerGroupParquet() {}
 };
-};  // namespace core23_reader
 }  // namespace HugeCTR

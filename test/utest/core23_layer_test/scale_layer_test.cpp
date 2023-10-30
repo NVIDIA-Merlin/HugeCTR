@@ -80,8 +80,7 @@ void core23_scale_test(int64_t batchsize, int64_t num_elems, int axis, int facto
                                 .shape(dims)
                                 .data_type(core23::ToScalarType<T>::value)
                                 .device({core23::DeviceType::GPU, 0}));
-  ;
-  core23::ScaleLayer<T> scale_layer(in_tensor, out_tensor, axis, factor, test::get_default_gpu());
+  ScaleLayer<T> scale_layer(in_tensor, out_tensor, axis, factor, test::get_default_gpu());
 
   scale_layer.initialize();
 
