@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Benchmark the DLRM Model with HPS &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Benchmark the DLRM Model with HPS &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_dlrm_benchmark.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -99,17 +98,17 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="benchmark-the-dlrm-model-with-hps">
-<h1>Benchmark the DLRM Model with HPS<a class="headerlink" href="#benchmark-the-dlrm-model-with-hps" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="benchmark-the-dlrm-model-with-hps">
+<h1>Benchmark the DLRM Model with HPS<a class="headerlink" href="#benchmark-the-dlrm-model-with-hps" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#benchmark-setup" id="id1">Benchmark Setup</a></p></li>
 <li><p><a class="reference internal" href="#results" id="id2">Results</a></p></li>
 <li><p><a class="reference internal" href="#resources" id="id3">Resources</a></p></li>
 </ul>
-</div>
-<div class="section" id="benchmark-setup">
-<h2>Benchmark Setup<a class="headerlink" href="#benchmark-setup" title="Permalink to this headline"></a></h2>
+</nav>
+<section id="benchmark-setup">
+<h2>Benchmark Setup<a class="headerlink" href="#benchmark-setup" title="Permalink to this heading"></a></h2>
 <p>We create the DLRM model with native TensorFlow and its counterpart with HPS Plugin for TensorFlow using the <a class="reference download internal" download="" href="../_downloads/dbb8b96b5782fa5bb7367e4c0cc75722/create_tf_models.py"><span class="xref download myst">create_tf_models.py</span></a> script. The DLRM model with native TF is in the SavedModel format and the size is about 16GB, which is almost the size of embedding weights because the size of dense layer weights is small. The DLRM model with the plugin leverages HPS to store the embedding table and perform embedding lookup. The JSON configuration file and the embedding table file required by HPS are also generated by the script.</p>
 <p>Furthermore, we build the TensorRT engines for the DLRM model using the <a class="reference download internal" download="" href="../_downloads/e858fb50f7c9701eb1852ee88cd4ab31/create_trt_engines.py"><span class="xref download myst">create_trt_engines.py</span></a> script, in both fp32 and fp16 modes. The script configures the engines with the HPS Plugin for TensorRT. The workflow can be summarized as three steps: convert TF SavedModel to ONNX, perform ONNX graph surgery to insert HPS plugin layer and build the TensorRT engines with HPS Plugin for TensorRT.</p>
 <p>We compare three deployment methods on the Triton Inference Server:</p>
@@ -141,9 +140,9 @@
 <span class="w">    </span>Avg<span class="w"> </span>request<span class="w"> </span>latency:<span class="w"> </span><span class="m">562</span><span class="w"> </span>usec<span class="w"> </span><span class="o">(</span>overhead<span class="w"> </span><span class="m">9</span><span class="w"> </span>usec<span class="w"> </span>+<span class="w"> </span>queue<span class="w"> </span><span class="m">9</span><span class="w"> </span>usec<span class="w"> </span>+<span class="w"> </span>compute<span class="w"> </span>input<span class="w"> </span><span class="m">59</span><span class="w"> </span>usec<span class="w"> </span>+<span class="w"> </span>compute<span class="w"> </span>infer<span class="w"> </span><span class="m">431</span><span class="w"> </span>usec<span class="w"> </span>+<span class="w"> </span>compute<span class="w"> </span>output<span class="w"> </span><span class="m">53</span><span class="w"> </span>usec<span class="o">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="results">
-<h2>Results<a class="headerlink" href="#results" title="Permalink to this headline"></a></h2>
+</section>
+<section id="results">
+<h2>Results<a class="headerlink" href="#results" title="Permalink to this heading"></a></h2>
 <p>The benchmark is conducted with the Merlin TensorFlow container <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.02</span></code> on a machine with <code class="docutils literal notranslate"><span class="pre">A100-SXM4-80GB</span> <span class="pre">+</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">AMD</span> <span class="pre">EPYC</span> <span class="pre">7742</span> <span class="pre">64-Core</span> <span class="pre">Processor</span></code>. The software versions are listed below:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>TensorFlow<span class="w"> </span>version:<span class="w"> </span><span class="m">2</span>.10.0
 Triton<span class="w"> </span>version:<span class="w"> </span><span class="m">22</span>.11
@@ -151,7 +150,7 @@ TensorRT<span class="w"> </span>version:<span class="w"> </span><span class="m">
 </pre></div>
 </div>
 <p>The per-batch forward latency, in microseconds, measured at the server side is shown in the following table and Figure 1. The Y-axis is logarithmic. The FP16 TRT engine with HPS achieves the best performance on almost all batch sizes, and has about 10x speedup to the Native TF baseline on large batch sizes.</p>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Batch size</p></th>
 <th class="head"><p>Native TF</p></th>
@@ -244,16 +243,16 @@ TensorRT<span class="w"> </span>version:<span class="w"> </span><span class="m">
 <a class="reference internal image-reference" href="../_images/hps_dlrm_latency.png"><img alt="The DLRM inference latency for different deployment methods" src="../_images/hps_dlrm_latency.png" style="width: 720px;" /></a>
 <div style="text-align:center;">Figure 1. The DLRM inference latency.</div>
 <p><br></br></p>
-</div>
-<div class="section" id="resources">
-<h2>Resources<a class="headerlink" href="#resources" title="Permalink to this headline"></a></h2>
+</section>
+<section id="resources">
+<h2>Resources<a class="headerlink" href="#resources" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow Backend</a></p></li>
 <li><p><a class="reference external" href="https://github.com/triton-inference-server/tensorrt_backend">Triton TensorRT Backend</a></p></li>
 <li><p><a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/user_guide/perf_analyzer.md">Triton Performance Analyzer</a></p></li>
 </ul>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -289,12 +288,12 @@ TensorRT<span class="w"> </span>version:<span class="w"> </span><span class="m">
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.06.01</a></dd>
       <dd><a href="hps_dlrm_benchmark.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

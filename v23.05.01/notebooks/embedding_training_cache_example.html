@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Embedding Training Cache Example &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Embedding Training Cache Example &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/embedding_training_cache_example.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -132,27 +131,27 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_embedding-training-cache-example/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_embedding-training-cache-example/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="embedding-training-cache-example">
-<h1>Embedding Training Cache Example<a class="headerlink" href="#embedding-training-cache-example" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="embedding-training-cache-example">
+<h1>Embedding Training Cache Example<a class="headerlink" href="#embedding-training-cache-example" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p><a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_embedding_training_cache.html">Embedding Training Cache</a> enables you to train huge models that cannot fit into GPU memory in one time. In this example, we will go through an end-to-end training procedure using the embedding training cache feature of HugeCTR. We are going to use the Criteo dataset as our data source and NVTabular as our data preprocessing tool.</p>
-</div>
-<div class="section" id="table-of-contents">
-<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Permalink to this headline"></a></h2>
+</section>
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="#setup"><span class="std std-doc">Setup</span></a></p></li>
 <li><p><a class="reference internal" href="#data-preparation"><span class="std std-doc">Data Preparation</span></a></p></li>
 <li><p><a class="reference internal" href="#extract-keyset"><span class="std std-doc">Extract keyset</span></a></p></li>
 <li><p><a class="reference internal" href="#training-using-hugectr"><span class="std std-doc">Training using HugeCTR</span></a></p></li>
 </ul>
-</div>
-<div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="data-preparation">
-<h2>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h2>
+</section>
+<section id="data-preparation">
+<h2>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this heading"></a></h2>
 <p>First, make a folder to store our data:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -257,9 +256,9 @@
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="extract-keyset">
-<h2>Extract Keyset<a class="headerlink" href="#extract-keyset" title="Permalink to this headline"></a></h2>
+</section>
+<section id="extract-keyset">
+<h2>Extract Keyset<a class="headerlink" href="#extract-keyset" title="Permalink to this heading"></a></h2>
 <p>The HugeCTR repository on GitHub includes a keyset generator script for Parquet datasets. See the <code class="docutils literal notranslate"><span class="pre">generate_keyset.py</span></code> file in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts">keyset_scripts</a> directory of the repository. We can use the script to generate keyset for our training datasets.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -331,9 +330,9 @@
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="training-using-hugectr">
-<h2>Training using HugeCTR<a class="headerlink" href="#training-using-hugectr" title="Permalink to this headline"></a></h2>
+</section>
+<section id="training-using-hugectr">
+<h2>Training using HugeCTR<a class="headerlink" href="#training-using-hugectr" title="Permalink to this heading"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> etc_sample.py
@@ -548,8 +547,8 @@ BinaryCrossEntropyLoss                  fc3                           loss
 </div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -585,12 +584,12 @@ BinaryCrossEntropyLoss                  fc3                           loss
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="embedding_training_cache_example.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

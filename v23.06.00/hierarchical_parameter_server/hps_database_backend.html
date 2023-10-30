@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -99,9 +98,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-database-backend">
-<h1>Hierarchical Parameter Server Database Backend<a class="headerlink" href="#hierarchical-parameter-server-database-backend" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hierarchical-parameter-server-database-backend">
+<h1>Hierarchical Parameter Server Database Backend<a class="headerlink" href="#hierarchical-parameter-server-database-backend" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#introduction-to-the-hps-database-backend" id="id1">Introduction to the HPS Database Backend</a></p></li>
 <li><p><a class="reference internal" href="#background" id="id2">Background</a></p></li>
@@ -123,19 +122,19 @@
 </ul>
 </li>
 </ul>
-</div>
-<div class="section" id="introduction-to-the-hps-database-backend">
-<h2>Introduction to the HPS Database Backend<a class="headerlink" href="#introduction-to-the-hps-database-backend" title="Permalink to this headline"></a></h2>
+</nav>
+<section id="introduction-to-the-hps-database-backend">
+<h2>Introduction to the HPS Database Backend<a class="headerlink" href="#introduction-to-the-hps-database-backend" title="Permalink to this heading"></a></h2>
 <p>The Hierarchical Parameter Server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment">samples</a>.</p>
-</div>
-<div class="section" id="background">
-<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline"></a></h2>
+</section>
+<section id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this heading"></a></h2>
 <p>GPU clusters offer superior compute power, compared to their CPU-only counterparts. However, although modern data-center GPUs by NVIDIA are equipped with increasing amounts of memory, new and more powerful AI algorithms come into existence that require more memory. Recommendation models with their huge embedding tables are spearheading these developments. The HPS database backend allows you to efficiently perform inference with models that rely on embedding tables that vastly exceed the available GPU device storage space.</p>
 <p>This is achieved through utilizing other memory resources, available within your clsuter, such as CPU accessible RAM and non-volatile memory. Aside from general advantages of non-volatile memory with respect to retaining stored information, storage devices such as HDDs and SDDs offer orders of magnitude more storage space than DDR memory and HBM (High Bandwidth Memory), at significantly lower cost. However, their throughout is lower and latency is higher than that of DRR and HBM.</p>
 <p>The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources available across the cluster can be used as a cache to improve response times.</p>
-</div>
-<div class="section" id="architecture">
-<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline"></a></h2>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this heading"></a></h2>
 <p>As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.</p>
 <ol class="arabic">
 <li><p>The <strong>CPU Memory Database</strong> layer utilizes volatile CPU addressable RAM memory to cache embeddings.
@@ -157,7 +156,7 @@ As a result, if your model exceeds even the total RAM capacity of your entire cl
 <p>The following table provides an overview of the typical properties for the different parameter database layers and the embedding cache.
 We emphasize that this table provides rough guidelines.
 Properties for production deployments are often different.</p>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p></p></th>
 <th class="head"><p>GPU Embedding Cache</p></th>
@@ -212,16 +211,16 @@ Properties for production deployments are often different.</p>
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section" id="training-and-iterative-model-updates">
-<h2>Training and Iterative Model Updates<a class="headerlink" href="#training-and-iterative-model-updates" title="Permalink to this headline"></a></h2>
+</section>
+<section id="training-and-iterative-model-updates">
+<h2>Training and Iterative Model Updates<a class="headerlink" href="#training-and-iterative-model-updates" title="Permalink to this heading"></a></h2>
 <p>Models that are deployed with the HugeCTR HPS database backend allow streaming model parameter updates from external sources through <a class="reference external" href="https://kafka.apache.org">Apache Kafka</a>.
 This ability provides zero-downtime online model retraining.</p>
-</div>
-<div class="section" id="execution">
-<h2>Execution<a class="headerlink" href="#execution" title="Permalink to this headline"></a></h2>
-<div class="section" id="inference">
-<h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
+</section>
+<section id="execution">
+<h2>Execution<a class="headerlink" href="#execution" title="Permalink to this heading"></a></h2>
+<section id="inference">
+<h3>Inference<a class="headerlink" href="#inference" title="Permalink to this heading"></a></h3>
 <p>With respect to embedding lookups from the HugeCTR GPU embedding cache and HPS database backend, the following logic applies:</p>
 <ul class="simple">
 <li><p>Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, the inference engine first determines the associated unique embedding keys and tries to resolve these embeddings using the embedding cache.</p></li>
@@ -236,19 +235,19 @@ This ability provides zero-downtime online model retraining.</p>
 <p>HugeCTR first tries to look up missing embeddings in either the CPU memory database or the distributed database.
 If, and only if, there are still missing embedding representations after that, HugeCTR tries the non-volatile memory from the persistent database to find the corresponding embedding representations.
 The persistent database contains a copy of all existing embeddings.</p>
-</div>
-<div class="section" id="training">
-<h3>Training<a class="headerlink" href="#training" title="Permalink to this headline"></a></h3>
+</section>
+<section id="training">
+<h3>Training<a class="headerlink" href="#training" title="Permalink to this heading"></a></h3>
 <p>After a training iteration, model updates for updated embeddings are published through Kafka by the HugeCTR training process.
 The HPS database backend can be configured to listen automatically to change requests for certain models and then ingest these updates in its various database stages.</p>
-</div>
-<div class="section" id="lookup-optimization">
-<h3>Lookup Optimization<a class="headerlink" href="#lookup-optimization" title="Permalink to this headline"></a></h3>
+</section>
+<section id="lookup-optimization">
+<h3>Lookup Optimization<a class="headerlink" href="#lookup-optimization" title="Permalink to this heading"></a></h3>
 <p>If the volatile memory resources—the CPU memory database and distributed database—are not sufficient to retain the entire model, HugeCTR attempts to minimize the average latency for lookup through managing these resources like a cache by using a least recently used (LRU) algorithm.</p>
-</div>
-</div>
-<div class="section" id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h2>
 <p>The HugeCTR HPS database backend and iterative update can be configured using three separate configuration objects.
 The <code class="docutils literal notranslate"><span class="pre">VolatileDatabaseParams</span></code> and <code class="docutils literal notranslate"><span class="pre">PersistentDatabaseParams</span></code> objects are used to configure the database backends of each HPS database backend instance.
 If you want iterative or online model updating, you must also provide the <code class="docutils literal notranslate"><span class="pre">UpdateSourceParams</span></code> object to link the HPS database backend instance with your Kafka deployment.
@@ -279,10 +278,10 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 Generally speaking, each node in your HugeCTR cluster should deploy the same configuration.
 In rare cases, it might make sense to vary some parameters.
 The most common reason to vary the configuration by node is for heterogeneous clusters.</p>
-<div class="section" id="inference-parameters-and-embedding-cache-configuration">
-<h3>Inference Parameters and Embedding Cache Configuration<a class="headerlink" href="#inference-parameters-and-embedding-cache-configuration" title="Permalink to this headline"></a></h3>
-<div class="section" id="inference-params-syntax">
-<h4>Inference Params Syntax<a class="headerlink" href="#inference-params-syntax" title="Permalink to this headline"></a></h4>
+<section id="inference-parameters-and-embedding-cache-configuration">
+<h3>Inference Parameters and Embedding Cache Configuration<a class="headerlink" href="#inference-parameters-and-embedding-cache-configuration" title="Permalink to this heading"></a></h3>
+<section id="inference-params-syntax">
+<h4>Inference Params Syntax<a class="headerlink" href="#inference-params-syntax" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">(</span>
   <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
   <span class="n">max_batchsize</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span>
@@ -318,9 +317,9 @@ The most common reason to vary the configuration by node is for heterogeneous cl
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> object specifies the parameters related to the inference.
 An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> object is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
-</div>
-<div class="section" id="inference-parameters">
-<h4>Inference Parameters<a class="headerlink" href="#inference-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="inference-parameters">
+<h4>Inference Parameters<a class="headerlink" href="#inference-parameters" title="Permalink to this heading"></a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code>: String, specifies the name of the model to use for inference.
 It should be consistent with the <code class="docutils literal notranslate"><span class="pre">model_name</span></code> that you specified during training.
@@ -348,11 +347,11 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_cache_type</span></code>: String, specify the type of embedding cache. Three types are supported: <code class="docutils literal notranslate"><span class="pre">&quot;dynamic&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;static&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;uvm&quot;</span></code>. The lookup performance can be ranked from low to high as <code class="docutils literal notranslate"><span class="pre">&quot;dynamic&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;uvm&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;static&quot;</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">&quot;dynamic&quot;</span></code>. The functional differences between the three types of embedding cache are shown in the following table</p></li>
 </ul>
 <center>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-left head"><p>Type</p></th>
-<th class="text-center head"><p>Support Dynamic Update</p></th>
-<th class="text-center head"><p>Offload Embeddings to CPU</p></th>
+<tr class="row-odd"><th class="head text-left"><p>Type</p></th>
+<th class="head text-center"><p>Support Dynamic Update</p></th>
+<th class="head text-center"><p>Offload Embeddings to CPU</p></th>
 </tr>
 </thead>
 <tbody>
@@ -446,9 +445,9 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_cache_type</span></code>: String, specify the type of embedding cache. Three types are supported: <code class="docutils literal notranslate"><span class="pre">&quot;dynamic&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;static&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;uvm&quot;</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">&quot;dynamic&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_context_stream</span></code>: Boolean, whether to use context stream of TensorFlow or TensorRT for HPS embedding lookup. This is only valid for <a class="reference internal" href="hps_tf_user_guide.html"><span class="doc std std-doc">HPS Plugin for TensorFlow</span></a> and <a class="reference internal" href="hps_trt_user_guide.html"><span class="doc std std-doc">HPS Plugin for TensorRT</span></a>. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 </ul>
-</div>
-<div class="section" id="parameter-server-configuration-models">
-<h4>Parameter Server Configuration: Models<a class="headerlink" href="#parameter-server-configuration-models" title="Permalink to this headline"></a></h4>
+</section>
+<section id="parameter-server-configuration-models">
+<h4>Parameter Server Configuration: Models<a class="headerlink" href="#parameter-server-configuration-models" title="Permalink to this heading"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">models</span></code> key in a parameter server configuration file.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="nt">&quot;fuse_embedding_table&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
@@ -481,10 +480,10 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <span class="p">]</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="volatile-database-configuration">
-<h3>Volatile Database Configuration<a class="headerlink" href="#volatile-database-configuration" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="volatile-database-configuration">
+<h3>Volatile Database Configuration<a class="headerlink" href="#volatile-database-configuration" title="Permalink to this heading"></a></h3>
 <p>For HugeCTR, the volatile database implementations are grouped into two categories:</p>
 <ul>
 <li><p><strong>CPU memory databases</strong> have an instance on each machine and only use the locally available RAM memory as backing storage.
@@ -497,8 +496,8 @@ These nodes collaborate to inject updates into the underlying database.
 The assignment of which nodes update specific partition can change at runtime.</p>
 </li>
 </ul>
-<div class="section" id="volatile-database-params-syntax">
-<h4>Volatile Database Params Syntax<a class="headerlink" href="#volatile-database-params-syntax" title="Permalink to this headline"></a></h4>
+<section id="volatile-database-params-syntax">
+<h4>Volatile Database Params Syntax<a class="headerlink" href="#volatile-database-params-syntax" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">VolatileDatabaseParams</span><span class="p">(</span>
   <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span>
   <span class="n">address</span> <span class="o">=</span> <span class="s2">&quot;127.0.0.1:7000&quot;</span><span class="p">,</span>
@@ -525,9 +524,9 @@ The assignment of which nodes update specific partition can change at runtime.</
 <span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="parameter-server-configuration-volatile-database">
-<h4>Parameter Server Configuration: Volatile Database<a class="headerlink" href="#parameter-server-configuration-volatile-database" title="Permalink to this headline"></a></h4>
+</section>
+<section id="parameter-server-configuration-volatile-database">
+<h4>Parameter Server Configuration: Volatile Database<a class="headerlink" href="#parameter-server-configuration-volatile-database" title="Permalink to this heading"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">volatile_db</span></code> key in a parameter server configuration file.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span>
@@ -555,9 +554,9 @@ The assignment of which nodes update specific partition can change at runtime.</
 <span class="p">}</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="volatile-database-parameters">
-<h4>Volatile Database Parameters<a class="headerlink" href="#volatile-database-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="volatile-database-parameters">
+<h4>Volatile Database Parameters<a class="headerlink" href="#volatile-database-parameters" title="Permalink to this heading"></a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: specifies the volatile database implementation.
 Specify one of the following:</p>
@@ -611,9 +610,9 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <li><p><code class="docutils literal notranslate"><span class="pre">tls_client_key</span></code>: String, file system path of the private key to use for TLS/SSL secured connnections. Default value: <code class="docutils literal notranslate"><span class="pre">client_key.pem</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tls_server_name_identification</span></code>: String, SNI used by the server. Can be different from the actual connection address. Default value: <code class="docutils literal notranslate"><span class="pre">redis.localhost</span></code>.</p></li>
 </ul>
-</div>
-<div class="section" id="overflow-parameters">
-<h4>Overflow Parameters<a class="headerlink" href="#overflow-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="overflow-parameters">
+<h4>Overflow Parameters<a class="headerlink" href="#overflow-parameters" title="Permalink to this heading"></a></h4>
 <p>To maximize performance and avoid instabilities that can be caused by sporadic high memory usage, such as an out of memory situations, HugeCTR provides an overflow handling mechanism.
 This mechanism enables you to limit the maximum amount of embeddings to store for each partition.
 The limit acts as an upper bound for the memory consumption of your distributed database.</p>
@@ -646,9 +645,9 @@ HugeCTR attempts to cache the specified fraction of the dataset immediately upon
 For example, a value of <code class="docutils literal notranslate"><span class="pre">0.5</span></code> causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
 The default value is <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
 </ul>
-</div>
-<div class="section" id="common-volatile-database-parameters">
-<h4>Common Volatile Database Parameters<a class="headerlink" href="#common-volatile-database-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="common-volatile-database-parameters">
+<h4>Common Volatile Database Parameters<a class="headerlink" href="#common-volatile-database-parameters" title="Permalink to this heading"></a></h4>
 <p>The following parameters are common to all volatile database types.</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">cache_missed_embeddings</span></code>: Bool, when set to <code class="docutils literal notranslate"><span class="pre">True</span></code> and an embedding could not be retrieved from the volatile database, but could be retrieved from the persistent database, the embedding is inserted into the volatile database.
@@ -663,14 +662,14 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <p>The functionality of this parameter might change in future versions.</p>
 </li>
 </ul>
-</div>
-</div>
-<div class="section" id="persistent-database-configuration">
-<h3>Persistent Database Configuration<a class="headerlink" href="#persistent-database-configuration" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="persistent-database-configuration">
+<h3>Persistent Database Configuration<a class="headerlink" href="#persistent-database-configuration" title="Permalink to this heading"></a></h3>
 <p>Persistent databases have an instance on each machine and use the locally available non-volatile memory as backing storage.
 As a result, some configuration parameters can vary according to the specifications of the machine.</p>
-<div class="section" id="persistent-database-params-syntax">
-<h4>Persistent Database Params Syntax<a class="headerlink" href="#persistent-database-params-syntax" title="Permalink to this headline"></a></h4>
+<section id="persistent-database-params-syntax">
+<h4>Persistent Database Params Syntax<a class="headerlink" href="#persistent-database-params-syntax" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">PersistentDatabaseParams</span><span class="p">(</span>
   <span class="nb">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
   <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span>
@@ -681,9 +680,9 @@ As a result, some configuration parameters can vary according to the specificati
 <span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="parameter-server-configuration-persistent-database">
-<h4>Parameter Server Configuration: Persistent Database<a class="headerlink" href="#parameter-server-configuration-persistent-database" title="Permalink to this headline"></a></h4>
+</section>
+<section id="parameter-server-configuration-persistent-database">
+<h4>Parameter Server Configuration: Persistent Database<a class="headerlink" href="#parameter-server-configuration-persistent-database" title="Permalink to this heading"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">persistent_db</span></code> key in a parameter server configuration file.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rocks_db&quot;</span><span class="p">,</span>
@@ -695,9 +694,9 @@ As a result, some configuration parameters can vary according to the specificati
 <span class="p">}</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="persistent-database-parameters">
-<h4>Persistent Database Parameters<a class="headerlink" href="#persistent-database-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="persistent-database-parameters">
+<h4>Persistent Database Parameters<a class="headerlink" href="#persistent-database-parameters" title="Permalink to this heading"></a></h4>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: specifies the persistent datatabase implementation.
 Specify one of the following:</p>
@@ -722,14 +721,14 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 <p>The functionality of this parameter might change in future versions.</p>
 </li>
 </ul>
-</div>
-</div>
-<div class="section" id="update-source-configuration">
-<h3>Update Source Configuration<a class="headerlink" href="#update-source-configuration" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="update-source-configuration">
+<h3>Update Source Configuration<a class="headerlink" href="#update-source-configuration" title="Permalink to this heading"></a></h3>
 <p>The real-time update source is the origin for model updates during online retraining.
 To ensure that all database layers are kept in sync, configure all the nodes in your HugeCTR deployment identically.</p>
-<div class="section" id="update-source-params-syntax">
-<h4>Update Source Params Syntax<a class="headerlink" href="#update-source-params-syntax" title="Permalink to this headline"></a></h4>
+<section id="update-source-params-syntax">
+<h4>Update Source Params Syntax<a class="headerlink" href="#update-source-params-syntax" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceParams</span><span class="p">(</span>
   <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span>
   <span class="n">brokers</span> <span class="o">=</span> <span class="s2">&quot;host-1[:port][;host-2[:port]...]&quot;</span><span class="p">,</span>
@@ -742,9 +741,9 @@ To ensure that all database layers are kept in sync, configure all the nodes in 
 <span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="parameter-server-configuration-update-source">
-<h4>Parameter Server Configuration: Update Source<a class="headerlink" href="#parameter-server-configuration-update-source" title="Permalink to this headline"></a></h4>
+</section>
+<section id="parameter-server-configuration-update-source">
+<h4>Parameter Server Configuration: Update Source<a class="headerlink" href="#parameter-server-configuration-update-source" title="Permalink to this heading"></a></h4>
 <p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">update_source</span></code> key in a parameter server configuration file.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span>
@@ -758,9 +757,9 @@ To ensure that all database layers are kept in sync, configure all the nodes in 
 <span class="p">}</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="update-source-parameters">
-<h4>Update Source Parameters<a class="headerlink" href="#update-source-parameters" title="Permalink to this headline"></a></h4>
+</section>
+<section id="update-source-parameters">
+<h4>Update Source Parameters<a class="headerlink" href="#update-source-parameters" title="Permalink to this heading"></a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: String, specifies the update source implementation.
 Specify one of the following:</p>
@@ -792,10 +791,10 @@ This parameter is evaluated independent of any other conditions or parameters.
 Any received data is forwarded and committed if at most <code class="docutils literal notranslate"><span class="pre">max_commit_interval</span></code> were processed since the previous commit.
 The default value is <code class="docutils literal notranslate"><span class="pre">32</span></code>.</p></li>
 </ul>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -831,12 +830,12 @@ The default value is <code class="docutils literal notranslate"><span class="pre
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/hierarchical_parameter_server/hps_database_backend.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/hierarchical_parameter_server/hps_database_backend.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/hierarchical_parameter_server/hps_database_backend.html">v23.05.01</a></dd>
       <dd><a href="hps_database_backend.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/hps_database_backend.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/hierarchical_parameter_server/hps_database_backend.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/hierarchical_parameter_server/hps_database_backend.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

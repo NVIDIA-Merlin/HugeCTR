@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Introduction to the HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Introduction to the HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hugectr_criteo.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -132,10 +131,10 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-criteo/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="introduction-to-the-hugectr-python-interface">
-<h1>Introduction to the HugeCTR Python Interface<a class="headerlink" href="#introduction-to-the-hugectr-python-interface" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="introduction-to-the-hugectr-python-interface">
+<h1>Introduction to the HugeCTR Python Interface<a class="headerlink" href="#introduction-to-the-hugectr-python-interface" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>HugeCTR version 3.1 introduces an enhanced Python interface
 The interface supports continuous training and inference with high-level APIs.
 There are four main improvements.</p>
@@ -150,16 +149,16 @@ This method enables transfer learning and fine-tuning for CTR tasks.</p></li>
 <p>This notebook explains how to access and use the enhanced HugeCTR Python interface.
 Although the low-level training APIs are still maintained for users who want to have precise control of each training iteration, migrating to the high-level training APIs is strongly recommended.
 For more details of the usage of the Python API, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a> documentation.</p>
-</div>
-<div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="dcn-model">
-<h2>DCN Model<a class="headerlink" href="#dcn-model" title="Permalink to this headline"></a></h2>
+</section>
+<section id="dcn-model">
+<h2>DCN Model<a class="headerlink" href="#dcn-model" title="Permalink to this heading"></a></h2>
 <p>Note: If you already have the data downloaded, then skip to the preprocessing step (2). If preprocessing is also done, skip to creating the softlink between the processed data to the <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory (3).</p>
-<div class="section" id="data-preparation">
-<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
+<section id="data-preparation">
+<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this heading"></a></h3>
 <p>To download and prepare the dataset we will be doing the following steps. At the end of this cell, we provide the shell commands you can run on the terminal to get the data ready for this notebook.</p>
 <p><strong>Note</strong>: If you already have the data downloaded, then skip to the preprocessing step (2). If preprocessing is also done, skip to creating the softlink between the processed data to the <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory (3).</p>
 <ol class="arabic simple">
@@ -186,8 +185,8 @@ For more details of the usage of the Python API, refer to the <a class="referenc
 </li>
 <li><p>Create a soft link of the dataset folder to the path of this notebook</p></li>
 </ol>
-<div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
-<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
+<section id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
+<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this heading"></a></h4>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">project_root</span><span class="o">=</span>/home/hugectr<span class="w"> </span><span class="c1"># set this to the directory where hugectr is downloaded</span>
 <span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 <span class="c1"># Step 1</span>
@@ -199,10 +198,10 @@ ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><s
 </pre></div>
 </div>
 <p><strong>Note</strong>: It will take a while (dozens of minutes) to preprocess the dataset. Please make sure that it is finished successfully before moving forward to the next section.</p>
-</div>
-</div>
-<div class="section" id="train-from-scratch">
-<h3>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="train-from-scratch">
+<h3>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this heading"></a></h3>
 <p>We can train fom scratch, dump the model graph to a JSON file, and save the model weights and optimizer states by performing the following with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
@@ -424,9 +423,9 @@ BinaryCrossEntropyLoss                  fc3                           loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="continue-training">
-<h3>Continue Training<a class="headerlink" href="#continue-training" title="Permalink to this headline"></a></h3>
+</section>
+<section id="continue-training">
+<h3>Continue Training<a class="headerlink" href="#continue-training" title="Permalink to this heading"></a></h3>
 <p>We can continue our training based on the saved model graph, model weights, and optimizer states by performing the following with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
@@ -593,9 +592,9 @@ BinaryCrossEntropyLoss                  fc3                           loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="inference">
-<h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
+</section>
+<section id="inference">
+<h3>Inference<a class="headerlink" href="#inference" title="Permalink to this heading"></a></h3>
 <p>The HugeCTR inference is enabled by <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#predict-method">hugectr.inference.InferenceSession.predict</a> method of InferenceSession.
 This method requires dense features, embedding columns, and row pointers of slots as the input and gives the prediction result as the output.
 We need to convert the Criteo data to inference format first.</p>
@@ -702,12 +701,12 @@ We need to convert the Criteo data to inference format first.</p>
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="section" id="wide-and-deep-model">
-<h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this headline"></a></h2>
-<div class="section" id="download-and-preprocess-data">
-<h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="wide-and-deep-model">
+<h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this heading"></a></h2>
+<section id="download-and-preprocess-data">
+<h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this heading"></a></h3>
 <ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
@@ -717,8 +716,8 @@ We need to convert the Criteo data to inference format first.</p>
 </li>
 <li><p>Create a soft link to the dataset folder using the following command:</p></li>
 </ol>
-<div class="section" id="id1">
-<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h4>
+<section id="id1">
+<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">project_root</span><span class="o">=</span>/home/hugectr<span class="w"> </span><span class="c1"># set this to the directory where hugectr is downloaded</span>
 <span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 <span class="c1"># Step 1</span>
@@ -730,10 +729,10 @@ ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><s
 </pre></div>
 </div>
 <p><strong>Note</strong>: It will take a while (dozens of minutes) to preprocess the dataset. Please make sure that it is finished successfully before moving forward to the next section.</p>
-</div>
-</div>
-<div class="section" id="id2">
-<h3>Train from Scratch<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="id2">
+<h3>Train from Scratch<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <p>We can train fom scratch, dump the model graph to a JSON file, and save the model weights and optimizer states by performing the same steps that we followed with the DCN Model.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -831,9 +830,9 @@ ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><s
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="fine-tuning">
-<h3>Fine-tuning<a class="headerlink" href="#fine-tuning" title="Permalink to this headline"></a></h3>
+</section>
+<section id="fine-tuning">
+<h3>Fine-tuning<a class="headerlink" href="#fine-tuning" title="Permalink to this heading"></a></h3>
 <p>We can only load the sparse embedding layers, their corresponding weights, and then construct a new dense network. The dense weights will be trained first and the sparse weights will be fine-tuned later. We can achieve this by performing the following with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
@@ -913,9 +912,9 @@ ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><s
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="load-pre-trained-embeddings">
-<h3>Load Pre-trained Embeddings<a class="headerlink" href="#load-pre-trained-embeddings" title="Permalink to this headline"></a></h3>
+</section>
+<section id="load-pre-trained-embeddings">
+<h3>Load Pre-trained Embeddings<a class="headerlink" href="#load-pre-trained-embeddings" title="Permalink to this heading"></a></h3>
 <p>If you have the pre-trained embeddings in other formats, you can convert them to the HugeCTR sparse models and then <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#load-sparse-weights-method">load</a> them to facilitate the training process. For the sake of simplicity and generality, we represent the pretrained embeddings with the dictionary of randomly initialized numpy arrays, of which the keys indicate the embedding keys and the array values embody the embedding values. It is worth mentioning that there are two embedding tables for the Wide&amp;Deep model, and here we only load the pre-trained embeddings for one table and freeze the corresponding embedding layer.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -979,9 +978,9 @@ ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><s
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="low-level-training">
-<h3>Low-level Training<a class="headerlink" href="#low-level-training" title="Permalink to this headline"></a></h3>
+</section>
+<section id="low-level-training">
+<h3>Low-level Training<a class="headerlink" href="#low-level-training" title="Permalink to this heading"></a></h3>
 <p>The low-level training APIs are maintained in the enhanced HugeCTR Python interface. If you want to have precise control of each training iteration and each evaluation step, you may find it helpful to use these APIs. Since the data reader behavior is different in epoch mode and non-epoch mode, we should pay attention to how to tweak the data reader when using low-level training.
 We will demonstrate how to write the low-level training scripts for non-epoch mode, epoch mode, and embedding training cache mode.</p>
 <div class="cell docutils container">
@@ -1094,9 +1093,9 @@ We will demonstrate how to write the low-level training scripts for non-epoch mo
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -1132,12 +1131,12 @@ We will demonstrate how to write the low-level training scripts for non-epoch mo
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="hugectr_criteo.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

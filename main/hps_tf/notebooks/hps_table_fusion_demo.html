@@ -1,29 +1,30 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HPS Table Fusion Demo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>HPS Table Fusion Demo &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_table_fusion_demo.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Hierarchical Parameter Server API" href="../../hierarchical_parameter_server/hps_tf_api/index.html" />
+    <link rel="prev" title="Deploy SavedModel using HPS with Triton TensorFlow Backend" href="hps_tensorflow_triton_deployment_demo.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -51,12 +52,32 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
-<ul>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_database_backend.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_multi_table_sparse_input_demo.html">HPS for Multiple Tables and Sparse Inputs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_pretrained_model_training_demo.html">HPS Pretrained Model Training Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sok_to_hps_dlrm_demo.html">SOK to HPS DLRM Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html">Deploy SavedModel using HPS with Triton TensorFlow Backend</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">HPS Table Fusion Demo</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../hierarchical_parameter_server/hps_tf_api/index.html">API Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_trt_user_guide.html">HPS Plugin for TensorRT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_torch_user_guide.html">HPS Plugin for Torch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hierarchical_parameter_server/profiling_hps.html">Profiling HPS</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
@@ -81,6 +102,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+          <li class="breadcrumb-item"><a href="../../hierarchical_parameter_server/hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Hierarchical Parameter Server Notebooks</a></li>
       <li class="breadcrumb-item active">HPS Table Fusion Demo</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -114,26 +138,26 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-table-fusion-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-table-fusion-demo/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="hps-table-fusion-demo">
-<h1>HPS Table Fusion Demo<a class="headerlink" href="#hps-table-fusion-demo" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="hps-table-fusion-demo">
+<h1>HPS Table Fusion Demo<a class="headerlink" href="#hps-table-fusion-demo" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>This notebook demonstrates how to fuse embedding tables of the same embedding vector size with the HPS plugin for TensorFlow. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
 <p>For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
-</div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="get-hps-from-ngc">
-<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HPS Python module is preinstalled in the 23.08 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.08</span></code>.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="get-hps-from-ngc">
+<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this heading"></a></h3>
+<p>The HPS Python module is preinstalled in the 23.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.09</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="create-tf-savedmodel">
-<h2>Create TF SavedModel<a class="headerlink" href="#create-tf-savedmodel" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="create-tf-savedmodel">
+<h2>Create TF SavedModel<a class="headerlink" href="#create-tf-savedmodel" title="Permalink to this heading"></a></h2>
 <p>First of all we specify the required configurations, e.g., the arguments needed for generating the embedding tables, the template HPS JSON configuration file. We will use a naive deep neural network (DNN) model which has 8 embedding tables of the same emebedding vector size and one fully connected layer in this notebook.</p>
 <p>We define the model with <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code> and some native TF layers, and then save it in the SavedModel format. Please note that the table fusion is turned off here by setting <code class="docutils literal notranslate"><span class="pre">fuse_embedding_table</span></code> as <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 <div class="cell docutils container">
@@ -450,9 +474,9 @@ ________________________________________________________________________________
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="make-inference-with-hps-table-fusion">
-<h2>Make inference with HPS table fusion<a class="headerlink" href="#make-inference-with-hps-table-fusion" title="Permalink to this headline"></a></h2>
+</section>
+<section id="make-inference-with-hps-table-fusion">
+<h2>Make inference with HPS table fusion<a class="headerlink" href="#make-inference-with-hps-table-fusion" title="Permalink to this heading"></a></h2>
 <p>We load the TF SavedModel and make inference for several batches. The table fusion is enabled since <code class="docutils literal notranslate"><span class="pre">fuse_embedding_table</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> within the HPS JSON configuration file.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -656,13 +680,16 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
 </div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hps_tensorflow_triton_deployment_demo.html" class="btn btn-neutral float-left" title="Deploy SavedModel using HPS with Triton TensorFlow Backend" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../hierarchical_parameter_server/hps_tf_api/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 
@@ -690,12 +717,12 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

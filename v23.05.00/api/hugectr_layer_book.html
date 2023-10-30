@@ -1,28 +1,27 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Layer Classes and Methods &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>HugeCTR Layer Classes and Methods &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
-        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -55,7 +54,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -99,9 +98,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-layer-classes-and-methods">
-<h1>HugeCTR Layer Classes and Methods<a class="headerlink" href="#hugectr-layer-classes-and-methods" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hugectr-layer-classes-and-methods">
+<h1>HugeCTR Layer Classes and Methods<a class="headerlink" href="#hugectr-layer-classes-and-methods" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#input-layer" id="id1">Input Layer</a></p></li>
 <li><p><a class="reference internal" href="#sparse-embedding" id="id2">Sparse Embedding</a></p></li>
@@ -150,10 +149,10 @@
 </li>
 <li><p><a class="reference internal" href="#groupdenselayer" id="id37">GroupDenseLayer</a></p></li>
 </ul>
-</div>
+</nav>
 <p>This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.</p>
-<div class="section" id="input-layer">
-<h2>Input Layer<a class="headerlink" href="#input-layer" title="Permalink to this headline"></a></h2>
+<section id="input-layer">
+<h2>Input Layer<a class="headerlink" href="#input-layer" title="Permalink to this heading"></a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -187,9 +186,9 @@
                             <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="sparse-embedding">
-<h2>Sparse Embedding<a class="headerlink" href="#sparse-embedding" title="Permalink to this headline"></a></h2>
+</section>
+<section id="sparse-embedding">
+<h2>Sparse Embedding<a class="headerlink" href="#sparse-embedding" title="Permalink to this heading"></a></h2>
 <p><strong>SparseEmbedding class</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">()</span>
 </pre></div>
@@ -238,11 +237,11 @@ You must specify a value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">optimizer</span></code>: OptParamsPy, the optimizer that is dedicated to this sparse embedding layer.
 If you do not specify the optimizer for the sparse embedding, the sparse embedding layer adopts the same optimizer as dense layers.</p></li>
 </ul>
-</div>
-<div class="section" id="embedding-types-detail">
-<h2>Embedding Types Detail<a class="headerlink" href="#embedding-types-detail" title="Permalink to this headline"></a></h2>
-<div class="section" id="distributedslotsparseembeddinghash-layer">
-<h3>DistributedSlotSparseEmbeddingHash Layer<a class="headerlink" href="#distributedslotsparseembeddinghash-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="embedding-types-detail">
+<h2>Embedding Types Detail<a class="headerlink" href="#embedding-types-detail" title="Permalink to this heading"></a></h2>
+<section id="distributedslotsparseembeddinghash-layer">
+<h3>DistributedSlotSparseEmbeddingHash Layer<a class="headerlink" href="#distributedslotsparseembeddinghash-layer" title="Permalink to this heading"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">DistributedSlotSparseEmbeddingHash</span></code> stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. With <code class="docutils literal notranslate"><span class="pre">DistributedSlotSparseEmbeddingHash</span></code>, each GPU will have a portion of a slot. This type of embedding is useful when there’s an existing load imbalance among slots and OOM issues.</p>
 <p><strong>Important Notes</strong>:</p>
 <ul class="simple">
@@ -265,9 +264,9 @@ overflow checking by setting the environment variable HUGECTR_DISABLE_OVERFLOW_C
             <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="localizedslotsparseembeddinghash-layer">
-<h3>LocalizedSlotSparseEmbeddingHash Layer<a class="headerlink" href="#localizedslotsparseembeddinghash-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="localizedslotsparseembeddinghash-layer">
+<h3>LocalizedSlotSparseEmbeddingHash Layer<a class="headerlink" href="#localizedslotsparseembeddinghash-layer" title="Permalink to this heading"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code> layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability.</p>
 <p><strong>Important Notes</strong>:</p>
 <ul class="simple">
@@ -290,9 +289,9 @@ can disable overflow checking by setting the environment variable HUGECTR_DISABL
             <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="localizedslotsparseembeddingonehot-layer">
-<h3>LocalizedSlotSparseEmbeddingOneHot Layer<a class="headerlink" href="#localizedslotsparseembeddingonehot-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="localizedslotsparseembeddingonehot-layer">
+<h3>LocalizedSlotSparseEmbeddingOneHot Layer<a class="headerlink" href="#localizedslotsparseembeddingonehot-layer" title="Permalink to this heading"></a></h3>
 <p>The LocalizedSlotSparseEmbeddingOneHot layer stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. This is a performance-optimized version of LocalizedSlotSparseEmbeddingHash for the case where NVSwitch is available and inputs are one-hot categorical features.</p>
 <p><strong>Note</strong>: LocalizedSlotSparseEmbeddingOneHot can only be used together with the Raw dataset format. Unlike other types of embeddings, LocalizedSlotSparseEmbeddingOneHot only supports single-node training and can be used only in a NVSwitch equipped system such as DGX-2 and DGX A100.
 The input indices’ data type, <code class="docutils literal notranslate"><span class="pre">input_key_type</span></code>, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see <a class="reference internal" href="python_interface.html#solver"><span class="std std-doc">Solver</span></a>.</p>
@@ -307,10 +306,10 @@ The input indices’ data type, <code class="docutils literal notranslate"><span
             <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="dense-layers">
-<h2>Dense Layers<a class="headerlink" href="#dense-layers" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="dense-layers">
+<h2>Dense Layers<a class="headerlink" href="#dense-layers" title="Permalink to this heading"></a></h2>
 <p><strong>DenseLayer class</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">()</span>
 </pre></div>
@@ -323,11 +322,11 @@ The input indices’ data type, <code class="docutils literal notranslate"><span
 <li><p><code class="docutils literal notranslate"><span class="pre">top_names</span></code>: List[str], the list of top tensor names, which specify the output tensors of this dense layer. There is NO default value and it should be specified by users.</p></li>
 <li><p>For details about the usage of each layer type and its parameters, please refer to <a class="reference internal" href="#dense-layers-usage"><span class="std std-doc">Dense Layers Usage</span></a>.</p></li>
 </ul>
-</div>
-<div class="section" id="dense-layers-usage">
-<h2>Dense Layers Usage<a class="headerlink" href="#dense-layers-usage" title="Permalink to this headline"></a></h2>
-<div class="section" id="fullyconnected-layer">
-<h3>FullyConnected Layer<a class="headerlink" href="#fullyconnected-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="dense-layers-usage">
+<h2>Dense Layers Usage<a class="headerlink" href="#dense-layers-usage" title="Permalink to this heading"></a></h2>
+<section id="fullyconnected-layer">
+<h3>FullyConnected Layer<a class="headerlink" href="#fullyconnected-layer" title="Permalink to this heading"></a></h3>
 <p>The FullyConnected layer is a densely connected layer (or MLP layer). It is usually made of a <code class="docutils literal notranslate"><span class="pre">InnerProduct</span></code> layer and a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code>.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -350,9 +349,9 @@ The input indices’ data type, <code class="docutils literal notranslate"><span
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="fusedfullyconnected-layer">
-<h3>FusedFullyConnected Layer<a class="headerlink" href="#fusedfullyconnected-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="fusedfullyconnected-layer">
+<h3>FusedFullyConnected Layer<a class="headerlink" href="#fusedfullyconnected-layer" title="Permalink to this heading"></a></h3>
 <p>The FusedFullyConnected layer fuses a common case where FullyConnectedLayer and ReLU are used together to save memory bandwidth.</p>
 <p><strong>Note</strong>: This layer can only be used with Mixed Precision mode enabled.</p>
 <ul class="simple">
@@ -370,9 +369,9 @@ Input and Output Shapes:</p></li>
                             <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="mlp-layer">
-<h3>MLP Layer<a class="headerlink" href="#mlp-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="mlp-layer">
+<h3>MLP Layer<a class="headerlink" href="#mlp-layer" title="Permalink to this heading"></a></h3>
 <p>The MLP layer is comprised of multiple fused fully-connected layers. The MLP layer supports FP16, FP32, and TF32.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
@@ -451,9 +450,9 @@ Input and Output Shapes:</p></li>
 <span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="multicross-layer">
-<h3>MultiCross Layer<a class="headerlink" href="#multicross-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="multicross-layer">
+<h3>MultiCross Layer<a class="headerlink" href="#multicross-layer" title="Permalink to this heading"></a></h3>
 <p>The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.
 There are two versions of cross network which are invented in <a class="reference external" href="https://arxiv.org/abs/1708.05123">DCN v1</a> and <a class="reference external" href="https://arxiv.org/abs/2008.13535">DCN v2</a> respectively.</p>
 <p>Suppose the dimension of features to be interacted is <span class="math notranslate nohighlight">\(n\)</span>, the mathematical formulas of feature crossing for those two versions are:</p>
@@ -502,9 +501,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">projection_dim</span><span class="o">=</span><span class="mi">512</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="fmorder2-layer">
-<h3>FmOrder2 Layer<a class="headerlink" href="#fmorder2-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="fmorder2-layer">
+<h3>FmOrder2 Layer<a class="headerlink" href="#fmorder2-layer" title="Permalink to this heading"></a></h3>
 <p>TheFmOrder2 layer is the second-order factorization machine (FM), which models linear and pairwise interactions as dot products of latent vectors.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -522,9 +521,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">out_dim</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="weightmultiply-layer">
-<h3>WeightMultiply Layer<a class="headerlink" href="#weightmultiply-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="weightmultiply-layer">
+<h3>WeightMultiply Layer<a class="headerlink" href="#weightmultiply-layer" title="Permalink to this heading"></a></h3>
 <p>The Multiply Layer maps input elements into a latent vector space by multiplying each feature with a corresponding weight vector.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -544,9 +543,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">weight_init_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Initializer_t</span><span class="o">.</span><span class="n">XavierUniform</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="elementwisemultiply-layer">
-<h3>ElementwiseMultiply Layer<a class="headerlink" href="#elementwisemultiply-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="elementwisemultiply-layer">
+<h3>ElementwiseMultiply Layer<a class="headerlink" href="#elementwisemultiply-layer" title="Permalink to this heading"></a></h3>
 <p>The ElementwiseMultiply Layer maps two inputs into a single resulting vector by performing an element-wise multiplication of the two inputs.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -560,9 +559,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;eltmultiply1&quot;</span><span class="p">])</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="batchnorm-layer">
-<h3>BatchNorm Layer<a class="headerlink" href="#batchnorm-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="batchnorm-layer">
+<h3>BatchNorm Layer<a class="headerlink" href="#batchnorm-layer" title="Permalink to this heading"></a></h3>
 <p>The BatchNorm layer implements a cuDNN based batch normalization.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -611,9 +610,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
 <span class="w">    </span><span class="p">}</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="layernorm-layer">
-<h3>LayerNorm Layer<a class="headerlink" href="#layernorm-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="layernorm-layer">
+<h3>LayerNorm Layer<a class="headerlink" href="#layernorm-layer" title="Permalink to this heading"></a></h3>
 <p>The LayerNorm layer implements a layer normalization.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -635,9 +634,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">beta_init_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Initializer_t</span><span class="o">.</span><span class="n">XavierUniform</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="concat-layer">
-<h3>Concat Layer<a class="headerlink" href="#concat-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="concat-layer">
+<h3>Concat Layer<a class="headerlink" href="#concat-layer" title="Permalink to this heading"></a></h3>
 <p>The Concat layer concatenates a list of inputs.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -655,9 +654,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">axis</span> <span class="o">=</span> <span class="mi">2</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="reshape-layer">
-<h3>Reshape Layer<a class="headerlink" href="#reshape-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="reshape-layer">
+<h3>Reshape Layer<a class="headerlink" href="#reshape-layer" title="Permalink to this heading"></a></h3>
 <p>The Reshape layer reshapes a 3D input tensor into 2D shape.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -678,9 +677,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="slice-layer">
-<h3>Slice Layer<a class="headerlink" href="#slice-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="slice-layer">
+<h3>Slice Layer<a class="headerlink" href="#slice-layer" title="Permalink to this heading"></a></h3>
 <p>The Slice layer extracts multiple output tensors from input tensors.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -733,9 +732,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">weight_dims</span><span class="o">=</span> <span class="p">[</span><span class="mi">13</span><span class="p">,</span><span class="mi">1</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="dropout-layer">
-<h3>Dropout Layer<a class="headerlink" href="#dropout-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="dropout-layer">
+<h3>Dropout Layer<a class="headerlink" href="#dropout-layer" title="Permalink to this heading"></a></h3>
 <p>The Dropout layer randomly zeroizes or drops some of the input elements.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -753,9 +752,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="elu-layer">
-<h3>ELU Layer<a class="headerlink" href="#elu-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="elu-layer">
+<h3>ELU Layer<a class="headerlink" href="#elu-layer" title="Permalink to this heading"></a></h3>
 <p>The ELU layer represents the Exponential Linear Unit.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -773,9 +772,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">elu_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="relu-layer">
-<h3>ReLU Layer<a class="headerlink" href="#relu-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="relu-layer">
+<h3>ReLU Layer<a class="headerlink" href="#relu-layer" title="Permalink to this heading"></a></h3>
 <p>The ReLU layer represents the Rectified Linear Unit.</p>
 <p>Input and Output Shapes:</p>
 <ul class="simple">
@@ -788,9 +787,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="sigmoid-layer">
-<h3>Sigmoid Layer<a class="headerlink" href="#sigmoid-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="sigmoid-layer">
+<h3>Sigmoid Layer<a class="headerlink" href="#sigmoid-layer" title="Permalink to this heading"></a></h3>
 <p>The Sigmoid layer represents the Sigmoid Unit.</p>
 <p>Input and Output Shapes:</p>
 <ul class="simple">
@@ -804,9 +803,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
 </pre></div>
 </div>
 <p><strong>Note</strong>: The final sigmoid function is fused with the loss function to better utilize memory bandwidth, so do NOT add a Sigmoid layer before the loss layer.</p>
-</div>
-<div class="section" id="interaction-layer">
-<h3>Interaction Layer<a class="headerlink" href="#interaction-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="interaction-layer">
+<h3>Interaction Layer<a class="headerlink" href="#interaction-layer" title="Permalink to this heading"></a></h3>
 <p>The interaction layer is used to explicitly capture second-order interactions between features.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -822,9 +821,9 @@ Correspondingly the formula evolves and can be expressed as follows:</p>
 </div>
 <p><strong>Important Notes</strong>:
 There are optimizations that can be employed on the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer and the following <code class="docutils literal notranslate"><span class="pre">MLP</span></code> layer during fp16 training. In this case, you should specify two output tensor names for the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer, and use them as the input tensors for the following <code class="docutils literal notranslate"><span class="pre">MLP</span></code> layer. Please refer to the example of <a class="reference internal" href="#mlp-layer"><span class="std std-doc">MLP layer</span></a> for the detailed usage.</p>
-</div>
-<div class="section" id="add-layer">
-<h3>Add Layer<a class="headerlink" href="#add-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="add-layer">
+<h3>Add Layer<a class="headerlink" href="#add-layer" title="Permalink to this heading"></a></h3>
 <p>The Add layer adds up an arbitrary number of tensors that have the same size in an element-wise manner.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -838,9 +837,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="reducesum-layer">
-<h3>ReduceSum Layer<a class="headerlink" href="#reducesum-layer" title="Permalink to this headline"></a></h3>
+</section>
+<section id="reducesum-layer">
+<h3>ReduceSum Layer<a class="headerlink" href="#reducesum-layer" title="Permalink to this heading"></a></h3>
 <p>The ReduceSum Layer sums up all the elements across a specified dimension.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -858,8 +857,8 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </pre></div>
 </div>
-<div class="section" id="gru-layer">
-<h4>GRU Layer<a class="headerlink" href="#gru-layer" title="Permalink to this headline"></a></h4>
+<section id="gru-layer">
+<h4>GRU Layer<a class="headerlink" href="#gru-layer" title="Permalink to this heading"></a></h4>
 <p>The GRU layer is Gated Recurrent Unit.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -885,9 +884,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">vector_size</span><span class="o">=</span><span class="mi">20</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="preludice-layer">
-<h4>PReLUDice Layer<a class="headerlink" href="#preludice-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="preludice-layer">
+<h4>PReLUDice Layer<a class="headerlink" href="#preludice-layer" title="Permalink to this heading"></a></h4>
 <p>The PReLUDice layer represents the Parametric Rectified Linear Unit, which adaptively adjusts the rectified point according to distribution of input data.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -906,9 +905,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">elu_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="scale-layer">
-<h4>Scale Layer<a class="headerlink" href="#scale-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="scale-layer">
+<h4>Scale Layer<a class="headerlink" href="#scale-layer" title="Permalink to this heading"></a></h4>
 <p>The Scale layer scales the input 2D tensor to specific size on the designate axis.</p>
 <p>Parameters:</p>
 <ul class="simple">
@@ -927,9 +926,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">factor</span> <span class="o">=</span> <span class="mi">10</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="fusedreshapeconcat-layer">
-<h4>FusedReshapeConcat Layer<a class="headerlink" href="#fusedreshapeconcat-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="fusedreshapeconcat-layer">
+<h4>FusedReshapeConcat Layer<a class="headerlink" href="#fusedreshapeconcat-layer" title="Permalink to this heading"></a></h4>
 <p>The FusedReshapeConcat layer cross combines the input tensors and outputs item tensor, AD tensor.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -943,9 +942,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;FusedReshapeConcat_item_his_em&quot;</span><span class="p">,</span> <span class="s2">&quot;FusedReshapeConcat_item&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="fusedreshapeconcatgeneral-layer">
-<h4>FusedReshapeConcatGeneral Layer<a class="headerlink" href="#fusedreshapeconcatgeneral-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="fusedreshapeconcatgeneral-layer">
+<h4>FusedReshapeConcatGeneral Layer<a class="headerlink" href="#fusedreshapeconcatgeneral-layer" title="Permalink to this heading"></a></h4>
 <p>The FusedReshapeConcatGeneral layer cross combines the input tensors and outputs item tensor, AD tensor.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -959,9 +958,9 @@ There are optimizations that can be employed on the <code class="docutils litera
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;FusedReshapeConcat_item_his_em&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="softmax-layer">
-<h4>Softmax Layer<a class="headerlink" href="#softmax-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="softmax-layer">
+<h4>Softmax Layer<a class="headerlink" href="#softmax-layer" title="Permalink to this heading"></a></h4>
 <p>The Softmax layer computes softmax activations.
 When the softmax layer accept two inputs tensors, the first one is the tensor need to do softmax and the other one is mask which mask some positions of the first tensor (setting them to -10000) before the softmax step.</p>
 <p>Parameter: None</p>
@@ -978,9 +977,9 @@ When the softmax layer accept two inputs tensors, the first one is the tensor ne
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;softmax_i&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="sub-layer">
-<h4>Sub Layer<a class="headerlink" href="#sub-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="sub-layer">
+<h4>Sub Layer<a class="headerlink" href="#sub-layer" title="Permalink to this heading"></a></h4>
 <p>Inputs: x tensor, y tensor in same size.
 Produce x - y in element wise manner.</p>
 <p>Parameters: None</p>
@@ -995,9 +994,9 @@ Produce x - y in element wise manner.</p>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sub_ih&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="reducemean-layer">
-<h4>ReduceMean Layer<a class="headerlink" href="#reducemean-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="reducemean-layer">
+<h4>ReduceMean Layer<a class="headerlink" href="#reducemean-layer" title="Permalink to this heading"></a></h4>
 <p>The ReduceMean Layer computes the mean of elements across a specified dimension.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1015,9 +1014,9 @@ Produce x - y in element wise manner.</p>
                             <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="matrixmutiply-layer">
-<h4>MatrixMutiply Layer<a class="headerlink" href="#matrixmutiply-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="matrixmutiply-layer">
+<h4>MatrixMutiply Layer<a class="headerlink" href="#matrixmutiply-layer" title="Permalink to this heading"></a></h4>
 <p>The MatrixMutiply Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.</p>
 <p>Parameters: None</p>
 <p>Input and Output Shapes:</p>
@@ -1033,9 +1032,9 @@ Produce x - y in element wise manner.</p>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MatrixMutiply1&quot;</span><span class="p">])</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="multiheadattention-layer">
-<h4>MultiHeadAttention Layer<a class="headerlink" href="#multiheadattention-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="multiheadattention-layer">
+<h4>MultiHeadAttention Layer<a class="headerlink" href="#multiheadattention-layer" title="Permalink to this heading"></a></h4>
 <p>The MultiHeadAttention Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1067,9 +1066,9 @@ Produce x - y in element wise manner.</p>
                             <span class="n">transpose_b</span> <span class="o">=</span> <span class="kc">False</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="sequencemask-layer">
-<h4>SequenceMask Layer<a class="headerlink" href="#sequencemask-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="sequencemask-layer">
+<h4>SequenceMask Layer<a class="headerlink" href="#sequencemask-layer" title="Permalink to this heading"></a></h4>
 <p>The SequenceMask Layer can generate a binary padding mask which marks the zero padding values in the input by 0.  The importance of having a padding mask is to make sure that these zero values are not processed along with the actual input values</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1087,9 +1086,9 @@ Produce x - y in element wise manner.</p>
                              <span class="n">max_sequence_len</span><span class="o">=</span><span class="mi">10</span><span class="p">,))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="gather-layer">
-<h4>Gather Layer<a class="headerlink" href="#gather-layer" title="Permalink to this headline"></a></h4>
+</section>
+<section id="gather-layer">
+<h4>Gather Layer<a class="headerlink" href="#gather-layer" title="Permalink to this heading"></a></h4>
 <p>The Gather layer gather multiple output tensor slices from an input tensors on the last dimension.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1107,10 +1106,10 @@ Produce x - y in element wise manner.</p>
                             <span class="n">indices</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="binarycrossentropyloss">
-<h3>BinaryCrossEntropyLoss<a class="headerlink" href="#binarycrossentropyloss" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="binarycrossentropyloss">
+<h3>BinaryCrossEntropyLoss<a class="headerlink" href="#binarycrossentropyloss" title="Permalink to this heading"></a></h3>
 <p>BinaryCrossEntropyLoss calculates loss from labels and predictions where each label is binary. The final sigmoid function is fused with the loss function to better utilize memory bandwidth.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1129,9 +1128,9 @@ Produce x - y in element wise manner.</p>
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="crossentropyloss">
-<h3>CrossEntropyLoss<a class="headerlink" href="#crossentropyloss" title="Permalink to this headline"></a></h3>
+</section>
+<section id="crossentropyloss">
+<h3>CrossEntropyLoss<a class="headerlink" href="#crossentropyloss" title="Permalink to this heading"></a></h3>
 <p>CrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It assumes that each label is two-dimensional.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1153,9 +1152,9 @@ Produce x - y in element wise manner.</p>
                             <span class="k">lambda</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="multicrossentropyloss">
-<h3>MultiCrossEntropyLoss<a class="headerlink" href="#multicrossentropyloss" title="Permalink to this headline"></a></h3>
+</section>
+<section id="multicrossentropyloss">
+<h3>MultiCrossEntropyLoss<a class="headerlink" href="#multicrossentropyloss" title="Permalink to this heading"></a></h3>
 <p>MultiCrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It allows labels in an arbitrary dimension, but all the labels must be in the same shape.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1178,12 +1177,12 @@ Produce x - y in element wise manner.</p>
                             <span class="p">))</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="embedding-collection">
-<h2>Embedding Collection<a class="headerlink" href="#embedding-collection" title="Permalink to this headline"></a></h2>
-<div class="section" id="about-the-hugectr-embedding-collection">
-<h3>About the HugeCTR embedding collection<a class="headerlink" href="#about-the-hugectr-embedding-collection" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="embedding-collection">
+<h2>Embedding Collection<a class="headerlink" href="#embedding-collection" title="Permalink to this heading"></a></h2>
+<section id="about-the-hugectr-embedding-collection">
+<h3>About the HugeCTR embedding collection<a class="headerlink" href="#about-the-hugectr-embedding-collection" title="Permalink to this heading"></a></h3>
 <p>Embedding collection is introduced in the v3.7 release.
 The embedding collection enables you to use embeddings with different vector sizes, optimizers, and arbitrary table placement strategy.
 Compared with the <code class="docutils literal notranslate"><span class="pre">hugectr.SparseEmbedding</span></code> class, the embedding collection has three key advantages:</p>
@@ -1194,27 +1193,27 @@ The enhancement boosts both flexibility and performance.</p></li>
 <li><p>The embedding collection extends the functionality of embedding by supporting the <code class="docutils literal notranslate"><span class="pre">concat</span></code> combiner and supporting different lookups on the same embedding table.</p></li>
 <li><p>The embedding collection supports arbitrary embedding table placement, such as data parallel and model parallel.</p></li>
 </ol>
-</div>
-<div class="section" id="overview-of-using-the-hugectr-embedding-collection">
-<h3>Overview of using the HugeCTR embedding collection<a class="headerlink" href="#overview-of-using-the-hugectr-embedding-collection" title="Permalink to this headline"></a></h3>
+</section>
+<section id="overview-of-using-the-hugectr-embedding-collection">
+<h3>Overview of using the HugeCTR embedding collection<a class="headerlink" href="#overview-of-using-the-hugectr-embedding-collection" title="Permalink to this heading"></a></h3>
 <p>To use an embedding collection, you need the following items:</p>
 <ul class="simple">
 <li><p>A list of <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code> objects that represent the embedding tables, user needs to configure table name/max_vocabulary_size/ev_size/optimizer(optional).</p></li>
 <li><p>A <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingCollectionConfig</span></code> object that uses the embedding table config objects to organize the lookup operations between the input data and the embedding tables. It also provides method to configure the table placement strategy.</p></li>
 </ul>
 <p>You can use the <code class="docutils literal notranslate"><span class="pre">add()</span></code> method from <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code> to use the embedding collection for training and evaluation.</p>
-</div>
-<div class="section" id="known-limitations">
-<h3>Known Limitations<a class="headerlink" href="#known-limitations" title="Permalink to this headline"></a></h3>
+</section>
+<section id="known-limitations">
+<h3>Known Limitations<a class="headerlink" href="#known-limitations" title="Permalink to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p>Only <code class="docutils literal notranslate"><span class="pre">embedding_vec_size</span></code> values of up to 256 are currently supported in the embedding collection.</p></li>
 <li><p>If you use a dynamic hash table (by setting <code class="docutils literal notranslate"><span class="pre">max_vocabulary_size</span></code> to -1 in <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code>), it is
 recommended that you set the <code class="docutils literal notranslate"><span class="pre">NCCL_LAUNCH_MODE=GROUP</span></code> environment variable to avoid potential hangs.</p></li>
 <li><p>Mixed-precision training is not supported when using a dynamic hash table.</p></li>
 </ol>
-</div>
-<div class="section" id="embeddingtableconfig">
-<h3>EmbeddingTableConfig<a class="headerlink" href="#embeddingtableconfig" title="Permalink to this headline"></a></h3>
+</section>
+<section id="embeddingtableconfig">
+<h3>EmbeddingTableConfig<a class="headerlink" href="#embeddingtableconfig" title="Permalink to this heading"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code> class enables you to specify the attributes of an embedding table.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1244,17 +1243,17 @@ Currently, if the user sets max_vocabulary_size to a value greater than 0, the s
     <span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="embeddingcollectionconfig">
-<h3>EmbeddingCollectionConfig<a class="headerlink" href="#embeddingcollectionconfig" title="Permalink to this headline"></a></h3>
+</section>
+<section id="embeddingcollectionconfig">
+<h3>EmbeddingCollectionConfig<a class="headerlink" href="#embeddingcollectionconfig" title="Permalink to this heading"></a></h3>
 <p>Create a <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingCollectionConfig</span></code> instance to construct the lookup operation and configure the table placement strategy.</p>
 <p>Parameter:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">use_exclusive_keys</span></code>: bool, if true, any key is exclusively owned by only one table.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">comm_strategy</span></code>: hugectr.CommunicationStrategy, can be <code class="docutils literal notranslate"><span class="pre">hugectr.CommunicationStrategy.Uniform</span></code> or <code class="docutils literal notranslate"><span class="pre">hugectr.CommunicationStrategy.Hierarchical</span></code>.</p></li>
 </ul>
-<div class="section" id="embedding-lookup-method">
-<h4>embedding_lookup method<a class="headerlink" href="#embedding-lookup-method" title="Permalink to this headline"></a></h4>
+<section id="embedding-lookup-method">
+<h4>embedding_lookup method<a class="headerlink" href="#embedding-lookup-method" title="Permalink to this heading"></a></h4>
 <p>The <code class="docutils literal notranslate"><span class="pre">embedding_lookup</span></code> method enables you to specify the lookup operations between the input data and an embedding table.</p>
 <p>Parameter:</p>
 <ul class="simple">
@@ -1277,9 +1276,9 @@ The shape of output tensor is (<code class="docutils literal notranslate"><span 
 <li><p><code class="docutils literal notranslate"><span class="pre">combiner</span></code>: list of str, specifies the combiner operation.
 Specify <code class="docutils literal notranslate"><span class="pre">mean</span></code>, <code class="docutils literal notranslate"><span class="pre">sum</span></code>, or <code class="docutils literal notranslate"><span class="pre">concat</span></code>.</p></li>
 </ul>
-</div>
-<div class="section" id="shard-method">
-<h4>shard method<a class="headerlink" href="#shard-method" title="Permalink to this headline"></a></h4>
+</section>
+<section id="shard-method">
+<h4>shard method<a class="headerlink" href="#shard-method" title="Permalink to this heading"></a></h4>
 <p>In the recommendation system, the embedding table is usually so large that a single GPU is not able to hold all embedding tables.
 One strategy for addressing the challenge is to use sharding to distribute the embedding tables across multiple GPUs.
 We call this sharding strategy the embedding table placement strategy (ETPS).</p>
@@ -1327,11 +1326,11 @@ The optimal strategy is highly dependent on your dataset and your lookup operati
 <span class="n">ebc_config</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="n">shard_matrix</span><span class="o">=</span><span class="n">shard_matrix</span><span class="p">,</span> <span class="n">shard_strategy</span><span class="o">=</span><span class="n">shard_strategy</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-</div>
-</div>
-<div class="section" id="groupdenselayer">
-<h2>GroupDenseLayer<a class="headerlink" href="#groupdenselayer" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+</section>
+<section id="groupdenselayer">
+<h2>GroupDenseLayer<a class="headerlink" href="#groupdenselayer" title="Permalink to this heading"></a></h2>
 <p><strong>DenseLayer class</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">GroupDenseLayer</span><span class="p">()</span>
 </pre></div>
@@ -1366,8 +1365,8 @@ The optimal strategy is highly dependent on your dataset and your lookup operati
                             <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
 </pre></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -1403,12 +1402,12 @@ The optimal strategy is highly dependent on your dataset and your lookup operati
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/api/hugectr_layer_book.html">v23.04.00</a></dd>
       <dd><a href="hugectr_layer_book.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/api/hugectr_layer_book.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/api/hugectr_layer_book.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/api/hugectr_layer_book.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/api/hugectr_layer_book.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/api/hugectr_layer_book.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

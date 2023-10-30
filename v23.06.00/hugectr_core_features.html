@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Core Features &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+  <title>HugeCTR Core Features &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Core Features</a></li>
@@ -92,9 +91,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-core-features">
-<h1>HugeCTR Core Features<a class="headerlink" href="#hugectr-core-features" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hugectr-core-features">
+<h1>HugeCTR Core Features<a class="headerlink" href="#hugectr-core-features" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#summary-of-core-features" id="id1">Summary of Core Features</a></p></li>
 <li><p><a class="reference internal" href="#model-parallel-training" id="id2">Model Parallel Training</a></p></li>
@@ -107,16 +106,16 @@
 <li><p><a class="reference internal" href="#hierarchical-parameter-server" id="id9">Hierarchical Parameter Server</a></p></li>
 <li><p><a class="reference internal" href="#sparse-operation-kit" id="id10">Sparse Operation Kit</a></p></li>
 </ul>
-</div>
+</nav>
 <!-- markdownlint-ignore no-duplicate-heading -->
-<div class="section" id="summary-of-core-features">
-<h2>Summary of Core Features<a class="headerlink" href="#summary-of-core-features" title="Permalink to this headline"></a></h2>
+<section id="summary-of-core-features">
+<h2>Summary of Core Features<a class="headerlink" href="#summary-of-core-features" title="Permalink to this heading"></a></h2>
 <p>In addition to single-node and full-precision training, HugeCTR supports a variety of features that
 are described in the following topics.</p>
 <p><strong>NOTE</strong>: Multi-node training and mixed precision training can be used simultaneously.</p>
-</div>
-<div class="section" id="model-parallel-training">
-<h2>Model Parallel Training<a class="headerlink" href="#model-parallel-training" title="Permalink to this headline"></a></h2>
+</section>
+<section id="model-parallel-training">
+<h2>Model Parallel Training<a class="headerlink" href="#model-parallel-training" title="Permalink to this heading"></a></h2>
 <p>HugeCTR natively supports both model parallel and data parallel training, making it possible to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and nodes. For example, if you have two nodes with 8xA100 80GB GPUs, you can train models that are as large as 1TB fully on GPU. By using the <a class="reference internal" href="#embedding-training-cache"><span class="std std-doc">embedding training cache</span></a>, you can train even larger models on the same nodes.</p>
 <p>To achieve the best performance on different embeddings, use various embedding layer implementations. Each of these implementations target different practical training cases such as:</p>
 <ul>
@@ -128,21 +127,21 @@ are described in the following topics.</p>
 </li>
 <li><p><strong>LocalizedSlotEmbeddingOneHot</strong>: A specialized LocalizedSlotEmbedding that requires a one-hot data input. Each feature field must also be indexed from zero. For example, gender: 0,1; 1,2 wouldn’t be considered correctly indexed.</p></li>
 </ul>
-</div>
-<div class="section" id="multi-node-training">
-<h2>Multi-Node Training<a class="headerlink" href="#multi-node-training" title="Permalink to this headline"></a></h2>
+</section>
+<section id="multi-node-training">
+<h2>Multi-Node Training<a class="headerlink" href="#multi-node-training" title="Permalink to this heading"></a></h2>
 <p>Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model, such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). With our implementation, HugeCTR leverages NCCL for high speed and scalable inter-node and intra-node communication.</p>
 <p>To run with multiple nodes, HugeCTR should be built with OpenMPI. <a class="reference external" href="https://docs.nvidia.com/cuda/gpudirect-rdma/index.html">GPUDirect RDMA</a> support is recommended for high performance. For more information, refer to our <code class="docutils literal notranslate"><span class="pre">dcn_2node_8gpu.py</span></code> file in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn">samples/dcn</a> directory on GitHub.</p>
-</div>
-<div class="section" id="mixed-precision-training">
-<h2>Mixed Precision Training<a class="headerlink" href="#mixed-precision-training" title="Permalink to this headline"></a></h2>
+</section>
+<section id="mixed-precision-training">
+<h2>Mixed Precision Training<a class="headerlink" href="#mixed-precision-training" title="Permalink to this heading"></a></h2>
 <p>Mixed precision training is supported to help improve and reduce the memory throughput footprint. In this mode, TensorCores are used to boost performance for matrix multiplication-based layers, such as <code class="docutils literal notranslate"><span class="pre">FullyConnectedLayer</span></code> and <code class="docutils literal notranslate"><span class="pre">InteractionLayer</span></code>, on Volta, Turing, and Ampere architectures. For the other layers, including embeddings, the data type is changed to FP16 so that both memory bandwidth and capacity are saved. To enable mixed precision mode, specify the mixed_precision option in the configuration file. When <a class="reference external" href="https://arxiv.org/abs/1710.03740"><code class="docutils literal notranslate"><span class="pre">mixed_precision</span></code></a> is set, the full FP16 pipeline will be triggered. Loss scaling will be applied to avoid the arithmetic underflow (see Fig. 5). Mixed precision training can be enabled using the configuration file.</p>
 <a class="reference internal image-reference" href="_images/fig4_arithmetic_underflow.png"><img alt="_images/fig4_arithmetic_underflow.png" class="align-center" src="_images/fig4_arithmetic_underflow.png" style="width: 640px;" /></a>
 <div align=center>Fig. 1: Arithmetic Underflow</div>
 <p><br></br></p>
-</div>
-<div class="section" id="sgd-optimizer-and-learning-rate-scheduling">
-<h2>SGD Optimizer and Learning Rate Scheduling<a class="headerlink" href="#sgd-optimizer-and-learning-rate-scheduling" title="Permalink to this headline"></a></h2>
+</section>
+<section id="sgd-optimizer-and-learning-rate-scheduling">
+<h2>SGD Optimizer and Learning Rate Scheduling<a class="headerlink" href="#sgd-optimizer-and-learning-rate-scheduling" title="Permalink to this heading"></a></h2>
 <p>Learning rate scheduling allows users to configure its hyperparameters, which include the following:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">learning_rate</span></code>: Base learning rate.</p></li>
@@ -155,33 +154,33 @@ are described in the following topics.</p>
 <a class="reference internal image-reference" href="_images/learning_rate_scheduling.png"><img alt="_images/learning_rate_scheduling.png" class="align-center" src="_images/learning_rate_scheduling.png" style="width: 439px; height: 282px;" /></a>
 <div align=center>Fig. 2: Learning Rate Scheduling</div>
 <p><br></br></p>
-</div>
-<div class="section" id="embedding-training-cache">
-<h2>Embedding Training Cache<a class="headerlink" href="#embedding-training-cache" title="Permalink to this headline"></a></h2>
+</section>
+<section id="embedding-training-cache">
+<h2>Embedding Training Cache<a class="headerlink" href="#embedding-training-cache" title="Permalink to this heading"></a></h2>
 <p>Embedding Training Cache (ETC) gives you the ability to train a large model up to terabytes. It’s implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage.</p>
 <p>For more information, see the details for <a class="reference internal" href="hugectr_embedding_training_cache.html"><span class="doc std std-doc">HugeCTR Embedding Training Cache</span></a>.</p>
-</div>
-<div class="section" id="hugectr-to-onnx-converter">
-<h2>HugeCTR to ONNX Converter<a class="headerlink" href="#hugectr-to-onnx-converter" title="Permalink to this headline"></a></h2>
+</section>
+<section id="hugectr-to-onnx-converter">
+<h2>HugeCTR to ONNX Converter<a class="headerlink" href="#hugectr-to-onnx-converter" title="Permalink to this heading"></a></h2>
 <p>The HugeCTR to Open Neural Network Exchange (ONNX) converter (hugectr2onnx) is a Python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.</p>
 <p>After training with our HugeCTR Python APIs, you can get the files for dense models, sparse models, and graph configurations, which are required as inputs when using the <code class="docutils literal notranslate"><span class="pre">hugectr2onnx.converter.convert</span></code> API. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. You can convert both dense and sparse models or only dense models.
 For more information, refer to the <code class="docutils literal notranslate"><span class="pre">onnx_converter</span></code> directory of the HugeCTR <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">repository</a> on GitHub and the <a class="reference internal" href="notebooks/hugectr2onnx_demo.html"><span class="doc std std-doc">hugectr2onnx_demo.ipynb</span></a> sample notebook.</p>
-</div>
-<div class="section" id="hdfs-support">
-<h2>HDFS Support<a class="headerlink" href="#hdfs-support" title="Permalink to this headline"></a></h2>
+</section>
+<section id="hdfs-support">
+<h2>HDFS Support<a class="headerlink" href="#hdfs-support" title="Permalink to this heading"></a></h2>
 <p>HugeCTR supports interactions with HDFS during training, e.g. loading and dumping models and optimizer states from HDFS.</p>
 <p>If you use the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">Merlin NGC container</a>, you can build Hadoop by running the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/build-hadoop.sh">build-hadoop.sh</a> script.
 If you want to build <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch">HugeCTR from scratch</a>, you should make sure that Hadoop is correctly built in your system and specify <code class="docutils literal notranslate"><span class="pre">-DENABLE_HDFS=ON</span></code> when you build HugeCTR with <code class="docutils literal notranslate"><span class="pre">cmake</span></code>.</p>
 <p>After HDFS is successfully enabled, you are able to use our <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api">Python API</a> to train with HDFS. An end-to-end demo notebook can be found at <a class="reference internal" href="notebooks/training_and_inference_with_remote_filesystem.html"><span class="doc std std-doc">here</span></a>.</p>
-</div>
-<div class="section" id="hierarchical-parameter-server">
-<h2>Hierarchical Parameter Server<a class="headerlink" href="#hierarchical-parameter-server" title="Permalink to this headline"></a></h2>
+</section>
+<section id="hierarchical-parameter-server">
+<h2>Hierarchical Parameter Server<a class="headerlink" href="#hierarchical-parameter-server" title="Permalink to this heading"></a></h2>
 <p>HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed recommendation inference framework,that combines a high-performance GPU embedding cache with an hierarchical storage architecture, to realize low-latency retrieval ofembeddings for online model inference tasks. Among other things, our HPS features (1) redundant hierarchical storage, (2) a novelGPU-enabled high-bandwidth cache to accelerate parallel embedding lookup, (3) online training support and (4) light-weight APIs forintegration into existing large-scale recommendation workflow.</p>
 <p>Try out our <a class="reference internal" href="notebooks/hugectr_wdl_prediction.html"><span class="doc std std-doc">hugectr_wdl_prediction.ipynb Notebook</span></a>. For more information, refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server">Distributed Deployment</a>.</p>
 <p>For more information about Hierrachical Parameter Server, see the details for <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/blob/main/hps_backend/docs/architecture.md">HPS Backend</a> and <a class="reference internal" href="hierarchical_parameter_server/hps_database_backend.html"><span class="doc std std-doc">HPS Database Backend</span></a>.</p>
-</div>
-<div class="section" id="sparse-operation-kit">
-<h2>Sparse Operation Kit<a class="headerlink" href="#sparse-operation-kit" title="Permalink to this headline"></a></h2>
+</section>
+<section id="sparse-operation-kit">
+<h2>Sparse Operation Kit<a class="headerlink" href="#sparse-operation-kit" title="Permalink to this heading"></a></h2>
 <p>The Sparse Operation Kit (SOK) is a Python package that wraps
 GPU-accelerated operations that are dedicated for sparse training
 or inference cases.
@@ -195,8 +194,8 @@ Common deep learning frameworks do not support model-parallelism (MP).
 As a result, it is difficult to fully utilize all available GPUs in
 a cluster to accelerate the whole training process.</p>
 <p>For more information, see the Sparse Operation Kit <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">documentation</a>.</p>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -232,12 +231,12 @@ a cluster to accelerate the whole training process.</p>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v23.04.00/hugectr_core_features.html">v23.04.00</a></dd>
       <dd><a href="../v23.05.00/hugectr_core_features.html">v23.05.00</a></dd>
       <dd><a href="../v23.05.01/hugectr_core_features.html">v23.05.01</a></dd>
       <dd><a href="hugectr_core_features.html">v23.06.00</a></dd>
       <dd><a href="../v23.06.01/hugectr_core_features.html">v23.06.01</a></dd>
       <dd><a href="../v23.08.00/hugectr_core_features.html">v23.08.00</a></dd>
+      <dd><a href="../v23.09.00/hugectr_core_features.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

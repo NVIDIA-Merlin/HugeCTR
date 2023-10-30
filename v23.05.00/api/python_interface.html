@@ -1,28 +1,27 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
-        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -55,7 +54,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -99,9 +98,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-python-interface">
-<h1>HugeCTR Python Interface<a class="headerlink" href="#hugectr-python-interface" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hugectr-python-interface">
+<h1>HugeCTR Python Interface<a class="headerlink" href="#hugectr-python-interface" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#about-the-hugectr-python-interface" id="id4">About the HugeCTR Python Interface</a></p></li>
 <li><p><a class="reference internal" href="#high-level-training-api" id="id5">High-level Training API</a></p>
@@ -145,18 +144,18 @@
 </ul>
 </li>
 </ul>
-</div>
-<div class="section" id="about-the-hugectr-python-interface">
-<h2>About the HugeCTR Python Interface<a class="headerlink" href="#about-the-hugectr-python-interface" title="Permalink to this headline"></a></h2>
+</nav>
+<section id="about-the-hugectr-python-interface">
+<h2>About the HugeCTR Python Interface<a class="headerlink" href="#about-the-hugectr-python-interface" title="Permalink to this heading"></a></h2>
 <p>As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to <a class="reference internal" href="../notebooks/hugectr_criteo.html"><span class="doc std std-doc">HugeCTR Python Interface Notebook</span></a> to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples"><code class="docutils literal notranslate"><span class="pre">samples</span></code></a> directory of the HugeCTR repository.</p>
-</div>
-<div class="section" id="high-level-training-api">
-<h2>High-level Training API<a class="headerlink" href="#high-level-training-api" title="Permalink to this headline"></a></h2>
+</section>
+<section id="high-level-training-api">
+<h2>High-level Training API<a class="headerlink" href="#high-level-training-api" title="Permalink to this heading"></a></h2>
 <p>For HugeCTR high-level training API, the core data structures are <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>, <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code>, <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code>, <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> and <code class="docutils literal notranslate"><span class="pre">Model</span></code>. You can create a <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance with <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> and <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code> instances, and then add instances of <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code> or <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> to it. After compiling the model with the <code class="docutils literal notranslate"><span class="pre">Model.compile()</span></code> method, you can start the epoch mode or non-epoch mode training by simply calling the <code class="docutils literal notranslate"><span class="pre">Model.fit()</span></code> method. Moreover, the <code class="docutils literal notranslate"><span class="pre">Model.summary()</span></code> method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.</p>
-<div class="section" id="solver">
-<h3>Solver<a class="headerlink" href="#solver" title="Permalink to this headline"></a></h3>
-<div class="section" id="createsolver-method">
-<h4>CreateSolver method<a class="headerlink" href="#createsolver-method" title="Permalink to this headline"></a></h4>
+<section id="solver">
+<h3>Solver<a class="headerlink" href="#solver" title="Permalink to this heading"></a></h3>
+<section id="createsolver-method">
+<h4>CreateSolver method<a class="headerlink" href="#createsolver-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -203,10 +202,10 @@
                               <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="createetc-method">
-<h4>CreateETC method<a class="headerlink" href="#createetc-method" title="Permalink to this headline"></a></h4>
+<section id="createetc-method">
+<h4>CreateETC method<a class="headerlink" href="#createetc-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -246,12 +245,12 @@
 <p><strong>Note that the <code class="docutils literal notranslate"><span class="pre">Staged</span></code> and <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS can be used together for a model with more than one embedding tables.</strong></p>
 <p>Example usage of the <code class="docutils literal notranslate"><span class="pre">CreateETC()</span></code> API can be found in <a class="reference internal" href="../hugectr_embedding_training_cache.html#configuration"><span class="std std-ref">Configuration</span></a>.</p>
 <p>For the usage of the ETC feature in real cases, please check the <a class="reference internal" href="../notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training</span></a> notebook.</p>
-</div>
-</div>
-<div class="section" id="asyncparam">
-<h3>AsyncParam<a class="headerlink" href="#asyncparam" title="Permalink to this headline"></a></h3>
-<div class="section" id="asyncparam-class">
-<h4>AsyncParam class<a class="headerlink" href="#asyncparam-class" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="asyncparam">
+<h3>AsyncParam<a class="headerlink" href="#asyncparam" title="Permalink to this heading"></a></h3>
+<section id="asyncparam-class">
+<h4>AsyncParam class<a class="headerlink" href="#asyncparam-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -296,12 +295,12 @@
 
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="hybridembeddingparam">
-<h3>HybridEmbeddingParam<a class="headerlink" href="#hybridembeddingparam" title="Permalink to this headline"></a></h3>
-<div class="section" id="hybridembeddingparam-class">
-<h4>HybridEmbeddingParam class<a class="headerlink" href="#hybridembeddingparam-class" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="hybridembeddingparam">
+<h3>HybridEmbeddingParam<a class="headerlink" href="#hybridembeddingparam" title="Permalink to this heading"></a></h3>
+<section id="hybridembeddingparam-class">
+<h4>HybridEmbeddingParam class<a class="headerlink" href="#hybridembeddingparam-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">HybridEmbeddingParam</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -338,12 +337,12 @@ Conversely, hybrid embedding does not improve performance on a single-machine an
                                                     <span class="n">hugectr</span><span class="o">.</span><span class="n">HybridEmbeddingType</span><span class="o">.</span><span class="n">Distributed</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="datareaderparams">
-<h3>DataReaderParams<a class="headerlink" href="#datareaderparams" title="Permalink to this headline"></a></h3>
-<div class="section" id="datareaderparams-class">
-<h4>DataReaderParams class<a class="headerlink" href="#datareaderparams-class" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="datareaderparams">
+<h3>DataReaderParams<a class="headerlink" href="#datareaderparams" title="Permalink to this heading"></a></h3>
+<section id="datareaderparams-class">
+<h4>DataReaderParams class<a class="headerlink" href="#datareaderparams-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hugectr.DataReaderParams<span class="o">()</span>
 </pre></div>
 </div>
@@ -403,10 +402,10 @@ The default value is an empty list.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-doc">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, AWS S3, Google Cloud Storage or others) for data reading.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">async_param</span></code>: AsyncParam, the parameters for async raw data reader. Please find more information in the <code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code> section in this document.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="dataset-formats">
-<h3>Dataset formats<a class="headerlink" href="#dataset-formats" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="dataset-formats">
+<h3>Dataset formats<a class="headerlink" href="#dataset-formats" title="Permalink to this heading"></a></h3>
 <p>We support the following dataset formats within our <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>.</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#norm"><span class="std std-doc">Norm</span></a></p></li>
@@ -416,11 +415,11 @@ The default value is an empty list.</p>
 <a class="reference internal image-reference" href="../_images/dataset.png"><img alt="../_images/dataset.png" class="align-center" src="../_images/dataset.png" style="width: 80%;" /></a>
 <div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
 <p><br></br></p>
-<div class="section" id="norm">
-<h4>Norm<a class="headerlink" href="#norm" title="Permalink to this headline"></a></h4>
+<section id="norm">
+<h4>Norm<a class="headerlink" href="#norm" title="Permalink to this heading"></a></h4>
 <p>To maximize the data loading performance and minimize the storage, the Norm dataset format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 1 (a).</p>
-<div class="section" id="data-files">
-<h5>Data Files<a class="headerlink" href="#data-files" title="Permalink to this headline"></a></h5>
+<section id="data-files">
+<h5>Data Files<a class="headerlink" href="#data-files" title="Permalink to this heading"></a></h5>
 <p>A data file is the minimum reading granularity for a reading thread, so it’s better to have more files than the number of reading threads to achieve the best performance. A data file consists of a header and actual tabular data. A complete header always starts with a 4-byte constant <strong>64</strong> which is the size of header in bytes.</p>
 <p>Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all sigificant bytes of a sample (excluding the <strong>nnz</strong>). Users should be in charge of correctly specifying if Norm dataset supports checksum in <span class="xref myst">DataReaderParams</span></p>
 <p>Header Definition:</p>
@@ -450,9 +449,9 @@ The default value is an empty list.</p>
 </pre></div>
 </div>
 <p>The input keys for categorical are distributed to the slots with no overlap allowed. For example: <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,2,5,67}</span></code>. If there is any overlap, it will cause an undefined behavior. For example, given <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,10,5,67}</span></code>, the table looking up the <code class="docutils literal notranslate"><span class="pre">10</span></code> key will produce different results based on how the slots are assigned to the GPUs.</p>
-</div>
-<div class="section" id="file-list">
-<h5>File List<a class="headerlink" href="#file-list" title="Permalink to this headline"></a></h5>
+</section>
+<section id="file-list">
+<h5>File List<a class="headerlink" href="#file-list" title="Permalink to this heading"></a></h5>
 <p>The first line of a file list should be the number of data files in the dataset with the paths to those files listed below as shown here:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>simple_sparse_embedding_file_list.txt
 <span class="m">10</span>
@@ -475,10 +474,10 @@ The default value is an empty list.</p>
                                   <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="raw">
-<h4>Raw<a class="headerlink" href="#raw" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="raw">
+<h4>Raw<a class="headerlink" href="#raw" title="Permalink to this heading"></a></h4>
 <p>The Raw dataset format is different from the Norm dataset format in several aspects:</p>
 <ol class="arabic simple">
 <li><p>Raw dataset only consists of a single binary file.</p></li>
@@ -487,12 +486,12 @@ The default value is an empty list.</p>
 <li><p>The datatype of dense features can be either float or unsigned int.</p></li>
 </ol>
 <p>Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of data reader that can load data from disk to model, with respect to embeding types.</p>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-center head"><p>reader type</p></th>
-<th class="text-center head"><p>hotness</p></th>
-<th class="text-center head"><p>specific embedding type</p></th>
-<th class="text-center head"><p>dense data type</p></th>
+<tr class="row-odd"><th class="head text-center"><p>reader type</p></th>
+<th class="head text-center"><p>hotness</p></th>
+<th class="head text-center"><p>specific embedding type</p></th>
+<th class="head text-center"><p>dense data type</p></th>
 </tr>
 </thead>
 <tbody>
@@ -530,9 +529,9 @@ The default value is an empty list.</p>
                                   <span class="n">is_dense_float</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="parquet">
-<h4>Parquet<a class="headerlink" href="#parquet" title="Permalink to this headline"></a></h4>
+</section>
+<section id="parquet">
+<h4>Parquet<a class="headerlink" href="#parquet" title="Permalink to this heading"></a></h4>
 <p>Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 © shows an example Parquet dataset. For additional information, see the <a class="reference external" href="https://parquet.apache.org/docs/">parquet documentation</a>.</p>
 <p>Please note the following:</p>
 <ul class="simple">
@@ -653,12 +652,12 @@ The default value is an empty list.</p>
                                   <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50000</span><span class="p">,</span> <span class="mi">300</span><span class="p">])</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="optparamspy">
-<h3>OptParamsPy<a class="headerlink" href="#optparamspy" title="Permalink to this headline"></a></h3>
-<div class="section" id="createoptimizer-method">
-<h4>CreateOptimizer method<a class="headerlink" href="#createoptimizer-method" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="optparamspy">
+<h3>OptParamsPy<a class="headerlink" href="#optparamspy" title="Permalink to this heading"></a></h3>
+<section id="createoptimizer-method">
+<h4>CreateOptimizer method<a class="headerlink" href="#createoptimizer-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -690,11 +689,11 @@ The default value is an empty list.</p>
                                     <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.0000001</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-</div>
-</div>
-<div class="section" id="layers">
-<h2>Layers<a class="headerlink" href="#layers" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+</section>
+<section id="layers">
+<h2>Layers<a class="headerlink" href="#layers" title="Permalink to this heading"></a></h2>
 <p>There are three major kinds of <code class="docutils literal notranslate"><span class="pre">layer</span></code> in HugeCTR:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="hugectr_layer_book.html#input-layer"><span class="std std-doc">Input</span></a></p></li>
@@ -703,10 +702,10 @@ The default value is an empty list.</p>
 <li><p><a class="reference internal" href="hugectr_layer_book.html#groupdenselayer"><span class="std std-doc">GroupDense</span></a></p></li>
 </ul>
 <p>Please refer to <a class="reference internal" href="hugectr_layer_book.html"><span class="doc std std-doc">hugectr_layer_book</span></a> for detail guides on how to use different layer types.</p>
-<div class="section" id="model">
-<h3>Model<a class="headerlink" href="#model" title="Permalink to this headline"></a></h3>
-<div class="section" id="model-class">
-<h4>Model class<a class="headerlink" href="#model-class" title="Permalink to this headline"></a></h4>
+<section id="model">
+<h3>Model<a class="headerlink" href="#model" title="Permalink to this heading"></a></h3>
+<section id="model-class">
+<h4>Model class<a class="headerlink" href="#model-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -718,10 +717,10 @@ The default value is an empty list.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">opt_params</span></code>: A hugectr.OptParamsPy object, the optimizer configuration for the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">etc</span></code>: A hugectr.EmbeddingTrainingCacheParams object, the embedding training cache configuration for the model. This argument should <strong>only</strong> be provided when using the embedding training cache feature.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="add-method">
-<h4>add method<a class="headerlink" href="#add-method" title="Permalink to this headline"></a></h4>
+<section id="add-method">
+<h4>add method<a class="headerlink" href="#add-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -734,10 +733,10 @@ Please note that the loss function for HugeCTR model training is taken as a Dens
 It allows the users to construct their model flexibly without the JSON configuration file.</p></li>
 </ul>
 <p>Refer to the <a class="reference internal" href="hugectr_layer_book.html"><span class="doc std std-doc">HugeCTR Layer Classes and Methods</span></a> for information about the layers and embedding collection.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="compile-method">
-<h4>compile method<a class="headerlink" href="#compile-method" title="Permalink to this headline"></a></h4>
+<section id="compile-method">
+<h4>compile method<a class="headerlink" href="#compile-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -747,10 +746,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <li><p><code class="docutils literal notranslate"><span class="pre">loss_names</span></code>: List of Strings, the list of loss label names to provide weights for.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">loss_weights</span></code>: List of Floats, the weights to be assigned to each loss label.  Number of elements must match the number of loss_names.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="fit-method">
-<h4>fit method<a class="headerlink" href="#fit-method" title="Permalink to this headline"></a></h4>
+<section id="fit-method">
+<h4>fit method<a class="headerlink" href="#fit-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -765,18 +764,18 @@ It allows the users to construct their model flexibly without the JSON configura
 <li><p><code class="docutils literal notranslate"><span class="pre">snapshot_prefix</span></code>: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is <code class="docutils literal notranslate"><span class="pre">''</span></code>. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.
 <strong>Please note that dumping models to remote file system when enabled MPI is not supported yet.</strong></p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="summary-method">
-<h4>summary method<a class="headerlink" href="#summary-method" title="Permalink to this headline"></a></h4>
+<section id="summary-method">
+<h4>summary method<a class="headerlink" href="#summary-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method. Please NOTE that the first dimension of displayed tensors is the per-GPU batchsize.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="graph-to-json-method">
-<h4>graph_to_json method<a class="headerlink" href="#graph-to-json-method" title="Permalink to this headline"></a></h4>
+<section id="graph-to-json-method">
+<h4>graph_to_json method<a class="headerlink" href="#graph-to-json-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -785,10 +784,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">graph_config_file</span></code>: The JSON file to which the model graph will be saved. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="construct-from-json-method">
-<h4>construct_from_json method<a class="headerlink" href="#construct-from-json-method" title="Permalink to this headline"></a></h4>
+<section id="construct-from-json-method">
+<h4>construct_from_json method<a class="headerlink" href="#construct-from-json-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">construct_from_json</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -798,10 +797,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <li><p><code class="docutils literal notranslate"><span class="pre">graph_config_file</span></code>: The saved JSON file from which the model graph will be constructed. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">include_dense_network</span></code>: Boolean, whether to include the dense network when constructing the model graph. If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the whole model graph will be constructed, then both saved sparse model weights and dense model weights can be loaded. If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, only the sparse embedding layers will be constructed and the corresponding sparse model weights can be loaded, which enables users to construct a new dense network on top of that. Please NOTE that the HugeCTR layers are organized by names and you can check the input name, output name and output shape and of the added layers with <code class="docutils literal notranslate"><span class="pre">Model.summary()</span></code>. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="load-dense-weights-method">
-<h4>load_dense_weights method<a class="headerlink" href="#load-dense-weights-method" title="Permalink to this headline"></a></h4>
+<section id="load-dense-weights-method">
+<h4>load_dense_weights method<a class="headerlink" href="#load-dense-weights-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">load_dense_weights</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -810,10 +809,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">dense_model_file</span></code>: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="load-dense-optimizer-states-method">
-<h4>load_dense_optimizer_states method<a class="headerlink" href="#load-dense-optimizer-states-method" title="Permalink to this headline"></a></h4>
+<section id="load-dense-optimizer-states-method">
+<h4>load_dense_optimizer_states method<a class="headerlink" href="#load-dense-optimizer-states-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">load_dense_optimizer_states</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -822,10 +821,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">dense_opt_states_file</span></code>: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="load-sparse-weights-method">
-<h4>load_sparse_weights method<a class="headerlink" href="#load-sparse-weights-method" title="Permalink to this headline"></a></h4>
+<section id="load-sparse-weights-method">
+<h4>load_sparse_weights method<a class="headerlink" href="#load-sparse-weights-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">load_sparse_weights</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -860,10 +859,10 @@ It allows the users to construct their model flexibly without the JSON configura
 <span class="n">model</span><span class="o">.</span><span class="n">load_sparse_weights</span><span class="p">({</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">:</span> <span class="s2">&quot;wdl_1_sparse_4000.model&quot;</span><span class="p">})</span> <span class="c1"># or load the model for one embedding layer</span>
 </pre></div>
 </div>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="load-sparse-optimizer-states-method">
-<h4>load_sparse_optimizer_states method<a class="headerlink" href="#load-sparse-optimizer-states-method" title="Permalink to this headline"></a></h4>
+<section id="load-sparse-optimizer-states-method">
+<h4>load_sparse_optimizer_states method<a class="headerlink" href="#load-sparse-optimizer-states-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">load_sparse_optimizer_states</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -878,18 +877,18 @@ It allows the users to construct their model flexibly without the JSON configura
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">sparse_opt_states_files_map</span></code>: Dict[str, str], the sparse optimizer states file will be loaded by the embedding layer with the specified sparse embedding name. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="freeze-dense-method">
-<h4>freeze_dense method<a class="headerlink" href="#freeze-dense-method" title="Permalink to this headline"></a></h4>
+<section id="freeze-dense-method">
+<h4>freeze_dense method<a class="headerlink" href="#freeze-dense-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">freeze_dense</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and freezes the dense weights of the model. Users can use this method when they want to fine-tune the sparse weights.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="freeze-embedding-method">
-<h4>freeze_embedding method<a class="headerlink" href="#freeze-embedding-method" title="Permalink to this headline"></a></h4>
+<section id="freeze-embedding-method">
+<h4>freeze_embedding method<a class="headerlink" href="#freeze-embedding-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">freeze_embedding</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -920,18 +919,18 @@ This method takes no extra arguments and freezes the sparse weights of the model
 <span class="n">model</span><span class="o">.</span><span class="n">freeze_embedding</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">)</span> <span class="c1"># or free a specific embedding layer</span>
 </pre></div>
 </div>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="unfreeze-dense-method">
-<h4>unfreeze_dense method<a class="headerlink" href="#unfreeze-dense-method" title="Permalink to this headline"></a></h4>
+<section id="unfreeze-dense-method">
+<h4>unfreeze_dense method<a class="headerlink" href="#unfreeze-dense-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">unfreeze_dense</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and unfreezes the dense weights of the model.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="unfreeze-embedding-method">
-<h4>unfreeze_embedding method<a class="headerlink" href="#unfreeze-embedding-method" title="Permalink to this headline"></a></h4>
+<section id="unfreeze-embedding-method">
+<h4>unfreeze_embedding method<a class="headerlink" href="#unfreeze-embedding-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">unfreeze_embedding</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -942,10 +941,10 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_name</span></code>: String, the name of the embedding layer.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="reset-learning-rate-scheduler-method">
-<h4>reset_learning_rate_scheduler method<a class="headerlink" href="#reset-learning-rate-scheduler-method" title="Permalink to this headline"></a></h4>
+<section id="reset-learning-rate-scheduler-method">
+<h4>reset_learning_rate_scheduler method<a class="headerlink" href="#reset-learning-rate-scheduler-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">reset_learning_rate_scheduler</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -959,10 +958,10 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <li><p><code class="docutils literal notranslate"><span class="pre">decay_power</span></code>: The power of the learning rate decay for the internal learning rate scheduler within Model instance. The default value is 2.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">end_lr</span></code>: The final learning rate for the internal learning rate scheduler within Model instance. The default value is 0.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="set-source-method">
-<h4>set_source method<a class="headerlink" href="#set-source-method" title="Permalink to this headline"></a></h4>
+<section id="set-source-method">
+<h4>set_source method<a class="headerlink" href="#set-source-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">set_source</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -980,26 +979,26 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_source</span></code>: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
-</div>
-</div>
-<div class="section" id="low-level-training-api">
-<h2>Low-level Training API<a class="headerlink" href="#low-level-training-api" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+</section>
+<section id="low-level-training-api">
+<h2>Low-level Training API<a class="headerlink" href="#low-level-training-api" title="Permalink to this heading"></a></h2>
 <p>For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal <code class="docutils literal notranslate"><span class="pre">LearningRateScheduler</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReader</span></code> and <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCache</span></code> within the <code class="docutils literal notranslate"><span class="pre">Model</span></code>, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.</p>
-<div class="section" id="learningratescheduler">
-<h3>LearningRateScheduler<a class="headerlink" href="#learningratescheduler" title="Permalink to this headline"></a></h3>
-<div class="section" id="get-next-method">
-<h4>get_next method<a class="headerlink" href="#get-next-method" title="Permalink to this headline"></a></h4>
+<section id="learningratescheduler">
+<h3>LearningRateScheduler<a class="headerlink" href="#learningratescheduler" title="Permalink to this heading"></a></h3>
+<section id="get-next-method">
+<h4>get_next method<a class="headerlink" href="#get-next-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">LearningRateScheduler</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the learning rate to be used for the next iteration.</p>
-</div>
-</div>
-<div class="section" id="datareader">
-<h3>DataReader<a class="headerlink" href="#datareader" title="Permalink to this headline"></a></h3>
-<div class="section" id="id1">
-<h4>set_source method<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="datareader">
+<h3>DataReader<a class="headerlink" href="#datareader" title="Permalink to this heading"></a></h3>
+<section id="id1">
+<h4>set_source method<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReader32</span><span class="o">.</span><span class="n">set_source</span><span class="p">()</span>
 <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReader64</span><span class="o">.</span><span class="n">set_source</span><span class="p">()</span>
 </pre></div>
@@ -1009,21 +1008,21 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">file_name</span></code>: The file name of the new training source or evaluation source. For Norm format dataset, it takes the form of <code class="docutils literal notranslate"><span class="pre">file_list.txt</span></code>. For Raw format dataset, it appears as <code class="docutils literal notranslate"><span class="pre">data.bin</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">''</span></code>, which means that the data reader will reset to the beginning of the current data file.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="is-eof-method">
-<h4>is_eof method<a class="headerlink" href="#is-eof-method" title="Permalink to this headline"></a></h4>
+<section id="is-eof-method">
+<h4>is_eof method<a class="headerlink" href="#is-eof-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReader32</span><span class="o">.</span><span class="n">is_eof</span><span class="p">()</span>
 <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReader64</span><span class="o">.</span><span class="n">is_eof</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns whether the data reader has reached the end of the current source file.</p>
-</div>
-</div>
-<div class="section" id="embeddingtraingcache">
-<h3>EmbeddingTraingCache<a class="headerlink" href="#embeddingtraingcache" title="Permalink to this headline"></a></h3>
-<div class="section" id="update-method">
-<h4>update method<a class="headerlink" href="#update-method" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="embeddingtraingcache">
+<h3>EmbeddingTraingCache<a class="headerlink" href="#embeddingtraingcache" title="Permalink to this heading"></a></h3>
+<section id="update-method">
+<h4>update method<a class="headerlink" href="#update-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingTraingCache</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1032,53 +1031,53 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">keyset_file</span></code> or <code class="docutils literal notranslate"><span class="pre">keyset_file_list</span></code>: This method is an overloaded method that can accept str or List[str] as an argument. For the model with multiple embedding tables, if the keyset of each embedding table is not separated when generating the keyset files, then pass in the <code class="docutils literal notranslate"><span class="pre">keyset_file</span></code>. If the keyset of each embedding table has been separated when generating keyset files, you need to pass in the <code class="docutils literal notranslate"><span class="pre">keyset_file_list</span></code>, the size of which should equal to the number of embedding tables.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="id2">
-<h3>Model<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
-<div class="section" id="get-learning-rate-scheduler-method">
-<h4>get_learning_rate_scheduler method<a class="headerlink" href="#get-learning-rate-scheduler-method" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="id2">
+<h3>Model<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
+<section id="get-learning-rate-scheduler-method">
+<h4>get_learning_rate_scheduler method<a class="headerlink" href="#get-learning-rate-scheduler-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_learning_rate_scheduler</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">hugectr.Model.get_learning_rate_scheduler</span></code> generates and returns the LearningRateScheduler object of the model instance. When the <code class="docutils literal notranslate"><span class="pre">SGD</span></code> optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the <code class="docutils literal notranslate"><span class="pre">warmup_steps</span></code>, <code class="docutils literal notranslate"><span class="pre">decay_start</span></code> and <code class="docutils literal notranslate"><span class="pre">decay_steps</span></code> configured in the <code class="docutils literal notranslate"><span class="pre">hugectr.CreateSolver</span></code> method.
 Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-optimizer-and-learning-rate-scheduling"><span class="std std-ref">SGD Optimizer and Learning Rate Scheduling</span></a>) if you want to get detailed information about LearningRateScheduler.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-embedding-training-cache-method">
-<h4>get_embedding_training_cache method<a class="headerlink" href="#get-embedding-training-cache-method" title="Permalink to this headline"></a></h4>
+<section id="get-embedding-training-cache-method">
+<h4>get_embedding_training_cache method<a class="headerlink" href="#get-embedding-training-cache-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_embedding_training_cache</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the EmbeddingTrainingCache object.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-data-reader-train-method">
-<h4>get_data_reader_train method<a class="headerlink" href="#get-data-reader-train-method" title="Permalink to this headline"></a></h4>
+<section id="get-data-reader-train-method">
+<h4>get_data_reader_train method<a class="headerlink" href="#get-data-reader-train-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_data_reader_train</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the DataReader object that reads the training data.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-data-reader-eval-method">
-<h4>get_data_reader_eval method<a class="headerlink" href="#get-data-reader-eval-method" title="Permalink to this headline"></a></h4>
+<section id="get-data-reader-eval-method">
+<h4>get_data_reader_eval method<a class="headerlink" href="#get-data-reader-eval-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_data_reader_eval</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the DataReader object that reads the evaluation data.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="start-data-reading-method">
-<h4>start_data_reading method<a class="headerlink" href="#start-data-reading-method" title="Permalink to this headline"></a></h4>
+<section id="start-data-reading-method">
+<h4>start_data_reading method<a class="headerlink" href="#start-data-reading-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">start_data_reading</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and should be used if and only if it is under the non-epoch mode training. The method starts the <code class="docutils literal notranslate"><span class="pre">train_data_reader</span></code> and <code class="docutils literal notranslate"><span class="pre">eval_data_reader</span></code> before entering the training loop.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="set-learning-rate-method">
-<h4>set_learning_rate method<a class="headerlink" href="#set-learning-rate-method" title="Permalink to this headline"></a></h4>
+<section id="set-learning-rate-method">
+<h4>set_learning_rate method<a class="headerlink" href="#set-learning-rate-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">set_learning_rate</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1087,61 +1086,61 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">lr</span></code>: Float, the learning rate to be set。</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="train-method">
-<h4>train method<a class="headerlink" href="#train-method" title="Permalink to this headline"></a></h4>
+<section id="train-method">
+<h4>train method<a class="headerlink" href="#train-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and executes one iteration of the model weights based on one minibatch of training data.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-current-loss-method">
-<h4>get_current_loss method<a class="headerlink" href="#get-current-loss-method" title="Permalink to this headline"></a></h4>
+<section id="get-current-loss-method">
+<h4>get_current_loss method<a class="headerlink" href="#get-current-loss-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_current_loss</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the loss value for the current iteration.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="eval-method">
-<h4>eval method<a class="headerlink" href="#eval-method" title="Permalink to this headline"></a></h4>
+<section id="eval-method">
+<h4>eval method<a class="headerlink" href="#eval-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no arguments and calculates the evaluation metrics based on one minibatch of evaluation data.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-eval-metrics-method">
-<h4>get_eval_metrics method<a class="headerlink" href="#get-eval-metrics-method" title="Permalink to this headline"></a></h4>
+<section id="get-eval-metrics-method">
+<h4>get_eval_metrics method<a class="headerlink" href="#get-eval-metrics-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_eval_metrics</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the average evaluation metrics of several minibatches of evaluation data.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="get-incremental-model-method">
-<h4>get_incremental_model method<a class="headerlink" href="#get-incremental-model-method" title="Permalink to this headline"></a></h4>
+<section id="get-incremental-model-method">
+<h4>get_incremental_model method<a class="headerlink" href="#get-incremental-model-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">updated_model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_incremental_model</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method is only supported in <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="doc std std-doc">Embedding Training Cache</span></a> and returns the updated embedding table since the last time calling this method to <code class="docutils literal notranslate"><span class="pre">updated_model</span></code>. Note that <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> only stores the embedding features being touched instead of the whole table.</p>
 <p>When training with multi-node, the <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> returned in each node doesn’t have duplicated embedding features, and the aggregations of <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> from each node form the complete updated sparse model.</p>
 <p>The length of <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> is equal to the number of embedding tables in your model, e.g., <code class="docutils literal notranslate"><span class="pre">length(updated_model)==2</span></code> for the wdl model. Each element in <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> is a pair of NumPy arrays: a 1-D array stores keys in <code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">long</span></code> format, and another 2-D array stores embedding vectors in <code class="docutils literal notranslate"><span class="pre">float</span></code> format, where the leading dimension is the embedding vector size. E.g., <code class="docutils literal notranslate"><span class="pre">updated_model[0][0]</span></code> stores keys, and <code class="docutils literal notranslate"><span class="pre">updated_model[0][1]</span></code> stores the embedding vectors corresponding to keys in <code class="docutils literal notranslate"><span class="pre">updated_model[0][0]</span></code>.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="dump-incremental-model-2kafka-method">
-<h4>dump_incremental_model_2kafka method<a class="headerlink" href="#dump-incremental-model-2kafka-method" title="Permalink to this headline"></a></h4>
+<section id="dump-incremental-model-2kafka-method">
+<h4>dump_incremental_model_2kafka method<a class="headerlink" href="#dump-incremental-model-2kafka-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">dump_incremental_model_2kafka</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method is only supported in <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="doc std std-doc">Embedding Training Cache</span></a>. It with post the updated embedding table to Kafka as user specified.</p>
 <p>Please NOTE that is method can not be used together with the <code class="docutils literal notranslate"><span class="pre">get_incremental_model</span></code> method. Only one of these two methods could be used for dumping the incremental model.</p>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="save-params-to-files-method">
-<h4>save_params_to_files method<a class="headerlink" href="#save-params-to-files-method" title="Permalink to this headline"></a></h4>
+<section id="save-params-to-files-method">
+<h4>save_params_to_files method<a class="headerlink" href="#save-params-to-files-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">save_params_to_files</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1158,10 +1157,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code>: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.<strong>Please note that dumping models to remote file system when enabled MPI is not supported yet.</strong></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iter</span></code>: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. The default value is 0.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="check-out-tensor-method">
-<h4>check_out_tensor method<a class="headerlink" href="#check-out-tensor-method" title="Permalink to this headline"></a></h4>
+<section id="check-out-tensor-method">
+<h4>check_out_tensor method<a class="headerlink" href="#check-out-tensor-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1203,10 +1202,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <span class="n">fc1_evaluate_flow</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;fc1&quot;</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Tensor_t</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="export-predictions-method">
-<h4>export_predictions method<a class="headerlink" href="#export-predictions-method" title="Permalink to this headline"></a></h4>
+<section id="export-predictions-method">
+<h4>export_predictions method<a class="headerlink" href="#export-predictions-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">export_predictions</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1232,28 +1231,28 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">output_prediction_file_name</span></code>: String, the file to which the evaluation prediction results will be written. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_label_file_name</span></code>: String, the file to which the evaluation labels will be written. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
-</div>
-</div>
-<div class="section" id="inference-api">
-<h2>Inference API<a class="headerlink" href="#inference-api" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+</section>
+<section id="inference-api">
+<h2>Inference API<a class="headerlink" href="#inference-api" title="Permalink to this heading"></a></h2>
 <p>For HugeCTR inference API, the core data structures are <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code>. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> if online inference with Triton is needed.</p>
 <p>Please <strong>NOTE</strong> that Inference API requires a configuration JSON file of the model graph, which can derived from the <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json()</span></code> method. Besides, <code class="docutils literal notranslate"><span class="pre">model_name</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code> should be specified during training in order to correctly dump the JSON file.</p>
-<div class="section" id="inferenceparams">
-<h3>InferenceParams<a class="headerlink" href="#inferenceparams" title="Permalink to this headline"></a></h3>
-<div class="section" id="inferenceparams-class">
-<h4>InferenceParams class<a class="headerlink" href="#inferenceparams-class" title="Permalink to this headline"></a></h4>
+<section id="inferenceparams">
+<h3>InferenceParams<a class="headerlink" href="#inferenceparams" title="Permalink to this heading"></a></h3>
+<section id="inferenceparams-class">
+<h4>InferenceParams class<a class="headerlink" href="#inferenceparams-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> specifies the parameters related to the inference. An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
 <p>Refer to the <a class="reference internal" href="../hierarchical_parameter_server/hps_database_backend.html#configuration"><span class="std std-doc">HPS Configuration</span></a> documentation for the parameters.</p>
-</div>
-</div>
-<div class="section" id="inferencemodel">
-<h3>InferenceModel<a class="headerlink" href="#inferencemodel" title="Permalink to this headline"></a></h3>
-<div class="section" id="inferencemodel-class">
-<h4>InferenceModel class<a class="headerlink" href="#inferencemodel-class" title="Permalink to this headline"></a></h4>
+</section>
+</section>
+<section id="inferencemodel">
+<h3>InferenceModel<a class="headerlink" href="#inferencemodel" title="Permalink to this heading"></a></h3>
+<section id="inferencemodel-class">
+<h4>InferenceModel class<a class="headerlink" href="#inferencemodel-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hugectr.inference.InferenceModel<span class="o">()</span>
 </pre></div>
 </div>
@@ -1263,10 +1262,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">model_config_path</span></code>: String, the inference model configuration file (which can be derived from <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json</span></code>). There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">inference_params</span></code>: InferenceParams, the InferenceParams object. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="predict-method">
-<h4>predict method<a class="headerlink" href="#predict-method" title="Permalink to this headline"></a></h4>
+<section id="predict-method">
+<h4>predict method<a class="headerlink" href="#predict-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">predict</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1280,10 +1279,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-doc">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="evaluate-method">
-<h4>evaluate method<a class="headerlink" href="#evaluate-method" title="Permalink to this headline"></a></h4>
+<section id="evaluate-method">
+<h4>evaluate method<a class="headerlink" href="#evaluate-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1297,10 +1296,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-doc">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
 </ul>
-</div>
+</section>
 <hr class="docutils" />
-<div class="section" id="id3">
-<h4>check_out_tensor method<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<section id="id3">
+<h4>check_out_tensor method<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1337,14 +1336,14 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <span class="n">sparse_embedding1_inference_flow</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-</div>
-</div>
-<div class="section" id="data-generator-api">
-<h2>Data Generator API<a class="headerlink" href="#data-generator-api" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+</section>
+<section id="data-generator-api">
+<h2>Data Generator API<a class="headerlink" href="#data-generator-api" title="Permalink to this heading"></a></h2>
 <p>For HugeCTR data generator API, the core data structures are <code class="docutils literal notranslate"><span class="pre">DataGeneratorParams</span></code> and <code class="docutils literal notranslate"><span class="pre">DataGenerator</span></code>. Please refer to <code class="docutils literal notranslate"><span class="pre">data_generator</span></code> directory in the HugeCTR <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools">repository</a> on GitHub to acknowledge how to write Python scripts to generate synthetic dataset and start training HugeCTR model.</p>
-<div class="section" id="datageneratorparams-class">
-<h3>DataGeneratorParams class<a class="headerlink" href="#datageneratorparams-class" title="Permalink to this headline"></a></h3>
+<section id="datageneratorparams-class">
+<h3>DataGeneratorParams class<a class="headerlink" href="#datageneratorparams-class" title="Permalink to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">DataGeneratorParams</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1371,11 +1370,11 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_num_samples</span></code>: Integer, the number of samples in the generated single evaluation data file (e.g., test_data.bin). This argument is only valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. The default value is 1310720.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">float_label_dense</span></code>: Boolean, this is only valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. If its value is set to True, the label and dense features for each sample are interpreted as float values. Otherwise, they are regarded as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is False.</p></li>
 </ul>
-</div>
-<div class="section" id="datagenerator">
-<h3>DataGenerator<a class="headerlink" href="#datagenerator" title="Permalink to this headline"></a></h3>
-<div class="section" id="datagenerator-class">
-<h4>DataGenerator class<a class="headerlink" href="#datagenerator-class" title="Permalink to this headline"></a></h4>
+</section>
+<section id="datagenerator">
+<h3>DataGenerator<a class="headerlink" href="#datagenerator" title="Permalink to this heading"></a></h3>
+<section id="datagenerator-class">
+<h4>DataGenerator class<a class="headerlink" href="#datagenerator-class" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">DataGenerator</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1384,20 +1383,20 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">data_generator_params</span></code>: The DataGeneratorParams instance which encapsulates the required parameters for data generation. There is NO default value and it should be specified by users.</p></li>
 </ul>
-</div>
-<div class="section" id="generate-method">
-<h4>generate method<a class="headerlink" href="#generate-method" title="Permalink to this headline"></a></h4>
+</section>
+<section id="generate-method">
+<h4>generate method<a class="headerlink" href="#generate-method" title="Permalink to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">DataGenerator</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This method takes no extra arguments and starts to generate the synthetic dataset based on the configurations within <code class="docutils literal notranslate"><span class="pre">data_generator_params</span></code>.</p>
-</div>
-</div>
-</div>
-<div class="section" id="data-source-api">
-<h2>Data Source API<a class="headerlink" href="#data-source-api" title="Permalink to this headline"></a></h2>
-<div class="section" id="datasourceparams-class">
-<h3>DataSourceParams class<a class="headerlink" href="#datasourceparams-class" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+</section>
+<section id="data-source-api">
+<h2>Data Source API<a class="headerlink" href="#data-source-api" title="Permalink to this heading"></a></h2>
+<section id="datasourceparams-class">
+<h3>DataSourceParams class<a class="headerlink" href="#datasourceparams-class" title="Permalink to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataSourceParams</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1408,9 +1407,9 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">server</span></code>: String, the IP address of your file system. For Hadoop cluster(<code class="docutils literal notranslate"><span class="pre">HDFS</span></code>), it is your namenode. For AWS <code class="docutils literal notranslate"><span class="pre">S3</span></code>, it is the region. For <code class="docutils literal notranslate"><span class="pre">GCS</span></code>, it is the endpoint override (please put <code class="docutils literal notranslate"><span class="pre">storage.googleapis.com</span></code> if you are using the default GCS endpoint). Will be ignored if <code class="docutils literal notranslate"><span class="pre">source</span></code> is <code class="docutils literal notranslate"><span class="pre">FileSystemType_t.Local</span></code>. Default is ‘localhost’.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>:  Integer, the port to listen from your Hadoop server. Will be ignored if <code class="docutils literal notranslate"><span class="pre">source</span></code> is <code class="docutils literal notranslate"><span class="pre">FileSystemType_t.Local</span></code> or <code class="docutils literal notranslate"><span class="pre">FileSystemType_t.S3</span></code> or <code class="docutils literal notranslate"><span class="pre">FileSystemType_t.GCS</span></code>. Default is 9000.</p></li>
 </ul>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -1446,12 +1445,12 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/api/python_interface.html">v23.04.00</a></dd>
       <dd><a href="python_interface.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/api/python_interface.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/api/python_interface.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/api/python_interface.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/api/python_interface.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/api/python_interface.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

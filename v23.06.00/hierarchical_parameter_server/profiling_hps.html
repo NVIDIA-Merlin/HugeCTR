@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profiling HPS &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Profiling HPS &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/profiling_hps.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -51,7 +50,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -104,8 +103,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 -->
-<div class="tex2jax_ignore mathjax_ignore section" id="profiling-hps">
-<h1>Profiling HPS<a class="headerlink" href="#profiling-hps" title="Permalink to this headline"></a></h1>
+<section class="tex2jax_ignore mathjax_ignore" id="profiling-hps">
+<h1>Profiling HPS<a class="headerlink" href="#profiling-hps" title="Permalink to this heading"></a></h1>
 <p>A critical part of optimizing the inference performance of HPS
 is being able to measure changes in performance as you experiment with
 different optimization strategies and data distribution. There are two ways to profile HPS:</p>
@@ -114,8 +113,8 @@ different optimization strategies and data distribution. There are two ways to p
 The hps_profiler application performs benchmark tasks for the Hierarchical Parameter Server. The hps_profiler will be compiled and installed from the following instructions in <span class="xref myst">Build and install the HPS Profiler</span>.</p></li>
 <li><p>The Triton Perf Analyzer. For detailed documentation of Triton Perf Analyzer, please refer to <a class="reference external" href="https://github.com/triton-inference-server/client/blob/main/src/c++/perf_analyzer/README.md">here</a>. For how to use Trion Perf Analyzer to profile HPS, take a look at the <a class="reference internal" href="#profile-hps-with-triton-perf-analyzer"><span class="std std-doc">procedure</span></a>.</p></li>
 </ol>
-<div class="section" id="hps-profiler">
-<h2>HPS profiler<a class="headerlink" href="#hps-profiler" title="Permalink to this headline"></a></h2>
+<section id="hps-profiler">
+<h2>HPS profiler<a class="headerlink" href="#hps-profiler" title="Permalink to this heading"></a></h2>
 <p>The hps_profiler application generates inference requests to HPS and measures the throughput and latency of different components, such as embedding cache, Database Backend and Lookup session. To
 get representative results, hps_profiler measures the throughput and
 latency over the configurable iteration, and then repeats the measurements until it reaches a specified number of iterations.
@@ -145,9 +144,9 @@ Occupancy [900 iterations] min = 0.719323, mean = 0.843972, median = 0.854749, 9
 </pre></div>
 </div>
 <p><a id="section-1"></a></p>
-</div>
-<div class="section" id="build-and-install-the-hps-profiler">
-<h2>Build and install the HPS Profiler<a class="headerlink" href="#build-and-install-the-hps-profiler" title="Permalink to this headline"></a></h2>
+</section>
+<section id="build-and-install-the-hps-profiler">
+<h2>Build and install the HPS Profiler<a class="headerlink" href="#build-and-install-the-hps-profiler" title="Permalink to this heading"></a></h2>
 <p>To build HPS profiler from source, do the following:
 2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">   </span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
@@ -176,13 +175,13 @@ $<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><
 </li>
 <li><p>You will get <code class="docutils literal notranslate"><span class="pre">hps_profiler</span></code> under bin foler.</p></li>
 </ol>
-</div>
-<div class="section" id="create-a-synthetic-embedding-table">
-<h2>Create a synthetic embedding table<a class="headerlink" href="#create-a-synthetic-embedding-table" title="Permalink to this headline"></a></h2>
+</section>
+<section id="create-a-synthetic-embedding-table">
+<h2>Create a synthetic embedding table<a class="headerlink" href="#create-a-synthetic-embedding-table" title="Permalink to this heading"></a></h2>
 <p>The embedding generator is used to generate synthetic HugeCTR sparse model files that can be loaded into HugeCTR <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">HPS</a> for inference. To generate a HugeCTR embedding file, please refer to the <span class="xref myst">Model generator </span></p>
-</div>
-<div class="section" id="use-the-hps-profiler-to-get-the-measurement-results">
-<h2>Use the HPS Profiler to get the measurement results<a class="headerlink" href="#use-the-hps-profiler-to-get-the-measurement-results" title="Permalink to this headline"></a></h2>
+</section>
+<section id="use-the-hps-profiler-to-get-the-measurement-results">
+<h2>Use the HPS Profiler to get the measurement results<a class="headerlink" href="#use-the-hps-profiler-to-get-the-measurement-results" title="Permalink to this heading"></a></h2>
 <ol class="arabic simple">
 <li><p>Generate HPS json configuration file based on synthetic model file.
 For configuration information about HPS, you can refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_parameter_server.html#configuration">here</a>. Here is an example:</p></li>
@@ -262,9 +261,9 @@ For example <code class="docutils literal notranslate"><span class="pre">--hot_k
 <li><p>It is recommended that users make mutually exclusive selections of three components(<code class="docutils literal notranslate"><span class="pre">--embedding_cache</span></code>,<code class="docutils literal notranslate"><span class="pre">--database_backend</span></code> and <code class="docutils literal notranslate"><span class="pre">--lookup_session</span></code>) to ensure the most accurate performance. Because the measurement results of the lookup session will include the performance results of the database backend and embedding cache.</p></li>
 <li><p>If enable the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/docs/source/hugectr_parameter_server.md#inference-parameters-and-embedding-cache-configuration">static embedding table</a> in HPS json file, the hps_profiler does not support the refresh operation.</p></li>
 </ol>
-</div>
-<div class="section" id="profile-hps-with-triton-perf-analyzer">
-<h2>Profile HPS with Triton Perf Analyzer:<a class="headerlink" href="#profile-hps-with-triton-perf-analyzer" title="Permalink to this headline"></a></h2>
+</section>
+<section id="profile-hps-with-triton-perf-analyzer">
+<h2>Profile HPS with Triton Perf Analyzer:<a class="headerlink" href="#profile-hps-with-triton-perf-analyzer" title="Permalink to this heading"></a></h2>
 <p>To profile HPS with Triton Perf Analyzer, make sure you know how to deploy your model using the hugectr backend in Triton. If you don’t, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment">here</a>.</p>
 <p>To profile HPS, follow the procedure below:</p>
 <ol class="arabic simple">
@@ -282,10 +281,10 @@ For example <code class="docutils literal notranslate"><span class="pre">--hot_k
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>perf_analyzer<span class="w"> </span>-m<span class="w"> </span>your_model_name<span class="w"> </span>--collect-metrics<span class="w"> </span>-f<span class="w"> </span>perf_output.csv<span class="w"> </span>--verbose-csv<span class="w"> </span>--input-data<span class="w"> </span>your_generated_request.json
 </pre></div>
 </div>
-</div>
-<div class="section" id="hps-profiler-vs-triton-perf-analyzer">
-<h2>HPS Profiler vs. Triton Perf Analyzer:<a class="headerlink" href="#hps-profiler-vs-triton-perf-analyzer" title="Permalink to this headline"></a></h2>
-<table class="colwidths-auto docutils align-default">
+</section>
+<section id="hps-profiler-vs-triton-perf-analyzer">
+<h2>HPS Profiler vs. Triton Perf Analyzer:<a class="headerlink" href="#hps-profiler-vs-triton-perf-analyzer" title="Permalink to this heading"></a></h2>
+<table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Functionalities</p></th>
 <th class="head"><p>HPS profiler</p></th>
@@ -323,8 +322,8 @@ For example <code class="docutils literal notranslate"><span class="pre">--hot_k
 </tr>
 </tbody>
 </table>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -357,12 +356,12 @@ For example <code class="docutils literal notranslate"><span class="pre">--hot_k
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="profiling_hps.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/profiling_hps.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/hierarchical_parameter_server/profiling_hps.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/hierarchical_parameter_server/profiling_hps.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

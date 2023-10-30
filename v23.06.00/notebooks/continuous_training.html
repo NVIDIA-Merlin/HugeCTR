@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Continuous Training &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>HugeCTR Continuous Training &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/continuous_training.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -132,24 +131,24 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_continuous-training/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_continuous-training/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-continuous-training">
-<h1>HugeCTR Continuous Training<a class="headerlink" href="#hugectr-continuous-training" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="hugectr-continuous-training">
+<h1>HugeCTR Continuous Training<a class="headerlink" href="#hugectr-continuous-training" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>The notebook introduces how to use the Embedding Training Cache (ETC) feature in HugeCTR for the continuous training. The ETC feature is designed to handle recommendation models with huge embedding table by the incremental training method, which allows you to train such a model that the model size is much larger than the available GPU memory size.</p>
 <p>To learn more about the ETC, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#embedding-training-cache">Embedding Training Cache</a> documentation.</p>
 <p>To learn how to use the APIs of ETC, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a> documentation.</p>
-</div>
-<div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="continuous-training">
-<h2>Continuous Training<a class="headerlink" href="#continuous-training" title="Permalink to this headline"></a></h2>
+</section>
+<section id="continuous-training">
+<h2>Continuous Training<a class="headerlink" href="#continuous-training" title="Permalink to this heading"></a></h2>
 <p>To download and prepare the dataset we will be doing the following steps. At the end of this cell, we provide the shell commands you can run on the terminal to get the data ready for this notebook.</p>
 <p><strong>Note</strong>: If you already have the data downloaded, then skip to the preprocessing step (2). If preprocessing is also done, skip to creating the softlink between the processed data to the <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory (3).</p>
-<div class="section" id="data-preparation">
-<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
+<section id="data-preparation">
+<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p>Download the Criteo dataset</p></li>
 </ol>
@@ -174,8 +173,8 @@
 </li>
 <li><p>Create a soft link of the dataset folder to the path of this notebook</p></li>
 </ol>
-<div class="section" id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
-<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this headline"></a></h4>
+<section id="run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook">
+<h4>Run the following commands on the terminal to prepare the data for this notebook<a class="headerlink" href="#run-the-following-commands-on-the-terminal-to-prepare-the-data-for-this-notebook" title="Permalink to this heading"></a></h4>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">project_root</span><span class="o">=</span>/home/hugectr<span class="w"> </span><span class="c1"># set this to the directory where hugectr is downloaded</span>
 <span class="nb">cd</span><span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 <span class="c1"># Step 1</span>
@@ -186,10 +185,10 @@ bash<span class="w"> </span>preprocess.sh<span class="w"> </span><span class="m"
 ln<span class="w"> </span>-s<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data<span class="w"> </span><span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="continuous-training-with-high-level-api">
-<h3>Continuous Training with High-level API<a class="headerlink" href="#continuous-training-with-high-level-api" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="continuous-training-with-high-level-api">
+<h3>Continuous Training with High-level API<a class="headerlink" href="#continuous-training-with-high-level-api" title="Permalink to this heading"></a></h3>
 <p>This section gives the code sample of continuous training using a Keras-like high-level API. The high-level API encapsulates much of the complexity for users, making it easy to use and able to handle many of the scenarios in a production environment.</p>
 <p>Meanwhile, in addition to a high-level API, HugeCTR also provides low-level APIs that enable you customize the training logic. A code sample using the low-level APIs is provided in the next section.</p>
 <p>The code sample in this section trains a model from scratch using the embedding training cache, gets the incremental model, and saves the trained dense weights and sparse embedding weights. The following steps are required to achieve those logics:</p>
@@ -446,9 +445,9 @@ BinaryCrossEntropyLoss                  add1                          loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="continuous-training-with-the-low-level-api">
-<h3>Continuous Training with the Low-level API<a class="headerlink" href="#continuous-training-with-the-low-level-api" title="Permalink to this headline"></a></h3>
+</section>
+<section id="continuous-training-with-the-low-level-api">
+<h3>Continuous Training with the Low-level API<a class="headerlink" href="#continuous-training-with-the-low-level-api" title="Permalink to this heading"></a></h3>
 <p>This section gives the code sample for continuous training using the low-level API.
 The program logic is the same as the preceding code sample.</p>
 <p>Although the low-level APIs provide fine-grained control of the training logic, we encourage you to use the high-level API if it can satisfy your requirements because the naked data reader and embedding training cache logics are not straightforward and error prone.</p>
@@ -635,9 +634,9 @@ HugeCTR Version: 4.1
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -673,12 +672,12 @@ HugeCTR Version: 4.1
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="continuous_training.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

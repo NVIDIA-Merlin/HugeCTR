@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hierarchical Parameter Server Plugin for TensorRT &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Hierarchical Parameter Server Plugin for TensorRT &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_trt_user_guide.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -103,9 +102,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-plugin-for-tensorrt">
-<h1>Hierarchical Parameter Server Plugin for TensorRT<a class="headerlink" href="#hierarchical-parameter-server-plugin-for-tensorrt" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hierarchical-parameter-server-plugin-for-tensorrt">
+<h1>Hierarchical Parameter Server Plugin for TensorRT<a class="headerlink" href="#hierarchical-parameter-server-plugin-for-tensorrt" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#introduction-to-the-hps-plugin-for-tensorrt" id="id1">Introduction to the HPS Plugin for TensorRT</a></p></li>
 <li><p><a class="reference internal" href="#workflow" id="id2">Workflow</a></p></li>
@@ -118,15 +117,15 @@
 <li><p><a class="reference internal" href="#example-notebooks" id="id6">Example Notebooks</a></p></li>
 <li><p><a class="reference internal" href="#benchmark" id="id7">Benchmark</a></p></li>
 </ul>
-</div>
-<div class="section" id="introduction-to-the-hps-plugin-for-tensorrt">
-<h2>Introduction to the HPS Plugin for TensorRT<a class="headerlink" href="#introduction-to-the-hps-plugin-for-tensorrt" title="Permalink to this headline"></a></h2>
+</nav>
+<section id="introduction-to-the-hps-plugin-for-tensorrt">
+<h2>Introduction to the HPS Plugin for TensorRT<a class="headerlink" href="#introduction-to-the-hps-plugin-for-tensorrt" title="Permalink to this heading"></a></h2>
 <p>Hierarchical Parameter Server (HPS) is a distributed inference framework that is dedicated to deploying large embedding tables and realizing the low-latency retrieval of embeddings.
 The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture that encompasses different types of database backends.
 The HPS plugin for TensorRT can be integrated into the TensorRT network as a custom layer to build the engine. The TensorRT engine with HPS Plugin for TensorRT can perform low-latency embedding lookup for large tables and accelerated forward propagation for dense network at the same time.</p>
-</div>
-<div class="section" id="workflow">
-<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline"></a></h2>
+</section>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this heading"></a></h2>
 <p>The workflow to leverage the HPS plugin for TensorRT can be summarized as:</p>
 <ul class="simple">
 <li><p><strong>Convert trained models to ONNX</strong>: The models trained with different frameworks are converted to ONNX using the popular tools <a class="reference external" href="https://github.com/onnx/tensorflow-onnx">tf2onnx</a>, <a class="reference external" href="https://github.com/pytorch/pytorch/tree/master/torch/onnx">torch.onnx</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/onnx_converter">hugectr2onnx</a>, and so on.</p></li>
@@ -137,13 +136,13 @@ The HPS plugin for TensorRT can be integrated into the TensorRT network as a cus
 <a class="reference internal image-reference" href="../_images/graph_surgeon.png"><img alt="Logical diagram of using ONNX GraphSurgeon to set the embedding lookup to the HPS plugin for TensorRT" src="../_images/graph_surgeon.png" style="width: 720px;" /></a>
 <div style="text-align:center;">Fig. 1: ONNX Graph Surgery</div>
 <p><br></br></p>
-</div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="compute-capability">
-<h3>Compute Capability<a class="headerlink" href="#compute-capability" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="compute-capability">
+<h3>Compute Capability<a class="headerlink" href="#compute-capability" title="Permalink to this heading"></a></h3>
 <p>The plugin supports the following compute capabilities:</p>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Compute Capability</p></th>
 <th class="head"><p>GPU</p></th>
@@ -165,9 +164,9 @@ The HPS plugin for TensorRT can be integrated into the TensorRT network as a cus
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section" id="installing-hps-using-ngc-containers">
-<h3>Installing HPS Using NGC Containers<a class="headerlink" href="#installing-hps-using-ngc-containers" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installing-hps-using-ngc-containers">
+<h3>Installing HPS Using NGC Containers<a class="headerlink" href="#installing-hps-using-ngc-containers" title="Permalink to this heading"></a></h3>
 <p>All NVIDIA Merlin components are available as open source projects. However, a more convenient way to use these components is by using our Merlin NGC containers. These containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HPS using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system’s software configuration.</p>
 <p>HPS is included in the Merlin Docker containers that are available from the NVIDIA GPU Cloud (NGC) catalog.
 Access the catalog of containers at <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">https://catalog.ngc.nvidia.com/containers</a>.
@@ -193,19 +192,19 @@ $<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </spa
 <span class="n">handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="s2">&quot;/usr/local/hps_trt/lib/libhps_plugin.so&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="example-notebooks">
-<h2>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="example-notebooks">
+<h2>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permalink to this heading"></a></h2>
 <p>We provide a collection of examples as <a class="reference internal" href="../hps_trt/notebooks/index.html"><span class="doc std std-doc">Jupyter Notebooks</span></a> that demonstrate how to build the TensorRT engine with HPS Plugin for TensorRT for models trained with TensorFlow, PyTorch, or HugeCTR.</p>
-</div>
-<div class="section" id="benchmark">
-<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline"></a></h2>
+</section>
+<section id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this heading"></a></h2>
 <p>We benchmark the DLRM TensorRT engine with HPS Plugin for TensorRT in <a class="reference internal" href="hps_dlrm_benchmark.html"><span class="doc std std-doc">hps_dlrm_benchmark.md</span></a>.</p>
-</div>
+</section>
 <div class="toctree-wrapper compound">
 </div>
-</div>
+</section>
 
 
            </div>
@@ -241,12 +240,12 @@ $<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </spa
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/hierarchical_parameter_server/hps_trt_user_guide.html">v23.05.01</a></dd>
       <dd><a href="hps_trt_user_guide.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/hps_trt_user_guide.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/hierarchical_parameter_server/hps_trt_user_guide.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

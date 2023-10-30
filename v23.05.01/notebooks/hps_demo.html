@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hierarchical Parameter Server Demo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Hierarchical Parameter Server Demo &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hps_demo.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -109,20 +108,20 @@
            <div itemprop="articleBody">
              
   <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-demo">
-<h1>Hierarchical Parameter Server Demo<a class="headerlink" href="#hierarchical-parameter-server-demo" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="hierarchical-parameter-server-demo">
+<h1>Hierarchical Parameter Server Demo<a class="headerlink" href="#hierarchical-parameter-server-demo" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>In HugeCTR version 3.5, we provide Python APIs for embedding table lookup with <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server (HPS)</a>
 HPS supports different database backends and GPU embedding caches.</p>
 <p>This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks.</p>
-</div>
-<div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="data-generation">
-<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+</section>
+<section id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this heading"></a></h2>
 <p>HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different file formats and different distributions. We will generate one-hot Parquet datasets with power-law distribution for this notebook:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -183,9 +182,9 @@ HPS supports different database backends and GPU embedding caches.</p>
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="train-from-scratch">
-<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
+</section>
+<section id="train-from-scratch">
+<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this heading"></a></h2>
 <p>We can train fom scratch by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
@@ -378,9 +377,9 @@ BinaryCrossEntropyLoss                  fc2                           loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="convert-hugectr-to-onnx">
-<h2>Convert HugeCTR to ONNX<a class="headerlink" href="#convert-hugectr-to-onnx" title="Permalink to this headline"></a></h2>
+</section>
+<section id="convert-hugectr-to-onnx">
+<h2>Convert HugeCTR to ONNX<a class="headerlink" href="#convert-hugectr-to-onnx" title="Permalink to this heading"></a></h2>
 <p>We will convert the saved HugeCTR models to ONNX using the HugeCTR to ONNX Converter. For more information about the converter, refer to the README in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">onnx_converter</a> directory of the repository.</p>
 <p>For the sake of double checking the correctness, we will investigate both cases of conversion depending on whether or not to convert the sparse embedding models.</p>
 <div class="cell docutils container">
@@ -430,9 +429,9 @@ Skip sparse embedding layers in converted ONNX model
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="inference-with-hps-onnx">
-<h2>Inference with HPS &amp; ONNX<a class="headerlink" href="#inference-with-hps-onnx" title="Permalink to this headline"></a></h2>
+</section>
+<section id="inference-with-hps-onnx">
+<h2>Inference with HPS &amp; ONNX<a class="headerlink" href="#inference-with-hps-onnx" title="Permalink to this heading"></a></h2>
 <p>We will make inference by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Configure the HPS hyperparameters. Please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hugectr_parameter_server.html#inference-parameters-and-embedding-cache-configuration">hps configuration</a> for detailed configurations.</p></li>
@@ -568,9 +567,9 @@ mse between pred_ref and ground_truth:  8.599451821747372e-14
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="lookup-the-embedding-vector-from-dlpack">
-<h2>Lookup the Embedding Vector from DLPack<a class="headerlink" href="#lookup-the-embedding-vector-from-dlpack" title="Permalink to this headline"></a></h2>
+</section>
+<section id="lookup-the-embedding-vector-from-dlpack">
+<h2>Lookup the Embedding Vector from DLPack<a class="headerlink" href="#lookup-the-embedding-vector-from-dlpack" title="Permalink to this heading"></a></h2>
 <p>We also provide a <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface that could query embedding keys on the <code class="docutils literal notranslate"><span class="pre">CPU</span></code> and return the embedding vectors on the <code class="docutils literal notranslate"><span class="pre">GPU/CPU</span></code>.</p>
 <ol class="arabic simple">
 <li><p>Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.</p></li>
@@ -708,9 +707,9 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="multi-process-inference">
-<h2>Multi-process inference<a class="headerlink" href="#multi-process-inference" title="Permalink to this headline"></a></h2>
+</section>
+<section id="multi-process-inference">
+<h2>Multi-process inference<a class="headerlink" href="#multi-process-inference" title="Permalink to this heading"></a></h2>
 <p>It is possible to share the a hashmap database between multiple processes. The followng example launches 3 processes which achieve this using the operating system’s shared memory, which is located at <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> in most unix systems. In this example, we separate processes into a primary and multiple secondary processes, and only the primary process initializes the shared memory database. The secondary processes wait until the shared memory has been fully initialized. However, note that inter-process database access is guaranteed to be thread-safe. Therefore, it is also possible to implement more complicated initialization/refresh mechanisms for your use-case.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -1037,9 +1036,9 @@ Main process; exiting...
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="redis-cluster-deployment-without-tls-ssl">
-<h2>Redis Cluster deployment (without TLS/SSL)<a class="headerlink" href="#redis-cluster-deployment-without-tls-ssl" title="Permalink to this headline"></a></h2>
+</section>
+<section id="redis-cluster-deployment-without-tls-ssl">
+<h2>Redis Cluster deployment (without TLS/SSL)<a class="headerlink" href="#redis-cluster-deployment-without-tls-ssl" title="Permalink to this heading"></a></h2>
 <p>HugeCTR can use Redis clusters as backing storage. In the following steps we show how to setup a mock Redis / HugeCTR deployment in a single machine. We assume that you have started this notebook in a HugeCTR docker container.</p>
 <p><strong>Step 1: Get + build Redis</strong></p>
 <div class="cell docutils container">
@@ -1904,9 +1903,9 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="redis-cluster-deployment-with-tls-ssl">
-<h2>Redis Cluster deployment (with TLS/SSL)<a class="headerlink" href="#redis-cluster-deployment-with-tls-ssl" title="Permalink to this headline"></a></h2>
+</section>
+<section id="redis-cluster-deployment-with-tls-ssl">
+<h2>Redis Cluster deployment (with TLS/SSL)<a class="headerlink" href="#redis-cluster-deployment-with-tls-ssl" title="Permalink to this heading"></a></h2>
 <p>When using Redis as backing storage, HugeCTR can use make use of TLS/SSL to encrypt data transfers. In the following steps we setupt a small Redis cluster and enable SSL for it.</p>
 <p><strong>Step 1: Build a TLS/SSL capable distribution of Redis</strong></p>
 <div class="cell docutils container">
@@ -2890,8 +2889,8 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
 </div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -2927,12 +2926,12 @@ MSE between prediction and ground_truth: 8.599451821747372e-14
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="hps_demo.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

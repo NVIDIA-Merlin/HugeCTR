@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HPS Initialize &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>HPS Initialize &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_api/initialize.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
@@ -109,11 +108,11 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="hps-initialize">
-<h1>HPS Initialize<a class="headerlink" href="#hps-initialize" title="Permalink to this headline"></a></h1>
+  <section id="hps-initialize">
+<h1>HPS Initialize<a class="headerlink" href="#hps-initialize" title="Permalink to this heading"></a></h1>
 <dl class="py function">
-<dt id="hierarchical_parameter_server.Init">
-<code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">Init</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/initialize.html#Init"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.Init" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="hierarchical_parameter_server.Init">
+<span class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></span><span class="sig-name descname"><span class="pre">Init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/initialize.html#Init"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.Init" title="Permalink to this definition"></a></dt>
 <dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.Init(**kwargs)</span></code>.</p>
 <p>This function initializes the HPS for all the deployed models. It can be used
 explicitly or implicitly. When used explicitly, you must call the function
@@ -160,8 +159,8 @@ any other HPS APIs.</p>
 </pre></div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – <p>Keyword arguments for this function.
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)"><em>dict</em></a>) – <p>Keyword arguments for this function.
 The dictionary must contain <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code>.</p>
 <ul class="simple">
 <li><p><cite>global_batch_size</cite>: int, the global batch size for HPS that is deployed on multiple GPUs.</p></li>
@@ -207,16 +206,16 @@ configured as 16384 correspondingly:</p>
 </div>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>status</strong> – On success, the function returns string with the value <code class="docutils literal notranslate"><span class="pre">OK</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
 
-</div>
+</section>
 
 
            </div>
@@ -252,12 +251,12 @@ configured as 16384 correspondingly:</p>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.05.01</a></dd>
       <dd><a href="initialize.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.06.01</a></dd>
       <dd><a href="../../../v23.08.00/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/hierarchical_parameter_server/hps_tf_api/initialize.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

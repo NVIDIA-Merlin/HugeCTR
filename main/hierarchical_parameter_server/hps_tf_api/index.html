@@ -1,31 +1,30 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hierarchical Parameter Server API &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>Hierarchical Parameter Server API &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_api/index.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="HPS Initialize" href="initialize.html" />
-    <link rel="prev" title="Deploy SavedModel using HPS with Triton TensorFlow Backend" href="../../hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.html" /> 
+    <link rel="prev" title="HPS Table Fusion Demo" href="../../hps_tf/notebooks/hps_table_fusion_demo.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
@@ -70,7 +69,9 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../hps_trt_user_guide.html">HPS Plugin for TensorRT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hps_torch_user_guide.html">HPS Plugin for Torch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hps_dlrm_benchmark.html">Benchmark HPS-integrated DLRM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../profiling_hps.html">Profiling HPS</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
@@ -108,11 +109,14 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="hierarchical-parameter-server-api">
-<h1>Hierarchical Parameter Server API<a class="headerlink" href="#hierarchical-parameter-server-api" title="Permalink to this headline"></a></h1>
+  <section id="hierarchical-parameter-server-api">
+<h1>Hierarchical Parameter Server API<a class="headerlink" href="#hierarchical-parameter-server-api" title="Permalink to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="initialize.html">Initialize</a></li>
+<li class="toctree-l1"><a class="reference internal" href="initialize.html">Initialize</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="initialize.html#hierarchical_parameter_server.Init"><code class="docutils literal notranslate"><span class="pre">Init()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="layers.html">Layers</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="layers.html#sparselookuplayer">SparseLookupLayer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="layers.html#lookuplayer">LookupLayer</a></li>
@@ -120,13 +124,13 @@
 </li>
 </ul>
 </div>
-</div>
+</section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../../hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.html" class="btn btn-neutral float-left" title="Deploy SavedModel using HPS with Triton TensorFlow Backend" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../hps_tf/notebooks/hps_table_fusion_demo.html" class="btn btn-neutral float-left" title="HPS Table Fusion Demo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="initialize.html" class="btn btn-neutral float-right" title="HPS Initialize" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
@@ -156,12 +160,12 @@
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/hierarchical_parameter_server/hps_tf_api/index.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/hierarchical_parameter_server/hps_tf_api/index.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/hierarchical_parameter_server/hps_tf_api/index.html">v23.05.01</a></dd>
       <dd><a href="../../../v23.06.00/hierarchical_parameter_server/hps_tf_api/index.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/hierarchical_parameter_server/hps_tf_api/index.html">v23.06.01</a></dd>
       <dd><a href="../../../v23.08.00/hierarchical_parameter_server/hps_tf_api/index.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/hierarchical_parameter_server/hps_tf_api/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

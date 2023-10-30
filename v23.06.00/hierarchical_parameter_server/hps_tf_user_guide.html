@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hierarchical Parameter Server Plugin for TensorFlow &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Hierarchical Parameter Server Plugin for TensorFlow &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_user_guide.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -103,9 +102,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-plugin-for-tensorflow">
-<h1>Hierarchical Parameter Server Plugin for TensorFlow<a class="headerlink" href="#hierarchical-parameter-server-plugin-for-tensorflow" title="Permalink to this headline"></a></h1>
-<div class="contents local topic" id="contents">
+  <section class="tex2jax_ignore mathjax_ignore" id="hierarchical-parameter-server-plugin-for-tensorflow">
+<h1>Hierarchical Parameter Server Plugin for TensorFlow<a class="headerlink" href="#hierarchical-parameter-server-plugin-for-tensorflow" title="Permalink to this heading"></a></h1>
+<nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#introduction-to-the-hps-plugin-for-tensorflow" id="id1">Introduction to the HPS Plugin for TensorFlow</a></p></li>
 <li><p><a class="reference internal" href="#benefits-of-the-plugin-for-tensorflow" id="id2">Benefits of the Plugin for TensorFlow</a></p></li>
@@ -119,16 +118,16 @@
 <li><p><a class="reference internal" href="#example-notebooks" id="id7">Example Notebooks</a></p></li>
 <li><p><a class="reference internal" href="#benchmark" id="id8">Benchmark</a></p></li>
 </ul>
-</div>
-<div class="section" id="introduction-to-the-hps-plugin-for-tensorflow">
-<h2>Introduction to the HPS Plugin for TensorFlow<a class="headerlink" href="#introduction-to-the-hps-plugin-for-tensorflow" title="Permalink to this headline"></a></h2>
+</nav>
+<section id="introduction-to-the-hps-plugin-for-tensorflow">
+<h2>Introduction to the HPS Plugin for TensorFlow<a class="headerlink" href="#introduction-to-the-hps-plugin-for-tensorflow" title="Permalink to this heading"></a></h2>
 <p>Hierarchical Parameter Server (HPS) is a distributed inference framework that is dedicated to deploying large embedding tables and realizing the low-latency retrieval of embeddings.
 The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture that encompasses different types of database backends.
 The plugin is provided as a Python toolkit that you can integrate easily into the TensorFlow (TF) model graph.
 Integration with the graph facilitates the TensorFlow model deployment of large embedding tables.</p>
-</div>
-<div class="section" id="benefits-of-the-plugin-for-tensorflow">
-<h2>Benefits of the Plugin for TensorFlow<a class="headerlink" href="#benefits-of-the-plugin-for-tensorflow" title="Permalink to this headline"></a></h2>
+</section>
+<section id="benefits-of-the-plugin-for-tensorflow">
+<h2>Benefits of the Plugin for TensorFlow<a class="headerlink" href="#benefits-of-the-plugin-for-tensorflow" title="Permalink to this heading"></a></h2>
 <p>When you deploy deep learning models with large embedding tables in TensorFlow, you are faced with the following challenges:</p>
 <ul class="simple">
 <li><p><strong>Large Embedding Tables</strong>: Trained embedding tables of hundreds of gigabytes cannot fit into the GPU memory.</p></li>
@@ -146,9 +145,9 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 <a class="reference internal image-reference" href="../_images/memory_hierarchy.png"><img alt="../_images/memory_hierarchy.png" class="align-center" src="../_images/memory_hierarchy.png" style="width: 1080px;" /></a>
 <div align=center>Fig. 1: HPS Memory Hierarchy </div>
 <p><br></br></p>
-</div>
-<div class="section" id="workflow">
-<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline"></a></h2>
+</section>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this heading"></a></h2>
 <p>The workflow of leveraging HPS for deployment of TensorFlow models is illustrated in Fig. 2.</p>
 <a class="reference internal image-reference" href="../_images/workflow.png"><img alt="../_images/workflow.png" class="align-center" src="../_images/workflow.png" style="width: 1080px;" /></a>
 <div align=center>Fig. 2: Workflow of deploying TF models with HPS </div>
@@ -160,13 +159,13 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 <li><p><strong>Create and save the inference graph</strong>: The inference graph should be created with HPS layers (e.g., <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer</span></code>) and the saved subgraph of dense layers. It can be then saved as a whole so as to be deployed in the production environment.</p></li>
 <li><p><strong>Deploy the inference graph with HPS</strong>: The configurations for the models to be deployed should be specified in a JSON file and the HPS should be started via <code class="docutils literal notranslate"><span class="pre">hps.Init</span></code> before any executions. The saved inference graph can be deployed to perform online inference leveraging the benefits of the HPS embedding lookup. Please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration">HPS Configuration</a> for more information.</p></li>
 </ul>
-</div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="compute-capability">
-<h3>Compute Capability<a class="headerlink" href="#compute-capability" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="compute-capability">
+<h3>Compute Capability<a class="headerlink" href="#compute-capability" title="Permalink to this heading"></a></h3>
 <p>We support the following compute capabilities:</p>
-<table class="colwidths-auto docutils align-default">
+<table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Compute Capability</p></th>
 <th class="head"><p>GPU</p></th>
@@ -188,9 +187,9 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section" id="installing-hps-using-ngc-containers">
-<h3>Installing HPS Using NGC Containers<a class="headerlink" href="#installing-hps-using-ngc-containers" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installing-hps-using-ngc-containers">
+<h3>Installing HPS Using NGC Containers<a class="headerlink" href="#installing-hps-using-ngc-containers" title="Permalink to this heading"></a></h3>
 <p>All NVIDIA Merlin components are available as open source projects. However, a more convenient way to utilize these components is by using our Merlin NGC containers. These containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HPS using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system’s software configuration.</p>
 <p>HPS is included in the Merlin Docker containers that are available from the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">NVIDIA container repository</a>. To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin TensorFlow container:</p>
@@ -202,24 +201,24 @@ $<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </spa
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="example-notebooks">
-<h2>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="example-notebooks">
+<h2>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permalink to this heading"></a></h2>
 <p>We provide a collection of examples as <a class="reference internal" href="../hps_tf/notebooks/index.html"><span class="xref myst">Jupyter Notebooks</span></a> that cover the following topics:</p>
 <ul class="simple">
 <li><p>Basic workflow of HPS deployment for TensorFlow models</p></li>
 <li><p>Migrating from SOK training to HPS inference</p></li>
 <li><p>Leveraging HPS to load pre-trained embeddings</p></li>
 </ul>
-</div>
-<div class="section" id="benchmark">
-<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline"></a></h2>
+</section>
+<section id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this heading"></a></h2>
 <p>We benchmark the DLRM TensorFlow model with HPS Plugin for TensorFlow in <a class="reference internal" href="hps_dlrm_benchmark.html"><span class="doc std std-doc">hps_dlrm_benchmark.md</span></a>.</p>
-</div>
+</section>
 <div class="toctree-wrapper compound">
 </div>
-</div>
+</section>
 
 
            </div>
@@ -255,12 +254,12 @@ $<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </spa
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/hierarchical_parameter_server/hps_tf_user_guide.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/hierarchical_parameter_server/hps_tf_user_guide.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/hierarchical_parameter_server/hps_tf_user_guide.html">v23.05.01</a></dd>
       <dd><a href="hps_tf_user_guide.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/hierarchical_parameter_server/hps_tf_user_guide.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/hierarchical_parameter_server/hps_tf_user_guide.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/hierarchical_parameter_server/hps_tf_user_guide.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

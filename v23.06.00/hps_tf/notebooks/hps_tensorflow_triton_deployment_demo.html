@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deploy SavedModel using HPS with Triton TensorFlow Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>Deploy SavedModel using HPS with Triton TensorFlow Backend &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
@@ -136,27 +135,27 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="deploy-savedmodel-using-hps-with-triton-tensorflow-backend">
-<h1>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="deploy-savedmodel-using-hps-with-triton-tensorflow-backend">
+<h1>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>This notebook demonstrates how to deploy the SavedModel that leverages HPS with <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow backend</a>. It also shows how to apply <a class="reference external" href="https://github.com/tensorflow/tensorrt">TF-TRT</a> optimization to SavedModel whose embedding lookup is based on HPS. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
 <p>For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
-</div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="get-hps-from-ngc">
-<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="get-hps-from-ngc">
+<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this heading"></a></h3>
 <p>The HPS Python module is preinstalled in the 23.06 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.06</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
 </div>
 <p>The Triton TensorFlow backend is also available in this container.</p>
-</div>
-</div>
-<div class="section" id="configurations">
-<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="configurations">
+<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this heading"></a></h2>
 <p>First of all we specify the required configurations, e.g., the arguments needed for generating the dataset, the paths to save the model and the model parameters. We will use a deep neural network (DNN) model which has one embedding table and several dense layers in this notebook. Please note that there are two inputs here, one is the key tensor (one-hot) while the other is the dense feature tensor.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -221,9 +220,9 @@
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="train-with-native-tf-layers">
-<h2>Train with native TF layers<a class="headerlink" href="#train-with-native-tf-layers" title="Permalink to this headline"></a></h2>
+</section>
+<section id="train-with-native-tf-layers">
+<h2>Train with native TF layers<a class="headerlink" href="#train-with-native-tf-layers" title="Permalink to this heading"></a></h2>
 <p>We define the model graph for training with native TF layers, i.e., <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code> and <code class="docutils literal notranslate"><span class="pre">tf.keras.layers.Dense</span></code>. Besides, the embedding weights are stored in <code class="docutils literal notranslate"><span class="pre">tf.Variable</span></code>. We can then train the model and extract the trained weights of the embedding table. As for the dense layers, they are saved as a separate model graph, which can be loaded directly during inference.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -388,9 +387,9 @@ WARNING:tensorflow:Compiled the loaded model, but the compiled metrics have yet 
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="create-the-inference-graph-with-hps-lookuplayer">
-<h2>Create the inference graph with HPS LookupLayer<a class="headerlink" href="#create-the-inference-graph-with-hps-lookuplayer" title="Permalink to this headline"></a></h2>
+</section>
+<section id="create-the-inference-graph-with-hps-lookuplayer">
+<h2>Create the inference graph with HPS LookupLayer<a class="headerlink" href="#create-the-inference-graph-with-hps-lookuplayer" title="Permalink to this heading"></a></h2>
 <p>In order to use HPS in the inference stage, we need to create a inference model graph which is almost the same as the train graph except that <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code> is replaced by <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code>. The trained dense model graph can be loaded directly, while the embedding weights should be converted to the formats required by HPS.</p>
 <p>We can then save the inference model graph, which will be ready to be loaded for inference deployment. Please note that the inference SavedModel that leverages HPS will be deployed with the Triton TensorFlow backend, thus implicit initialization of HPS should be enabled by specifying <code class="docutils literal notranslate"><span class="pre">ps_config_file</span></code> and <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> in the constructor of  <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code>. For more information, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html">HPS Initialize</a>.</p>
 <p>To this end, we need to create a JSON configuration file and specify the details of the embedding tables for the models to be deployed. We only show how to deploy a model that has one embedding table here, and it can support multiple models with multiple embedding tables actually.</p>
@@ -536,9 +535,9 @@ INFO:tensorflow:Assets written to: hps_tf_triton_tf_saved_model/assets
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="id1">
-<h2>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h2>
+</section>
+<section id="id1">
+<h2>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
 <p>In order to deploy the inference SavedModel with the Triton TensorFlow backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first. Please note that some required portions (i.e., the input and output tensors) of the model configuration are generated automatically by Triton (see <a class="reference external" href="https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_configuration.md#auto-generated-model-configuration">Auto-Generated Model Configuration</a>), so you do NOT need to specify them explicitly in <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -720,9 +719,9 @@ Response details:
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend">
-<h2>Deploy TF-TRT SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this headline"></a></h2>
+</section>
+<section id="deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend">
+<h2>Deploy TF-TRT SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-tf-trt-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this heading"></a></h2>
 <p>We can leverage TF-TRT to optimize the above inference TF SavedModel. The <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code> will fall back to the TF ops while the TensorRT engine will be built to execute the dense network. The optimized TF-TRT SavedModel can still be deployed with Triton TensorFlow backend.</p>
 <p>The TF-TRT SavedModel is be placed in the folder <code class="docutils literal notranslate"><span class="pre">&quot;model_repo/hps_tf_triton/2/&quot;</span></code> and the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> file is updated correspondingly to load the version 2 of the inference model, i.e., the TF-TRT optimized one.</p>
 <div class="cell docutils container">
@@ -1000,8 +999,8 @@ Response details:
 </div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -1037,12 +1036,12 @@ Response details:
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="hps_tensorflow_triton_deployment_demo.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

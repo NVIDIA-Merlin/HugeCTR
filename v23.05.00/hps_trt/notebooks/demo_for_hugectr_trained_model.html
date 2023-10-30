@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HPS TensorRT Plugin Demo for HugeCTR Trained Model &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>HPS TensorRT Plugin Demo for HugeCTR Trained Model &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_trt/notebooks/demo_for_hugectr_trained_model.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
@@ -111,17 +110,17 @@
            <div itemprop="articleBody">
              
   <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="hps-tensorrt-plugin-demo-for-hugectr-trained-model">
-<h1>HPS TensorRT Plugin Demo for HugeCTR Trained Model<a class="headerlink" href="#hps-tensorrt-plugin-demo-for-hugectr-trained-model" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="hps-tensorrt-plugin-demo-for-hugectr-trained-model">
+<h1>HPS TensorRT Plugin Demo for HugeCTR Trained Model<a class="headerlink" href="#hps-tensorrt-plugin-demo-for-hugectr-trained-model" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>This notebook demonstrates how to build and deploy the HPS-integrated TensorRT engine for the model trained with HugeCTR.</p>
 <p>For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
-</div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
-<div class="section" id="use-ngc">
-<h3>Use NGC<a class="headerlink" href="#use-ngc" title="Permalink to this headline"></a></h3>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="use-ngc">
+<h3>Use NGC<a class="headerlink" href="#use-ngc" title="Permalink to this heading"></a></h3>
 <p>The HPS TensorRT plugin is preinstalled in the 23.05 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin HugeCTR Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:23.05</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
 <div class="cell docutils container">
@@ -133,10 +132,10 @@
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="section" id="data-generation">
-<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this heading"></a></h2>
 <p>HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different file formats and different distributions. We will generate one-hot Parquet datasets with power-law distribution for this notebook:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -194,9 +193,9 @@
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="train-with-hugectr">
-<h2>Train with HugeCTR<a class="headerlink" href="#train-with-hugectr" title="Permalink to this headline"></a></h2>
+</section>
+<section id="train-with-hugectr">
+<h2>Train with HugeCTR<a class="headerlink" href="#train-with-hugectr" title="Permalink to this heading"></a></h2>
 <p>We can train a DLRM model with HugeCTR Python APIs. The trained sparse and dense model files will be saved separately. The model graph will be dumped into a JSON file.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -399,14 +398,14 @@ BinaryCrossEntropyLoss                  mlp2                          loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="build-the-hps-integrated-tensorrt-engine">
-<h2>Build the HPS-integrated TensorRT engine<a class="headerlink" href="#build-the-hps-integrated-tensorrt-engine" title="Permalink to this headline"></a></h2>
+</section>
+<section id="build-the-hps-integrated-tensorrt-engine">
+<h2>Build the HPS-integrated TensorRT engine<a class="headerlink" href="#build-the-hps-integrated-tensorrt-engine" title="Permalink to this heading"></a></h2>
 <p>The sparse saved model <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr0_sparse_1000.model</span></code> is already in the format that HPS requires. In order to use HPS in the inference stage, we need to create JSON configuration file for HPS.</p>
 <p>Then we convert the dense saved model <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr_dense_1000.model</span></code> to ONNX using <code class="docutils literal notranslate"><span class="pre">hugectr2onnx</span></code>, and employ the ONNX GraphSurgoen tool to replace the input embedding vectors with with the placeholder of HPS TensorRT plugin layer.</p>
 <p>After that, we can build the TensorRT engine, which is comprised of the HPS TensorRT plugin layer and the dense network.</p>
-<div class="section" id="step1-prepare-json-configuration-file-for-hps">
-<h3>Step1: Prepare JSON configuration file for HPS<a class="headerlink" href="#step1-prepare-json-configuration-file-for-hps" title="Permalink to this headline"></a></h3>
+<section id="step1-prepare-json-configuration-file-for-hps">
+<h3>Step1: Prepare JSON configuration file for HPS<a class="headerlink" href="#step1-prepare-json-configuration-file-for-hps" title="Permalink to this heading"></a></h3>
 <p>Please note that the storage format in the <code class="docutils literal notranslate"><span class="pre">dlrm_hugectr0_sparse_1000.model/key</span></code> file is int64, while the HPS TensorRT plugin only supports int32 when loading the keys into memory. There is no overflow since the key value range is 0~260000.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -439,9 +438,9 @@ BinaryCrossEntropyLoss                  mlp2                          loss
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="step2-convert-to-onnx-and-do-onnx-graph-surgery">
-<h3>Step2: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step2-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this headline"></a></h3>
+</section>
+<section id="step2-convert-to-onnx-and-do-onnx-graph-surgery">
+<h3>Step2: Convert to ONNX and do ONNX graph surgery<a class="headerlink" href="#step2-convert-to-onnx-and-do-onnx-graph-surgery" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># hugectr2onnx</span>
@@ -496,9 +495,9 @@ Skip sparse embedding layers in converted ONNX model
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="step3-build-the-tensorrt-engine">
-<h3>Step3: Build the TensorRT engine<a class="headerlink" href="#step3-build-the-tensorrt-engine" title="Permalink to this headline"></a></h3>
+</section>
+<section id="step3-build-the-tensorrt-engine">
+<h3>Step3: Build the TensorRT engine<a class="headerlink" href="#step3-build-the-tensorrt-engine" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># build the TensorRT engine based on dlrm_with_hps.onnx</span>
@@ -592,10 +591,10 @@ Succesfully build the TensorRT engine
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="section" id="deploy-hps-integrated-tensorrt-engine-on-triton">
-<h2>Deploy HPS-integrated TensorRT engine on Triton<a class="headerlink" href="#deploy-hps-integrated-tensorrt-engine-on-triton" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="deploy-hps-integrated-tensorrt-engine-on-triton">
+<h2>Deploy HPS-integrated TensorRT engine on Triton<a class="headerlink" href="#deploy-hps-integrated-tensorrt-engine-on-triton" title="Permalink to this heading"></a></h2>
 <p>In order to deploy the TensorRT engine with the Triton TensorRT backend, we need to create the model repository and define the <code class="docutils literal notranslate"><span class="pre">config.pbtxt</span></code> first.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -749,8 +748,8 @@ Response details:
 </div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -786,12 +785,12 @@ Response details:
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="demo_for_hugectr_trained_model.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ETL with NVTabular &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <title>ETL with NVTabular &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/multi-modal-data/06-ETL-with-NVTabular.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
@@ -104,8 +103,8 @@
            <div itemprop="articleBody">
              
   <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-06-etl-with-nvtabular/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-06-etl-with-nvtabular/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="etl-with-nvtabular">
-<h1>ETL with NVTabular<a class="headerlink" href="#etl-with-nvtabular" title="Permalink to this headline"></a></h1>
+<section class="tex2jax_ignore mathjax_ignore" id="etl-with-nvtabular">
+<h1>ETL with NVTabular<a class="headerlink" href="#etl-with-nvtabular" title="Permalink to this heading"></a></h1>
 <p>NVTabular is a feature engineering and preprocessing library for tabular data designed to quickly and easily manipulate terabyte scale datasets used to train deep learning based recommender systems.  It provides a high level abstraction to simplify code and accelerates computation on the GPU using the RAPIDS cuDF library.<br><br></p>
 <p>Deep Learning models require the input feature in a specific format. Categorical features needs to be continuous integers (0, …, |C|) to use them with an embedding layer. We will use NVTabular to preprocess the categorical features.<br><br></p>
 <p>This notebook will prepare the Movielens data for use with HugeCTR training.</p>
@@ -209,8 +208,8 @@ Reading package lists... Done
 </table>
 </div></div></div>
 </div>
-<div class="section" id="defining-our-preprocessing-pipeline">
-<h2>Defining our Preprocessing Pipeline<a class="headerlink" href="#defining-our-preprocessing-pipeline" title="Permalink to this headline"></a></h2>
+<section id="defining-our-preprocessing-pipeline">
+<h2>Defining our Preprocessing Pipeline<a class="headerlink" href="#defining-our-preprocessing-pipeline" title="Permalink to this heading"></a></h2>
 <p>The first step is to define the feature engineering and preprocessing pipeline.<br><br>
 NVTabular has already implemented multiple calculations, called <code class="docutils literal notranslate"><span class="pre">ops</span></code>. An <code class="docutils literal notranslate"><span class="pre">op</span></code> can be applied to a <code class="docutils literal notranslate"><span class="pre">ColumnGroup</span></code> from an overloaded <code class="docutils literal notranslate"><span class="pre">&gt;&gt;</span></code> operator, which in turn returns a new <code class="docutils literal notranslate"><span class="pre">ColumnGroup</span></code>. A <code class="docutils literal notranslate"><span class="pre">ColumnGroup</span></code> is a list of column names as text.<br><br>
 <strong>Example:</strong><br></p>
@@ -283,9 +282,9 @@ NVTabular provides the operator <code class="docutils literal notranslate"><span
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="running-the-pipeline">
-<h2>Running the pipeline<a class="headerlink" href="#running-the-pipeline" title="Permalink to this headline"></a></h2>
+</section>
+<section id="running-the-pipeline">
+<h2>Running the pipeline<a class="headerlink" href="#running-the-pipeline" title="Permalink to this heading"></a></h2>
 <p>In general, the <code class="docutils literal notranslate"><span class="pre">Op</span></code>s in our <code class="docutils literal notranslate"><span class="pre">Workflow</span></code> will require measurements of statistical properties of our data in order to be leveraged. For example, the <code class="docutils literal notranslate"><span class="pre">Normalize</span></code> op requires measurements of the dataset mean and standard deviation, and the <code class="docutils literal notranslate"><span class="pre">Categorify</span></code> op requires an accounting of all the categories a particular feature can manifest. However, we frequently need to measure these properties across datasets which are too large to fit into GPU memory (or CPU memory for that matter) at once.</p>
 <p>NVTabular solves this by providing the <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> class, which breaks a set of parquet or csv files into into a collection of <code class="docutils literal notranslate"><span class="pre">cudf.DataFrame</span></code> chunks that can fit in device memory. The main purpose of this class is to abstract away the raw format of the data, and to allow other NVTabular classes to reliably materialize a dask_cudf.DataFrame collection (and/or collection-based iterator) on demand. Under the hood, the data decomposition corresponds to the construction of a <a class="reference external" href="https://docs.rapids.ai/api/cudf/stable/">dask_cudf.DataFrame</a> object.  By representing our dataset as a lazily-evaluated <a class="reference external" href="https://dask.org/">Dask</a> collection, we can handle the calculation of complex global statistics (and later, can also iterate over the partitions while feeding data into a neural network). <code class="docutils literal notranslate"><span class="pre">part_size</span></code> defines the size read into GPU-memory at once.</p>
 <p>Now instantiate dataset iterators to loop through our dataset (which we couldn’t fit into GPU memory). HugeCTR expect the categorical input columns as <code class="docutils literal notranslate"><span class="pre">int64</span></code> and continuous/label columns as <code class="docutils literal notranslate"><span class="pre">float32</span></code> We need to enforce the required HugeCTR data types, so we set them in a dictionary and give as an argument when creating our dataset.</p>
@@ -414,9 +413,9 @@ Wall time: 6.68 µs
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="checking-the-pre-processing-outputs">
-<h2>Checking the pre-processing outputs<a class="headerlink" href="#checking-the-pre-processing-outputs" title="Permalink to this headline"></a></h2>
+</section>
+<section id="checking-the-pre-processing-outputs">
+<h2>Checking the pre-processing outputs<a class="headerlink" href="#checking-the-pre-processing-outputs" title="Permalink to this heading"></a></h2>
 <p>We can take a look on the data.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -508,8 +507,8 @@ Wall time: 6.68 µs
 </table>
 </div></div></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -545,12 +544,12 @@ Wall time: 6.68 µs
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="06-ETL-with-NVTabular.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

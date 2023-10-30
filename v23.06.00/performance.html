@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Performance &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+  <title>Performance &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/performance.html" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
@@ -92,8 +91,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="performance">
-<h1>Performance<a class="headerlink" href="#performance" title="Permalink to this headline"></a></h1>
+  <section class="tex2jax_ignore mathjax_ignore" id="performance">
+<h1>Performance<a class="headerlink" href="#performance" title="Permalink to this heading"></a></h1>
 <p>Finding ways to enhance HugeCTR’s performance is one of our top priorities. Unlike other frameworks, we apply all the optimizations in the mlperf submission for each release.</p>
 <p>We’ve tested HugeCTR’s performance on the following systems:</p>
 <ul class="simple">
@@ -101,14 +100,14 @@
 <li><p><a class="reference internal" href="#evaluating-hugectr-s-performance-on-the-dgx-1"><span class="std std-doc">Evaluating HugeCTR’s Performance on the DGX-1</span></a></p></li>
 <li><p><a class="reference internal" href="#evaluating-hugectr-s-performance-on-tensorflow"><span class="std std-doc">Evaluating HugeCTR’s Performance on TensorFlow</span></a></p></li>
 </ul>
-<div class="section" id="mlperf-on-dgx-2-and-dgx-a100">
-<h2>MLPerf on DGX-2 and DGX A100<a class="headerlink" href="#mlperf-on-dgx-2-and-dgx-a100" title="Permalink to this headline"></a></h2>
+<section id="mlperf-on-dgx-2-and-dgx-a100">
+<h2>MLPerf on DGX-2 and DGX A100<a class="headerlink" href="#mlperf-on-dgx-2-and-dgx-a100" title="Permalink to this heading"></a></h2>
 <p>The DLRM benchmark was submitted to <a class="reference external" href="https://mlperf.org/training-results-0-7">MLPerf Training v0.7</a> with the release of HugeCTR version 2.2 and <a class="reference external" href="https://mlcommons.org/en/news/mlperf-training-v10">MLPerf Training v1.0</a> with the release of HugeCTR version 3.1. We used the <a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo 1TB Click Logs dataset</a>, which contains 4 billion user and item interactions over 24 days. The DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs were the target machines. For more information, see <a class="reference external" href="https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/">this blog post</a>.</p>
 <img alt="_images/mlperf_10.PNG" src="_images/mlperf_10.PNG" />
 <div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 1: HugeCTR's MLPerf v1.0 Result</figcaption></div>
-</div>
-<div class="section" id="evaluating-hugectr-s-performance-on-the-dgx-1">
-<h2>Evaluating HugeCTR’s Performance on the DGX-1<a class="headerlink" href="#evaluating-hugectr-s-performance-on-the-dgx-1" title="Permalink to this headline"></a></h2>
+</section>
+<section id="evaluating-hugectr-s-performance-on-the-dgx-1">
+<h2>Evaluating HugeCTR’s Performance on the DGX-1<a class="headerlink" href="#evaluating-hugectr-s-performance-on-the-dgx-1" title="Permalink to this heading"></a></h2>
 <p>The scalability and performance of HugeCTR has been tested and compared with TensorFlow running on NVIDIA V100 GPUs within a single DGX-1 system. HugeCTR can achieve a speedup that’s 114 times faster than a multi-thread TensorFlow CPU with only one V100 while generating almost the same loss curves for both evaluation and training (see Fig. 2 and Fig. 3).</p>
 <p>Test environment:</p>
 <ul class="simple">
@@ -132,17 +131,17 @@ The data is provided by <a class="reference external" href="http://labs.criteo.c
 <p>The scalability of HugeCTR and the number of active GPUs have increased simply because of the high-efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with a batch size of 16384 and seven layers on DGX1 servers.</p>
 <img alt="_images/fig12_multi_gpu_performance.PNG" src="_images/fig12_multi_gpu_performance.PNG" />
 <div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 2: HugeCTR's Multi-GPU Performance</figcaption></div>
-</div>
-<div class="section" id="evaluating-hugectr-s-performance-on-tensorflow">
-<h2>Evaluating HugeCTR’s Performance on TensorFlow<a class="headerlink" href="#evaluating-hugectr-s-performance-on-tensorflow" title="Permalink to this headline"></a></h2>
+</section>
+<section id="evaluating-hugectr-s-performance-on-tensorflow">
+<h2>Evaluating HugeCTR’s Performance on TensorFlow<a class="headerlink" href="#evaluating-hugectr-s-performance-on-tensorflow" title="Permalink to this heading"></a></h2>
 <p>In the TensorFlow test case that’s shown here, HugeCTR exhibits a speedup up to 114 times faster compared to a CPU server running TensorFlow with only one V100 GPU and almost the same loss curve.</p>
 <img alt="_images/WDL.JPG" src="_images/WDL.JPG" />
 <div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 3: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</figcaption></div>
 <p><br></br></p>
 <img alt="_images/DCN.JPG" src="_images/DCN.JPG" />
 <div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 4: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</figcaption></div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
@@ -178,12 +177,12 @@ The data is provided by <a class="reference external" href="http://labs.criteo.c
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v23.04.00/performance.html">v23.04.00</a></dd>
       <dd><a href="../v23.05.00/performance.html">v23.05.00</a></dd>
       <dd><a href="../v23.05.01/performance.html">v23.05.01</a></dd>
       <dd><a href="performance.html">v23.06.00</a></dd>
       <dd><a href="../v23.06.01/performance.html">v23.06.01</a></dd>
       <dd><a href="../v23.08.00/performance.html">v23.08.00</a></dd>
+      <dd><a href="../v23.09.00/performance.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

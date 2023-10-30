@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multi-GPU Offline Inference &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>Multi-GPU Offline Inference &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/multi_gpu_offline_inference.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -132,22 +131,22 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-gpu-offline-inference/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-gpu-offline-inference/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="multi-gpu-offline-inference">
-<h1>Multi-GPU Offline Inference<a class="headerlink" href="#multi-gpu-offline-inference" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="multi-gpu-offline-inference">
+<h1>Multi-GPU Offline Inference<a class="headerlink" href="#multi-gpu-offline-inference" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>In HugeCTR version 3.4.1, we provide Python APIs to perform multi-GPU offline inference.
 This work leverages the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server</a> and enables concurrent execution on multiple devices.
 The <code class="docutils literal notranslate"><span class="pre">Norm</span></code> or <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> dataset format is currently supported by multi-GPU offline inference.</p>
 <p>This notebook explains how to perform multi-GPU offline inference with the HugeCTR Python APIs.
 For more details about the API, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">HugeCTR Python Interface</a> documentation.</p>
-</div>
-<div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="data-generation">
-<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+</section>
+<section id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this heading"></a></h2>
 <p>HugeCTR provides a tool to generate synthetic datasets.
 The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> class is capable of generating datasets in different formats and with different distributions.
 We will generate multi-hot Parquet datasets with a power-law distribution for this notebook:</p>
@@ -226,9 +225,9 @@ We will generate multi-hot Parquet datasets with a power-law distribution for th
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="train-from-scratch">
-<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
+</section>
+<section id="train-from-scratch">
+<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this heading"></a></h2>
 <p>We can train from scratch by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
@@ -415,8 +414,8 @@ MultiCrossEntropyLoss                   fc2                           loss
 </div>
 </div>
 </div>
-<div class="section" id="id1">
-<h3>Multi-GPU Offline Inference<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<section id="id1">
+<h3>Multi-GPU Offline Inference<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <p>We can demonstrate multi-GPU offline inference by performing the following steps with Python APIs:</p>
 <ol class="arabic simple">
 <li><p>Configure the inference hyperparameters.</p></li>
@@ -642,9 +641,9 @@ mse:  8.482603947165404e-14
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -680,12 +679,12 @@ mse:  8.482603947165404e-14
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="../../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="multi_gpu_offline_inference.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

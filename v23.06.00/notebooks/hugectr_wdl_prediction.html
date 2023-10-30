@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Wide and Deep Model with Criteo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <title>HugeCTR Wide and Deep Model with Criteo &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/notebooks/hugectr_wdl_prediction.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script >let toggleHintShow = 'Click to show';</script>
-        <script >let toggleHintHide = 'Click to hide';</script>
-        <script >let toggleOpenOnPrint = 'true';</script>
-        <script src="../_static/togglebutton.js"></script>
-        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,7 +52,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
@@ -132,21 +131,21 @@
 </div>
 </div>
 <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-wdl-prediction/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr-wdl-prediction/nvidia_logo.png" />
-<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-wide-and-deep-model-with-criteo">
-<h1>HugeCTR Wide and Deep Model with Criteo<a class="headerlink" href="#hugectr-wide-and-deep-model-with-criteo" title="Permalink to this headline"></a></h1>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<section class="tex2jax_ignore mathjax_ignore" id="hugectr-wide-and-deep-model-with-criteo">
+<h1>HugeCTR Wide and Deep Model with Criteo<a class="headerlink" href="#hugectr-wide-and-deep-model-with-criteo" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>In this notebook, we provide a tutorial that shows how to train a wide and deep model using the high-level Python API from HugeCTR on the original Criteo dataset as training data.
 We show how to produce prediction results based on different types of local database.</p>
-</div>
-<div class="section" id="setup-hugectr">
-<h2>Setup HugeCTR<a class="headerlink" href="#setup-hugectr" title="Permalink to this headline"></a></h2>
+</section>
+<section id="setup-hugectr">
+<h2>Setup HugeCTR<a class="headerlink" href="#setup-hugectr" title="Permalink to this heading"></a></h2>
 <p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
-</div>
-<div class="section" id="dataset-preprocessing">
-<h2>Dataset Preprocessing<a class="headerlink" href="#dataset-preprocessing" title="Permalink to this headline"></a></h2>
-<div class="section" id="generate-training-and-validation-data-folders">
-<h3>Generate training and validation data folders<a class="headerlink" href="#generate-training-and-validation-data-folders" title="Permalink to this headline"></a></h3>
+</section>
+<section id="dataset-preprocessing">
+<h2>Dataset Preprocessing<a class="headerlink" href="#dataset-preprocessing" title="Permalink to this heading"></a></h2>
+<section id="generate-training-and-validation-data-folders">
+<h3>Generate training and validation data folders<a class="headerlink" href="#generate-training-and-validation-data-folders" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># define some data folder to store the original and preprocessed data</span>
@@ -178,9 +177,9 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="download-the-original-criteo-dataset">
-<h3>Download the original Criteo dataset<a class="headerlink" href="#download-the-original-criteo-dataset" title="Permalink to this headline"></a></h3>
+</section>
+<section id="download-the-original-criteo-dataset">
+<h3>Download the original Criteo dataset<a class="headerlink" href="#download-the-original-criteo-dataset" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt-get<span class="w"> </span>install<span class="w"> </span>wget
@@ -205,9 +204,9 @@ We show how to produce prediction results based on different types of local data
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="preprocessing-with-nvtabular">
-<h3>Preprocessing with NVTabular<a class="headerlink" href="#preprocessing-with-nvtabular" title="Permalink to this headline"></a></h3>
+</section>
+<section id="preprocessing-with-nvtabular">
+<h3>Preprocessing with NVTabular<a class="headerlink" href="#preprocessing-with-nvtabular" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;/wdl_train/preprocess.py&#39;
@@ -663,8 +662,8 @@ Runtime[s]         | 32.06131315231323
 </div>
 </div>
 </div>
-<div class="section" id="check-the-preprocessed-training-data">
-<h4>Check the preprocessed training data<a class="headerlink" href="#check-the-preprocessed-training-data" title="Permalink to this headline"></a></h4>
+<section id="check-the-preprocessed-training-data">
+<h4>Check the preprocessed training data<a class="headerlink" href="#check-the-preprocessed-training-data" title="Permalink to this heading"></a></h4>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-ll<span class="w"> </span>/wdl_train/train
@@ -691,10 +690,10 @@ drwxr-xr-x 2 root root        226 May 26 04:30 temp-parquet-after-conversion
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="section" id="wdl-model-training">
-<h3>WDL Model Training<a class="headerlink" href="#wdl-model-training" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="wdl-model-training">
+<h3>WDL Model Training<a class="headerlink" href="#wdl-model-training" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;./model.py&#39;
@@ -948,10 +947,10 @@ BinaryCrossEntropyLoss                  add1                          loss
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="section" id="prepare-inference-request">
-<h2>Prepare Inference Request<a class="headerlink" href="#prepare-inference-request" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+<section id="prepare-inference-request">
+<h2>Prepare Inference Request<a class="headerlink" href="#prepare-inference-request" title="Permalink to this heading"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>/wdl_train/val
@@ -1162,9 +1161,9 @@ drwxr-xr-x 2 root root        50 May 26 04:30 temp-parquet-after-conversion
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="create-prediction-scripts">
-<h2>Create prediction scripts<a class="headerlink" href="#create-prediction-scripts" title="Permalink to this headline"></a></h2>
+</section>
+<section id="create-prediction-scripts">
+<h2>Create prediction scripts<a class="headerlink" href="#create-prediction-scripts" title="Permalink to this heading"></a></h2>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;/wdl_train/wdl_predict.py&#39;
@@ -1240,12 +1239,12 @@ drwxr-xr-x 2 root root        50 May 26 04:30 temp-parquet-after-conversion
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="prediction">
-<h2>Prediction<a class="headerlink" href="#prediction" title="Permalink to this headline"></a></h2>
+</section>
+<section id="prediction">
+<h2>Prediction<a class="headerlink" href="#prediction" title="Permalink to this heading"></a></h2>
 <p>Use different types of databases as a local parameter server to get the wide and deep model prediction results.</p>
-<div class="section" id="load-model-embedding-tables-into-local-memory-as-parameter-server">
-<h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this headline"></a></h3>
+<section id="load-model-embedding-tables-into-local-memory-as-parameter-server">
+<h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this heading"></a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python<span class="w"> </span>/wdl_train/wdl_predict.py<span class="w"> </span><span class="s2">&quot;wdl&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl.json&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl/_dense_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/model/wdl/0_sparse_20000.model/,/wdl_train/model/wdl/1_sparse_20000.model&quot;</span><span class="w"> </span><span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span><span class="w"> </span><span class="s2">&quot;disabled&quot;</span>
@@ -1310,9 +1309,9 @@ WDL multi-embedding table inference result is [0.09066542983055115, 0.2685255110
 </div>
 </div>
 </div>
-</div>
-<div class="section" id="load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server">
-<h3>Load model embedding tables into local RocksDB as a parameter Server<a class="headerlink" href="#load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server" title="Permalink to this headline"></a></h3>
+</section>
+<section id="load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server">
+<h3>Load model embedding tables into local RocksDB as a parameter Server<a class="headerlink" href="#load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server" title="Permalink to this heading"></a></h3>
 <p>Create a RocksDB directory with read and write permissions for storing model embedded tables.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -1396,9 +1395,9 @@ WDL multi-embedding table inference result is [0.09066542983055115, 0.2685255110
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>
@@ -1434,12 +1433,12 @@ WDL multi-embedding table inference result is [0.09066542983055115, 0.2685255110
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.04.00/index.html">v23.04.00</a></dd>
       <dd><a href="../../v23.05.00/index.html">v23.05.00</a></dd>
       <dd><a href="../../v23.05.01/index.html">v23.05.01</a></dd>
       <dd><a href="hugectr_wdl_prediction.html">v23.06.00</a></dd>
       <dd><a href="../../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../v23.09.00/index.html">v23.09.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
