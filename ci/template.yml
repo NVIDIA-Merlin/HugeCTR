@@ -319,6 +319,7 @@ stages:
     CI_SLURM_PARTITION: "a100-pcie-40gb-product,a100-pcie-80gb-product"
     CI_SLURM_ACCOUNT: "cag"
     CI_SCHEDULER_TYPE: docker
+    GIT_DEPTH: "1"
     WALLTIME:      "02:00:00"
   tags:
   - computelab_generic

@@ -105,7 +105,7 @@ if [[ $SCRIPT_TYPE == "nvt" ]]; then
         --parquet_format=$IS_PARQUET_FORMAT   \
 		--criteo_mode=$IS_CRITEO_MODE         \
 		$FEATURE_CROSS_LIST_OPTION
-
+fi
 
 if [ $? -ne 0 ]; then
 	exit 2
