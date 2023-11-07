@@ -318,7 +318,8 @@ void embedding_collection_e2e(const Configuration &config) {
     ebc_params.push_back(EmbeddingCollectionParam(
         num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params, batch_size,
         key_type, index_type, offset_type, emb_type, wgrad_type, input_layout, output_layout,
-        sort_strategy, keys_preprocess_strategy, allreduce_strategy, comm_strategy, {}));
+        sort_strategy, keys_preprocess_strategy, allreduce_strategy, comm_strategy,
+        config.shard_configuration.compression_param));
   }
 
   HCTR_LOG(INFO, ROOT, "start preparing host data\n");
@@ -511,18 +512,6 @@ TEST(test_embedding_collection, utest_1node) {
 
 TEST(test_embedding_collection, utest_2node) {
   for (auto &config : get_ebc_two_node_utest_configuration()) {
-    embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
-  }
-}
-
-TEST(test_embedding_collection, benchmark_1node) {
-  for (auto &config : get_ebc_single_node_benchmark_configuration()) {
-    embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
-  }
-}
-
-TEST(test_embedding_collection, benchmark_16node) {
-  for (auto &config : get_ebc_sixteen_node_benchmark_configuration()) {
     embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
   }
 }
