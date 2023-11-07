@@ -315,10 +315,10 @@ void embedding_collection_e2e(const Configuration &config) {
     auto allreduce_strategy = option.allreduce_strategy;
     auto comm_strategy = option.comm_strategy;
 
-    ebc_params.emplace_back(num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params,
-                            batch_size, key_type, index_type, offset_type, emb_type, wgrad_type,
-                            input_layout, output_layout, sort_strategy, keys_preprocess_strategy,
-                            allreduce_strategy, comm_strategy);
+    ebc_params.push_back(EmbeddingCollectionParam(
+        num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params, batch_size,
+        key_type, index_type, offset_type, emb_type, wgrad_type, input_layout, output_layout,
+        sort_strategy, keys_preprocess_strategy, allreduce_strategy, comm_strategy, {}));
   }
 
   HCTR_LOG(INFO, ROOT, "start preparing host data\n");

@@ -40,10 +40,10 @@ class IDataDistributionOp {
 
 class DenseMPDataDistributionOp final : public IDataDistributionOp {
  public:
-  DenseMPDataDistributionOp(std::shared_ptr<core::CoreResourceManager> core,
-                            const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
-                            const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list,
-                            bool do_reduction = false);
+  DenseMPDataDistributionOp(
+      std::shared_ptr<core::CoreResourceManager> core,
+      const embedding::EmbeddingCollectionParam &ebc_param, size_t group_id,
+      const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                   cudaStream_t stream) override;

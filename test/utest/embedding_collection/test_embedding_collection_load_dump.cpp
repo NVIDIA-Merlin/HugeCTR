@@ -279,7 +279,8 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      embedding::SortStrategy::Segmented,
                                      embedding::KeysPreprocessStrategy::AddOffset,
                                      embedding::AllreduceStrategy::Dense,
-                                     CommunicationStrategy::Uniform};
+                                     CommunicationStrategy::Uniform,
+                                     {}};
   auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);

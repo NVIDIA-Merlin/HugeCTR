@@ -80,7 +80,8 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
                           ? lookup_params[lookup_id].max_hotness
                           : 1;
     // TODO this if is redundant?
-    if (ebc_param.grouped_lookup_params[grouped_id].do_reduction_for_dense) {
+    if (ebc_param.grouped_lookup_params[grouped_id].embedding_group_type ==
+        EmbeddingGroupType::DenseModelParallelWithReduction) {
       tmp_hotness = 1;
     }
     // num_local_hotness_after_reduction_is the output hotness, i.e. after embedding combiner
@@ -137,7 +138,8 @@ DenseUniformModelParallelEmbedding::DenseUniformModelParallelEmbedding(
     size_t grouped_id)
     : core_(core),
       meta_(core, params, grouped_id),
-      do_reduction_(params.grouped_lookup_params[grouped_id].do_reduction_for_dense) {
+      do_reduction_(params.grouped_lookup_params[grouped_id].embedding_group_type ==
+                    EmbeddingGroupType::DenseModelParallelWithReduction) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   model_forward_ = ModelForward{core};

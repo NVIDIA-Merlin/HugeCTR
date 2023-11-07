@@ -110,7 +110,8 @@ void test_data_distributor(const std::vector<int>& device_list,
                                      embedding::SortStrategy::Radix,
                                      embedding::KeysPreprocessStrategy::None,
                                      AllreduceStrategy::Dense,
-                                     CommunicationStrategy::Uniform};
+                                     CommunicationStrategy::Uniform,
+                                     {}};
 
   std::vector<EmbeddingTableParam> table_param_list;
   for (int id = 0; id < num_table; ++id) {

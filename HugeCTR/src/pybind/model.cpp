@@ -953,7 +953,8 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 ebc_config.sort_strategy_,
                                                 ebc_config.keys_preprocess_strategy_,
                                                 allreduce_strategy,
-                                                ebc_config.comm_strategy_};
+                                                ebc_config.comm_strategy_,
+                                                {}};
 
   embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
                                                      num_lookup,
@@ -971,7 +972,8 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                      ebc_config.sort_strategy_,
                                                      ebc_config.keys_preprocess_strategy_,
                                                      ebc_config.allreduce_strategy_,
-                                                     ebc_config.comm_strategy_};
+                                                     ebc_config.comm_strategy_,
+                                                     {}};
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 

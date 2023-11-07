@@ -70,7 +70,8 @@ void test_embedding_table(int device_id, int table_type) {
                                      embedding::SortStrategy::Radix,
                                      embedding::KeysPreprocessStrategy::None,
                                      embedding::AllreduceStrategy::Dense,
-                                     CommunicationStrategy::Uniform};
+                                     CommunicationStrategy::Uniform,
+                                     {}};
 
   IGroupedEmbeddingTable* embedding_table;
   if (table_type == 0) {

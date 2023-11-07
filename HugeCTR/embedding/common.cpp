@@ -153,6 +153,61 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   return os;
 }
 
+std::vector<int> filter_dp_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                      const GroupedTableParam &table_param) {
+  int num_lookup = static_cast<int>(lookup_params.size());
+  std::vector<int> dp_lookup_ids;
+  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+    auto combiner = lookup_params[lookup_id].combiner;
+    auto max_hotness = lookup_params[lookup_id].max_hotness;
+
+    HCTR_CHECK_HINT(!((combiner == Combiner::Concat) && (max_hotness > 1)),
+                    "DataParallel TablePlacementStrategy does not support Combiner::Concat && "
+                    "max_hotness > 1.");
+
+    int table_id = lookup_params[lookup_id].table_id;
+    if (std::find(table_param.table_ids.begin(), table_param.table_ids.end(), table_id) ==
+        table_param.table_ids.end())
+      continue;
+    dp_lookup_ids.push_back(lookup_id);
+  }
+  return dp_lookup_ids;
+}
+
+std::vector<int> filter_mp_sparse_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                             const GroupedTableParam &table_param) {
+  int num_lookup = static_cast<int>(lookup_params.size());
+  std::vector<int> mp_sparse_lookup_ids;
+  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+    int table_id = lookup_params[lookup_id].table_id;
+    if (std::find(table_param.table_ids.begin(), table_param.table_ids.end(), table_id) ==
+        table_param.table_ids.end())
+      continue;
+    auto combiner = lookup_params[lookup_id].combiner;
+    if (combiner == Combiner::Sum || combiner == Combiner::Average) {
+      mp_sparse_lookup_ids.push_back(lookup_id);
+    }
+  }
+  return mp_sparse_lookup_ids;
+}
+
+std::vector<int> filter_mp_dense_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                            const GroupedTableParam &table_param) {
+  int num_lookup = static_cast<int>(lookup_params.size());
+  std::vector<int> mp_dense_lookup_ids;
+  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+    int table_id = lookup_params[lookup_id].table_id;
+    if (std::find(table_param.table_ids.begin(), table_param.table_ids.end(), table_id) ==
+        table_param.table_ids.end())
+      continue;
+    auto combiner = lookup_params[lookup_id].combiner;
+    if (combiner == Combiner::Concat) {
+      mp_dense_lookup_ids.push_back(lookup_id);
+    }
+  }
+  return mp_dense_lookup_ids;
+}
+
 void EmbeddingOutputAttr::init(std::shared_ptr<CoreResourceManager> core,
                                const EmbeddingCollectionParam &ebc_param) {
   this->num_lookup = ebc_param.num_lookup;

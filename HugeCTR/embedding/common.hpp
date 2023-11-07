@@ -22,6 +22,7 @@
 #include <core23/tensor_operations.hpp>
 #include <core23/tensor_params.hpp>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -119,13 +120,6 @@ struct DataDistributionInput {
 }  // namespace HugeCTR
 
 namespace embedding {
-inline bool enable_unique_for_sparse() {
-  const char *env_combiner = getenv("ENABLE_UNIQUE_OPTIMIZATION_FOR_SPARSE");
-  if (env_combiner && std::stoi(env_combiner) != 0) {
-    return true;
-  }
-  return false;
-}
 namespace core23 = HugeCTR::core23;
 using core::CoreResourceManager;
 
@@ -137,6 +131,7 @@ enum class TablePlacementStrategy : int8_t {
   DataParallel,
   ModelParallel,
 };
+enum class CompressionStrategy : int8_t { Reduction, Unique };
 enum class EmbeddingLayout : int8_t { FeatureMajor, BatchMajor };
 std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p);
 enum class CommunicationStrategy : int8_t { Uniform, Hierarchical };
@@ -151,6 +146,7 @@ enum class EmbeddingGroupType : int8_t {
   DataParallel,
   DenseModelParallel,
   SparseModelParallel,
+  DenseModelParallelWithReduction,
 };
 
 struct LookupParam {
@@ -178,6 +174,10 @@ struct GroupedTableParam {
       : table_placement_strategy(_table_placement_strategy), table_ids(_table_ids) {}
 };
 
+struct CompressionParam {
+  std::unordered_map<CompressionStrategy, std::set<int>> compression_strategy_to_table_ids;
+};
+
 struct GroupedLookupParam {
   int grouped_table_idx;
   std::vector<int> lookup_ids;
@@ -189,6 +189,15 @@ struct GroupedLookupParam {
         lookup_ids(lookup_ids),
         embedding_group_type(embedding_group_type) {}
 };
+
+std::vector<int> filter_dp_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                      const GroupedTableParam &table_param);
+
+std::vector<int> filter_mp_sparse_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                             const GroupedTableParam &table_param);
+
+std::vector<int> filter_mp_dense_lookup_ids(const std::vector<LookupParam> &lookup_params,
+                                            const GroupedTableParam &table_param);
 
 struct EmbeddingCollectionParam {
   int num_table;
@@ -223,7 +232,7 @@ struct EmbeddingCollectionParam {
       core23::DataType emb_type, core23::DataType wgrad_type, EmbeddingLayout input_layout_,
       EmbeddingLayout output_layout, SortStrategy sort_strategy,
       KeysPreprocessStrategy keys_preprocess_strategy, AllreduceStrategy allreduce_strategy,
-      CommunicationStrategy comm_strategy)
+      CommunicationStrategy comm_strategy, CompressionParam compreesion_param)
       : num_table(num_table),
         num_lookup(num_lookup),
         lookup_params(lookup_params),
@@ -241,80 +250,127 @@ struct EmbeddingCollectionParam {
         keys_preprocess_strategy_(keys_preprocess_strategy),
         allreduce_strategy_(allreduce_strategy),
         comm_strategy_(comm_strategy) {
+    if (!compreesion_param.compression_strategy_to_table_ids.empty()) {
+      const auto &table_ids_using_reduction =
+          compreesion_param.compression_strategy_to_table_ids[CompressionStrategy::Reduction];
+      const auto &table_ids_using_unique =
+          compreesion_param.compression_strategy_to_table_ids[CompressionStrategy::Unique];
+      std::vector<int> dup_table_ids;
+      std::set_intersection(table_ids_using_reduction.begin(), table_ids_using_reduction.end(),
+                            table_ids_using_unique.begin(), table_ids_using_unique.end(),
+                            std::back_inserter(dup_table_ids));
+      HCTR_CHECK_HINT(dup_table_ids.empty(), "Duplicate table id in different CompressionStrategy");
+
+      std::vector<int> sum_table_ids;
+      std::set_union(table_ids_using_reduction.begin(), table_ids_using_reduction.end(),
+                     table_ids_using_unique.begin(), table_ids_using_unique.end(),
+                     std::back_inserter(sum_table_ids));
+      std::vector<int> mp_table_ids;
+      for (size_t grouped_table_id = 0; grouped_table_id < grouped_table_params.size();
+           ++grouped_table_id) {
+        const auto &table_param = grouped_table_params[grouped_table_id];
+        if (table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+          for (int table_id : table_param.table_ids) {
+            mp_table_ids.push_back(table_id);
+          }
+        }
+      }
+      HCTR_CHECK_HINT(mp_table_ids.size() == sum_table_ids.size(),
+                      "Table ids in CompressionStrategy does not match with table ids in "
+                      "TablePlacementStrategy");
+    }
     for (size_t grouped_table_id = 0; grouped_table_id < grouped_table_params.size();
          ++grouped_table_id) {
       const auto &table_param = grouped_table_params[grouped_table_id];
+      if (table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        auto dp_lookup_ids = filter_dp_lookup_ids(lookup_params, table_param);
+        grouped_lookup_params.emplace_back(grouped_table_id, dp_lookup_ids,
+                                           EmbeddingGroupType::DataParallel);
+        continue;
+      }
+      HCTR_CHECK_HINT(table_param.table_placement_strategy ==
+                      TablePlacementStrategy::ModelParallel);
 
-      std::vector<int> sparse_lookup_ids;
-      std::vector<std::vector<int>> dense_lookup_ids;
-      std::vector<std::vector<int>> dense_lookup_with_reduction_ids;
+      auto mp_sparse_lookup_ids = filter_mp_sparse_lookup_ids(lookup_params, table_param);
+      auto mp_dense_lookup_ids = filter_mp_dense_lookup_ids(lookup_params, table_param);
 
-      for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+      auto compression_strategy_to_table_ids = compreesion_param.compression_strategy_to_table_ids;
+      if (compression_strategy_to_table_ids.empty()) {
+        // user does not specify compression param, use reduction for sparse and unique for dense in
+        // default
+        for (int lookup_id : mp_sparse_lookup_ids) {
+          compression_strategy_to_table_ids[CompressionStrategy::Reduction].insert(
+              lookup_params[lookup_id].table_id);
+        }
+        for (int lookup_id : mp_dense_lookup_ids) {
+          compression_strategy_to_table_ids[CompressionStrategy::Unique].insert(
+              lookup_params[lookup_id].table_id);
+        }
+      }
+      const auto &table_ids_using_reduction =
+          compression_strategy_to_table_ids[CompressionStrategy::Reduction];
+      const auto &table_ids_using_unique =
+          compression_strategy_to_table_ids[CompressionStrategy::Unique];
+
+      // do sanity check
+      for (int lookup_id : mp_dense_lookup_ids) {
+        HCTR_CHECK_HINT(table_ids_using_unique.find(lookup_params[lookup_id].table_id) !=
+                            table_ids_using_unique.end(),
+                        "Unique Compression can only work for Dense");
+      }
+      for (int lookup_id : mp_dense_lookup_ids) {
         int table_id = lookup_params[lookup_id].table_id;
-        if (std::find(table_param.table_ids.begin(), table_param.table_ids.end(), table_id) ==
-            table_param.table_ids.end())
-          continue;
-        auto combiner = lookup_params[lookup_id].combiner;
-        if (combiner == Combiner::Concat) {
-          int idx = -1;
-          for (int i = 0; i < static_cast<int>(dense_lookup_ids.size()); ++i) {
-            int current_ev_size = this->lookup_params[dense_lookup_ids[i][0]].ev_size;
-            if (current_ev_size == this->lookup_params[lookup_id].ev_size) idx = i;
-          }
-          if (idx == -1) {
-            dense_lookup_ids.push_back({lookup_id});
-          } else {
-            dense_lookup_ids[idx].push_back(lookup_id);
-          }
-        } else if (enable_unique_for_sparse() &&
-                   table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-          int idx = -1;
-          for (int i = 0; i < static_cast<int>(dense_lookup_with_reduction_ids.size()); ++i) {
-            int current_ev_size =
-                this->lookup_params[dense_lookup_with_reduction_ids[i][0]].ev_size;
-            if (current_ev_size == this->lookup_params[lookup_id].ev_size) idx = i;
-          }
-          if (idx == -1) {
-            dense_lookup_with_reduction_ids.push_back({lookup_id});
-          } else {
-            dense_lookup_with_reduction_ids[idx].push_back(lookup_id);
-          }
-        } else if (combiner == Combiner::Sum || combiner == Combiner::Average) {
-          sparse_lookup_ids.push_back(lookup_id);
-        } else {
-          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                         "combiner not supported in embedding collection.");
-        }
-      }
-      if (!sparse_lookup_ids.empty()) {
-        if (table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
-          grouped_lookup_params.emplace_back(grouped_table_id, sparse_lookup_ids,
-                                             EmbeddingGroupType::DataParallel);
-        } else if (table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-          grouped_lookup_params.emplace_back(grouped_table_id, sparse_lookup_ids,
-                                             EmbeddingGroupType::SparseModelParallel);
-        } else {
-          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                         "table placement strategy not supported in embedding collection.");
-        }
+        HCTR_CHECK_HINT(
+            table_ids_using_unique.find(table_id) != table_ids_using_unique.end() ||
+                table_ids_using_reduction.find(table_id) != table_ids_using_reduction.end(),
+            "Unique or Reduction Compression can work for Sparse");
       }
 
-      if (!dense_lookup_with_reduction_ids.empty()) {
-        for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_with_reduction_ids) {
-          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
-                                             dense_lookup_ids_with_same_ev_size,
-                                             EmbeddingType::Dense, true);
+      auto filter_and_add_grouped_lookup_by_compression_strategy =
+          [&](const std::vector<int> &lookup_ids, const CompressionStrategy &compression_strategy) {
+            std::vector<int> filtered_lookup_ids;
+            std::copy_if(lookup_ids.begin(), lookup_ids.end(),
+                         std::back_inserter(filtered_lookup_ids), [&](int lookup_id) {
+                           auto table_id = lookup_params[lookup_id].table_id;
+                           auto &table_ids =
+                               compression_strategy_to_table_ids[compression_strategy];
+                           return table_ids.find(table_id) != table_ids.end();
+                         });
+            return filtered_lookup_ids;
+          };
+      if (auto mp_sparse_lookup_ids_using_reduction =
+              filter_and_add_grouped_lookup_by_compression_strategy(mp_sparse_lookup_ids,
+                                                                    CompressionStrategy::Reduction);
+          !mp_sparse_lookup_ids_using_reduction.empty()) {
+        grouped_lookup_params.emplace_back(grouped_table_id, mp_sparse_lookup_ids_using_reduction,
+                                           EmbeddingGroupType::SparseModelParallel);
+      }
+      if (auto mp_sparse_lookup_ids_using_unique =
+              filter_and_add_grouped_lookup_by_compression_strategy(mp_sparse_lookup_ids,
+                                                                    CompressionStrategy::Unique);
+          !mp_sparse_lookup_ids_using_unique.empty()) {
+        std::unordered_map<int, std::vector<int>> ev_size_to_lookup_id_dict;
+        for (auto lookup_id : mp_sparse_lookup_ids_using_unique) {
+          ev_size_to_lookup_id_dict[lookup_params[lookup_id].ev_size].push_back(lookup_id);
+        }
+        for (auto &[_, lookup_ids_with_same_ev_size] : ev_size_to_lookup_id_dict) {
+          grouped_lookup_params.emplace_back(grouped_table_id, lookup_ids_with_same_ev_size,
+                                             EmbeddingGroupType::DenseModelParallelWithReduction);
         }
       }
-      if (!dense_lookup_ids.empty()) {
-        for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_ids) {
-          if (table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-            grouped_lookup_params.emplace_back(grouped_table_id, dense_lookup_ids_with_same_ev_size,
-                                               EmbeddingGroupType::DenseModelParallel);
-          } else {
-            HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                           "table placement strategy not supported in embedding collection.");
-          }
+      if (!mp_dense_lookup_ids.empty()) {
+        auto mp_dense_lookup_ids_using_unique =
+            filter_and_add_grouped_lookup_by_compression_strategy(mp_dense_lookup_ids,
+                                                                  CompressionStrategy::Unique);
+        HCTR_CHECK_HINT(mp_dense_lookup_ids == mp_dense_lookup_ids_using_unique,
+                        "CompressionStrategy is wrong for dense embedding");
+        std::unordered_map<int, std::vector<int>> ev_size_to_lookup_id_dict;
+        for (auto lookup_id : mp_dense_lookup_ids) {
+          ev_size_to_lookup_id_dict[lookup_params[lookup_id].ev_size].push_back(lookup_id);
+        }
+        for (auto &[_, lookup_ids_with_same_ev_size] : ev_size_to_lookup_id_dict) {
+          grouped_lookup_params.emplace_back(grouped_table_id, lookup_ids_with_same_ev_size,
+                                             EmbeddingGroupType::DenseModelParallel);
         }
       }
     }

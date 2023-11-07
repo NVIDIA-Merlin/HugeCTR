@@ -108,7 +108,9 @@ void DataDistributor::init_filtered_all_to_all() {
       } else if (embedding_group_type == embedding::EmbeddingGroupType::SparseModelParallel) {
         data_distribution_ops.push_back(std::make_unique<SparseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
-      } else if (embedding_group_type == embedding::EmbeddingGroupType::DenseModelParallel) {
+      } else if (embedding_group_type == embedding::EmbeddingGroupType::DenseModelParallel ||
+                 embedding_group_type ==
+                     embedding::EmbeddingGroupType::DenseModelParallelWithReduction) {
         data_distribution_ops.push_back(std::make_unique<DenseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
       } else {
