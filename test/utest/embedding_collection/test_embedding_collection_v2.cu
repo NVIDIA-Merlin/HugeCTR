@@ -390,6 +390,8 @@ void embedding_collection_e2e(const Configuration &config) {
       }
       std::cout << std::endl;
     }
+
+    std::cout << "compression_param:" << config.shard_configuration.compression_param << "\n";
     std::cout << "key_type:" << key_type << "\n";
     std::cout << "offset_type:" << offset_type << "\n";
     std::cout << "emb type:" << emb_type << "\n";

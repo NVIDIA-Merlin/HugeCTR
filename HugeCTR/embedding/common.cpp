@@ -57,6 +57,20 @@ void DataDistributionInput::copy_tensor_vec(const std::vector<core23::Tensor> &d
 
 namespace embedding {
 
+std::ostream &operator<<(std::ostream &os, const CompressionStrategy &p) {
+  switch (p) {
+    case CompressionStrategy::Reduction:
+      os << "reduction";
+      break;
+    case CompressionStrategy::Unique:
+      os << "unique";
+      break;
+    default:
+      break;
+  }
+  return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const Combiner &p) {
   switch (p) {
     case Combiner::Sum:
@@ -150,6 +164,16 @@ std::ostream &operator<<(std::ostream &os, const LookupParam &p) {
   os << "combiner:" << p.combiner << ",";
   os << "max_hotness:" << p.max_hotness << ",";
   os << "ev_size:" << p.ev_size;
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const CompressionParam &p) {
+  for (auto &[compression_strategy, table_ids] : p.compression_strategy_to_table_ids) {
+    os << compression_strategy << ":";
+    for (auto table_id : table_ids) {
+      os << table_id << ",";
+    }
+  }
   return os;
 }
 

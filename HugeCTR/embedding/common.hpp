@@ -132,6 +132,7 @@ enum class TablePlacementStrategy : int8_t {
   ModelParallel,
 };
 enum class CompressionStrategy : int8_t { Reduction, Unique };
+std::ostream &operator<<(std::ostream &os, const CompressionStrategy &p);
 enum class EmbeddingLayout : int8_t { FeatureMajor, BatchMajor };
 std::ostream &operator<<(std::ostream &os, const EmbeddingLayout &p);
 enum class CommunicationStrategy : int8_t { Uniform, Hierarchical };
@@ -177,6 +178,7 @@ struct GroupedTableParam {
 struct CompressionParam {
   std::unordered_map<CompressionStrategy, std::set<int>> compression_strategy_to_table_ids;
 };
+std::ostream &operator<<(std::ostream &os, const CompressionParam &p);
 
 struct GroupedLookupParam {
   int grouped_table_idx;
