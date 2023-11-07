@@ -78,6 +78,9 @@ class EmbeddingCollectionConfig {
 
   std::vector<ShardStrategy> shard_strategy_;
   std::vector<std::vector<std::string>> shard_matrix_;
+  using CompressionStrategyConfig =
+      std::unordered_map<::embedding::CompressionStrategy, std::vector<std::string>>;
+  CompressionStrategyConfig compression_strategy_config_;
 
   ::embedding::EmbeddingLayout output_layout_;
 
@@ -153,12 +156,15 @@ class EmbeddingCollectionConfig {
   }
 
   void shard(const std::vector<std::vector<std::string>> &shard_matrix,
-             const std::vector<ShardStrategy> &shard_strategy) {
+             const std::vector<ShardStrategy> &shard_strategy,
+             const CompressionStrategyConfig &compression_strategy_config) {
     shard_matrix_.clear();
     shard_strategy_.clear();
+    compression_strategy_config_.clear();
 
     shard_matrix_ = shard_matrix;
     shard_strategy_ = shard_strategy;
+    compression_strategy_config_ = compression_strategy_config;
   }
 };
 
@@ -266,6 +272,21 @@ inline std::vector<::embedding::GroupedTableParam> create_grouped_embedding_para
     grouped_embedding_params.push_back(std::move(grouped_emb_param));
   }
   return grouped_embedding_params;
+}
+
+inline ::embedding::CompressionParam create_compression_param_from_ebc_config(
+    const TableNameToIDDict &table_name_to_id_dict, const EmbeddingCollectionConfig &config) {
+  ::embedding::CompressionParam compression_param;
+  for (auto &[strategy, table_names] : config.compression_strategy_config_) {
+    for (auto table_name : table_names) {
+      HCTR_CHECK_HINT(
+          table_name_to_id_dict.find(table_name) != table_name_to_id_dict.end(),
+          "create_grouped_embedding_param_from_ebc_config error, no such name: ", table_name, "\n");
+      compression_param.compression_strategy_to_table_ids[strategy].insert(
+          table_name_to_id_dict.at(table_name));
+    }
+  }
+  return compression_param;
 }
 
 }  // namespace HugeCTR

@@ -937,6 +937,8 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
     allreduce_strategy = embedding::AllreduceStrategy::GroupDense;
   }
 
+  auto compression_param =
+      create_compression_param_from_ebc_config(table_name_to_id_dict, ebc_config);
   embedding::EmbeddingCollectionParam ebc_param{num_table,
                                                 num_lookup,
                                                 lookup_params,
@@ -954,7 +956,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                 ebc_config.keys_preprocess_strategy_,
                                                 allreduce_strategy,
                                                 ebc_config.comm_strategy_,
-                                                {}};
+                                                compression_param};
 
   embedding::EmbeddingCollectionParam eval_ebc_param{num_table,
                                                      num_lookup,
@@ -973,7 +975,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
                                                      ebc_config.keys_preprocess_strategy_,
                                                      ebc_config.allreduce_strategy_,
                                                      ebc_config.comm_strategy_,
-                                                     {}};
+                                                     compression_param};
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 

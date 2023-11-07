@@ -37,6 +37,10 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
       .value("Uniform", ::embedding::CommunicationStrategy::Uniform)
       .value("Hierarchical", ::embedding::CommunicationStrategy::Hierarchical)
       .export_values();
+  pybind11::enum_<::embedding::CompressionStrategy>(m, "CompressionStrategy")
+      .value("Reduction", ::embedding::CompressionStrategy::Reduction)
+      .value("Unique", ::embedding::CompressionStrategy::Unique)
+      .export_values();
   pybind11::class_<HugeCTR::EmbeddingCollectionConfig,
                    std::shared_ptr<HugeCTR::EmbeddingCollectionConfig>>(m,
                                                                         "EmbeddingCollectionConfig")
@@ -57,7 +61,9 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
            pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))
       .def("shard", &HugeCTR::EmbeddingCollectionConfig::shard, pybind11::arg("shard_matrix"),
-           pybind11::arg("shard_strategy"));
+           pybind11::arg("shard_strategy"),
+           pybind11::arg("compression_strategy") =
+               EmbeddingCollectionConfig::CompressionStrategyConfig());
 }
 
 }  // namespace python_lib
