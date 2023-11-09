@@ -25,7 +25,8 @@ namespace HugeCTR {
 DataDistributor::DataDistributor(
     std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
     const embedding::EmbeddingCollectionParam& ebc_param,
-    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list,
+    const std::vector<int>& dr_lookup_ids)
     : core_resource_managers_(core_resource_managers),
       batch_size_(ebc_param.universal_batch_size),
       batch_size_per_gpu_(ebc_param.universal_batch_size /
@@ -53,7 +54,7 @@ DataDistributor::DataDistributor(
   init_fixed_dp_bucket_range();
 
   for (size_t gpu_id = 0; gpu_id < num_local_gpus_; ++gpu_id) {
-    data_distribution_input_.emplace_back(core_resource_managers_[gpu_id], ebc_param.num_lookup,
+    data_distribution_input_.emplace_back(core_resource_managers_[gpu_id], dr_lookup_ids,
                                           ebc_param.key_type, ebc_param.offset_type);
   }
 }

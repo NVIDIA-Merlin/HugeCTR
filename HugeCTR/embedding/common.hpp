@@ -96,13 +96,15 @@ struct DataDistributionInput {
   core23::Tensor h_ptrs_;
   core23::Tensor d_ptrs_;
   int num_lookup_;
+  std::vector<int> dr_lookup_ids_;
   core23::DataType key_type;
   core23::DataType offset_type;
 
   DataDistributionInput() = default;
 
-  DataDistributionInput(std::shared_ptr<core::CoreResourceManager> core, int num_lookup,
-                        core23::DataType key_type, core23::DataType offset_type);
+  DataDistributionInput(std::shared_ptr<core::CoreResourceManager> core,
+                        const std::vector<int> &dr_lookup_ids, core23::DataType key_type,
+                        core23::DataType offset_type);
 
   void copy_tensor_vec(const std::vector<core23::Tensor> &dp_keys,
                        const std::vector<core23::Tensor> &dp_bucket_range, cudaStream_t stream);

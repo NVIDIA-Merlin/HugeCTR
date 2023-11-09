@@ -399,9 +399,11 @@ void embedding_collection_e2e(const Configuration &config) {
 
     auto &ebc_param = ebc_params[option_id];
 
+    std::vector<int> dr_lookup_ids(ebc_param.num_lookup);
+    std::iota(dr_lookup_ids.begin(), dr_lookup_ids.end(), 0);
     std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
         std::make_shared<HugeCTR::DataDistributor>(core_resource_manager_list, ebc_param,
-                                                   table_param_list);
+                                                   table_param_list, dr_lookup_ids);
 
     std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
     for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {

@@ -874,7 +874,8 @@ std::vector<int> get_table_id_to_vocabulary_size(
   return table_id_to_vocabulary_size;
 }
 
-void Model::add(const EmbeddingCollectionConfig& ebc_config) {
+void Model::add(const EmbeddingCollectionConfig& user_ebc_config) {
+  auto ebc_config = split_column_wise_sharding_config(user_ebc_config);
   TableNameToIDDict table_name_to_id_dict =
       create_table_name_to_id_dict_from_ebc_config(ebc_config);
   int global_ebc_id = static_cast<int>(ebc_list_.size());
@@ -903,8 +904,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
           : embedding::EmbeddingLayout::BatchMajor;
 
   std::vector<std::string> bottom_name_list;
-  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-    auto bottom_name = ebc_config.bottom_names_[lookup_id];
+  for (auto& bottom_name : ebc_config.bottom_names_) {
     bottom_name_list.push_back(bottom_name);
   }
 
@@ -915,7 +915,7 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
 
   auto lookup_params = create_lookup_params_from_ebc_config(table_name_to_id_dict, ebc_config);
   for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-    auto b_name = ebc_config.bottom_names_[lookup_id];
+    auto b_name = ebc_config.bottom_names_[ebc_config.dr_lookup_ids_[lookup_id]];
     lookup_params[lookup_id].max_hotness = hotness_map_[b_name];
   }
 
@@ -1125,9 +1125,10 @@ void Model::add(const EmbeddingCollectionConfig& ebc_config) {
   }
 
   // create data distributors
-  train_data_distributor_ = std::make_shared<DataDistributor>(core_list, ebc_param, emb_table_list);
-  eval_data_distributor_ =
-      std::make_shared<DataDistributor>(core_list, eval_ebc_param, emb_table_list);
+  train_data_distributor_ = std::make_shared<DataDistributor>(core_list, ebc_param, emb_table_list,
+                                                              ebc_config.dr_lookup_ids_);
+  eval_data_distributor_ = std::make_shared<DataDistributor>(
+      core_list, eval_ebc_param, emb_table_list, ebc_config.dr_lookup_ids_);
 }
 
 void Model::pre_add_dense_layer(DenseLayer& dense_layer) {

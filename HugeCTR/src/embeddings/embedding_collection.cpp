@@ -20,6 +20,143 @@
 #include "embedding/hier_model_parallel_embedding.hpp"
 #include "embedding/model_parallel_embedding.hpp"
 
+namespace HugeCTR {
+
+EmbeddingCollectionConfig split_column_wise_sharding_config(
+    const EmbeddingCollectionConfig &user_ebc_config) {
+  std::unordered_map<std::string, std::vector<std::string>> user_table_name_to_split_table_name;
+  bool has_column_sharding_table = false;
+  for (auto &shard : user_ebc_config.shard_strategy_) {
+    auto table_placement_strategy = get_table_place_strategy(shard);
+    auto table_names_with_column_wise_sharding_factor = get_table_group_strategy(shard);
+    for (auto table_tuple : table_names_with_column_wise_sharding_factor) {
+      std::string table_name = get_table_name(table_tuple);
+      int column_wise_sharding_factor = get_column_wise_sharding_factor(table_tuple);
+
+      if (table_placement_strategy == "dp") {
+        HCTR_CHECK_HINT(column_wise_sharding_factor == 1,
+                        "dp table does not support column-wise sharding.");
+      }
+
+      has_column_sharding_table |= (column_wise_sharding_factor > 1);
+
+      for (int column_wise_sharding_id = 0; column_wise_sharding_id < column_wise_sharding_factor;
+           ++column_wise_sharding_id) {
+        user_table_name_to_split_table_name[table_name].push_back(
+            table_name + "_" + std::to_string(column_wise_sharding_id));
+      }
+    }
+  }
+
+  if (!has_column_sharding_table) {
+    return user_ebc_config;
+  }
+
+  auto split_ebc_config = user_ebc_config;
+
+  split_ebc_config.emb_table_config_list_.clear();
+
+  for (auto &user_emb_table_config : user_ebc_config.emb_table_config_list_) {
+    int column_wise_sharding_factor =
+        user_table_name_to_split_table_name[user_emb_table_config.name].size();
+    for (size_t column_shard_id = 0; column_shard_id < column_wise_sharding_factor;
+         ++column_shard_id) {
+      auto split_emb_table_config = user_emb_table_config;
+      split_emb_table_config.name =
+          user_table_name_to_split_table_name[user_emb_table_config.name][column_shard_id];
+      HCTR_CHECK_HINT(split_emb_table_config.table_param.ev_size % column_wise_sharding_factor == 0,
+                      "ev_size can not be divided by column_wise_sharding_factor");
+      split_emb_table_config.table_param.ev_size /= column_wise_sharding_factor;
+      split_ebc_config.emb_table_config_list_.push_back(split_emb_table_config);
+    }
+  }
+
+  split_ebc_config.dr_lookup_ids_.clear();
+  split_ebc_config.lookup_configs_.clear();
+  for (int dr_lookup_id = 0; dr_lookup_id < user_ebc_config.lookup_configs_.size();
+       ++dr_lookup_id) {
+    auto &user_lookup_config = user_ebc_config.lookup_configs_[dr_lookup_id];
+    auto user_table_name = user_lookup_config.first;
+    int column_wise_sharding_factor = user_table_name_to_split_table_name[user_table_name].size();
+    for (size_t column_shard_id = 0; column_shard_id < column_wise_sharding_factor;
+         ++column_shard_id) {
+      auto split_name = user_table_name_to_split_table_name[user_table_name][column_shard_id];
+      auto split_lookup_config = user_lookup_config;
+      split_lookup_config.first = split_name;
+      HCTR_CHECK_HINT(split_lookup_config.second.ev_size % column_wise_sharding_factor == 0,
+                      "ev_size can not be divided by column_wise_sharding_factor");
+      split_lookup_config.second.ev_size /= column_wise_sharding_factor;
+      split_ebc_config.lookup_configs_.push_back(split_lookup_config);
+      split_ebc_config.dr_lookup_ids_.push_back(dr_lookup_id);
+    }
+  }
+
+  split_ebc_config.shard_strategy_.clear();
+  for (auto &user_shard_strategy : user_ebc_config.shard_strategy_) {
+    auto tps = get_table_place_strategy(user_shard_strategy);
+    if (tps == "dp") {
+      split_ebc_config.shard_strategy_.push_back(user_shard_strategy);
+      continue;
+    } else if (tps == "mp") {
+      std::vector<TableVariant> split_group_strategy;
+      auto user_group_strategy = get_table_group_strategy(user_shard_strategy);
+      for (auto &table_tuple : user_group_strategy) {
+        std::string user_table_name = get_table_name(table_tuple);
+        auto &split_table_names = user_table_name_to_split_table_name[user_table_name];
+        std::copy(split_table_names.begin(), split_table_names.end(),
+                  std::back_inserter(split_group_strategy));
+      }
+      split_ebc_config.shard_strategy_.push_back({"mp", split_group_strategy});
+    } else {
+      HCTR_OWN_THROW(Error_t::IllegalCall, "unreachable.");
+    }
+  }
+
+  split_ebc_config.shard_matrix_.clear();
+  split_ebc_config.shard_matrix_.resize(user_ebc_config.shard_matrix_.size());
+  for (auto &[user_table_name, split_table_names] : user_table_name_to_split_table_name) {
+    std::vector<int> has_shard_gpu_ids;
+    for (int gpu_id = 0; gpu_id < user_ebc_config.shard_matrix_.size(); ++gpu_id) {
+      auto &current_gpu_shards = user_ebc_config.shard_matrix_[gpu_id];
+      if (std::find(current_gpu_shards.begin(), current_gpu_shards.end(), user_table_name) !=
+          current_gpu_shards.end()) {
+        has_shard_gpu_ids.push_back(gpu_id);
+      }
+    }
+    int num_shards = static_cast<int>(has_shard_gpu_ids.size());
+    int column_wise_sharding_factor = static_cast<int>(split_table_names.size());
+    HCTR_CHECK_HINT(num_shards % column_wise_sharding_factor == 0,
+                    "column-wise sharding gpu can not be divided.");
+    int row_wise_sharding_factor = num_shards / column_wise_sharding_factor;
+
+    for (int column_wise_sharding_id = 0; column_wise_sharding_id < column_wise_sharding_factor;
+         ++column_wise_sharding_id) {
+      auto split_table_name = split_table_names[column_wise_sharding_id];
+      for (int shard_id = 0; shard_id < static_cast<int>(has_shard_gpu_ids.size()); ++shard_id) {
+        int gpu_id = has_shard_gpu_ids[shard_id];
+        if (shard_id / row_wise_sharding_factor == column_wise_sharding_id) {
+          split_ebc_config.shard_matrix_[gpu_id].push_back(split_table_name);
+        }
+      }
+    }
+  }
+
+  split_ebc_config.compression_strategy_config_.clear();
+  for (auto &[compression_strategy, user_table_names] :
+       user_ebc_config.compression_strategy_config_) {
+    for (auto &user_table_name : user_table_names) {
+      auto &split_table_names = user_table_name_to_split_table_name[user_table_name];
+      std::copy(
+          split_table_names.begin(), split_table_names.end(),
+          std::back_inserter(split_ebc_config.compression_strategy_config_[compression_strategy]));
+    }
+  }
+
+  return split_ebc_config;
+}
+
+}  // namespace HugeCTR
+
 namespace embedding {
 
 EmbeddingCollection::EmbeddingCollection(
