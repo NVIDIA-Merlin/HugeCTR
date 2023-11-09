@@ -235,7 +235,9 @@ DataDistributor::Result allocate_output_for_data_distributor(
           params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
               .data_type(ebc_param.offset_type));
     } else if (grouped_lookup_params.embedding_group_type ==
-               embedding::EmbeddingGroupType::DenseModelParallel) {
+                   embedding::EmbeddingGroupType::DenseModelParallel ||
+               grouped_lookup_params.embedding_group_type ==
+                   embedding::EmbeddingGroupType::DenseModelParallelWithReduction) {
       auto& dense_compression_input = embedding_input.dense_compression_input;
       embedding::WgradAttr wgrad_attr;
       wgrad_attr.init(core_resource_manager, ebc_param, group_id);

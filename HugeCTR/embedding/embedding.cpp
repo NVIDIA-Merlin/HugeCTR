@@ -29,7 +29,8 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
     auto embedding_group_type = ebc_param.grouped_lookup_params[emb_id].embedding_group_type;
     auto comm_strategy = ebc_param.comm_strategy_;
 
-    if (embedding_group_type == EmbeddingGroupType::DenseModelParallel) {
+    if (embedding_group_type == EmbeddingGroupType::DenseModelParallel ||
+        embedding_group_type == EmbeddingGroupType::DenseModelParallelWithReduction) {
       embeddings.push_back(
           std::make_unique<DenseUniformModelParallelEmbedding>(core, ebc_param, emb_id));
     } else if (embedding_group_type == EmbeddingGroupType::DataParallel) {

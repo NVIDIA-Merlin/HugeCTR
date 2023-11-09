@@ -208,8 +208,11 @@ void DenseNetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                                   const EmbeddingCollectionParam& ebc_param, size_t grouped_id,
                                   int max_hotness) {
   const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::DenseModelParallel,
-                  "DenseNetworkBufferAttr must be initialized by DenseModelParallel");
+  HCTR_CHECK_HINT(
+      group_params.embedding_group_type == EmbeddingGroupType::DenseModelParallel ||
+          group_params.embedding_group_type == EmbeddingGroupType::DenseModelParallelWithReduction,
+      "DenseNetworkBufferAttr must be initialized by DenseModelParallel or "
+      "DenseModelParallelWithReduction");
 
   this->num_lookup = group_params.lookup_ids.size();
 

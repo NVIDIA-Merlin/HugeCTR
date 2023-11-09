@@ -188,7 +188,9 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
         grouped_lookup_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel) {
       core23::copy_async(dst_result.bucket_range, src_result.bucket_range, stream);
     } else if (grouped_lookup_params.embedding_group_type ==
-               EmbeddingGroupType::DenseModelParallel) {
+                   EmbeddingGroupType::DenseModelParallel ||
+               grouped_lookup_params.embedding_group_type ==
+                   EmbeddingGroupType::DenseModelParallelWithReduction) {
       core23::copy_async(dst_result.dense_compression_input.num_keys_per_table_offset,
                          src_result.dense_compression_input.num_keys_per_table_offset, stream);
       core23::copy_async(dst_result.dense_compression_input.table_ids,
