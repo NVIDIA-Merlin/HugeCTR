@@ -327,7 +327,7 @@ class EmbeddingCollection {
   void backward_per_gpu(int gpu_id, const HugeCTR::DataDistributor::Result &input,
                         const core23::Tensor &top_grad, int batch_size);
 
-  void update_per_gpu(int gpu_id, embedding::TablePlacementStrategy tps);
+  void update_per_gpu(int gpu_id, EmbeddingGroupType embedding_group_type);
 
   void update_per_gpu(int gpu_id);
 

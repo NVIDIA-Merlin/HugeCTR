@@ -31,8 +31,9 @@ DenseUniformModelParallelEmbeddingMeta::DenseUniformModelParallelEmbeddingMeta(
 
   const auto &lookup_params = ebc_param.lookup_params;
   const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "DenseUniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
+  HCTR_CHECK_HINT(
+      group_params.embedding_group_type == EmbeddingGroupType::DenseModelParallel,
+      "DenseUniformModelParallelEmbeddingMeta must be initialized by DenseModelParallel");
 
   size_t num_gpus = core->get_global_gpu_count();
   // int gpu_id = core->get_global_gpu_id();

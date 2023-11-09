@@ -26,23 +26,19 @@ std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
   std::vector<std::unique_ptr<IGroupedEmbeddingOp>> embeddings;
 
   for (size_t emb_id = 0; emb_id < ebc_param.grouped_lookup_params.size(); ++emb_id) {
-    auto embedding_type = ebc_param.grouped_lookup_params[emb_id].embedding_type;
-    auto tps = ebc_param.grouped_lookup_params[emb_id].table_placement_strategy;
+    auto embedding_group_type = ebc_param.grouped_lookup_params[emb_id].embedding_group_type;
     auto comm_strategy = ebc_param.comm_strategy_;
 
-    if (embedding_type == EmbeddingType::Dense && tps == TablePlacementStrategy::ModelParallel) {
+    if (embedding_group_type == EmbeddingGroupType::DenseModelParallel) {
       embeddings.push_back(
           std::make_unique<DenseUniformModelParallelEmbedding>(core, ebc_param, emb_id));
-    } else if (embedding_type == EmbeddingType::Sparse &&
-               tps == TablePlacementStrategy::DataParallel) {
+    } else if (embedding_group_type == EmbeddingGroupType::DataParallel) {
       embeddings.push_back(std::make_unique<UniformDPEmbedding>(core, ebc_param, emb_id));
-    } else if (embedding_type == EmbeddingType::Sparse &&
-               tps == TablePlacementStrategy::ModelParallel &&
+    } else if (embedding_group_type == EmbeddingGroupType::SparseModelParallel &&
                comm_strategy == CommunicationStrategy::Uniform) {
       embeddings.push_back(
           std::make_unique<UniformModelParallelEmbedding>(core, ebc_param, emb_id));
-    } else if (embedding_type == EmbeddingType::Sparse &&
-               tps == TablePlacementStrategy::ModelParallel &&
+    } else if (embedding_group_type == EmbeddingGroupType::SparseModelParallel &&
                comm_strategy == CommunicationStrategy::Hierarchical) {
       embeddings.push_back(std::make_unique<HierModelParallelEmbedding>(core, ebc_param, emb_id));
     } else {

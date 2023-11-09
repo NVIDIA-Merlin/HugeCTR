@@ -84,8 +84,7 @@ class PartitionAndUniqueOperator {
 
   // dense mp
   template <typename Partitioner>
-  void partition_and_unique_on_dp_input(embedding::EmbeddingType embedding_type,
-                                        const DataDistributionInput &input,
+  void partition_and_unique_on_dp_input(const DataDistributionInput &input,
                                         const Partitioner &shard_partitioner,
                                         CompressedData &compressed_data, cudaStream_t stream);
 

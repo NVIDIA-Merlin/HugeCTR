@@ -432,7 +432,7 @@ class EmbeddingReferenceGPU {
     auto &lookup_param = ebc_param_.lookup_params[lookup_id];
     int table_id = lookup_param.table_id;
 
-    auto tps = grouped_lookup_param.table_placement_strategy;
+    auto embedding_group_type = grouped_lookup_param.embedding_group_type;
 
     std::vector<KeyType> keys;
     lookup_data.ev_start_indices.clear();
@@ -443,13 +443,15 @@ class EmbeddingReferenceGPU {
       auto [gid, lid, bid] = parse_feature_id(feature_id);
       int gpu_id = core_->get_global_gpu_id();
       // compare with forward, in backward we need to accumulate dp keys for all gpus
-      bool dp_valid_key =
-          is_forward
-              ? (tps == TablePlacementStrategy::DataParallel && lid == lookup_id && gid == gpu_id)
-              : (tps == TablePlacementStrategy::DataParallel && lid == lookup_id);
+      bool dp_valid_key = is_forward ? (embedding_group_type == EmbeddingGroupType::DataParallel &&
+                                        lid == lookup_id && gid == gpu_id)
+                                     : (embedding_group_type == EmbeddingGroupType::DataParallel &&
+                                        lid == lookup_id);
 
-      bool mp_valid_key = (tps == TablePlacementStrategy::ModelParallel && lid == lookup_id &&
-                           ebc_param_.has_table_shard(gpu_id, group_id, lookup_id));
+      bool mp_valid_key =
+          ((embedding_group_type == EmbeddingGroupType::SparseModelParallel ||
+            embedding_group_type == EmbeddingGroupType::DenseModelParallel) &&
+           lid == lookup_id && ebc_param_.has_table_shard(gpu_id, group_id, lookup_id));
       if (mp_valid_key) {
         int shard_id, num_shard;
         ebc_param_.get_table_shard_id(gpu_id, table_id, &shard_id, &num_shard);

@@ -367,10 +367,8 @@ void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributi
 
 template <typename Partitioner>
 void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
-    embedding::EmbeddingType embedding_type, const DataDistributionInput &input,
-    const Partitioner &partitioner, CompressedData &compressed_data, cudaStream_t stream) {
-  HCTR_CHECK(embedding_type == embedding::EmbeddingType::Dense);
-
+    const DataDistributionInput &input, const Partitioner &partitioner,
+    CompressedData &compressed_data, cudaStream_t stream) {
   auto key_type = compressed_data.partitioned_data.partitioned_keys.data_type();
   auto bucket_range_type = compressed_data.reverse_idx.data_type();
 
@@ -411,11 +409,11 @@ void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
 }
 
 template void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
-    embedding::EmbeddingType embedding_type, const DataDistributionInput &input,
-    const ShardPartitioner &partitioner, CompressedData &compressed_data, cudaStream_t stream);
+    const DataDistributionInput &input, const ShardPartitioner &partitioner,
+    CompressedData &compressed_data, cudaStream_t stream);
 template void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
-    embedding::EmbeddingType embedding_type, const DataDistributionInput &input,
-    const TablePartitioner &partitioner, CompressedData &compressed_data, cudaStream_t stream);
+    const DataDistributionInput &input, const TablePartitioner &partitioner,
+    CompressedData &compressed_data, cudaStream_t stream);
 
 template <>
 void PartitionAndUniqueOperator::partition_and_unique_by_table_id(

@@ -210,11 +210,10 @@ void test_data_distributor(const std::vector<int>& device_list,
       core23::copy_sync(result_keys, group_result.keys);
 
       // --- check keys per bucket
-      auto embedding_type = ebc_param.grouped_lookup_params[group_id].embedding_type;
-      auto table_placement_strategy =
-          ebc_param.grouped_lookup_params[group_id].table_placement_strategy;
-      switch (embedding_type) {
-        case (embedding::EmbeddingType::Sparse): {
+
+      auto embedding_group_type = ebc_param.grouped_lookup_params[group_id].embedding_group_type;
+      switch (embedding_group_type) {
+        case (embedding::EmbeddingGroupType::SparseModelParallel): {
           std::vector<offset_t> result_bucket_range(group_result.bucket_range.num_elements());
           core23::copy_sync(result_bucket_range, group_result.bucket_range);
 
@@ -222,105 +221,109 @@ void test_data_distributor(const std::vector<int>& device_list,
               group_result.num_keys_per_bucket.num_elements());
           core23::copy_sync(result_keys_per_bucket, group_result.num_keys_per_bucket);
           ASSERT_EQ(result_keys_per_bucket, expected_keys_per_bucket);
-          if (table_placement_strategy == TablePlacementStrategy::DataParallel) {
-            std::vector<key_t> expected_keys;
+          // expected feature-major output
+          int shard_id = 0;
+          for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
             int num_shards = 0;
-            for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-              if (ebc_param.has_table_shard(gpu_id, group_id, lookup_id)) {
-                for (int i = 0;
-                     i < ebc_param.lookup_params[lookup_id].max_hotness * num_valid_samples; ++i) {
-                  expected_keys.push_back(i);
-                }
+            for (int i = 0; i < num_gpus; ++i) {
+              if (ebc_param.has_table_shard(i, group_id, lookup_id)) {
                 num_shards++;
               }
             }
 
-            //        printf("Skipping DP group: %zu\n", group_id);
-            //        printf("DP Keys size: %d\n", (int)result_keys.size());
-            //        printf("DP bucket range size: %d\n", (int)result_bucket_range.size());
-            //
-            //        printf("DP bucket range: ");
-            //        for (auto x : result_bucket_range) {
-            //          printf("%d ", (int)x);
-            //        }
-            //        printf("\n");
-            //        printf("DP keys: ");
-            //        for (auto x : result_keys) {
-            //          printf("%d ", (int)x);
-            //        }
-            //        printf("\n");
+            if (ebc_param.has_table_shard(gpu_id, group_id, lookup_id)) {
+              size_t num_keys = result_bucket_range[(shard_id + 1) * batch_size] -
+                                result_bucket_range[shard_id * batch_size];
 
-            // --- check bucket range and num_keys
-            size_t num_keys = result_bucket_range[num_shards * batch_size_per_dev];
-            ASSERT_EQ(num_keys, expected_keys.size());
-            ASSERT_EQ(results[gpu_id][group_id].h_num_keys, expected_keys.size());
+              // --- calculate expected keys for this gpu ---
+              int table_id = ebc_param.lookup_params[lookup_id].table_id;
+              std::vector<int> shard_gpus;
+              for (size_t i = 0; i < num_gpus; ++i) {
+                if (ebc_param.shard_matrix[i][table_id] == 1) {
+                  shard_gpus.push_back(i);
+                }
+              }
+              auto find_shard_id_iter = std::find(shard_gpus.begin(), shard_gpus.end(), gpu_id);
+              HCTR_CHECK_HINT(find_shard_id_iter != shard_gpus.end(),
+                              "ModelParallelEmbeddingMeta does not find shard id");
+              int this_gpu_shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
 
-            // --- check keys
-            result_keys.resize(num_keys);
-            ASSERT_EQ(result_keys, expected_keys);
-
-          } else if (table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-            // expected feature-major output
-            int shard_id = 0;
-            for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
-              int num_shards = 0;
-              for (int i = 0; i < num_gpus; ++i) {
-                if (ebc_param.has_table_shard(i, group_id, lookup_id)) {
-                  num_shards++;
+              std::vector<key_t> expected_keys;
+              for (int i = 0; i < current_batch_size * lookup_params[lookup_id].max_hotness; ++i) {
+                key_t key = i % (batch_size_per_dev * lookup_params[lookup_id].max_hotness);
+                if (key % num_shards == this_gpu_shard_id) {
+                  expected_keys.push_back(key);
                 }
               }
 
-              if (ebc_param.has_table_shard(gpu_id, group_id, lookup_id)) {
-                size_t num_keys = result_bucket_range[(shard_id + 1) * batch_size] -
-                                  result_bucket_range[shard_id * batch_size];
+              // --- check ---
+              ASSERT_EQ(num_keys, expected_keys.size());
 
-                // --- calculate expected keys for this gpu ---
-                int table_id = ebc_param.lookup_params[lookup_id].table_id;
-                std::vector<int> shard_gpus;
-                for (size_t i = 0; i < num_gpus; ++i) {
-                  if (ebc_param.shard_matrix[i][table_id] == 1) {
-                    shard_gpus.push_back(i);
-                  }
-                }
-                auto find_shard_id_iter = std::find(shard_gpus.begin(), shard_gpus.end(), gpu_id);
-                HCTR_CHECK_HINT(find_shard_id_iter != shard_gpus.end(),
-                                "ModelParallelEmbeddingMeta does not find shard id");
-                int this_gpu_shard_id = std::distance(shard_gpus.begin(), find_shard_id_iter);
+              auto begin = result_keys.begin() + result_bucket_range[shard_id * batch_size];
+              auto end = begin + num_keys;
+              std::vector<key_t> result_shard_keys(begin, end);
 
-                std::vector<key_t> expected_keys;
-                for (int i = 0; i < current_batch_size * lookup_params[lookup_id].max_hotness;
-                     ++i) {
-                  key_t key = i % (batch_size_per_dev * lookup_params[lookup_id].max_hotness);
-                  if (key % num_shards == this_gpu_shard_id) {
-                    expected_keys.push_back(key);
-                  }
-                }
+              ASSERT_EQ(result_shard_keys, expected_keys);
 
-                // --- check ---
-                ASSERT_EQ(num_keys, expected_keys.size());
+              //          printf("num_expected_keys: %zu\n", expected_keys.size());
+              //          printf("expected keys: ");
+              //          for (auto x : expected_keys) {
+              //            printf("%d ", x);
+              //          }
+              //          printf("\n");
+              //          printf("result_shard keys: ");
+              //          for (auto x : result_shard_keys) {
+              //            printf("%d ", x);
+              //          }
+              //          printf("\n");
 
-                auto begin = result_keys.begin() + result_bucket_range[shard_id * batch_size];
-                auto end = begin + num_keys;
-                std::vector<key_t> result_shard_keys(begin, end);
-
-                ASSERT_EQ(result_shard_keys, expected_keys);
-
-                //          printf("num_expected_keys: %zu\n", expected_keys.size());
-                //          printf("expected keys: ");
-                //          for (auto x : expected_keys) {
-                //            printf("%d ", x);
-                //          }
-                //          printf("\n");
-                //          printf("result_shard keys: ");
-                //          for (auto x : result_shard_keys) {
-                //            printf("%d ", x);
-                //          }
-                //          printf("\n");
-
-                shard_id++;
-              }
+              shard_id++;
             }
           }
+        } break;
+        case (embedding::EmbeddingGroupType::DataParallel): {
+          std::vector<offset_t> result_bucket_range(group_result.bucket_range.num_elements());
+          core23::copy_sync(result_bucket_range, group_result.bucket_range);
+
+          std::vector<offset_t> result_keys_per_bucket(
+              group_result.num_keys_per_bucket.num_elements());
+          core23::copy_sync(result_keys_per_bucket, group_result.num_keys_per_bucket);
+          ASSERT_EQ(result_keys_per_bucket, expected_keys_per_bucket);
+          std::vector<key_t> expected_keys;
+          int num_shards = 0;
+          for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+            if (ebc_param.has_table_shard(gpu_id, group_id, lookup_id)) {
+              for (int i = 0;
+                   i < ebc_param.lookup_params[lookup_id].max_hotness * num_valid_samples; ++i) {
+                expected_keys.push_back(i);
+              }
+              num_shards++;
+            }
+          }
+
+          //        printf("Skipping DP group: %zu\n", group_id);
+          //        printf("DP Keys size: %d\n", (int)result_keys.size());
+          //        printf("DP bucket range size: %d\n", (int)result_bucket_range.size());
+          //
+          //        printf("DP bucket range: ");
+          //        for (auto x : result_bucket_range) {
+          //          printf("%d ", (int)x);
+          //        }
+          //        printf("\n");
+          //        printf("DP keys: ");
+          //        for (auto x : result_keys) {
+          //          printf("%d ", (int)x);
+          //        }
+          //        printf("\n");
+
+          // --- check bucket range and num_keys
+          size_t num_keys = result_bucket_range[num_shards * batch_size_per_dev];
+          ASSERT_EQ(num_keys, expected_keys.size());
+          ASSERT_EQ(results[gpu_id][group_id].h_num_keys, expected_keys.size());
+
+          // --- check keys
+          result_keys.resize(num_keys);
+          ASSERT_EQ(result_keys, expected_keys);
 
         } break;
         default:

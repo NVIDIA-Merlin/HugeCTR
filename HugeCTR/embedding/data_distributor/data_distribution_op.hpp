@@ -64,8 +64,6 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
 
   embedding::EmbeddingCollectionParam ebc_param_;
 
-  embedding::EmbeddingType embedding_type_;
-
   size_t num_global_gpus_;
   // Dense Unique Operators
   struct DenseMPTempStorage {

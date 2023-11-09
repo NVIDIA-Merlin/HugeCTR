@@ -636,7 +636,8 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
 
     auto ebc_mp_update = std::make_shared<StreamContextScheduleable>([=]() {
       for (auto& ebc : ebc_list_) {
-        ebc->update_per_gpu(local_id, embedding::TablePlacementStrategy::ModelParallel);
+        ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::SparseModelParallel);
+        ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::DenseModelParallel);
       }
     });
 
@@ -654,7 +655,7 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
 
     auto ebc_dp_update = std::make_shared<StreamContextScheduleable>([=]() {
       for (auto& ebc : ebc_list_) {
-        ebc->update_per_gpu(local_id, embedding::TablePlacementStrategy::DataParallel);
+        ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::DataParallel);
       }
     });
 
