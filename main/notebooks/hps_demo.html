@@ -108,16 +108,16 @@
 HPS supports different database backends and GPU embedding caches.</p>
 <p>This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks.</p>
 <ol class="arabic simple">
-<li><p><span class="xref myst">Inference with HPS &amp; ONNX</span></p></li>
-<li><p><span class="xref myst">Lookup the Embedding Vector from DLPacke</span></p></li>
-<li><p><span class="xref myst">Multi-process inferenceon</span></p></li>
-<li><p><span class="xref myst">Redis Cluster deployment (without TLS/SSL)</span></p></li>
-<li><p><span class="xref myst">Redis Cluster deployment (with TLS/SSL)</span></p></li>
+<li><p><a class="reference internal" href="#section-1"><span class="xref myst">Inference with HPS &amp; ONNX</span></a></p></li>
+<li><p><a class="reference internal" href="#section-2"><span class="xref myst">Lookup the Embedding Vector from DLPacke</span></a></p></li>
+<li><p><a class="reference internal" href="#section-3"><span class="xref myst">Multi-process inferenceon</span></a></p></li>
+<li><p><a class="reference internal" href="#section-4"><span class="xref myst">Redis Cluster deployment (without TLS/SSL)</span></a></p></li>
+<li><p><a class="reference internal" href="#section-5"><span class="xref myst">Redis Cluster deployment (with TLS/SSL)</span></a></p></li>
 </ol>
 </section>
 <section id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
-<p>To setup the environment, refer to <a class="reference internal" href="index.html"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
+<p>To setup the environment, refer to <a class="reference internal" href="#../notebooks"><span class="xref myst">HugeCTR Example Notebooks</span></a> and follow the instructions there before running the following.</p>
 </section>
 <section id="data-generation">
 <h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this heading"></a></h2>

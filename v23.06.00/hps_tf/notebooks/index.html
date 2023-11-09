@@ -158,12 +158,12 @@ jupyter-notebook<span class="w"> </span>--allow-root<span class="w"> </span>--ip
 <h2>Notebook List<a class="headerlink" href="#notebook-list" title="Permalink to this heading"></a></h2>
 <p>Here’s a list of notebooks that you can run:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a>: Demonstrates how to train with native TF layers and make inference with HPS.</p></li>
-<li><p><a class="reference internal" href="hps_multi_table_sparse_input_demo.html"><span class="doc std std-doc">hps_multi_table_sparse_input_demo.ipynb</span></a>: Demonstrates how to train with native TF layers and make inference with HPS when there are multiple embedding tables and the input keys are in the form of sparse tensor.</p></li>
-<li><p><a class="reference internal" href="hps_pretrained_model_training_demo.html"><span class="doc std std-doc">hps_pretrained_model_training_demo.ipynb</span></a>: Demonstrates how to leverage the HPS to load the pre-trained embedding tables for new training tasks and how to use HPS with TensorFlow Mirrored Strategy.</p></li>
-<li><p><a class="reference internal" href="sok_to_hps_dlrm_demo.html"><span class="doc std std-doc">sok_to_hps_dlrm_demo.ipynb</span></a>: Demonstrates how to train a DLRM model with <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">SparseOperationKit (SOK)</a> and then make inference with HPS.</p></li>
-<li><p><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html"><span class="doc std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a>: Demonstrates how to deploy the inference SavedModel that leverages HPS with the <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow backend</a>. The feature of implicit <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html">HPS initialization</a> is utilized in this notebook. It also shows how to apply <a class="reference external" href="https://github.com/tensorflow/tensorrt">TF-TRT</a> optimization to SavedModel whose embedding lookup is based on HPS.</p></li>
-<li><p><a class="reference internal" href="hps_table_fusion_demo.html"><span class="doc std std-doc">hps_table_fusion_demo.ipynb</span></a>: Demonstrates how to fuse embedding tables of the same embedding vector size with the HPS plugin for TensorFlow.</p></li>
+<li><p><a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="std std-doc">hierarchical_parameter_server_demo.ipynb</span></a>: Demonstrates how to train with native TF layers and make inference with HPS.</p></li>
+<li><p><a class="reference internal" href="hps_multi_table_sparse_input_demo.html"><span class="std std-doc">hps_multi_table_sparse_input_demo.ipynb</span></a>: Demonstrates how to train with native TF layers and make inference with HPS when there are multiple embedding tables and the input keys are in the form of sparse tensor.</p></li>
+<li><p><a class="reference internal" href="hps_pretrained_model_training_demo.html"><span class="std std-doc">hps_pretrained_model_training_demo.ipynb</span></a>: Demonstrates how to leverage the HPS to load the pre-trained embedding tables for new training tasks and how to use HPS with TensorFlow Mirrored Strategy.</p></li>
+<li><p><a class="reference internal" href="sok_to_hps_dlrm_demo.html"><span class="std std-doc">sok_to_hps_dlrm_demo.ipynb</span></a>: Demonstrates how to train a DLRM model with <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">SparseOperationKit (SOK)</a> and then make inference with HPS.</p></li>
+<li><p><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html"><span class="std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a>: Demonstrates how to deploy the inference SavedModel that leverages HPS with the <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">Triton TensorFlow backend</a>. The feature of implicit <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html">HPS initialization</a> is utilized in this notebook. It also shows how to apply <a class="reference external" href="https://github.com/tensorflow/tensorrt">TF-TRT</a> optimization to SavedModel whose embedding lookup is based on HPS.</p></li>
+<li><p><a class="reference internal" href="hps_table_fusion_demo.html"><span class="std std-doc">hps_table_fusion_demo.ipynb</span></a>: Demonstrates how to fuse embedding tables of the same embedding vector size with the HPS plugin for TensorFlow.</p></li>
 </ul>
 </section>
 <section id="system-specifications">
@@ -179,37 +179,37 @@ jupyter-notebook<span class="w"> </span>--allow-root<span class="w"> </span>--ip
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="std std-doc">hierarchical_parameter_server_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="hps_multi_table_sparse_input_demo.html"><span class="doc std std-doc">hps_multi_table_sparse_input_demo.ipynb</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="hps_multi_table_sparse_input_demo.html"><span class="std std-doc">hps_multi_table_sparse_input_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="hps_pretrained_model_training_demo.html"><span class="doc std std-doc">hps_pretrained_model_training_demo.ipynb</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="hps_pretrained_model_training_demo.html"><span class="std std-doc">hps_pretrained_model_training_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>4</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="sok_to_hps_dlrm_demo.html"><span class="doc std std-doc">sok_to_hps_dlrm_demo.ipynb</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="sok_to_hps_dlrm_demo.html"><span class="std std-doc">sok_to_hps_dlrm_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html"><span class="doc std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="hps_tensorflow_triton_deployment_demo.html"><span class="std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="hps_table_fusion_demo.html"><span class="doc std std-doc">hps_table_fusion_demo.ipynb</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="hps_table_fusion_demo.html"><span class="std std-doc">hps_table_fusion_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>

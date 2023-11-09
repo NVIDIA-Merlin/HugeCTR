@@ -146,12 +146,12 @@ So HugeCTR performance is mainly decided by what kinds of GPUs and I/O devices a
 <section id="what-is-the-specific-format-of-files-as-input-in-hugectr">
 <h2>10. What is the specific format of files as input in HugeCTR?<a class="headerlink" href="#what-is-the-specific-format-of-files-as-input-in-hugectr" title="Permalink to this heading"></a></h2>
 <p>We have specific file format support.
-Refer to the <a class="reference internal" href="api/python_interface.html#dataset-formats"><span class="std std-doc">Dataset formats</span></a> section of the Python API documentation.</p>
+Refer to the <a class="reference internal" href="api/python_interface.html#dataset-formats"><span class="std std-ref">Dataset formats</span></a> section of the Python API documentation.</p>
 </section>
 <section id="does-hugectr-support-python-interface">
 <h2>11.	 Does HugeCTR support Python interface?<a class="headerlink" href="#does-hugectr-support-python-interface" title="Permalink to this heading"></a></h2>
 <p>Yes we introduced our first version of Python interface.
-Check out our <a class="reference internal" href="notebooks/index.html"><span class="doc std std-doc">example notebooks</span></a> and Python <a class="reference internal" href="api/python_interface.html"><span class="doc std std-doc">API documentation</span></a>.</p>
+Check out our <a class="reference internal" href="notebooks/index.html"><span class="std std-doc">example notebooks</span></a> and Python <a class="reference internal" href="api/python_interface.html"><span class="std std-doc">API documentation</span></a>.</p>
 </section>
 <section id="does-hugectr-do-synchronous-training-with-multiple-gpus-and-nodes-otherwise-does-it-do-asynchronous-training">
 <h2>12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training?<a class="headerlink" href="#does-hugectr-do-synchronous-training-with-multiple-gpus-and-nodes-otherwise-does-it-do-asynchronous-training" title="Permalink to this heading"></a></h2>
@@ -231,7 +231,7 @@ Refer to the dump_to_tf tutorial in the <a class="reference external" href="http
 </section>
 <section id="how-can-i-benchmark-my-network">
 <h2>23. How can I benchmark my network?<a class="headerlink" href="#how-can-i-benchmark-my-network" title="Permalink to this heading"></a></h2>
-<p>Firstly, you should construct your own configure file. You can refer to our <a class="reference internal" href="hugectr_user_guide.html"><span class="doc std std-doc">User Guide</span></a> and samples.
+<p>Firstly, you should construct your own configure file. You can refer to our <a class="reference internal" href="hugectr_user_guide.html"><span class="std std-doc">User Guide</span></a> and samples.
 Secondly, using our <code class="docutils literal notranslate"><span class="pre">data_generator</span></code> to generate a random dataset. See the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR#getting-started">Getting Started</a> section of the HugeCTR repository README for an example.
 Thirdly, run with <code class="docutils literal notranslate"><span class="pre">./huge_ctr</span> <span class="pre">--train</span> <span class="pre">./your_config.json</span></code></p>
 </section>
@@ -279,12 +279,12 @@ The <code class="docutils literal notranslate"><span class="pre">workspace_size_
 </section>
 <section id="does-hugectr-support-loading-pretrained-embeddings-in-other-formats">
 <h2>28. Does HugeCTR support loading pretrained embeddings in other formats?<a class="headerlink" href="#does-hugectr-support-loading-pretrained-embeddings-in-other-formats" title="Permalink to this heading"></a></h2>
-<p>You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to <a class="reference internal" href="api/python_interface.html#save-params-to-files-method"><span class="std std-doc">save_params_to_files</span></a> to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of <a class="reference internal" href="notebooks/hugectr_criteo.html"><span class="doc std std-doc">hugectr_criteo.ipynb</span></a>.</p>
+<p>You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to <a class="reference internal" href="api/python_interface.html#save-params-to-files-method"><span class="std std-ref">save_params_to_files</span></a> to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of <a class="reference internal" href="#../notebooks/hugectr_criteo.ipynb"><span class="xref myst">hugectr_criteo.ipynb</span></a>.</p>
 </section>
 <section id="how-to-construct-the-model-graph-with-branch-topology-in-hugectr">
 <h2>29. How to construct the model graph with branch topology in HugeCTR?<a class="headerlink" href="#how-to-construct-the-model-graph-with-branch-topology-in-hugectr" title="Permalink to this heading"></a></h2>
 <p>The branch topology is inherently supported by HugeCTR model graph, and extra layers are abstracted away in HugeCTR Python Interface.
-Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#slice-layer"><span class="std std-doc">Slice Layer</span></a> for information about model graphs with branches and sample code.</p>
+Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#slice-layer"><span class="std std-ref">Slice Layer</span></a> for information about model graphs with branches and sample code.</p>
 </section>
 <section id="what-is-the-good-practice-of-configuring-the-embedding-vector-size">
 <h2>30. What is the good practice of configuring the embedding vector size?<a class="headerlink" href="#what-is-the-good-practice-of-configuring-the-embedding-vector-size" title="Permalink to this heading"></a></h2>

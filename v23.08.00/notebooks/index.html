@@ -189,15 +189,15 @@ See <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/
 <p>The notebooks are located within the container and can be found in the <code class="docutils literal notranslate"><span class="pre">/HugeCTR/notebooks</span></code> directory.</p>
 <p>Here’s a list of notebooks that you can run:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="hugectr_e2e_demo.html"><span class="doc std std-doc">hugectr_e2e_demo.ipynb</span></a>: Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.</p></li>
-<li><p><a class="reference internal" href="continuous_training.html"><span class="doc std std-doc">continuous_training.ipynb</span></a>: Notebook to introduce how to deploy continued training with HugeCTR.</p></li>
-<li><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="doc std std-doc">multi_gpu_offline_inference.ipynb</span></a>: Explain how to do multi-GPU offline inference with HugeCTR Python APIs.</p></li>
-<li><p><a class="reference internal" href="hps_demo.html"><span class="doc std std-doc">hps_demo.ipynb</span></a>: Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.</p></li>
-<li><p><a class="reference internal" href="training_and_inference_with_remote_filesystem.html"><span class="doc std std-doc">training_and_inference_with_remote_filesystem.ipynb</span></a>: Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.</p></li>
+<li><p><a class="reference internal" href="hugectr_e2e_demo.html"><span class="std std-doc">hugectr_e2e_demo.ipynb</span></a>: Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.</p></li>
+<li><p><a class="reference internal" href="continuous_training.html"><span class="std std-doc">continuous_training.ipynb</span></a>: Notebook to introduce how to deploy continued training with HugeCTR.</p></li>
+<li><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="std std-doc">multi_gpu_offline_inference.ipynb</span></a>: Explain how to do multi-GPU offline inference with HugeCTR Python APIs.</p></li>
+<li><p><a class="reference internal" href="hps_demo.html"><span class="std std-doc">hps_demo.ipynb</span></a>: Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.</p></li>
+<li><p><a class="reference internal" href="training_and_inference_with_remote_filesystem.html"><span class="std std-doc">training_and_inference_with_remote_filesystem.ipynb</span></a>: Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.</p></li>
 </ul>
-<p>The <a class="reference internal" href="multi-modal-data/index.html"><span class="xref myst">multi-modal-data</span></a> series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
+<p>The <a class="reference internal" href="#./multi-modal-data/"><span class="xref myst">multi-modal-data</span></a> series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.</p>
-<p>More notebooks on the Hierarchical Parameter Server (HPS) are available with its <span class="xref myst">TensorRT</span> and <span class="xref myst">Tensorflow</span> plugins.</p>
+<p>More notebooks on the Hierarchical Parameter Server (HPS) are available with its <a class="reference internal" href="#hps_trt/notebooks"><span class="xref myst">TensorRT</span></a> and <a class="reference internal" href="#hps_tf/notebooks"><span class="xref myst">Tensorflow</span></a> plugins.</p>
 <p>For Sparse Operation Kit notebooks, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks">sparse_operation_kit/notebooks/</a> directory of the repository or the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">documentation</a>.</p>
 </section>
 <section id="system-specifications">
@@ -213,31 +213,31 @@ The notebooks use the Movielens-25M dataset.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference internal" href="multi-modal-data/index.html"><span class="xref myst">multi-modal-data</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#multi-modal-data"><span class="xref myst">multi-modal-data</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Vinh Nguyen</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="continuous_training.html"><span class="doc std std-doc">continuous_training.ipynb</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="continuous_training.html"><span class="std std-doc">continuous_training.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Xiaolei Shi</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="doc std std-doc">multi_gpu_offline_inference.ipynb</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="std std-doc">multi_gpu_offline_inference.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>4</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="hps_demo.html"><span class="doc std std-doc">hps_demo.ipynb</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="hps_demo.html"><span class="std std-doc">hps_demo.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>
 <td><p>Kingsley Liu</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="training_and_inference_with_remote_filesystem.html"><span class="doc std std-doc">training_and_inference_with_remote_filesystem.ipynb</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="training_and_inference_with_remote_filesystem.html"><span class="std std-doc">training_and_inference_with_remote_filesystem.ipynb</span></a></p></td>
 <td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
 <td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
 <td><p>1</p></td>

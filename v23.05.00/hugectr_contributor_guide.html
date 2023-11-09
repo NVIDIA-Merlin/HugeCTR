@@ -114,10 +114,10 @@
 <p><strong>NOTE</strong>: After we review your request, we’ll assign it to a future release. If you think the issue should be prioritized over others, comment on the issue.</p>
 </li>
 <li><p>proposing and implementing a new feature.</p>
-<p><strong>NOTE</strong>: Once we agree to the proposed design, you can go ahead and implement the new feature using the steps outlined in the <a class="reference internal" href="#contribute-new-code"><span class="std std-doc">Contribute New Code section</span></a>.</p>
+<p><strong>NOTE</strong>: Once we agree to the proposed design, you can go ahead and implement the new feature using the steps outlined in the <a class="reference internal" href="#contribute-new-code">Contribute New Code section</a>.</p>
 </li>
 <li><p>implementing a pending feature or fixing a bug.</p>
-<p><strong>NOTE</strong>: Use the steps outlined in the <a class="reference internal" href="#contribute-new-code"><span class="std std-doc">Contribute New Code section</span></a>. If you need more information about a particular issue,
+<p><strong>NOTE</strong>: Use the steps outlined in the <a class="reference internal" href="#contribute-new-code">Contribute New Code section</a>. If you need more information about a particular issue,
 add your comments on the issue.</p>
 </li>
 </ul>
@@ -125,7 +125,7 @@ add your comments on the issue.</p>
 <section id="contribute-new-code">
 <h2>Contribute New Code<a class="headerlink" href="#contribute-new-code" title="Permalink to this heading"></a></h2>
 <ol class="arabic">
-<li><p>Build HugeCTR or Sparse Operation Kit (SOK) from source using the steps outlined in the <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">Set Up the Development Environment with Merlin Containers</span></a>.</p></li>
+<li><p>Build HugeCTR or Sparse Operation Kit (SOK) from source using the steps outlined in the <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers">Set Up the Development Environment with Merlin Containers</a>.</p></li>
 <li><p><a class="reference external" href="https://github.com/NVIDIA/HugeCTR/issues/new/choose">File an issue</a> and add a comment stating that you’ll work on it.</p></li>
 <li><p>Start coding.</p>
 <p><strong>NOTE</strong>: Don’t forget to add or update the unit tests properly.</p>
@@ -175,7 +175,7 @@ I have no name!@56a762eae3f8:/hugectr
 <h3>Build HugeCTR Training Container from Source<a class="headerlink" href="#build-hugectr-training-container-from-source" title="Permalink to this heading"></a></h3>
 <p>To build HugeCTR Training Container from source, do the following:</p>
 <ol class="arabic">
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers">here</a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
 $<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
@@ -186,7 +186,7 @@ $<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </
 <li><p>Build HugeCTR from scratch using one or any combination of the following options:</p>
 <ul class="simple">
 <li><p><strong>SM</strong>: You can use this option to build HugeCTR with a specific compute capability (DSM=90) or multiple compute capabilities (DSM=”80;70”). The default compute capability
-is 70, which uses the NVIDIA V100 GPU. For more information, refer to the <a class="reference internal" href="hugectr_user_guide.html#compute-capability"><span class="std std-doc">Compute Capability</span></a> table. 60 is not supported for inference deployments. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#quick-start">Quick Start</a> for the HugeCTR backend of Triton Inference Server.</p></li>
+is 70, which uses the NVIDIA V100 GPU. For more information, refer to the <a class="reference internal" href="hugectr_user_guide.html#compute-capability"><span class="std std-ref">Compute Capability</span></a> table. 60 is not supported for inference deployments. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#quick-start">Quick Start</a> for the HugeCTR backend of Triton Inference Server.</p></li>
 <li><p><strong>CMAKE_BUILD_TYPE</strong>: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
 in a synchronous manner.
 average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by
@@ -194,7 +194,7 @@ default.</p></li>
 <li><p><strong>ENABLE_MULTINODES</strong>: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn">deep and cross network samples</a> directory on GitHub.</p></li>
 <li><p><strong>ENABLE_INFERENCE</strong>: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
 will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
-OFF by default. For building inference container, please refer to <a class="reference internal" href="#build-hugectr-inference-container-from-source"><span class="std std-doc">Build HugeCTR Inference Container from Source</span></a></p></li>
+OFF by default. For building inference container, please refer to <a class="reference internal" href="#build-hugectr-inference-container-from-source">Build HugeCTR Inference Container from Source</a></p></li>
 <li><p><strong>ENABLE_HDFS</strong>: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissable values are <code class="docutils literal notranslate"><span class="pre">ON</span></code>, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary Hadoop modules that are required for building AND running both HugeCTR and HDFS. In contrast, <code class="docutils literal notranslate"><span class="pre">MINIMAL</span></code> restricts building only the minimum necessary set of components for building HugeCTR.</p></li>
 <li><p><strong>ENABLE_S3</strong>: You can use this option to build HugeCTR together with Amazon AWS S3 SDK to enable S3 related functions. Permissable values are <code class="docutils literal notranslate"><span class="pre">ON</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary AWS SKKs and dependecies that are required for building AND running both HugeCTR and S3.</p></li>
 </ul>
@@ -231,7 +231,7 @@ $<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><
 <h3>Build HugeCTR Inference Container from Source<a class="headerlink" href="#build-hugectr-inference-container-from-source" title="Permalink to this heading"></a></h3>
 <p>To build HugeCTR inference container from source, do the following:</p>
 <ol class="arabic">
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers">here</a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
 $<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
@@ -252,7 +252,7 @@ $<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><
 <h3>Build Sparse Operation Kit (SOK) from Source<a class="headerlink" href="#build-sparse-operation-kit-sok-from-source" title="Permalink to this heading"></a></h3>
 <p>To build the Sparse Operation Kit component in HugeCTR, do the following:</p>
 <ol class="arabic">
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf">Merlin Tensorflow Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers">here</a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf">Merlin Tensorflow Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository by running the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git<span class="w"> </span>hugectr
 </pre></div>
