@@ -33,7 +33,7 @@ UniformDataParallelEmbeddingMeta::UniformDataParallelEmbeddingMeta(
 
   const auto& lookup_params = ebc_param.lookup_params;
   const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::DataParallel,
                   "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
 
   size_t num_gpus = core->get_global_gpu_count();
@@ -101,9 +101,6 @@ void UniformDataParallelEmbeddingMeta::update_mutable_meta(
 
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto& lookup_params = ebc_param.lookup_params;
-  const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::DataParallel,
-                  "UniformDataParallelEmbeddingMeta must be initialized by DataParallel");
 
   size_t num_gpus = core->get_global_gpu_count();
   int gpu_id = core->get_global_gpu_id();

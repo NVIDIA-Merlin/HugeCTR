@@ -79,9 +79,10 @@ void EmbeddingCollection::init_wgrad(std::vector<std::shared_ptr<CoreResourceMan
     wgrad_list_[gpu_id].resize(num_grouped);
     for (size_t grouped_id = 0; grouped_id < num_grouped; ++grouped_id) {
       Wgrad &wgrad = wgrad_list_[gpu_id][grouped_id];
-      auto current_tps = ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy;
-      // 1. when mp or sparse allreduce,
-      if (current_tps == TablePlacementStrategy::ModelParallel) {
+      auto embedding_group_type = ebc_param_.grouped_lookup_params[grouped_id].embedding_group_type;
+      // 1. when mp
+      if (embedding_group_type == EmbeddingGroupType::DenseModelParallel ||
+          embedding_group_type == EmbeddingGroupType::SparseModelParallel) {
         WgradInitializer{core[gpu_id], ebc_param_, grouped_id,
                          embeddings_[gpu_id][grouped_id]->get_wgrad_attr()}
             .init(wgrad)
@@ -154,9 +155,8 @@ void EmbeddingCollection::init_peer_buffer(std::vector<std::shared_ptr<CoreResou
       };
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); ++grouped_id) {
-    if (ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy ==
-            TablePlacementStrategy::ModelParallel &&
-        ebc_param_.grouped_lookup_params[grouped_id].embedding_type == EmbeddingType::Sparse) {
+    if (ebc_param_.grouped_lookup_params[grouped_id].embedding_group_type ==
+        EmbeddingGroupType::SparseModelParallel) {
       init_hierarchical_embedding(embeddings_, grouped_id);
       init_hierarchical_embedding(eval_embeddings_, grouped_id);
     }
@@ -184,39 +184,32 @@ void EmbeddingCollection::cache_ddl_output(int gpu_id,
     auto &grouped_lookup_params = ebc_param_.grouped_lookup_params[grouped_id];
     core23::copy_async(dst_result.num_keys_per_bucket, src_result.num_keys_per_bucket, stream);
 
-    if (grouped_lookup_params.embedding_type == EmbeddingType::Sparse) {
+    if (grouped_lookup_params.embedding_group_type == EmbeddingGroupType::DataParallel ||
+        grouped_lookup_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel) {
       core23::copy_async(dst_result.bucket_range, src_result.bucket_range, stream);
-    } else if (grouped_lookup_params.embedding_type == EmbeddingType::Dense) {
-      if (grouped_lookup_params.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
-        core23::copy_async(dst_result.dense_compression_input.num_keys_per_table_offset,
-                           src_result.dense_compression_input.num_keys_per_table_offset, stream);
-        core23::copy_async(dst_result.dense_compression_input.table_ids,
-                           src_result.dense_compression_input.table_ids, stream);
+    } else if (grouped_lookup_params.embedding_group_type ==
+               EmbeddingGroupType::DenseModelParallel) {
+      core23::copy_async(dst_result.dense_compression_input.num_keys_per_table_offset,
+                         src_result.dense_compression_input.num_keys_per_table_offset, stream);
+      core23::copy_async(dst_result.dense_compression_input.table_ids,
+                         src_result.dense_compression_input.table_ids, stream);
 
-        auto &dst_compression_input =
-            dst_result.dense_compression_input.model_parallel_compression_input;
-        auto &src_compression_input =
-            src_result.dense_compression_input.model_parallel_compression_input;
-        core23::copy_sync(dst_compression_input.h_send_k_per_gpu,
-                          src_compression_input.h_send_k_per_gpu);
-        core23::copy_sync(dst_compression_input.h_recv_k_per_gpu,
-                          src_compression_input.h_recv_k_per_gpu);
-        core23::copy_async(dst_compression_input.model_reverse_idx,
-                           src_compression_input.model_reverse_idx, stream);
-        dst_compression_input.num_model_reverse_idx = src_compression_input.num_model_reverse_idx;
-        core23::copy_async(dst_compression_input.network_reverse_idx,
-                           src_compression_input.network_reverse_idx, stream);
-        dst_compression_input.num_network_reverse_idx =
-            src_compression_input.num_network_reverse_idx;
-        core23::copy_async(dst_compression_input.network_dst_bucket_ids,
-                           src_compression_input.network_dst_bucket_ids, stream);
-      } else if (grouped_lookup_params.table_placement_strategy ==
-                 TablePlacementStrategy::DataParallel) {
-        // FIXME: duplicate with sparse embedding type
-        core23::copy_async(dst_result.bucket_range, src_result.bucket_range, stream);
-      } else {
-        HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "not supported table placement strategy.");
-      }
+      auto &dst_compression_input =
+          dst_result.dense_compression_input.model_parallel_compression_input;
+      auto &src_compression_input =
+          src_result.dense_compression_input.model_parallel_compression_input;
+      core23::copy_sync(dst_compression_input.h_send_k_per_gpu,
+                        src_compression_input.h_send_k_per_gpu);
+      core23::copy_sync(dst_compression_input.h_recv_k_per_gpu,
+                        src_compression_input.h_recv_k_per_gpu);
+      core23::copy_async(dst_compression_input.model_reverse_idx,
+                         src_compression_input.model_reverse_idx, stream);
+      dst_compression_input.num_model_reverse_idx = src_compression_input.num_model_reverse_idx;
+      core23::copy_async(dst_compression_input.network_reverse_idx,
+                         src_compression_input.network_reverse_idx, stream);
+      dst_compression_input.num_network_reverse_idx = src_compression_input.num_network_reverse_idx;
+      core23::copy_async(dst_compression_input.network_dst_bucket_ids,
+                         src_compression_input.network_dst_bucket_ids, stream);
     } else {
       HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "not supported embedding_type.");
     }
@@ -295,9 +288,10 @@ void EmbeddingCollection::backward_per_gpu(int gpu_id,
   }
 }
 
-void EmbeddingCollection::update_per_gpu(int gpu_id, embedding::TablePlacementStrategy tps) {
+void EmbeddingCollection::update_per_gpu(int gpu_id, EmbeddingGroupType embedding_group_type) {
   for (size_t grouped_id = 0; grouped_id < embeddings_[gpu_id].size(); ++grouped_id) {
-    if (ebc_param_.grouped_lookup_params[grouped_id].table_placement_strategy != tps) continue;
+    if (ebc_param_.grouped_lookup_params[grouped_id].embedding_group_type != embedding_group_type)
+      continue;
     auto &wgrad = wgrad_list_[gpu_id][grouped_id];
 
     auto table = get_table(gpu_id, grouped_id);
@@ -307,8 +301,9 @@ void EmbeddingCollection::update_per_gpu(int gpu_id, embedding::TablePlacementSt
 }
 
 void EmbeddingCollection::update_per_gpu(int gpu_id) {
-  for (auto tps : {embedding::TablePlacementStrategy::DataParallel,
-                   embedding::TablePlacementStrategy::ModelParallel}) {
+  for (auto tps : {embedding::EmbeddingGroupType::DataParallel,
+                   embedding::EmbeddingGroupType::SparseModelParallel,
+                   embedding::EmbeddingGroupType::DenseModelParallel}) {
     update_per_gpu(gpu_id, tps);
   }
 }

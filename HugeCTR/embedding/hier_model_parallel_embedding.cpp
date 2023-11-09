@@ -26,10 +26,10 @@ HierModelParallelEmbeddingMeta::HierModelParallelEmbeddingMeta(
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &lookup_params = ebc_param.lookup_params;
   const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(
-      group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel &&
-          ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
-      "HierModelParallelEmbeddingMeta must be initialized by ModelParallel & Hierarchical comm");
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel &&
+                      ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
+                  "HierModelParallelEmbeddingMeta must be initialized by SparseModelParallel & "
+                  "Hierarchical comm");
 
   size_t num_global_gpus = core->get_global_gpu_count();
 
@@ -104,8 +104,8 @@ void HierModelParallelEmbeddingMeta::update_mutable_meta(std::shared_ptr<CoreRes
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &lookup_params = ebc_param.lookup_params;
   const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel,
+                  "UniformModelParallelEmbeddingMeta must be initialized by SparseModelParallel");
 
   size_t num_gpus = core->get_global_gpu_count();
   int gpu_id = core->get_global_gpu_id();

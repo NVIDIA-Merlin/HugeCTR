@@ -68,9 +68,9 @@ void IntraModelBackwardAttr::init(
     size_t grouped_id, const std::vector<std::vector<int>> &h_lookup_ids_in_current_node) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   const auto &group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel &&
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel &&
                       ebc_param.comm_strategy_ == CommunicationStrategy::Hierarchical,
-                  "IntraModelReductionBufferAttr must be initialized by ModelParallel & "
+                  "IntraModelReductionBufferAttr must be initialized by SparseModelParallel & "
                   "Hierarchical communication");
 
   int num_local_gpus = static_cast<int>(core->get_local_gpu_count());

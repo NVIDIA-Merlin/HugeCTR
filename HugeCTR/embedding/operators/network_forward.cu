@@ -94,8 +94,8 @@ void NetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam& ebc_param, size_t grouped_id,
                              const std::vector<std::vector<int>>& h_global_lookup_ids) {
   const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "UniformModelParallelEmbeddingMeta must be initialized by ModelParallel");
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::SparseModelParallel,
+                  "UniformModelParallelEmbeddingMeta must be initialized by SparseModelParallel");
 
   this->num_gpus = static_cast<int>(h_global_lookup_ids.size());
 
@@ -208,8 +208,8 @@ void DenseNetworkBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
                                   const EmbeddingCollectionParam& ebc_param, size_t grouped_id,
                                   int max_hotness) {
   const auto& group_params = ebc_param.grouped_lookup_params[grouped_id];
-  HCTR_CHECK_HINT(group_params.table_placement_strategy == TablePlacementStrategy::ModelParallel,
-                  "DenseNetworkBufferAttr must be initialized by ModelParallel");
+  HCTR_CHECK_HINT(group_params.embedding_group_type == EmbeddingGroupType::DenseModelParallel,
+                  "DenseNetworkBufferAttr must be initialized by DenseModelParallel");
 
   this->num_lookup = group_params.lookup_ids.size();
 

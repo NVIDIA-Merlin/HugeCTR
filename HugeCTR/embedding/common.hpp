@@ -140,7 +140,11 @@ enum class KeysPreprocessStrategy : int8_t { None, AddOffset };
 std::ostream &operator<<(std::ostream &os, const KeysPreprocessStrategy &p);
 enum class AllreduceStrategy : int8_t { Dense, GroupDense };
 std::ostream &operator<<(std::ostream &os, const AllreduceStrategy &p);
-enum class EmbeddingType : int8_t { Sparse, Dense };
+enum class EmbeddingGroupType : int8_t {
+  DataParallel,
+  DenseModelParallel,
+  SparseModelParallel,
+};
 
 struct LookupParam {
   int lookup_id;
@@ -169,16 +173,14 @@ struct GroupedTableParam {
 
 struct GroupedLookupParam {
   int grouped_table_idx;
-  TablePlacementStrategy table_placement_strategy;
-
   std::vector<int> lookup_ids;
-  EmbeddingType embedding_type;
-  GroupedLookupParam(int table_idx, TablePlacementStrategy tps, const std::vector<int> &lookup_ids,
-                     EmbeddingType embedding_type)
+  EmbeddingGroupType embedding_group_type;
+
+  GroupedLookupParam(int table_idx, const std::vector<int> &lookup_ids,
+                     EmbeddingGroupType embedding_group_type)
       : grouped_table_idx(table_idx),
-        table_placement_strategy(tps),
         lookup_ids(lookup_ids),
-        embedding_type(embedding_type) {}
+        embedding_group_type(embedding_group_type) {}
 };
 
 struct EmbeddingCollectionParam {
@@ -264,14 +266,26 @@ struct EmbeddingCollectionParam {
         }
       }
       if (!sparse_lookup_ids.empty()) {
-        grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
-                                           sparse_lookup_ids, EmbeddingType::Sparse);
+        if (table_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+          grouped_lookup_params.emplace_back(grouped_table_id, sparse_lookup_ids,
+                                             EmbeddingGroupType::DataParallel);
+        } else if (table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+          grouped_lookup_params.emplace_back(grouped_table_id, sparse_lookup_ids,
+                                             EmbeddingGroupType::SparseModelParallel);
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                         "table placement strategy not supported in embedding collection.");
+        }
       }
       if (!dense_lookup_ids.empty()) {
         for (auto &dense_lookup_ids_with_same_ev_size : dense_lookup_ids) {
-          grouped_lookup_params.emplace_back(grouped_table_id, table_param.table_placement_strategy,
-                                             dense_lookup_ids_with_same_ev_size,
-                                             EmbeddingType::Dense);
+          if (table_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+            grouped_lookup_params.emplace_back(grouped_table_id, dense_lookup_ids_with_same_ev_size,
+                                               EmbeddingGroupType::DenseModelParallel);
+          } else {
+            HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                           "table placement strategy not supported in embedding collection.");
+          }
         }
       }
     }

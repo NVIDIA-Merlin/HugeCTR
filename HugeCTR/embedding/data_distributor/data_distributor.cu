@@ -97,22 +97,18 @@ void DataDistributor::init_filtered_all_to_all() {
   for (size_t group_id = 0; group_id < ebc_param_.grouped_lookup_params.size(); group_id++) {
     std::vector<std::unique_ptr<IDataDistributionOp>> data_distribution_ops;
 
-    auto table_placement_strategy =
-        ebc_param_.grouped_lookup_params[group_id].table_placement_strategy;
-    auto embedding_type = ebc_param_.grouped_lookup_params[group_id].embedding_type;
+    auto embedding_group_type = ebc_param_.grouped_lookup_params[group_id].embedding_group_type;
     for (size_t i = 0; i < num_local_gpus_; ++i) {
       auto core = core_resource_managers_[i];
       CudaDeviceContext context(core->get_device_id());
 
-      if (table_placement_strategy == embedding::TablePlacementStrategy::DataParallel) {
+      if (embedding_group_type == embedding::EmbeddingGroupType::DataParallel) {
         data_distribution_ops.push_back(std::make_unique<SparseDPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
-      } else if (table_placement_strategy == embedding::TablePlacementStrategy::ModelParallel &&
-                 embedding_type == embedding::EmbeddingType::Sparse) {
+      } else if (embedding_group_type == embedding::EmbeddingGroupType::SparseModelParallel) {
         data_distribution_ops.push_back(std::make_unique<SparseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
-      } else if (table_placement_strategy == embedding::TablePlacementStrategy::ModelParallel &&
-                 embedding_type == embedding::EmbeddingType::Dense) {
+      } else if (embedding_group_type == embedding::EmbeddingGroupType::DenseModelParallel) {
         data_distribution_ops.push_back(std::make_unique<DenseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
       } else {
@@ -198,10 +194,10 @@ DataDistributor::Result allocate_output_for_data_distributor(
   for (size_t group_id = 0; group_id < ebc_param.grouped_lookup_params.size(); ++group_id) {
     auto& grouped_lookup_params = ebc_param.grouped_lookup_params[group_id];
 
-    int batch_size_after_filter = grouped_lookup_params.table_placement_strategy ==
-                                          embedding::TablePlacementStrategy::DataParallel
-                                      ? batch_size_per_gpu
-                                      : batch_size;
+    int batch_size_after_filter =
+        grouped_lookup_params.embedding_group_type == embedding::EmbeddingGroupType::DataParallel
+            ? batch_size_per_gpu
+            : batch_size;
     size_t num_buckets = 0ul;
     size_t num_features = 0ul;
     for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
@@ -230,71 +226,63 @@ DataDistributor::Result allocate_output_for_data_distributor(
         params.shape({static_cast<int64_t>(batch_size_per_gpu * ebc_param.num_lookup)})
             .data_type(ebc_param.offset_type));
 
-    if (grouped_lookup_params.embedding_type == embedding::EmbeddingType::Sparse) {
+    if (grouped_lookup_params.embedding_group_type == embedding::EmbeddingGroupType::DataParallel ||
+        grouped_lookup_params.embedding_group_type ==
+            embedding::EmbeddingGroupType::SparseModelParallel) {
       embedding_input.bucket_range = core23::Tensor(
           params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
               .data_type(ebc_param.offset_type));
-    } else if (grouped_lookup_params.embedding_type == embedding::EmbeddingType::Dense) {
-      if (grouped_lookup_params.table_placement_strategy ==
-          embedding::TablePlacementStrategy::ModelParallel) {
-        auto& dense_compression_input = embedding_input.dense_compression_input;
-        embedding::WgradAttr wgrad_attr;
-        wgrad_attr.init(core_resource_manager, ebc_param, group_id);
-        dense_compression_input.num_keys_per_table_offset =
-            core23::Tensor(params.shape({static_cast<int64_t>(wgrad_attr.num_table + 1)})
-                               .data_type(ebc_param.offset_type));
-        dense_compression_input.table_ids =
-            core23::Tensor(params.shape({static_cast<int64_t>(wgrad_attr.num_table)})
-                               .data_type(core23::ScalarType::Int32));
+    } else if (grouped_lookup_params.embedding_group_type ==
+               embedding::EmbeddingGroupType::DenseModelParallel) {
+      auto& dense_compression_input = embedding_input.dense_compression_input;
+      embedding::WgradAttr wgrad_attr;
+      wgrad_attr.init(core_resource_manager, ebc_param, group_id);
+      dense_compression_input.num_keys_per_table_offset =
+          core23::Tensor(params.shape({static_cast<int64_t>(wgrad_attr.num_table + 1)})
+                             .data_type(ebc_param.offset_type));
+      dense_compression_input.table_ids =
+          core23::Tensor(params.shape({static_cast<int64_t>(wgrad_attr.num_table)})
+                             .data_type(core23::ScalarType::Int32));
 
-        auto& model_parallel_compression_input =
-            dense_compression_input.model_parallel_compression_input;
-        model_parallel_compression_input.h_send_k_per_gpu =
-            core23::Tensor(params.shape({static_cast<int64_t>(num_global_gpus)})
-                               .data_type(ebc_param.offset_type)
-                               .device(core23::DeviceType::CPU));
-        model_parallel_compression_input.h_recv_k_per_gpu =
-            core23::Tensor(params.shape({static_cast<int64_t>(num_global_gpus)})
-                               .data_type(ebc_param.offset_type)
-                               .device(core23::DeviceType::CPU));
+      auto& model_parallel_compression_input =
+          dense_compression_input.model_parallel_compression_input;
+      model_parallel_compression_input.h_send_k_per_gpu =
+          core23::Tensor(params.shape({static_cast<int64_t>(num_global_gpus)})
+                             .data_type(ebc_param.offset_type)
+                             .device(core23::DeviceType::CPU));
+      model_parallel_compression_input.h_recv_k_per_gpu =
+          core23::Tensor(params.shape({static_cast<int64_t>(num_global_gpus)})
+                             .data_type(ebc_param.offset_type)
+                             .device(core23::DeviceType::CPU));
 
-        model_parallel_compression_input.model_reverse_idx =
-            core23::Tensor(params.shape({static_cast<int64_t>(batch_size * num_features)})
-                               .data_type(ebc_param.offset_type));
-        model_parallel_compression_input.num_model_reverse_idx = 0ul;
+      model_parallel_compression_input.model_reverse_idx =
+          core23::Tensor(params.shape({static_cast<int64_t>(batch_size * num_features)})
+                             .data_type(ebc_param.offset_type));
+      model_parallel_compression_input.num_model_reverse_idx = 0ul;
 
-        size_t num_features_this_group_have = 0ul;
-        for (int peer_gpu_id = 0; peer_gpu_id < num_global_gpus; ++peer_gpu_id) {
-          for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
-            if (!ebc_param.has_table_shard(peer_gpu_id, group_id, lookup_id)) {
-              continue;
-            }
-            const auto& lookup_param = ebc_param.lookup_params[lookup_id];
-            num_features_this_group_have += lookup_param.max_hotness;
+      size_t num_features_this_group_have = 0ul;
+      for (int peer_gpu_id = 0; peer_gpu_id < num_global_gpus; ++peer_gpu_id) {
+        for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+          if (!ebc_param.has_table_shard(peer_gpu_id, group_id, lookup_id)) {
+            continue;
           }
+          const auto& lookup_param = ebc_param.lookup_params[lookup_id];
+          num_features_this_group_have += lookup_param.max_hotness;
         }
-
-        model_parallel_compression_input.network_reverse_idx = core23::Tensor(
-            params.shape({static_cast<int64_t>(batch_size_per_gpu * num_features_this_group_have)})
-                .data_type(ebc_param.offset_type));
-        model_parallel_compression_input.num_network_reverse_idx = 0ul;
-        model_parallel_compression_input.network_dst_bucket_ids = core23::Tensor(
-            params.shape({static_cast<int64_t>(batch_size_per_gpu * num_features_this_group_have)})
-                .data_type(ebc_param.offset_type));
-
-        // initialize table_ids
-        core23::copy_sync(dense_compression_input.table_ids, wgrad_attr.sorted_unique_table_ids);
-      } else if (grouped_lookup_params.table_placement_strategy ==
-                 embedding::TablePlacementStrategy::DataParallel) {
-        // FIXME: duplicate with sparse embedding type
-        embedding_input.bucket_range = core23::Tensor(
-            params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
-                .data_type(ebc_param.offset_type));
-      } else {
-        HCTR_OWN_THROW(Error_t::IllegalCall, "not supported table placement strategy.");
       }
+
+      model_parallel_compression_input.network_reverse_idx = core23::Tensor(
+          params.shape({static_cast<int64_t>(batch_size_per_gpu * num_features_this_group_have)})
+              .data_type(ebc_param.offset_type));
+      model_parallel_compression_input.num_network_reverse_idx = 0ul;
+      model_parallel_compression_input.network_dst_bucket_ids = core23::Tensor(
+          params.shape({static_cast<int64_t>(batch_size_per_gpu * num_features_this_group_have)})
+              .data_type(ebc_param.offset_type));
+
+      // initialize table_ids
+      core23::copy_sync(dense_compression_input.table_ids, wgrad_attr.sorted_unique_table_ids);
     } else {
-      HCTR_OWN_THROW(Error_t::IllegalCall, "not supported embedding_type.");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "not supported embedding_group_type.");
     }
     output.push_back(embedding_input);
   }
