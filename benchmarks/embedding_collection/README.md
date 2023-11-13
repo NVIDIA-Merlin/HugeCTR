@@ -15,3 +15,11 @@ $test_case: required. right now can be middle, middle_only_sparse, middle_small_
 $batchsize: required. The global batchsize for training
 $nsys_result_path: optional. If set, will run nsys and generate profiling result on the specified path.
 
+# ENV
+SKIP_ALL2ALL
+SKIP_ALLREDUCE
+SKIP_BOTTOM_MLP
+SKIP_TOP_MLP
+SKIP_DATA_DISTRIBUTOR:
+SKIP_EMBEDDING
+SKIP_H2D

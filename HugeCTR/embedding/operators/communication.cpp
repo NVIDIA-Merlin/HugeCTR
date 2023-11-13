@@ -51,6 +51,10 @@ NcclAll2AllComm::NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core) : co
 
 void NcclAll2AllComm::communicate(const std::vector<core23::Tensor>& send_tensors,
                                   std::vector<core23::Tensor>& recv_tensors) {
+  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+  if (skip_all2all) return;
+
   int device_id = core_->get_device_id();
   auto& comm = core_->get_nccl();
 
@@ -73,6 +77,10 @@ void NcclAll2AllComm::dense_communicate(const core23::Tensor& send_tensor,
                                         const core23::Tensor& recv_tensor,
                                         const core23::Tensor& h_recv_k_per_gpu,
                                         int length_per_key) {
+  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+  if (skip_all2all) return;
+
   int device_id = core_->get_device_id();
   auto& comm = core_->get_nccl();
   int64_t data_size_type = send_tensor.data_type().size();
@@ -103,6 +111,10 @@ void NcclAll2AllComm::dense_communicate(const core23::Tensor& send_tensor,
 
 void NcclAll2AllComm::hier_communicate(const std::vector<core23::Tensor>& send_tensors,
                                        std::vector<core23::Tensor>& recv_tensors) {
+  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+  if (skip_all2all) return;
+
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   auto& comm = core_->get_nccl();
@@ -131,6 +143,10 @@ NcclAllReduceInplaceComm::NcclAllReduceInplaceComm(std::shared_ptr<CoreResourceM
     : core_(core) {}
 
 void NcclAllReduceInplaceComm::communicate(core23::Tensor& tensor, size_t count) {
+  const char* const skip_allreduce_env = std::getenv("SKIP_ALLREDUCE");
+  bool skip_allreduce = (skip_allreduce_env != nullptr && 1 == std::atoi(skip_allreduce_env));
+  if (skip_allreduce) return;
+
   int device_id = core_->get_device_id();
   HugeCTR::CudaDeviceContext ctx(device_id);
   ncclDataType_t nccl_dtype =

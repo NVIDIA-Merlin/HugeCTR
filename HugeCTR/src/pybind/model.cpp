@@ -2160,6 +2160,7 @@ long long Model::read_a_batch(bool is_train) {
   return current_batchsize;
 }
 
+bool is_first_h2d = true;
 bool Model::train() {
   try {
     if (train_data_reader_->is_started() == false) {
@@ -2182,8 +2183,14 @@ bool Model::train() {
       graph_scheduler_->trickling();
     }
 
+    const char* const skip_h2d_env = std::getenv("SKIP_H2D");
+    bool skip_h2d = (skip_h2d_env != nullptr && 1 == std::atoi(skip_h2d_env));
+
     bool is_train = true;
-    long long current_batchsize = read_a_batch(is_train);
+    long long current_batchsize = (skip_h2d && !is_first_h2d)
+                                      ? train_data_reader_->get_full_batchsize()
+                                      : read_a_batch(is_train);
+    is_first_h2d = false;
     if (!current_batchsize) {
       return false;
     }

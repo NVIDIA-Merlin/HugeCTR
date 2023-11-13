@@ -240,6 +240,9 @@ void SparseMPDataDistributionOp::all2all_keys_per_bucket(embedding::EmbeddingInp
       per_gpu_lookup_range[(core_->get_global_gpu_id() + 1) * ebc_param_.num_lookup] -
       per_gpu_lookup_range[core_->get_global_gpu_id() * ebc_param_.num_lookup];
 
+  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+
   size_t recv_offset = 0;
 
   DISPATCH_INTEGRAL_FUNCTION_CORE23(send_tensor.data_type().type(), BucketRangeType, [&] {
@@ -249,10 +252,12 @@ void SparseMPDataDistributionOp::all2all_keys_per_bucket(embedding::EmbeddingInp
       size_t send_num_buckets =
           per_gpu_lookup_range[(peer + 1) * ebc_param_.num_lookup] - start_range;
 
-      HCTR_LIB_THROW(ncclSend(send_tensor.data<BucketRangeType>() + start_range, send_num_buckets,
-                              nccl_type, peer, core_->get_nccl(), stream));
-      HCTR_LIB_THROW(ncclRecv(recv_tensor.data<BucketRangeType>() + recv_offset, recv_num_buckets,
-                              nccl_type, peer, core_->get_nccl(), stream));
+      if (!skip_all2all) {
+        HCTR_LIB_THROW(ncclSend(send_tensor.data<BucketRangeType>() + start_range, send_num_buckets,
+                                nccl_type, peer, core_->get_nccl(), stream));
+        HCTR_LIB_THROW(ncclRecv(recv_tensor.data<BucketRangeType>() + recv_offset, recv_num_buckets,
+                                nccl_type, peer, core_->get_nccl(), stream));
+      }
 
       recv_offset += recv_num_buckets;
     }
@@ -307,6 +312,9 @@ void SparseMPDataDistributionOp::all2all_keys(embedding::EmbeddingInput& output,
                                  cudaMemcpyDeviceToHost, stream));
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
+  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+
   size_t send_offset = 0;
   size_t recv_offset = 0;
 
@@ -319,11 +327,11 @@ void SparseMPDataDistributionOp::all2all_keys(embedding::EmbeddingInput& output,
         //        printf("GPU (%d) -> (%d) send_num_keys: %d, recv_num_keys: %d\n",
         //        core->get_global_gpu_id(),
         //               (int)peer, (int)send_num_keys, (int)recv_num_keys);
-        if (send_num_keys > 0) {
+        if (send_num_keys > 0 && !skip_all2all) {
           HCTR_LIB_THROW(ncclSend(send_tensor.data<KeyType>() + send_offset, send_num_keys,
                                   nccl_type, peer, core_->get_nccl(), stream));
         }
-        if (recv_num_keys > 0) {
+        if (recv_num_keys > 0 && !skip_all2all) {
           HCTR_LIB_THROW(ncclRecv(recv_tensor.data<KeyType>() + recv_offset, recv_num_keys,
                                   nccl_type, peer, core_->get_nccl(), stream));
         }
