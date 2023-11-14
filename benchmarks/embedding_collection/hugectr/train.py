@@ -113,6 +113,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=float,
         default=8 / 2,
     )
+    parser.add_argument(
+        "--use_column_wise_shard",
+        action="store_false",
+    )
 
     parser.add_argument(
         "--dense_comm_work_ratio",

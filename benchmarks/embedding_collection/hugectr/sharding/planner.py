@@ -32,9 +32,7 @@ def ev_size_compensation(ev_sizes_array):
     ev_sizes_compensation = (
         align_128 + intercept + (np.floor((remainders / 128) * slope_range)).astype(np.int32)
     )
-    # print("debug ev_sizes_array = ",ev_sizes_array," ev_sizes_compensation = ",ev_sizes_compensation)
     return ev_sizes_compensation
-    # return ev_sizes_array
 
 
 class ShardingState:

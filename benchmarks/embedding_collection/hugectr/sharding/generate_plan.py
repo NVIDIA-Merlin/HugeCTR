@@ -153,7 +153,7 @@ def generate_plan_ragged_ev_size(
                 unique_ratio=0.4
             )
             planner = Planner(multi_hot_sizes, np.array(ev_size_list), num_nodes, num_gpus_per_node, args.batchsize,
-                              False, cost_model, log_result=log_result, dp_threshold=dp_threshold)
+                              False, cost_model, log_result=log_result, dp_threshold=dp_threshold,use_column_wise_sharding=args.use_column_wise_shard)
             shard_strategy_, shard_matrix_, shard_column_wise_nums_ = planner.plan()
 
         elif sharding_plan == "hier_auto":
@@ -173,7 +173,7 @@ def generate_plan_ragged_ev_size(
                 unique_ratio=0.4
             )
             planner = Planner(multi_hot_sizes, np.array(ev_size_list), num_nodes, num_gpus_per_node, args.batchsize,
-                              True, cost_model, log_result=log_result, dp_threshold=dp_threshold)
+                              True, cost_model, log_result=log_result, dp_threshold=dp_threshold,use_column_wise_sharding=args.use_column_wise_shard)
             shard_strategy_, shard_matrix_node_, shard_column_wise_nums_ = planner.plan()
             shard_matrix_ = []
             for node_shard_matrix in shard_matrix_node_:
