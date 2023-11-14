@@ -87,6 +87,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=int,
         default=10000,
     )
+    parser.add_argument(
+        "--i64_input_key",
+        help="int64 key_type",
+        action="store_true",
+    )
 
     # sharding
     parser.add_argument(
@@ -346,6 +351,7 @@ solver = hugectr.CreateSolver(
     batchsize=args.batchsize,
     vvgpu=[[x for x in range(args.num_gpus_per_node)] for _ in range(num_nodes)],
     repeat_dataset=True,
+    i64_input_key=args.i64_input_key,
     lr=args.lr,
     warmup_steps=args.warmup_steps,
     decay_start=args.decay_start,

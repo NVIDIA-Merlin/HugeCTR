@@ -10,13 +10,19 @@ test_command=""
 hugectr_framework="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 --sharding_plan hier_auto \
---optimizer adagrad
+--optimizer sgd \
+--use_mixed_precision \
+--dp_threshold 0
 "
+# --disable_train_intra_iteration_overlap \
+# --disable_train_inter_iteration_overlap \
 #  --disable_fuse_sparse_embedding
+
 hugectr_framework_disable_fuse_sparse_embedding="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 --sharding_plan hier_auto \
---optimizer adagrad \
+--optimizer sgd \
+--use_mixed_precision \
 --disable_fuse_sparse_embedding
 "
 
@@ -24,11 +30,13 @@ torchrec_framework="
 python3 /workdir/benchmarks/embedding_collection/torchrec_dlrm/dlrm_main.py  \
   --dcn_num_layers=3 \
   --dcn_low_rank_dim=512 \
-  --adagrad \
   --learning_rate 0.005 \
-  --print_sharding_plan
+  --print_sharding_plan \
+  --skip_h2d
 "
 # --pin_memory \
+# --adagrad \
+# --skip_input_dist \
 
 case $framework in
 hugectr_disable_fuse_sparse)
@@ -50,11 +58,11 @@ utest_dataset="
 --dataset_path /workdir/benchmarks/embedding_collection/dcnv2_synthetic_alpha1.01.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
---num_table 1,1,1,1 \
---vocabulary_size_per_table 100,1000,100,1000 \
---nnz_per_table 1,2,1,1 \
---ev_size_per_table 4,8,4,8 \
---combiner_per_table c,s,s,c \
+--num_table 2,2 \
+--vocabulary_size_per_table 1000,10000 \
+--nnz_per_table 1,1 \
+--ev_size_per_table 4,8 \
+--combiner_per_table s,c \
 --dense_dim 13 \
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
@@ -72,7 +80,7 @@ utest_dataset="
 #--bmlp_layer_sizes 512,256,128 \
 #--tmlp_layer_sizes 1024,1024,512,256,1 \
 #"
-middle_dataset="
+dataset_80table_55B_hotness10="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -85,7 +93,7 @@ middle_dataset="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_dataset_only_sparse="
+dataset_80table_55B_hotness10_only_sparse="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -98,7 +106,7 @@ middle_dataset_only_sparse="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_dataset_small_vec="
+dataset_80table_55B_hotness10_small_vec="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -111,7 +119,7 @@ middle_dataset_small_vec="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_dataset_small_vec_only_sparse="
+dataset_80table_55B_hotness10_small_vec_only_sparse="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -124,7 +132,7 @@ middle_dataset_small_vec_only_sparse="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_hotness20_dataset="
+dataset_80table_55B_hotness20="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness20.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -137,7 +145,7 @@ middle_hotness20_dataset="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_hotness20_dataset_only_sparse="
+dataset_80table_55B_hotness20_only_sparse="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness20.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -150,7 +158,7 @@ middle_hotness20_dataset_only_sparse="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
-middle_hotness70_dataset="
+dataset_80table_55B_hotness70="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness70.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
@@ -163,33 +171,81 @@ middle_hotness70_dataset="
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
+dataset_130table_110B_hotness20="
+--dataset_path /workdir/dataset/scale_dcnv2_synthetic_alpha1.1.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 10,5,5,5,10,10,10,10,10,10,10,5,30,2 \
+--vocabulary_size_per_table 10000,4000000,4000000,50000000,1000,10000,50000000,4000000,10,10000,10000,100000,4000000,50000000 \
+--nnz_per_table 100,50,30,50,50,30,2,2,1,1,1,1,1,1 \
+--ev_size_per_table 64,256,64,32,64,32,128,128,128,128,128,128,128,128 \
+--dense_dim 13 \
+--combiner_per_table s,s,s,s,s,s,s,s,s,s,s,s,s,s \
+--bmlp_layer_sizes 512,256,128 \
+--tmlp_layer_sizes 1024,1024,512,256,1 \
+"
+dataset_180table_130B_hotness80="
+--dataset_path /workdir/dataset/large_hotness_dcnv2_synthetic_alpha1.1.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 5,5,5,5,20,30,10,20,10,10,10,5,40,1,1 \
+--vocabulary_size_per_table 10000,4000000,4000000,50000000,1000,10000,5000000,4000000,10,1000,10000,100000,4000000,50000000,500000000 \
+--nnz_per_table 100,50,30,50,50,30,20,20,100,10,100,100,200,100,100 \
+--ev_size_per_table 64,256,256,128,64,32,128,128,128,64,128,64,32,64,128 \
+--dense_dim 13 \
+--combiner_per_table s,s,s,s,s,s,s,s,s,s,s,s,s,s,s \
+--bmlp_layer_sizes 512,256,128 \
+--tmlp_layer_sizes 1024,1024,512,256,1 \
+"
+dataset_7table_470B_hotness20="
+--dataset_path /workdir/dataset/large_table_dcnv2_synthetic_alpha1.1.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 1,1,1,1,1,1,1 \
+--vocabulary_size_per_table 10000000,400000000,1000000000,5000000000,1000000000,10000000,10000000 \
+--nnz_per_table 80,20,20,40,1,1,1 \
+--ev_size_per_table 64,128,128,32,128,64,128 \
+--dense_dim 13 \
+--combiner_per_table s,s,s,s,s,s,s \
+--bmlp_layer_sizes 512,256,128 \
+--tmlp_layer_sizes 1024,1024,512,256,1 \
+"
 case $test_config in
 utest)
   test_command+="$utest_dataset"
   ;;
-middle)
-  test_command+="$middle_dataset"
+80table_55B_hotness10)
+  test_command+="${dataset_80table_55B_hotness10}"
   ;;
-middle_only_sparse)
-  test_command+="$middle_dataset_only_sparse"
+80table_55B_hotness10_only_sparse)
+  test_command+="${dataset_80table_55B_hotness10_only_sparse}"
   ;;
-middle_small_vec)
-  test_command+="$middle_dataset_small_vec"
+80table_55B_hotness10_small_vec)
+  test_command+="${dataset_80table_55B_hotness10_small_vec}"
   ;;
-middle_small_vec_only_sparse)
-  test_command+="$middle_dataset_small_vec_only_sparse"
+80table_55B_hotness10_small_vec_only_sparse)
+  test_command+="${dataset_80table_55B_hotness10_small_vec_only_sparse}"
   ;;
-middle20)
-  test_command+="$middle_hotness20_dataset"
+80table_55B_hotness20)
+  test_command+="${dataset_80table_55B_hotness20}"
   ;;
-middle70)
-  test_command+="$middle_hotness70_dataset"
+80table_55B_hotness70)
+  test_command+="${dataset_80table_55B_hotness70}"
   ;;
-middle20_only_sparse)
-  test_command+="$middle_hotness20_dataset_only_sparse"
+80table_55B_hotness20_only_sparse)
+  test_command+="${dataset_80table_55B_hotness20_only_sparse}"
   ;;
 large)
   test_command+="$large_dataset"
+  ;;
+130table_110B_hotness20)
+  test_command+="${dataset_130table_110B_hotness20}"
+  ;;
+180table_130B_hotness80)
+  test_command+="${dataset_180table_130B_hotness80}"
+  ;;
+7table_470B_hotness20)
+  test_command+="${dataset_7table_470B_hotness20}"
   ;;
 *)
   echo "unknown test config"
