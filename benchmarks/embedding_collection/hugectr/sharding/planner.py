@@ -32,7 +32,7 @@ def ev_size_compensation(ev_sizes_array):
     ev_sizes_compensation = (
         align_128 + intercept + (np.floor((remainders / 128) * slope_range)).astype(np.int32)
     )
-    return ev_sizes_compensation
+    return ev_sizes_array
 
 
 class ShardingState:
@@ -55,7 +55,6 @@ class ShardingState:
         use_column_wise_sharding: bool = False,
         dp_table_id: np.array(int) = np.array([]),
     ) -> None:
-        print('sharding state ', use_column_wise_sharding)
         if is_hier:
             self.num_bucket = num_nodes
         else:
@@ -102,7 +101,7 @@ class ShardingState:
         # can be split further
         # TODO:maybe we can change the algo of split, we need consider the column-wise sharding
         tmp_embedding_length_cost = ev_size_compensation(self.array_evsizes) * self.array_hotness
-        tmp_embedding_com_cost = self.array_evsizes * 66
+        tmp_embedding_com_cost = self.array_evsizes *80
         # tmp_ratio = tmp_embedding_length_cost/tmp_embedding_com_cost
         # tmp_ratio = tmp_embedding_length_cost
         tmp_ratio = tmp_embedding_length_cost + tmp_embedding_com_cost
@@ -130,9 +129,11 @@ class ShardingState:
                 self.array_evsizes = np.delete(self.array_evsizes, idx)
                 if is_column_wise:
                     tmp_table_size = self.array_unshard_evsizes_update[table_id]
-                    if tmp_table_size == 0 or tmp_table_size % 2 != 0:
-                        continue
-                    self.array_unshard_evsizes_update[table_id] /= 2
+                    if tmp_table_size == 0 or tmp_table_size % 2 != 0 or tmp_table_size<=32:
+                        self.array_num_split[table_id] *= 2
+                    else:
+                        #return back on row-wise
+                        self.array_unshard_evsizes_update[table_id] /= 2
                 else:
                     self.array_num_split[table_id] *= 2
 
@@ -185,17 +186,19 @@ class ShardingState:
             self.array_evsizes = np.delete(self.array_evsizes, idx)
             if is_column_wise:
                 tmp_table_size = self.array_unshard_evsizes_update[table_id]
-                if tmp_table_size == 0 and tmp_table_size % 2 != 0:
-                    return False
-                self.array_unshard_evsizes_update[table_id] /= 2
-                split_num = int(
-                    self.array_num_split[table_id]
-                    * self.array_unshard_evsizes[table_id]
-                    / self.array_unshard_evsizes_update[table_id]
-                )
+                if tmp_table_size == 0 and tmp_table_size % 2 != 0  or tmp_table_size<=32:
+                    self.array_num_split[table_id] *= 2
+                    #return False
+                else:
+                    self.array_unshard_evsizes_update[table_id] /= 2
             else:
                 self.array_num_split[table_id] *= 2
-                split_num = self.array_num_split[table_id]
+                #split_num = self.array_num_split[table_id]
+            split_num = int(
+                self.array_num_split[table_id]
+                * self.array_unshard_evsizes[table_id]
+                / self.array_unshard_evsizes_update[table_id]
+            )
 
             self.array_hotness = np.concatenate(
                 (
@@ -312,26 +315,16 @@ class CostModel:
                     / np.array(ss.array_num_split)[shard_list]
                 ).sum()
             )
-            comm_cost_intra = (
-                self.band_width_ratio
-                * self.batchsize
-                * ev_size_compensation(ss.array_unshard_evsizes_update[shard_list])
-            ).sum()
-            comm_cost = (
+                    comm_cost = (
                 self.band_width_ratio * self.batchsize * ss.array_unshard_evsizes_update[shard_list]
             ).sum()
             # TODO:add a data distributor cost to comm_cost
 
-            # key_comm_cost = (self.band_width_ratio*self.batchsize*self.key_embedding_type_ratio*ss.array_unshard_hotness[shard_list]/(np.array(ss.array_num_split)[shard_list])).sum()
             if ss.is_hier:
                 comm_cost = comm_cost / ss.num_gpus_per_node
-                comm_cost_intra = comm_cost_intra / ss.num_gpus_per_node
                 # TODO:give a ratio of nvlink bw compare to NIC bw
                 comm_cost = comm_cost * 3 / 2
                 hotness_cost = hotness_cost / ss.num_gpus_per_node
-                # key_comm_cost = key_comm_cost/ss.num_gpus_per_node
-            # print("hotness_cost = ",hotness_cost," comm_cost = ",comm_cost," batchsize = ",self.batchsize,"band_width_ratio = ",self.band_width_ratio," ss.num_gpus_per_node = ",ss.num_gpus_per_node)
-            # comm_cost += key_comm_cost
             if len(shard_list) > 0:
                 mem_cost = (
                     self.unit_mem_cost[shard_list]
@@ -385,7 +378,6 @@ class CostModel:
         ss: ShardingState,
     ) -> float:
         num_gpus = ss.num_nodes * ss.num_gpus_per_node
-        # key_comm_cost = (ss.array_unshard_hotness_mp*self.band_width_ratio*self.batchsize*self.key_embedding_type_ratio*self.unique_ratio/num_gpus).sum()
         comm_cost = (
             ss.array_unshard_hotness_mp
             * self.batchsize
@@ -430,7 +422,6 @@ class Planner:
         use_column_wise_sharding: bool = False,
         log_result: bool = False,
     ) -> None:
-        print('sharding planner ', use_column_wise_sharding)
         self.array_hotness = np.array(list_hotness)
         self.ev_sizes = np.array(ev_sizes)
         self.num_nodes = num_nodes  # numGPUS or numNodes
@@ -567,8 +558,8 @@ class Planner:
 
                     # 2 split method is success ,compare them cost
                     if oom_table_id_row is None and oom_table_id_col is None:
-                        print('row', oom_table_id_row, cost_row.cost)
-                        print('col', oom_table_id_col, cost_col.cost)
+                        print('row', oom_table_id_row, cost_row.cost,cost_row.hotness_cost)
+                        print('col', oom_table_id_col, cost_col.cost,cost_col.hotness_cost)
                         cost_max_row = cost_row.cost.max()
                         cost_max_col = cost_col.cost.max()
                         if cost_max_row > cost_max_col:

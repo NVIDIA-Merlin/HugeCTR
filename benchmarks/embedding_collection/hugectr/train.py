@@ -351,7 +351,6 @@ shard_matrix, shard_strategy, dense_sparse_table_ids = sharding.generate_plan(
     is_rank_zero,
     dp_threshold=args.dp_threshold,
 )
-
 # 1. Create Solver, DataReaderParams and Optimizer
 solver = hugectr.CreateSolver(
     model_name="Embedding Collection Benchmark",
@@ -528,3 +527,4 @@ model.fit(
     snapshot=2000000,
     snapshot_prefix="dlrm",
 )
+

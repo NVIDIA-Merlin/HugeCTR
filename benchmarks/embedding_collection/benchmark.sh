@@ -207,7 +207,7 @@ dataset_7table_470B_hotness20="
 --num_table 1,1,1,1,1,1,1 \
 --vocabulary_size_per_table 10000000,400000000,1000000000,5000000000,1000000000,10000000,10000000 \
 --nnz_per_table 80,20,20,40,1,1,1 \
---ev_size_per_table 2,2,2,2,2,2,2 \
+--ev_size_per_table 256,64,128,32,128,64,128 \
 --dense_dim 13 \
 --combiner_per_table s,s,s,s,s,s,s \
 --bmlp_layer_sizes 512,256,128 \
