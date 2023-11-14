@@ -93,7 +93,7 @@ def generate_plan_ragged_ev_size(
                 tmp_table_ids = []
                 for i in range(len(pair[1])):
                     tmp_table_info = pair[1][i]
-                    if isinstance(, tuple):
+                    if isinstance(tmp_table_info, tuple):
                         tmp_table_ids.append((str(tmp_table_info[0]), tmp_table_info[1]))
                     else:
                         tmp_table_ids.append(str(tmp_table_info))
