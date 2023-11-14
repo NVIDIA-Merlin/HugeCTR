@@ -318,11 +318,11 @@ def generate_plan(
             if len(dense_sparse_table_ids) > 0:
                 for gpu_id in range(num_gpus):
                     shard_matrix[gpu_id] += [str(x) for x in tmp_dense_sparse_table_ids]
+                sparse_mp_shard_table_ids.append([str(x) for x in tmp_dense_sparse_table_ids])
         else:
             raise
         for gpu_id in range(num_gpus):
             shard_matrix[gpu_id] += one_shard_matrix[gpu_id]
-        sparse_mp_shard_table_ids.append([str(x) for x in tmp_dense_sparse_table_ids])
         # add sparse dense
         for strategy, table_ids in one_shard_strategy:
             if strategy == "dp":

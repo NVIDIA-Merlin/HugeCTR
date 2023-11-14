@@ -12,11 +12,14 @@ python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 --sharding_plan hier_auto \
 --optimizer sgd \
 --use_mixed_precision \
+--use_column_wise_shard \
 --dp_threshold 0
 "
 # --disable_train_intra_iteration_overlap \
 # --disable_train_inter_iteration_overlap \
 #  --disable_fuse_sparse_embedding
+# --mem_comm_bw_ratio 3000/50 eos
+# --mem_comm_bw_ratio 2000/25 selene
 
 hugectr_framework_disable_fuse_sparse_embedding="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
@@ -100,7 +103,7 @@ dataset_80table_55B_hotness10_only_sparse="
 --num_table 5,3,5,1,1,10,10,10,5,30 \
 --vocabulary_size_per_table 10000,4000000,50000000,50000000,50000000,10,1000,10000,100000,4000000 \
 --nnz_per_table 100,30,30,1,1,1,1,1,1,1 \
---ev_size_per_table 8,128,128,8,128,128,128,8,8,128 \
+--ev_size_per_table 256,128,128,8,128,128,128,8,8,128 \
 --dense_dim 13 \
 --combiner_per_table s,s,s,s,s,s,s,s,s,s \
 --bmlp_layer_sizes 512,256,128 \
@@ -198,17 +201,18 @@ dataset_180table_130B_hotness80="
 --tmlp_layer_sizes 1024,1024,512,256,1 \
 "
 dataset_7table_470B_hotness20="
---dataset_path /workdir/dataset/large_table_dcnv2_synthetic_alpha1.1.bin \
+--dataset_path /workdir/dataset/large_tables_dcnv2_synthetic_alpha1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
 --num_table 1,1,1,1,1,1,1 \
 --vocabulary_size_per_table 10000000,400000000,1000000000,5000000000,1000000000,10000000,10000000 \
 --nnz_per_table 80,20,20,40,1,1,1 \
---ev_size_per_table 64,128,128,32,128,64,128 \
+--ev_size_per_table 2,2,2,2,2,2,2 \
 --dense_dim 13 \
 --combiner_per_table s,s,s,s,s,s,s \
 --bmlp_layer_sizes 512,256,128 \
 --tmlp_layer_sizes 1024,1024,512,256,1 \
+--i64_input_key \
 "
 case $test_config in
 utest)

@@ -114,7 +114,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--use_column_wise_shard",
-        action="store_false",
+        action="store_true",
     )
 
     parser.add_argument(
@@ -166,7 +166,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--sd_threshold",
         help="hotness threshold , if hotness less than this threshold , sparse will use unique base",
         type=int,
-        default=2,
+        default=0,
     )
 
     parser.add_argument(

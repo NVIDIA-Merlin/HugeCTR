@@ -55,6 +55,7 @@ class ShardingState:
         use_column_wise_sharding: bool = False,
         dp_table_id: np.array(int) = np.array([]),
     ) -> None:
+        print('sharding state ', use_column_wise_sharding)
         if is_hier:
             self.num_bucket = num_nodes
         else:
@@ -103,7 +104,8 @@ class ShardingState:
         tmp_embedding_length_cost = ev_size_compensation(self.array_evsizes) * self.array_hotness
         tmp_embedding_com_cost = self.array_evsizes * 66
         # tmp_ratio = tmp_embedding_length_cost/tmp_embedding_com_cost
-        tmp_ratio = tmp_embedding_length_cost
+        # tmp_ratio = tmp_embedding_length_cost
+        tmp_ratio = tmp_embedding_length_cost + tmp_embedding_com_cost
         # tmp_sorted_idx = np.argsort(tmp_embedding_length_cost)[::-1]
         tmp_sorted_idx = np.argsort(tmp_ratio)[::-1]
         # print("tmp_ratio = ",tmp_ratio," tmp_sorted_idx = ",tmp_sorted_idx)
@@ -428,6 +430,7 @@ class Planner:
         use_column_wise_sharding: bool = False,
         log_result: bool = False,
     ) -> None:
+        print('sharding planner ', use_column_wise_sharding)
         self.array_hotness = np.array(list_hotness)
         self.ev_sizes = np.array(ev_sizes)
         self.num_nodes = num_nodes  # numGPUS or numNodes
@@ -564,13 +567,17 @@ class Planner:
 
                     # 2 split method is success ,compare them cost
                     if oom_table_id_row is None and oom_table_id_col is None:
+                        print('row', oom_table_id_row, cost_row.cost)
+                        print('col', oom_table_id_col, cost_col.cost)
                         cost_max_row = cost_row.cost.max()
                         cost_max_col = cost_col.cost.max()
                         if cost_max_row > cost_max_col:
+                            print('split column')
                             self.sharding_state.split_hot_shard(
                                 cost=self.cost_model, is_column_wise=True
                             )
                         else:
+                            print('split row')
                             self.sharding_state.split_hot_shard(
                                 cost=self.cost_model, is_column_wise=False
                             )
