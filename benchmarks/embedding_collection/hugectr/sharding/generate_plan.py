@@ -26,8 +26,8 @@ def filter_sparse_dense_table(args, table_ids, slot_sizes, multi_hots, ev_sizes)
     sparse_multi_hots = []
     sparse_ev_sizes = []
     dense_table_ids = []
-    for i in range(len(sparse_table_ids)):
-        if sparse_multi_hots[i] <= args.sd_threshold:
+    for i in range(len(table_ids)):
+        if multi_hots[i] <= args.sd_threshold:
             dense_table_ids.append(table_ids[i])
         else:
             sparse_table_ids.append(table_ids[i])
@@ -79,7 +79,7 @@ def generate_plan_ragged_ev_size(
             table_ids_after_replacement = []
             for table_id in table_ids:
                 if isinstance(table_id, tuple):
-                    table_id_replacement = (table_id_list[table_id], table_id[1])
+                    table_id_replacement = (table_id_list[table_id[0]], table_id[1])
                     table_ids_after_replacement.append(table_id_replacement)
                 else:
                     table_ids_after_replacement.append(table_id_list[table_id])
@@ -280,6 +280,7 @@ def generate_plan(
             )
         elif combiner == "sum":
             # first filter which table use dense do sparse
+            print("before filtered_table_id_list = ", filtered_table_id_list)
             (
                 filtered_table_id_list,
                 filtered_slot_size_array,
@@ -293,6 +294,9 @@ def generate_plan(
                 filtered_multi_hot_sizes,
                 filtered_ev_sizes,
             )
+
+            print("filtered_table_id_list = ", filtered_table_id_list)
+
             dense_sparse_table_ids += tmp_dense_sparse_table_ids
             (
                 one_shard_matrix,
@@ -313,12 +317,12 @@ def generate_plan(
             # add spase dense table id to shard_matrix
             if len(dense_sparse_table_ids) > 0:
                 for gpu_id in range(num_gpus):
-                    shard_matrix[gpu_id] += tmp_dense_sparse_table_ids
+                    shard_matrix[gpu_id] += [str(x) for x in tmp_dense_sparse_table_ids]
         else:
             raise
         for gpu_id in range(num_gpus):
             shard_matrix[gpu_id] += one_shard_matrix[gpu_id]
-        sparse_mp_shard_table_ids.append(tmp_dense_sparse_table_ids)
+        sparse_mp_shard_table_ids.append([str(x) for x in tmp_dense_sparse_table_ids])
         # add sparse dense
         for strategy, table_ids in one_shard_strategy:
             if strategy == "dp":

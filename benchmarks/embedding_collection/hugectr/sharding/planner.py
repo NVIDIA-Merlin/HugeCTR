@@ -503,7 +503,9 @@ class Planner:
         lowest hotness cost
         """
         array_cost = np.zeros(ss.num_bucket)
+
         ss.reset_shard_ll()
+
         for i in range(ss.array_cost.size):  # mp table num
             sorted_idx = np.argsort(array_cost)
             sharded = False

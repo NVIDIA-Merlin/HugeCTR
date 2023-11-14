@@ -17,7 +17,6 @@ import logging
 import math
 
 from mpi4py import MPI
-
 import hugectr
 import sharding
 from typing import Iterator, List, Optional
@@ -276,6 +275,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument(
         "--disable_fuse_sparse_embedding",
         action="store_false",
+    )
+    parser.add_argument(
+        "--dp_threshold",
+        help="dp_threshold",
+        type=int,
+        default=0,
     )
     return parser.parse_args(argv)
 
