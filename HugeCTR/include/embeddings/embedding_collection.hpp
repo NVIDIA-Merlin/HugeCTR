@@ -37,7 +37,7 @@ class EmbeddingTableConfig {
 
   EmbeddingTableConfig() {}
 
-  EmbeddingTableConfig(const std::string &name, int max_vocabulary_size, int ev_size,
+  EmbeddingTableConfig(const std::string &name, int64_t max_vocabulary_size, int ev_size,
                        std::optional<HugeCTR::OptParams> opt_param_or_empty,
                        std::optional<::embedding::InitParams> init_param_or_empty)
       : name(name) {

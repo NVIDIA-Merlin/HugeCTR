@@ -28,7 +28,7 @@ namespace python_lib {
 void EmbeddingCollectionPybind(pybind11::module &m) {
   pybind11::class_<EmbeddingTableConfig, std::shared_ptr<EmbeddingTableConfig>>(
       m, "EmbeddingTableConfig")
-      .def(pybind11::init<const std::string &, int, int, std::optional<OptParams>,
+      .def(pybind11::init<const std::string &, int64_t, int, std::optional<OptParams>,
                           std::optional<embedding::InitParams>>(),
            pybind11::arg("name"), pybind11::arg("max_vocabulary_size"), pybind11::arg("ev_size"),
            pybind11::arg("opt_params_or_empty") = std::nullopt,
