@@ -97,7 +97,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--sharding_plan",
         help="Sharding plan to use",
         type=str,
-        choices=["round_robin", "uniform", "auto", "hier_auto"],
+        choices=["round_robin", "uniform", "auto", "hier_auto", "table_row_wise"],
         default="round_robin",
     )
     parser.add_argument(

@@ -231,13 +231,24 @@ def generate_plan(
     dp_table_ids, dense_table_ids, dense_combiner_table_ids, sparse_table_ids = [], [], [], []
     num_table = len(slot_size_array)
 
-    # select dp tables and select candidate dense tables
+    # select dp tables based on sorting table_size
+    candidate_table_size_and_table_ids = []
+    for table_id in range(num_table):
+        candidate_table_size_and_table_ids.append((slot_size_array[table_id] * ev_size_list[table_id], table_id))
+    sorted_candidate_table_size_and_table_ids = sorted(candidate_table_size_and_table_ids, key=lambda x: x[0])
+    if len(sorted_candidate_table_size_and_table_ids) > args.dp_threshold:
+        sorted_candidate_table_size_and_table_ids = sorted_candidate_table_size_and_table_ids[
+                                                    :args.dp_threshold]
+
+    dp_table_ids = [v[1] for v in sorted_candidate_table_size_and_table_ids]
+    dp_table_memory_per_gpu = sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in
+                                  dp_table_ids) * byte_per_elem / 1024 / 1024 / 1024
+    args.memory_cap_for_embedding -= dp_table_memory_per_gpu
+
+    # select dense tables based on sorting rows
     candidate_num_rows_and_dense_table_ids = []
     for table_id in range(num_table):
-        if slot_size_array[table_id] * ev_size_list[table_id] < dp_threshold:
-            dp_table_ids += [table_id]
-            args.memory_cap_for_embedding -= slot_size_array[table_id] * ev_size_list[
-                table_id] * byte_per_elem / 1024 / 1024 / 1024
+        if table_id in set(dp_table_ids):
             continue
         if multi_hot_sizes[table_id] == 1:
             candidate_num_rows_and_dense_table_ids.append((slot_size_array[table_id], table_id))
