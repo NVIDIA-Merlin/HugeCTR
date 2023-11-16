@@ -288,8 +288,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         default=0,
     )
     parser.add_argument(
-        "--only_sparse",
-        action="store_true",
+        "--dense_threshold",
+        help="dense threshold , if hotness == 1, make dense_threshold largest table as combiner concat",
+        type=int,
+        default=0,
     )
 
     args = parser.parse_args(argv)
@@ -308,21 +310,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
 
     args.TABLE_SIZE_ARRAY = []
     args.MULTI_HOT_SIZES = []
-    args.COMBINERS = []
     args.EMB_VEC_SIZES = []
     for i, num_table in enumerate(num_table_list):
         for _ in range(num_table):
             args.TABLE_SIZE_ARRAY.append(int(vocabulary_size_per_table[i]))
             args.MULTI_HOT_SIZES.append(int(nnz_per_table[i]))
             args.EMB_VEC_SIZES.append(int(ev_size_per_table[i]))
-            if not args.only_sparse:
-                if int(nnz_per_table[i]) == 1:
-                    combiner = "concat"
-                else:
-                    combiner = "sum"
-                args.COMBINERS.append(combiner)
-            else:
-                args.COMBINERS.append("sum")
 
     args.NUM_TABLE = len(args.TABLE_SIZE_ARRAY)
     args.NUM_DENSE = int(args.dense_dim)
@@ -355,7 +348,6 @@ shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = sharding.g
     args.TABLE_SIZE_ARRAY,
     args.MULTI_HOT_SIZES,
     args.EMB_VEC_SIZES,
-    args.COMBINERS,
     num_nodes,
     args.num_gpus_per_node,
     args,

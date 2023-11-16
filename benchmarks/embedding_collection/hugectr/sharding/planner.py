@@ -280,7 +280,6 @@ class CostModel:
             mem_capacity: float,
             table_size: List[int],
             key_embedding_type_ratio: int = 1,
-            unique_ratio: float = 1,
     ) -> None:
         self.unit_hotness_cost = hotness_cost
         self.band_width_ratio = band_width_ratio
@@ -291,7 +290,6 @@ class CostModel:
         self.ev_sizes = ev_sizes
         self.mem_capacity = mem_capacity
         self.array_table_size = np.array(table_size)
-        self.unique_ratio = unique_ratio
         self.key_embedding_type_ratio = key_embedding_type_ratio
 
     def get_cost(
@@ -361,31 +359,6 @@ class CostModel:
         )
         comm_cost = self.band_width_ratio * self.batchsize * ev_sizes_array
         return hotness_cost + comm_cost
-
-    def get_dense_lookup_cost(
-            self,
-            ss: ShardingState,
-    ) -> float:
-        num_gpus = ss.num_nodes * ss.num_gpus_per_node
-        comm_cost = (
-                ss.array_unshard_hotness_mp
-                * self.batchsize
-                * self.unique_ratio
-                * ss.array_unshard_evsizes_mp
-                * self.band_width_ratio
-                / num_gpus
-        ).sum()
-        hotness_cost = (
-                ss.array_unshard_hotness_mp
-                * self.batchsize
-                * self.dense_work_ratio
-                * ev_size_compensation(ss.array_unshard_evsizes_mp)
-                * self.unique_ratio
-                / num_gpus
-        ).sum()
-        return comm_cost + hotness_cost
-        # return comm_cost + hotness_cost+key_comm_cost
-
 
 class Planner:
     """
@@ -626,8 +599,7 @@ class Planner:
         self.list_candidate.sort(key=lambda x: x[0])
 
         sparse_cost = self.list_candidate[0][0]
-        dense_cost = self.cost_model.get_dense_lookup_cost(self.sharding_state)
-        print("sparse cost = ", sparse_cost, "dense cost = ", dense_cost)
+        print("sparse cost = ", sparse_cost)
 
         shard_matrix = self.list_candidate[0][-1]
         shard_column_wise_nums = np.array(self.list_candidate[0][-2])

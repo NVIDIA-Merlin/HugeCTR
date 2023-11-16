@@ -20,6 +20,16 @@ import numpy as np
 from .planner import CostModel, Planner
 
 
+def get_byte_per_elem(args):
+    if args.optimizer == "adagrad":
+        byte_per_elem = 8
+    elif args.optimizer == "sgd":
+        byte_per_elem = 4
+    else:
+        raise Exception("not supported optimizer")
+    return byte_per_elem
+
+
 def int_to_string(shard_matrix_int, shard_strategy_int, unique_table_ids_int,
                   reduction_table_ids_int):
     shard_strategy, shard_matrix, unique_table_ids, reduction_table_ids = [], [], [], []
@@ -120,10 +130,7 @@ def generate_plan_ragged_ev_size(
     elif sharding_plan in ["auto", "hier_auto"]:
         # sharding strategies that exploit system configs
         dram_cap = args.memory_cap_for_embedding
-        if args.optimizer == "adagrad":
-            byte_per_elem = 8
-        elif args.optimizer == "sgd":
-            byte_per_elem = 4
+        byte_per_elem = get_byte_per_elem(args)
 
         if sharding_plan == "auto":
             cost_model = CostModel(
@@ -137,7 +144,6 @@ def generate_plan_ragged_ev_size(
                 dram_cap,
                 slot_size_array,
                 1,
-                unique_ratio=0.4,
             )
             planner = Planner(
                 multi_hot_sizes,
@@ -168,7 +174,6 @@ def generate_plan_ragged_ev_size(
                 dram_cap * args.num_gpus_per_node,
                 slot_size_array,
                 1,
-                unique_ratio=0.4,
             )
             planner = Planner(
                 multi_hot_sizes,
@@ -210,7 +215,6 @@ def generate_plan(
         slot_size_array: List[int],
         multi_hot_sizes: List[int],
         ev_size_list: List[int],
-        combiner_list: List[str],
         num_nodes: int,
         num_gpus_per_node: int,
         args: Namespace,
@@ -221,26 +225,46 @@ def generate_plan(
     # 1. dp table
     # 2. dense table
     # 3. dense combiner
-    if args.optimizer == "adagrad":
-        byte_per_elem = 8
-    elif args.optimizer == "sgd":
-        byte_per_elem = 4
+    byte_per_elem = get_byte_per_elem(args)
     num_gpus = num_nodes * num_gpus_per_node
 
     dp_table_ids, dense_table_ids, dense_combiner_table_ids, sparse_table_ids = [], [], [], []
     num_table = len(slot_size_array)
+
+    # select dp tables and select candidate dense tables
+    candidate_num_rows_and_dense_table_ids = []
     for table_id in range(num_table):
         if slot_size_array[table_id] * ev_size_list[table_id] < dp_threshold:
             dp_table_ids += [table_id]
             args.memory_cap_for_embedding -= slot_size_array[table_id] * ev_size_list[
                 table_id] * byte_per_elem / 1024 / 1024 / 1024
             continue
-        if combiner_list[table_id] == "concat":
-            dense_table_ids += [table_id]
-            args.memory_cap_for_embedding -= slot_size_array[table_id] * ev_size_list[
-                table_id] * byte_per_elem / 1024 / 1024 / 1024 / num_gpus
+        if multi_hot_sizes[table_id] == 1:
+            candidate_num_rows_and_dense_table_ids.append((slot_size_array[table_id], table_id))
+
+    # select dense table. 1. sort. 2. select n smallast table
+    sorted_candidate_num_rows_and_dense_table_ids = sorted(candidate_num_rows_and_dense_table_ids, key=lambda x: x[0])
+    if len(sorted_candidate_num_rows_and_dense_table_ids) > args.dense_threshold:
+        sorted_candidate_num_rows_and_dense_table_ids = sorted_candidate_num_rows_and_dense_table_ids[
+                                                        :args.dense_threshold]
+
+    dense_table_ids = [v[1] for v in sorted_candidate_num_rows_and_dense_table_ids]
+    dense_table_memory_per_gpu = sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in
+                                     dense_table_ids) * byte_per_elem / 1024 / 1024 / 1024 / num_gpus
+    args.memory_cap_for_embedding -= dense_table_memory_per_gpu
+    # inject COMBINERS
+    args.COMBINERS = []
+    for table_id in range(num_table):
+        if table_id in set(dense_table_ids):
+            args.COMBINERS.append('concat')
+        else:
+            args.COMBINERS.append('sum')
+
+    # select dense_combiner and sparse
+    for table_id in range(num_table):
+        if table_id in set(dense_table_ids) or table_id in set(dp_table_ids):
             continue
-        if combiner_list[table_id] == "sum" and multi_hot_sizes[table_id] <= args.sd_threshold:
+        if multi_hot_sizes[table_id] <= args.sd_threshold:
             dense_combiner_table_ids += [table_id]
             args.memory_cap_for_embedding -= slot_size_array[table_id] * ev_size_list[
                 table_id] * byte_per_elem / 1024 / 1024 / 1024 / num_gpus
@@ -303,5 +327,7 @@ def generate_plan(
         logging.info(unique_table_ids)
         logging.info("reduction_table_ids:")
         logging.info(reduction_table_ids)
+        logging.info("COMBINERS:")
+        logging.info(args.COMBINERS)
         logging.info("\n")
     return shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids

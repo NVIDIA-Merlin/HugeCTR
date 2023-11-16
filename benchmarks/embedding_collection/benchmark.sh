@@ -14,7 +14,8 @@ python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 --use_mixed_precision \
 --use_column_wise_shard \
 --dp_threshold 0 \
---only_sparse \
+--sd_threshold 0 \
+--dense_threshold 0 \
 "
 # --disable_train_intra_iteration_overlap \
 # --disable_train_inter_iteration_overlap \
@@ -87,9 +88,7 @@ dataset_80table_55B_hotness10="
 --ev_size_per_table 8,128,128,8,128,128,128,8,8,128 \
 --dense_dim 13 \
 "
-dataset_80table_55B_hotness10_only_sparse="$dataset_80table_55B_hotness10 \
---only_sparse \
-"
+
 dataset_80table_55B_hotness20="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness20.bin \
 --train_num_samples 6553600 \
@@ -100,9 +99,7 @@ dataset_80table_55B_hotness20="
 --ev_size_per_table 8,128,128,8,128,128,128,8,8,128 \
 --dense_dim 13 \
 "
-dataset_80table_55B_hotness20_only_sparse="$dataset_80table_55B_hotness20 \
---only_sparse \
-"
+
 dataset_80table_55B_hotness70="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness70.bin \
 --train_num_samples 6553600 \
@@ -151,23 +148,14 @@ utest)
 80table_55B_hotness10)
   test_command+="${dataset_80table_55B_hotness10}"
   ;;
-80table_55B_hotness10_only_sparse)
-  test_command+="${dataset_80table_55B_hotness10_only_sparse}"
-  ;;
 80table_55B_hotness10_small_vec)
   test_command+="${dataset_80table_55B_hotness10_small_vec}"
-  ;;
-80table_55B_hotness10_small_vec_only_sparse)
-  test_command+="${dataset_80table_55B_hotness10_small_vec_only_sparse}"
   ;;
 80table_55B_hotness20)
   test_command+="${dataset_80table_55B_hotness20}"
   ;;
 80table_55B_hotness70)
   test_command+="${dataset_80table_55B_hotness70}"
-  ;;
-80table_55B_hotness20_only_sparse)
-  test_command+="${dataset_80table_55B_hotness20_only_sparse}"
   ;;
 large)
   test_command+="$large_dataset"
