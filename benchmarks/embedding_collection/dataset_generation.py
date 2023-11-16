@@ -6,15 +6,9 @@ alpha = 1.01
 output_filename = "./dcnv2_synthetic_alpha{}.bin".format(alpha)
 
 dataset_info = [
-    (7, 1, 100),
-    (2, 1, 1000),
     (2, 1, 10000),
     (2, 10, 1000),
-    (5, 10, 10000),
-    (2, 10, 500000),
-    (1, 5, 3000000),
-    (4, 10, 40000000),
-    (1, 100, 40000000),
+    (2, 2, 1000),
 ]
 num_dense_features = 13
 num_label = 1
@@ -24,7 +18,7 @@ n = 8192 * 10
 num_cate_features = sum([num_table * hotness for (num_table, hotness, _) in dataset_info])
 max_vocabulary_size = sum([v for _, _, v in dataset_info])
 item_num_per_sample = 1 + num_dense_features + num_cate_features
-sample_format = r"1I" + str(num_dense_features) + "f" + str(num_cate_features) + "I"
+sample_format = r"1I" + str(num_dense_features) + "f" + str(num_cate_features) + "Q"
 sample_size_in_bytes = 1 * 4 + num_dense_features * 4 + num_cate_features * 4
 
 print("num_dense_features", num_dense_features)
@@ -56,7 +50,7 @@ for num_table, hotness, vocabulary_size in dataset_info:
         random_cate_list.append(s)
         print("table_id", table_id, "unique ratio:", np.unique(s).size / s.size)
         table_id += 1
-random_cate = np.concatenate(random_cate_list, axis=1).astype(np.int32)
+random_cate = np.concatenate(random_cate_list, axis=1).astype(np.int64)
 
 random_label = np.random.randint(2, size=(n, 1)).astype(np.int32)
 random_dense = np.random.uniform(size=(n, num_dense_features)).astype(np.float32)

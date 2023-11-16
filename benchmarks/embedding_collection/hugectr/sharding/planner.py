@@ -53,7 +53,6 @@ class ShardingState:
             cost,
             is_hier: bool = False,
             use_column_wise_sharding: bool = False,
-            dp_table_id: np.array(int) = np.array([]),
     ) -> None:
         if is_hier:
             self.num_bucket = num_nodes
@@ -64,7 +63,7 @@ class ShardingState:
         self.is_hier = is_hier
         self.use_column_wise_sharding = use_column_wise_sharding
 
-        mp_table_id = np.setdiff1d(np.arange(array_hotness.size), dp_table_id)
+        mp_table_id = np.arange(array_hotness.size)
         array_hotness_mp = array_hotness[mp_table_id]
         array_evsizes_mp = array_evsizes[mp_table_id]
         array_cost_mp = cost.get_cost_per_lookup(
@@ -363,16 +362,6 @@ class CostModel:
         comm_cost = self.band_width_ratio * self.batchsize * ev_sizes_array
         return hotness_cost + comm_cost
 
-    def deduct_mem_cap_for_dp(
-            self,
-            dp_table_id: list,
-    ) -> None:
-        self.mem_capacity -= (
-                self.array_table_size[dp_table_id] * self.unit_mem_cost[dp_table_id]
-        ).sum()
-        if self.mem_capacity < 0:
-            raise Exception("OOM due to DP. Please considering increase the DP threshold")
-
     def get_dense_lookup_cost(
             self,
             ss: ShardingState,
@@ -417,7 +406,6 @@ class Planner:
             batchsize: int,
             is_hier: bool,
             cost_model: CostModel,
-            dp_threshold: int = 0,
             max_search_iter: int = 20,
             use_column_wise_sharding: bool = False,
             log_result: bool = False,
@@ -428,7 +416,6 @@ class Planner:
         self.num_gpus_per_node = num_gpus_per_node  # numGPUS or numNodesa
         self.batchsize = batchsize
         self.use_column_wise_sharding = use_column_wise_sharding
-        self.dp_threshold = dp_threshold
         if is_hier:
             self.num_bucket = num_nodes  # numGPUS or numNodes
         else:
@@ -472,9 +459,8 @@ class Planner:
         )
 
         # Create DP sharding plan based on the DP threshold
-        self.dp_table_id = np.where(cost_model.array_table_size <= dp_threshold)[0]
 
-        self.mp_table_id = np.setdiff1d(np.arange(self.array_hotness.size), self.dp_table_id)
+        self.mp_table_id = np.arange(self.array_hotness.size)
         self.sharding_state = sharding_state_default = ShardingState(
             self.array_hotness,
             self.ev_sizes,
@@ -485,9 +471,7 @@ class Planner:
             self.cost_model,
             is_hier,
             self.use_column_wise_sharding,
-            self.dp_table_id,
         )
-        self.cost_model.deduct_mem_cap_for_dp(self.dp_table_id)
 
         logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -558,17 +542,13 @@ class Planner:
 
                     # 2 split method is success ,compare them cost
                     if oom_table_id_row is None and oom_table_id_col is None:
-                        print('row', oom_table_id_row, cost_row.cost, cost_row.hotness_cost)
-                        print('col', oom_table_id_col, cost_col.cost, cost_col.hotness_cost)
                         cost_max_row = cost_row.cost.max()
                         cost_max_col = cost_col.cost.max()
                         if cost_max_row > cost_max_col:
-                            print('split column')
                             self.sharding_state.split_hot_shard(
                                 cost=self.cost_model, is_column_wise=True
                             )
                         else:
-                            print('split row')
                             self.sharding_state.split_hot_shard(
                                 cost=self.cost_model, is_column_wise=False
                             )
@@ -650,14 +630,10 @@ class Planner:
         print("sparse cost = ", sparse_cost, "dense cost = ", dense_cost)
 
         shard_matrix = self.list_candidate[0][-1]
-        for table_id in self.dp_table_id:
-            for shard_list in shard_matrix:
-                shard_list.append(table_id)
         shard_column_wise_nums = np.array(self.list_candidate[0][-2])
         shard_column_wise_nums_mp = shard_column_wise_nums[self.mp_table_id].astype(np.int32)
         mp_shard_info = list(zip(self.mp_table_id.tolist(), shard_column_wise_nums_mp.tolist()))
         shard_strategy = [("mp", mp_shard_info)]
-        shard_strategy.append(("dp", self.dp_table_id.tolist()))
         if self.log_result:
             logging.info("Planner took %f sec" % (time.time() - t0))
             logging.info(shard_strategy)

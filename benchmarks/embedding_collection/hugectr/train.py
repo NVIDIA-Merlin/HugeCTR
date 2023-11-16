@@ -156,18 +156,6 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=str,
         default="128",
     )
-    parser.add_argument(
-        "--combiner_per_table",
-        help="combiner of each type of embedding table, can be a list of str seperated by comma. str can be c(concat) or s(sum)",
-        type=str,
-        default="s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s",
-    )
-    parser.add_argument(
-        "--sd_threshold",
-        help="hotness threshold , if hotness less than this threshold , sparse will use unique base",
-        type=int,
-        default=0,
-    )
 
     parser.add_argument(
         "--dense_dim",
@@ -187,7 +175,18 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         default="1024,1024,512,256,1",
         help="Comma separated layer sizes for top mlp.",
     )
-
+    parser.add_argument(
+        "--dcn_num_layers",
+        type=int,
+        default=3,
+        help="Number of DCN layers in interaction layer (only on dlrm with DCN).",
+    )
+    parser.add_argument(
+        "--dcn_low_rank_dim",
+        type=int,
+        default=512,
+        help="Low rank dimension for DCN in interaction layer (only on dlrm with DCN).",
+    )
     # optimizer
     parser.add_argument(
         "--optimizer",
@@ -282,46 +281,58 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=int,
         default=0,
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--sd_threshold",
+        help="hotness threshold , if hotness less than this threshold , sparse will use unique base",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        "--only_sparse",
+        action="store_true",
+    )
+
+    args = parser.parse_args(argv)
+    num_table_list = args.num_table.strip().split(",")
+    vocabulary_size_per_table = args.vocabulary_size_per_table.strip().split(",")
+    nnz_per_table = args.nnz_per_table.split(",")
+    ev_size_per_table = args.ev_size_per_table.split(",")
+    num_vocabulary_size = len(vocabulary_size_per_table)
+
+    assert len(num_table_list) == num_vocabulary_size
+    assert len(nnz_per_table) == num_vocabulary_size
+    assert len(ev_size_per_table) == 1 or len(ev_size_per_table) == num_vocabulary_size
+    if len(ev_size_per_table) == 1:
+        ev_size_per_table = [ev_size_per_table[0] for _ in range(num_vocabulary_size)]
+    num_table_list = [int(v) for v in num_table_list]
+
+    args.TABLE_SIZE_ARRAY = []
+    args.MULTI_HOT_SIZES = []
+    args.COMBINERS = []
+    args.EMB_VEC_SIZES = []
+    for i, num_table in enumerate(num_table_list):
+        for _ in range(num_table):
+            args.TABLE_SIZE_ARRAY.append(int(vocabulary_size_per_table[i]))
+            args.MULTI_HOT_SIZES.append(int(nnz_per_table[i]))
+            args.EMB_VEC_SIZES.append(int(ev_size_per_table[i]))
+            if not args.only_sparse:
+                if int(nnz_per_table[i]) == 1:
+                    combiner = "concat"
+                else:
+                    combiner = "sum"
+                args.COMBINERS.append(combiner)
+            else:
+                args.COMBINERS.append("sum")
+
+    args.NUM_TABLE = len(args.TABLE_SIZE_ARRAY)
+    args.NUM_DENSE = int(args.dense_dim)
+    args.bmlp_layer_sizes = [int(v) for v in args.bmlp_layer_sizes.strip().split(",")]
+    args.tmlp_layer_sizes = [int(v) for v in args.tmlp_layer_sizes.strip().split(",")]
+
+    return args
 
 
 args = parse_args(sys.argv[1:])
-num_table_list = args.num_table.strip().split(",")
-vocabulary_size_per_table = args.vocabulary_size_per_table.strip().split(",")
-nnz_per_table = args.nnz_per_table.split(",")
-ev_size_per_table = args.ev_size_per_table.split(",")
-combiner_per_table = args.combiner_per_table.split(",")
-num_vocabulary_size = len(vocabulary_size_per_table)
-
-assert len(num_table_list) == num_vocabulary_size
-assert len(nnz_per_table) == num_vocabulary_size
-assert len(ev_size_per_table) == 1 or len(ev_size_per_table) == num_vocabulary_size
-assert len(combiner_per_table) == num_vocabulary_size
-if len(ev_size_per_table) == 1:
-    ev_size_per_table = [ev_size_per_table[0] for _ in range(num_vocabulary_size)]
-num_table_list = [int(v) for v in num_table_list]
-
-TABLE_SIZE_ARRAY = []
-MULTI_HOT_SIZES = []
-COMBINERS = []
-EMB_VEC_SIZES = []
-for i, num_table in enumerate(num_table_list):
-    for _ in range(num_table):
-        TABLE_SIZE_ARRAY.append(int(vocabulary_size_per_table[i]))
-        MULTI_HOT_SIZES.append(int(nnz_per_table[i]))
-        EMB_VEC_SIZES.append(int(ev_size_per_table[i]))
-        combiner = combiner_per_table[i]
-        if combiner == "s":
-            COMBINERS.append("sum")
-        elif combiner == "c":
-            COMBINERS.append("concat")
-        else:
-            raise
-
-NUM_TABLE = len(TABLE_SIZE_ARRAY)
-NUM_DENSE = int(args.dense_dim)
-bmlp_layer_sizes = [int(v) for v in args.bmlp_layer_sizes.strip().split(",")]
-tmlp_layer_sizes = [int(v) for v in args.tmlp_layer_sizes.strip().split(",")]
 
 comm = MPI.COMM_WORLD
 num_nodes = comm.Get_size()
@@ -340,17 +351,21 @@ if args.eval_interval is None:
     args.eval_interval = math.floor(0.05 * iter_per_epoch)
 if args.max_eval_batches is None:
     args.max_eval_batches = math.ceil(args.eval_num_samples / args.batchsize_eval)
-shard_matrix, shard_strategy, dense_sparse_table_ids = sharding.generate_plan(
-    TABLE_SIZE_ARRAY,
-    MULTI_HOT_SIZES,
-    EMB_VEC_SIZES,
-    COMBINERS,
+shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = sharding.generate_plan(
+    args.TABLE_SIZE_ARRAY,
+    args.MULTI_HOT_SIZES,
+    args.EMB_VEC_SIZES,
+    args.COMBINERS,
     num_nodes,
     args.num_gpus_per_node,
     args,
     is_rank_zero,
     dp_threshold=args.dp_threshold,
 )
+compression_strategy = {
+    hugectr.CompressionStrategy.Unique: unique_table_ids,
+    hugectr.CompressionStrategy.Reduction: reduction_table_ids
+}
 # 1. Create Solver, DataReaderParams and Optimizer
 solver = hugectr.CreateSolver(
     model_name="Embedding Collection Benchmark",
@@ -408,7 +423,7 @@ reader = hugectr.DataReaderParams(
     num_samples=args.train_num_samples,
     eval_num_samples=args.eval_num_samples,
     cache_eval_data=1,
-    slot_size_array=TABLE_SIZE_ARRAY,
+    slot_size_array=args.TABLE_SIZE_ARRAY,
     async_param=hugectr.AsyncParam(
         num_threads=1,
         num_batches_per_thread=16,
@@ -428,18 +443,18 @@ model.add(
         dense_dim=args.dense_dim,
         dense_name="dense",
         data_reader_sparse_param_array=[
-            hugectr.DataReaderSparseParam("data{}".format(i), MULTI_HOT_SIZES[i], True, 1)
-            for i in range(NUM_TABLE)
+            hugectr.DataReaderSparseParam("data{}".format(i), args.MULTI_HOT_SIZES[i], True, 1)
+            for i in range(args.NUM_TABLE)
         ],
     )
 )
 
 # create embedding table
 embedding_table_list = []
-for i in range(NUM_TABLE):
+for i in range(args.NUM_TABLE):
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            name=str(i), max_vocabulary_size=TABLE_SIZE_ARRAY[i], ev_size=EMB_VEC_SIZES[i]
+            name=str(i), max_vocabulary_size=args.TABLE_SIZE_ARRAY[i], ev_size=args.EMB_VEC_SIZES[i]
         )
     )
 # create embedding planner and embedding collection
@@ -450,13 +465,13 @@ comm_strategy = (
 )
 ebc_config = hugectr.EmbeddingCollectionConfig(use_exclusive_keys=True, comm_strategy=comm_strategy)
 ebc_config.embedding_lookup(
-    table_config=[embedding_table_list[i] for i in range(NUM_TABLE)],
-    bottom_name=["data{}".format(i) for i in range(NUM_TABLE)],
+    table_config=[embedding_table_list[i] for i in range(args.NUM_TABLE)],
+    bottom_name=["data{}".format(i) for i in range(args.NUM_TABLE)],
     top_name="sparse_embedding",
-    combiner=COMBINERS,
+    combiner=args.COMBINERS,
 )
 
-ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy)
+ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy, compression_strategy=compression_strategy)
 
 model.add(ebc_config)
 
@@ -471,7 +486,7 @@ model.add(
         layer_type=hugectr.Layer_t.MLP,
         bottom_names=["dense"],
         top_names=["mlp1"],
-        num_outputs=bmlp_layer_sizes,
+        num_outputs=args.bmlp_layer_sizes,
         act_type=hugectr.Activation_t.Relu,
         compute_config=compute_config,
     )
@@ -488,8 +503,8 @@ model.add(
         layer_type=hugectr.Layer_t.MultiCross,
         bottom_names=["concat1"],
         top_names=["interaction1"],
-        projection_dim=512,
-        num_layers=3,
+        projection_dim=args.dcn_low_rank_dim,
+        num_layers=args.dcn_num_layers,
         compute_config=compute_config,
     )
 )
@@ -498,7 +513,7 @@ model.add(
         layer_type=hugectr.Layer_t.MLP,
         bottom_names=["interaction1"],
         top_names=["mlp2"],
-        num_outputs=tmlp_layer_sizes,
+        num_outputs=args.tmlp_layer_sizes,
         activations=[
             hugectr.Activation_t.Relu,
             hugectr.Activation_t.Relu,
