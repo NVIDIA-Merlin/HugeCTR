@@ -113,17 +113,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         default=8 / 2,
     )
     parser.add_argument(
-        "--use_column_wise_shard",
-        action="store_true",
-    )
-
-    parser.add_argument(
         "--dense_comm_work_ratio",
         help="The ratio between the communication and the memory work of the network",
         type=float,
         default=4 / 2,
     )
-
     parser.add_argument(
         "--memory_cap_for_embedding",
         help="The amount of memory can be used for storing embedding in GB",
@@ -293,6 +287,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=int,
         default=0,
     )
+    parser.add_argument(
+        "--use_column_wise_shard",
+        action="store_true",
+    )
 
     args = parser.parse_args(argv)
     num_table_list = args.num_table.strip().split(",")
@@ -352,7 +350,6 @@ shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = sharding.g
     args.num_gpus_per_node,
     args,
     is_rank_zero,
-    dp_threshold=args.dp_threshold,
 )
 compression_strategy = {
     hugectr.CompressionStrategy.Unique: unique_table_ids,

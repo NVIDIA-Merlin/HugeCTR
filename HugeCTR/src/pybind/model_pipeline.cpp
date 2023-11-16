@@ -573,20 +573,19 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
           (skip_data_distributor_env != nullptr && 1 == std::atoi(skip_data_distributor_env));
 
       if (is_scheduled_datareader()) {
-        if (skip_data_distributor && !is_first_data_distributor) {
-          if (auto reader =
-                  dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
-            train_data_distributor_->distribute(
-                local_id, reader->get_current_sparse_values()[local_id], {},
-                train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
-          } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
-                         train_data_reader_.get())) {
-            train_data_distributor_->distribute(
-                local_id, reader->get_current_sparse_values()[local_id], {},
-                train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
-          }
-          is_first_data_distributor = false;
+        if (skip_data_distributor && !is_first_data_distributor) return;
+        if (auto reader =
+                dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
+          train_data_distributor_->distribute(
+              local_id, reader->get_current_sparse_values()[local_id], {},
+              train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
+        } else if (auto reader = dynamic_cast<MultiHot::AsyncDataReader<long long>*>(
+                       train_data_reader_.get())) {
+          train_data_distributor_->distribute(
+              local_id, reader->get_current_sparse_values()[local_id], {},
+              train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
         }
+        is_first_data_distributor = false;
       } else {
         HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
                        "embedding collection can only be used with AsyncMultiHot DataReader.");

@@ -219,7 +219,6 @@ def generate_plan(
         num_gpus_per_node: int,
         args: Namespace,
         log_result: bool,
-        dp_threshold: int = 0,
 ):
     # filter:
     # 1. dp table
