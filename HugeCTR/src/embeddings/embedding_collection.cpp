@@ -93,19 +93,19 @@ EmbeddingCollectionConfig split_column_wise_sharding_config(
 
   split_ebc_config.shard_strategy_.clear();
   for (auto &user_shard_strategy : user_ebc_config.shard_strategy_) {
+    std::vector<TableVariant> split_group_strategy;
+    auto user_group_strategy = get_table_group_strategy(user_shard_strategy);
+    for (auto &table_tuple : user_group_strategy) {
+      std::string user_table_name = get_table_name(table_tuple);
+      auto &split_table_names = user_table_name_to_split_table_name[user_table_name];
+      std::copy(split_table_names.begin(), split_table_names.end(),
+                std::back_inserter(split_group_strategy));
+    }
     auto tps = get_table_place_strategy(user_shard_strategy);
     if (tps == "dp") {
-      split_ebc_config.shard_strategy_.push_back(user_shard_strategy);
+      split_ebc_config.shard_strategy_.push_back({"dp", split_group_strategy});
       continue;
     } else if (tps == "mp") {
-      std::vector<TableVariant> split_group_strategy;
-      auto user_group_strategy = get_table_group_strategy(user_shard_strategy);
-      for (auto &table_tuple : user_group_strategy) {
-        std::string user_table_name = get_table_name(table_tuple);
-        auto &split_table_names = user_table_name_to_split_table_name[user_table_name];
-        std::copy(split_table_names.begin(), split_table_names.end(),
-                  std::back_inserter(split_group_strategy));
-      }
       split_ebc_config.shard_strategy_.push_back({"mp", split_group_strategy});
     } else {
       HCTR_OWN_THROW(Error_t::IllegalCall, "unreachable.");
