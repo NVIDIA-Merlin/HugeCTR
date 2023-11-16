@@ -527,4 +527,3 @@ model.fit(
     snapshot=2000000,
     snapshot_prefix="dlrm",
 )
-

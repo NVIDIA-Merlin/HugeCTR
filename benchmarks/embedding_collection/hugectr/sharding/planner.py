@@ -30,7 +30,7 @@ def ev_size_compensation(ev_sizes_array):
     slope_range = int(32)
 
     ev_sizes_compensation = (
-        align_128 + intercept + (np.floor((remainders / 128) * slope_range)).astype(np.int32)
+            align_128 + intercept + (np.floor((remainders / 128) * slope_range)).astype(np.int32)
     )
     return ev_sizes_array
 
@@ -43,17 +43,17 @@ class ShardingState:
     """
 
     def __init__(
-        self,
-        array_hotness: np.array,
-        array_evsizes: np.array,
-        num_bucket: int,
-        num_nodes: int,
-        num_gpus_per_node: int,
-        batch_size: int,
-        cost,
-        is_hier: bool = False,
-        use_column_wise_sharding: bool = False,
-        dp_table_id: np.array(int) = np.array([]),
+            self,
+            array_hotness: np.array,
+            array_evsizes: np.array,
+            num_bucket: int,
+            num_nodes: int,
+            num_gpus_per_node: int,
+            batch_size: int,
+            cost,
+            is_hier: bool = False,
+            use_column_wise_sharding: bool = False,
+            dp_table_id: np.array(int) = np.array([]),
     ) -> None:
         if is_hier:
             self.num_bucket = num_nodes
@@ -101,7 +101,7 @@ class ShardingState:
         # can be split further
         # TODO:maybe we can change the algo of split, we need consider the column-wise sharding
         tmp_embedding_length_cost = ev_size_compensation(self.array_evsizes) * self.array_hotness
-        tmp_embedding_com_cost = self.array_evsizes *80
+        tmp_embedding_com_cost = self.array_evsizes * 80
         # tmp_ratio = tmp_embedding_length_cost/tmp_embedding_com_cost
         # tmp_ratio = tmp_embedding_length_cost
         tmp_ratio = tmp_embedding_length_cost + tmp_embedding_com_cost
@@ -116,9 +116,9 @@ class ShardingState:
             table_id = tmp_table_ids[shard_id]
             hotness = self.array_unshard_hotness[table_id]
             split_num_pre = (
-                self.array_unshard_evsizes[table_id]
-                / self.array_unshard_evsizes_update[table_id]
-                * self.array_num_split[table_id]
+                    self.array_unshard_evsizes[table_id]
+                    / self.array_unshard_evsizes_update[table_id]
+                    * self.array_num_split[table_id]
             )
             if split_num_pre * 2 <= self.num_bucket:
                 # if this table can be furter splitted and we can put it into
@@ -129,10 +129,10 @@ class ShardingState:
                 self.array_evsizes = np.delete(self.array_evsizes, idx)
                 if is_column_wise:
                     tmp_table_size = self.array_unshard_evsizes_update[table_id]
-                    if tmp_table_size == 0 or tmp_table_size % 2 != 0 or tmp_table_size<=32:
+                    if tmp_table_size == 0 or tmp_table_size % 2 != 0 or tmp_table_size <= 32:
                         self.array_num_split[table_id] *= 2
                     else:
-                        #return back on row-wise
+                        # return back on row-wise
                         self.array_unshard_evsizes_update[table_id] /= 2
                 else:
                     self.array_num_split[table_id] *= 2
@@ -175,9 +175,9 @@ class ShardingState:
     def split_oom_shard(self, table_id, cost, is_column_wise=False):
         hotness = self.array_unshard_hotness[table_id]
         split_num_pre = (
-            self.array_unshard_evsizes[table_id]
-            / self.array_unshard_evsizes_update[table_id]
-            * self.array_num_split[table_id]
+                self.array_unshard_evsizes[table_id]
+                / self.array_unshard_evsizes_update[table_id]
+                * self.array_num_split[table_id]
         )
         if split_num_pre * 2 <= self.num_bucket:
             idx = np.where(self.array_table_id == table_id)[0]
@@ -186,14 +186,14 @@ class ShardingState:
             self.array_evsizes = np.delete(self.array_evsizes, idx)
             if is_column_wise:
                 tmp_table_size = self.array_unshard_evsizes_update[table_id]
-                if tmp_table_size == 0 and tmp_table_size % 2 != 0  or tmp_table_size<=32:
+                if tmp_table_size == 0 and tmp_table_size % 2 != 0 or tmp_table_size <= 32:
                     self.array_num_split[table_id] *= 2
-                    #return False
+                    # return False
                 else:
                     self.array_unshard_evsizes_update[table_id] /= 2
             else:
                 self.array_num_split[table_id] *= 2
-                #split_num = self.array_num_split[table_id]
+                # split_num = self.array_num_split[table_id]
             split_num = int(
                 self.array_num_split[table_id]
                 * self.array_unshard_evsizes[table_id]
@@ -241,26 +241,26 @@ class ShardingState:
         return self.array_unshard_evsizes / self.array_unshard_evsizes_update
 
     def push_bucket(
-        self,
-        bucket_id: int,
-        table_id: int,
+            self,
+            bucket_id: int,
+            table_id: int,
     ) -> None:
         self.shard_ll[bucket_id].append(table_id)
 
     def pop_bucket(
-        self,
-        bucket_id: int,
+            self,
+            bucket_id: int,
     ) -> None:
         self.shard_ll[bucket_id].pop()
 
 
 class Cost:
     def __init__(
-        self,
-        cost: np.array(float),
-        hotness_cost: np.array(float),
-        comm_cost: np.array(float),
-        mem_cost: np.array(float),
+            self,
+            cost: np.array(float),
+            hotness_cost: np.array(float),
+            comm_cost: np.array(float),
+            mem_cost: np.array(float),
     ) -> None:
         self.cost = cost
         self.hotness_cost = hotness_cost
@@ -270,18 +270,18 @@ class Cost:
 
 class CostModel:
     def __init__(
-        self,
-        hotness_cost: float,
-        band_width_ratio: float,
-        sparse_work_ratio: float,
-        dense_work_ratio: float,
-        batchsize: int,
-        mem_cost,
-        ev_sizes: np.array(int),
-        mem_capacity: float,
-        table_size: List[int],
-        key_embedding_type_ratio: int = 1,
-        unique_ratio: float = 1,
+            self,
+            hotness_cost: float,
+            band_width_ratio: float,
+            sparse_work_ratio: float,
+            dense_work_ratio: float,
+            batchsize: int,
+            mem_cost,
+            ev_sizes: np.array(int),
+            mem_capacity: float,
+            table_size: List[int],
+            key_embedding_type_ratio: int = 1,
+            unique_ratio: float = 1,
     ) -> None:
         self.unit_hotness_cost = hotness_cost
         self.band_width_ratio = band_width_ratio
@@ -296,8 +296,8 @@ class CostModel:
         self.key_embedding_type_ratio = key_embedding_type_ratio
 
     def get_cost(
-        self,
-        ss: ShardingState,
+            self,
+            ss: ShardingState,
     ) -> Tuple[Cost, bool]:
         list_cost = []
         list_hotness_cost = []
@@ -306,17 +306,17 @@ class CostModel:
 
         for shard_list in ss.shard_ll:
             hotness_cost = (
-                self.unit_hotness_cost
-                * self.sparse_work_ratio
-                * self.batchsize
-                * (
-                    ss.array_unshard_hotness[shard_list]
-                    * ev_size_compensation(ss.array_unshard_evsizes_update[shard_list])
-                    / np.array(ss.array_num_split)[shard_list]
-                ).sum()
+                    self.unit_hotness_cost
+                    * self.sparse_work_ratio
+                    * self.batchsize
+                    * (
+                            ss.array_unshard_hotness[shard_list]
+                            * ev_size_compensation(ss.array_unshard_evsizes_update[shard_list])
+                            / np.array(ss.array_num_split)[shard_list]
+                    ).sum()
             )
-                    comm_cost = (
-                self.band_width_ratio * self.batchsize * ss.array_unshard_evsizes_update[shard_list]
+            comm_cost = (
+                    self.band_width_ratio * self.batchsize * ss.array_unshard_evsizes_update[shard_list]
             ).sum()
             # TODO:add a data distributor cost to comm_cost
 
@@ -327,13 +327,13 @@ class CostModel:
                 hotness_cost = hotness_cost / ss.num_gpus_per_node
             if len(shard_list) > 0:
                 mem_cost = (
-                    self.unit_mem_cost[shard_list]
-                    / (
-                        ss.array_unshard_evsizes[shard_list]
-                        / ss.array_unshard_evsizes_update[shard_list]
-                    )
-                    * self.array_table_size[shard_list]
-                    / np.array(ss.array_num_split)[shard_list]
+                        self.unit_mem_cost[shard_list]
+                        / (
+                                ss.array_unshard_evsizes[shard_list]
+                                / ss.array_unshard_evsizes_update[shard_list]
+                        )
+                        * self.array_table_size[shard_list]
+                        / np.array(ss.array_num_split)[shard_list]
                 ).sum()
             else:
                 mem_cost = 0
@@ -354,45 +354,45 @@ class CostModel:
 
     def get_cost_per_lookup(self, hotness_array: np.array, ev_sizes_array: np.array) -> np.array:
         hotness_cost = (
-            self.unit_hotness_cost
-            * self.sparse_work_ratio
-            * self.batchsize
-            * ev_size_compensation(ev_sizes_array)
-            * hotness_array
+                self.unit_hotness_cost
+                * self.sparse_work_ratio
+                * self.batchsize
+                * ev_size_compensation(ev_sizes_array)
+                * hotness_array
         )
         comm_cost = self.band_width_ratio * self.batchsize * ev_sizes_array
         return hotness_cost + comm_cost
 
     def deduct_mem_cap_for_dp(
-        self,
-        dp_table_id: list,
+            self,
+            dp_table_id: list,
     ) -> None:
         self.mem_capacity -= (
-            self.array_table_size[dp_table_id] * self.unit_mem_cost[dp_table_id]
+                self.array_table_size[dp_table_id] * self.unit_mem_cost[dp_table_id]
         ).sum()
         if self.mem_capacity < 0:
             raise Exception("OOM due to DP. Please considering increase the DP threshold")
 
     def get_dense_lookup_cost(
-        self,
-        ss: ShardingState,
+            self,
+            ss: ShardingState,
     ) -> float:
         num_gpus = ss.num_nodes * ss.num_gpus_per_node
         comm_cost = (
-            ss.array_unshard_hotness_mp
-            * self.batchsize
-            * self.unique_ratio
-            * ss.array_unshard_evsizes_mp
-            * self.band_width_ratio
-            / num_gpus
+                ss.array_unshard_hotness_mp
+                * self.batchsize
+                * self.unique_ratio
+                * ss.array_unshard_evsizes_mp
+                * self.band_width_ratio
+                / num_gpus
         ).sum()
         hotness_cost = (
-            ss.array_unshard_hotness_mp
-            * self.batchsize
-            * self.dense_work_ratio
-            * ev_size_compensation(ss.array_unshard_evsizes_mp)
-            * self.unique_ratio
-            / num_gpus
+                ss.array_unshard_hotness_mp
+                * self.batchsize
+                * self.dense_work_ratio
+                * ev_size_compensation(ss.array_unshard_evsizes_mp)
+                * self.unique_ratio
+                / num_gpus
         ).sum()
         return comm_cost + hotness_cost
         # return comm_cost + hotness_cost+key_comm_cost
@@ -409,18 +409,18 @@ class Planner:
     """
 
     def __init__(
-        self,
-        list_hotness: list,
-        ev_sizes: np.array,
-        num_nodes: int,
-        num_gpus_per_node: int,
-        batchsize: int,
-        is_hier: bool,
-        cost_model: CostModel,
-        dp_threshold: int = 0,
-        max_search_iter: int = 20,
-        use_column_wise_sharding: bool = False,
-        log_result: bool = False,
+            self,
+            list_hotness: list,
+            ev_sizes: np.array,
+            num_nodes: int,
+            num_gpus_per_node: int,
+            batchsize: int,
+            is_hier: bool,
+            cost_model: CostModel,
+            dp_threshold: int = 0,
+            max_search_iter: int = 20,
+            use_column_wise_sharding: bool = False,
+            log_result: bool = False,
     ) -> None:
         self.array_hotness = np.array(list_hotness)
         self.ev_sizes = np.array(ev_sizes)
@@ -505,7 +505,7 @@ class Planner:
             sharded = False
             for bucket_id in sorted_idx:
                 if (
-                    ss.array_table_id[i] not in ss.shard_ll[bucket_id]
+                        ss.array_table_id[i] not in ss.shard_ll[bucket_id]
                 ):  # ss.array_table_id mp table_id
                     # for now, only uniform sharding is supported. Hence cannot put two shards
                     # from the same table into the same bucket
@@ -558,8 +558,8 @@ class Planner:
 
                     # 2 split method is success ,compare them cost
                     if oom_table_id_row is None and oom_table_id_col is None:
-                        print('row', oom_table_id_row, cost_row.cost,cost_row.hotness_cost)
-                        print('col', oom_table_id_col, cost_col.cost,cost_col.hotness_cost)
+                        print('row', oom_table_id_row, cost_row.cost, cost_row.hotness_cost)
+                        print('col', oom_table_id_col, cost_col.cost, cost_col.hotness_cost)
                         cost_max_row = cost_row.cost.max()
                         cost_max_col = cost_col.cost.max()
                         if cost_max_row > cost_max_col:
