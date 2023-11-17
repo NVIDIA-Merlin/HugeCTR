@@ -955,37 +955,45 @@ struct InputOutputInfo {
 };
 
 void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
-  for (auto& dense_layer : dense_layers) {
-    pre_add_dense_layer(dense_layer);
-  }
   auto add_dense_layers_op = [&dense_layers, this](bool is_train) {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-      std::vector<std::unique_ptr<Layer>> layers;
-      std::map<std::string, std::unique_ptr<ILoss>> losses;
-      metrics::Core23MultiLossMetricMap raw_metrics;
-      std::vector<Layer*> top_layers;
-      std::vector<Layer*> bottom_layers;
-      for (auto& dense_layer : dense_layers) {
+    size_t num_local_gpus = resource_manager_->get_local_gpu_count();
+    std::vector<std::vector<std::unique_ptr<Layer>>> layers(num_local_gpus);
+    std::vector<std::map<std::string, std::unique_ptr<ILoss>>> losses(num_local_gpus);
+    std::vector<metrics::Core23MultiLossMetricMap> raw_metrics(num_local_gpus);
+    std::vector<std::vector<Layer*>> top_layers(num_local_gpus);
+    std::vector<std::vector<Layer*>> bottom_layers(num_local_gpus);
+    for (auto& dense_layer : dense_layers) {
+      if (is_train) {
+        pre_add_dense_layer(dense_layer);
+      }
+      for (size_t i = 0; i < num_local_gpus; i++) {
         add_dense_layer_impl(
             dense_layer,
-            is_train ? train_tensor_entities_list_[i] : evaluate_tensor_entities_list_[i], layers,
-            losses, is_train ? nullptr : &raw_metrics, resource_manager_->get_global_gpu_count(),
-            resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
-            solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search,
-            is_train ? &top_layers : nullptr, is_train ? &bottom_layers : nullptr,
-            is_train ? embedding_dependent_ : false, solver_);
+            is_train ? train_tensor_entities_list_[i] : evaluate_tensor_entities_list_[i],
+            layers[i], losses[i], is_train ? nullptr : &raw_metrics[i],
+            resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
+            solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
+            solver_.use_algorithm_search, is_train ? &top_layers[i] : nullptr,
+            is_train ? &bottom_layers[i] : nullptr, is_train ? embedding_dependent_ : false,
+            solver_);
       }
+    }
+    for (size_t i = 0; i < num_local_gpus; i++) {
       if (is_train) {
-        networks_[i]->set_train_layers(std::move(layers));
-        networks_[i]->set_train_losses(std::move(losses), label_weights_);
-        networks_[i]->set_top_and_bottom_layers(std::move(top_layers), std::move(bottom_layers));
+        networks_[i]->set_train_layers(std::move(layers[i]));
+        networks_[i]->set_train_losses(std::move(losses[i]), label_weights_);
+        networks_[i]->set_top_and_bottom_layers(std::move(top_layers[i]),
+                                                std::move(bottom_layers[i]));
       } else {
-        networks_[i]->set_evaluate_layers(std::move(layers));
-        networks_[i]->set_evaluate_losses(std::move(losses), label_weights_);
-        networks_[i]->set_raw_metrics(std::move(raw_metrics));
+        networks_[i]->set_evaluate_layers(std::move(layers[i]));
+        networks_[i]->set_evaluate_losses(std::move(losses[i]), label_weights_);
+        networks_[i]->set_raw_metrics(std::move(raw_metrics[i]));
       }
     }
   };
+
+  add_dense_layers_op(true);
+
   std::unordered_map<NetworkBufferChannelType, std::string> original_channel;
   const std::unordered_map<NetworkBufferChannelType, std::string> new_channel = {
       {NetworkBufferChannelType::Blobs, "EVAL_BLOBS"},
@@ -1007,8 +1015,6 @@ void Model::add_dense_layers(std::vector<DenseLayer>& dense_layers) {
   for (auto it = original_channel.begin(); it != original_channel.end(); it++) {
     SetNetworkBufferChannel(it->first, it->second);
   }
-
-  add_dense_layers_op(true);
 }
 
 void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
