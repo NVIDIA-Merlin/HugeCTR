@@ -232,20 +232,20 @@ def generate_plan(
     num_table = len(slot_size_array)
 
     # select dp tables based on sorting table_size
-    candidate_table_size_and_table_ids = []
+    candidate_table_size_and_hotness_and_table_ids = []
     for table_id in range(num_table):
-        candidate_table_size_and_table_ids.append(
-            (slot_size_array[table_id] * ev_size_list[table_id], table_id)
+        candidate_table_size_and_hotness_and_table_ids.append(
+            (slot_size_array[table_id] * ev_size_list[table_id], multi_hot_sizes[table_id], table_id)
         )
-    sorted_candidate_table_size_and_table_ids = sorted(
-        candidate_table_size_and_table_ids, key=lambda x: x[0]
+    sorted_candidate_candidate_table_size_and_hotness_and_table_ids = sorted(
+        candidate_table_size_and_hotness_and_table_ids, key=lambda x: (x[0], -1 * x[1])
     )
-    if len(sorted_candidate_table_size_and_table_ids) > args.dp_threshold:
-        sorted_candidate_table_size_and_table_ids = sorted_candidate_table_size_and_table_ids[
+    if len(sorted_candidate_candidate_table_size_and_hotness_and_table_ids) > args.dp_threshold:
+        sorted_candidate_candidate_table_size_and_hotness_and_table_ids = sorted_candidate_candidate_table_size_and_hotness_and_table_ids[
             : args.dp_threshold
         ]
 
-    dp_table_ids = [v[1] for v in sorted_candidate_table_size_and_table_ids]
+    dp_table_ids = [v[2] for v in sorted_candidate_candidate_table_size_and_hotness_and_table_ids]
     dp_table_memory_per_gpu = (
         sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dp_table_ids)
         * byte_per_elem
