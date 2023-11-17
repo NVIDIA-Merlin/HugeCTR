@@ -9,7 +9,7 @@ test_command=""
 
 hugectr_framework="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
---sharding_plan hier_auto \
+--sharding_plan uniform \
 --optimizer sgd \
 --use_mixed_precision \
 --use_column_wise_shard \
@@ -22,6 +22,7 @@ python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 #  --disable_fuse_sparse_embedding
 # --mem_comm_bw_ratio 3000/50 eos
 # --mem_comm_bw_ratio 2000/25 selene
+# --num_gpus_per_node 2 \
 
 torchrec_framework="
 python3 /workdir/benchmarks/embedding_collection/torchrec_dlrm/dlrm_main.py  \

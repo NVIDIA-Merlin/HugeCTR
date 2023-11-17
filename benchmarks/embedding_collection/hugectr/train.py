@@ -353,7 +353,7 @@ shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = sharding.g
 )
 compression_strategy = {
     hugectr.CompressionStrategy.Unique: unique_table_ids,
-    hugectr.CompressionStrategy.Reduction: reduction_table_ids
+    hugectr.CompressionStrategy.Reduction: reduction_table_ids,
 }
 # 1. Create Solver, DataReaderParams and Optimizer
 solver = hugectr.CreateSolver(
@@ -460,7 +460,11 @@ ebc_config.embedding_lookup(
     combiner=args.COMBINERS,
 )
 
-ebc_config.shard(shard_matrix=shard_matrix, shard_strategy=shard_strategy, compression_strategy=compression_strategy)
+ebc_config.shard(
+    shard_matrix=shard_matrix,
+    shard_strategy=shard_strategy,
+    compression_strategy=compression_strategy,
+)
 
 model.add(ebc_config)
 

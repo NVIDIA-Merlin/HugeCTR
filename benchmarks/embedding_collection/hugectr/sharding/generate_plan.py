@@ -30,8 +30,9 @@ def get_byte_per_elem(args):
     return byte_per_elem
 
 
-def int_to_string(shard_matrix_int, shard_strategy_int, unique_table_ids_int,
-                  reduction_table_ids_int):
+def int_to_string(
+    shard_matrix_int, shard_strategy_int, unique_table_ids_int, reduction_table_ids_int
+):
     shard_strategy, shard_matrix, unique_table_ids, reduction_table_ids = [], [], [], []
     for pair in shard_strategy_int:
         if len(pair[1]) != 0:
@@ -54,15 +55,15 @@ def int_to_string(shard_matrix_int, shard_strategy_int, unique_table_ids_int,
 
 
 def generate_plan_ragged_ev_size(
-        table_id_list: List[int],
-        slot_size_array: List[int],
-        multi_hot_sizes: List[int],
-        ev_size_list: List[int],
-        sharding_plan: str,
-        num_nodes: int,
-        num_gpus_per_node: int,
-        args: Namespace,
-        log_result: bool,
+    table_id_list: List[int],
+    slot_size_array: List[int],
+    multi_hot_sizes: List[int],
+    ev_size_list: List[int],
+    sharding_plan: str,
+    num_nodes: int,
+    num_gpus_per_node: int,
+    args: Namespace,
+    log_result: bool,
 ):
     num_gpus = num_nodes * num_gpus_per_node
     assert len(table_id_list) == len(slot_size_array)
@@ -212,13 +213,13 @@ def generate_plan_ragged_ev_size(
 
 
 def generate_plan(
-        slot_size_array: List[int],
-        multi_hot_sizes: List[int],
-        ev_size_list: List[int],
-        num_nodes: int,
-        num_gpus_per_node: int,
-        args: Namespace,
-        log_result: bool,
+    slot_size_array: List[int],
+    multi_hot_sizes: List[int],
+    ev_size_list: List[int],
+    num_nodes: int,
+    num_gpus_per_node: int,
+    args: Namespace,
+    log_result: bool,
 ):
     # filter:
     # 1. dp table
@@ -233,15 +234,25 @@ def generate_plan(
     # select dp tables based on sorting table_size
     candidate_table_size_and_table_ids = []
     for table_id in range(num_table):
-        candidate_table_size_and_table_ids.append((slot_size_array[table_id] * ev_size_list[table_id], table_id))
-    sorted_candidate_table_size_and_table_ids = sorted(candidate_table_size_and_table_ids, key=lambda x: x[0])
+        candidate_table_size_and_table_ids.append(
+            (slot_size_array[table_id] * ev_size_list[table_id], table_id)
+        )
+    sorted_candidate_table_size_and_table_ids = sorted(
+        candidate_table_size_and_table_ids, key=lambda x: x[0]
+    )
     if len(sorted_candidate_table_size_and_table_ids) > args.dp_threshold:
         sorted_candidate_table_size_and_table_ids = sorted_candidate_table_size_and_table_ids[
-                                                    :args.dp_threshold]
+            : args.dp_threshold
+        ]
 
     dp_table_ids = [v[1] for v in sorted_candidate_table_size_and_table_ids]
-    dp_table_memory_per_gpu = sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in
-                                  dp_table_ids) * byte_per_elem / 1024 / 1024 / 1024
+    dp_table_memory_per_gpu = (
+        sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dp_table_ids)
+        * byte_per_elem
+        / 1024
+        / 1024
+        / 1024
+    )
     args.memory_cap_for_embedding -= dp_table_memory_per_gpu
 
     # select dense tables based on sorting rows
@@ -253,22 +264,31 @@ def generate_plan(
             candidate_num_rows_and_dense_table_ids.append((slot_size_array[table_id], table_id))
 
     # select dense table. 1. sort. 2. select n smallast table
-    sorted_candidate_num_rows_and_dense_table_ids = sorted(candidate_num_rows_and_dense_table_ids, key=lambda x: x[0])
+    sorted_candidate_num_rows_and_dense_table_ids = sorted(
+        candidate_num_rows_and_dense_table_ids, key=lambda x: x[0]
+    )
     if len(sorted_candidate_num_rows_and_dense_table_ids) > args.dense_threshold:
-        sorted_candidate_num_rows_and_dense_table_ids = sorted_candidate_num_rows_and_dense_table_ids[
-                                                        :args.dense_threshold]
+        sorted_candidate_num_rows_and_dense_table_ids = (
+            sorted_candidate_num_rows_and_dense_table_ids[: args.dense_threshold]
+        )
 
     dense_table_ids = [v[1] for v in sorted_candidate_num_rows_and_dense_table_ids]
-    dense_table_memory_per_gpu = sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in
-                                     dense_table_ids) * byte_per_elem / 1024 / 1024 / 1024 / num_gpus
+    dense_table_memory_per_gpu = (
+        sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dense_table_ids)
+        * byte_per_elem
+        / 1024
+        / 1024
+        / 1024
+        / num_gpus
+    )
     args.memory_cap_for_embedding -= dense_table_memory_per_gpu
     # inject COMBINERS
     args.COMBINERS = []
     for table_id in range(num_table):
         if table_id in set(dense_table_ids):
-            args.COMBINERS.append('concat')
+            args.COMBINERS.append("concat")
         else:
-            args.COMBINERS.append('sum')
+            args.COMBINERS.append("sum")
 
     # select dense_combiner and sparse
     for table_id in range(num_table):
@@ -276,8 +296,15 @@ def generate_plan(
             continue
         if multi_hot_sizes[table_id] <= args.sd_threshold:
             dense_combiner_table_ids += [table_id]
-            args.memory_cap_for_embedding -= slot_size_array[table_id] * ev_size_list[
-                table_id] * byte_per_elem / 1024 / 1024 / 1024 / num_gpus
+            args.memory_cap_for_embedding -= (
+                slot_size_array[table_id]
+                * ev_size_list[table_id]
+                * byte_per_elem
+                / 1024
+                / 1024
+                / 1024
+                / num_gpus
+            )
             continue
         sparse_table_ids += [table_id]
     if args.memory_cap_for_embedding < 0:
@@ -312,16 +339,16 @@ def generate_plan(
         shard_matrix[gpu_id] += sparse_table_shard_matrix[gpu_id]
 
     shard_strategy = [
-        ('dp', dp_table_ids),
-        ('mp', dense_table_ids + dense_combiner_table_ids + sparse_table_shard_strategy[0][1])
+        ("dp", dp_table_ids),
+        ("mp", dense_table_ids + dense_combiner_table_ids + sparse_table_shard_strategy[0][1]),
     ]
 
     unique_table_ids = dense_table_ids + dense_combiner_table_ids
     reduction_table_ids = sparse_table_ids
 
-    shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = int_to_string(shard_matrix, shard_strategy,
-                                                                                        unique_table_ids,
-                                                                                        reduction_table_ids)
+    shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids = int_to_string(
+        shard_matrix, shard_strategy, unique_table_ids, reduction_table_ids
+    )
 
     if log_result:
         logging.info("Provided system info: ")
