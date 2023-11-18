@@ -795,4 +795,14 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
 
   return *this;
 }
+
+double get_dense_unique_ratio() {
+  double dense_unique_ratio = 1.0f;
+
+  const char *const dense_unique_ratio_env = std::getenv("DENSE_UNIQUE_RATIO");
+  if (dense_unique_ratio_env != nullptr) {
+    dense_unique_ratio = std::atof(dense_unique_ratio_env);
+  }
+  return dense_unique_ratio;
+}
 }  // namespace embedding

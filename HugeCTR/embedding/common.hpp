@@ -387,4 +387,5 @@ struct AllreduceWgradInitializer {
   AllreduceWgradInitializer &init_data(bool grouped, const core23::BufferChannel &buffer_channel);
 };
 
+double get_dense_unique_ratio();
 }  // namespace embedding

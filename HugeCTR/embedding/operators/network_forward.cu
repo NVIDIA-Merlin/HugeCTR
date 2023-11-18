@@ -232,8 +232,11 @@ void DenseNetworkBuffer::init(std::shared_ptr<CoreResourceManager> core,
 
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
-  this->data = core23::Tensor(
-      params.shape({batch_size * attr.max_hotness * attr.ev_size}).data_type(attr.type));
+
+  double dense_unique_ratio = get_dense_unique_ratio();
+  int64_t num_elements =
+      static_cast<int64_t>(dense_unique_ratio * batch_size * attr.max_hotness * attr.ev_size);
+  this->data = core23::Tensor(params.shape({num_elements}).data_type(attr.type));
 }
 
 NetworkForward::NetworkForward(std::shared_ptr<CoreResourceManager> core) : core_(core) {}

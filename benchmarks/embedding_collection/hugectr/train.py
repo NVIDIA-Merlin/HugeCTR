@@ -36,7 +36,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--batchsize_eval",
         help="Batch size for evaluation",
         type=int,
-        default=16384,
+        default=256,
     )
     parser.add_argument(
         "--num_gpus_per_node",
