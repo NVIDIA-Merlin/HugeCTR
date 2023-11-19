@@ -371,8 +371,8 @@ void DenseModelCommBuffer::init(std::shared_ptr<CoreResourceManager> core,
 
   // FIX:when tensor dimension is , num local lookup is 0??
   // We can not create size 0 Tensor
-  int64_t num_elements =
-      static_cast<int64_t>(dense_unique_ratio * batch_size * attr.max_hotness_sum * attr.ev_size);
+  int64_t num_elements = static_cast<int64_t>(
+      dense_unique_ratio * static_cast<double>(batch_size * attr.max_hotness_sum * attr.ev_size));
   this->data = core23::Tensor(params.shape({num_elements}).data_type(attr.type));
 
   this->attr = attr;

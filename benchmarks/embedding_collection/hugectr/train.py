@@ -36,7 +36,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--batchsize_eval",
         help="Batch size for evaluation",
         type=int,
-        default=256,
+        default=128,
     )
     parser.add_argument(
         "--num_gpus_per_node",
@@ -90,6 +90,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--i64_input_key",
         help="int64 key_type",
         action="store_true",
+    )
+    parser.add_argument(
+        '--perf_logging',
+        action="store_true"
     )
 
     # sharding
@@ -271,19 +275,13 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--dp_threshold",
-        help="dp_threshold",
-        type=int,
-        default=0,
-    )
-    parser.add_argument(
-        "--sd_threshold",
-        help="hotness threshold , if hotness less than this threshold , sparse will use unique base",
+        help="select $dp_threshold table as dp sharding",
         type=int,
         default=0,
     )
     parser.add_argument(
         "--dense_threshold",
-        help="dense threshold , if hotness == 1, make dense_threshold largest table as combiner concat",
+        help="select $dense_threshold table using dense compression",
         type=int,
         default=0,
     )
@@ -383,7 +381,7 @@ solver = hugectr.CreateSolver(
     grouped_all_reduce=True,
     num_iterations_statistics=20,
     metrics_spec={hugectr.MetricsType.AUC: args.auc_threshold},
-    perf_logging=False,
+    perf_logging=args.perf_logging,
     drop_incomplete_batch=True,
     use_embedding_collection=True,
     use_algorithm_search=args.use_algorithm_search,

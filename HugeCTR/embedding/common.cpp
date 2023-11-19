@@ -691,6 +691,10 @@ WgradInitializer &WgradInitializer::init_data() {
   max_buffer_size *= batch_size;
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
+
+  double wgrad_unique_ratio = get_wgrad_unique_ratio();
+  max_buffer_size = static_cast<int64_t>(wgrad_unique_ratio * static_cast<double>(max_buffer_size));
+
   wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
   return *this;
 }
@@ -804,5 +808,15 @@ double get_dense_unique_ratio() {
     dense_unique_ratio = std::atof(dense_unique_ratio_env);
   }
   return dense_unique_ratio;
+}
+
+double get_wgrad_unique_ratio() {
+  double wgrad_unique_ratio = 1.0f;
+
+  const char *const dense_unique_ratio_env = std::getenv("WGRAD_UNIQUE_RATIO");
+  if (dense_unique_ratio_env != nullptr) {
+    wgrad_unique_ratio = std::atof(dense_unique_ratio_env);
+  }
+  return wgrad_unique_ratio;
 }
 }  // namespace embedding

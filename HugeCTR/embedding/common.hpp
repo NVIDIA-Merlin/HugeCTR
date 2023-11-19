@@ -388,4 +388,6 @@ struct AllreduceWgradInitializer {
 };
 
 double get_dense_unique_ratio();
+
+double get_wgrad_unique_ratio();
 }  // namespace embedding

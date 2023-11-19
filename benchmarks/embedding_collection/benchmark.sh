@@ -9,13 +9,14 @@ test_command=""
 
 hugectr_framework="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
---sharding_plan uniform \
+--sharding_plan auto \
 --optimizer sgd \
 --use_mixed_precision \
+--mem_comm_bw_ratio 60 \
 --use_column_wise_shard \
---dp_threshold 0 \
---sd_threshold 0 \
---dense_threshold 0 \
+--dp_threshold 1 \
+--dense_threshold 3 \
+--num_gpus_per_node 2 \
 "
 # --disable_train_intra_iteration_overlap \
 # --disable_train_inter_iteration_overlap \
@@ -23,6 +24,7 @@ python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 # --mem_comm_bw_ratio 3000/50 eos
 # --mem_comm_bw_ratio 2000/25 selene
 # --num_gpus_per_node 2 \
+# --perf_logging
 
 torchrec_framework="
 python3 /workdir/benchmarks/embedding_collection/torchrec_dlrm/dlrm_main.py  \
@@ -79,17 +81,26 @@ utest_dataset="
 #--bmlp_layer_sizes 512,256,128 \
 #--tmlp_layer_sizes 1024,1024,512,256,1 \
 #"
+#dataset_80table_55B_hotness10="
+#--dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
+#--train_num_samples 6553600 \
+#--eval_num_samples 6553600 \
+#--num_table 5,3,5,1,1,10,10,10,5,30 \
+#--vocabulary_size_per_table 10000,4000000,50000000,50000000,50000000,10,1000,10000,100000,4000000 \
+#--nnz_per_table 100,30,30,1,1,1,1,1,1,1 \
+#--ev_size_per_table 8,128,128,8,128,128,128,8,8,128 \
+#--dense_dim 13 \
+#"
 dataset_80table_55B_hotness10="
---dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.bin \
+--dataset_path /workdir/dataset/80table_55B_hotness10_1.1.bin \
 --train_num_samples 6553600 \
 --eval_num_samples 6553600 \
---num_table 5,3,5,1,1,10,10,10,5,30 \
---vocabulary_size_per_table 10000,4000000,50000000,50000000,50000000,10,1000,10000,100000,4000000 \
---nnz_per_table 100,30,30,1,1,1,1,1,1,1 \
---ev_size_per_table 8,128,128,8,128,128,128,8,8,128 \
+--num_table 10,10,10,5,30,1,1,3,5,5 \
+--vocabulary_size_per_table 10,1000,10000,100000,4000000,50000000,50000000,4000000,50000000,10000 \
+--nnz_per_table 1,1,1,1,1,1,1,30,30,100 \
+--ev_size_per_table 256,256,256,256,256,256,256,256,256,256 \
 --dense_dim 13 \
 "
-
 dataset_80table_55B_hotness20="
 --dataset_path /workdir/dataset/middle_dcnv2_synthetic_alpha1.1.hotness20.bin \
 --train_num_samples 6553600 \
@@ -142,6 +153,37 @@ dataset_7table_470B_hotness20="
 --dense_dim 13 \
 --i64_input_key \
 "
+dataset_dcnv2="
+--dataset_path /data/train_data.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 \
+--vocabulary_size_per_table 40000000,39060,17295,7424,20265,3,7122,1543,63,40000
+000,3067956,405282,10,2209,11938,155,4,976,14,40000000,40000000,40000000,590152,12973,108,36 \
+--nnz_per_table 3,2,1,2,6,1,1,1,1,7,3,8,1,6,9,5,1,1,1,12,100,27,10,3,1,1 \
+--ev_size_per_table 128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128 \
+--dense_dim 13 \
+"
++dataset_180table_110B_hotness25="
+--dataset_path /workdir/dataset/180table_110B_hotness25_1.1.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10 \
+--vocabulary_size_per_table 10,1000,1000,10000,10000,10000,100000,1000000,2000000,4000000,4000000,4000000,4000000,4000000,4000000,4000000,4000000,50000000 \
+--nnz_per_table 100,50,30,20,10,1,1,1,1,1,1,1,10,10,20,30,50,100 \
+--ev_size_per_table 128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128 \
+--dense_dim 13 \
+"
++dataset_180table_110B_hotness13="
+--dataset_path /workdir/dataset/180table_110B_hotness13_1.1.bin \
+--train_num_samples 6553600 \
+--eval_num_samples 6553600 \
+--num_table 10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10 \
+--vocabulary_size_per_table 10,1000,1000,10000,10000,10000,100000,1000000,2000000,4000000,4000000,4000000,4000000,4000000,4000000,4000000,4000000,50000000 \
+--nnz_per_table 1,1,1,1,1,1,1,1,1,1,1,1,10,10,20,30,50,100 \
+--ev_size_per_table 128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128 \
+--dense_dim 13 \
+"
 case $test_config in
 utest)
   test_command+="$utest_dataset"
@@ -169,6 +211,15 @@ large)
   ;;
 7table_470B_hotness20)
   test_command+="${dataset_7table_470B_hotness20}"
+  ;;
+dcnv2)
+  test_command+="${dataset_dcnv2}"
+  ;;
+180table_110B_hotness25)
+  test_command+="${dataset_180table_110B_hotness25}"
+  ;;
+180table_110B_hotness13)
+  test_command+="${dataset_180table_110B_hotness13}"
   ;;
 *)
   echo "unknown test config"
