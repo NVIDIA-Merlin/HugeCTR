@@ -68,6 +68,10 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
               size_t num_id_space_offset, const core23::Tensor &id_space,
               core23::Tensor &embedding_vec) override;
 
+  void lookup(const core23::Tensor &keys, const core23::Tensor &num_keys,
+              const core23::Tensor &id_space_offset, size_t num_id_space_offset,
+              const core23::Tensor &id_space, core23::Tensor &embedding_vec) override;
+
   void update(const core23::Tensor &unique_keys, const core23::Tensor &num_unique_keys,
               const core23::Tensor &table_ids, const core23::Tensor &ev_start_indices,
               const core23::Tensor &wgrad) override;

@@ -152,9 +152,10 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
 }
 
 void DenseMPDataDistributionOp::distribute(const DataDistributionInput& input,
-                                           embedding::EmbeddingInput& output, cudaStream_t stream) {
+                                           embedding::EmbeddingInput& output, int batch_size,
+                                           cudaStream_t stream) {
   // get the network_dst_bucket_ids
-  filter_before_all2all(input, output, stream);
+  filter_before_all2all(input, output, batch_size, stream);
   all2all_keys_per_bucket(output, stream);
   all2all_keys(output, stream);
   // get the final unique lookup keys
@@ -164,16 +165,16 @@ void DenseMPDataDistributionOp::distribute(const DataDistributionInput& input,
 
 void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
                                                       embedding::EmbeddingInput& output,
-                                                      cudaStream_t stream) {
+                                                      int batch_size, cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
   if (!do_reduction_) {
     partition_and_unique_operator_.fill_continuous_bucket_ids(
         input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
-        dense_temp_storage_.h_num_network_reverse_idx, stream);
+        dense_temp_storage_.h_num_network_reverse_idx, batch_size, stream);
   } else {
     partition_and_unique_operator_.fill_continuous_bucket_ids_for_reduction(
         input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
-        dense_temp_storage_.h_num_network_reverse_idx, stream);
+        dense_temp_storage_.h_num_network_reverse_idx, batch_size, stream);
   }
 
   CompressedData compressed_data_after_shard_matrix_partition{
@@ -325,9 +326,6 @@ void DenseMPDataDistributionOp::filter_after_all2all(embedding::EmbeddingInput& 
       output.keys, output.num_keys, dense_compression_output.num_keys_per_table_offset};
   compact_partitioned_data_operator_(dense_temp_storage_.partitioned_data_after_table_id_partition,
                                      continuous_partition_data, stream);
-
-  // there is already a sync in compact_partition_data so we dont need sync here
-  output.h_num_keys = *(output.num_keys.data<uint64_t>());
 }
 
 void DenseMPDataDistributionOp::convert_indices(embedding::EmbeddingInput& output) {

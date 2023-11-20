@@ -91,10 +91,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="int64 key_type",
         action="store_true",
     )
-    parser.add_argument(
-        '--perf_logging',
-        action="store_true"
-    )
+    parser.add_argument("--perf_logging", action="store_true")
 
     # sharding
     parser.add_argument(

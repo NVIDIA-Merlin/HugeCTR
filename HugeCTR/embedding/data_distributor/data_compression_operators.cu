@@ -234,6 +234,10 @@ PartitionedData::PartitionedData(std::shared_ptr<core::CoreResourceManager> core
   this->feature_ids =
       core23::Tensor(params.shape({static_cast<int64_t>(max_num_key_per_partition * num_partition)})
                          .data_type(core23::ScalarType::Int32));
+  std::cout << "hash table size in GB:"
+            << static_cast<float>(max_num_key_per_partition * num_partition) * 4 / 1024 / 1024 /
+                   1024
+            << std::endl;
   this->d_num_key_per_partition = core23::Tensor(
       params.shape({static_cast<int64_t>(num_partition)}).data_type(bucket_range_type));
 }
@@ -315,7 +319,8 @@ PartitionAndUniqueOperator::PartitionAndUniqueOperator(
       num_features_(0),
       batch_size_(ebc_param.universal_batch_size),
       global_gpu_count_(core->get_global_gpu_count()),
-      batch_size_per_gpu_(batch_size_ / global_gpu_count_) {
+      batch_size_per_gpu_(batch_size_ / global_gpu_count_),
+      last_batch_size_(-1) {
   CudaDeviceContext ctx(core->get_device_id());
 
   auto &grouped_lookup_param = ebc_param.grouped_lookup_params[group_id];
@@ -366,7 +371,8 @@ void PartitionAndUniqueOperator::init_hash_table_for_unique(
 void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributionInput &input,
                                                             core23::Tensor &bucket_ids,
                                                             core23::Tensor &h_num_bucket_ids,
-                                                            cudaStream_t stream) {
+                                                            int batch_size, cudaStream_t stream) {
+  if (last_batch_size_ == batch_size) return;
   HCTR_CHECK(h_num_bucket_ids.data_type() == core23::ScalarType::UInt64);
   HCTR_LIB_THROW(
       cudaMemsetAsync(h_num_bucket_ids.data<uint64_t>(), 0, h_num_bucket_ids.num_bytes(), stream));
@@ -397,10 +403,14 @@ void PartitionAndUniqueOperator::fill_continuous_bucket_ids(const DataDistributi
         bucket_range_ptrs, d_lookup_ids_.data<int>(), d_lookup_ids_.num_elements(),
         batch_size_per_gpu_, bucket_ids.data<BucketRangeType>(), num_keys);
   });
+  last_batch_size_ = batch_size;
 }
+
 void PartitionAndUniqueOperator::fill_continuous_bucket_ids_for_reduction(
     const DataDistributionInput &input, core23::Tensor &bucket_ids,
-    core23::Tensor &h_num_bucket_ids, cudaStream_t stream) {
+    core23::Tensor &h_num_bucket_ids, int batch_size, cudaStream_t stream) {
+  if (last_batch_size_ == batch_size) return;
+
   HCTR_CHECK(h_num_bucket_ids.data_type() == core23::ScalarType::UInt64);
   HCTR_LIB_THROW(
       cudaMemsetAsync(h_num_bucket_ids.data<uint64_t>(), 0, h_num_bucket_ids.num_bytes(), stream));
@@ -430,6 +440,7 @@ void PartitionAndUniqueOperator::fill_continuous_bucket_ids_for_reduction(
         bucket_range_ptrs, d_lookup_ids_.data<int>(), d_lookup_ids_.num_elements(),
         batch_size_per_gpu_, bucket_ids.data<BucketRangeType>(), num_keys);
   });
+  last_batch_size_ = batch_size;
 }
 template <typename Partitioner>
 void PartitionAndUniqueOperator::partition_and_unique_on_dp_input(
@@ -572,7 +583,6 @@ void CompactPartitionDataOperator::operator()(const PartitionedData &partitioned
           compacted_partition_data.h_num_keys.data<uint64_t>());
     });
   });
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 void CompressReverseIdxRangeOperator::operator()(size_t num_bucket_ids,

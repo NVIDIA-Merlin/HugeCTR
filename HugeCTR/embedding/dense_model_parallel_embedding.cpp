@@ -168,7 +168,7 @@ void DenseUniformModelParallelEmbedding::model_forward(const EmbeddingInput &emb
   // (lookup) Results are emb vector addresses
   // output is embedding_vec_
   embedding_table->lookup(
-      embedding_input.keys, embedding_input.h_num_keys,
+      embedding_input.keys, embedding_input.num_keys,
       embedding_input.dense_compression_input.num_keys_per_table_offset,
       (size_t)embedding_input.dense_compression_input.num_keys_per_table_offset.num_elements(),
       embedding_input.dense_compression_input.table_ids, embedding_vec_);

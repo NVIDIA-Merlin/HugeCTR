@@ -234,8 +234,11 @@ void DenseNetworkBuffer::init(std::shared_ptr<CoreResourceManager> core,
   core23::TensorParams params = core23::TensorParams().device(device);
 
   double dense_unique_ratio = get_dense_unique_ratio();
-  int64_t num_elements = static_cast<int64_t>(
-      dense_unique_ratio * static_cast<double>(batch_size * attr.max_hotness * attr.ev_size));
+  int64_t max_num_elements = static_cast<int64_t>(batch_size) * attr.max_hotness * attr.ev_size;
+  int64_t num_elements =
+      static_cast<int64_t>(dense_unique_ratio * static_cast<double>(max_num_elements));
+  std::cout << "dense network buffer size in GB:"
+            << static_cast<float>(num_elements) * 2 / 1024 / 1024 / 1024 << std::endl;
   this->data = core23::Tensor(params.shape({num_elements}).data_type(attr.type));
 }
 

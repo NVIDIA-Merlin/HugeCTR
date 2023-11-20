@@ -693,9 +693,12 @@ WgradInitializer &WgradInitializer::init_data() {
   core23::TensorParams params = core23::TensorParams().device(device);
 
   double wgrad_unique_ratio = get_wgrad_unique_ratio();
-  max_buffer_size = static_cast<int64_t>(wgrad_unique_ratio * static_cast<double>(max_buffer_size));
+  int64_t num_elements =
+      static_cast<int64_t>(wgrad_unique_ratio * static_cast<double>(max_buffer_size));
+  std::cout << "wgrad buffer size in GB:"
+            << static_cast<float>(num_elements) * 2 / 1024 / 1024 / 1024 << std::endl;
 
-  wgrad->data = core23::Tensor(params.shape({max_buffer_size}).data_type(wgrad->attr.type));
+  wgrad->data = core23::Tensor(params.shape({num_elements}).data_type(wgrad->attr.type));
   return *this;
 }
 

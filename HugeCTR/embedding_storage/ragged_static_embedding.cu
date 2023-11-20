@@ -50,6 +50,29 @@ __global__ void ragged_static_embedding_table_lookup_kernel(
   }
 }
 
+// the input keys are already unique by adding offset
+// (key offset is emb_table_id_space_offset) (embedding table offset is emb_table_ev_offset)
+template <typename key_t, typename offset_t, typename index_t>
+__global__ void ragged_static_embedding_table_lookup_kernel(
+    const key_t *keys, const uint64_t *num_keys, const offset_t *id_space_offset,
+    size_t num_id_space_offset, const int *id_space_list, const int *local_id_space_list,
+    size_t num_local_id_space_list, const index_t *emb_table_id_space_offset, float *emb_table,
+    const uint64_t *emb_table_ev_offset, const int *local_ev_size_list, float **emb_vec) {
+  CUDA_1D_KERNEL_LOOP_T(offset_t, tid, *num_keys) {
+    int64_t id_space_idx = bs_upper_bound_sub_one(id_space_offset, num_id_space_offset, tid);
+    int id_space = id_space_list[id_space_idx];
+    int64_t local_id_space_idx =
+        bs_upper_bound_sub_one(local_id_space_list, num_local_id_space_list, id_space);
+
+    uint64_t start = (uint64_t)emb_table_id_space_offset[local_id_space_idx];
+    uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
+    int ev_size = local_ev_size_list[local_id_space_idx];
+    // printf("lookup key is %llu, ev_offset %llu, start %llu, dst ptr %p\n", (uint64_t)keys[tid],
+    //        ev_offset, start, emb_vec + tid);
+    emb_vec[tid] = &emb_table[ev_offset + ((uint64_t)keys[tid] - start) * ev_size];
+  }
+}
+
 template <typename key_t, typename index_t>
 struct RaggedKeyToIndicesFunc {
   int *local_table_ids;
@@ -569,6 +592,32 @@ void RaggedStaticEmbeddingTable::lookup(const core23::Tensor &keys, size_t num_k
             num_key_per_table_offset_.data<index_t>(), emb_table_.data<float>(),
             emb_table_ev_offset_.data<uint64_t>(), local_ev_size_list_.data<int>(),
             static_cast<float **>(emb_vec.data()));
+
+        HCTR_LIB_THROW(cudaPeekAtLastError());
+      });
+    });
+  });
+}
+
+void RaggedStaticEmbeddingTable::lookup(const core23::Tensor &keys, const core23::Tensor &num_keys,
+                                        const core23::Tensor &id_space_offset,
+                                        size_t num_id_space_offset,
+                                        const core23::Tensor &id_space_list,
+                                        core23::Tensor &emb_vec) {
+  CudaDeviceContext ctx(core_->get_device_id());
+  cudaStream_t stream = core_->get_local_gpu()->get_stream();
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(id_space_offset.data_type().type(), offset_t, [&] {
+      DISPATCH_INTEGRAL_FUNCTION_CORE23(num_key_per_table_offset_.data_type().type(), index_t, [&] {
+        auto &kernel_param = core_->get_kernel_param();
+        int block_size = 512;
+        int grid_size = kernel_param.num_sms * (kernel_param.max_thread_per_sm / block_size);
+        ragged_static_embedding_table_lookup_kernel<<<grid_size, block_size, 0, stream>>>(
+            keys.data<key_t>(), num_keys.data<uint64_t>(), id_space_offset.data<offset_t>(),
+            num_id_space_offset, id_space_list.data<int>(), table_ids_.data<int>(),
+            table_ids_.num_elements(), num_key_per_table_offset_.data<index_t>(),
+            emb_table_.data<float>(), emb_table_ev_offset_.data<uint64_t>(),
+            local_ev_size_list_.data<int>(), static_cast<float **>(emb_vec.data()));
 
         HCTR_LIB_THROW(cudaPeekAtLastError());
       });

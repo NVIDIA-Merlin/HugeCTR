@@ -31,7 +31,7 @@ def get_byte_per_elem(args):
 
 
 def int_to_string(
-        shard_matrix_int, shard_strategy_int, unique_table_ids_int, reduction_table_ids_int
+    shard_matrix_int, shard_strategy_int, unique_table_ids_int, reduction_table_ids_int
 ):
     shard_strategy, shard_matrix, unique_table_ids, reduction_table_ids = [], [], [], []
     for pair in shard_strategy_int:
@@ -55,15 +55,15 @@ def int_to_string(
 
 
 def generate_plan_ragged_ev_size(
-        table_id_list: List[int],
-        slot_size_array: List[int],
-        multi_hot_sizes: List[int],
-        ev_size_list: List[int],
-        sharding_plan: str,
-        num_nodes: int,
-        num_gpus_per_node: int,
-        args: Namespace,
-        log_result: bool,
+    table_id_list: List[int],
+    slot_size_array: List[int],
+    multi_hot_sizes: List[int],
+    ev_size_list: List[int],
+    sharding_plan: str,
+    num_nodes: int,
+    num_gpus_per_node: int,
+    args: Namespace,
+    log_result: bool,
 ):
     num_gpus = num_nodes * num_gpus_per_node
     assert len(table_id_list) == len(slot_size_array)
@@ -213,13 +213,13 @@ def generate_plan_ragged_ev_size(
 
 
 def generate_plan(
-        slot_size_array: List[int],
-        multi_hot_sizes: List[int],
-        ev_size_list: List[int],
-        num_nodes: int,
-        num_gpus_per_node: int,
-        args: Namespace,
-        log_result: bool,
+    slot_size_array: List[int],
+    multi_hot_sizes: List[int],
+    ev_size_list: List[int],
+    num_nodes: int,
+    num_gpus_per_node: int,
+    args: Namespace,
+    log_result: bool,
 ):
     # filter:
     # 1. dp table
@@ -233,10 +233,15 @@ def generate_plan(
     def filter_dp_tables(candidate_table_ids, threshold):
         candidate_table_meta = []
         for table_id in candidate_table_ids:
-            candidate_table_meta.append((
-                table_id,
-                (slot_size_array[table_id] * ev_size_list[table_id], -1 * multi_hot_sizes[table_id])
-            ))
+            candidate_table_meta.append(
+                (
+                    table_id,
+                    (
+                        slot_size_array[table_id] * ev_size_list[table_id],
+                        -1 * multi_hot_sizes[table_id],
+                    ),
+                )
+            )
         sorted_table_meta = sorted(candidate_table_meta, key=lambda x: x[1])
 
         if len(sorted_table_meta) > threshold:
@@ -246,13 +251,15 @@ def generate_plan(
         rest_table_ids = [i for i in candidate_table_ids if i not in set(dp_table_ids)]
         return dp_table_ids, rest_table_ids
 
-    dp_table_ids, rest_table_ids = filter_dp_tables([i for i in range(num_table)], args.dp_threshold)
+    dp_table_ids, rest_table_ids = filter_dp_tables(
+        [i for i in range(num_table)], args.dp_threshold
+    )
     dp_table_memory_per_gpu = (
-            sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dp_table_ids)
-            * byte_per_elem
-            / 1024
-            / 1024
-            / 1024
+        sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dp_table_ids)
+        * byte_per_elem
+        / 1024
+        / 1024
+        / 1024
     )
     args.memory_cap_for_embedding -= dp_table_memory_per_gpu
 
@@ -260,10 +267,12 @@ def generate_plan(
     def filter_dense_tables(candidate_table_ids, threshold):
         candidate_table_meta = []
         for table_id in candidate_table_ids:
-            candidate_table_meta.append((
-                table_id,
-                (multi_hot_sizes[table_id], slot_size_array[table_id] * ev_size_list[table_id])
-            ))
+            candidate_table_meta.append(
+                (
+                    table_id,
+                    (multi_hot_sizes[table_id], slot_size_array[table_id] * ev_size_list[table_id]),
+                )
+            )
         sorted_table_meta = sorted(candidate_table_meta, key=lambda x: x[1])
 
         if len(sorted_table_meta) > threshold:
@@ -289,12 +298,12 @@ def generate_plan(
     if len(rest_table_ids) > 0:
         dense_table_ids, rest_table_ids = filter_dense_tables(rest_table_ids, args.dense_threshold)
         dense_table_memory_per_gpu = (
-                sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dense_table_ids)
-                * byte_per_elem
-                / 1024
-                / 1024
-                / 1024
-                / num_gpus
+            sum(slot_size_array[table_id] * ev_size_list[table_id] for table_id in dense_table_ids)
+            * byte_per_elem
+            / 1024
+            / 1024
+            / 1024
+            / num_gpus
         )
         args.memory_cap_for_embedding -= dense_table_memory_per_gpu
     else:
@@ -363,7 +372,7 @@ def generate_plan(
         logging.info("COMBINERS:")
         logging.info(args.COMBINERS)
         logging.info("dense_table_dimension:")
-        logging.info([ev_size_list[table_id] for table_id in unique_table_ids])
+        logging.info([ev_size_list[table_id] for table_id in dense_table_ids])
         logging.info("sparse_table_shard_column_wise_nums:")
         logging.info(sparse_table_shard_column_wise_nums)
         logging.info("\n")

@@ -181,7 +181,7 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); grouped_id++) {
     data_distribution_ops_[grouped_id][gpu_id]->distribute(data_distribution_input_[gpu_id],
-                                                           output[grouped_id], stream);
+                                                           output[grouped_id], batch_size, stream);
   }
 }
 

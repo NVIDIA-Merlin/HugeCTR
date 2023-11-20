@@ -26,6 +26,12 @@ class ILookup {
   virtual void lookup(const core23::Tensor &keys, size_t num_keys,
                       const core23::Tensor &num_keys_per_table_offset, size_t num_table_offset,
                       const core23::Tensor &table_id_list, core23::Tensor &embedding_vec) = 0;
+
+  virtual void lookup(const core23::Tensor &keys, const core23::Tensor &num_keys,
+                      const core23::Tensor &num_keys_per_table_offset, size_t num_table_offset,
+                      const core23::Tensor &table_id_list, core23::Tensor &embedding_vec) {
+    HCTR_CHECK_HINT(false, "Illegal call");
+  }
 };
 
 }  // namespace embedding
