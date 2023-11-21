@@ -101,6 +101,7 @@ def generate_plan_ragged_ev_size(
             shard_strategy_after_replacement.append((strategy, table_ids_after_replacement))
         return shard_matrix_after_replacement, shard_strategy_after_replacement
 
+    byte_per_elem = get_byte_per_elem(args)
     if sharding_plan in ["round_robin", "uniform", "table_row_wise"]:
         # sharding strategies that don't exploit system configs
         mp_table = [i for i in range(len(slot_size_array))]
@@ -118,12 +119,16 @@ def generate_plan_ragged_ev_size(
             shard_matrix_ = [[] for _ in range(num_gpus)]
 
             for i, table_id in enumerate(mp_table):
-                target_node = i % num_nodes
-                num_local_gpus = num_gpus // num_nodes
+                if slot_size_array[i] * ev_size_list[i] * byte_per_elem / 1000 / 1000 / 1000 > args.memory_cap_for_embedding * args.num_gpus_per_node:
+                    for gpu_id in range(num_gpus):
+                        shard_matrix_[gpu_id].append(table_id)
+                else:
+                    target_node = i % num_nodes
+                    num_local_gpus = num_gpus // num_nodes
 
-                for gpu_id in range(num_local_gpus):
-                    target_gpu = target_node * num_local_gpus + gpu_id
-                    shard_matrix_[target_gpu].append(table_id)
+                    for gpu_id in range(num_local_gpus):
+                        target_gpu = target_node * num_local_gpus + gpu_id
+                        shard_matrix_[target_gpu].append(table_id)
 
         shard_strategy_ = [("mp", [i for i in range(len(slot_size_array))])]
         shard_column_wise_nums_ = []
@@ -131,7 +136,6 @@ def generate_plan_ragged_ev_size(
     elif sharding_plan in ["auto", "hier_auto"]:
         # sharding strategies that exploit system configs
         dram_cap = args.memory_cap_for_embedding
-        byte_per_elem = get_byte_per_elem(args)
 
         if sharding_plan == "auto":
             cost_model = CostModel(

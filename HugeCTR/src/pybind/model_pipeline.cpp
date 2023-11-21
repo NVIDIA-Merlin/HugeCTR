@@ -573,7 +573,11 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
           (skip_data_distributor_env != nullptr && 1 == std::atoi(skip_data_distributor_env));
 
       if (is_scheduled_datareader()) {
-        if (skip_data_distributor && !is_first_data_distributor) return;
+        if (skip_data_distributor && !is_first_data_distributor){
+	  auto stream = gpu_resource->get_stream();
+	  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+	  return;
+	}
         if (auto reader =
                 dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
           train_data_distributor_->distribute(
