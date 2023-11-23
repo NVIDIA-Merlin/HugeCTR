@@ -12,19 +12,21 @@ test_command=""
 hugectr_framework="
 python3 /workdir/benchmarks/embedding_collection/hugectr/train.py \
 --display_interval 10 \
---sharding_plan hier_auto \
---optimizer sgd \
+--sharding_plan uniform \
 --use_mixed_precision \
 --mem_comm_bw_ratio 60 \
---dp_threshold 70 \
---dense_threshold 70 \
+--dp_threshold 0 \
+--dense_threshold 0 \
+--disable_train_intra_iteration_overlap \
+--disable_train_inter_iteration_overlap \
 "
+# --disable_train_intra_iteration_overlap \
+# --disable_train_inter_iteration_overlap \
 #  --disable_fuse_sparse_embedding
 # --mem_comm_bw_ratio 3000/50 eos
 # --mem_comm_bw_ratio 2000/25 selene
 # --num_gpus_per_node 2 \
 # --perf_logging
-# --use_column_wise_shard \
 
 test_command=$hugectr_framework
 
@@ -54,6 +56,7 @@ dataset_180table_70B_hotness80="
 --nnz_per_table 100,50,30,50,50,30,20,20,100,10,100,100,200,100,100 \
 --ev_size_per_table 128,64,64,32,128,128,256,128,128,64,128,64,64,128,32 \
 --dense_dim 13 \
+--optimizer sgd \
 "
 dataset_7table_470B_hotness20="
 --dataset_path /workdir/dataset/7table_470B_hotness20_synthetic_alpha1.1.bin \
@@ -65,6 +68,7 @@ dataset_7table_470B_hotness20="
 --ev_size_per_table 256,64,128,32,128,64,128 \
 --dense_dim 13 \
 --i64_input_key \
+--optimizer sgd \
 "
 dataset_dcnv2="
 --dataset_path /data/train_data.bin \
@@ -75,6 +79,7 @@ dataset_dcnv2="
 --nnz_per_table 3,2,1,2,6,1,1,1,1,7,3,8,1,6,9,5,1,1,1,12,100,27,10,3,1,1 \
 --ev_size_per_table 128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128 \
 --dense_dim 13 \
+--optimizer adagrad \
 "
 dataset_510table_110B_hotness5="
 --dataset_path /workdir/dataset/510table_110B_hotness5_synthetic_alpha1.1.bin \
@@ -85,6 +90,7 @@ dataset_510table_110B_hotness5="
 --nnz_per_table 1,1,1,1,1,10,100 \
 --ev_size_per_table 128,128,128,128,128,128,128 \
 --dense_dim 13 \
+--optimizer sgd \
 "
 dataset_200table_100B_hotness20="
 --dataset_path /workdir/dataset/200table_100B_hotness20_synthetic_alpha1.1.bin \
@@ -95,6 +101,7 @@ dataset_200table_100B_hotness20="
 --nnz_per_table 1,1,5,20,100,1,1,1,1,1,1,1,10,20,30,50,100 \
 --ev_size_per_table 128,128,128,128,128,128,128,128,128,128,128,128,64,128,128,128,128 \
 --dense_dim 13 \
+--optimizer sgd \
 "
 case $test_config in
 utest)
