@@ -136,44 +136,64 @@ void SparseEmbeddingFunctors::get_update_params_results(
 #ifdef ENABLE_MPI
 
   if (resource_manager.get_num_process() > 1) {
-    std::unique_ptr<int> displs(new int(resource_manager.get_num_process()));
-    std::unique_ptr<int> recv_count(new int(resource_manager.get_num_process()));
-    HCTR_MPI_THROW(
-        MPI_Gather(&total_count, 1, MPI_INT, recv_count.get(), 1, MPI_INT, 0, MPI_COMM_WORLD));
+    constexpr int32_t key_size{sizeof(TypeHashKey)};
+    const int32_t val_size{static_cast<int32_t>(embedding_vec_size * sizeof(float))};
 
+    // TODO: Allow updates larger than 2B KVs. MPI_Gather uses MPI_INT32_T to accommodate
+    // MPI_Gatherv. This check ensures that the multiplications below don't overflow.
+    HCTR_CHECK(total_count <= static_cast<size_t>(std::max(key_size, val_size)) *
+                                  std::numeric_limits<int32_t>::max());
+
+    // Count results.
+    std::vector<int32_t> recv_cnts;
     if (resource_manager.is_master_process()) {
-      displs.get()[0] = 0;
-      for (int i = 1; i < resource_manager.get_num_process(); i++) {
-        displs.get()[i] = displs.get()[i - 1] + recv_count.get()[i - 1];
+      recv_cnts.resize(resource_manager.get_num_process());
+    }
+    HCTR_MPI_THROW(MPI_Gather(&total_count, 1, MPI_INT32_T,      // src
+                              recv_cnts.data(), 1, MPI_INT32_T,  // dst (root only)
+                              0, MPI_COMM_WORLD));
+
+    // Download keys.
+    std::vector<int32_t> displs(recv_cnts.size());
+    if (!recv_cnts.empty()) {
+      int32_t displ{};
+      for (size_t i{}; i != recv_cnts.size(); ++i) {
+        displs[i] = displ;
+
+        const int32_t recv_cnt{recv_cnts[i] * key_size};
+        recv_cnts[i] = recv_cnt;
+
+        displ += recv_cnt;
+        // TODO: Allow updates > 2B x MPI_CHAR. Here, we get a 32 bit overflow in this case.
+        HCTR_CHECK(displ >= 0);
       }
     }
 
-    std::unique_ptr<int> displs_key(new int(resource_manager.get_num_process()));
-    std::unique_ptr<int> recv_count_key(new int(resource_manager.get_num_process()));
-    if (resource_manager.is_master_process()) {
-      for (int i = 0; i < resource_manager.get_num_process(); i++) {
-        recv_count_key.get()[i] = recv_count.get()[i] * sizeof(TypeHashKey);
-        displs_key.get()[i] = displs.get()[i] * sizeof(TypeHashKey);
+    HCTR_MPI_THROW(MPI_Gatherv(hash_table_key.get_ptr(), total_count * key_size, MPI_CHAR,  // src
+                               hash_table_key.get_ptr(), recv_cnts.data(), displs.data(),
+                               MPI_CHAR,  // dst (root only)
+                               0, MPI_COMM_WORLD));
+
+    // Download values.
+    if (!recv_cnts.empty()) {
+      int32_t displ{};
+      for (size_t i{}; i != recv_cnts.size(); ++i) {
+        displs[i] = displ;
+
+        const int32_t recv_cnt{recv_cnts[i] / key_size * val_size};
+        recv_cnts[i] = recv_cnt;
+
+        displ += recv_cnt;
+        // TODO: Allow updates > 2B x MPI_CHAR. Here, we get a 32 bit overflow in this case.
+        HCTR_CHECK(displ >= 0);
       }
     }
 
-    HCTR_MPI_THROW(MPI_Gatherv(hash_table_key.get_ptr(), total_count * sizeof(TypeHashKey),
-                               MPI_CHAR, hash_table_key.get_ptr(), recv_count_key.get(),
-                               displs_key.get(), MPI_CHAR, 0, MPI_COMM_WORLD));
-
-    std::unique_ptr<int> displs_value(new int(resource_manager.get_num_process()));
-    std::unique_ptr<int> recv_count_value(new int(resource_manager.get_num_process()));
-    if (resource_manager.is_master_process()) {
-      for (int i = 0; i < resource_manager.get_num_process(); i++) {
-        recv_count_value.get()[i] = recv_count.get()[i] * embedding_vec_size * sizeof(float);
-        displs_value.get()[i] = displs.get()[i] * embedding_vec_size * sizeof(float);
-      }
-    }
-
-    HCTR_MPI_THROW(MPI_Gatherv(hash_table_value.get_ptr(),
-                               total_count * embedding_vec_size * sizeof(float), MPI_CHAR,
-                               hash_table_value.get_ptr(), recv_count_value.get(),
-                               displs_value.get(), MPI_CHAR, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Gatherv(hash_table_value.get_ptr(), total_count * val_size,
+                               MPI_CHAR,  // src
+                               hash_table_value.get_ptr(), recv_cnts.data(), displs.data(),
+                               MPI_CHAR,  // dst (root only)
+                               0, MPI_COMM_WORLD));
   }
 #endif
 
