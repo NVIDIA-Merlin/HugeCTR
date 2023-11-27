@@ -21,7 +21,6 @@
 #include <embedding.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <embedding_storage/weight_io/parameter_IO.hpp>
-#include <embedding_training_cache/embedding_training_cache.hpp>
 #include <embeddings/embedding_collection.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
@@ -106,16 +105,13 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::ReduceSum, "ReduceSum"},
     {Layer_t::Softmax, "Softmax"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
-    {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
     {Layer_t::MultiCross, "MultiCross"},
     {Layer_t::MLP, "MLP"},
     {Layer_t::SequenceMask, "SequenceMask"}};
 
-std::set<Layer_t> TRAINABLE_LAYERS = {Layer_t::InnerProduct, Layer_t::FusedInnerProduct,
-                                      Layer_t::MultiCross,   Layer_t::WeightMultiply,
-                                      Layer_t::BatchNorm,    Layer_t::LayerNorm,
-                                      Layer_t::GRU,          Layer_t::MultiHeadAttention,
-                                      Layer_t::MLP};
+std::set<Layer_t> TRAINABLE_LAYERS = {
+    Layer_t::InnerProduct, Layer_t::MultiCross, Layer_t::WeightMultiply,     Layer_t::BatchNorm,
+    Layer_t::LayerNorm,    Layer_t::GRU,        Layer_t::MultiHeadAttention, Layer_t::MLP};
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
@@ -221,20 +217,6 @@ struct SparseEmbedding {
   void initialize_max_vocabulary_size_per_gpu();
 };
 
-struct EmbeddingTrainingCacheParams {
-  bool use_embedding_training_cache;
-  std::vector<TrainPSType_t> ps_types;
-  std::vector<std::string> sparse_models;
-  std::vector<std::string> local_paths;
-  std::vector<HMemCacheConfig> hmem_cache_configs;
-  std::vector<std::string> incremental_keyset_files;
-  EmbeddingTrainingCacheParams(std::vector<TrainPSType_t>& _ps_types,
-                               std::vector<std::string>& _sparse_models,
-                               std::vector<std::string>& _local_paths,
-                               std::vector<HMemCacheConfig>& _hmem_cache_configs);
-  EmbeddingTrainingCacheParams();
-};
-
 struct DenseLayerComputeConfig {
   bool async_wgrad;
   bool fuse_wb;
@@ -317,17 +299,6 @@ struct DenseLayer {
              DenseLayerComputeConfig compute_config = DenseLayerComputeConfig(),
              const std::vector<int64_t>& reshape_out_dimension = {}, int dim = 0,
              const std::vector<int64_t>& index = {});
-};
-
-struct GroupDenseLayer {
-  GroupLayer_t group_layer_type;
-  std::vector<std::string> bottom_name_list;
-  std::vector<std::string> top_name_list;
-  std::vector<size_t> num_outputs;
-  Activation_t last_act_type;
-  GroupDenseLayer(GroupLayer_t group_layer_type, std::vector<std::string>& bottom_name_list,
-                  std::vector<std::string>& top_name_list, std::vector<size_t>& num_outputs,
-                  Activation_t last_act_type = Activation_t::Relu);
 };
 
 class CopyOp {
@@ -421,8 +392,7 @@ class Model final {
  public:
   ~Model();
   Model(const Solver& solver, const DataReaderParams& reader_params,
-        std::shared_ptr<OptParamsPy>& opt_params,
-        std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params);
+        std::shared_ptr<OptParamsPy>& opt_params);
   Model(const Model&) = delete;
   Model& operator=(const Model&) = delete;
 
@@ -438,8 +408,6 @@ class Model final {
 
   void add(const EmbeddingCollectionConfig& ebc_config);
 
-  void add(GroupDenseLayer& group_dense_layer);
-
   void graph_analysis();
 
   void compile();
@@ -453,9 +421,6 @@ class Model final {
 
   void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
            std::string snapshot_prefix);
-
-  void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
-                  std::string eval_source);
 
   void set_source(std::string source, std::string eval_source);
 
@@ -508,13 +473,6 @@ class Model final {
       size += embedding->get_params_num();
     }
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
-  }
-
-  const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
-    if (!embedding_training_cache_) {
-      HCTR_OWN_THROW(Error_t::IllegalCall, "embedding training cache should be initialized first");
-    }
-    return embedding_training_cache_;
   }
 
   const std::shared_ptr<IDataReader>& get_train_data_reader() const {
@@ -575,8 +533,6 @@ class Model final {
     it->second->unfreeze();
   }
   void unfreeze_dense() { is_dense_trainable_ = true; };
-  std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
-  void dump_incremental_model_2kafka();
 
   std::tuple<size_t, size_t, std::vector<size_t>, int> get_tensor_info_by_name(
       const std::string& tensor_name, Tensor_t tensor_type);
@@ -588,7 +544,6 @@ class Model final {
   DataReaderParams reader_params_;
   OptParams opt_params_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
-  std::shared_ptr<EmbeddingTrainingCacheParams> etc_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
   std::shared_ptr<MessageSinkBase<long long>> message_sink_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
@@ -608,7 +563,6 @@ class Model final {
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;
-  bool etc_created_;
   bool is_dense_trainable_;
 
   bool set_source_flag_{true};
@@ -649,9 +603,6 @@ class Model final {
   std::vector<core23::Tensor> train_ebc_outptut_;
   std::vector<core23::Tensor> evaluate_ebc_outptut_;
 
-  std::shared_ptr<EmbeddingTrainingCache>
-      embedding_training_cache_; /**< embedding training cache for model oversubscribing. */
-
   std::shared_ptr<IDataReader>
       train_data_reader_; /**< data reader to reading data from data set to embedding. */
   std::shared_ptr<IDataReader> evaluate_data_reader_; /**< data reader for evaluation. */
@@ -678,18 +629,8 @@ class Model final {
   Error_t download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
                                            const std::vector<std::string>& sparse_opt_state_files);
 
-  template <typename TypeEmbeddingComp>
-  std::shared_ptr<EmbeddingTrainingCache> create_embedding_training_cache_(
-      const std::vector<TrainPSType_t>& ps_types,
-      const std::vector<std::string>& sparse_embedding_files,
-      const std::vector<std::string>& local_paths,
-      const std::vector<HMemCacheConfig>& hmem_cache_configs);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_types,
-                                      const std::vector<std::string>& sparse_embedding_files,
-                                      const std::vector<std::string>& local_paths,
-                                      const std::vector<HMemCacheConfig>& hmem_cache_configs);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);

@@ -20,7 +20,6 @@
 #include <atomic>
 #include <common.hpp>
 #include <condition_variable>
-#include <data_readers/csr.hpp>
 #include <data_readers/data_container_interface.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <fstream>
@@ -183,13 +182,9 @@ class DataReaderWorkerGroup {
   virtual void set_source(SourceType_t source_type, const std::string& file_name, bool repeat,
                           const DataSourceParams& data_source_params,
                           bool strict_order_of_batches = false) {
-    if (!((source_type == SourceType_t::FileList && data_reader_type_ == DataReaderType_t::Norm) ||
-          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) ||
-          (source_type == SourceType_t::Parquet &&
+    if (!((source_type == SourceType_t::Parquet &&
            data_reader_type_ == DataReaderType_t::Parquet))) {
-      HCTR_OWN_THROW(
-          Error_t::WrongInput,
-          "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
+      HCTR_OWN_THROW(Error_t::WrongInput, "set_source only supports FileList for Parquet");
     }
 
     size_t num_workers = data_readers_.size();

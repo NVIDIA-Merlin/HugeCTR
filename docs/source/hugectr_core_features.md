@@ -68,12 +68,6 @@ For more information, refer to [Python Interface](./api/python_interface.md).
 
 <br></br>
 
-## Embedding Training Cache
-
-Embedding Training Cache (ETC) gives you the ability to train a large model up to terabytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage.
-
-For more information, see the details for [HugeCTR Embedding Training Cache](hugectr_embedding_training_cache).
-
 ## HugeCTR to ONNX Converter
 
 The HugeCTR to Open Neural Network Exchange (ONNX) converter (hugectr2onnx) is a Python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.

@@ -6,8 +6,6 @@ subtrees:
         title: Introduction
       - file: hugectr_core_features.md
         title: Core Features
-      - file: hugectr_embedding_training_cache.md
-        title: Embedding Training Cache
       - file: hierarchical_parameter_server/index.md
         title: Hierarchical Parameter Server
         entries:

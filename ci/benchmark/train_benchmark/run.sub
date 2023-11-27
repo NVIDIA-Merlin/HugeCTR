@@ -11,8 +11,8 @@ if [ ${MIXED_PRECISION} == "FP16" ];then
     MIXED_PRECISION_FLAG="--use_mixed_precision";
 fi
 
-export WDL_DATA_PATH=${NEW_CRITEO_MOUNT}/wdl_data
-export DCN_DATA_PATH=${NEW_CRITEO_MOUNT}/dcn_data
+export WDL_DATA_PATH=${NEW_CRITEO_MOUNT}/wdl_data_parquet
+export DCN_DATA_PATH=${OLD_CRITEO_MOUNT}/dcn_parquet
 
 srun --ntasks="${NODE_NUM}" bash -c "echo -n 'Clearing cache on ' && hostname && sync && sudo /sbin/sysctl vm.drop_caches=3"
 

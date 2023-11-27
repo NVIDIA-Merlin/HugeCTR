@@ -29,8 +29,6 @@
 #include <layers/fm_order2_layer.hpp>
 #include <layers/fully_connected_layer.hpp>
 #include <layers/fully_connected_layer_half.hpp>
-#include <layers/fused_fully_connected_layer.hpp>
-#include <layers/fused_relu_bias_fully_connected_layer.hpp>
 #include <layers/fused_reshape_concat_general_layer.hpp>
 #include <layers/fused_reshape_concat_layer.hpp>
 #include <layers/gru_layer.hpp>
@@ -386,89 +384,6 @@ void add_dense_layer_impl(DenseLayer& dense_layer, std::vector<TensorEntity>& te
 
       if (output_size == 1) {
         output_tensor_entities.push_back({input_output_info.output_names[0], train_out_tensors[0]});
-      }
-      break;
-    }
-    case Layer_t::FusedInnerProduct: {
-      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
-                                                   dense_layer.bias_init_type};
-      // check the position of this layer
-      int input_size = input_output_info.input_tensors.size();
-      int output_size = input_output_info.output_names.size();
-      int64_t output = dense_layer.num_output;
-      auto pos_type = dense_layer.pos_type;
-      auto act_type = dense_layer.act_type;
-      bool head_mask_in = pos_type == FcPosition_t::Head && input_size == 2;
-      if (skip_dgrad && pos_type == FcPosition_t::Head && input_size == 2) {
-        HCTR_OWN_THROW(
-            Error_t::WrongInput,
-            "FusedInnerProduct Head Layer should have only one input tensors when it is the "
-            "first dense layer");
-      }
-      if (dense_layer.compute_config.async_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head &&
-          input_size == 1) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "FusedInnerProduct Head Layer should have two input tensors when turning on "
-                       "async wgrad knob");
-      }
-      if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
-      } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
-                 output_size == 4) {
-      } else if (!dense_layer.compute_config.async_wgrad && pos_type == FcPosition_t::Head &&
-                 !skip_dgrad && input_size == 1 && output_size == 4) {
-      } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
-      } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
-      } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
-      } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "The position and dimension of bottom and top layer aren't compatible: " +
-                           LAYER_TYPE_TO_STRING_MP[layer_type]);
-      }
-      if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
-        HCTR_OWN_THROW(Error_t::WrongInput,
-                       "The layer without activation function must be the last layer in MLP.");
-      }
-      if (use_mixed_precision) {
-        auto& train_in_tensor = input_output_info.input_tensors[0];
-        core23::Tensor mask_in_tensor, dRelu_in_tensor, db_in_tensor;
-        if (pos_type == FcPosition_t::Body || pos_type == FcPosition_t::Tail) {
-          mask_in_tensor = input_output_info.input_tensors[1];
-          dRelu_in_tensor = input_output_info.input_tensors[2];
-          db_in_tensor = input_output_info.input_tensors[3];
-        } else if (pos_type == FcPosition_t::Head && input_size == 2) {
-          mask_in_tensor = input_output_info.input_tensors[1];
-        }
-        core23::Tensor train_out_tensor(
-            tensor_params.shape({train_in_tensor.shape().size(0), output}));
-        core23::Tensor mask_out_tensor(
-            tensor_params.shape({train_in_tensor.shape().size(0), output}));
-        core23::Tensor dRelu_out_tensor(
-            tensor_params.shape({train_in_tensor.shape().size(0), output}));
-        core23::Tensor db_out_tensor;
-
-        if (pos_type == FcPosition_t::None) {
-          layers.emplace_back(new FusedFullyConnectedLayer(train_in_tensor, train_out_tensor,
-                                                           gpu_resource, initializer_types));
-        } else {
-          layers.emplace_back(new FusedReluBiasFullyConnectedLayer(
-              train_in_tensor, mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor,
-              mask_out_tensor, dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type,
-              skip_dgrad, initializer_types, dense_layer.compute_config.async_wgrad, head_mask_in,
-              dense_layer.compute_config.fuse_wb));
-        }
-
-        if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
-            pos_type == FcPosition_t::None)
-          output_tensor_entities.push_back({input_output_info.output_names[0], train_out_tensor});
-        else {
-          output_tensor_entities.push_back({input_output_info.output_names[0], train_out_tensor});
-          output_tensor_entities.push_back({input_output_info.output_names[1], mask_out_tensor});
-          output_tensor_entities.push_back({input_output_info.output_names[2], dRelu_out_tensor});
-          output_tensor_entities.push_back({input_output_info.output_names[3], db_out_tensor});
-        }
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
       }
       break;
     }

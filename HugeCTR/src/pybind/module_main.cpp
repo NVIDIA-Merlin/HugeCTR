@@ -21,7 +21,6 @@
 #include <pybind/data_reader_wrapper.hpp>
 #include <pybind/data_source_wrapper.hpp>
 #include <pybind/embedding_collection_wrapper.hpp>
-#include <pybind/embedding_training_cache_wrapper.hpp>
 #include <pybind/hps_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
 #include <pybind/model_wrapper.hpp>
@@ -38,7 +37,6 @@ PYBIND11_MODULE(hugectr, m) {
   DataSourcePybind(m);
   SolverPybind(m);
   DataReaderPybind(m);
-  EmbeddingTrainingCachePybind(m);
   LearningRateSchedulerPybind(m);
   OptimizerPybind(m);
   ModelPybind(m);

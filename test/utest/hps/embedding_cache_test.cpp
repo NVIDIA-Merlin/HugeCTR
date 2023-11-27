@@ -25,10 +25,10 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/memory_pool.hpp>
 #include <parser.hpp>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
 #define HIT_RATE_THRESHOLD 0.6
 #define CACHE_SIZE_PERCENTAGE 0.5
 #define UNIQUE_KNOWN_PERCENTAGE 0.1

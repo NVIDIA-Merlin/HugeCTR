@@ -184,7 +184,6 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"ElementwiseMultiply", Layer_t::ElementwiseMultiply},
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
-    {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"MLP", Layer_t::MLP},
     {"InnerProduct", Layer_t::InnerProduct},
     {"Interaction", Layer_t::Interaction},

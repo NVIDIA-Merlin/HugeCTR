@@ -125,19 +125,10 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("shape") = std::vector<int64_t>(), pybind11::arg("dim") = 0,
            pybind11::arg("index") = std::vector<int64_t>());
 
-  pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
-      m, "GroupDenseLayer")
-      .def(pybind11::init<GroupLayer_t, std::vector<std::string> &, std::vector<std::string> &,
-                          std::vector<size_t> &, Activation_t>(),
-           pybind11::arg("group_layer_type"), pybind11::arg("bottom_name_list"),
-           pybind11::arg("top_name_list"), pybind11::arg("num_outputs"),
-           pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
-      .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
-                          std::shared_ptr<EmbeddingTrainingCacheParams> &>(),
-           pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
-           pybind11::arg("etc_params") =
-               std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
+      .def(pybind11::init<const Solver &, const DataReaderParams &,
+                          std::shared_ptr<OptParamsPy> &>(),
+           pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"))
       .def("compile", pybind11::overload_cast<>(&HugeCTR::Model::compile))
       .def("compile",
            pybind11::overload_cast<std::vector<std::string> &, std::vector<float> &>(
@@ -148,10 +139,6 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,
            pybind11::arg("eval_interval") = 1000, pybind11::arg("snapshot") = 10000,
            pybind11::arg("snapshot_prefix") = "")
-      .def("set_source",
-           pybind11::overload_cast<std::vector<std::string>, std::vector<std::string>, std::string>(
-               &HugeCTR::Model::set_source),
-           pybind11::arg("source"), pybind11::arg("keyset"), pybind11::arg("eval_source"))
       .def("set_source",
            pybind11::overload_cast<std::string, std::string>(&HugeCTR::Model::set_source),
            pybind11::arg("source"), pybind11::arg("eval_source"))
@@ -205,8 +192,6 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("sparse_embedding"))
       .def("add", pybind11::overload_cast<DenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("dense_layer"))
-      .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
-           pybind11::arg("group_dense_layer"))
       .def("add", pybind11::overload_cast<const EmbeddingCollectionConfig &>(&HugeCTR::Model::add),
            pybind11::arg("ebc_config"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
@@ -220,37 +205,8 @@ void ModelPybind(pybind11::module &m) {
              return loss;
            })
       .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
-      .def("get_incremental_model",
-           [](HugeCTR::Model &self) {
-             auto inc_sparse_model = self.get_incremental_model();
-             std::vector<std::pair<pybind11::array_t<long long>, pybind11::array_t<float>>>
-                 array_inc_sparse_model;
-             for (const auto &pair : inc_sparse_model) {
-               size_t num_keys = pair.first.size();
-               size_t emb_vec_size = pair.second.size() / num_keys;
-               long long *keys = new long long[num_keys];
-               float *emb_vecs = new float[pair.second.size()];
-               memcpy(keys, pair.first.data(), num_keys * sizeof(long long));
-               memcpy(emb_vecs, pair.second.data(), num_keys * emb_vec_size * sizeof(float));
-               auto keys_capsule = pybind11::capsule(keys, [](void *v) {
-                 long long *vv = reinterpret_cast<long long *>(v);
-                 delete[] vv;
-               });
-               auto emb_vecs_capsule = pybind11::capsule(emb_vecs, [](void *v) {
-                 float *vv = reinterpret_cast<float *>(v);
-                 delete[] vv;
-               });
-               array_inc_sparse_model.push_back(std::make_pair(
-                   pybind11::array_t<long long>(num_keys, keys, keys_capsule),
-                   pybind11::array_t<float>({num_keys, emb_vec_size}, emb_vecs, emb_vecs_capsule)));
-             }
-             inc_sparse_model.clear();
-             return array_inc_sparse_model;
-           })
-      .def("dump_incremental_model_2kafka", &HugeCTR::Model::dump_incremental_model_2kafka)
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
-      .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
       .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)

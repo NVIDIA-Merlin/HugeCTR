@@ -18,7 +18,6 @@
 #include "core23/data_type.hpp"
 #include "core23/tensor.hpp"
 #include "core23/tensor_operations.hpp"
-#include "data_readers/csr.hpp"
 #include "data_readers/csr23.hpp"
 
 namespace HugeCTR {

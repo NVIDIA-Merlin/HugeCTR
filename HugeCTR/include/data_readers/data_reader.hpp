@@ -18,17 +18,14 @@
 #include <atomic>
 #include <common.hpp>
 #include <data_reader.hpp>
-#include <data_readers/csr.hpp>
 #include <data_readers/data_collector.hpp>
 #include <data_readers/data_reader_common.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
-#include <data_readers/data_reader_worker_group_norm.hpp>
 
 #ifndef DISABLE_CUDF
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #endif
 
-#include <data_readers/data_reader_worker_group_raw.hpp>
 #include <filesystem>
 #include <fstream>
 #include <gpu_resource.hpp>
@@ -108,12 +105,6 @@ class DataReader : public IDataReader {
   const std::vector<core23::Tensor> &get_label_tensor23s() const;
   const std::vector<core23::Tensor> &get_dense_tensor23s() const;
 
-  void create_drwg_norm(std::string file_name, Check_t check_type,
-                        bool start_reading_from_beginning = true) override;
-
-  void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
-                       bool data_shuffle = false,
-                       bool start_reading_from_beginning = true) override;
 #ifndef DISABLE_CUDF
 
   void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,

@@ -267,37 +267,6 @@ void DataReader<TypeKey>::set_source(std::string file_name) {
     throw core23::RuntimeError(Error_t::NotInitialized, "worker_group_ == nullptr");
   }
 }
-template <typename TypeKey>
-void DataReader<TypeKey>::create_drwg_norm(std::string file_name, Check_t check_type,
-                                           bool start_reading_from_beginning) {
-  // HCTR_DIE("Norm data reader is deprecated, please use Parquet instead\n");
-  source_type_ = SourceType_t::FileList;
-  worker_group_.reset(
-      new DataReaderWorkerGroupNorm<TypeKey>(thread_buffers_, resource_manager_, file_name, repeat_,
-                                             check_type, params_, start_reading_from_beginning));
-  file_name_ = file_name;
-}
-template <typename TypeKey>
-void DataReader<TypeKey>::create_drwg_raw(std::string file_name, long long num_samples,
-                                          bool float_label_dense, bool data_shuffle,
-                                          bool start_reading_from_beginning) {
-  // check if key type compatible with dataset
-  size_t file_size = std::filesystem::file_size(file_name);
-  size_t expected_file_size = (label_dim_ + dense_dim_) * sizeof(float);
-  for (auto &param : params_) {
-    expected_file_size += param.slot_num * sizeof(TypeKey);
-  }
-  expected_file_size *= num_samples;
-  if (file_size != expected_file_size) {
-    HCTR_OWN_THROW(Error_t::UnspecificError,
-                   "dataset key type and dataset size is not compatible.");
-  }
-  source_type_ = SourceType_t::Mmap;
-  worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
-      thread_buffers_, resource_manager_, file_name, num_samples, repeat_, params_, label_dim_,
-      dense_dim_, batchsize_, float_label_dense, data_shuffle, start_reading_from_beginning));
-  file_name_ = file_name;
-}
 #ifndef DISABLE_CUDF
 template <typename TypeKey>
 void DataReader<TypeKey>::create_drwg_parquet(std::string file_list, bool strict_order_of_batches,

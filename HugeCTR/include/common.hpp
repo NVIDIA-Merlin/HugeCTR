@@ -111,8 +111,6 @@ enum class Regularizer_t { L1, L2, None };
 
 enum class Alignment_t { Auto, None };
 
-enum class GroupLayer_t { GroupFusedInnerProduct };
-
 enum class Layer_t {
   BatchNorm,
   LayerNorm,
@@ -124,7 +122,6 @@ enum class Layer_t {
   Dropout,
   ELU,
   InnerProduct,
-  FusedInnerProduct,
   MLP,
   Interaction,
   MultiCrossEntropyLoss,
