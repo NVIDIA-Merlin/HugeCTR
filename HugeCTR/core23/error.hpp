@@ -145,6 +145,7 @@ enum class Error_t {
   OutOfBound,
   WrongInput,
   IllegalCall,
+  Deprecated,
   NotInitialized,
   UnSupportedFormat,
   InvalidEnv,

@@ -11,13 +11,43 @@ rank = comm.Get_rank()
 
 def create_wdl(solver):
     dataset_path = os.getenv("WDL_DATA_PATH")
-    if not os.path.exists("./wdl_data"):
-        os.symlink(dataset_path, "./wdl_data", target_is_directory=True)
+    if not os.path.exists("./wdl_data_parquet"):
+        os.symlink(dataset_path, "./wdl_data_parquet", target_is_directory=True)
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./wdl_data/file_list.txt"],
-        eval_source="./wdl_data/file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./wdl_data_parquet/train/_file_list.txt"],
+        eval_source="./wdl_data_parquet/val/_file_list.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            203750,
+            18573,
+            14082,
+            7020,
+            18966,
+            4,
+            6382,
+            1246,
+            49,
+            185920,
+            71354,
+            67346,
+            11,
+            2166,
+            7340,
+            60,
+            4,
+            934,
+            15,
+            204208,
+            141572,
+            199066,
+            60940,
+            9115,
+            72,
+            34,
+            278899,
+            355877,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(
         optimizer_type=hugectr.Optimizer_t.SGD,
@@ -32,15 +62,15 @@ def create_wdl(solver):
             dense_dim=13,
             dense_name="dense",
             data_reader_sparse_param_array=[
-                hugectr.DataReaderSparseParam("wide_data", 30, True, 1),
-                hugectr.DataReaderSparseParam("deep_data", 2, False, 26),
+                hugectr.DataReaderSparseParam("deep_data", 1, True, 26),
+                hugectr.DataReaderSparseParam("wide_data", 1, True, 2),
             ],
         )
     )
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=23,
+            workspace_size_per_gpu_in_mb=75,
             embedding_vec_size=1,
             combiner="sum",
             sparse_embedding_name="sparse_embedding2",
@@ -51,7 +81,7 @@ def create_wdl(solver):
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=358,
+            workspace_size_per_gpu_in_mb=1074,
             embedding_vec_size=16,
             combiner="sum",
             sparse_embedding_name="sparse_embedding1",
@@ -71,8 +101,16 @@ def create_wdl(solver):
         hugectr.DenseLayer(
             layer_type=hugectr.Layer_t.Reshape,
             bottom_names=["sparse_embedding2"],
+            top_names=["reshape_wide"],
+            leading_dim=2,
+        )
+    )
+    model.add(
+        hugectr.DenseLayer(
+            layer_type=hugectr.Layer_t.ReduceSum,
+            bottom_names=["reshape_wide"],
             top_names=["reshape2"],
-            leading_dim=1,
+            axis=1,
         )
     )
     model.add(
@@ -134,9 +172,7 @@ def create_wdl(solver):
     )
     model.add(
         hugectr.DenseLayer(
-            layer_type=hugectr.Layer_t.Add,
-            bottom_names=["fc3", "reshape2"],
-            top_names=["add1"],
+            layer_type=hugectr.Layer_t.Add, bottom_names=["fc3", "reshape2"], top_names=["add1"]
         )
     )
     model.add(
@@ -153,11 +189,40 @@ def create_dcn(solver):
     dataset_path = os.getenv("DCN_DATA_PATH")
     if not os.path.exists("./dcn_data"):
         os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
+    os.chdir("./dcn_data")
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./dcn_data/file_list.txt"],
-        eval_source="./dcn_data/file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./_file_list.txt"],
+        eval_source="./_file_list.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            203931,
+            18598,
+            14092,
+            7012,
+            18977,
+            4,
+            6385,
+            1245,
+            49,
+            186213,
+            71328,
+            67288,
+            11,
+            2168,
+            7338,
+            61,
+            4,
+            932,
+            15,
+            204515,
+            141526,
+            199433,
+            60919,
+            9137,
+            71,
+            34,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(
         optimizer_type=hugectr.Optimizer_t.SGD,
@@ -279,11 +344,40 @@ def create_deepfm(solver):
     dataset_path = os.getenv("DCN_DATA_PATH")
     if not os.path.exists("./dcn_data"):
         os.symlink(dataset_path, "./dcn_data", target_is_directory=True)
+    os.chdir("./dcn_data")
     reader = hugectr.DataReaderParams(
-        data_reader_type=hugectr.DataReaderType_t.Norm,
-        source=["./dcn_data/file_list.txt"],
-        eval_source="./dcn_data/file_list_test.txt",
-        check_type=hugectr.Check_t.Sum,
+        data_reader_type=hugectr.DataReaderType_t.Parquet,
+        source=["./_file_list.txt"],
+        eval_source="./_file_list.txt",
+        check_type=hugectr.Check_t.Non,
+        slot_size_array=[
+            203931,
+            18598,
+            14092,
+            7012,
+            18977,
+            4,
+            6385,
+            1245,
+            49,
+            186213,
+            71328,
+            67288,
+            11,
+            2168,
+            7338,
+            61,
+            4,
+            932,
+            15,
+            204515,
+            141526,
+            199433,
+            60919,
+            9137,
+            71,
+            34,
+        ],
     )
     optimizer = hugectr.CreateOptimizer(
         optimizer_type=hugectr.Optimizer_t.SGD,
@@ -303,7 +397,7 @@ def create_deepfm(solver):
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=61,
+            workspace_size_per_gpu_in_mb=300,
             embedding_vec_size=11,
             combiner="sum",
             sparse_embedding_name="sparse_embedding1",
@@ -813,11 +907,13 @@ def multi_node_test():
     vvgpu = [[g for g in range(args.gpu_num)] for _ in range(args.node_num)]
     batchsize = args.batchsize_per_gpu * args.node_num * args.gpu_num
 
-    args.i64_input_key = False
+    args.i64_input_key = True
     if args.use_mixed_precision:
         args.scaler = 1024
     else:
         args.scaler = 1
+    if args.benchmark.lower() == "din":
+        args.i64_input_key = False
 
     solver = hugectr.CreateSolver(
         max_eval_batches=1,  # we dont evaluate

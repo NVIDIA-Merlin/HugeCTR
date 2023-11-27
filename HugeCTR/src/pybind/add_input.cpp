@@ -113,12 +113,9 @@ void add_input(Input& input, DataReaderParams& reader_params,
                bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager> resource_manager) {
   DataReaderType_t format = reader_params.data_reader_type;
-  Check_t check_type = reader_params.check_type;
+  // Check_t check_type = reader_params.check_type;
   std::string source_data = reader_params.source[0];
   std::string eval_source = reader_params.eval_source;
-  long long num_samples = reader_params.num_samples;
-  long long eval_num_samples = reader_params.eval_num_samples;
-  bool float_label_dense = reader_params.float_label_dense;
   // TODO - changes structures to support multiple labels
   std::string top_strs_dense = input.dense_name;
   int dense_dim = input.dense_dim;
@@ -143,14 +140,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
   if (format == DataReaderType_t::Norm) {
-    HCTR_LOG(WARNING, WORLD,
-             "Norm Reader will be deprecated in a future release, please use Parquet Reader for an "
-             "alternative\n");
+    HCTR_OWN_THROW(Error_t::Deprecated, "Norm is deprecated");
   }
   if (format == DataReaderType_t::Raw) {
-    HCTR_LOG(WARNING, WORLD,
-             "Raw Reader will be deprecated in a future release, please use RawAsync Reader for an "
-             "alternative\n");
+    HCTR_OWN_THROW(Error_t::Deprecated, "Raw is deprecated");
   }
   if ((format == DataReaderType_t::RawAsync)) {
     if (reader_params.async_param.multi_hot_reader) {
@@ -458,16 +451,11 @@ void add_input(Input& input, DataReaderParams& reader_params,
     }
     switch (format) {
       case DataReaderType_t::Norm: {
-        bool start_right_now = repeat_dataset;
-        train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
-        evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
+        HCTR_OWN_THROW(Error_t::Deprecated, "Norm is deprecated");
         break;
       }
       case DataReaderType_t::Raw: {
-        train_data_reader->create_drwg_raw(source_data, num_samples, float_label_dense,
-                                           false /*true*/, false);
-        evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, float_label_dense,
-                                              false, false);
+        HCTR_OWN_THROW(Error_t::Deprecated, "Raw is deprecated");
         break;
       }
       case DataReaderType_t::Parquet: {

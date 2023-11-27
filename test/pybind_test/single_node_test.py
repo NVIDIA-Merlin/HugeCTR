@@ -20,8 +20,6 @@ import sys
 import argparse
 
 DATA_READER_TYPE = {
-    "Norm": hugectr.DataReaderType_t.Norm,
-    "Raw": hugectr.DataReaderType_t.Raw,
     "Parquet": hugectr.DataReaderType_t.Parquet,
 }
 CHECK_TYPE = {"Sum": hugectr.Check_t.Sum, "None": hugectr.Check_t.Non}
@@ -47,7 +45,7 @@ def parse_args(parser):
     args.source = data_config["source"]
     args.eval_source = data_config["eval_source"]
     if "format" not in data_config:
-        args.data_reader_type = hugectr.DataReaderType_t.Norm
+        raise TypeError("Data format must be parquet")
     else:
         args.data_reader_type = DATA_READER_TYPE[data_config.get("format", "Norm")]
     args.check_type = CHECK_TYPE[data_config["check"]]

@@ -27,8 +27,6 @@ if (DISABLE_CUDF)
   )
 else()
   file(GLOB data_reader_test_src
-    data_reader_test.cpp
-    data_reader_raw_test.cpp
     data_reader_parquet_test.cpp
   )
 endif()

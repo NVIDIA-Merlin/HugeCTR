@@ -97,11 +97,6 @@ class AsyncReader : public SchedulableDataReader {
   // std::vector<std::vector<SparseTensor23>> get_value_tensor_buffers() const;
   std::vector<std::vector<SparseTensor<SparseType>>> get_value_tensor_buffers() const;
   std::vector<std::vector<SparseTensor23>> get_value_tensor_buffer23s() const;
-
-  void create_drwg_norm(std::string file_list, Check_t check_type,
-                        bool start_reading_from_beginning = true) override;
-  void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
-                       bool data_shuffle, bool start_reading_from_beginning = true) override;
 #ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
                            const std::vector<long long> slot_offset,

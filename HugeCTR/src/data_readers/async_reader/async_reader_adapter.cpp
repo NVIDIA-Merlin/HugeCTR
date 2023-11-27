@@ -484,13 +484,7 @@ std::vector<std::vector<SparseTensor23>> AsyncReader<SparseType>::get_value_tens
   }
   return ret;
 }
-template <typename SparseType>
-void AsyncReader<SparseType>::create_drwg_norm(std::string file_list, Check_t check_type,
-                                               bool start_reading_from_beginning) {}
-template <typename SparseType>
-void AsyncReader<SparseType>::create_drwg_raw(std::string file_name, long long num_samples,
-                                              bool float_label_dense, bool data_shuffle,
-                                              bool start_reading_from_beginning) {}
+
 #ifndef DISABLE_CUDF
 template <typename SparseType>
 void AsyncReader<SparseType>::create_drwg_parquet(std::string file_list,

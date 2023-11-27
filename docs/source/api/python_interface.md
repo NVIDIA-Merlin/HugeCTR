@@ -14,7 +14,7 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
 
 ## High-level Training API
 
-For HugeCTR high-level training API, the core data structures are `Solver`, `EmbeddingTrainingCacheParams`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `EmbeddingTrainingCacheParams`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
+For HugeCTR high-level training API, the core data structures are `Solver`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
 
 ### Solver
 
@@ -98,45 +98,6 @@ solver = hugectr.CreateSolver(max_eval_batches = 300,
 ```
 
 ***
-
-#### CreateETC method (deprecated)
-
-**Warning**: this method will be deprecated in a future release.
-
-```python
-hugectr.CreateETC()
-```
-
-`CreateETC` should **only** be called when using the [Embedding Training Cache](../hugectr_embedding_training_cache.md) (ETC) feature. It returns a `EmbeddingTrainingCacheParams` object that specifies the parameters for initializing a `EmbeddingTrainingCache` instance.
-
-**Arguments**
-* `ps_types`: A list specifies types of [parameter servers](hugectr_embedding_training_cache.md#parameter-server-in-etc) (PS) of each embedding table. Available PS choices for embeddings are:
-  * [`hugectr.TrainPSType_t.Staged`](hugectr_embedding_training_cache.md#staged-host-memory-parameter-server)
-    * The whole embedding table will be loaded into the host memory in the initialization stage.
-    * It requires the size of host memory should be large enough to hold the embedding table along with the optimizer states (if any).
-    * *`Staged` type offers better loading and dumping bandwidth than the `Cached` PS.*
-  * [`hugectr.TrainPSType_t.Cached`](hugectr_embedding_training_cache.md#cached-host-memory-parameter-server)
-    * A sub-portion of the embedding table will be dynamically cached in the host memory, and it adopts a runtime eviction/insertion mechanism to update the cached table.
-    * The size of the cached table is configurable, which can be substantially smaller than the size of the embedding table stored in the SSD or various kinds of filesystems. E.g., embedding table size (1 TB) v.s. cache size (100 GB).
-    * The bandwidth of `Cached` PS is mainly affected by the hit rate. If the hit rate is 100 %, its bandwidth tends to the `Staged` PS; Otherwise, if the hit rate is 0 %, the bandwidth equals the random-accessing bandwidth of SSD.
-
-* `sparse_models`: A path list of embedding table(s). If the provided path points to an existing table, this table will be used for incremental training. Otherwise, the newly generated table will be written into this path after training.
-
-* `local_paths`: A path list for storing the temporary embedding table. Its length should be equal to the number of MPI ranks. Each entry in this list should be a path pointing to the local SSD of this node.
-
-  *This entry is only required when there is `hugectr.TrainPSType_t.Cached` in `ps_types`.*
-
-* `hcache_configs`: A path list of the configurations of `Cached` PS. Please check [Cached-PS Configuration](hugectr_embedding_training_cache.md#cached-ps-configuration) for more descriptions.
-  * If only one configuration is provided, it will be used for all `Cached` PS.
-  * Otherwise, you need to provide one configuration for each `Cached` PS. And the ith configuration in `hcache_configs` will be used for the ith occurrence of `Cached` PS in `ps_types`.
-
-  *This entry is only required when there is `hugectr.TrainPSType_t.Cached` in `ps_types`.*
-
-**Note that the `Staged` and `Cached` PS can be used together for a model with more than one embedding tables.**
-
-Example usage of the `CreateETC()` API can be found in [Configuration](hugectr_embedding_training_cache.md#configuration).
-
-For the usage of the ETC feature in real cases, please check the [HugeCTR Continuous Training](../notebooks/continuous_training.ipynb) notebook.
 
 ### AsyncParam
 
@@ -249,7 +210,7 @@ hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, -1, 0.01, 1.3e11, 1.9e1
 hugectr.DataReaderParams()
 ```
 
-`DataReaderParams` specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., [Norm](#norm), [Raw](#raw) and [Parquet](#parquet). An `DataReaderParams` instance is required to initialize the `Model` instance.
+`DataReaderParams` specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., [Raw](#raw) and [Parquet](#parquet). An `DataReaderParams` instance is required to initialize the `Model` instance.
 
 **Arguments**
 
@@ -257,8 +218,6 @@ hugectr.DataReaderParams()
 
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format.
 Specify one of the following types:
-  * `hugectr.DataReaderType_t.Norm` can read Norm format dataset
-  * `hugectr.DataReaderType_t.Raw` can read Raw format dataset
   * `hugectr.DataReaderType_t.Parquet` can read Parquet format dataset
   * `hugectr.DataReaderType_t.RawAsync` can read Raw format dataset
 
@@ -324,19 +283,15 @@ We support the following dataset formats within our `DataReaderParams`.
 
 > **Deprecation Warning**: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.
 
-* [Norm](#norm)
 * [Raw](#raw)
 * [Parquet](#parquet)
 
 <img src ="/user_guide_src/dataset.png" width="80%" align="center"/>
 
-<div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
+<div align=center>Fig. 1: (a) Raw (b) Parquet Dataset Formats</div>
 
 <br></br>
 
-#### Norm
-
-To maximize the data loading performance and minimize the storage, the Norm dataset format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 1 (a).
 
 ##### Data Files
 
@@ -384,30 +339,30 @@ The first line of a file list should be the number of data files in the dataset 
 ```shell
 $ cat simple_sparse_embedding_file_list.txt
 10
-./simple_sparse_embedding/simple_sparse_embedding0.data
-./simple_sparse_embedding/simple_sparse_embedding1.data
-./simple_sparse_embedding/simple_sparse_embedding2.data
-./simple_sparse_embedding/simple_sparse_embedding3.data
-./simple_sparse_embedding/simple_sparse_embedding4.data
-./simple_sparse_embedding/simple_sparse_embedding5.data
-./simple_sparse_embedding/simple_sparse_embedding6.data
-./simple_sparse_embedding/simple_sparse_embedding7.data
-./simple_sparse_embedding/simple_sparse_embedding8.data
-./simple_sparse_embedding/simple_sparse_embedding9.data
+./simple_sparse_embedding/simple_sparse_embedding0.parquet
+./simple_sparse_embedding/simple_sparse_embedding1.parquet
+./simple_sparse_embedding/simple_sparse_embedding2.parquet
+./simple_sparse_embedding/simple_sparse_embedding3.parquet
+./simple_sparse_embedding/simple_sparse_embedding4.parquet
+./simple_sparse_embedding/simple_sparse_embedding5.parquet
+./simple_sparse_embedding/simple_sparse_embedding6.parquet
+./simple_sparse_embedding/simple_sparse_embedding7.parquet
+./simple_sparse_embedding/simple_sparse_embedding8.parquet
+./simple_sparse_embedding/simple_sparse_embedding9.parquet
 ```
 
 Example:
 
 ```python
-reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
                                   source = ["./wdl_norm/file_list.txt"],
                                   eval_source = "./wdl_norm/file_list_test.txt",
-                                  check_type = hugectr.Check_t.Sum)
+                                  check_type = hugectr.Check_t.Non)
 ```
 
 #### Raw
 
-The Raw dataset format is different from the Norm dataset format in several aspects:
+The Raw dataset format is different from the Parquet dataset format in several aspects:
 
 1. Raw dataset only consists of a single binary file.
 2. Raw dataset file only supports static hotness.
@@ -418,7 +373,6 @@ Raw dataset outperforms others in terms of IO throughput. HugeCTR has 3 types of
 
 |                         reader type                          |     hotness      |       specific embedding type        |      dense data type      |
 | :----------------------------------------------------------: | :--------------: | :----------------------------------: | :-----------------------: |
-|                `hugectr.DataReaderType_t.Raw`                |      1-hot       | `LocalizedSlotSparseEmbeddingOneHot` |      `unsigned int`       |
 | `hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=False` |      1-hot       |       `HybridSparseEmbedding`        |      `unsigned int`       |
 | `hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=True` | static multi-hot |            `embedding collection`            | `float ` or `unsigned int` |
 
@@ -428,15 +382,11 @@ Please refer to [DataReaderParams](#DataReaderParams) for more details about `As
 
 When the dense type of Raw dataset is `unsigned int`, the data reader will perform `log(x+1)` on dense features `x` before feeding them into model network.
 
-The `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding` are going to be incorporated into `3G embedding`, therefore the `hugectr.DataReaderType_t.Raw` and 
-`hugectr.DataReaderType_t.RawAsync`<br />+`AsyncParam::multi_hot_reader=False` will be deprecated as well. 
+The `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding` are going to be incorporated into `3G embedding`. 
 
 Example:
 
 ```python
-reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
-                                  source = ["./wdl_raw/train_data.bin"],
-                                  eval_source = "./wdl_raw/validation_data.bin")
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.RawAsync,
                                   source = ["./wdl_raw/train_data.bin"],
                                   eval_source = "./wdl_raw/validation_data.bin",
@@ -643,7 +593,7 @@ Please refer to [hugectr_layer_book](./hugectr_layer_book.md) for detail guides 
 hugectr.Model()
 ```
 
-`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `Solver` instance , a `DataReaderParams` instance, an `OptParamsPy` instance and a `EmbeddingTrainingCacheParams` instance (optional).
+`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `Solver` instance , a `DataReaderParams` instance, an `OptParamsPy` instance.
 
 **Arguments**
 * `solver`: A hugectr.Solver object, the solver configuration for the model.
@@ -652,7 +602,6 @@ hugectr.Model()
 
 * `opt_params`: A hugectr.OptParamsPy object, the optimizer configuration for the model.
 
-* `etc`: A hugectr.EmbeddingTrainingCacheParams object, the embedding training cache configuration for the model. This argument should **only** be provided when using the embedding training cache feature.
 
 ***
 
@@ -944,14 +893,14 @@ hugectr.Model.set_source()
 
 The `set_source` method can set the data source and keyset files under epoch mode training. This overloaded method has two implementations.
 
-Implementation Ⅰ: only valid when `repeat_dataset` is `False` and `use_embedding_training_cache` is `True`.
+Implementation Ⅰ: only valid when `repeat_dataset` is `False`.
 
 **Arguments**
 * `source`: List[str], the training dataset source. It can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
 * `keyset`: List[str], the keyset files. It should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence. There is NO default value and it should be specified by users.
 * `eval_source`: String, the evaluation dataset source. There is NO default value and it should be specified by users.
 
-Implementation Ⅱ: only valid when `repeat_dataset` is `False` and `use_embedding_training_cache` is `False`.
+Implementation Ⅱ: only valid when `repeat_dataset` is `False`.
 
 **Arguments**
 * `source`: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.
@@ -959,7 +908,7 @@ Implementation Ⅱ: only valid when `repeat_dataset` is `False` and `use_embeddi
 
 ## Low-level Training API
 
-For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal `LearningRateScheduler`, `DataReader` and `EmbeddingTrainingCache` within the `Model`, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
+For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal `LearningRateScheduler`, `DataReader` within the `Model`, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
 
 ### LearningRateScheduler
 
@@ -996,19 +945,6 @@ hugectr.DataReader64.is_eof()
 
 This method takes no extra arguments and returns whether the data reader has reached the end of the current source file.
 
-### EmbeddingTraingCache
-
-#### update method
-
-```python
-hugectr.EmbeddingTraingCache.update()
-```
-
-The `update` method of EmbeddingTraingCache currently supports Norm format datasets. Using this method requires that a series of file lists and the corresponding keyset files are generated at the same time when preprocessing the original data to Norm format. This method gives you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. Please refer to [HugeCTR Embedding Traing Cache](../hugectr_embedding_training_cache.md) if you want to get detailed information about EmbeddingTraingCache.
-
-**Arguments**
-* `keyset_file` or `keyset_file_list`: This method is an overloaded method that can accept str or List[str] as an argument. For the model with multiple embedding tables, if the keyset of each embedding table is not separated when generating the keyset files, then pass in the `keyset_file`. If the keyset of each embedding table has been separated when generating keyset files, you need to pass in the `keyset_file_list`, the size of which should equal to the number of embedding tables.
-
 ### Model
 
 #### get_learning_rate_scheduler method
@@ -1019,16 +955,6 @@ hugectr.Model.get_learning_rate_scheduler()
 
 `hugectr.Model.get_learning_rate_scheduler` generates and returns the LearningRateScheduler object of the model instance. When the `SGD` optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the `warmup_steps`, `decay_start` and `decay_steps` configured in the `hugectr.CreateSolver` method.
 Refer to [SGD Optimizer and Learning Rate Scheduling](hugectr_core_features.md#sgd-optimizer-and-learning-rate-scheduling)) if you want to get detailed information about LearningRateScheduler.
-
-***
-
-#### get_embedding_training_cache method
-
-```python
-hugectr.Model.get_embedding_training_cache()
-```
-
-This method takes no extra arguments and returns the EmbeddingTrainingCache object.
 
 ***
 
@@ -1112,32 +1038,6 @@ hugectr.Model.get_eval_metrics()
 ```
 
 This method takes no extra arguments and returns the average evaluation metrics of several minibatches of evaluation data.
-
-***
-
-#### get_incremental_model method
-
-```python
-updated_model = hugectr.Model.get_incremental_model()
-```
-
-This method is only supported in [Embedding Training Cache](../hugectr_embedding_training_cache.md) and returns the updated embedding table since the last time calling this method to `updated_model`. Note that `updated_model` only stores the embedding features being touched instead of the whole table.
-
-When training with multi-node, the `updated_model` returned in each node doesn't have duplicated embedding features, and the aggregations of `updated_model` from each node form the complete updated sparse model.
-
-The length of `updated_model` is equal to the number of embedding tables in your model, e.g., `length(updated_model)==2` for the wdl model. Each element in `updated_model` is a pair of NumPy arrays: a 1-D array stores keys in `long long` format, and another 2-D array stores embedding vectors in `float` format, where the leading dimension is the embedding vector size. E.g., `updated_model[0][0]` stores keys, and `updated_model[0][1]` stores the embedding vectors corresponding to keys in `updated_model[0][0]`.
-
-***
-
-#### dump_incremental_model_2kafka method
-
-```python
-hugectr.Model.dump_incremental_model_2kafka()
-```
-
-This method is only supported in [Embedding Training Cache](../hugectr_embedding_training_cache.md). It with post the updated embedding table to Kafka as user specified.
-
-Please NOTE that is method can not be used together with the `get_incremental_model` method. Only one of these two methods could be used for dumping the incremental model.
 
 ***
 
@@ -1258,7 +1158,7 @@ The `predict` method of InferenceModel makes predictions based on the dataset of
 
 * `source`: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.
 
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet`.
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Parquet`.
 
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We currently support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non`.
 
@@ -1280,9 +1180,7 @@ The `evaluate` method of InferenceModel does evaluations based on the dataset of
 
 * `source`: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.
 
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet`.
-
-* `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Parquet`.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
 
@@ -1343,7 +1241,7 @@ hugectr.tools.DataGeneratorParams()
 `DataGeneratorParams` specifies the parameters related to the data generation. An `DataGeneratorParams` instance is required to initialize the `DataGenerator` instance.
 
 **Arguments**
-* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Parquet` and `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
+* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Parquet` and `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
 
 * `label_dim`: Integer, the label dimension for synthetic dataset. There is NO default value and it should be specified by users.
 
@@ -1361,19 +1259,17 @@ hugectr.tools.DataGeneratorParams()
 
 * `nnz_array`: List[int], the number of non-zero entries in each slot for synthetic dataset. The list length should be equal to `num_slot`. This argument helps to simulate one-hot or multi-hot encodings. The default value is an empty list and one-hot encoding will be employed then.
 
-* `check_type`: The data error detection mechanism. The supported types include `hugectr.Check_t.Sum` (CheckSum) and `hugectr.Check_t.Non` (no detection). The default value is `hugectr.Check_t.Sum`.
-
 * `dist_type`: The distribution of the sparse input keys for synthetic dataset. The supported types include `hugectr.Distribution_t.PowerLaw` and `hugectr.Distribution_t.Uniform`. The default value is `hugectr.Distribution_t.PowerLaw`.
 
 * `power_law_type`: The specific distribution of power law distribution. The supported types include `hugectr.PowerLaw_t.Long` (alpha=0.9), `hugectr.PowerLaw_t.Medium` (alpha=1.1), `hugectr.PowerLaw_t.Short` (alpha=1.3) and `hugectr.PowerLaw_t.Specific` (requiring a specific alpha value). This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw`. The default value is `hugectr.PowerLaw_t.Specific`.
 
 * `alpha`: Float, the alpha value for power law distribution. This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw` and `power_law_type` is `hugectr.PowerLaw_t.Specific`. The alpha value should be greater than zero and not equal to 1.0. The default value is 1.2.
 
-* `num_files`: Integer, the number of training data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 128.
+* `num_files`: Integer, the number of training data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Parquet`. The default value is 128.
 
-* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 32.
+* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Parquet`. The default value is 32.
 
-* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 40960.
+* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is valid when `format` is `hugectr.DataReaderType_t.Parquet`. The default value is 40960.
 
 * `num_samples`: Integer, the number of samples in the generated single training data file (e.g., train_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 5242880.
 
@@ -1407,7 +1303,7 @@ This method takes no extra arguments and starts to generate the synthetic datase
 ### DataSourceParams class
 
 ```python
-hugectr.data.DataSourceParams()
+hugectr.parquet.DataSourceParams()
 ```
 
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.

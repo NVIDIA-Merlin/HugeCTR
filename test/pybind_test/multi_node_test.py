@@ -22,8 +22,6 @@ import threading
 from mpi4py import MPI
 
 DATA_READER_TYPE = {
-    "Norm": hugectr.DataReaderType_t.Norm,
-    "Raw": hugectr.DataReaderType_t.Raw,
     "Parquet": hugectr.DataReaderType_t.Parquet,
 }
 CHECK_TYPE = {"Sum": hugectr.Check_t.Sum, "None": hugectr.Check_t.Non}
@@ -49,9 +47,9 @@ def parse_args(parser):
     args.source = data_config["source"]
     args.eval_source = data_config["eval_source"]
     if "format" not in data_config:
-        args.data_reader_type = hugectr.DataReaderType_t.Norm
+        raise TypeError("Data format must be parquet")
     else:
-        args.data_reader_type = DATA_READER_TYPE[data_config.get("format", "Norm")]
+        args.data_reader_type = DATA_READER_TYPE[data_config.get("format", "Parquet")]
     args.check_type = CHECK_TYPE[data_config["check"]]
     args.cache_eval_data = data_config.get("cache_eval_data", 0)
     args.num_samples = data_config.get("num_samples", 0)

@@ -2,21 +2,15 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 3000,
+    "max_iter": 18000,
     "gpu": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7
+      0
     ],
-    "batchsize": 16384,
+    "batchsize": 2048,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
+    "input_key_type": "I64",
     "max_eval_batches": 2048
   },
   "optimizer": {
@@ -33,9 +27,10 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
-      "check": "Sum",
+      "format": "Parquet",
+      "source": "./_file_list.txt",
+      "eval_source": "./_file_list.txt",
+      "check": "None",
       "label": {
         "top": "label",
         "label_dim": 1
@@ -55,14 +50,14 @@
     },
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "bottom": "data1",
+      "type": "EmbeddingCollection",
+      "bottom": ["data1", "data2", "data3", "data4", "data5", "data6", "data7", "data8", "data9", "data10", "data11", "data12", "data13", "data14", "data15", "data16", "data17", "data18", "data19", "data20", "data21", "data22", "data23", "data24", "data25", "data26"],
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "embedding_vec_size": 16,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 102
-      }
+        "slot_size_array": [381808, 22456, 14763, 7118, 19308, 4, 6443, 1259, 54, 341642, 112151, 94957, 11, 2188, 8399, 61, 4, 949, 15, 382633, 246818, 370704, 92823, 9773, 78, 34],
+    }
     },
     {
       "name": "reshape1",

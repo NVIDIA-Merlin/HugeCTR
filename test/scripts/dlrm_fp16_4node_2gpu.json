@@ -75,94 +75,64 @@
       }
     },
     {
-      "name": "fc1",
-      "type": "FusedInnerProduct",
       "bottom": "dense",
-      "top": "fc1",
-      "fc_param": {
-        "num_output": 512
-      }
+      "mlp_param": {
+        "activation": "Relu",
+        "num_output": 1,
+        "num_outputs": [
+          512,
+          256,
+          128
+        ],
+        "use_bias": true
+      },
+      "top": "mlp1",
+      "type": "MLP"
     },
     {
-      "name": "fc2",
-      "type": "FusedInnerProduct",
-      "bottom": "fc1",
-      "top": "fc2",
-      "fc_param": {
-        "num_output": 256
-      }
-    },
-    {
-      "name": "fc3",
-      "type": "FusedInnerProduct",
-      "bottom": "fc2",
-      "top": "fc3",
-      "fc_param": {
-        "num_output": 128
-      }
-    },
-    {
-      "name": "interaction1",
-      "type": "Interaction",
       "bottom": [
-        "fc3",
+        "mlp1",
         "sparse_embedding1"
       ],
-      "top": "interaction1"
+      "top": [
+        "interaction1",
+        "interaction_grad"
+      ],
+      "type": "Interaction"
     },
     {
-      "name": "fc4",
-      "type": "FusedInnerProduct",
-      "bottom": "interaction1",
-      "top": "fc4",
-      "fc_param": {
-        "num_output": 1024
-      }
-    },
-    {
-      "name": "fc5",
-      "type": "FusedInnerProduct",
-      "bottom": "fc4",
-      "top": "fc5",
-      "fc_param": {
-        "num_output": 1024
-      }
-    },
-    {
-      "name": "fc6",
-      "type": "FusedInnerProduct",
-      "bottom": "fc5",
-      "top": "fc6",
-      "fc_param": {
-        "num_output": 512
-      }
-    },
-    {
-      "name": "fc7",
-      "type": "FusedInnerProduct",
-      "bottom": "fc6",
-      "top": "fc7",
-      "fc_param": {
-        "num_output": 256
-      }
-    },
-    {
-      "name": "fc8",
-      "type": "InnerProduct",
-      "bottom": "fc7",
-      "top": "fc8",
-      "fc_param": {
-        "num_output": 1
-      }
-    },
-    {
-      "name": "loss",
-      "type": "BinaryCrossEntropyLoss",
       "bottom": [
-        "fc8",
+        "interaction1",
+        "interaction_grad"
+      ],
+      "mlp_param": {
+        "activations": [
+          "Relu",
+          "Relu",
+          "Relu",
+          "Relu",
+          "None"
+        ],
+        "num_output": 1,
+        "num_outputs": [
+          1024,
+          1024,
+          512,
+          256,
+          1
+        ],
+        "use_bias": true
+      },
+      "top": "mlp2",
+      "type": "MLP"
+    },
+    {
+      "bottom": [
+        "mlp2",
         "label"
       ],
-      "top": "loss"
+      "top": "loss",
+      "type": "BinaryCrossEntropyLoss"
     }
   ]
 }
