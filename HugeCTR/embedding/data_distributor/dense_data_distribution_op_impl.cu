@@ -193,18 +193,13 @@ void DenseMPDataDistributionOp::all2all_keys_per_bucket(embedding::EmbeddingInpu
   auto nccl_type =
       core23::get_nccl_dtype_from_tensor_scalar_type_core23(send_tensor.data_type().type());
 
-  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
-  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
-
   DISPATCH_INTEGRAL_FUNCTION_CORE23(send_tensor.data_type().type(), BucketRangeType, [&] {
     ncclGroupStart();
     for (size_t peer = 0; peer < num_global_gpus_; ++peer) {
-      if (!skip_all2all) {
-        HCTR_LIB_THROW(ncclSend(send_tensor.data<BucketRangeType>() + peer, 1, nccl_type, peer,
-                                core_->get_nccl(), stream));
-        HCTR_LIB_THROW(ncclRecv(recv_tensor.data<BucketRangeType>() + peer, 1, nccl_type, peer,
-                                core_->get_nccl(), stream));
-      }
+      HCTR_LIB_THROW(ncclSend(send_tensor.data<BucketRangeType>() + peer, 1, nccl_type, peer,
+                              core_->get_nccl(), stream));
+      HCTR_LIB_THROW(ncclRecv(recv_tensor.data<BucketRangeType>() + peer, 1, nccl_type, peer,
+                              core_->get_nccl(), stream));
     }
     ncclGroupEnd();
   });
@@ -260,9 +255,6 @@ void DenseMPDataDistributionOp::all2all_keys(embedding::EmbeddingInput& output,
   size_t send_offset = 0;
   size_t recv_offset = 0;
 
-  const char* const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
-  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
-
   size_t max_num_key_per_partition =
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition.max_num_key_per_partition;
   DISPATCH_INTEGRAL_FUNCTION_CORE23(send_keys.data_type().type(), KeyType, [&] {
@@ -274,14 +266,14 @@ void DenseMPDataDistributionOp::all2all_keys(embedding::EmbeddingInput& output,
         //        printf("GPU (%d) -> (%d) send_num_keys: %d, recv_num_keys: %d\n",
         //        core->get_global_gpu_id(),
         //               (int)peer, (int)send_num_keys, (int)recv_num_keys);
-        if (send_num_keys > 0 && !skip_all2all) {
+        if (send_num_keys > 0) {
           HCTR_LIB_THROW(ncclSend(send_keys.data<KeyType>() + peer * max_num_key_per_partition,
                                   send_num_keys, key_nccl_type, peer, core_->get_nccl(), stream));
           HCTR_LIB_THROW(ncclSend(send_feature_ids.data<int>() + peer * max_num_key_per_partition,
                                   send_num_keys, feature_id_nccl_type, peer, core_->get_nccl(),
                                   stream));
         }
-        if (recv_num_keys > 0 && !skip_all2all) {
+        if (recv_num_keys > 0) {
           HCTR_LIB_THROW(ncclRecv(recv_keys.data<KeyType>() + recv_offset, recv_num_keys,
                                   key_nccl_type, peer, core_->get_nccl(), stream));
           HCTR_LIB_THROW(ncclRecv(recv_feature_ids.data<int>() + recv_offset, recv_num_keys,
