@@ -23,6 +23,7 @@ from tensorflow.python.ops.resource_variable_ops import variable_shape
 from tensorflow.python.ops.resource_variable_ops import variable_accessed
 
 from sparse_operation_kit.experiment import raw_ops
+from sparse_operation_kit.experiment import tf_version
 
 from sparse_operation_kit.experiment.communication import rank
 from sparse_operation_kit.experiment.communication import num_ranks

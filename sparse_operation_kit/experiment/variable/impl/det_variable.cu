@@ -14,12 +14,36 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <random>
 
 #include "common/check.h"
 #include "variable/impl/det_variable.h"
 
 namespace sok {
+
+template <typename T>
+std::vector<size_t> argsort(const std::vector<T>& array) {
+  std::vector<size_t> indices(array.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::sort(indices.begin(), indices.end(), [&array](size_t left, size_t right) -> bool {
+    // sort indices according to corresponding array element
+    return array[left] < array[right];
+  });
+
+  return indices;
+}
+
+template <typename KeyType, typename ValueType>
+void gather_by_index(std::vector<size_t>& inx, KeyType* src_key, ValueType* src_value,
+                     KeyType* dst_key, ValueType* dst_value, size_t num_keys, size_t value_dim) {
+  for (int i = 0; i < num_keys; i++) {
+    dst_key[i] = src_key[inx[i]];
+    std::memcpy(dst_value + i * value_dim, src_value + (inx[i]) * value_dim,
+                sizeof(ValueType) * value_dim);
+  }
+  return;
+}
 
 // TODO: Move this into cuco::initializer
 __global__ static void setup_kernel(unsigned long long seed, curandState* states) {
@@ -137,9 +161,10 @@ void DETVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   map_->eXport(d_keys, d_values, num_keys, stream);
   CUDACHECK(cudaStreamSynchronize(stream));
 
-  // clang-format off
-  std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
-  std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
+  std::vector<KeyType> dk_vector = std::vector<KeyType>(d_keys, d_keys + num_keys);
+  auto dk_indices = argsort(dk_vector);
+
+  gather_by_index(dk_indices, d_keys, d_values, keys, values, num_keys, dim);
 
   // clang-format on
   CUDACHECK(cudaFree(d_keys));

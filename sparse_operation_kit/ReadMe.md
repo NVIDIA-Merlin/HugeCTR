@@ -76,13 +76,28 @@ You can also build the SOK module from source code. Here are the steps to follow
     ```shell
     $ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr
     ```
-+ **Install to system**
++ **Install to system from python setup install**
     ```shell
     $ cd hugectr/
     $ git submodule update --init --recursive
     $ cd sparse_operation_kit/
     $ python setup.py install
     ```
+
++ **Install to system from cmake**
+    ```shell
+    $ cd hugectr/
+    $ git submodule update --init --recursive
+    $ cd sparse_operation_kit/
+    $ mkdir build && cd build
+    $ cmake -DSM={your GPU SM version} ../
+    $ make -j && make install
+    $ cp -r ../sparse_operation_kit {image python dist-packages folder, for example:/usr/local/lib/python3.10/dist-packages/}
+    ```
+
+### Building SOK from source ###
+We recommend using nvcr.io/nvidia/tensorflow as the base image for installing SOK.
+You can also use nvcr.io/nvidia/merlin/merlin-tensorflow to run SOK. The series of images will pre-installed with SOK, but the base software is not updated as frequently, which may forbid some SOK optimizations from being used.
 
 ## Documents ##
 Want to find more about SparseOperationKit? Take a look at the [SparseOperationKit documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html)!

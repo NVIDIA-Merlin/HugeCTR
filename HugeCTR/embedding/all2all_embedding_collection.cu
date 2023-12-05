@@ -889,6 +889,7 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
 
   cal_unique_key_table_range(core, wgrad.table_ids, wgrad.num_unique_keys, table_range,
                              wgrad.attr.num_table);
+  HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
   std::vector<uint32_t> gpu_num_key_per_table_offset(table_range.num_elements());
   core23::copy_sync(gpu_num_key_per_table_offset, table_range);
 

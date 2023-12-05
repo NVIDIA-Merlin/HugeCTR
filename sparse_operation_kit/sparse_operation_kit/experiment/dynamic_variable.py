@@ -23,6 +23,7 @@ from tensorflow.python.ops import resource_variable_ops
 
 from sparse_operation_kit.experiment import raw_ops as dynamic_variable_ops
 from sparse_operation_kit.experiment.communication import num_gpus
+from sparse_operation_kit.experiment.utils import SOK_IndexedSlices
 
 import json
 
@@ -47,7 +48,13 @@ class DynamicVariable(ResourceVariable):
         value(meaning const initializer). Default value is "random".
 
     var_type: string
-        a string to specify to use DET or HKV as the backend.
+        a string to specify to use DET("hbm") or HKV("hybrid") as the backend.
+        default value is "hbm"
+        If use DET as the backend, DET will retain two key values as the empty value and reclaim value for the hash table.
+           If the input key is the same as these two values, the program will crash.
+           If the key type is signed, the empty value = std::numeric_limits::max(), and the reclaim value = std::numeric_limits::min().
+           If the key type is unsigned, the empty value = std::numeric_limits::max(), and the reclaim value = std::numeric_limits::max() - 1.
+
         If use HKV as the backend, only support tf.int64 as key_type
         If use HKV as the backend, please set init_capacity and max_capacity value equal to 2 powers.
 
@@ -199,7 +206,7 @@ class DynamicVariable(ResourceVariable):
     def to_dynamic(self):
         if self.is_static():
             buffer = self.read_value()
-            sparse_delta = ops.IndexedSlices(buffer, self._indices, self.shape)
+            sparse_delta = SOK_IndexedSlices()(buffer, self._indices, self.shape)
             self._indices = None
             self._handle = self._dummy_handle
             return self.scatter_update(sparse_delta)
@@ -290,7 +297,7 @@ class DynamicVariable(ResourceVariable):
     def scatter_sub(self, sparse_delta, use_locking=False, name=None):
         if self.is_static():
             return self._base.scatter_sub(sparse_delta, use_locking, name)
-        if not isinstance(sparse_delta, ops.IndexedSlices):
+        if not isinstance(sparse_delta, SOK_IndexedSlices()):
             raise TypeError("sparse_delta is not IndexedSlices: %s" % sparse_delta)
         return dynamic_variable_ops.dummy_var_scatter_add(
             self._dummy_handle,
@@ -301,7 +308,7 @@ class DynamicVariable(ResourceVariable):
     def scatter_add(self, sparse_delta, use_locking=False, name=None):
         if self.is_static():
             return self._base.scatter_add(sparse_delta, use_locking, name)
-        if not isinstance(sparse_delta, ops.IndexedSlices):
+        if not isinstance(sparse_delta, SOK_IndexedSlices()):
             raise TypeError("sparse_delta is not IndexedSlices: %s" % sparse_delta)
         return dynamic_variable_ops.dummy_var_scatter_add(
             self._dummy_handle,
@@ -312,7 +319,7 @@ class DynamicVariable(ResourceVariable):
     def scatter_update(self, sparse_delta, use_locking=False, name=None):
         if self.is_static():
             return self._base.scatter_update(sparse_delta, use_locking, name)
-        if not isinstance(sparse_delta, ops.IndexedSlices):
+        if not isinstance(sparse_delta, tf.IndexedSlices):
             raise TypeError("sparse_delta is not IndexedSlices: %s" % sparse_delta)
         return dynamic_variable_ops.dummy_var_scatter_update(
             self._dummy_handle,
@@ -444,7 +451,7 @@ def _SparseReadGrad(op, grad):
     values_shape = array_ops.concat([size, variable_shape[1:]], 0)
     grad = array_ops.reshape(grad, values_shape)
     indices = array_ops.reshape(indices, size)
-    return (ops.IndexedSlices(grad, indices, variable_shape), None)
+    return (SOK_IndexedSlices()(grad, indices, variable_shape), None)
 
 
 def export(var):
@@ -470,7 +477,9 @@ def export(var):
         indices, values = dynamic_variable_ops.dummy_var_export(
             var.handle, key_type=var.key_type, dtype=var.handle_dtype
         )
+        # sort_indice_tensor = tf.argsort(indices)
         with tf.device("CPU"):
+
             indices = tf.identity(indices)
             values = tf.identity(values)
         return indices, values
