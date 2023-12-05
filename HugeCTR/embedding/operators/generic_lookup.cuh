@@ -339,9 +339,11 @@ __global__ void multi_to_one_cta_per_ev_kernel(CopyDesc copy_desc) {
             src_ev[blockDim.x * i + threadIdx.x]);
       }
     }
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i] /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i] /= average_pooling_factor;
+      }
     }
 
 #pragma unroll kMaxElemPerThread
@@ -394,12 +396,14 @@ __global__ void multi_to_one_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
       }
     }
 
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i].val.x /= average_pooling_factor;
-      accum[i].val.y /= average_pooling_factor;
-      accum[i].val.z /= average_pooling_factor;
-      accum[i].val.w /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i].val.x /= average_pooling_factor;
+        accum[i].val.y /= average_pooling_factor;
+        accum[i].val.z /= average_pooling_factor;
+        accum[i].val.w /= average_pooling_factor;
+      }
     }
 
 #pragma unroll kMaxElemPerThread
@@ -437,6 +441,7 @@ __global__ void multi_to_one_weight_cta_per_ev_kernel(CopyDesc copy_desc) {
                     weight;
       }
     }
+
 #pragma unroll kMaxElemPerThread
     for (int i = 0; i < kMaxElemPerThread; ++i) {
       accum[i] /= average_pooling_factor;
@@ -484,12 +489,14 @@ __global__ void multi_to_one_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_de
         accum[i].accumulate(src_elem);
       }
     }
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i].val.x /= average_pooling_factor;
-      accum[i].val.y /= average_pooling_factor;
-      accum[i].val.z /= average_pooling_factor;
-      accum[i].val.w /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i].val.x /= average_pooling_factor;
+        accum[i].val.y /= average_pooling_factor;
+        accum[i].val.z /= average_pooling_factor;
+        accum[i].val.w /= average_pooling_factor;
+      }
     }
 
 #pragma unroll kMaxElemPerThread
@@ -724,9 +731,11 @@ __global__ void one_to_multi_cta_per_ev_kernel(CopyDesc copy_desc) {
       accum[i] = src_ev[blockDim.x * i + threadIdx.x];
     }
 
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i] /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i] /= average_pooling_factor;
+      }
     }
 
     int start = copy_desc.get_offset(i_ev);
@@ -802,12 +811,14 @@ __global__ void one_to_multi_warp_per_ev_vec4_kernel(CopyDesc copy_desc) {
       accum[i].load(src_ev + idx4, n);
     }
 
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i].val.x /= average_pooling_factor;
-      accum[i].val.y /= average_pooling_factor;
-      accum[i].val.z /= average_pooling_factor;
-      accum[i].val.w /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i].val.x /= average_pooling_factor;
+        accum[i].val.y /= average_pooling_factor;
+        accum[i].val.z /= average_pooling_factor;
+        accum[i].val.w /= average_pooling_factor;
+      }
     }
 
     int start = copy_desc.get_offset(i_ev);
@@ -858,12 +869,14 @@ __global__ void one_to_multi_warp_per_ev_vec4_less_block_kernel(CopyDesc copy_de
       accum[i].load(src_ev + idx4, n);
     }
 
+    if (average_pooling_factor > 0) {
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread; ++i) {
-      accum[i].val.x /= average_pooling_factor;
-      accum[i].val.y /= average_pooling_factor;
-      accum[i].val.z /= average_pooling_factor;
-      accum[i].val.w /= average_pooling_factor;
+      for (int i = 0; i < kMaxElemPerThread; ++i) {
+        accum[i].val.x /= average_pooling_factor;
+        accum[i].val.y /= average_pooling_factor;
+        accum[i].val.z /= average_pooling_factor;
+        accum[i].val.w /= average_pooling_factor;
+      }
     }
 
     int start = copy_desc.get_offset(i_ev);
