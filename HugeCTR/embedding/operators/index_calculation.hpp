@@ -100,7 +100,53 @@ struct SortOutput {
 
 using SortKeyAndSrcIdOp =
     std::function<void(SortInput &, SortOutput &, std::shared_ptr<CoreResourceManager> core)>;
+#if CUB_VERSION >= 200200
+#define Max_ComposeTidKey_size 96
+template <typename T>
+struct ComposeTidKey {
+  int tid;
+  T key;
+};
 
+template <typename T>
+struct Decomposr {
+  __host__ __device__ ::cuda::std::tuple<int &, T &> operator()(
+      ComposeTidKey<T> &compose_key) const {
+    return {compose_key.tid, compose_key.key};
+  }
+};
+
+struct SegmentedSortDevice {
+ public:
+  SegmentedSortDevice() = default;
+
+  SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core,
+                      core23::Tensor sorted_table_ids, int max_num_keys, int batch_size,
+                      int num_lookup, int num_table, core23::DataType key_type);
+
+  void operator()(SortInput &input, SortOutput &output, std::shared_ptr<CoreResourceManager> core);
+
+ private:
+  size_t max_key_num_;
+  size_t cub_sort_temp_bytes_ = 0;
+  core23::Tensor cub_sort_temp_buffer_;  // Void
+
+  core23::Tensor temp_select_storage;
+  core23::Tensor d_num_selected_table_range_;
+  core23::Tensor temp_lookup_range;
+
+  core23::Tensor compose_tid_keys_input;
+  core23::Tensor compose_tid_keys_output;
+
+  core23::Tensor partitioned_table_range;
+
+  core23::Tensor sorted_table_ids_;
+  int num_lookup_;
+  int num_table_;
+  int batch_size_;
+};
+
+#else
 struct SegmentedSortDevice {
  public:
   SegmentedSortDevice() = default;
@@ -127,6 +173,7 @@ struct SegmentedSortDevice {
   int num_table_;
   int batch_size_;
 };
+#endif
 
 struct IndicesSort {
   core23::Tensor d_temp_sort_storage;

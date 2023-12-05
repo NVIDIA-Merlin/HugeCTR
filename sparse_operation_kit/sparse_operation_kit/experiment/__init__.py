@@ -16,6 +16,8 @@
 
 import os
 import sys
+import tensorflow
+from tensorflow.python.framework import ops
 from tensorflow.python.framework import load_library
 
 #   When installed with pip, the .so files should be in
@@ -41,6 +43,7 @@ for path in lib_path:
         print("[SOK INFO] Import %s" % file)
 if raw_ops is None:
     raise Exception("[SOK INFO] libsok_experiment.so is not found")
+tf_version = [int(v) for v in tensorflow.__version__.split(".")]
 
 import sparse_operation_kit.experiment.communication
 from sparse_operation_kit.experiment.communication import set_comm_tool
@@ -66,10 +69,6 @@ from sparse_operation_kit.experiment.dump_load import dump, load
 
 
 # a specific code path for dl framework tf2.11.0
-import tensorflow
-from tensorflow.python.framework import ops
-
-
 def init(comm_tool="horovod", use_legacy_optimizer=True):
     """
     Abbreviated as ``sok.experiment.init``.

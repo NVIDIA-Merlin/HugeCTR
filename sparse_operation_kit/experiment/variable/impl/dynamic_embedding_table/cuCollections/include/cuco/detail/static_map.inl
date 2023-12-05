@@ -16,8 +16,8 @@
 
 namespace cuco {
 
-template <typename Key, typename Element, typename Initializer>
-static_map<Key, Element, Initializer>::static_map(uint32_t dimension, size_t capacity,
+template <typename Key, typename Element, typename Initializer,typename ReservedKeyT>
+static_map<Key, Element, Initializer,ReservedKeyT>::static_map(uint32_t dimension, size_t capacity,
                                                   atomic_ctr_type *occupied_size,
                                                   atomic_ctr_type *reclaimed_size,
                                                   atomic_ctr_type *h_occupied_size,
@@ -34,8 +34,8 @@ static_map<Key, Element, Initializer>::static_map(uint32_t dimension, size_t cap
   // *reclaimed_size_ = 0;
 }
 
-template <typename Key, typename Element, typename Initializer>
-void static_map<Key, Element, Initializer>::initialize(cudaStream_t stream) {
+template <typename Key, typename Element, typename Initializer, typename ReservedKeyT>
+void static_map<Key, Element, Initializer,ReservedKeyT>::initialize(cudaStream_t stream) {
   // printf("static_map allocated, size=%zu\n",
   //        (sizeof(pair_atomic_type) + sizeof(element_type) * dimension_) * capacity_);
 
@@ -61,16 +61,16 @@ void static_map<Key, Element, Initializer>::initialize(cudaStream_t stream) {
                                              capacity_);
 }
 
-template <typename Key, typename Element, typename Initializer>
-void static_map<Key, Element, Initializer>::uninitialize(cudaStream_t stream) {
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
+void static_map<Key, Element, Initializer,ReservedKeyT>::uninitialize(cudaStream_t stream) {
   // cudaFreeAsync(slots_, stream);
   // cudaFreeAsync(elements_, stream);
   cudaFree(slots_);
   cudaFree(elements_);
 }
 
-template <typename Key, typename Element, typename Initializer>
-__device__ insert_result static_map<Key, Element, Initializer>::device_mutable_view::try_occupy(
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
+__device__ insert_result static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::try_occupy(
     iterator current_slot, key_type const &key) noexcept {
   auto expected_key = this->get_empty_key_sentinel();
   if (current_slot.key().compare_exchange_strong(expected_key, key,
@@ -93,10 +93,10 @@ __device__ insert_result static_map<Key, Element, Initializer>::device_mutable_v
   return insert_result::CONTINUE;
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
 __device__ insert_result
-static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
+static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::lookup_or_insert(
     CG const &g, pair_type const &lookup_or_insert_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, lookup_or_insert_pair.first, hash);
 
@@ -156,10 +156,10 @@ static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
 __device__ insert_result
-static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
+static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::lookup_or_insert(
     CG const &g, pointer_pair_type const &lookup_or_insert_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, lookup_or_insert_pair.first, hash);
 
@@ -215,9 +215,9 @@ static_map<Key, Element, Initializer>::device_mutable_view::lookup_or_insert(
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(
+__device__ bool static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::add(
     CG g, const_pair_type const &add_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, add_pair.first, hash);
 
@@ -247,9 +247,9 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::add(
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::update(
+__device__ bool static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::update(
     CG g, const_pair_type const &add_pair, Hash hash) noexcept {
   auto current_slot = initial_slot(g, add_pair.first, hash);
 
@@ -279,9 +279,9 @@ __device__ bool static_map<Key, Element, Initializer>::device_mutable_view::upda
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
+__device__ bool static_map<Key, Element, Initializer,ReservedKeyT>::device_view::lookup(
     CG g, pair_type const &lookup_pair, Hash hash) const noexcept {
   auto current_slot = initial_slot(g, lookup_pair.first, hash);
 
@@ -312,9 +312,9 @@ __device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
+__device__ bool static_map<Key, Element, Initializer,ReservedKeyT>::device_view::lookup(
     CG g, pointer_pair_type const &lookup_pair, Hash hash) const noexcept {
   auto current_slot = initial_slot(g, lookup_pair.first, hash);
 
@@ -343,9 +343,9 @@ __device__ bool static_map<Key, Element, Initializer>::device_view::lookup(
   }
 }
 
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer , typename ReservedKeyT>
 template <typename CG, typename Hash>
-__device__ bool static_map<Key, Element, Initializer>::device_mutable_view::try_remove(
+__device__ bool static_map<Key, Element, Initializer,ReservedKeyT>::device_mutable_view::try_remove(
     CG const &g, key_type const &key, Hash hash) noexcept {
   auto current_slot = initial_slot(g, key, hash);
 

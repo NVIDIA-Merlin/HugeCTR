@@ -741,7 +741,6 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
         num_unique_key = num_unique_key_per_table[local_wgrad_idx];
         local_wgrad_idx += 1;
       }
-
       Tensor* unique_key_tf = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, {num_unique_key}, &unique_key_tf));
       Tensor* grad_tf = nullptr;

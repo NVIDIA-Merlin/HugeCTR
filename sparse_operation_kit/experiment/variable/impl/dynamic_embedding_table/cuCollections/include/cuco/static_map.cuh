@@ -30,6 +30,25 @@
 
 namespace cuco {
 
+template <typename KeyT>
+struct SentinelKey {
+  static constexpr KeyT EmptyKey() {
+    if (std::numeric_limits<KeyT>::is_signed) {
+      return std::numeric_limits<KeyT>::max();
+    } else {
+      return std::numeric_limits<KeyT>::max();
+    }
+  }
+
+  static constexpr KeyT ReclaimedKey() {
+    if (std::numeric_limits<KeyT>::is_signed) {
+      return std::numeric_limits<KeyT>::min();
+    } else {
+      return std::numeric_limits<KeyT>::max() - 1;
+    }
+  }
+};
+
 template <typename Key, typename Element, typename Initializer>
 class dynamic_map;
 
@@ -69,7 +88,8 @@ class dynamic_map;
  * @tparam Key Arithmetic type used for key
  * @tparam Element Type of the mapped values
  */
-template <typename Key, typename Element, typename Initializer>
+template <typename Key, typename Element, typename Initializer,
+          typename ReservedKeyT = SentinelKey<Key>>
 class static_map {
   friend class dynamic_map<Key, Element, Initializer>;
 
@@ -93,8 +113,10 @@ class static_map {
                 "A key type larger than 8B is supported for only sm_70 and up.");
 #endif
 
-  static constexpr key_type empty_key_sentinel = ~static_cast<key_type>(0);
-  static constexpr key_type reclaimed_key_sentinel = (~static_cast<key_type>(0)) ^ 1;
+  // static constexpr key_type empty_key_sentinel = ~static_cast<key_type>(0);
+  // static constexpr key_type reclaimed_key_sentinel = (~static_cast<key_type>(0)) ^ 1;
+  static constexpr key_type empty_key_sentinel = ReservedKeyT::EmptyKey();
+  static constexpr key_type reclaimed_key_sentinel = ReservedKeyT::ReclaimedKey();
 
   static_map(static_map const &) = delete;
   static_map(static_map &&) = delete;

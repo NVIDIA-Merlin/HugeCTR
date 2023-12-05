@@ -16,8 +16,9 @@
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
-
+from sparse_operation_kit.experiment import tf_version
 from sparse_operation_kit.experiment.dynamic_variable import DynamicVariable
+from sparse_operation_kit.experiment.utils import SOK_IndexedSlices
 
 
 def OptimizerWrapper(optimizer):
@@ -150,7 +151,7 @@ class OptimizerWrapperV1(object):
         for g, v in grads_and_vars:
             if g is not None:
                 unique, indices = tf.unique(g.indices)
-                grad_list.append(ops.IndexedSlices(g.values, indices, g.dense_shape))
+                grad_list.append(SOK_IndexedSlices()(g.values, indices, g.dense_shape))
                 # TODO: Check multi-thread safety of DET
                 # with tf.control_dependencies([g.values]):
                 to_static_ops.append(v.to_static(unique))
@@ -293,7 +294,7 @@ class OptimizerWrapperV2(object):
         for g, v in grads_and_vars:
             if g is not None:
                 unique, indices = tf.unique(g.indices)
-                grad_list.append(ops.IndexedSlices(g.values, indices, g.dense_shape))
+                grad_list.append(SOK_IndexedSlices()(g.values, indices, g.dense_shape))
                 # TODO: Check multi-thread safety of DET
                 # with tf.control_dependencies([g.values]):
                 to_static_ops.append(v.to_static(unique))
@@ -365,6 +366,6 @@ class SGD(object):
         train_ops = []
         for g, v in grads_and_vars:
             if g is not None:
-                scaled_g = ops.IndexedSlices(g.values * self._lr, g.indices, g.dense_shape)
+                scaled_g = SOK_IndexedSlices()(g.values * self._lr, g.indices, g.dense_shape)
                 train_ops.append(v.scatter_sub(scaled_g))
         return tf.group(train_ops)
