@@ -69,7 +69,7 @@ struct ModelCommBuffer {
 struct DenseModelCommBufferAttr {
   int num_local_lookup;
   int num_gpus;
-  int max_hotness;
+  int max_hotness_sum;
 
   EmbeddingLayout layout;
   int ev_size;

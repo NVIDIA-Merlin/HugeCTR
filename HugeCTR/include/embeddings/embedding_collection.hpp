@@ -37,7 +37,7 @@ class EmbeddingTableConfig {
 
   EmbeddingTableConfig() {}
 
-  EmbeddingTableConfig(const std::string &name, int max_vocabulary_size, int ev_size,
+  EmbeddingTableConfig(const std::string &name, int64_t max_vocabulary_size, int ev_size,
                        std::optional<HugeCTR::OptParams> opt_param_or_empty,
                        std::optional<::embedding::InitParams> init_param_or_empty)
       : name(name) {
@@ -58,18 +58,46 @@ class EmbeddingTableConfig {
   }
 };
 
-using ShardStrategy = std::tuple<std::string, std::vector<std::string>>;
+using TableVariant = std::variant<std::string, std::tuple<std::string, int>>;
+using ShardStrategy = std::tuple<std::string, std::vector<TableVariant>>;
 
 inline std::string get_table_place_strategy(const ShardStrategy &s) { return std::get<0>(s); }
 
-inline std::vector<std::string> get_table_group_strategy(const ShardStrategy &s) {
+inline std::vector<TableVariant> get_table_group_strategy(const ShardStrategy &s) {
   return std::get<1>(s);
+}
+
+inline std::string get_table_name(TableVariant v) {
+  std::string table_name;
+  if (std::string *name_ptr = std::get_if<std::string>(&v)) {
+    table_name = *name_ptr;
+  } else if (std::tuple<std::string, int> *tuple_ptr =
+                 std::get_if<std::tuple<std::string, int>>(&v)) {
+    table_name = std::get<0>(*tuple_ptr);
+  } else {
+    HCTR_OWN_THROW(Error_t::IllegalCall, "unreachable.");
+  }
+  return table_name;
+}
+
+inline int get_column_wise_sharding_factor(TableVariant v) {
+  int column_wise_sharding_factor;
+  if (std::get_if<std::string>(&v)) {
+    column_wise_sharding_factor = 1;
+  } else if (std::tuple<std::string, int> *tuple_ptr =
+                 std::get_if<std::tuple<std::string, int>>(&v)) {
+    column_wise_sharding_factor = std::get<1>(*tuple_ptr);
+  } else {
+    HCTR_OWN_THROW(Error_t::IllegalCall, "unreachable.");
+  }
+  return column_wise_sharding_factor;
 }
 
 class EmbeddingCollectionConfig {
  public:
   std::vector<std::string> bottom_names_;
   std::vector<std::string> top_names_;
+  std::vector<int> dr_lookup_ids_;
 
   using LookupConfig = std::pair<std::string, ::embedding::LookupParam>;
   std::vector<LookupConfig> lookup_configs_;
@@ -78,6 +106,9 @@ class EmbeddingCollectionConfig {
 
   std::vector<ShardStrategy> shard_strategy_;
   std::vector<std::vector<std::string>> shard_matrix_;
+  using CompressionStrategyConfig =
+      std::unordered_map<::embedding::CompressionStrategy, std::vector<std::string>>;
+  CompressionStrategyConfig compression_strategy_config_;
 
   ::embedding::EmbeddingLayout output_layout_;
 
@@ -153,14 +184,22 @@ class EmbeddingCollectionConfig {
   }
 
   void shard(const std::vector<std::vector<std::string>> &shard_matrix,
-             const std::vector<ShardStrategy> &shard_strategy) {
+             const std::vector<ShardStrategy> &shard_strategy,
+             const CompressionStrategyConfig &compression_strategy_config) {
     shard_matrix_.clear();
     shard_strategy_.clear();
+    compression_strategy_config_.clear();
 
     shard_matrix_ = shard_matrix;
     shard_strategy_ = shard_strategy;
+    compression_strategy_config_ = compression_strategy_config;
+    dr_lookup_ids_.resize(lookup_configs_.size());
+    std::iota(dr_lookup_ids_.begin(), dr_lookup_ids_.end(), 0);
   }
 };
+
+EmbeddingCollectionConfig split_column_wise_sharding_config(
+    const EmbeddingCollectionConfig &user_ebc_config);
 
 using TableNameToIDDict = std::unordered_map<std::string, int>;
 inline TableNameToIDDict create_table_name_to_id_dict_from_ebc_config(
@@ -254,7 +293,11 @@ inline std::vector<::embedding::GroupedTableParam> create_grouped_embedding_para
 
     std::vector<int> table_ids;
     auto group_strategy = get_table_group_strategy(shard_strategy);
-    for (auto &table_name : group_strategy) {
+    for (auto &table_tuple : group_strategy) {
+      std::string table_name = get_table_name(table_tuple);
+      int column_wise_sharding_factor = get_column_wise_sharding_factor(table_tuple);
+      HCTR_CHECK_HINT(column_wise_sharding_factor == 1, "column-wise sharding factor must be 1");
+
       HCTR_CHECK_HINT(
           table_name_to_id_dict.find(table_name) != table_name_to_id_dict.end(),
           "create_grouped_embedding_param_from_ebc_config error, no such name: ", table_name, "\n");
@@ -266,6 +309,21 @@ inline std::vector<::embedding::GroupedTableParam> create_grouped_embedding_para
     grouped_embedding_params.push_back(std::move(grouped_emb_param));
   }
   return grouped_embedding_params;
+}
+
+inline ::embedding::CompressionParam create_compression_param_from_ebc_config(
+    const TableNameToIDDict &table_name_to_id_dict, const EmbeddingCollectionConfig &config) {
+  ::embedding::CompressionParam compression_param;
+  for (auto &[strategy, table_names] : config.compression_strategy_config_) {
+    for (auto table_name : table_names) {
+      HCTR_CHECK_HINT(
+          table_name_to_id_dict.find(table_name) != table_name_to_id_dict.end(),
+          "create_grouped_embedding_param_from_ebc_config error, no such name: ", table_name, "\n");
+      compression_param.compression_strategy_to_table_ids[strategy].insert(
+          table_name_to_id_dict.at(table_name));
+    }
+  }
+  return compression_param;
 }
 
 }  // namespace HugeCTR

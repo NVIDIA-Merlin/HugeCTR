@@ -549,6 +549,7 @@ void Model::evaluate_pipeline(size_t current_batch_size) {
     metric->global_reduce(number_of_networks());
   }
 }
+bool is_first_data_distributor = true;
 
 template <typename NetworkType>
 void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks) {
@@ -567,7 +568,16 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
     auto distribute_data = std::make_shared<StreamContextScheduleable>([=] {
       if (skip_prefetch_in_last_batch(is_train)) return;
 
+      const char* const skip_data_distributor_env = std::getenv("SKIP_DATA_DISTRIBUTOR");
+      bool skip_data_distributor =
+          (skip_data_distributor_env != nullptr && 1 == std::atoi(skip_data_distributor_env));
+
       if (is_scheduled_datareader()) {
+        if (skip_data_distributor && !is_first_data_distributor) {
+          auto stream = gpu_resource->get_stream();
+          HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+          return;
+        }
         if (auto reader =
                 dynamic_cast<MultiHot::AsyncDataReader<uint32_t>*>(train_data_reader_.get())) {
           train_data_distributor_->distribute(
@@ -579,18 +589,23 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
               local_id, reader->get_current_sparse_values()[local_id], {},
               train_ddl_output_[local_id], train_data_reader_->get_current_batchsize());
         }
-
+        is_first_data_distributor = false;
       } else {
         HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
                        "embedding collection can only be used with AsyncMultiHot DataReader.");
       }
     });
 
+    const char* const skip_embedding_env = std::getenv("SKIP_EMBEDDING");
+    bool skip_embedding = (skip_embedding_env != nullptr && 1 == std::atoi(skip_embedding_env));
+
     DataDistributor::Result& ddl_output = solver_.train_inter_iteration_overlap
                                               ? cache_train_ddl_output_[local_id]
                                               : train_ddl_output_[local_id];
 
     auto ebc_forward = [=, &ddl_output](embedding::Stage stage) {
+      if (skip_embedding) return;
+
       for (auto& ebc : ebc_list_) {
         ebc->forward_per_gpu(stage, is_train, local_id, ddl_output, train_ebc_outptut_[local_id],
                              train_data_reader_->get_full_batchsize());
@@ -598,6 +613,8 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
     };
 
     auto ebc_backward = [=, &ddl_output](embedding::Stage stage) {
+      if (skip_embedding) return;
+
       for (auto& ebc : ebc_list_) {
         ebc->backward_per_gpu(stage, local_id, ddl_output, train_ebc_outptut_[local_id],
                               train_data_reader_->get_full_batchsize());
@@ -635,6 +652,8 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
     });
 
     auto ebc_mp_update = std::make_shared<StreamContextScheduleable>([=]() {
+      if (skip_embedding) return;
+
       for (auto& ebc : ebc_list_) {
         ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::SparseModelParallel);
         ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::DenseModelParallel);
@@ -654,12 +673,22 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
         [=]() { ebc_backward(embedding::Stage::DPAllreduce); });
 
     auto ebc_dp_update = std::make_shared<StreamContextScheduleable>([=]() {
+      if (skip_embedding) return;
+
       for (auto& ebc : ebc_list_) {
         ebc->update_per_gpu(local_id, embedding::EmbeddingGroupType::DataParallel);
       }
     });
 
+    const char* const skip_bottom_mlp_env = std::getenv("SKIP_BOTTOM_MLP");
+    bool skip_bottom_mlp = (skip_bottom_mlp_env != nullptr && 1 == std::atoi(skip_bottom_mlp_env));
+
+    const char* const skip_top_mlp_env = std::getenv("SKIP_TOP_MLP");
+    bool skip_top_mlp = (skip_top_mlp_env != nullptr && 1 == std::atoi(skip_top_mlp_env));
+
     auto network_init = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_bottom_mlp) return;
+
       if (networks[local_id]->use_mixed_precision_ &&
           networks[local_id]->optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
         networks[local_id]->conv_weight_(networks[local_id]->train_weight_tensor_half_,
@@ -668,11 +697,14 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
     });
 
     auto bottom_network_fprop = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_bottom_mlp) return;
       networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, true, is_train);
     });
 
-    auto top_network_fprop = std::make_shared<StreamContextScheduleable>(
-        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, true, is_train); });
+    auto top_network_fprop = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_top_mlp) return;
+      networks[local_id]->prop_layers(networks[local_id]->top_layers_, true, is_train);
+    });
 
     auto init_wgrad = std::make_shared<StreamContextScheduleable>([=] {
       networks[local_id]->train_losses_.begin()->second->regularizer_initialize_wgrad(is_train);
@@ -690,10 +722,13 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
           is_train, current_batchsize_per_device, rterm);
     });
 
-    auto top_network_bprop = std::make_shared<StreamContextScheduleable>(
-        [=] { networks[local_id]->prop_layers(networks[local_id]->top_layers_, false, is_train); });
+    auto top_network_bprop = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_top_mlp) return;
+      networks[local_id]->prop_layers(networks[local_id]->top_layers_, false, is_train);
+    });
 
     auto bottom_network_bprop = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_bottom_mlp) return;
       networks[local_id]->prop_layers(networks[local_id]->bottom_layers_, false, is_train);
     });
 
@@ -701,8 +736,13 @@ void Model::create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkTy
         network_init, bottom_network_fprop, top_network_fprop, init_wgrad, cal_loss,
         top_network_bprop, bottom_network_bprop);
 
-    auto network_exchange_wgrad =
-        std::make_shared<StreamContextScheduleable>([=] { this->exchange_wgrad(local_id); });
+    const char* const skip_allreduce_env = std::getenv("SKIP_ALLREDUCE");
+    bool skip_allreduce = (skip_allreduce_env != nullptr && 1 == std::atoi(skip_allreduce_env));
+
+    auto network_exchange_wgrad = std::make_shared<StreamContextScheduleable>([=] {
+      if (skip_allreduce) return;
+      this->exchange_wgrad(local_id);
+    });
 
     auto update_params =
         std::make_shared<StreamContextScheduleable>([=] { networks[local_id]->update_params(); });

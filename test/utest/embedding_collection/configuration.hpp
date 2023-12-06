@@ -175,6 +175,7 @@ static std::vector<EmbeddingConfiguration> criteo_multi_hot_embedding{
 struct ShardConfiguration {
   std::vector<std::vector<int>> shard_matrix;  // num_gpus * num_table
   std::vector<embedding::GroupedTableParam> grouped_table_params;
+  embedding::CompressionParam compression_param;
 };
 
 namespace sharding {
@@ -186,9 +187,9 @@ int get_num_table(const std::vector<EmbeddingConfiguration> &embedding_config) {
   return num_table;
 }
 
-ShardConfiguration table_wise_sharding(
-    const RuntimeConfiguration &runtime_config,
-    const std::vector<EmbeddingConfiguration> &embedding_config) {
+ShardConfiguration table_wise_sharding(const RuntimeConfiguration &runtime_config,
+                                       const std::vector<EmbeddingConfiguration> &embedding_config,
+                                       bool use_dense_reduction = false) {
   int num_global_gpus = runtime_config.num_node * runtime_config.num_gpus_per_node;
   int num_table = get_num_table(embedding_config);
 
@@ -213,11 +214,17 @@ ShardConfiguration table_wise_sharding(
               << "GBytes\n";
   }
 
+  embedding::CompressionParam compression_param;
+  if (use_dense_reduction) {
+    compression_param.compression_strategy_to_table_ids[embedding::CompressionStrategy::Unique] =
+        std::set<int>(table_ids.begin(), table_ids.end());
+  }
   return {shard_matrix, {{TablePlacementStrategy::ModelParallel, table_ids}}};
 }
 
 ShardConfiguration row_wise_sharding(const RuntimeConfiguration &runtime_config,
-                                     const std::vector<EmbeddingConfiguration> &embedding_config) {
+                                     const std::vector<EmbeddingConfiguration> &embedding_config,
+                                     bool use_dense_reduction = false) {
   int num_global_gpus = runtime_config.num_node * runtime_config.num_gpus_per_node;
   int num_table = get_num_table(embedding_config);
 
@@ -240,7 +247,13 @@ ShardConfiguration row_wise_sharding(const RuntimeConfiguration &runtime_config,
               << ", table size:" << static_cast<float>(mp_table_size[gpu_id] * 4) / 1e9
               << "GBytes\n";
   }
-  return {shard_matrix, {{TablePlacementStrategy::ModelParallel, table_ids}}};
+
+  embedding::CompressionParam compression_param;
+  if (use_dense_reduction) {
+    compression_param.compression_strategy_to_table_ids[embedding::CompressionStrategy::Unique] =
+        std::set<int>(table_ids.begin(), table_ids.end());
+  }
+  return {shard_matrix, {{TablePlacementStrategy::ModelParallel, table_ids}}, compression_param};
 }
 
 ShardConfiguration hybrid_sharding(const RuntimeConfiguration &runtime_config,
@@ -318,7 +331,7 @@ ShardConfiguration hybrid_sharding(const RuntimeConfiguration &runtime_config,
     std::cout << "dp table size per gpu: " << static_cast<float>(dp_table_size * 4) / 1e9
               << "GBytes\n";
   }
-  return {shard_matrix, grouped_table_params};
+  return {shard_matrix, grouped_table_params, {}};
 }
 }  // namespace sharding
 
@@ -419,9 +432,27 @@ std::vector<Configuration> get_ebc_single_node_utest_configuration() {
           .reference_check = true,
       },
       Configuration{
+          .embedding_config = tiny_embedding,
+          .opt = sgd_opt,
+          .shard_configuration = sharding::table_wise_sharding(single_node, tiny_embedding, true),
+          .runtime_configuration = single_node,
+          .input_data_configuration = synthetic_uniform_dataset,
+          .options = options,
+          .reference_check = true,
+      },
+      Configuration{
           .embedding_config = criteo_embedding,
           .opt = sgd_opt,
           .shard_configuration = sharding::row_wise_sharding(single_node, criteo_embedding),
+          .runtime_configuration = single_node,
+          .input_data_configuration = synthetic_uniform_dataset,
+          .options = options,
+          .reference_check = true,
+      },
+      Configuration{
+          .embedding_config = criteo_embedding,
+          .opt = sgd_opt,
+          .shard_configuration = sharding::row_wise_sharding(single_node, criteo_embedding, true),
           .runtime_configuration = single_node,
           .input_data_configuration = synthetic_uniform_dataset,
           .options = options,
@@ -467,9 +498,27 @@ std::vector<Configuration> get_ebc_two_node_utest_configuration() {
           .reference_check = true,
       },
       Configuration{
+          .embedding_config = tiny_embedding,
+          .opt = sgd_opt,
+          .shard_configuration = sharding::table_wise_sharding(two_node, tiny_embedding, true),
+          .runtime_configuration = two_node,
+          .input_data_configuration = synthetic_uniform_dataset,
+          .options = options,
+          .reference_check = true,
+      },
+      Configuration{
           .embedding_config = criteo_embedding,
           .opt = sgd_opt,
           .shard_configuration = sharding::row_wise_sharding(two_node, criteo_embedding),
+          .runtime_configuration = two_node,
+          .input_data_configuration = synthetic_uniform_dataset,
+          .options = options,
+          .reference_check = true,
+      },
+      Configuration{
+          .embedding_config = criteo_embedding,
+          .opt = sgd_opt,
+          .shard_configuration = sharding::row_wise_sharding(two_node, criteo_embedding, true),
           .runtime_configuration = two_node,
           .input_data_configuration = synthetic_uniform_dataset,
           .options = options,
@@ -487,101 +536,4 @@ std::vector<Configuration> get_ebc_two_node_utest_configuration() {
   };
   return configurations;
 }
-
-std::vector<Configuration> get_ebc_single_node_benchmark_configuration() {
-  EmbeddingCollectionOption option = {
-      .input_layout = embedding::EmbeddingLayout::FeatureMajor,
-      .output_layout = embedding::EmbeddingLayout::BatchMajor,
-      .keys_preprocess_strategy = embedding::KeysPreprocessStrategy::AddOffset,
-      .sort_strategy = embedding::SortStrategy::Radix,
-      .allreduce_strategy = embedding::AllreduceStrategy::Dense,
-      .comm_strategy = embedding::CommunicationStrategy::Uniform};
-
-  Configuration criteo{
-      .embedding_config = criteo_embedding,
-      .opt = sgd_opt,
-      .shard_configuration = sharding::row_wise_sharding(single_node, criteo_embedding),
-      .runtime_configuration = single_node,
-      .input_data_configuration = criteo_dataset,
-      .options = {option},
-      .reference_check = false,
-      .niters = 100,
-  };
-  Configuration criteo_multi_hot{
-      .embedding_config = criteo_multi_hot_embedding,
-      .opt = adagrad_opt,
-      .shard_configuration = sharding::hybrid_sharding(single_node, criteo_multi_hot_embedding),
-      .runtime_configuration = single_node,
-      .input_data_configuration = criteo_multi_hot_dataset,
-      .options = {option},
-      .reference_check = true,
-      .niters = 100,
-  };
-  std::vector<Configuration> configurations{criteo, criteo_multi_hot};
-  for (auto &sharding :
-       {sharding::hybrid_sharding, sharding::row_wise_sharding, sharding::table_wise_sharding}) {
-    for (auto &embedding_config : {tiny_embedding, small_embedding, medium_embedding}) {
-      configurations.push_back(Configuration{
-          .embedding_config = embedding_config,
-          .opt = sgd_opt,
-          .shard_configuration = sharding(single_node, embedding_config),
-          .runtime_configuration = single_node,
-          .input_data_configuration = synthetic_uniform_dataset,
-          .options = {option},
-          .reference_check = false,
-          .niters = 100,
-      });
-    }
-  }
-  return configurations;
-}
-
-std::vector<Configuration> get_ebc_sixteen_node_benchmark_configuration() {
-  EmbeddingCollectionOption option = {
-      .input_layout = embedding::EmbeddingLayout::FeatureMajor,
-      .output_layout = embedding::EmbeddingLayout::BatchMajor,
-      .keys_preprocess_strategy = embedding::KeysPreprocessStrategy::AddOffset,
-      .sort_strategy = embedding::SortStrategy::Radix,
-      .allreduce_strategy = embedding::AllreduceStrategy::Dense,
-      .comm_strategy = embedding::CommunicationStrategy::Uniform};
-
-  Configuration criteo{
-      .embedding_config = criteo_embedding,
-      .opt = sgd_opt,
-      .shard_configuration = sharding::row_wise_sharding(sixteen_node, criteo_embedding),
-      .runtime_configuration = sixteen_node,
-      .input_data_configuration = criteo_dataset,
-      .options = {option},
-      .reference_check = false,
-      .niters = 100,
-  };
-  Configuration criteo_multi_hot{
-      .embedding_config = criteo_multi_hot_embedding,
-      .opt = adagrad_opt,
-      .shard_configuration = sharding::hybrid_sharding(sixteen_node, criteo_multi_hot_embedding),
-      .runtime_configuration = sixteen_node,
-      .input_data_configuration = criteo_multi_hot_dataset,
-      .options = {option},
-      .reference_check = true,
-      .niters = 100,
-  };
-  std::vector<Configuration> configurations{criteo, criteo_multi_hot};
-  for (auto &sharding :
-       {sharding::hybrid_sharding, sharding::row_wise_sharding, sharding::table_wise_sharding}) {
-    for (auto &embedding_config : {large_embedding, jumbo_embedding, colossal_embedding}) {
-      configurations.push_back(Configuration{
-          .embedding_config = embedding_config,
-          .opt = sgd_opt,
-          .shard_configuration = sharding(sixteen_node, embedding_config),
-          .runtime_configuration = sixteen_node,
-          .input_data_configuration = synthetic_uniform_dataset,
-          .options = {option},
-          .reference_check = false,
-          .niters = 100,
-      });
-    }
-  }
-  return configurations;
-}
-
 }  // namespace

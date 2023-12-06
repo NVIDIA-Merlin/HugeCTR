@@ -110,7 +110,8 @@ void test_data_distributor(const std::vector<int>& device_list,
                                      embedding::SortStrategy::Radix,
                                      embedding::KeysPreprocessStrategy::None,
                                      AllreduceStrategy::Dense,
-                                     CommunicationStrategy::Uniform};
+                                     CommunicationStrategy::Uniform,
+                                     {}};
 
   std::vector<EmbeddingTableParam> table_param_list;
   for (int id = 0; id < num_table; ++id) {
@@ -119,7 +120,9 @@ void test_data_distributor(const std::vector<int>& device_list,
     table_param_list.push_back(std::move(table_param));
   }
 
-  HugeCTR::DataDistributor distributor(core_list, ebc_param, table_param_list);
+  std::vector<int> dr_lookup_ids(ebc_param.num_lookup);
+  std::iota(dr_lookup_ids.begin(), dr_lookup_ids.end(), 0);
+  HugeCTR::DataDistributor distributor(core_list, ebc_param, table_param_list, dr_lookup_ids);
 
   // --- allocate resulting output ---
   std::vector<DataDistributor::Result> results;

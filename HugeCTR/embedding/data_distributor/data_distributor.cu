@@ -25,7 +25,8 @@ namespace HugeCTR {
 DataDistributor::DataDistributor(
     std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
     const embedding::EmbeddingCollectionParam& ebc_param,
-    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list)
+    const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list,
+    const std::vector<int>& dr_lookup_ids)
     : core_resource_managers_(core_resource_managers),
       batch_size_(ebc_param.universal_batch_size),
       batch_size_per_gpu_(ebc_param.universal_batch_size /
@@ -53,7 +54,7 @@ DataDistributor::DataDistributor(
   init_fixed_dp_bucket_range();
 
   for (size_t gpu_id = 0; gpu_id < num_local_gpus_; ++gpu_id) {
-    data_distribution_input_.emplace_back(core_resource_managers_[gpu_id], ebc_param.num_lookup,
+    data_distribution_input_.emplace_back(core_resource_managers_[gpu_id], dr_lookup_ids,
                                           ebc_param.key_type, ebc_param.offset_type);
   }
 }
@@ -108,7 +109,9 @@ void DataDistributor::init_filtered_all_to_all() {
       } else if (embedding_group_type == embedding::EmbeddingGroupType::SparseModelParallel) {
         data_distribution_ops.push_back(std::make_unique<SparseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
-      } else if (embedding_group_type == embedding::EmbeddingGroupType::DenseModelParallel) {
+      } else if (embedding_group_type == embedding::EmbeddingGroupType::DenseModelParallel ||
+                 embedding_group_type ==
+                     embedding::EmbeddingGroupType::DenseModelParallelWithReduction) {
         data_distribution_ops.push_back(std::make_unique<DenseMPDataDistributionOp>(
             core, ebc_param_, group_id, emb_table_param_list_));
       } else {
@@ -178,7 +181,7 @@ void DataDistributor::distribute(int gpu_id, const std::vector<core23::Tensor>& 
 
   for (size_t grouped_id = 0; grouped_id < ebc_param_.grouped_lookup_params.size(); grouped_id++) {
     data_distribution_ops_[grouped_id][gpu_id]->distribute(data_distribution_input_[gpu_id],
-                                                           output[grouped_id], stream);
+                                                           output[grouped_id], batch_size, stream);
   }
 }
 
@@ -233,7 +236,9 @@ DataDistributor::Result allocate_output_for_data_distributor(
           params.shape({static_cast<int64_t>(batch_size_after_filter * num_buckets + 1)})
               .data_type(ebc_param.offset_type));
     } else if (grouped_lookup_params.embedding_group_type ==
-               embedding::EmbeddingGroupType::DenseModelParallel) {
+                   embedding::EmbeddingGroupType::DenseModelParallel ||
+               grouped_lookup_params.embedding_group_type ==
+                   embedding::EmbeddingGroupType::DenseModelParallelWithReduction) {
       auto& dense_compression_input = embedding_input.dense_compression_input;
       embedding::WgradAttr wgrad_attr;
       wgrad_attr.init(core_resource_manager, ebc_param, group_id);

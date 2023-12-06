@@ -188,9 +188,14 @@ void HierModelParallelEmbedding::model_forward(const EmbeddingInput &embedding_i
   embedding_table->lookup(embedding_input.keys, embedding_input.h_num_keys,
                           num_key_per_lookup_offset, meta_.num_local_lookup_ + 1,
                           meta_.d_local_table_id_list_, embedding_vec_);
-  intra_model_forward_.intra_forward(embedding_vec_, embedding_input.bucket_range,
-                                     intra_model_comm_buffer_, batch_size);
-  gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
+
+  const char *const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+  if (!skip_all2all) {
+    intra_model_forward_.intra_forward(embedding_vec_, embedding_input.bucket_range,
+                                       intra_model_comm_buffer_, batch_size);
+    gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
+  }
   intra_model_forward_.dst_reduction(intra_model_comm_buffer_, intra_reduction_buffer_, batch_size);
 }
 
@@ -214,6 +219,9 @@ void HierModelParallelEmbedding::network_backward(const EmbeddingOutput &top_gra
   network_backward_.sparse_backward(embedding_input.num_keys_per_bucket, top_grad,
                                     meta_.hier_network_indices, network_buffer_, batch_size);
   all2all_comm_.hier_communicate(network_buffer_.data_list, intra_reduction_buffer_.data_list);
+  const char *const skip_all2all_env = std::getenv("SKIP_ALL2ALL");
+  bool skip_all2all = (skip_all2all_env != nullptr && 1 == std::atoi(skip_all2all_env));
+  if (skip_all2all) return;
   gpu_barrier_->sync_all_gpus(core_->get_local_gpu()->get_stream(), core_->get_local_gpu_id());
   intra_model_backward_.backward(intra_model_comm_buffer_.attr, intra_reduction_buffer_,
                                  embedding_input, model_comm_buffer_, batch_size);

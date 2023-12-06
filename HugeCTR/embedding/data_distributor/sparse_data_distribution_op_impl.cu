@@ -59,7 +59,7 @@ SparseDPDataDistributionOp::SparseDPDataDistributionOp(
 }
 
 void SparseDPDataDistributionOp::distribute(const DataDistributionInput& input,
-                                            embedding::EmbeddingInput& output,
+                                            embedding::EmbeddingInput& output, int batch_size,
                                             cudaStream_t stream) {
   // --- copy DP keys and sparse_forward DP bucket range
   concat_keys_and_bucket_range_operator_(input, output.keys, output.bucket_range, stream);
@@ -212,7 +212,7 @@ SparseMPDataDistributionOp::SparseMPDataDistributionOp(
 }
 
 void SparseMPDataDistributionOp::distribute(const DataDistributionInput& input,
-                                            embedding::EmbeddingInput& output,
+                                            embedding::EmbeddingInput& output, int batch_size,
                                             cudaStream_t stream) {
   filter_before_all2all(input, output, stream);
   all2all_keys_per_bucket(output, stream);

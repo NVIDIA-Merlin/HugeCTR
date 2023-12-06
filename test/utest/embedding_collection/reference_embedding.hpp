@@ -314,7 +314,7 @@ void compare_wgard_dict(const WgradDict<KeyType> &gpu_wgrad, const WgradDict<Key
           rhs /= 10.f;
         }
         float error = std::abs(lhs - rhs);
-        ASSERT_LE(error, threshold) << ",lhs:" << lhs << "rhs:" << rhs << "\n";
+        ASSERT_LE(error, threshold) << ",lhs:" << lhs << "rhs:" << rhs << " at " << i << "\n";
       }
     }
   }
@@ -701,7 +701,7 @@ class EmbeddingReferenceGPU {
         rhs /= 10.f;
       }
       float error = std::abs(lhs - rhs);
-      ASSERT_LE(error, threshold) << ",lhs:" << lhs << ",rhs:" << rhs << "\n";
+      ASSERT_LE(error, threshold) << ",lhs:" << lhs << ",rhs:" << rhs << " at " << i << "\n";
     }
   }
 
@@ -760,6 +760,18 @@ class EmbeddingReferenceGPU {
         }
       }
       compare_wgard_dict(gpu_wgrad_dict, ref_wgrad_dict, 1e-4);
+      // std::cout << "gpu <key, wgrad>:" << std::endl;
+      // for (auto it = gpu_wgrad_dict.begin(); it != gpu_wgrad_dict.end(); it++) {
+      //   std::cout << it->first.key << " size " << it->second.size() << " [0][0]" <<
+      //   (it->second)[0]
+      //             << std::endl;
+      // }
+      // std::cout << "ref <key, wgrad>:" << std::endl;
+      // for (auto it = ref_wgrad_dict.begin(); it != ref_wgrad_dict.end(); it++) {
+      //   std::cout << it->first.key << " size " << it->second.size() << " [0][0]" <<
+      //   (it->second)[0]
+      //             << std::endl;
+      // }
     }
   }
 };

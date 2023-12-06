@@ -205,7 +205,6 @@ struct DenseNetworkBackwardBatchMajorOneToOneAtomicDesc {
     offset_t bucket_id = bucket_id_ptr[i];
     hotness_id = hotness_id - hotness_range[lookup_id];
     int bid = bucket_id % batch_size_per_gpu;
-
     return src_ptr + bid * global_ev_offset + ev_start_indices[lookup_id] + hotness_id * ev_size;
   }
   HOST_DEVICE_INLINE DstT* get_dst_ptr(int i) { return dst_ptr + reverse_id_ptr[i] * ev_size; }
@@ -346,14 +345,13 @@ void dense_network_backward_from_batch_major_top_grad(
             auto ev_start_indices_ptr = network_indices.d_ev_start_indices.data<int>();
             int range_num = network_indices.local_lookup_num + 1;
             int global_ev_offset = network_indices.global_ev_offset;
-
             using CopyDesc =
                 DenseNetworkBackwardBatchMajorOneToOneAtomicDesc<src_emb_t, dst_emb_t, offset_t>;
-
             CopyDesc one_to_one_atomic_desc = {
                 num_network_reverse_idx, ev_size,           batch_size_per_gpu,     range_num,
                 global_ev_offset,        hotness_range_ptr, ev_start_indices_ptr,   reverse_idx_ptr,
                 bucket_ids_ptr,          top_grad_ptr,      network_comm_buffer_ptr};
+
             size_t num_valid_network_tensor = calc_num_valid_network_tensor(embedding_input);
             HCTR_LIB_THROW(cudaMemsetAsync(
                 network_buffer.data.data(), 0,

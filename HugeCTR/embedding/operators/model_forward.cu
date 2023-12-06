@@ -298,12 +298,12 @@ void DenseModelCommBufferAttr::init(std::shared_ptr<CoreResourceManager> core,
   int gpu_id = core->get_global_gpu_id();
   this->ev_size = -1;
   this->num_local_lookup = 0;
-  this->max_hotness = 0;
+  this->max_hotness_sum = 0;
   for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
     if (!ebc_param.has_table_shard(gpu_id, grouped_id, lookup_id)) continue;
     this->num_local_lookup++;
     const auto &lookup_params = ebc_param.lookup_params;
-    this->max_hotness += lookup_params[lookup_id].max_hotness;
+    this->max_hotness_sum += lookup_params[lookup_id].max_hotness;
     if (this->ev_size == -1) {
       this->ev_size = lookup_params[lookup_id].ev_size;
     } else {
@@ -366,10 +366,15 @@ void DenseModelCommBuffer::init(std::shared_ptr<CoreResourceManager> core,
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
+
+  double dense_unique_ratio = get_dense_unique_ratio();
+
   // FIX:when tensor dimension is , num local lookup is 0??
   // We can not create size 0 Tensor
-  this->data = core23::Tensor(
-      params.shape({batch_size * attr.max_hotness * attr.ev_size}).data_type(attr.type));
+  int64_t max_num_elements = static_cast<int64_t>(batch_size) * attr.max_hotness_sum * attr.ev_size;
+  int64_t num_elements =
+      static_cast<int64_t>(dense_unique_ratio * static_cast<double>(max_num_elements));
+  this->data = core23::Tensor(params.shape({num_elements}).data_type(attr.type));
 
   this->attr = attr;
 }

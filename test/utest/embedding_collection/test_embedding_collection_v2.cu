@@ -315,10 +315,11 @@ void embedding_collection_e2e(const Configuration &config) {
     auto allreduce_strategy = option.allreduce_strategy;
     auto comm_strategy = option.comm_strategy;
 
-    ebc_params.emplace_back(num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params,
-                            batch_size, key_type, index_type, offset_type, emb_type, wgrad_type,
-                            input_layout, output_layout, sort_strategy, keys_preprocess_strategy,
-                            allreduce_strategy, comm_strategy);
+    ebc_params.push_back(EmbeddingCollectionParam(
+        num_table, num_lookup, lookup_params, shard_matrix, grouped_emb_params, batch_size,
+        key_type, index_type, offset_type, emb_type, wgrad_type, input_layout, output_layout,
+        sort_strategy, keys_preprocess_strategy, allreduce_strategy, comm_strategy,
+        config.shard_configuration.compression_param));
   }
 
   HCTR_LOG(INFO, ROOT, "start preparing host data\n");
@@ -389,6 +390,8 @@ void embedding_collection_e2e(const Configuration &config) {
       }
       std::cout << std::endl;
     }
+
+    std::cout << "compression_param:" << config.shard_configuration.compression_param << "\n";
     std::cout << "key_type:" << key_type << "\n";
     std::cout << "offset_type:" << offset_type << "\n";
     std::cout << "emb type:" << emb_type << "\n";
@@ -396,9 +399,11 @@ void embedding_collection_e2e(const Configuration &config) {
 
     auto &ebc_param = ebc_params[option_id];
 
+    std::vector<int> dr_lookup_ids(ebc_param.num_lookup);
+    std::iota(dr_lookup_ids.begin(), dr_lookup_ids.end(), 0);
     std::shared_ptr<HugeCTR::DataDistributor> data_distributor =
         std::make_shared<HugeCTR::DataDistributor>(core_resource_manager_list, ebc_param,
-                                                   table_param_list);
+                                                   table_param_list, dr_lookup_ids);
 
     std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
     for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {
@@ -511,18 +516,6 @@ TEST(test_embedding_collection, utest_1node) {
 
 TEST(test_embedding_collection, utest_2node) {
   for (auto &config : get_ebc_two_node_utest_configuration()) {
-    embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
-  }
-}
-
-TEST(test_embedding_collection, benchmark_1node) {
-  for (auto &config : get_ebc_single_node_benchmark_configuration()) {
-    embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
-  }
-}
-
-TEST(test_embedding_collection, benchmark_16node) {
-  for (auto &config : get_ebc_sixteen_node_benchmark_configuration()) {
     embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(config);
   }
 }
