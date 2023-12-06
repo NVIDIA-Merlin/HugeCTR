@@ -35,7 +35,7 @@
     CASE_TYPE_USING_HINT_CORE23(core23::ScalarType::UInt32, uint32_t, HINT, __VA_ARGS__)  \
     CASE_TYPE_USING_HINT_CORE23(core23::ScalarType::LongLong, int64_t, HINT, __VA_ARGS__) \
     default:                                                                              \
-      HCTR_LOG_S(ERROR, WORLD) << "DataType is" << DATA_TYPE << std::endl;                \
+      HCTR_LOG_S(ERROR, WORLD) << "DataType is " << DATA_TYPE << std::endl;               \
       HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                       \
                      "DISPATCH_INTEGRAL_FUNCTION do not such support type");              \
   }

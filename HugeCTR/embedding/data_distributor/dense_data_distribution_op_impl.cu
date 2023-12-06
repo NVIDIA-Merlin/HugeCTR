@@ -91,6 +91,7 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
 
   int global_gpu_count = core->get_global_gpu_count();
   int batch_size = ebc_param.universal_batch_size;
+  int batch_size_per_gpu = ebc_param.universal_batch_size / global_gpu_count;
   auto key_type = ebc_param.key_type;
   auto offset_type = ebc_param.offset_type;
   int num_lookup = ebc_param.num_lookup;
@@ -110,9 +111,9 @@ DenseMPDataDistributionOp::DenseMPTempStorage::DenseMPTempStorage(
 
   this->h_num_network_reverse_idx = core23::Tensor(
       params.shape({1}).data_type(core23::ScalarType::UInt64).device(core23::DeviceType::CPU));
-  this->partitioned_data_after_shard_matrix_partition =
-      PartitionedData(core, global_gpu_count, batch_size * sum_num_features_in_current_group,
-                      key_type, offset_type);
+  this->partitioned_data_after_shard_matrix_partition = PartitionedData(
+      core, global_gpu_count, batch_size_per_gpu * sum_num_features_in_current_group, key_type,
+      offset_type);
   this->d_num_key_gpu_major =
       core23::Tensor(params.shape({global_gpu_count}).data_type(offset_type));
 
@@ -137,7 +138,9 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
       dense_temp_storage_(core, ebc_param_, group_id),
       partition_and_unique_operator_(core, ebc_param_, group_id),
       compress_reverse_idx_range_operator_(core),
-      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table) {
+      compact_partitioned_data_operator_(core, dense_temp_storage_.num_table),
+      do_reduction_(ebc_param.grouped_lookup_params[group_id].embedding_group_type ==
+                    embedding::EmbeddingGroupType::DenseModelParallelWithReduction) {
   CudaDeviceContext context(core->get_device_id());
 
   partition_and_unique_operator_.init_hash_table_for_unique(core, ebc_param_.key_type);
@@ -149,22 +152,30 @@ DenseMPDataDistributionOp::DenseMPDataDistributionOp(
 }
 
 void DenseMPDataDistributionOp::distribute(const DataDistributionInput& input,
-                                           embedding::EmbeddingInput& output, cudaStream_t stream) {
-  filter_before_all2all(input, output, stream);
+                                           embedding::EmbeddingInput& output, int batch_size,
+                                           cudaStream_t stream) {
+  // get the network_dst_bucket_ids
+  filter_before_all2all(input, output, batch_size, stream);
   all2all_keys_per_bucket(output, stream);
   all2all_keys(output, stream);
+  // get the final unique lookup keys
   filter_after_all2all(output, stream);
   convert_indices(output);
 }
 
 void DenseMPDataDistributionOp::filter_before_all2all(const DataDistributionInput& input,
                                                       embedding::EmbeddingInput& output,
-                                                      cudaStream_t stream) {
+                                                      int batch_size, cudaStream_t stream) {
   auto& dense_compression_output = output.dense_compression_input;
-
-  partition_and_unique_operator_.fill_continuous_bucket_ids(
-      input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
-      dense_temp_storage_.h_num_network_reverse_idx, stream);
+  if (!do_reduction_) {
+    partition_and_unique_operator_.fill_continuous_bucket_ids(
+        input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
+        dense_temp_storage_.h_num_network_reverse_idx, batch_size, stream);
+  } else {
+    partition_and_unique_operator_.fill_continuous_bucket_ids_for_reduction(
+        input, dense_compression_output.model_parallel_compression_input.network_dst_bucket_ids,
+        dense_temp_storage_.h_num_network_reverse_idx, batch_size, stream);
+  }
 
   CompressedData compressed_data_after_shard_matrix_partition{
       dense_temp_storage_.partitioned_data_after_shard_matrix_partition,

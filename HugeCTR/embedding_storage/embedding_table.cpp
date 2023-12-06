@@ -58,7 +58,7 @@ std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_ta
                      "grouped embedding table does not support empty grouped ids.");
     }
     HugeCTR::OptParams opt_params = get_opt_params(table_ids);
-
+    // evsize and slot_size are stored in emb_table_param_list (EmbeddingTableParam)
     if (is_dynamic_embedding_table(table_ids)) {
       // ebc_param.is_dynamic = true;
       embedding_table_list.push_back(std::make_unique<DynamicEmbeddingTable>(

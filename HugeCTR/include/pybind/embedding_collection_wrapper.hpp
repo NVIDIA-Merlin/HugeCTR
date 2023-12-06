@@ -28,7 +28,7 @@ namespace python_lib {
 void EmbeddingCollectionPybind(pybind11::module &m) {
   pybind11::class_<EmbeddingTableConfig, std::shared_ptr<EmbeddingTableConfig>>(
       m, "EmbeddingTableConfig")
-      .def(pybind11::init<const std::string &, int, int, std::optional<OptParams>,
+      .def(pybind11::init<const std::string &, int64_t, int, std::optional<OptParams>,
                           std::optional<embedding::InitParams>>(),
            pybind11::arg("name"), pybind11::arg("max_vocabulary_size"), pybind11::arg("ev_size"),
            pybind11::arg("opt_params_or_empty") = std::nullopt,
@@ -36,6 +36,10 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
   pybind11::enum_<::embedding::CommunicationStrategy>(m, "CommunicationStrategy")
       .value("Uniform", ::embedding::CommunicationStrategy::Uniform)
       .value("Hierarchical", ::embedding::CommunicationStrategy::Hierarchical)
+      .export_values();
+  pybind11::enum_<::embedding::CompressionStrategy>(m, "CompressionStrategy")
+      .value("Reduction", ::embedding::CompressionStrategy::Reduction)
+      .value("Unique", ::embedding::CompressionStrategy::Unique)
       .export_values();
   pybind11::class_<HugeCTR::EmbeddingCollectionConfig,
                    std::shared_ptr<HugeCTR::EmbeddingCollectionConfig>>(m,
@@ -57,7 +61,9 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
            pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))
       .def("shard", &HugeCTR::EmbeddingCollectionConfig::shard, pybind11::arg("shard_matrix"),
-           pybind11::arg("shard_strategy"));
+           pybind11::arg("shard_strategy"),
+           pybind11::arg("compression_strategy") =
+               EmbeddingCollectionConfig::CompressionStrategyConfig());
 }
 
 }  // namespace python_lib

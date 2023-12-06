@@ -94,7 +94,8 @@ std::unique_ptr<::embedding::EmbeddingCollectionParam> make_embedding_collection
     ::embedding::SortStrategy::Segmented,
     ::embedding::KeysPreprocessStrategy::None,
     ::embedding::AllreduceStrategy::Dense,
-    ::embedding::CommunicationStrategy::Uniform
+    ::embedding::CommunicationStrategy::Uniform,
+    {}
   ));
 }
 }  // namespace sok

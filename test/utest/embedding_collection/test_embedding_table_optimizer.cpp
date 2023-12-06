@@ -80,7 +80,8 @@ void test_embedding_table_optimizer(int device_id, const char table_type[],
                                      embedding::SortStrategy::Radix,
                                      KeysPreprocessStrategy::None,
                                      AllreduceStrategy::Dense,
-                                     CommunicationStrategy::Uniform};
+                                     CommunicationStrategy::Uniform,
+                                     {}};
 
   // Implementation to test.
   std::unique_ptr<IGroupedEmbeddingTable> test_table;

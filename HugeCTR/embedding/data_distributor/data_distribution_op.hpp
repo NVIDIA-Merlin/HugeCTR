@@ -35,7 +35,7 @@ class IDataDistributionOp {
   virtual ~IDataDistributionOp() = default;
 
   virtual void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                          cudaStream_t stream) = 0;
+                          int batch_size, cudaStream_t stream) = 0;
 };
 
 class DenseMPDataDistributionOp final : public IDataDistributionOp {
@@ -46,10 +46,10 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
       const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override;
+                  int batch_size, cudaStream_t stream) override;
 
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                             cudaStream_t stream);
+                             int batch_size, cudaStream_t stream);
 
   void all2all_keys_per_bucket(embedding::EmbeddingInput &output, cudaStream_t stream);
 
@@ -88,6 +88,7 @@ class DenseMPDataDistributionOp final : public IDataDistributionOp {
   CompactPartitionDataOperator compact_partitioned_data_operator_;
 
   std::unique_ptr<embedding::KeysToIndicesConverter> indices_converter_;
+  bool do_reduction_;
 };
 
 class SparseMPDataDistributionOp : public IDataDistributionOp {
@@ -98,7 +99,7 @@ class SparseMPDataDistributionOp : public IDataDistributionOp {
       const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override;
+                  int batch_size, cudaStream_t stream) override;
 
   void filter_before_all2all(const DataDistributionInput &input, embedding::EmbeddingInput &output,
                              cudaStream_t stream);
@@ -159,7 +160,7 @@ class SparseDPDataDistributionOp final : public IDataDistributionOp {
       const std::vector<embedding::EmbeddingTableParam> &emb_table_param_list);
 
   void distribute(const DataDistributionInput &input, embedding::EmbeddingInput &output,
-                  cudaStream_t stream) override;
+                  int batch_size, cudaStream_t stream) override;
 
   void convert_indices(embedding::EmbeddingInput &output);
 

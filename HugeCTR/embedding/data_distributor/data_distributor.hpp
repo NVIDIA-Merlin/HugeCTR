@@ -32,14 +32,14 @@
 #include <vector>
 
 namespace HugeCTR {
-
 class DataDistributor {
  public:
   using Result = std::vector<embedding::EmbeddingInput>;
 
   DataDistributor(std::vector<std::shared_ptr<core::CoreResourceManager>>& core_resource_managers,
                   const embedding::EmbeddingCollectionParam& ebc_param,
-                  const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list);
+                  const std::vector<embedding::EmbeddingTableParam>& emb_table_param_list,
+                  const std::vector<int>& dr_lookup_ids);
 
   void distribute(int gpu_id, const std::vector<core23::Tensor>& dp_keys,
                   const std::vector<core23::Tensor>& dp_bucket_range, Result& output,

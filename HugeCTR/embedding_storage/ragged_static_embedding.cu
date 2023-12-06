@@ -27,6 +27,8 @@
 namespace embedding {
 
 namespace {
+// the input keys are already unique by adding offset
+// (key offset is emb_table_id_space_offset) (embedding table offset is emb_table_ev_offset)
 template <typename key_t, typename offset_t, typename index_t>
 __global__ void ragged_static_embedding_table_lookup_kernel(
     const key_t *keys, size_t num_keys, const offset_t *id_space_offset, size_t num_id_space_offset,
@@ -42,7 +44,8 @@ __global__ void ragged_static_embedding_table_lookup_kernel(
     uint64_t start = (uint64_t)emb_table_id_space_offset[local_id_space_idx];
     uint64_t ev_offset = emb_table_ev_offset[local_id_space_idx];
     int ev_size = local_ev_size_list[local_id_space_idx];
-
+    // printf("lookup key is %llu, ev_offset %llu, start %llu, dst ptr %p\n", (uint64_t)keys[tid],
+    //        ev_offset, start, emb_vec + tid);
     emb_vec[tid] = &emb_table[ev_offset + ((uint64_t)keys[tid] - start) * ev_size];
   }
 }
@@ -432,7 +435,6 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
           emb_table_size_ += segment_emb_table_size;
         }
       }
-
       std::partial_sum(h_num_key_per_table_offset.begin(), h_num_key_per_table_offset.end(),
                        h_num_key_per_table_offset.begin());
       std::partial_sum(h_emb_table_ev_offset_.begin(), h_emb_table_ev_offset_.end(),
@@ -555,7 +557,6 @@ void RaggedStaticEmbeddingTable::lookup(const core23::Tensor &keys, size_t num_k
                                         core23::Tensor &emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
-
   if (num_keys == 0) return;
   DISPATCH_INTEGRAL_FUNCTION_CORE23(keys.data_type().type(), key_t, [&] {
     DISPATCH_INTEGRAL_FUNCTION_CORE23(id_space_offset.data_type().type(), offset_t, [&] {

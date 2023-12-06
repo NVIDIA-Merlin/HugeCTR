@@ -87,7 +87,7 @@ void DenseMPLocalReduceIndexCalculation::cal_for_dense_input(
   const int block_size = 256;
   const int grid_size = core_->get_kernel_param().num_sms *
                         core_->get_kernel_param().max_thread_per_block / block_size;
-  size_t num_keys = embedding_input.h_num_keys;
+  size_t num_keys = embedding_input.h_num_keys;  // number of input unique keys
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     DISPATCH_INTEGRAL_FUNCTION_CORE23(offset_type.type(), offset_t, [&] {
       dense_lookup_wgrad_attr_calculation_kernel<<<grid_size, block_size, 0, stream>>>(
