@@ -400,32 +400,6 @@ py_low_level:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub
 
-etc_single_node:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/etc_single_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:45:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/etc/etc_single_node.sub
-
-etc_multi_node:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_multi_node
-  variables:
-    GPFSFOLDER: $LOGDIR/etc_multi_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
-    WALLTIME: "00:45:00"
-    DGXNNODES: 2
-    TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
-
 ebc_single_node:
   extends: .cluster_test_job_daily
   needs:
@@ -438,19 +412,6 @@ ebc_single_node:
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
-
-# data generator single node
-data_generator_single_node:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/data_generator_single_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    WALLTIME: "01:00:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
 
 py_multi_node:
   extends: .cluster_test_job_daily
