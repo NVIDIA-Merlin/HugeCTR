@@ -17,10 +17,18 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import tensorflow
 
+tf_version = [int(v) for v in tensorflow.__version__.split(".")]
 from sparse_operation_kit import kit_lib
 from sparse_operation_kit.core.graph_keys import GraphKeys
-from tensorflow.python.training.tracking import base as trackable
+
+if tf_version[0] == 2 and tf_version[1] >= 14:
+    from tensorflow.python.trackable import base as trackable
+else:
+    from tensorflow.python.training.tracking import base as trackable
+
+
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import control_flow_ops
 

@@ -273,7 +273,7 @@ file(GLOB test_op
 
 # build dynamic lib
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
-target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl CUDA::cusparse ${MPI_CXX_LIBRARIES})
+target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl CUDA::cusparse ${MPI_CXX_LIBRARIES} CUDA::curand)
 
 
 get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
