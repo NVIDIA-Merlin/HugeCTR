@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
     <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
@@ -58,7 +60,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
@@ -122,25 +123,24 @@
 <ul>
 <li><p><a class="reference internal" href="#learningratescheduler" id="id15">LearningRateScheduler</a></p></li>
 <li><p><a class="reference internal" href="#datareader" id="id16">DataReader</a></p></li>
-<li><p><a class="reference internal" href="#embeddingtraingcache" id="id17">EmbeddingTraingCache</a></p></li>
-<li><p><a class="reference internal" href="#id2" id="id18">Model</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id17">Model</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#inference-api" id="id19">Inference API</a></p>
+<li><p><a class="reference internal" href="#inference-api" id="id18">Inference API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#inferenceparams" id="id20">InferenceParams</a></p></li>
-<li><p><a class="reference internal" href="#inferencemodel" id="id21">InferenceModel</a></p></li>
+<li><p><a class="reference internal" href="#inferenceparams" id="id19">InferenceParams</a></p></li>
+<li><p><a class="reference internal" href="#inferencemodel" id="id20">InferenceModel</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#data-generator-api" id="id22">Data Generator API</a></p>
+<li><p><a class="reference internal" href="#data-generator-api" id="id21">Data Generator API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#datageneratorparams-class" id="id23">DataGeneratorParams class</a></p></li>
-<li><p><a class="reference internal" href="#datagenerator" id="id24">DataGenerator</a></p></li>
+<li><p><a class="reference internal" href="#datageneratorparams-class" id="id22">DataGeneratorParams class</a></p></li>
+<li><p><a class="reference internal" href="#datagenerator" id="id23">DataGenerator</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#data-source-api" id="id25">Data Source API</a></p>
+<li><p><a class="reference internal" href="#data-source-api" id="id24">Data Source API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#datasourceparams-class" id="id26">DataSourceParams class</a></p></li>
+<li><p><a class="reference internal" href="#datasourceparams-class" id="id25">DataSourceParams class</a></p></li>
 </ul>
 </li>
 </ul>
@@ -151,7 +151,7 @@
 </section>
 <section id="high-level-training-api">
 <h2>High-level Training API<a class="headerlink" href="#high-level-training-api" title="Permalink to this heading"></a></h2>
-<p>For HugeCTR high-level training API, the core data structures are <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>, <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code>, <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code>, <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> and <code class="docutils literal notranslate"><span class="pre">Model</span></code>. You can create a <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance with <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> and <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code> instances, and then add instances of <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code> or <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> to it. After compiling the model with the <code class="docutils literal notranslate"><span class="pre">Model.compile()</span></code> method, you can start the epoch mode or non-epoch mode training by simply calling the <code class="docutils literal notranslate"><span class="pre">Model.fit()</span></code> method. Moreover, the <code class="docutils literal notranslate"><span class="pre">Model.summary()</span></code> method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.</p>
+<p>For HugeCTR high-level training API, the core data structures are <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>, <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code>, <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code>, <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> and <code class="docutils literal notranslate"><span class="pre">Model</span></code>. You can create a <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance with <code class="docutils literal notranslate"><span class="pre">Solver</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> and <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code> instances, and then add instances of <code class="docutils literal notranslate"><span class="pre">Input</span></code>, <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code> or <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code> to it. After compiling the model with the <code class="docutils literal notranslate"><span class="pre">Model.compile()</span></code> method, you can start the epoch mode or non-epoch mode training by simply calling the <code class="docutils literal notranslate"><span class="pre">Model.fit()</span></code> method. Moreover, the <code class="docutils literal notranslate"><span class="pre">Model.summary()</span></code> method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.</p>
 <section id="solver">
 <h3>Solver<a class="headerlink" href="#solver" title="Permalink to this heading"></a></h3>
 <section id="createsolver-method">
@@ -203,51 +203,8 @@
 </pre></div>
 </div>
 </section>
+</section>
 <hr class="docutils" />
-<section id="createetc-method-deprecated">
-<h4>CreateETC method (deprecated)<a class="headerlink" href="#createetc-method-deprecated" title="Permalink to this heading"></a></h4>
-<p><strong>Warning</strong>: this method will be deprecated in a future release.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">CreateETC</span></code> should <strong>only</strong> be called when using the <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="std std-doc">Embedding Training Cache</span></a> (ETC) feature. It returns a <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code> object that specifies the parameters for initializing a <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCache</span></code> instance.</p>
-<p><strong>Arguments</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">ps_types</span></code>: A list specifies types of <a class="reference internal" href="#hugectr_embedding_training_cache.md#parameter-server-in-etc"><span class="xref myst">parameter servers</span></a> (PS) of each embedding table. Available PS choices for embeddings are:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#hugectr_embedding_training_cache.md#staged-host-memory-parameter-server"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">hugectr.TrainPSType_t.Staged</span></code></span></a></p>
-<ul>
-<li><p>The whole embedding table will be loaded into the host memory in the initialization stage.</p></li>
-<li><p>It requires the size of host memory should be large enough to hold the embedding table along with the optimizer states (if any).</p></li>
-<li><p><em><code class="docutils literal notranslate"><span class="pre">Staged</span></code> type offers better loading and dumping bandwidth than the <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS.</em></p></li>
-</ul>
-</li>
-<li><p><a class="reference internal" href="#hugectr_embedding_training_cache.md#cached-host-memory-parameter-server"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">hugectr.TrainPSType_t.Cached</span></code></span></a></p>
-<ul>
-<li><p>A sub-portion of the embedding table will be dynamically cached in the host memory, and it adopts a runtime eviction/insertion mechanism to update the cached table.</p></li>
-<li><p>The size of the cached table is configurable, which can be substantially smaller than the size of the embedding table stored in the SSD or various kinds of filesystems. E.g., embedding table size (1 TB) v.s. cache size (100 GB).</p></li>
-<li><p>The bandwidth of <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS is mainly affected by the hit rate. If the hit rate is 100 %, its bandwidth tends to the <code class="docutils literal notranslate"><span class="pre">Staged</span></code> PS; Otherwise, if the hit rate is 0 %, the bandwidth equals the random-accessing bandwidth of SSD.</p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sparse_models</span></code>: A path list of embedding table(s). If the provided path points to an existing table, this table will be used for incremental training. Otherwise, the newly generated table will be written into this path after training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_paths</span></code>: A path list for storing the temporary embedding table. Its length should be equal to the number of MPI ranks. Each entry in this list should be a path pointing to the local SSD of this node.</p>
-<p><em>This entry is only required when there is <code class="docutils literal notranslate"><span class="pre">hugectr.TrainPSType_t.Cached</span></code> in <code class="docutils literal notranslate"><span class="pre">ps_types</span></code>.</em></p>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hcache_configs</span></code>: A path list of the configurations of <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS. Please check <a class="reference internal" href="#hugectr_embedding_training_cache.md#cached-ps-configuration"><span class="xref myst">Cached-PS Configuration</span></a> for more descriptions.</p>
-<ul class="simple">
-<li><p>If only one configuration is provided, it will be used for all <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS.</p></li>
-<li><p>Otherwise, you need to provide one configuration for each <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS. And the ith configuration in <code class="docutils literal notranslate"><span class="pre">hcache_configs</span></code> will be used for the ith occurrence of <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS in <code class="docutils literal notranslate"><span class="pre">ps_types</span></code>.</p></li>
-</ul>
-<p><em>This entry is only required when there is <code class="docutils literal notranslate"><span class="pre">hugectr.TrainPSType_t.Cached</span></code> in <code class="docutils literal notranslate"><span class="pre">ps_types</span></code>.</em></p>
-</li>
-</ul>
-<p><strong>Note that the <code class="docutils literal notranslate"><span class="pre">Staged</span></code> and <code class="docutils literal notranslate"><span class="pre">Cached</span></code> PS can be used together for a model with more than one embedding tables.</strong></p>
-<p>Example usage of the <code class="docutils literal notranslate"><span class="pre">CreateETC()</span></code> API can be found in <a class="reference internal" href="#hugectr_embedding_training_cache.md#configuration"><span class="xref myst">Configuration</span></a>.</p>
-<p>For the usage of the ETC feature in real cases, please check the <a class="reference internal" href="../notebooks/continuous_training.html"><span class="std std-doc">HugeCTR Continuous Training</span></a> notebook.</p>
-</section>
-</section>
 <section id="asyncparam">
 <h3>AsyncParam<a class="headerlink" href="#asyncparam" title="Permalink to this heading"></a></h3>
 <section id="asyncparam-class">
@@ -347,7 +304,7 @@ Conversely, hybrid embedding does not improve performance on a single-machine an
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hugectr.DataReaderParams<span class="o">()</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., <a class="reference internal" href="#norm">Norm</a>, <a class="reference internal" href="#raw">Raw</a> and <a class="reference internal" href="#parquet">Parquet</a>. An <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., <a class="reference internal" href="#raw">Raw</a> and <a class="reference internal" href="#parquet">Parquet</a>. An <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
 <blockquote>
 <div><p><strong>Deprecation Warning</strong>: Norm and Raw data reader will be deprecated in a future release. Please check out the Parquet and RawAsync for alternatives.</p>
@@ -356,8 +313,6 @@ Conversely, hybrid embedding does not improve performance on a single-machine an
 <li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: The type of the data reader which should be consistent with the dataset format.
 Specify one of the following types:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> can read Norm format dataset</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code> can read Raw format dataset</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code> can read Parquet format dataset</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code> can read Raw format dataset</p></li>
 </ul>
@@ -415,18 +370,14 @@ The default value is an empty list.</p>
 <div><p><strong>Deprecation Warning</strong>: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.</p>
 </div></blockquote>
 <ul class="simple">
-<li><p><a class="reference internal" href="#norm">Norm</a></p></li>
 <li><p><a class="reference internal" href="#raw">Raw</a></p></li>
 <li><p><a class="reference internal" href="#parquet">Parquet</a></p></li>
 </ul>
 <a class="reference internal image-reference" href="../_images/dataset.png"><img alt="../_images/dataset.png" class="align-center" src="../_images/dataset.png" style="width: 80%;" /></a>
-<div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
+<div align=center>Fig. 1: (a) Raw (b) Parquet Dataset Formats</div>
 <p><br></br></p>
-<section id="norm">
-<h4>Norm<a class="headerlink" href="#norm" title="Permalink to this heading"></a></h4>
-<p>To maximize the data loading performance and minimize the storage, the Norm dataset format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 1 (a).</p>
 <section id="data-files">
-<h5>Data Files<a class="headerlink" href="#data-files" title="Permalink to this heading"></a></h5>
+<h4>Data Files<a class="headerlink" href="#data-files" title="Permalink to this heading"></a></h4>
 <p>A data file is the minimum reading granularity for a reading thread, so it’s better to have more files than the number of reading threads to achieve the best performance. A data file consists of a header and actual tabular data. A complete header always starts with a 4-byte constant <strong>64</strong> which is the size of header in bytes.</p>
 <p>Dynamic hotness for categorical features is allowed for Norm, along with the payment for is a 4-byte nnz value indicates number of values of current slot preceding to each slot (The small yellow box depicted in Fig.1 (a)). Optionally, Norm reserves a 1-byte checksum for each sample (including the header) which is the sum of all significant bytes of a sample (excluding the <strong>nnz</strong>). Users should be in charge of correctly specifying if Norm dataset supports checksum in <a class="reference internal" href="#DataReaderParams"><span class="xref myst">DataReaderParams</span></a></p>
 <p>Header Definition:</p>
@@ -458,34 +409,33 @@ The default value is an empty list.</p>
 <p>The input keys for categorical are distributed to the slots with no overlap allowed. For example: <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,2,5,67}</span></code>. If there is any overlap, it will cause an undefined behavior. For example, given <code class="docutils literal notranslate"><span class="pre">slot[0]</span> <span class="pre">=</span> <span class="pre">{0,10,32,45},</span> <span class="pre">slot[1]</span> <span class="pre">=</span> <span class="pre">{1,10,5,67}</span></code>, the table looking up the <code class="docutils literal notranslate"><span class="pre">10</span></code> key will produce different results based on how the slots are assigned to the GPUs.</p>
 </section>
 <section id="file-list">
-<h5>File List<a class="headerlink" href="#file-list" title="Permalink to this heading"></a></h5>
+<h4>File List<a class="headerlink" href="#file-list" title="Permalink to this heading"></a></h4>
 <p>The first line of a file list should be the number of data files in the dataset with the paths to those files listed below as shown here:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>simple_sparse_embedding_file_list.txt
 <span class="m">10</span>
-./simple_sparse_embedding/simple_sparse_embedding0.data
-./simple_sparse_embedding/simple_sparse_embedding1.data
-./simple_sparse_embedding/simple_sparse_embedding2.data
-./simple_sparse_embedding/simple_sparse_embedding3.data
-./simple_sparse_embedding/simple_sparse_embedding4.data
-./simple_sparse_embedding/simple_sparse_embedding5.data
-./simple_sparse_embedding/simple_sparse_embedding6.data
-./simple_sparse_embedding/simple_sparse_embedding7.data
-./simple_sparse_embedding/simple_sparse_embedding8.data
-./simple_sparse_embedding/simple_sparse_embedding9.data
+./simple_sparse_embedding/simple_sparse_embedding0.parquet
+./simple_sparse_embedding/simple_sparse_embedding1.parquet
+./simple_sparse_embedding/simple_sparse_embedding2.parquet
+./simple_sparse_embedding/simple_sparse_embedding3.parquet
+./simple_sparse_embedding/simple_sparse_embedding4.parquet
+./simple_sparse_embedding/simple_sparse_embedding5.parquet
+./simple_sparse_embedding/simple_sparse_embedding6.parquet
+./simple_sparse_embedding/simple_sparse_embedding7.parquet
+./simple_sparse_embedding/simple_sparse_embedding8.parquet
+./simple_sparse_embedding/simple_sparse_embedding9.parquet
 </pre></div>
 </div>
 <p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
                                   <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_norm/file_list.txt&quot;</span><span class="p">],</span>
                                   <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_norm/file_list_test.txt&quot;</span><span class="p">,</span>
-                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-</section>
 <section id="raw">
 <h4>Raw<a class="headerlink" href="#raw" title="Permalink to this heading"></a></h4>
-<p>The Raw dataset format is different from the Norm dataset format in several aspects:</p>
+<p>The Raw dataset format is different from the Parquet dataset format in several aspects:</p>
 <ol class="arabic simple">
 <li><p>Raw dataset only consists of a single binary file.</p></li>
 <li><p>Raw dataset file only supports static hotness.</p></li>
@@ -502,17 +452,12 @@ The default value is an empty list.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code></p></td>
-<td class="text-center"><p>1-hot</p></td>
-<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code></p></td>
-<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
-</tr>
-<tr class="row-odd"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=False</span></code></p></td>
+<tr class="row-even"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=False</span></code></p></td>
 <td class="text-center"><p>1-hot</p></td>
 <td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code></p></td>
 <td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
 </tr>
-<tr class="row-even"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=True</span></code></p></td>
+<tr class="row-odd"><td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=True</span></code></p></td>
 <td class="text-center"><p>static multi-hot</p></td>
 <td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">embedding</span> <span class="pre">collection</span></code></p></td>
 <td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">float</span> </code> or <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code></p></td>
@@ -522,13 +467,9 @@ The default value is an empty list.</p>
 <p>Please refer to <a class="reference internal" href="#DataReaderParams"><span class="xref myst">DataReaderParams</span></a> for more details about <code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code>.</p>
 <p><strong>NOTE</strong></p>
 <p>When the dense type of Raw dataset is <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code>, the data reader will perform <code class="docutils literal notranslate"><span class="pre">log(x+1)</span></code> on dense features <code class="docutils literal notranslate"><span class="pre">x</span></code> before feeding them into model network.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code> are going to be incorporated into <code class="docutils literal notranslate"><span class="pre">3G</span> <span class="pre">embedding</span></code>, therefore the <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code> and
-<code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code><br />+<code class="docutils literal notranslate"><span class="pre">AsyncParam::multi_hot_reader=False</span></code> will be deprecated as well.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code> are going to be incorporated into <code class="docutils literal notranslate"><span class="pre">3G</span> <span class="pre">embedding</span></code>.</p>
 <p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span>
-                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_raw/train_data.bin&quot;</span><span class="p">],</span>
-                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_raw/validation_data.bin&quot;</span><span class="p">)</span>
-<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">RawAsync</span><span class="p">,</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">RawAsync</span><span class="p">,</span>
                                   <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_raw/train_data.bin&quot;</span><span class="p">],</span>
                                   <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_raw/validation_data.bin&quot;</span><span class="p">,</span>
                                   <span class="n">async_param</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span>
@@ -716,13 +657,12 @@ The default value is an empty list.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">Model</span></code> groups data input, embeddings and dense network into an object with traning features. The construction of <code class="docutils literal notranslate"><span class="pre">Model</span></code> requires a <code class="docutils literal notranslate"><span class="pre">Solver</span></code> instance , a <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance, an <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code> instance and a <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCacheParams</span></code> instance (optional).</p>
+<p><code class="docutils literal notranslate"><span class="pre">Model</span></code> groups data input, embeddings and dense network into an object with traning features. The construction of <code class="docutils literal notranslate"><span class="pre">Model</span></code> requires a <code class="docutils literal notranslate"><span class="pre">Solver</span></code> instance , a <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance, an <code class="docutils literal notranslate"><span class="pre">OptParamsPy</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">solver</span></code>: A hugectr.Solver object, the solver configuration for the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">reader_params</span></code>: A hugectr.DataReaderParams object, the data reader configuration for the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">opt_params</span></code>: A hugectr.OptParamsPy object, the optimizer configuration for the model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">etc</span></code>: A hugectr.EmbeddingTrainingCacheParams object, the embedding training cache configuration for the model. This argument should <strong>only</strong> be provided when using the embedding training cache feature.</p></li>
 </ul>
 </section>
 <hr class="docutils" />
@@ -973,14 +913,14 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">set_source</span></code> method can set the data source and keyset files under epoch mode training. This overloaded method has two implementations.</p>
-<p>Implementation Ⅰ: only valid when <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> and <code class="docutils literal notranslate"><span class="pre">use_embedding_training_cache</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<p>Implementation Ⅰ: only valid when <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: List[str], the training dataset source. It can be specified with several file lists, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code>. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">keyset</span></code>: List[str], the keyset files. It should be corresponding to the <code class="docutils literal notranslate"><span class="pre">source</span></code>. For example, we can specify <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code> and <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.keyset&quot;,</span> <span class="pre">&quot;file_list.2.keyset&quot;]</span></code>, which have a one-to-one correspondence. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_source</span></code>: String, the evaluation dataset source. There is NO default value and it should be specified by users.</p></li>
 </ul>
-<p>Implementation Ⅱ: only valid when <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> and <code class="docutils literal notranslate"><span class="pre">use_embedding_training_cache</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>Implementation Ⅱ: only valid when <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.</p></li>
@@ -991,7 +931,7 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 </section>
 <section id="low-level-training-api">
 <h2>Low-level Training API<a class="headerlink" href="#low-level-training-api" title="Permalink to this heading"></a></h2>
-<p>For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal <code class="docutils literal notranslate"><span class="pre">LearningRateScheduler</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReader</span></code> and <code class="docutils literal notranslate"><span class="pre">EmbeddingTrainingCache</span></code> within the <code class="docutils literal notranslate"><span class="pre">Model</span></code>, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.</p>
+<p>For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal <code class="docutils literal notranslate"><span class="pre">LearningRateScheduler</span></code>, <code class="docutils literal notranslate"><span class="pre">DataReader</span></code> within the <code class="docutils literal notranslate"><span class="pre">Model</span></code>, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.</p>
 <section id="learningratescheduler">
 <h3>LearningRateScheduler<a class="headerlink" href="#learningratescheduler" title="Permalink to this heading"></a></h3>
 <section id="get-next-method">
@@ -1026,20 +966,6 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 <p>This method takes no extra arguments and returns whether the data reader has reached the end of the current source file.</p>
 </section>
 </section>
-<section id="embeddingtraingcache">
-<h3>EmbeddingTraingCache<a class="headerlink" href="#embeddingtraingcache" title="Permalink to this heading"></a></h3>
-<section id="update-method">
-<h4>update method<a class="headerlink" href="#update-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingTraingCache</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">update</span></code> method of EmbeddingTraingCache currently supports Norm format datasets. Using this method requires that a series of file lists and the corresponding keyset files are generated at the same time when preprocessing the original data to Norm format. This method gives you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. Please refer to <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="std std-doc">HugeCTR Embedding Traing Cache</span></a> if you want to get detailed information about EmbeddingTraingCache.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">keyset_file</span></code> or <code class="docutils literal notranslate"><span class="pre">keyset_file_list</span></code>: This method is an overloaded method that can accept str or List[str] as an argument. For the model with multiple embedding tables, if the keyset of each embedding table is not separated when generating the keyset files, then pass in the <code class="docutils literal notranslate"><span class="pre">keyset_file</span></code>. If the keyset of each embedding table has been separated when generating keyset files, you need to pass in the <code class="docutils literal notranslate"><span class="pre">keyset_file_list</span></code>, the size of which should equal to the number of embedding tables.</p></li>
-</ul>
-</section>
-</section>
 <section id="id2">
 <h3>Model<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <section id="get-learning-rate-scheduler-method">
@@ -1049,14 +975,6 @@ This method takes no extra arguments and unfreezes the sparse weights of the mod
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">hugectr.Model.get_learning_rate_scheduler</span></code> generates and returns the LearningRateScheduler object of the model instance. When the <code class="docutils literal notranslate"><span class="pre">SGD</span></code> optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the <code class="docutils literal notranslate"><span class="pre">warmup_steps</span></code>, <code class="docutils literal notranslate"><span class="pre">decay_start</span></code> and <code class="docutils literal notranslate"><span class="pre">decay_steps</span></code> configured in the <code class="docutils literal notranslate"><span class="pre">hugectr.CreateSolver</span></code> method.
 Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optimizer-and-learning-rate-scheduling"><span class="xref myst">SGD Optimizer and Learning Rate Scheduling</span></a>) if you want to get detailed information about LearningRateScheduler.</p>
-</section>
-<hr class="docutils" />
-<section id="get-embedding-training-cache-method">
-<h4>get_embedding_training_cache method<a class="headerlink" href="#get-embedding-training-cache-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_embedding_training_cache</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>This method takes no extra arguments and returns the EmbeddingTrainingCache object.</p>
 </section>
 <hr class="docutils" />
 <section id="get-data-reader-train-method">
@@ -1125,25 +1043,6 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 </pre></div>
 </div>
 <p>This method takes no extra arguments and returns the average evaluation metrics of several minibatches of evaluation data.</p>
-</section>
-<hr class="docutils" />
-<section id="get-incremental-model-method">
-<h4>get_incremental_model method<a class="headerlink" href="#get-incremental-model-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">updated_model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">get_incremental_model</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>This method is only supported in <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="std std-doc">Embedding Training Cache</span></a> and returns the updated embedding table since the last time calling this method to <code class="docutils literal notranslate"><span class="pre">updated_model</span></code>. Note that <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> only stores the embedding features being touched instead of the whole table.</p>
-<p>When training with multi-node, the <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> returned in each node doesn’t have duplicated embedding features, and the aggregations of <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> from each node form the complete updated sparse model.</p>
-<p>The length of <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> is equal to the number of embedding tables in your model, e.g., <code class="docutils literal notranslate"><span class="pre">length(updated_model)==2</span></code> for the wdl model. Each element in <code class="docutils literal notranslate"><span class="pre">updated_model</span></code> is a pair of NumPy arrays: a 1-D array stores keys in <code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">long</span></code> format, and another 2-D array stores embedding vectors in <code class="docutils literal notranslate"><span class="pre">float</span></code> format, where the leading dimension is the embedding vector size. E.g., <code class="docutils literal notranslate"><span class="pre">updated_model[0][0]</span></code> stores keys, and <code class="docutils literal notranslate"><span class="pre">updated_model[0][1]</span></code> stores the embedding vectors corresponding to keys in <code class="docutils literal notranslate"><span class="pre">updated_model[0][0]</span></code>.</p>
-</section>
-<hr class="docutils" />
-<section id="dump-incremental-model-2kafka-method">
-<h4>dump_incremental_model_2kafka method<a class="headerlink" href="#dump-incremental-model-2kafka-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">dump_incremental_model_2kafka</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>This method is only supported in <a class="reference internal" href="../hugectr_embedding_training_cache.html"><span class="std std-doc">Embedding Training Cache</span></a>. It with post the updated embedding table to Kafka as user specified.</p>
-<p>Please NOTE that is method can not be used together with the <code class="docutils literal notranslate"><span class="pre">get_incremental_model</span></code> method. Only one of these two methods could be used for dumping the incremental model.</p>
 </section>
 <hr class="docutils" />
 <section id="save-params-to-files-method">
@@ -1255,7 +1154,7 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">num_batches</span></code>: Integer, the number of prediction batches.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t</span></code>, the check type for the data source. We currently support <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-ref">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
@@ -1272,8 +1171,7 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">num_batches</span></code>: Integer, the number of evaluation batches.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t</span></code>, the check type for the data source. We support <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code> currently.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-ref">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
 </ul>
@@ -1331,7 +1229,7 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <p><code class="docutils literal notranslate"><span class="pre">DataGeneratorParams</span></code> specifies the parameters related to the data generation. An <code class="docutils literal notranslate"><span class="pre">DataGeneratorParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">DataGenerator</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">format</span></code>: The format for synthetic dataset. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">format</span></code>: The format for synthetic dataset. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">label_dim</span></code>: Integer, the label dimension for synthetic dataset. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dense_dim</span></code>:  Integer, the number of dense (or continuous) features for synthetic dataset. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_slot</span></code>: Integer, the number of sparse feature slots for synthetic dataset. There is NO default value and it should be specified by users.</p></li>
@@ -1340,13 +1238,12 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_source</span></code>: String, the synthetic evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data, e.g., source = “file_list_test.txt”. For Raw dataset, it should be a single evaluation file, e.g., source = “test_data.bin”. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features for synthetic dataset. The list length should be equal to <code class="docutils literal notranslate"><span class="pre">num_slot</span></code>. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nnz_array</span></code>: List[int], the number of non-zero entries in each slot for synthetic dataset. The list length should be equal to <code class="docutils literal notranslate"><span class="pre">num_slot</span></code>. This argument helps to simulate one-hot or multi-hot encodings. The default value is an empty list and one-hot encoding will be employed then.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: The data error detection mechanism. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> (CheckSum) and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code> (no detection). The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dist_type</span></code>: The distribution of the sparse input keys for synthetic dataset. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Distribution_t.PowerLaw</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Distribution_t.Uniform</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Distribution_t.PowerLaw</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">power_law_type</span></code>: The specific distribution of power law distribution. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Long</span></code> (alpha=0.9), <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Medium</span></code> (alpha=1.1), <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Short</span></code> (alpha=1.3) and <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Specific</span></code> (requiring a specific alpha value). This argument is only valid when <code class="docutils literal notranslate"><span class="pre">dist_type</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.Distribution_t.PowerLaw</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Specific</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code>: Float, the alpha value for power law distribution. This argument is only valid when <code class="docutils literal notranslate"><span class="pre">dist_type</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.Distribution_t.PowerLaw</span></code> and <code class="docutils literal notranslate"><span class="pre">power_law_type</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.PowerLaw_t.Specific</span></code>. The alpha value should be greater than zero and not equal to 1.0. The default value is 1.2.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_files</span></code>: Integer, the number of training data files that will be generated. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> or <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 128.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">eval_num_files</span></code>: Integer, the number of evaluation data files that will be generated. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> or <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 32.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_samples_per_file</span></code>: Integer, the number of samples per generated data file. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code> or <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 40960.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_files</span></code>: Integer, the number of training data files that will be generated. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 128.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval_num_files</span></code>: Integer, the number of evaluation data files that will be generated. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 32.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_samples_per_file</span></code>: Integer, the number of samples per generated data file. This argument is valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>. The default value is 40960.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_samples</span></code>: Integer, the number of samples in the generated single training data file (e.g., train_data.bin). This argument is only valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. The default value is 5242880.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_num_samples</span></code>: Integer, the number of samples in the generated single evaluation data file (e.g., test_data.bin). This argument is only valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. The default value is 1310720.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">float_label_dense</span></code>: Boolean, this is only valid when <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code>. If its value is set to True, the label and dense features for each sample are interpreted as float values. Otherwise, they are regarded as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is False.</p></li>
@@ -1378,7 +1275,7 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <h2>Data Source API<a class="headerlink" href="#data-source-api" title="Permalink to this heading"></a></h2>
 <section id="datasourceparams-class">
 <h3>DataSourceParams class<a class="headerlink" href="#datasourceparams-class" title="Permalink to this heading"></a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataSourceParams</span><span class="p">()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">parquet</span><span class="o">.</span><span class="n">DataSourceParams</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> specifies the file system information and the paths to data and model used for training. A <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">DataSource</span></code> instance.</p>
