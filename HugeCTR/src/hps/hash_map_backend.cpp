@@ -36,7 +36,7 @@ HashMapBackend<Key>::HashMapBackend(const HashMapBackendParams& params) : Base(p
 
 template <typename Key>
 size_t HashMapBackend<Key>::size(const std::string& table_name) const {
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -54,7 +54,7 @@ size_t HashMapBackend<Key>::contains(const std::string& table_name, const size_t
                                      const Key* const keys,
                                      const std::chrono::nanoseconds& time_budget) const {
   const auto begin{std::chrono::high_resolution_clock::now()};
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -132,7 +132,7 @@ size_t HashMapBackend<Key>::insert(const std::string& table_name, const size_t n
                                    const uint32_t value_size, const size_t value_stride) {
   HCTR_CHECK(value_size <= value_stride);
 
-  const std::unique_lock lock(read_write_guard_);
+  // const std::unique_lock lock(read_write_guard_);
 
   // Locate the partitions, or create them, if they do not exist yet.
   const auto& tables_it{tables_.try_emplace(table_name).first};
@@ -222,7 +222,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
                                   const size_t value_stride, const DatabaseMissCallback& on_miss,
                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin{std::chrono::high_resolution_clock::now()};
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -306,7 +306,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
                                   const DatabaseMissCallback& on_miss,
                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin{std::chrono::high_resolution_clock::now()};
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -386,7 +386,7 @@ size_t HashMapBackend<Key>::fetch(const std::string& table_name, const size_t nu
 
 template <typename Key>
 size_t HashMapBackend<Key>::evict(const std::string& table_name) {
-  const std::unique_lock lock(read_write_guard_);
+  // const std::unique_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -410,7 +410,7 @@ size_t HashMapBackend<Key>::evict(const std::string& table_name) {
 template <typename Key>
 size_t HashMapBackend<Key>::evict(const std::string& table_name, const size_t num_keys,
                                   const Key* const keys) {
-  const std::unique_lock lock(read_write_guard_);
+  // const std::unique_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -476,7 +476,7 @@ template <typename Key>
 std::vector<std::string> HashMapBackend<Key>::find_tables(const std::string& model_name) {
   const std::string& tag_prefix{HierParameterServerBase::make_tag_name(model_name, "", false)};
 
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   std::vector<std::string> matches;
   for (const auto& pair : tables_) {
@@ -489,7 +489,7 @@ std::vector<std::string> HashMapBackend<Key>::find_tables(const std::string& mod
 
 template <typename Key>
 size_t HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstream& file) {
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};
@@ -519,7 +519,7 @@ size_t HashMapBackend<Key>::dump_bin(const std::string& table_name, std::ofstrea
 #ifdef HCTR_USE_ROCKS_DB
 template <typename Key>
 size_t HashMapBackend<Key>::dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) {
-  const std::shared_lock lock(read_write_guard_);
+  // const std::shared_lock lock(read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it{tables_.find(table_name)};

@@ -27,6 +27,7 @@
 #include <thread_pool.hpp>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
 
 namespace HugeCTR {
 
@@ -115,6 +116,35 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
       uint64_t access_count;
     };
     ValuePtr value;
+    std::atomic<int8_t> lck;
+
+    Payload() { lck = -1; }
+
+    explicit Payload(const Payload& p) {
+      value = p.value;
+      lck.store(p.lck.load());
+    }
+
+    Payload(Payload&& p) {
+      value = std::exchange(p.value, nullptr);
+      lck.store(p.lck.load());
+    }
+
+    Payload& operator=(const Payload& p) {
+      if (this != &p) {
+        value = p.value;
+        lck.store(p.lck.load());
+      }
+      return *this;
+    }
+
+    Payload& operator=(Payload&& p) {
+      if (this != &p) {
+        value = std::exchange(p.value, nullptr);
+        lck.store(p.lck.load());
+      }
+      return *this;
+    }
   };
   using Entry = std::pair<const Key, Payload>;
 
@@ -126,13 +156,45 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
     std::vector<ValuePage> value_pages;
     std::vector<ValuePtr> value_slots;
 
+    mutable std::shared_mutex read_write_lck;
+
     // Key -> Payload map.
-    phmap::flat_hash_map<Key, Payload> entries;
+    phmap::parallel_flat_hash_map<Key, Payload, phmap::priv::hash_default_hash<Key>,
+                                  phmap::priv::hash_default_eq<Key>,
+                                  phmap::priv::Allocator<phmap::priv::Pair<const Key, Payload>>, 
+                                  4, std::shared_mutex> entries;
 
     Partition() = delete;
 
     Partition(const uint32_t value_size, const HashMapBackendParams& params)
         : value_size{value_size}, allocation_rate{params.allocation_rate} {}
+    
+    explicit Partition(const Partition& p) {
+      value_size = p.value_size;
+      allocation_rate = p.allocation_rate;
+
+      value_pages = p.value_pages;
+      value_slots = p.value_slots;
+
+      entries = entries;
+    }
+
+    Partition& operator=(Partition&& p) {
+      if (this != &p) {
+        // TODO(robertzhu)
+        // std::scoped_lock lock(read_write_lck, p.read_write_lck);
+
+        value_size = p.value_size;
+        allocation_rate = p.allocation_rate;
+
+        value_pages = std::move(p.value_pages);
+        value_slots = std::move(p.value_slots);
+
+        entries = std::move(entries);
+      }
+
+      return *this;
+    }
   };
 
   // Actual data.
@@ -140,7 +202,7 @@ class HashMapBackend final : public VolatileBackend<Key, HashMapBackendParams> {
   std::unordered_map<std::string, std::vector<Partition>> tables_;
 
   // Access control.
-  mutable std::shared_mutex read_write_guard_;
+  // mutable std::shared_mutex read_write_guard_;
 
   // Overflow resolution.
   size_t resolve_overflow_(const std::string& table_name, size_t part_index, Partition& part);

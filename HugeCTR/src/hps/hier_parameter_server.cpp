@@ -371,7 +371,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
   };
 
   char host_name[HOST_NAME_MAX + 1];
-  HCTR_CHECK_HINT(!gethostname(host_name, sizeof(host_name)), "Unable to determine hostname.\n");
+  HCTR_CHECK_HINT(!::gethostname(host_name, sizeof(host_name)), "Unable to determine hostname.\n");
 
   switch (inference_params.update_source.type) {
     case UpdateSourceType_t::Null:
